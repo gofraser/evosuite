@@ -5086,6 +5086,10 @@ public class TestCodeVisitor extends TestVisitor {
         if (hasInaccessibleEnclosingMetadata(type, testPackageName)) {
             return false;
         }
+        if (TestUsageChecker.isInUnexportedPackage(type)) {
+            // Public, but in a package its JDK module does not export (XMLDSigRI).
+            return false;
+        }
         for (Class<?> current = type; current != null; current = current.getEnclosingClass()) {
             int modifiers = current.getModifiers();
             if (Modifier.isPrivate(modifiers)) {
