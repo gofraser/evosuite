@@ -88,6 +88,9 @@ public class MethodCallReplacementCache {
             // java.lang.reflect.{AccessibleObject,Field,Method,Constructor}.setAccessible(..)
             addReflectionAccessCalls();
 
+            // sun.misc.Unsafe field writes
+            addUnsafeWriteCalls();
+
             // javax.swing.JComponent.getPreferredSize()
             addReplacementCall(new MethodCallReplacement("javax/swing/JComponent", "getPreferredSize",
                     "()Ljava/awt/Dimension;", Opcodes.INVOKEVIRTUAL,
@@ -972,6 +975,58 @@ public class MethodCallReplacementCache {
         addReplacementCall(new MethodCallReplacement("java/lang/reflect/AccessibleObject", "setAccessible",
                 "([Ljava/lang/reflect/AccessibleObject;Z)V", Opcodes.INVOKESTATIC,
                 reflectionAccess, "setAccessible", "([Ljava/lang/reflect/AccessibleObject;Z)V", false, false));
+    }
+
+    /**
+     * Redirects the field-writing methods of {@code sun.misc.Unsafe} to {@link UnsafeGuard},
+     * which refuses the writes that would corrupt the JVM instead of letting the garbage
+     * collector find out. The receiver becomes the first argument of the replacement.
+     */
+    private void addUnsafeWriteCalls() {
+        String guard = PackageInfo.getNameWithSlash(org.evosuite.runtime.UnsafeGuard.class);
+        String[][] writes = {
+                // name, parameters of the original, return type
+                {"putObject", "Ljava/lang/Object;JLjava/lang/Object;", "V"},
+                {"putObjectVolatile", "Ljava/lang/Object;JLjava/lang/Object;", "V"},
+                {"putOrderedObject", "Ljava/lang/Object;JLjava/lang/Object;", "V"},
+                {"compareAndSwapObject", "Ljava/lang/Object;JLjava/lang/Object;Ljava/lang/Object;", "Z"},
+                {"putBoolean", "Ljava/lang/Object;JZ", "V"},
+                {"putByte", "Ljava/lang/Object;JB", "V"},
+                {"putShort", "Ljava/lang/Object;JS", "V"},
+                {"putChar", "Ljava/lang/Object;JC", "V"},
+                {"putInt", "Ljava/lang/Object;JI", "V"},
+                {"putIntVolatile", "Ljava/lang/Object;JI", "V"},
+                {"putOrderedInt", "Ljava/lang/Object;JI", "V"},
+                {"compareAndSwapInt", "Ljava/lang/Object;JII", "Z"},
+                {"putLong", "Ljava/lang/Object;JJ", "V"},
+                {"putLongVolatile", "Ljava/lang/Object;JJ", "V"},
+                {"putOrderedLong", "Ljava/lang/Object;JJ", "V"},
+                {"compareAndSwapLong", "Ljava/lang/Object;JJJ", "Z"},
+                {"putFloat", "Ljava/lang/Object;JF", "V"},
+                {"putDouble", "Ljava/lang/Object;JD", "V"},
+                // absolute-address forms
+                {"putByte", "JB", "V"},
+                {"putShort", "JS", "V"},
+                {"putChar", "JC", "V"},
+                {"putInt", "JI", "V"},
+                {"putLong", "JJ", "V"},
+                {"putFloat", "JF", "V"},
+                {"putDouble", "JD", "V"},
+                {"putAddress", "JJ", "V"},
+                // off-heap memory the writes above may target
+                {"allocateMemory", "J", "J"},
+                {"reallocateMemory", "JJ", "J"},
+                {"freeMemory", "J", "V"},
+                {"setMemory", "JJB", "V"},
+                {"setMemory", "Ljava/lang/Object;JJB", "V"},
+                {"copyMemory", "JJJ", "V"},
+                {"copyMemory", "Ljava/lang/Object;JLjava/lang/Object;JJ", "V"},
+        };
+        for (String[] w : writes) {
+            addReplacementCall(new MethodCallReplacement("sun/misc/Unsafe", w[0],
+                    "(" + w[1] + ")" + w[2], Opcodes.INVOKEVIRTUAL,
+                    guard, w[0], "(Ljava/lang/Object;" + w[1] + ")" + w[2], false, false));
+        }
     }
 
     private void replaceAllInstanceMethodsWithStatic(Class<?> mockClass, Class<?> target) {
