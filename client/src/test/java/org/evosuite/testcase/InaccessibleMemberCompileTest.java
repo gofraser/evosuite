@@ -238,6 +238,27 @@ public class InaccessibleMemberCompileTest {
         assertCompiles(code);
     }
 
+    @Test
+    public void valueReturnedByPrivateFieldReadAsRawReceiverIsCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference exposer = addExposer(tc);
+        java.lang.reflect.Field field = Exposer.class.getDeclaredField("child");
+        VariableReference child = new org.evosuite.testcase.variable.FieldReference(tc,
+                new org.evosuite.utils.generic.GenericField(field, Exposer.class), exposer);
+        java.lang.reflect.Type owner = org.apache.commons.lang3.reflect.TypeUtils.parameterize(
+                java.util.Hashtable.class, String.class, Exposer.class);
+        java.lang.reflect.Method put = java.util.Hashtable.class.getMethod("put", Object.class,
+                Object.class);
+        VariableReference previous = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(put, owner), child, Arrays.<VariableReference>asList(
+                        tc.addStatement(new StringPrimitiveStatement(tc, "k")), exposer)));
+        call(tc, Exposer.class, "hiddenMap", previous);
+
+        String code = render(tc);
+        assertTrue(code.contains("PrivateAccess.getVariable"), code);
+        assertCompiles(code);
+    }
+
     // -- protected methods overridden in another package --------------------------------------
 
     private String renderSetSort(Class<?> receiverClass) throws Exception {

@@ -32,6 +32,8 @@ public class Exposer {
     private static class HiddenChild extends java.util.Date {
     }
 
+    private java.util.Hashtable<String, Exposer> child = new java.util.Hashtable<>();
+
     public LinkedHashMap<String, Hidden> dict;
 
     public Map<Integer, LinkedHashMap<String, Hidden>> m;

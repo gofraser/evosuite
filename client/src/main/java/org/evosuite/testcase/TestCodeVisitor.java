@@ -4216,7 +4216,8 @@ public class TestCodeVisitor extends TestVisitor {
         if (rawCalleeClass.getTypeParameters().length == 0) {
             return false;
         }
-        if (!getClassName(callee).equals(getClassName(rawCalleeClass))) {
+        if (!getClassName(callee).equals(getClassName(rawCalleeClass))
+                && !isReadThroughRawReflectiveCast(callee)) {
             return false;
         }
         Type declaredGenericReturn = method.getMethod().getGenericReturnType();
@@ -4232,6 +4233,16 @@ public class TestCodeVisitor extends TestVisitor {
         }
         return retval.isAssignableFrom(resolvedReturnType)
                 && !ClassUtils.isAssignable(erasedReturnClass, retvalClass, true);
+    }
+
+    /**
+     * A field that is not directly accessible is read as {@code ((Raw) PrivateAccess.getVariable(..))},
+     * so javac sees the raw field class whatever parameterization the variable carries.
+     */
+    private boolean isReadThroughRawReflectiveCast(VariableReference callee) {
+        return callee instanceof FieldReference
+                && !canUseDirectFieldAccess(((FieldReference) callee).getField().getField(),
+                        ((FieldReference) callee).getSource());
     }
 
     private boolean dependsOnGenericTypeInformation(Type type) {
