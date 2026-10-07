@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.instrumentation;
+package org.evosuite.runtime.instrumentation;
 
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
@@ -180,9 +180,7 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
             return;
         }
         dropNextProbe = false;
-        if (pendingShiftedStart != null && opcode == Opcodes.INVOKESTATIC
-                && "checkTimeout".equals(name) && "()V".equals(descriptor)
-                && owner.endsWith("/ExecutionTracer")) {
+        if (pendingShiftedStart != null && isProbe(opcode, owner, name, descriptor)) {
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
             flushShiftedStart();
             return;
@@ -192,8 +190,10 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     }
 
     private static boolean isProbe(int opcode, String owner, String name, String descriptor) {
-        return opcode == Opcodes.INVOKESTATIC && "checkTimeout".equals(name)
-                && "()V".equals(descriptor) && owner.endsWith("/ExecutionTracer");
+        // The client's probe, and the runtime's when the class is instrumented for a standalone replay.
+        return opcode == Opcodes.INVOKESTATIC && "()V".equals(descriptor)
+                && (("checkTimeout".equals(name) && owner.endsWith("/ExecutionTracer"))
+                || ("killIfTimeout".equals(name) && owner.endsWith("/KillSwitchHandler")));
     }
 
     @Override

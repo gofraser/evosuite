@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
 package org.evosuite.instrumentation;
+import org.evosuite.runtime.instrumentation.TimeoutExceededRethrowClassAdapter;
 
 import com.examples.with.different.packagename.timeout.FinallyUnlock;
 import com.examples.with.different.packagename.timeout.SwallowingLoop;
