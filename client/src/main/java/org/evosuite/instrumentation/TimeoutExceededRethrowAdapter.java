@@ -75,6 +75,20 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
      */
     private Map<Label, Label> shiftedRangeStarts;
 
+    /**
+     * javac also emits a handler range that begins earlier and runs past the handler's first
+     * instruction: a finally block after a catch block is protected as
+     * {@code [catch handler, finally handler + 1) -> finally handler} (104_vuze's
+     * AESemaphore.reserve). The handler is then inside a range that leads back to it, so
+     * the kill-switch probe at its start throws into the handler again. The range cannot be
+     * split here, because the exception table is written before the code is seen; the
+     * probe is left out instead: it is the first thing of the handler's line, and the
+     * handler's code, or what follows it, carries probes of its own.
+     */
+    private final java.util.List<Label[]> tryCatchRanges = new java.util.ArrayList<>();
+    private final Set<Label> visitedLabels = new HashSet<>();
+    private boolean dropNextProbe = false;
+
     private boolean injected = false;
 
     private static final String RUNTIME_INTERNAL = "org/evosuite/runtime/Runtime";
@@ -86,6 +100,7 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     @Override
     public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
         boolean rethrowAtHandler = isTimeoutCatchType(type);
+        tryCatchRanges.add(new Label[] {start, end, handler});
         if (start == handler) {
             if (shiftedRangeStarts == null) {
                 shiftedRangeStarts = new HashMap<>();
@@ -105,6 +120,10 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     public void visitLabel(Label label) {
         flushShiftedStart();
         super.visitLabel(label);
+        if (isCoveredByOwnRange(label)) {
+            dropNextProbe = true;
+        }
+        visitedLabels.add(label);
         boolean injectsHere = catchHandlerLabels != null && catchHandlerLabels.remove(label);
         if (injectsHere) {
             // At handler entry the caught exception is on top of the stack.
@@ -134,6 +153,17 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
 
     private Label pendingShiftedStart;
 
+    /** Whether a range that leads to {@code handler} has started and not yet ended here. */
+    private boolean isCoveredByOwnRange(Label handler) {
+        for (Label[] range : tryCatchRanges) {
+            if (range[2] == handler && range[0] != handler && range[1] != handler && visitedLabels.contains(range[0])
+                    && !visitedLabels.contains(range[1])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void flushShiftedStart() {
         if (pendingShiftedStart != null) {
             Label l = pendingShiftedStart;
@@ -145,6 +175,11 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
                                 boolean isInterface) {
+        if (dropNextProbe && isProbe(opcode, owner, name, descriptor)) {
+            dropNextProbe = false;
+            return;
+        }
+        dropNextProbe = false;
         if (pendingShiftedStart != null && opcode == Opcodes.INVOKESTATIC
                 && "checkTimeout".equals(name) && "()V".equals(descriptor)
                 && owner.endsWith("/ExecutionTracer")) {
@@ -156,68 +191,84 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
         super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
     }
 
+    private static boolean isProbe(int opcode, String owner, String name, String descriptor) {
+        return opcode == Opcodes.INVOKESTATIC && "checkTimeout".equals(name)
+                && "()V".equals(descriptor) && owner.endsWith("/ExecutionTracer");
+    }
+
     @Override
     public void visitInsn(int opcode) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitInsn(opcode);
     }
 
     @Override
     public void visitIntInsn(int opcode, int operand) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitIntInsn(opcode, operand);
     }
 
     @Override
     public void visitVarInsn(int opcode, int varIndex) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitVarInsn(opcode, varIndex);
     }
 
     @Override
     public void visitTypeInsn(int opcode, String type) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitTypeInsn(opcode, type);
     }
 
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitFieldInsn(opcode, owner, name, descriptor);
     }
 
     @Override
     public void visitJumpInsn(int opcode, Label label) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitJumpInsn(opcode, label);
     }
 
     @Override
     public void visitLdcInsn(Object value) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitLdcInsn(value);
     }
 
     @Override
     public void visitIincInsn(int varIndex, int increment) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitIincInsn(varIndex, increment);
     }
 
     @Override
     public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitTableSwitchInsn(min, max, dflt, labels);
     }
 
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitLookupSwitchInsn(dflt, keys, labels);
     }
 
     @Override
     public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitMultiANewArrayInsn(descriptor, numDimensions);
     }
@@ -225,6 +276,7 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     @Override
     public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
                                        Object... bootstrapMethodArguments) {
+        dropNextProbe = false;
         flushShiftedStart();
         super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle,
                 bootstrapMethodArguments);

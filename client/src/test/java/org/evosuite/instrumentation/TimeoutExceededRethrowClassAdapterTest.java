@@ -238,6 +238,81 @@ public class TimeoutExceededRethrowClassAdapterTest {
                 "expected TimeoutExceeded, got " + outcome.get());
     }
 
+    /**
+     * javac 8 protects a finally block that follows a catch block with a range that starts at
+     * the catch handler and ends after the finally handler's first instruction:
+     * {@code try { call } catch (Throwable e) { throw e; } finally { }}. The kill-switch
+     * probe at the start of the finally handler sits inside that range, throws while the
+     * switch is on, and the exception comes straight back to the handler (104_vuze's
+     * AESemaphore.reserve, so every test joined its SUT thread for the whole timeout).
+     */
+    @Test
+    @org.junit.jupiter.api.Timeout(10)
+    public void killSwitchProbeInAFinallyHandlerCoveredByTheCatchBlockRangeDoesNotLoop() throws Exception {
+        String name = "com/examples/generated/CatchFinallyProbe";
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        ClassVisitor cv = new TimeoutExceededRethrowClassAdapter(cw);
+        cv.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, name, null, "java/lang/Object", null);
+        MethodVisitor mv = cv.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "run",
+                "(Ljava/util/concurrent/Callable;)V", null, new String[] {"java/lang/Exception"});
+        Label start = new Label(), end = new Label(), catchHandler = new Label(),
+                finallyHandler = new Label(), afterStore = new Label(), done = new Label();
+        mv.visitTryCatchBlock(start, end, catchHandler, "java/lang/Throwable");
+        mv.visitTryCatchBlock(start, end, finallyHandler, null);
+        mv.visitTryCatchBlock(catchHandler, afterStore, finallyHandler, null);
+        mv.visitCode();
+        mv.visitLabel(start);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/concurrent/Callable", "call", "()Ljava/lang/Object;", true);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitLabel(end);
+        mv.visitJumpInsn(Opcodes.GOTO, done);
+        mv.visitLabel(catchHandler);
+        mv.visitVarInsn(Opcodes.ASTORE, 1);
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitInsn(Opcodes.ATHROW);
+        mv.visitLabel(finallyHandler);
+        mv.visitLineNumber(62, finallyHandler);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/evosuite/testcase/execution/ExecutionTracer",
+                "checkTimeout", "()V", false);
+        mv.visitVarInsn(Opcodes.ASTORE, 2);
+        mv.visitLabel(afterStore);
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitInsn(Opcodes.ATHROW);
+        mv.visitLabel(done);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+        cv.visitEnd();
+        byte[] bytes = cw.toByteArray();
+        Class<?> cls = new ByteClassLoader(getClass().getClassLoader()).define(name.replace('/', '.'), bytes);
+
+        Method run = cls.getMethod("run", Callable.class);
+        org.evosuite.testcase.execution.ExecutionTracer.enable();
+        java.util.concurrent.atomic.AtomicReference<Throwable> outcome = new java.util.concurrent.atomic.AtomicReference<>();
+        Thread runner = new Thread(() -> {
+            try {
+                run.invoke(null, (Callable<Void>) () -> {
+                    throw new IllegalStateException("ordinary");
+                });
+            } catch (InvocationTargetException e) {
+                outcome.set(e.getCause());
+            } catch (Throwable t) {
+                outcome.set(t);
+            }
+        });
+        org.evosuite.testcase.execution.ExecutionTracer.setKillSwitch(true);
+        try {
+            runner.start();
+            runner.join(3000);
+            assertTrue(!runner.isAlive(), "the thread is caught in the finally handler, re-running the probe");
+        } finally {
+            org.evosuite.testcase.execution.ExecutionTracer.setKillSwitch(false);
+            runner.join(3000);
+        }
+        assertTrue(outcome.get() != null, "the exception must leave the method");
+    }
+
     private static int run(Class<?> loop, Callable<Void> body, int maxRounds) throws Exception {
         Method method = loop.getMethod("run", Callable.class, int.class);
         return (Integer) method.invoke(null, body, maxRounds);
