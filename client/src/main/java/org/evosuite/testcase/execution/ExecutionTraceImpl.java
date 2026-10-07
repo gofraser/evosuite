@@ -136,6 +136,18 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      */
     public static boolean traceCoverage = true;
 
+    /**
+     * Whether the call contexts of method entries and branches are recorded. The context of
+     * each pushed call is kept up to date exactly when it is, so a branch never has to rebuild
+     * the context from the whole stack.
+     */
+    private static boolean isContextTracked() {
+        return !disableContext
+                && (Properties.INSTRUMENT_CONTEXT || Properties.INSTRUMENT_METHOD_CALLS
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.IBRANCH)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.CBRANCH));
+    }
+
     private static void checkSaneCall(MethodCall call) {
         if (!((call.trueDistanceTrace.size() == call.falseDistanceTrace.size())
                 && (call.falseDistanceTrace.size() == call.defuseCounterTrace.size())
@@ -563,9 +575,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             falseDistancesSum.put(branch, falseDistancesSum.get(branch) + falseDistance);
         }
 
-        if (!disableContext && (Properties.INSTRUMENT_CONTEXT || Properties.INSTRUMENT_METHOD_CALLS
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.IBRANCH)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.CBRANCH))) {
+        if (isContextTracked()) {
             updateBranchContextMaps(branch, trueDistance, falseDistance);
         }
 
@@ -846,11 +856,13 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                     // TODO line_trace ?
                 }
             }
+            boolean contextEnabled = isContextTracked();
+            if (contextEnabled && !stack.isEmpty()) {
+                CallContext.extend(stack.peek(), call, stack.size() == 1);
+            }
             stack.push(call);
 
-            if (!disableContext
-                    && (Properties.INSTRUMENT_CONTEXT || ArrayUtil.contains(Properties.CRITERION, Criterion.IBRANCH)
-                    || ArrayUtil.contains(Properties.CRITERION, Criterion.CBRANCH))) {
+            if (contextEnabled) {
                 updateMethodContextMaps(className, methodName, caller);
             }
         }
@@ -932,17 +944,28 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             if (!stack.isEmpty() && !(stack.peek().methodName.equals(methodname))) {
                 // Handle cases where unexpected calls are on the stack
                 if (stack.peek().methodName.isEmpty() && !stack.peek().branchTrace.isEmpty()) {
-                    finishCall(stack.pop());
+                    finishCall(popCall());
                 } else {
                     // Usually, this happens if we use mutation testing and
                     // the mutation causes an unexpected exception or
                     // timeout
-                    stack.pop();
+                    popCall();
                 }
             } else {
-                finishCall(stack.pop());
+                finishCall(popCall());
             }
         }
+    }
+
+    /**
+     * Pops the call on top of the stack. Only calls on the stack read their context, and a
+     * completed call kept in the trace would otherwise hold on to the context chain of every
+     * call that was below it.
+     */
+    private MethodCall popCall() {
+        MethodCall call = stack.pop();
+        call.releaseContext();
+        return call;
     }
 
     /**
@@ -964,7 +987,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public synchronized void finishCalls() {
         logger.debug("At the end, we have " + stack.size() + " calls left on stack");
         while (!stack.isEmpty()) {
-            finishCall(stack.pop());
+            finishCall(popCall());
         }
     }
 
@@ -1615,7 +1638,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                         do {
                             logger.debug("Popping method " + stack.peek().methodName + " because we were looking for "
                                     + methodName);
-                            finishedCalls.add(stack.pop());
+                            finishedCalls.add(popCall());
                         } while (!stack.isEmpty() && !stack.peek().methodName.equals(methodName)
                                 && !stack.peek().methodName.equals(""));
                     } else {
@@ -1623,7 +1646,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                         logger.warn("Popping method " + stack.peek().methodName + " because we were looking for "
                                 + methodName);
                         logger.warn("Current stack: " + stack);
-                        finishedCalls.add(stack.pop());
+                        finishedCalls.add(popCall());
                     }
                     if (stack.isEmpty()) {
                         logger.warn("Method stack is empty: " + className + "." + methodName + " - l" + line); // TODO
