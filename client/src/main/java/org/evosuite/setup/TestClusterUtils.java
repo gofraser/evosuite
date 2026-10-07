@@ -415,8 +415,14 @@ public class TestClusterUtils {
     }
 
     private static Set<Field> computeAccessibleFields(final Class<?> clazz) {
-        final Set<Field> accessibleFields = Arrays.stream(Reflection.getFields(clazz))
-                .filter(f -> TestUsageChecker.canUse(f) && !isFinalField(f))
+        // getFields(clazz) already applies field hiding (JLS 8.3), and unlike Class.getFields()
+        // it also sees a non-public hiding field. With the public-only view a package-private
+        // "CommonTree tree" in an ANTLR return scope was invisible and the public "Object tree"
+        // it hides was offered instead: a reference typed Object that javac resolves, in
+        // "x.tree = value", to the hiding field of type CommonTree. canUse is asked with clazz
+        // as the owner so a field hidden somewhere below its declaring class is rejected.
+        final Set<Field> accessibleFields = getFields(clazz).stream()
+                .filter(f -> TestUsageChecker.canUse(f, clazz) && !isFinalField(f))
                 .sorted(comparing(Field::getName))
                 .collect(toCollection(LinkedHashSet::new));
         return accessibleFields;
