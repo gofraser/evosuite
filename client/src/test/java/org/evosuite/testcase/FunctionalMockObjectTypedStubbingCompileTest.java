@@ -75,4 +75,49 @@ public class FunctionalMockObjectTypedStubbingCompileTest {
                 "evosuite-object-typed-mock", className, source.toString());
         assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
     }
+
+    /**
+     * Observed on summa's {@code WindowQueue<T extends Comparable>}: the mock stands for a value of
+     * the type variable, whose erasure is {@code Comparable} but which is declared {@code Object}.
+     */
+    public static class Bound<T extends Comparable> {
+    }
+
+    @Test
+    public void stubbingOnTypeVariableTypedMockCompiles() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        FunctionalMockStatement mock = new FunctionalMockStatement(
+                tc, Bound.class.getTypeParameters()[0], GenericClassFactory.get(Comparable.class));
+        tc.addStatement(mock);
+        VariableReference zero = tc.addStatement(
+                new org.evosuite.testcase.statements.numeric.IntPrimitiveStatement(tc, 0));
+        Method compareTo = Comparable.class.getMethod("compareTo", Object.class);
+        MethodDescriptor descriptor =
+                new MethodDescriptor(compareTo, GenericClassFactory.get(Comparable.class));
+        descriptor.increaseCounter();
+        mock.addMethodStubbing(descriptor, Collections.singletonList(zero));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        StringBuilder source = new StringBuilder("package org.evosuite.testcase;\n");
+        for (Class<?> imported : visitor.getImports()) {
+            String canonical = imported.getCanonicalName();
+            if (canonical != null) {
+                source.append("import ").append(canonical).append(";\n");
+            }
+        }
+        source.append("import static org.mockito.Mockito.*;\n")
+                .append("import static org.mockito.ArgumentMatchers.*;\n");
+        String className = "TypeVariableMockProbe" + System.nanoTime();
+        source.append("public class ").append(className).append(" {\n")
+                .append("    public static void run() throws Throwable {\n");
+        for (String line : visitor.getCode().split("\\R")) {
+            source.append("        ").append(line).append("\n");
+        }
+        source.append("    }\n}\n");
+
+        JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
+                "evosuite-typevar-mock", className, source.toString());
+        assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+    }
 }

@@ -3414,7 +3414,12 @@ public class TestCodeVisitor extends TestVisitor {
                 // The variable may be declared wider than the mocked class (Object for an
                 // erased type variable), and the stubbed method must resolve on the receiver.
                 String stubReceiver = getVariableName(retval);
-                if (!originalMethod.getDeclaringClass().isAssignableFrom(retval.getVariableClass())
+                // An unresolved type variable is declared Object although its erasure is the bound.
+                Type declaredVariableType = retval.getType();
+                Class<?> declaredVariableClass =
+                        declaredVariableType instanceof Class<?> || declaredVariableType instanceof ParameterizedType
+                                ? retval.getVariableClass() : Object.class;
+                if (!originalMethod.getDeclaringClass().isAssignableFrom(declaredVariableClass)
                         && originalMethod.getDeclaringClass().isAssignableFrom(rawClass)) {
                     stubReceiver = "(" + rawClassName + ") " + stubReceiver;
                 }
