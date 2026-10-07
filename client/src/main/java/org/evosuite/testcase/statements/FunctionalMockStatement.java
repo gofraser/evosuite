@@ -51,6 +51,7 @@ import org.mockito.MockSettings;
 import org.mockito.Mockito;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.mockito.stubbing.OngoingStubbing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1224,10 +1225,32 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // now resolves to ByteBuddyMockMaker, not SubclassByteBuddyMockMaker),
         // triggering an internal AssertionError in MockUtil.getMockHandlerOrNull.
         MockSettings settings = withSettings().stubOnly().invocationListeners(listener);
-        if (useLenientDefaultAnswer) {
-            settings = settings.defaultAnswer(FunctionalMockStatement::lenientDefaultAnswer);
+        Answer<Object> defaultAnswer = useLenientDefaultAnswer
+                ? FunctionalMockStatement::lenientDefaultAnswer
+                : Mockito.RETURNS_DEFAULTS;
+        if (!Properties.USE_SEPARATE_CLASSLOADER) {
+            defaultAnswer = callRealMethodIfOriginallyFinal(defaultAnswer);
         }
-        return settings;
+        return settings.defaultAnswer(defaultAnswer);
+    }
+
+    /**
+     * InstrumentingClassLoader strips {@code final} from methods, so during the search Mockito
+     * intercepts a final method that SUT code calls on a mock and the default answer (null, 0)
+     * comes back. The generated test's JVM usually loads the class unstripped, where Mockito's
+     * subclass mock maker cannot intercept the method and the real implementation runs on the
+     * mock's uninitialised fields (typically a NullPointerException from inside the final
+     * method). To keep search and replay in agreement, a method that was final in the original
+     * bytecode runs its real implementation during the search too. With
+     * use_separate_classloader the test JVM strips the modifier as well, so this is not needed.
+     */
+    static Answer<Object> callRealMethodIfOriginallyFinal(Answer<Object> fallback) {
+        return invocation -> {
+            if (RemoveFinalClassAdapter.isFinalMethod(invocation.getMethod())) {
+                return invocation.callRealMethod();
+            }
+            return fallback.answer(invocation);
+        };
     }
 
     /**
