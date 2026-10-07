@@ -3939,7 +3939,7 @@ public class TestCodeVisitor extends TestVisitor {
                 || parameters == null || statement.getCallee() == null) {
             return false;
         }
-        Type calleeType = statement.getCallee().getType();
+        Type calleeType = declaredReceiverType(statement);
         if (!(calleeType instanceof ParameterizedType)) {
             return false;
         }
@@ -3987,6 +3987,32 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return false;
+    }
+
+    /**
+     * The type javac sees for the receiver. A constructor's variable is declared with the
+     * constructor's owner type, which can be more specific than the variable's own type
+     * (eg ArrayList&lt;Foo&gt; declared while the variable is a raw or differently
+     * parameterized list).
+     */
+    private Type declaredReceiverType(MethodStatement statement) {
+        VariableReference callee = statement.getCallee();
+        TestCase testCase = statement.getTestCase();
+        if (testCase != null && callee.getStPosition() >= 0
+                && callee.getStPosition() < testCase.size()) {
+            Statement definition = testCase.getStatement(callee.getStPosition());
+            if (definition instanceof ConstructorStatement
+                    && definition.getReturnValue() == callee) {
+                GenericConstructor constructor = ((ConstructorStatement) definition).getConstructor();
+                Class<?> declaringClass = constructor.getConstructor().getDeclaringClass();
+                if (constructor.getOwnerType() instanceof ParameterizedType
+                        && !declaringClass.isMemberClass()
+                        && isDeclaredTypeNameableInGeneratedTest(declaringClass)) {
+                    return constructor.getOwnerType();
+                }
+            }
+        }
+        return callee.getType();
     }
 
     private Type[] resolveMethodParameterTypesForReceiver(GenericMethod method, Type receiverType) {

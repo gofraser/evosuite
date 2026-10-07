@@ -141,8 +141,39 @@ public class HeapPollutionCallCompileTest {
         }
     }
 
+    /**
+     * Defects4J Chart-2: the declaration is rendered from the constructor's owner type
+     * (ArrayList&lt;File&gt;), but the variable itself can carry a different type, so the
+     * receiver check must judge the call by the declared type.
+     */
     @Test
-    public void testPutOfObjectToStringStringMapCompiles() throws Exception {
+    public void testAddOfStringToListWhoseVariableTypeDiffersFromDeclarationCompiles()
+            throws Exception {
+        Type[] variableTypes = new Type[] {ArrayList.class,
+                TypeUtils.parameterize(java.util.List.class, Comparable.class),
+                TypeUtils.parameterize(ArrayList.class, Comparable.class),
+                TypeUtils.parameterize(ArrayList.class, TypeUtils.wildcardType().build())};
+        for (Type variableType : variableTypes) {
+            TestCase tc = new DefaultTestCase();
+            Type listType = TypeUtils.parameterize(ArrayList.class, java.io.File.class);
+            VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(ArrayList.class.getConstructor(), listType),
+                    Arrays.asList()));
+            list.setType(variableType);
+            VariableReference value = tc.addStatement(new StringPrimitiveStatement(tc, "value"));
+            GenericMethod add = new GenericMethod(ArrayList.class.getMethod("add", Object.class),
+                    ArrayList.class);
+            tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(value)));
+            try {
+                assertCompiles(tc);
+            } catch (AssertionError e) {
+                throw new AssertionError(variableType + ": " + e.getMessage());
+            }
+        }
+    }
+
+    @Test
+    public void testPutOfObjectToStringStringMapCompiles()throws Exception {
         TestCase tc = new DefaultTestCase();
         Type mapType = TypeUtils.parameterize(LinkedHashMap.class, String.class, String.class);
         VariableReference map = tc.addStatement(new ConstructorStatement(tc,
