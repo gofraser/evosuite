@@ -154,8 +154,24 @@ public class ShutdownHookHandler {
         boolean safe = Sandbox.isSafeToExecuteSUTCode();
         int n = -1;
 
-        assert !Sandbox.isSecurityManagerInitialized() || Sandbox.isOnAndExecutingSUTCode() :
-                "Executing hooks outside of a test case, but with sandbox on";
+        /*
+         * The sandbox being on while no test case is marked as executing is not
+         * a state this method can rule out. The "executing" flag is process-global
+         * and is also written by threads we have given up on: a JUnit check runner
+         * that was abandoned (and had its lock reclaimed) goes on to run its
+         * scaffolding teardown, which resets and re-initializes the sandbox and
+         * clears the flag while the next test execution is already under way
+         * (SF110 vuze SESecurityManagerImpl, apbsmem Main). Asserting here turned
+         * that into a framework error that failed the whole class. It is harmless
+         * to carry on: the hooks run on this thread, which is checked by the
+         * security manager like any other thread, because permission checks of
+         * unprivileged threads do not depend on the flag, and privileged threads
+         * are downgraded below.
+         */
+        if (Sandbox.isSecurityManagerInitialized() && !Sandbox.isOnAndExecutingSUTCode()) {
+            logger.warn("Executing shutdown hooks while the sandbox is on but no test case is marked as "
+                    + "executing; the sandbox state was changed by another thread");
+        }
 
         try {
             if (!safe) {

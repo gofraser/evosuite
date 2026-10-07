@@ -21,6 +21,8 @@ package org.evosuite.runtime.jvm;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.evosuite.runtime.sandbox.Sandbox;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -102,5 +104,34 @@ public class ShutdownHookHandlerTest {
 
         //even if failed, hook should had been removed
         Assertions.assertEquals(n, ShutdownHookHandler.getInstance().getNumberOfAllExistingHooks());
+    }
+
+    @Test
+    @SuppressWarnings("removal")
+    public void testSafeExecutionWithSandboxOnButNoTestCaseExecuting() {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
+
+        final int[] array = new int[1];
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                array[0] = 42;
+            }
+        });
+
+        Sandbox.initializeSecurityManagerForSUT();
+        try {
+            // The sandbox is on, but nobody has called goingToExecuteSUTCode():
+            // this is the state an abandoned JUnit check runner leaves behind.
+            Assertions.assertTrue(Sandbox.isSecurityManagerInitialized());
+            Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
+
+            int n = ShutdownHookHandler.getInstance().safeExecuteAddedHooks();
+
+            Assertions.assertEquals(1, n);
+            Assertions.assertEquals(42, array[0]);
+        } finally {
+            Sandbox.resetDefaultSecurityManager();
+        }
     }
 }
