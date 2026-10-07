@@ -242,7 +242,21 @@ public class TestCodeVisitor extends TestVisitor {
      * @return a {@link java.lang.String} object.
      */
     public String getClassName(VariableReference var) {
-        return getTypeName(var.getType());
+        Type type = var.getType();
+        if (type instanceof ParameterizedType
+                && ((ParameterizedType) type).getRawType() instanceof Class<?>
+                && !containsUnnameableType(((ParameterizedType) type).getRawType())) {
+            for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
+                if (containsUnnameableType(argument)) {
+                    // The argument cannot be written, and a wildcard in its place makes the
+                    // variable (or a cast to this type) a capture type that is not assignable
+                    // to the real G<Hidden> a field, parameter or put() expects. The raw type
+                    // converts to every parameterization (unchecked), so declare and cast raw.
+                    return getClassName((Class<?>) ((ParameterizedType) type).getRawType());
+                }
+            }
+        }
+        return getTypeName(type);
     }
 
     private String getTypeName(ParameterizedType type) {

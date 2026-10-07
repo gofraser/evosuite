@@ -32,6 +32,18 @@ public class Exposer {
     private static class HiddenChild extends java.util.Date {
     }
 
+    public LinkedHashMap<String, Hidden> dict;
+
+    public Map<Integer, LinkedHashMap<String, Hidden>> m;
+
+    public LinkedHashMap<Integer, LinkedHashMap<String, Hidden>> hiddenNestedMap() {
+        return new LinkedHashMap<>();
+    }
+
+    public int takeDict(LinkedHashMap<String, Hidden> argument) {
+        return argument.size();
+    }
+
     protected int protectedCount() {
         return 1;
     }

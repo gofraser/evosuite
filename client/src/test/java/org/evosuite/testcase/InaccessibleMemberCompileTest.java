@@ -115,7 +115,7 @@ public class InaccessibleMemberCompileTest {
         call(tc, java.util.List.class, "size", list);
 
         String code = render(tc);
-        assertTrue(code.contains("ArrayList<? extends Date>"), code);
+        assertFalse(code.contains("HiddenChild"), code);
         assertCompiles(code);
     }
 
@@ -129,6 +129,50 @@ public class InaccessibleMemberCompileTest {
         String code = render(tc);
         assertFalse(code.matches("(?s).*\\bHidden\\b.*"), code);
         assertCompiles(code);
+    }
+
+    private void assignField(TestCase tc, VariableReference owner, String fieldName,
+                             VariableReference value) throws Exception {
+        java.lang.reflect.Field field = Exposer.class.getDeclaredField(fieldName);
+        tc.addStatement(new org.evosuite.testcase.statements.AssignmentStatement(tc,
+                new org.evosuite.testcase.variable.FieldReference(tc,
+                        new org.evosuite.utils.generic.GenericField(field, Exposer.class), owner),
+                value));
+    }
+
+    @Test
+    public void hiddenTypeArgumentVariableCanBeAssignedToFieldOfRealType() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference exposer = addExposer(tc);
+        VariableReference map = call(tc, Exposer.class, "hiddenMap", exposer);
+        assignField(tc, exposer, "dict", map);
+
+        assertCompiles(render(tc));
+    }
+
+    @Test
+    public void hiddenTypeArgumentVariableCanBeAssignedToSupertypeFieldWithCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference exposer = addExposer(tc);
+        VariableReference map = call(tc, Exposer.class, "hiddenNestedMap", exposer);
+        assignField(tc, exposer, "m", map);
+
+        String code = render(tc);
+        assertFalse(code.contains("?"), code);
+        assertCompiles(code);
+    }
+
+    @Test
+    public void hiddenTypeArgumentVariableCanBePassedAsArgument() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference exposer = addExposer(tc);
+        VariableReference map = call(tc, Exposer.class, "hiddenMap", exposer);
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(Exposer.class.getDeclaredMethod("takeDict",
+                        java.util.LinkedHashMap.class), Exposer.class), exposer,
+                Collections.singletonList(map)));
+
+        assertCompiles(render(tc));
     }
 
     // -- protected methods overridden in another package --------------------------------------
