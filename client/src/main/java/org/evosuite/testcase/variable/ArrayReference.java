@@ -27,8 +27,14 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 
+import org.evosuite.utils.Randomness;
+
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Represents a reference to an array in the test case.
@@ -79,6 +85,49 @@ public class ArrayReference extends VariableReferenceImpl {
     public ArrayReference(TestCase tc, GenericClass<?> clazz, int arrayLength) {
         this(tc, clazz, new int[]{arrayLength});
     }
+
+    /**
+     * Returns the indices of an array of the given length that are worth offering as
+     * candidate variables or assignment targets.
+     *
+     * <p>Arrays created by an {@link org.evosuite.testcase.statements.ArrayStatement} are short,
+     * but an array returned by the SUT takes its length from the runtime value, which can be
+     * arbitrarily large (e.g. {@code SecureRandom.getSeed(int)}). Materialising one
+     * {@link ArrayIndex} per element of such an array on every call exhausts the heap, so for
+     * long arrays only a bounded number of indices is returned: the leading ones plus randomly
+     * chosen ones from the remainder. Arrays of at most {@link #MAX_CANDIDATE_INDICES} elements
+     * are enumerated completely and consume no randomness.
+     *
+     * @param length the (first dimension) length of the array
+     * @return ascending list of at most {@link #MAX_CANDIDATE_INDICES} distinct valid indices
+     */
+    public static List<Integer> getCandidateIndices(int length) {
+        if (length <= 0) {
+            return Collections.emptyList();
+        }
+        List<Integer> result = new ArrayList<>(Math.min(length, MAX_CANDIDATE_INDICES));
+        if (length <= MAX_CANDIDATE_INDICES) {
+            for (int i = 0; i < length; i++) {
+                result.add(i);
+            }
+            return result;
+        }
+        int leading = MAX_CANDIDATE_INDICES / 2;
+        for (int i = 0; i < leading; i++) {
+            result.add(i);
+        }
+        Set<Integer> random = new TreeSet<>();
+        while (random.size() < MAX_CANDIDATE_INDICES - leading) {
+            random.add(Randomness.nextInt(leading, length));
+        }
+        result.addAll(random);
+        return result;
+    }
+
+    /**
+     * Upper bound on the number of indices {@link #getCandidateIndices(int)} returns.
+     */
+    public static final int MAX_CANDIDATE_INDICES = 20;
 
     /**
      * getArrayLength.

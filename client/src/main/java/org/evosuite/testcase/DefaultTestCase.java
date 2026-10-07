@@ -741,7 +741,7 @@ public class DefaultTestCase implements TestCase, Serializable {
             // TODO: Need to support arrays that were not self-created
             if (value instanceof ArrayReference) { // &&
                 int length = ((ArrayReference) value).getStructuralArrayLength();
-                for (int index = 0; index < length; index++) {
+                for (int index : ArrayReference.getCandidateIndices(length)) {
                     variables.add(new ArrayIndex(this, (ArrayReference) value, index));
                 }
             } else if (!(value instanceof ArrayIndex)) {
@@ -804,7 +804,7 @@ public class DefaultTestCase implements TestCase, Serializable {
                     }
 
                     int length = ((ArrayReference) value).getStructuralArrayLength();
-                    for (int index = 0; index < length; index++) {
+                    for (int index : ArrayReference.getCandidateIndices(length)) {
                         if (((ArrayReference) value).isInitialized(index, position)) {
                             variables.add(new ArrayIndex(this, (ArrayReference) value,
                                     index));

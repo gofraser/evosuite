@@ -624,7 +624,7 @@ public class TestMutator {
             ArrayReference array = (ArrayReference) var;
             int length = array.getStructuralArrayLength();
             if (length > 0) {
-                for (int i = 0; i < length; i++) {
+                for (int i : ArrayReference.getCandidateIndices(length)) {
                     logger.debug("Assigning array index {}", i);
                     int oldLen = test.size();
                     try {

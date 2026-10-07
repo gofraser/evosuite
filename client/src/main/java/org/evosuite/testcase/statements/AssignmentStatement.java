@@ -466,7 +466,7 @@ public class AssignmentStatement extends AbstractStatement {
                     // runtime ArrayReference length, which Scope.setObject() can corrupt
                     // during test execution (e.g. via array reassignment).
                     int length = getStructuralArrayLength((ArrayReference) value);
-                    for (int index = 0; index < length; index++) {
+                    for (int index : ArrayReference.getCandidateIndices(length)) {
                         variables.add(new ArrayIndex(tc, (ArrayReference) value, index));
                     }
                 }

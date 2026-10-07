@@ -101,4 +101,29 @@ public class DefaultTestCaseTest {
         Assertions.assertDoesNotThrow(() -> tc.getObjects(Object.class, tc.size()));
         Assertions.assertTrue(arrayRef.isInitialized(0, tc.size()));
     }
+
+    @Test
+    public void testGetObjectsBoundsIndicesOfHugeArray() {
+        DefaultTestCase tc = new DefaultTestCase();
+        tc.addStatement(new ArrayStatement(tc, int[].class, new int[]{5_000_000}));
+
+        java.util.List<VariableReference> all = tc.getObjects(1);
+        Assertions.assertEquals(ArrayReference.MAX_CANDIDATE_INDICES, all.size());
+        for (VariableReference ref : all) {
+            int index = ((ArrayIndex) ref).getArrayIndex();
+            Assertions.assertTrue(index >= 0 && index < 5_000_000);
+        }
+        java.util.List<VariableReference> typed = tc.getObjects(int.class, 1);
+        Assertions.assertTrue(typed.size() <= ArrayReference.MAX_CANDIDATE_INDICES);
+    }
+
+    @Test
+    public void testGetObjectsEnumeratesAllIndicesOfShortArray() {
+        DefaultTestCase tc = new DefaultTestCase();
+        tc.addStatement(new ArrayStatement(tc, int[].class, new int[]{ArrayReference.MAX_CANDIDATE_INDICES}));
+
+        Assertions.assertEquals(ArrayReference.MAX_CANDIDATE_INDICES, tc.getObjects(1).size());
+        Assertions.assertEquals(Arrays.asList(0, 1, 2),
+                ArrayReference.getCandidateIndices(3));
+    }
 }
