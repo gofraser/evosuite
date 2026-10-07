@@ -3330,17 +3330,21 @@ public class TestCodeVisitor extends TestVisitor {
             //         + ViolatedAssumptionAnswer.class.getSimpleName() + "());" + NEWLINE;
         }
 
+        // Every rendered mock is stubOnly(), as it is during the search: without it Mockito keeps
+        // each invocation in a per-mock list, and a SUT loop that keeps calling a stubbed mock (for
+        // instance Scanner over a Readable whose read() always returns 0) retains millions of
+        // invocations in the JUnit check until the client heap is exhausted.
         if (st instanceof FunctionalMockForAbstractClassStatement) {
-            result.append("mock(").append(rawClassName).append(".class, CALLS_REAL_METHODS);").append(NEWLINE);
+            appendStubOnlyMock(result, rawClassName, "CALLS_REAL_METHODS");
         } else if (st.isUseLenientDefaultAnswer()) {
             // DMoN-promoted mocks use LenientMockAnswer to match the lenient default
             // answer used during search (returns sensible non-null values for all
             // return types).  No explicit doReturn stubs are needed.
-            result.append("mock(").append(rawClassName).append(".class, new ")
-                    .append(getClassName(LenientMockAnswer.class)).append("());").append(NEWLINE);
+            appendStubOnlyMock(result, rawClassName,
+                    "new " + getClassName(LenientMockAnswer.class) + "()");
         } else {
-            result.append("mock(").append(rawClassName).append(".class, new ")
-                    .append(getClassName(ViolatedAssumptionAnswer.class)).append("());").append(NEWLINE);
+            appendStubOnlyMock(result, rawClassName,
+                    "new " + getClassName(ViolatedAssumptionAnswer.class) + "()");
         }
 
         // DMoN lenient mocks: skip doReturn stubs — RETURNS_MOCKS handles all calls.
@@ -5883,4 +5887,13 @@ public class TestCodeVisitor extends TestVisitor {
         }
     }
 
+
+    /**
+     * Appends {@code mock(Foo.class, withSettings().stubOnly().defaultAnswer(answer));}.
+     */
+    static void appendStubOnlyMock(StringBuffer result, String rawClassName, String answer) {
+        result.append("mock(").append(rawClassName)
+                .append(".class, withSettings().stubOnly().defaultAnswer(")
+                .append(answer).append("));").append(NEWLINE);
+    }
 }
