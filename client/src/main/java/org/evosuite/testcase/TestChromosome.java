@@ -33,6 +33,7 @@ import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.ConcolicMutation;
 import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
@@ -457,7 +458,36 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         test.forEach(Statement::isValid);
     }
 
-    private boolean mockChange() {
+    /**
+     * Updates the stubs of the functional mocks from the last execution. A stub added in one
+     * pass can make the code under test reach calls that no earlier execution observed (for
+     * instance a mock returned by a new stub is itself called), so the test is re-executed and
+     * updated again, up to {@link Properties#FUNCTIONAL_MOCK_COMPLETION_ROUNDS} passes in
+     * total, while the previous pass added stubs.
+     */
+    boolean mockChange() {
+        boolean changed = false;
+        final int rounds = Math.max(1, Properties.FUNCTIONAL_MOCK_COMPLETION_ROUNDS);
+        for (int round = 1; round <= rounds; round++) {
+            boolean[] addedStubs = new boolean[1];
+            if (mockChangePass(addedStubs)) {
+                changed = true;
+            }
+            if (!addedStubs[0] || round == rounds) {
+                break;
+            }
+            try {
+                ExecutionResult result = TestCaseExecutor.runTest(test);
+                this.lastExecutionResult = result;
+            } catch (Throwable t) {
+                logger.debug("Re-execution after mock completion failed: {}", t.toString());
+                break;
+            }
+        }
+        return changed;
+    }
+
+    private boolean mockChangePass(boolean[] addedStubs) {
 
         /*
             Be sure to update the mocked values if there has been any change in
@@ -502,6 +532,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                     refs = createMockFallbacks(test, missing, st.getPosition());
                 }
                 fms.addMissingInputs(refs);
+                if (!missing.isEmpty()) {
+                    addedStubs[0] = true;
+                }
             } catch (Exception e) {
                 String msg = "Functional mock problem for " + fms.getReturnType()
                         + ": " + e.getClass().getSimpleName() + ": " + e.getMessage();

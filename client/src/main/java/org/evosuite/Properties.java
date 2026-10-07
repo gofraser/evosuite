@@ -475,6 +475,14 @@ public class Properties {
     @DoubleValue(min = 1)
     public static int FUNCTIONAL_MOCKING_INPUT_LIMIT = 5;
 
+    @Parameter(key = "functional_mock_completion_rounds", group = "Test Creation",
+            description = "When the stubs of a functional mock are updated after an execution, the test is "
+                    + "re-executed and the mocks are updated again (as long as new stubs were added) up to "
+                    + "this many update passes, so that calls reachable only through new stubs are also "
+                    + "stubbed. 1 updates once without re-executing")
+    @DoubleValue(min = 1)
+    public static int FUNCTIONAL_MOCK_COMPLETION_ROUNDS = 3;
+
     public enum FunctionalMockingFailoverMode {
         OFF,
         CLASS,
