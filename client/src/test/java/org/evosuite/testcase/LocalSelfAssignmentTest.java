@@ -88,4 +88,23 @@ public class LocalSelfAssignmentTest {
         assignment.replace(value, target);
         assertNotSame(assignment.getReturnValue(), assignment.getValue());
     }
+
+    @Test
+    public void deletingTheValueOfAnAssignmentWhoseOnlyAlternativeIsItsTargetKeepsTheTestValid()
+            throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        VariableReference target = tc.addStatement(new StringPrimitiveStatement(tc, "a"));
+        VariableReference value = tc.addStatement(new StringPrimitiveStatement(tc, "b"));
+        tc.addStatement(new AssignmentStatement(tc, target, value));
+
+        // The only replacement for the value is the assignment's own target, which the
+        // assignment refuses; deleting the value must then remove the assignment with it.
+        new TestMutator(TestFactory.getInstance()).deleteStatementGracefully(tc, 1);
+
+        assertTrue(tc.isValid(), tc.toCode());
+        for (int i = 0; i < tc.size(); i++) {
+            assertFalse(tc.getStatement(i).references(value), tc.toCode());
+        }
+        tc.clone();
+    }
 }

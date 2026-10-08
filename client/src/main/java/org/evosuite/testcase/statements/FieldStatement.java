@@ -26,13 +26,16 @@ import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.variable.ArrayReference;
+import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.Randomness;
+import org.evosuite.utils.generic.GenericClassUtils;
 import org.evosuite.utils.generic.GenericField;
 
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Type;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -281,17 +284,56 @@ public class FieldStatement extends AbstractStatement {
      */
 
     @Override
+    public boolean acceptsReplacement(VariableReference var1, VariableReference var2) {
+        return field.isStatic() || sourceAfterReplacing(var1, var2) != null;
+    }
+
+    @Override
     public void replace(VariableReference var1, VariableReference var2) {
+        if (!acceptsReplacement(var1, var2)) {
+            return;
+        }
         if (retval.equals(var1)) {
             retval = var2;
         }
         if (!field.isStatic()) {
-            if (source.equals(var1)) {
-                source = var2;
-            } else {
-                source.replaceAdditionalVariableReference(var1, var2);
+            source = sourceAfterReplacing(var1, var2);
+        }
+    }
+
+    /**
+     * The owner the field would be read from with {@code var2} in place of {@code var1}, or
+     * null if the owner cannot be rebound: an explicit null does not compile, an owner whose
+     * class does not declare the field cannot be read from, and an owner that gives the field
+     * a type the result variable cannot hold changes what the statement means. Changes nothing.
+     */
+    private VariableReference sourceAfterReplacing(VariableReference var1, VariableReference var2) {
+        VariableReference rebound = source.withReplacement(var1, var2);
+        if (rebound == source) {
+            return source;
+        }
+        if (rebound == null
+                || (rebound instanceof ConstantValue && ((ConstantValue) rebound).getValue() == null)) {
+            return null;
+        }
+        Class<?> declaringClass = field.getField().getDeclaringClass();
+        if (declaringClass.isAssignableFrom(source.getVariableClass())
+                && !declaringClass.isAssignableFrom(rebound.getVariableClass())) {
+            return null;
+        }
+        if (!rebound.getType().equals(source.getType())) {
+            try {
+                Type fieldType = new GenericField(field.getField(), rebound.getGenericClass())
+                        .getFieldType();
+                if (!fieldType.equals(field.getFieldType())
+                        && !GenericClassUtils.isAssignable(retval.getType(), fieldType)) {
+                    return null;
+                }
+            } catch (RuntimeException e) {
+                return null;
             }
         }
+        return rebound;
     }
 
     /**

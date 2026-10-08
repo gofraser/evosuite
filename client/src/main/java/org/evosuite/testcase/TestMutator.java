@@ -294,6 +294,38 @@ public class TestMutator {
         return true;
     }
 
+    /**
+     * Replaces every use of the variable defined at {@code position} with {@code replacement}
+     * and deletes the statement. The replacement applies to all statements or to none
+     * ({@link TestCase#replace}); if a statement refuses it (an assignment that would write the
+     * new value into a target of an incompatible type, an element argument whose type would no
+     * longer fit), every use of the old variable remains, and they are deleted through the
+     * dependency cascade together with the statement at {@code position}. The construction of
+     * the replacement itself is kept either way.
+     *
+     * @param test        the test case
+     * @param position    the position of the statement to delete
+     * @param replacement the variable that takes over the uses of the deleted statement
+     */
+    public void replaceAndDelete(TestCase test, int position, VariableReference replacement) {
+        Statement statement = test.getStatement(position);
+        // replace() repoints the statement's own return value too, and the position is derived
+        // from the return value, so keep the original variable to restore it below.
+        VariableReference ref = statement.getReturnValue();
+        // A use replace() does not rewrite, such as one in an assertion, also keeps the old
+        // variable alive and needs the cascade.
+        boolean refused = !test.replace(ref, replacement);
+        for (int i = 0; i < test.size() && !refused; i++) {
+            refused = i != position && test.getStatement(i).references(ref);
+        }
+        if (refused) {
+            statement.setRetval(ref);
+            deleteStatement(test, position);
+        } else {
+            test.remove(position);
+        }
+    }
+
     private void recursiveDeleteInclusion(TestCase test, Set<Integer> toDelete, int position) {
 
         if (toDelete.contains(position)) {
@@ -402,7 +434,12 @@ public class TestMutator {
         }
 
         if (!alternatives.isEmpty()) {
-            // Change all references to return value at position to something else
+            // Change all references to return value at position to something else. Each
+            // statement gets its own replacement, so this replaces statement by statement
+            // rather than through TestCase.replace. That is sound because a statement's
+            // replace() is all or nothing and never changes another statement, not even through
+            // an element or field reference they share; a statement that refuses keeps using
+            // var and is removed with it by the deleteStatement cascade below.
             for (int i = position + 1; i < test.size(); i++) {
                 Statement s = test.getStatement(i);
                 if (s.references(var)) {

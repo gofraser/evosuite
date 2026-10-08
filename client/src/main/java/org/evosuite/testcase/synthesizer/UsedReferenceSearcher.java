@@ -3,11 +3,9 @@ package org.evosuite.testcase.synthesizer;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
-import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.Randomness;
@@ -127,18 +125,9 @@ public class UsedReferenceSearcher {
                 return null;
             }
             Statement s = test.getStatement(pos);
-            if (s instanceof NullStatement) {
-                TestFactory testFactory = TestFactory.getInstance();
-                VariableReference replacement = testFactory.replaceNullStatement(test, s);
-                if (replacement != null) {
-                    // The null is gone and its uses now point at the replacement, which may sit
-                    // after helper statements rather than at the null's old position.
-                    targetObject = replacement;
-                    pos = replacement.getStPosition();
-                    s = test.getStatement(pos);
-                }
-            }
-
+            // A search must not edit the test: its callers keep using targetObject afterwards,
+            // and replacing a null target would delete the statement that defines it. A null
+            // target has no constructor arguments to inspect, so it simply yields no match here.
             if (s instanceof ConstructorStatement) {
                 ConstructorStatement constructorStat = (ConstructorStatement) s;
                 List<VariableReference> params = constructorStat.getParameterReferences();

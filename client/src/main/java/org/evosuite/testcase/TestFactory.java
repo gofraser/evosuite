@@ -588,13 +588,7 @@ public class TestFactory {
             }
 
             if (obj != null) {
-                // The null statement's position is derived from its return value, and replace()
-                // repoints that return value to obj as well. Resolve the position first, while
-                // the return value still identifies the null statement.
-                VariableReference ref = nullStat.getReturnValue();
-                int nullPosition = nullStat.getPosition();
-                test.replace(ref, obj);
-                test.remove(nullPosition);
+                replaceAndDelete(test, nullStat.getPosition(), obj);
             } else {
                 inserter.rollback();
                 return null;
@@ -1516,6 +1510,19 @@ public class TestFactory {
      */
     public boolean deleteStatement(TestCase test, int position) {
         return testMutator.deleteStatement(test, position);
+    }
+
+    /**
+     * Replaces the uses of the variable defined at {@code position} and deletes its statement,
+     * or, if a statement refuses the replacement, deletes it with every statement that uses it.
+     *
+     * @param test        the test case
+     * @param position    the position of the statement to delete
+     * @param replacement the variable taking over the uses
+     * @see TestMutator#replaceAndDelete(TestCase, int, VariableReference)
+     */
+    public void replaceAndDelete(TestCase test, int position, VariableReference replacement) {
+        testMutator.replaceAndDelete(test, position, replacement);
     }
 
     /**

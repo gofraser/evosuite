@@ -143,23 +143,68 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
      * {@inheritDoc}
      */
     @Override
-    public void replace(VariableReference var1, VariableReference var2) {
+    public boolean acceptsReplacement(VariableReference var1, VariableReference var2) {
+        return parametersAfterReplacing(var1, var2) != null;
+    }
 
-        if (retval.equals(var1)) {
-            retval = var2;
-            // TODO: Notify listener?
-        }
-
-        for (int i = 0; i < parameters.size(); i++) {
-
-            if (parameters.get(i).equals(var1)) {
-                parameters.set(i, var2);
-            } else {
-                parameters.get(i).replaceAdditionalVariableReference(var1, var2);
-            }
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Subclasses that hold further references extend {@link #acceptsReplacement} and
+     * {@link #applyReplacement} rather than this method.
+     */
+    @Override
+    public final void replace(VariableReference var1, VariableReference var2) {
+        if (acceptsReplacement(var1, var2)) {
+            applyReplacement(var1, var2);
         }
     }
 
+    /**
+     * Replaces {@code var1} by {@code var2}; called only once {@link #acceptsReplacement} has
+     * accepted the replacement.
+     *
+     * @param var1 the variable to be replaced
+     * @param var2 its replacement
+     */
+    protected void applyReplacement(VariableReference var1, VariableReference var2) {
+        List<VariableReference> replaced = parametersAfterReplacing(var1, var2);
+        if (retval.equals(var1)) {
+            retval = var2;
+        }
+        for (int i = 0; i < parameters.size(); i++) {
+            parameters.set(i, replaced.get(i));
+        }
+    }
+
+    /**
+     * The arguments this statement would have with {@code var2} in place of {@code var1}, or
+     * null if one of them refuses. An argument that is {@code var1} itself becomes
+     * {@code var2}, as chosen by the caller. An argument that uses {@code var1} inside itself,
+     * such as the element "var1[0]" or the field "var1.f", is replaced by the same element or
+     * field of {@code var2}; that argument refuses if it cannot be rebound, or if its type
+     * changes to one that does not fit where the original argument was passed. Changes nothing.
+     */
+    private List<VariableReference> parametersAfterReplacing(VariableReference var1,
+                                                             VariableReference var2) {
+        List<VariableReference> replaced = new ArrayList<>(parameters.size());
+        for (VariableReference parameter : parameters) {
+            if (parameter == null || parameter.equals(var1)) {
+                replaced.add(parameter == null ? null : var2);
+                continue;
+            }
+            VariableReference rebound = parameter.withReplacement(var1, var2);
+            if (rebound == null) {
+                return null;
+            }
+            if (rebound != parameter && !rebound.getType().equals(parameter.getType())
+                    && !GenericClassUtils.isAssignable(parameter.getType(), rebound.getType())) {
+                return null;
+            }
+            replaced.add(rebound);
+        }
+        return replaced;
+    }
 
     @Override
     public List<VariableReference> getUniqueVariableReferences() {

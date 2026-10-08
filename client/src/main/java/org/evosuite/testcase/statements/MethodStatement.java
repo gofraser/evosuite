@@ -756,24 +756,36 @@ public class MethodStatement extends EntityWithParametersStatement {
      * {@inheritDoc}
      */
     @Override
-    public void replace(VariableReference oldVar, VariableReference newVar) {
-        super.replace(oldVar, newVar);
+    public boolean acceptsReplacement(VariableReference oldVar, VariableReference newVar) {
+        return super.acceptsReplacement(oldVar, newVar)
+                && (!isInstanceMethod() || calleeAfterReplacing(oldVar, newVar) != null);
+    }
 
+    @Override
+    protected void applyReplacement(VariableReference oldVar, VariableReference newVar) {
+        super.applyReplacement(oldVar, newVar);
         if (isInstanceMethod()) {
-            if (callee.equals(oldVar)) {
-                if (newVar != null
-                        && !isCompatibleCalleeType(method, newVar.getType())) {
-                    logger.debug("Skipping incompatible callee {} for method {}.{}",
-                            newVar.getVariableClass().getCanonicalName(),
-                            method.getDeclaringClass().getCanonicalName(),
-                            method.getName());
-                    return;
-                }
-                callee = newVar;
-            } else {
-                callee.replaceAdditionalVariableReference(oldVar, newVar);
-            }
+            callee = calleeAfterReplacing(oldVar, newVar);
         }
+    }
+
+    /**
+     * The callee with {@code newVar} in place of {@code oldVar}, either the callee itself or a
+     * use inside it ("oldVar[0].m()", "oldVar.f.m()"), or null if the result is not a receiver
+     * of a type that has this method. Changes nothing.
+     */
+    private VariableReference calleeAfterReplacing(VariableReference oldVar,
+                                                   VariableReference newVar) {
+        VariableReference rebound = callee.withReplacement(oldVar, newVar);
+        if (rebound == callee) {
+            return callee;
+        }
+        if (rebound == null || !isCompatibleCalleeType(method, rebound.getType())) {
+            logger.debug("Skipping incompatible callee for method {}.{}",
+                    method.getDeclaringClass().getCanonicalName(), method.getName());
+            return null;
+        }
+        return rebound;
     }
 
 

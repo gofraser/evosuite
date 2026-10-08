@@ -246,24 +246,68 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
+     * <p>The same field of the replacement owner, typed by the field's type in that owner (a
+     * {@code Box<Integer>} owner makes {@code value} an Integer). Declined if the owner would
+     * become an explicit null, which does not compile, or no longer declares the field.
      */
     @Override
-    public void replaceAdditionalVariableReference(VariableReference var1,
-                                                   VariableReference var2) {
-        if (source != null) {
-            if (source.equals(var1)) {
-                if (var2 instanceof ConstantValue) {
-                    if (((ConstantValue) var2).getValue() == null) {
-                        // No explicit null dereference, it would just lead to a compile error
-                        return;
-                    }
-                }
-                source = var2;
-                updateTypeFromSource();
-            } else {
-                source.replaceAdditionalVariableReference(var1, var2);
+    public VariableReference withReplacement(VariableReference var1, VariableReference var2) {
+        if (equals(var1)) {
+            return var2;
+        }
+        if (source == null) {
+            return this;
+        }
+        VariableReference reboundSource = source.withReplacement(var1, var2);
+        if (reboundSource == source) {
+            return this;
+        }
+        if (reboundSource == null || isNullConstant(reboundSource)
+                || losesDeclaringClass(reboundSource)) {
+            return null;
+        }
+        Type reboundType;
+        if (field.isStatic()) {
+            reboundType = getType();
+        } else {
+            try {
+                reboundType = new GenericField(field.getField(), reboundSource.getGenericClass())
+                        .getFieldType();
+            } catch (RuntimeException e) {
+                logger.debug("Cannot rebind field {} to owner {}", field.getName(),
+                        reboundSource.getType(), e);
+                return null;
             }
         }
+        if (reboundType == null) {
+            return null;
+        }
+        return new FieldReference(this, reboundSource, reboundType);
+    }
+
+    private FieldReference(FieldReference original, VariableReference source, Type type) {
+        super(original.testCase, type);
+        this.field = original.field;
+        this.source = source;
+    }
+
+    /**
+     * No explicit null dereference, it would just lead to a compile error.
+     */
+    private static boolean isNullConstant(VariableReference owner) {
+        return owner instanceof ConstantValue && ((ConstantValue) owner).getValue() == null;
+    }
+
+    /**
+     * Whether the field would be read from an owner whose class does not declare it although the
+     * current owner's class does. A current owner that already relies on a downcast is left as
+     * the code that created it decided.
+     */
+    private boolean losesDeclaringClass(VariableReference owner) {
+        Class<?> declaringClass = field.getField().getDeclaringClass();
+        return declaringClass.isAssignableFrom(source.getVariableClass())
+                && !declaringClass.isAssignableFrom(owner.getVariableClass());
     }
 
     /**

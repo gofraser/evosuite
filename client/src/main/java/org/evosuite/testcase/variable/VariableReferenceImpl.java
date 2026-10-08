@@ -538,15 +538,6 @@ public class VariableReferenceImpl implements VariableReference {
      * {@inheritDoc}
      */
     @Override
-    public void replaceAdditionalVariableReference(VariableReference var1,
-                                                   VariableReference var2) {
-        // no op
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public int getDistance() {
         return distance;
     }

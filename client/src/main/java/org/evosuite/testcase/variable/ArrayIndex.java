@@ -442,21 +442,26 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
+     * <p>The element of the replacement array at the same indices, typed by the replacement's
+     * component type. Declined if the replacement is not an array, or has fewer dimensions than
+     * this element indexes into. EvoSuite might try to replace the array with a field reference,
+     * but for this we have FieldStatements, which would give us ArrayReferences.
      */
     @Override
-    public void replaceAdditionalVariableReference(VariableReference var1,
-                                                   VariableReference var2) {
-        if (array.equals(var1)) {
-            if (var2 instanceof ArrayReference) {
-                array = (ArrayReference) var2;
-            }
-            // EvoSuite might try to replace this with a field reference
-            // but for this we have FieldStatements, which would give us
-            // ArrayReferences.
-            // Such a replacement should only happen as part of a graceful delete
-        } else {
-            array.replaceAdditionalVariableReference(var1, var2);
+    public VariableReference withReplacement(VariableReference var1, VariableReference var2) {
+        if (equals(var1)) {
+            return var2;
         }
+        VariableReference reboundArray = array.withReplacement(var1, var2);
+        if (reboundArray == array) {
+            return this;
+        }
+        if (!(reboundArray instanceof ArrayReference)
+                || getReturnType((ArrayReference) reboundArray, indices.size()) == null) {
+            return null;
+        }
+        return new ArrayIndex(testCase, (ArrayReference) reboundArray, new ArrayList<>(indices));
     }
 
     /**

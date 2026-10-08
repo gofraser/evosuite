@@ -192,10 +192,7 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             }
             if (replacement != null) {
                 int oldStatement = statement + (test.size() - oldLength);
-                for (int i = oldStatement + 1; i < test.size(); i++) {
-                    test.getTestCase().getStatement(i).replace(var, replacement);
-                }
-                factory.deleteStatement(test.getTestCase(), oldStatement);
+                factory.replaceAndDelete(test.getTestCase(), oldStatement, replacement);
                 test.setChanged(true);
             }
 

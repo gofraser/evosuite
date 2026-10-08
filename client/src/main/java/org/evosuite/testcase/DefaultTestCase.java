@@ -1543,8 +1543,14 @@ public class DefaultTestCase implements TestCase, Serializable {
      * {@inheritDoc}
      */
     @Override
-    public void replace(VariableReference var1, VariableReference var2) {
+    public boolean replace(VariableReference var1, VariableReference var2) {
+        for (Statement statement : statements) {
+            if (!statement.acceptsReplacement(var1, var2)) {
+                return false;
+            }
+        }
         statements.forEach(s -> s.replace(var1, var2));
+        return true;
     }
 
 

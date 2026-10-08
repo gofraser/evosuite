@@ -349,28 +349,50 @@ public class AssignmentStatement extends AbstractStatement {
      */
 
     @Override
+    public boolean acceptsReplacement(VariableReference var1, VariableReference var2) {
+        return replacementOf(var1, var2) != null;
+    }
+
+    @Override
     public void replace(VariableReference var1, VariableReference var2) {
-        VariableReference newRetval = retval;
-        VariableReference newParameter = parameter;
-        if (retval.equals(var1)) {
-            if (isAssignable(var2, parameter) && !isNullForPrimitiveTarget(tc, var2, parameter)) {
-                newRetval = var2;
-            }
+        VariableReference[] replaced = replacementOf(var1, var2);
+        if (replaced != null) {
+            retval = replaced[0];
+            parameter = replaced[1];
         }
-        if (parameter.equals(var1)) {
-            if (isAssignable(newRetval, var2) && !isNullForPrimitiveTarget(tc, newRetval, var2)) {
-                newParameter = var2;
-            }
-        } else {
-            parameter.replaceAdditionalVariableReference(var1, var2);
+    }
+
+    /**
+     * The target and the value this assignment would have with {@code var2} in place of
+     * {@code var1}, including uses of {@code var1} inside them (the owner of a field target
+     * "var1.f", the array of an element value "var1[i]"), or null if the assignment refuses the
+     * replacement as a whole and keeps using {@code var1}. It refuses if either side declines
+     * the rebinding, if the value would no longer fit the target (a String into the field of a
+     * {@code Box<Integer>} owner, null into a primitive), and if both sides would become one
+     * variable: "x = x" is a no-op that, were x defined by this very statement, also leaves x
+     * without a declaration. Changes nothing.
+     */
+    private VariableReference[] replacementOf(VariableReference var1, VariableReference var2) {
+        VariableReference newRetval = retval.withReplacement(var1, var2);
+        VariableReference newParameter = parameter.withReplacement(var1, var2);
+        if (newRetval == null || newParameter == null) {
+            return null;
+        }
+        if (newRetval == retval && newParameter == parameter) {
+            return new VariableReference[]{retval, parameter};
         }
         if (aliasesItself(newRetval, newParameter)) {
-            // Both sides would become one variable: "x = x" is a no-op that, were x defined by
-            // this very statement, also leaves x without a declaration. Keep the old sides.
-            return;
+            return null;
         }
-        retval = newRetval;
-        parameter = newParameter;
+        boolean typesChange = !newRetval.getType().equals(retval.getType())
+                || !newParameter.getType().equals(parameter.getType());
+        if (typesChange && !isAssignable(newRetval, newParameter)) {
+            return null;
+        }
+        if (isNullForPrimitiveTarget(tc, newRetval, newParameter)) {
+            return null;
+        }
+        return new VariableReference[]{newRetval, newParameter};
     }
 
     /**
