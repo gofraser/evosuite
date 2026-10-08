@@ -1915,6 +1915,9 @@ public class TestCodeVisitor extends TestVisitor {
             }
             if (rawParamClass.isPrimitive() && argumentIsNull) {
                 parameterString += getPrimitiveNullCast(rawParamClass);
+            } else if (!argumentIsNull && isInconvertibleArrayArgument(declaredParamType, actualParamType)) {
+                // "(Foo[]) stringArray" is rejected by javac; the argument is passed as it is
+                // and the call result is cast raw (see requiresRawReturnCastForArrayArgument).
             } else if (isGenericMethod && !(declaredParamType instanceof WildcardType)) {
                 if (!declaredParamType.equals(actualParamType) || argumentIsNull
                         || (genericParameterTypes != null && isHiddenConcreteClass(declaredParamType))) {
@@ -3766,11 +3769,15 @@ public class TestCodeVisitor extends TestVisitor {
                 ? isGenericMethod && method.getParameterTypes().length == 0
                 && uninferableStaticGenericReturn(method, retval)
                 : returnDependsOnRedeclaredReceiver(statement, method, retval));
-        if (requiresReturnCast || rawReturnCastForRedeclaredReceiver) {
+        boolean rawReturnCastForArrayArgument = !unused && !retval.isVoid()
+                && retval.getType() instanceof ParameterizedType
+                && requiresRawReturnCastForArrayArgument(renderedParameterTypes, parameters);
+        if (requiresReturnCast || rawReturnCastForRedeclaredReceiver || rawReturnCastForArrayArgument) {
             String name = getAccessibleGenericReturnTypeName(method, retval);
             if (!name.matches(".*\\.\\d+$")) {
                 if (retval.getType() instanceof ParameterizedType
                         && (rawReturnCastForRedeclaredReceiver
+                        || rawReturnCastForArrayArgument
                         || returnCastIsInconvertible(retval.getType(),
                                 method.getMethod().getGenericReturnType()))) {
                     // The declared parameterization is generic-inconvertible with the
@@ -4251,6 +4258,38 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return getTypeName(method.getMethod().getReturnType());
+    }
+
+    /**
+     * Whether a reference array argument can never be cast to the (type-variable bound) array
+     * parameter type, eg a String[] passed where Arrays.asList was bound to T = Foo.
+     */
+    private boolean isInconvertibleArrayArgument(Type declaredParamType, Type actualParamType) {
+        if (!TypeUtils.isArrayType(declaredParamType) || !TypeUtils.isArrayType(actualParamType)) {
+            return false;
+        }
+        Class<?> declaredComponent = safeErasure(declaredParamType).getComponentType();
+        Class<?> actualComponent = safeErasure(actualParamType).getComponentType();
+        return declaredComponent != null && actualComponent != null
+                && !declaredComponent.isPrimitive() && !actualComponent.isPrimitive()
+                && isDefinitelyInconvertibleReferenceCast(declaredComponent, actualComponent)
+                && !declaredComponent.isAssignableFrom(actualComponent);
+    }
+
+    private boolean requiresRawReturnCastForArrayArgument(Type[] renderedParameterTypes,
+                                                          List<VariableReference> parameters) {
+        if (renderedParameterTypes == null || parameters == null
+                || renderedParameterTypes.length != parameters.size()) {
+            return false;
+        }
+        for (int i = 0; i < parameters.size(); i++) {
+            VariableReference argument = parameters.get(i);
+            if (!isRenderedNullArgument(argument)
+                    && isInconvertibleArrayArgument(renderedParameterTypes[i], argument.getType())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean requiresReturnCastDueToRawParameterCast(boolean isGenericMethod,
