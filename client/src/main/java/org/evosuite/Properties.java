@@ -482,7 +482,7 @@ public class Properties {
                     + "re-executed and the mocks are updated again (as long as new stubs were added) up to "
                     + "this many update passes, so that calls reachable only through new stubs are also "
                     + "stubbed. 1 updates once without re-executing")
-    @DoubleValue(min = 1)
+    @IntValue(min = 1)
     public static int FUNCTIONAL_MOCK_COMPLETION_ROUNDS = 3;
 
     public enum FunctionalMockingFailoverMode {

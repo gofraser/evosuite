@@ -11,6 +11,10 @@
  */
 package org.evosuite.llm.postprocess;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 /** Immutable expression type classification used by assertion validation. */
 final class ExprType {
 
@@ -26,10 +30,15 @@ final class ExprType {
     final String typeName;
     final String componentType;
     final int arrayDepth;
+    /**
+     * {@link #canonicalName(String)} of {@link #typeName}, which the type predicates read.
+     */
+    private final String canonicalTypeName;
 
     private ExprType(Kind kind, String typeName, String componentType, int arrayDepth) {
         this.kind = kind;
         this.typeName = typeName;
+        this.canonicalTypeName = canonicalName(typeName);
         this.componentType = componentType;
         this.arrayDepth = arrayDepth;
     }
@@ -89,72 +98,40 @@ final class ExprType {
         return canonicalName(genericStart < 0 ? trimmed : trimmed.substring(0, genericStart));
     }
 
+    /** Simple names of well-known types, mapped to their fully qualified names. */
+    private static final Map<String, String> QUALIFIED_NAMES = qualifiedNames();
+
+    private static Map<String, String> qualifiedNames() {
+        Map<String, String> names = new HashMap<>();
+        names.put("String", "java.lang.String");
+        names.put("Boolean", "java.lang.Boolean");
+        names.put("Byte", "java.lang.Byte");
+        names.put("Short", "java.lang.Short");
+        names.put("Character", "java.lang.Character");
+        names.put("Integer", "java.lang.Integer");
+        names.put("Long", "java.lang.Long");
+        names.put("Float", "java.lang.Float");
+        names.put("Double", "java.lang.Double");
+        names.put("Object", "java.lang.Object");
+        names.put("BigInteger", "java.math.BigInteger");
+        names.put("BigDecimal", "java.math.BigDecimal");
+        names.put("Optional", "java.util.Optional");
+        names.put("UUID", "java.util.UUID");
+        names.put("LocalDate", "java.time.LocalDate");
+        names.put("LocalTime", "java.time.LocalTime");
+        names.put("LocalDateTime", "java.time.LocalDateTime");
+        names.put("Instant", "java.time.Instant");
+        names.put("Duration", "java.time.Duration");
+        names.put("Period", "java.time.Period");
+        return Collections.unmodifiableMap(names);
+    }
+
     static String canonicalName(String typeName) {
         if (typeName == null) {
             return "";
         }
         String trimmed = typeName.trim();
-        if ("String".equals(trimmed)) {
-            return "java.lang.String";
-        }
-        if ("Boolean".equals(trimmed)) {
-            return "java.lang.Boolean";
-        }
-        if ("Byte".equals(trimmed)) {
-            return "java.lang.Byte";
-        }
-        if ("Short".equals(trimmed)) {
-            return "java.lang.Short";
-        }
-        if ("Character".equals(trimmed)) {
-            return "java.lang.Character";
-        }
-        if ("Integer".equals(trimmed)) {
-            return "java.lang.Integer";
-        }
-        if ("Long".equals(trimmed)) {
-            return "java.lang.Long";
-        }
-        if ("Float".equals(trimmed)) {
-            return "java.lang.Float";
-        }
-        if ("Double".equals(trimmed)) {
-            return "java.lang.Double";
-        }
-        if ("Object".equals(trimmed)) {
-            return "java.lang.Object";
-        }
-        if ("BigInteger".equals(trimmed)) {
-            return "java.math.BigInteger";
-        }
-        if ("BigDecimal".equals(trimmed)) {
-            return "java.math.BigDecimal";
-        }
-        if ("Optional".equals(trimmed)) {
-            return "java.util.Optional";
-        }
-        if ("UUID".equals(trimmed)) {
-            return "java.util.UUID";
-        }
-        if ("LocalDate".equals(trimmed)) {
-            return "java.time.LocalDate";
-        }
-        if ("LocalTime".equals(trimmed)) {
-            return "java.time.LocalTime";
-        }
-        if ("LocalDateTime".equals(trimmed)) {
-            return "java.time.LocalDateTime";
-        }
-        if ("Instant".equals(trimmed)) {
-            return "java.time.Instant";
-        }
-        if ("Duration".equals(trimmed)) {
-            return "java.time.Duration";
-        }
-        if ("Period".equals(trimmed)) {
-            return "java.time.Period";
-        }
-        return trimmed;
+        return QUALIFIED_NAMES.getOrDefault(trimmed, trimmed);
     }
 
     private static boolean isPrimitiveName(String typeName) {
@@ -189,17 +166,17 @@ final class ExprType {
     }
 
     boolean isBooleanLike() {
-        String canonical = canonicalName(typeName);
+        String canonical = canonicalTypeName;
         return "boolean".equals(canonical) || "java.lang.Boolean".equals(canonical);
     }
 
     boolean isCharLike() {
-        String canonical = canonicalName(typeName);
+        String canonical = canonicalTypeName;
         return "char".equals(canonical) || "java.lang.Character".equals(canonical);
     }
 
     boolean isNumeric() {
-        String canonical = canonicalName(typeName);
+        String canonical = canonicalTypeName;
         return isNumericPrimitive(canonical) || isNumericWrapper(canonical);
     }
 
@@ -212,17 +189,17 @@ final class ExprType {
     }
 
     boolean isFloatLike() {
-        String canonical = canonicalName(typeName);
+        String canonical = canonicalTypeName;
         return "float".equals(canonical) || "java.lang.Float".equals(canonical);
     }
 
     boolean isDoubleLike() {
-        String canonical = canonicalName(typeName);
+        String canonical = canonicalTypeName;
         return "double".equals(canonical) || "java.lang.Double".equals(canonical);
     }
 
     boolean isLongLike() {
-        String canonical = canonicalName(typeName);
+        String canonical = canonicalTypeName;
         return "long".equals(canonical) || "java.lang.Long".equals(canonical);
     }
 

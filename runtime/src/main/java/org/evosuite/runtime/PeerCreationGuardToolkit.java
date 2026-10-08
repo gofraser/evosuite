@@ -87,6 +87,7 @@ import java.awt.peer.ScrollbarPeer;
 import java.awt.peer.TextAreaPeer;
 import java.awt.peer.TextFieldPeer;
 import java.awt.peer.WindowPeer;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Map;
 import java.util.Properties;
@@ -518,15 +519,40 @@ final class PeerCreationGuardToolkit extends Toolkit
 
     @Override
     protected EventQueue getSystemEventQueueImpl() {
+        if (EventQueueAccess.GET_APP_CONTEXT == null) {
+            throw new HeadlessException();
+        }
         try {
-            Class<?> sunToolkitClass = Class.forName("sun.awt.SunToolkit");
-            Class<?> appContextClass = Class.forName("sun.awt.AppContext");
-            Object appContext = appContextClass.getMethod("getAppContext").invoke(null);
-            return (EventQueue) sunToolkitClass
-                    .getMethod("getSystemEventQueueImplPP", appContextClass)
-                    .invoke(null, appContext);
+            Object appContext = EventQueueAccess.GET_APP_CONTEXT.invoke(null);
+            return (EventQueue) EventQueueAccess.GET_SYSTEM_EVENT_QUEUE.invoke(null, appContext);
         } catch (Throwable t) {
             throw new HeadlessException();
+        }
+    }
+
+    /**
+     * The two {@code sun.awt} methods behind {@link #getSystemEventQueueImpl()}, resolved once on
+     * first use rather than on every event-queue access. Both are null when {@code sun.awt} cannot
+     * be reached, in which case the queue is reported as unavailable, as a failed lookup did before.
+     */
+    private static final class EventQueueAccess {
+        static final Method GET_APP_CONTEXT;
+        static final Method GET_SYSTEM_EVENT_QUEUE;
+
+        static {
+            Method getAppContext = null;
+            Method getSystemEventQueue = null;
+            try {
+                Class<?> appContextClass = Class.forName("sun.awt.AppContext");
+                getAppContext = appContextClass.getMethod("getAppContext");
+                getSystemEventQueue = Class.forName("sun.awt.SunToolkit")
+                        .getMethod("getSystemEventQueueImplPP", appContextClass);
+            } catch (Throwable t) {
+                getAppContext = null;
+                getSystemEventQueue = null;
+            }
+            GET_APP_CONTEXT = getAppContext;
+            GET_SYSTEM_EVENT_QUEUE = getSystemEventQueue;
         }
     }
 }

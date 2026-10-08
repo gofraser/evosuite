@@ -78,20 +78,8 @@ public class UsedReferenceSearcher {
                         String methodName =
                                 constructorStat.getMethodName() + constructorStat.getDescriptor();
                         if (!params.isEmpty()) {
-
-                            //                            List<VariableReference> paramRefs =
-                            // searchRelevantParameterOfSetterInTest(params, className, methodName,
-                            // field);
-
-                            ParameterMatch result =
-                                    searchRelevantParameterOfSetterInTest(
-                                            className, methodName, field);
-                            List<VariableReference> paramRefs = new ArrayList<>();
-                            for (Integer index : result.parameterPoisitions) {
-                                paramRefs.add(params.get(index));
-                            }
-
-                            relevantRefs.addAll(paramRefs);
+                            relevantRefs.addAll(
+                                    relevantSetterArguments(params, className, methodName, field));
                         }
                     }
                 }
@@ -154,22 +142,13 @@ public class UsedReferenceSearcher {
                 String methodName =
                         constructorStat.getMethodName() + constructorStat.getDescriptor();
                 if (!params.isEmpty()) {
-                    ParameterMatch result =
-                            searchRelevantParameterOfSetterInTest(className, methodName, field);
-                    List<VariableReference> paramRefs = new ArrayList<>();
-                    for (Integer index : result.parameterPoisitions) {
-                        if (index >= 0 && index < params.size()) {
-                            paramRefs.add(params.get(index));
-                        }
-                    }
-                    //                    List<VariableReference> paramRefs =
-                    // searchRelevantParameterOfSetterInTest(params, className, methodName, field);
+                    List<VariableReference> paramRefs =
+                            relevantSetterArguments(params, className, methodName, field);
                     relevantRefs.addAll(paramRefs);
 
                     for (VariableReference paramRef : paramRefs) {
                         actionPositions.put(paramRef, pos);
                     }
-                    //                    System.currentTimeMillis();
                 }
             }
 
@@ -189,18 +168,8 @@ public class UsedReferenceSearcher {
                         String className = methodStat.getDeclaringClassName();
                         String methodName = methodStat.getMethodName() + methodStat.getDescriptor();
 
-                        ParameterMatch result =
-                                searchRelevantParameterOfSetterInTest(className, methodName, field);
-                        List<VariableReference> paramRefs = new ArrayList<>();
-                        for (Integer index : result.parameterPoisitions) {
-                            if (index >= 0 && index < params.size()) {
-                                paramRefs.add(params.get(index));
-                            }
-                        }
-                        //                        List<VariableReference> paramRefs =
-                        // searchRelevantParameterOfSetterInTest(params, className, methodName,
-                        //                                field);
-
+                        List<VariableReference> paramRefs =
+                                relevantSetterArguments(params, className, methodName, field);
                         for (VariableReference paramRef2 : paramRefs) {
                             if (!ConstructionReferenceUtil.containsIdentity(relevantRefs, paramRef2)) {
                                 relevantRefs.add(paramRef2);
@@ -300,29 +269,31 @@ public class UsedReferenceSearcher {
         List<ValueSettings> setter = new ArrayList<>();
         DataDependencyUtil.analyzeFieldSetter(
                 className, methodName, field, 5, cascadingCallRelations, setter);
-        //        List<VariableReference> validParams = new ArrayList<VariableReference>();
-
-        Set<Integer> validParams = new HashSet<>();
         if (setter.isEmpty()) {
-            return new ParameterMatch(false, validParams);
+            return new ParameterMatch(false, emptyParams);
         }
+        ValueSettings setting = setter.get(0);
+        return new ParameterMatch(!setting.releventPrams.isEmpty(), setting.releventPrams);
+    }
 
-        for (ValueSettings setting : setter) {
-            //            BytecodeInstruction setterIns = entry.getKey();
-            //            List<BytecodeInstruction> callList = entry.getValue();
-
-            //            Set<Integer> validParamPos =
-            // DataDependencyUtil.checkValidParameterPositions(setterIns, className, methodName,
-            // callList);
-            //            for (Integer val : validParamPos) {
-            //                if (val >= 0) {
-            //                    validParams.add(val);
-            //                }
-            //            }
-            //            System.currentTimeMillis();
-            return new ParameterMatch(!setting.releventPrams.isEmpty(), setting.releventPrams);
+    /**
+     * Returns the arguments of a call to the given method or constructor that flow into the field.
+     *
+     * @param params the arguments of the call
+     * @param className the declaring class of the method
+     * @param methodName the method name followed by its descriptor
+     * @param field the field that is set
+     * @return the arguments at the relevant parameter positions, in position order of the match
+     */
+    public List<VariableReference> relevantSetterArguments(
+            List<VariableReference> params, String className, String methodName, Field field) {
+        ParameterMatch result = searchRelevantParameterOfSetterInTest(className, methodName, field);
+        List<VariableReference> paramRefs = new ArrayList<>();
+        for (Integer index : result.parameterPoisitions) {
+            if (index >= 0 && index < params.size()) {
+                paramRefs.add(params.get(index));
+            }
         }
-
-        return new ParameterMatch(false, validParams);
+        return paramRefs;
     }
 }

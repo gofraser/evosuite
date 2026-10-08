@@ -16,8 +16,12 @@ import org.evosuite.testcase.statements.numeric.ShortPrimitiveStatement;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericField;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PrimitiveFieldInitializer extends FieldInitializer {
+
+    private static final Logger logger = LoggerFactory.getLogger(PrimitiveFieldInitializer.class);
     private final Integer integerHint;
 
     public PrimitiveFieldInitializer() {
@@ -51,7 +55,7 @@ public class PrimitiveFieldInitializer extends FieldInitializer {
             VariableReference varRef = testFactory.addPrimitive(test, primStatement, insertionPosition + 1);
             return varRef;
         } catch (ConstructionFailedException e) {
-            e.printStackTrace();
+            logger.debug("Ignored failure during object-rule synthesis", e);
         }
         return null;
 

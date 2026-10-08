@@ -447,14 +447,7 @@ public class TestUsageChecker {
         if (result.isUnavailable()) {
             return c.getClassLoader() == null;
         }
-        if (!result.isNamed()) {
-            return false;
-        }
-        String name = result.moduleName();
-        if (!(name.startsWith("java.") || name.startsWith("jdk."))) {
-            return false;
-        }
-        return JavaModuleLookup.isFromSystemImage(result);
+        return JavaModuleLookup.isSystemImageJdkModule(result);
     }
 
     /**
@@ -483,13 +476,17 @@ public class TestUsageChecker {
     public static boolean isCallableFromTestPackage(java.lang.reflect.Member member) {
         int modifiers = member instanceof Field
                 ? getOriginalFieldModifiers((Field) member) : member.getModifiers();
+        return isCallableFromTestPackage(member.getDeclaringClass(), modifiers);
+    }
+
+    private static boolean isCallableFromTestPackage(Class<?> declaringClass, int modifiers) {
         if (Modifier.isPrivate(modifiers)) {
             return false;
         }
         if (Modifier.isPublic(modifiers)) {
             return true;
         }
-        return ClassUtils.getPackageName(member.getDeclaringClass()).equals(Properties.CLASS_PREFIX);
+        return ClassUtils.getPackageName(declaringClass).equals(Properties.CLASS_PREFIX);
     }
 
     private static final Map<Class<?>, Integer> SOURCE_MEMBER_MODIFIERS =
@@ -665,10 +662,10 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (!isCallableFromTestPackage(f)) {
+        int modifiers = getOriginalFieldModifiers(f);
+        if (!isCallableFromTestPackage(f.getDeclaringClass(), modifiers)) {
             return false;
         }
-        int modifiers = getOriginalFieldModifiers(f);
         if (Modifier.isPublic(modifiers)) {
             // Reflection may still need access to a public field declared in a hidden superclass.
             TestClusterUtils.makeAccessible(f);

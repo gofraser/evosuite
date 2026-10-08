@@ -107,10 +107,10 @@ public class MockHeadlessSwingAwtCtorTest {
         Assertions.assertEquals(2, insets.left);
         Assertions.assertEquals(3, insets.bottom);
         Assertions.assertEquals(4, insets.right);
-        // Not null: unlike the heavyweight AWT constructors above, DefaultKeyboardFocusManager
+        // Not replaced: unlike the heavyweight AWT constructors above, DefaultKeyboardFocusManager
         // really does construct headless, and handing back null only moved the failure one call
         // later for the SUT. See MockHeadlessSwingKeyboardFocusManagerTest for the full reason.
-        Assertions.assertNotNull(MockHeadlessSwing.replacement_newDefaultKeyboardFocusManager());
+        Assertions.assertNotNull(new java.awt.DefaultKeyboardFocusManager());
     }
 
     /**

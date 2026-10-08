@@ -240,16 +240,6 @@ public class ObjectConstructionSynthesisTest {
 		throw new AssertionError("expected the BasicRules actor-alive guard branch");
 	}
 
-	private static boolean sameReference(TestCase test, VariableReference left,
-			VariableReference right) {
-		if (left == right) {
-			return left != null;
-		}
-		return ConstructionReferenceUtil.definitionPosition(test, left) >= 0
-				&& ConstructionReferenceUtil.definitionPosition(test, left)
-				== ConstructionReferenceUtil.definitionPosition(test, right);
-	}
-
 	private static int countConstructors(TestCase test) {
 		int n = 0;
 		for (int i = 0; i < test.size(); i++) {
@@ -507,7 +497,7 @@ public class ObjectConstructionSynthesisTest {
 				.orElseThrow(() -> new AssertionError("expected an array-element node"));
 		VarRelevance arrayMapping = synth.getGraph2CodeMap().get(arrayElement);
 		assertTrue(arrayMapping.matchedVars.stream()
-				.anyMatch(reference -> sameReference(test, reference, insertedPlayer)),
+				.anyMatch(reference -> ConstructionReferenceUtil.sameReference(test, reference, insertedPlayer)),
 				"the array node must map to addPlayer's exact Player argument");
 
 		boolean playerStateUsesInsertedElement = false;
@@ -517,7 +507,7 @@ public class ObjectConstructionSynthesisTest {
 				MethodStatement method = (MethodStatement) statement;
 				if (method.getCallee() != null
 						&& "Player".equals(method.getCallee().getVariableClass().getSimpleName())
-						&& sameReference(test, method.getCallee(), insertedPlayer)) {
+						&& ConstructionReferenceUtil.sameReference(test, method.getCallee(), insertedPlayer)) {
 					playerStateUsesInsertedElement = true;
 					break;
 				}

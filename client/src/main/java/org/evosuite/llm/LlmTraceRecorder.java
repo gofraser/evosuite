@@ -439,6 +439,15 @@ public class LlmTraceRecorder {
         POST_PROCESSING_TRACE_CONTEXT.remove();
     }
 
+    /**
+     * Whether records are written at all; callers skip building them when this is false.
+     *
+     * @return true when tracing is enabled
+     */
+    public boolean isTraceEnabled() {
+        return configuration.isTraceEnabled();
+    }
+
     /** Records a call with all metadata including dependency summary telemetry. */
     public void recordCall(CallRecord record) {
         if (!configuration.isTraceEnabled()) {

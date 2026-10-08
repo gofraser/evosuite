@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class OtherVariableWrapper extends DepVariableWrapper {
@@ -208,7 +209,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                     int position = par.findRelationPosition(this);
                     if (position > -1) {
                         paramRefMap.put(position, parRef);
-                        if (position == 0 && !containsReference(receiverCandidates, parRef)) {
+                        if (position == 0 && !receiverCandidates.contains(parRef)) {
                             receiverCandidates.add(parRef);
                         }
                     }
@@ -1027,7 +1028,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             }
             MethodStatement methodStatement = (MethodStatement) statement;
             if (!insertion.equals(methodStatement.getMethod().getMethod())
-                    || !sameReference(receiver, methodStatement.getCallee())
+                    || !Objects.equals(receiver, methodStatement.getCallee())
                     || methodStatement.getParameterReferences().isEmpty()) {
                 continue;
             }
@@ -1064,20 +1065,6 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             pending.addAll(node.children);
         }
         return null;
-    }
-
-    private static boolean sameReference(VariableReference left, VariableReference right) {
-        return left == right || (left != null && right != null && left.equals(right));
-    }
-
-    private static boolean containsReference(
-            List<VariableReference> references, VariableReference candidate) {
-        for (VariableReference reference : references) {
-            if (sameReference(reference, candidate)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -1148,7 +1135,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                 Method invocation = methodStatement.getMethod().getMethod();
                 VariableReference calleeObject = methodStatement.getCallee();
                 if (calleeObject != null && callerObject != null) {
-                    if (sameReference(calleeObject, callerObject) && invocation.equals(call)) {
+                    if (Objects.equals(calleeObject, callerObject) && invocation.equals(call)) {
                         return methodStatement;
                     }
                 } else if (calleeObject == null && callerObject == null) {
@@ -1231,7 +1218,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.debug("Ignored failure during object-rule synthesis", e);
         }
 
         return null;

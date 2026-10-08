@@ -222,24 +222,15 @@ public class MockObjectWait {
         // and act: a wait loop that never ends (78_caloriecount's NewScheduler) would
         // otherwise pay ~200 real milliseconds on every evaluation, and the search
         // saw a handful of generations.
-        boolean sutThread = Thread.currentThread() instanceof MockThread;
-        if (sutThread && org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
-            // The test has ended and this leftover thread is being asked to stop; see MockThread.sleep.
-            // Wait briefly for real so the monitor is released and a loop that swallows the
-            // exception is no hot spin; see MockThread.STOPPING_REAL_PAUSE_MS.
-            throw MockThread.pauseThenStopLeftover(() -> obj.wait(MockThread.STOPPING_REAL_PAUSE_MS),
+        if (Thread.currentThread() instanceof MockThread) {
+            // Once the test has ended and this leftover thread is being asked to stop, it waits
+            // only briefly for real, so the monitor is released and a loop that swallows the
+            // exception is no hot spin; see MockThread.sleep and MockThread.STOPPING_REAL_PAUSE_MS.
+            MockThread.pauseOnSutThread(() -> obj.wait(MockThread.STOPPING_REAL_PAUSE_MS),
+                    () -> obj.wait(effectiveMillis),
                     "MockObjectWait: thread kept waiting after its test ended");
-        }
-        if (sutThread || shouldWaitForReal(testThreadRealWaits.incrementAndGet())) {
-            try {
-                obj.wait(sutThread ? effectiveMillis : REAL_WAIT_MILLIS);
-            } catch (InterruptedException e) {
-                // Keep the interrupt visible to a leftover thread's loop; see MockThread.sleep.
-                if (sutThread && org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
-                    Thread.currentThread().interrupt();
-                }
-                throw e;
-            }
+        } else if (shouldWaitForReal(testThreadRealWaits.incrementAndGet())) {
+            obj.wait(REAL_WAIT_MILLIS);
         } else {
             // What a real wait would still have done.
             if (!Thread.holdsLock(obj)) {

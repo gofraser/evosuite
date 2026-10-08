@@ -26,6 +26,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /**
  * Small coordinator for DMoN detection in V1.
@@ -35,14 +36,12 @@ public class DmonCoordinator {
     private static final DmonCoordinator INSTANCE = new DmonCoordinator();
 
     private final DmonNpeAnalyzer analyzer = new DmonNpeAnalyzer();
+    // One cache for all four analyses: the discriminator in each key (CTOR, METHOD and their
+    // _ASSIST variants) keeps them apart. Ephemeral assist bypasses the target-class
+    // restriction, so its population of failure sites is much larger; caching it means a
+    // failing analysis (e.g. an ASM bytecode read that yields no hint) is computed once per
+    // failure signature rather than once per retry attempt or execution of the same site.
     private final Map<CacheKey, Optional<DmonPromotionPlan>> analysisCache = new ConcurrentHashMap<>();
-    // Ephemeral assist bypasses the target-class restriction (it analyzes NPEs from
-    // ANY constructor/method on the call path, not just the target class), so its
-    // population of distinct failure sites is much larger. Cache it separately from
-    // analysisCache so the two lookups never collide, and so a failing analysis (e.g. an
-    // ASM bytecode read that yields no hint) is computed once per failure signature rather
-    // than once per retry attempt / per execution of the same crashing site.
-    private final Map<CacheKey, Optional<DmonPromotionPlan>> ephemeralAssistCache = new ConcurrentHashMap<>();
 
     /**
      * Returns the singleton instance of the DmonCoordinator.
@@ -61,14 +60,8 @@ public class DmonCoordinator {
      * @return an optional promotion plan
      */
     public Optional<DmonPromotionPlan> analyzeConstructorFailure(ConstructorStatement statement, Throwable throwable) {
-        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
-            return Optional.empty();
-        }
-        if (!Properties.DMON_CACHE_ANALYSIS) {
-            return analyzer.analyzeConstructorNpe(statement, throwable);
-        }
-        CacheKey key = CacheKey.from("CTOR", statement == null ? null : statement.getDeclaringClassName(), throwable);
-        return analysisCache.computeIfAbsent(key, k -> analyzer.analyzeConstructorNpe(statement, throwable));
+        return analyze("CTOR", statement == null ? null : statement.getDeclaringClassName(), throwable,
+                () -> analyzer.analyzeConstructorNpe(statement, throwable));
     }
 
     /**
@@ -81,14 +74,8 @@ public class DmonCoordinator {
      * @return an optional promotion plan
      */
     public Optional<DmonPromotionPlan> analyzeMethodFailure(MethodStatement statement, Throwable throwable) {
-        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
-            return Optional.empty();
-        }
-        if (!Properties.DMON_CACHE_ANALYSIS) {
-            return analyzer.analyzeMethodNpe(statement, throwable);
-        }
-        CacheKey key = CacheKey.from("METHOD", statement == null ? null : statement.getDeclaringClassName(), throwable);
-        return analysisCache.computeIfAbsent(key, k -> analyzer.analyzeMethodNpe(statement, throwable));
+        return analyze("METHOD", statement == null ? null : statement.getDeclaringClassName(), throwable,
+                () -> analyzer.analyzeMethodNpe(statement, throwable));
     }
 
     /**
@@ -103,16 +90,8 @@ public class DmonCoordinator {
      * @return an optional promotion plan
      */
     public Optional<DmonPromotionPlan> analyzeForEphemeralAssist(ConstructorStatement statement, Throwable throwable) {
-        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
-            return Optional.empty();
-        }
-        if (!Properties.DMON_CACHE_ANALYSIS) {
-            return analyzer.analyzeConstructorNpe(statement, throwable, false);
-        }
-        CacheKey key = CacheKey.from("CTOR_ASSIST", statement == null ? null : statement.getDeclaringClassName(),
-                throwable);
-        return ephemeralAssistCache.computeIfAbsent(key, k -> analyzer.analyzeConstructorNpe(statement, throwable,
-                false));
+        return analyze("CTOR_ASSIST", statement == null ? null : statement.getDeclaringClassName(), throwable,
+                () -> analyzer.analyzeConstructorNpe(statement, throwable, false));
     }
 
     /**
@@ -124,15 +103,21 @@ public class DmonCoordinator {
      * @return an optional promotion plan
      */
     public Optional<DmonPromotionPlan> analyzeForEphemeralAssist(MethodStatement statement, Throwable throwable) {
+        return analyze("METHOD_ASSIST", statement == null ? null : statement.getDeclaringClassName(), throwable,
+                () -> analyzer.analyzeMethodNpe(statement, throwable, false));
+    }
+
+    private Optional<DmonPromotionPlan> analyze(String discriminator, String declaringClassName,
+                                                Throwable throwable,
+                                                Supplier<Optional<DmonPromotionPlan>> analysis) {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
             return Optional.empty();
         }
         if (!Properties.DMON_CACHE_ANALYSIS) {
-            return analyzer.analyzeMethodNpe(statement, throwable, false);
+            return analysis.get();
         }
-        CacheKey key = CacheKey.from("METHOD_ASSIST", statement == null ? null : statement.getDeclaringClassName(),
-                throwable);
-        return ephemeralAssistCache.computeIfAbsent(key, k -> analyzer.analyzeMethodNpe(statement, throwable, false));
+        CacheKey key = CacheKey.from(discriminator, declaringClassName, throwable);
+        return analysisCache.computeIfAbsent(key, k -> analysis.get());
     }
 
     private static final class CacheKey {
@@ -152,8 +137,9 @@ public class DmonCoordinator {
             String owner = declaringClassName == null ? "" : declaringClassName;
             String message = throwable == null ? "" : String.valueOf(throwable.getMessage());
             String topFrame = "";
-            if (throwable != null && throwable.getStackTrace() != null && throwable.getStackTrace().length > 0) {
-                StackTraceElement first = throwable.getStackTrace()[0];
+            StackTraceElement[] trace = throwable == null ? null : throwable.getStackTrace();
+            if (trace != null && trace.length > 0) {
+                StackTraceElement first = trace[0];
                 topFrame = first.getClassName() + "#" + first.getMethodName() + ":" + first.getLineNumber();
             }
             return new CacheKey(discriminator, owner, message, topFrame);

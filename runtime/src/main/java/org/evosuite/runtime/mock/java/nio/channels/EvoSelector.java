@@ -388,9 +388,7 @@ final class EvoSelector extends AbstractSelector {
             if ((interestOps & SelectionKey.OP_WRITE) != 0 && socket.isWriteReady()) {
                 ready |= SelectionKey.OP_WRITE;
             }
-            if ((interestOps & SelectionKey.OP_CONNECT) != 0 && socket.isConnectionReady()) {
-                ready |= SelectionKey.OP_CONNECT;
-            }
+            // OP_CONNECT never becomes ready: the virtual network completes connect() synchronously.
         }
         return ready;
     }

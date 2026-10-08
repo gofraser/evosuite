@@ -84,9 +84,9 @@ public class ObjectRuleFactoryTest {
             Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXTIME;
             Properties.SEARCH_BUDGET = 120;
 
-            assertFalse(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(1, 5_999),
+            assertFalse(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(1, 5_999, 0, 0),
                     "construction below five percent of MaxTime remains enabled");
-            assertTrue(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(1, 6_000),
+            assertTrue(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(1, 6_000, 0, 0),
                     "one unreached attempt consuming five percent of MaxTime opens the circuit");
             assertFalse(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(
                             0, 0, 1, 5_999),

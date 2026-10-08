@@ -421,18 +421,25 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
      */
     private void writeEncoded(String s) {
         synchronized (this) {
-            byte[] bytes;
             try {
                 encoder.write(s);
                 encoder.flush();
+                drainEncoder();
             } catch (IOException e) {
                 setError();
-                return;
             }
-            bytes = encoderSink.toByteArray();
-            encoderSink.reset();
-            write(bytes, 0, bytes.length);
         }
+    }
+
+    /**
+     * Writes the bytes {@link #encoder} has produced so far to this stream, without copying them
+     * out of {@link #encoderSink} first, and empties the sink.
+     *
+     * @throws IOException never in practice; declared by {@link ByteArrayOutputStream#writeTo}
+     */
+    private void drainEncoder() throws IOException {
+        encoderSink.writeTo(this);
+        encoderSink.reset();
     }
 
     /**
@@ -455,10 +462,8 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
                     encoderClosed = true;
                     try {
                         encoder.close();
-                        byte[] bytes = encoderSink.toByteArray();
-                        encoderSink.reset();
-                        if (bytes.length > 0) {
-                            write(bytes, 0, bytes.length);
+                        if (encoderSink.size() > 0) {
+                            drainEncoder();
                         }
                     } catch (IOException e) {
                         setError();

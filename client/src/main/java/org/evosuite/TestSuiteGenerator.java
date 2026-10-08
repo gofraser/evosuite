@@ -970,15 +970,10 @@ public class TestSuiteGenerator {
             }
         }
 
-        postProcessOracles(testSuite, minimizationResult);
-    }
-
-    /** Apply assertions, unified LLM post-processing, and final JUnit validation. */
-    private void postProcessOracles(TestSuiteChromosome testSuite,
-                                    MinimizationResult minimizationResult) {
         postProcessOracles(testSuite, minimizationResult, null);
     }
 
+    /** Apply assertions, unified LLM post-processing, and final JUnit validation. */
     private void postProcessOracles(TestSuiteChromosome testSuite,
                                     MinimizationResult minimizationResult,
                                     ReplayStructureSnapshot replayStructure) {
@@ -1223,10 +1218,6 @@ public class TestSuiteGenerator {
         int totalStructuralStatements() {
             return structuralTests.stream().mapToInt(TestCase::size).sum();
         }
-    }
-
-    static boolean shouldGenerateStandardAssertions() {
-        return shouldGenerateStandardAssertions(true);
     }
 
     static boolean shouldGenerateStandardAssertions(boolean llmServiceReady) {
@@ -1841,13 +1832,11 @@ public class TestSuiteGenerator {
                 // Prefix folding is useful for ordinary generation, but replay
                 // promises one-to-one structural suites across oracle arms.
                 suiteWriter.insertAllTests(tests);
+                suiteWriter.setReplayScaffoldingSnapshot(replayScaffoldingSnapshot);
             } else {
                 suiteWriter.insertTests(tests);
             }
             suiteWriter.setExtensionInitializationOrder(testSuite.getExtensionInitializationOrder());
-            if (preserveExactStructure) {
-                suiteWriter.setReplayScaffoldingSnapshot(replayScaffoldingSnapshot);
-            }
 
             String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
             String testDir = Properties.TEST_DIR;

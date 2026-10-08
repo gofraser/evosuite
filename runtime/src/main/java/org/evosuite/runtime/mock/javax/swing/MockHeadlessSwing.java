@@ -60,7 +60,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Cursor;
-import java.awt.DefaultKeyboardFocusManager;
 import java.awt.Desktop;
 import java.awt.Dialog;
 import java.awt.Dimension;
@@ -1340,32 +1339,10 @@ public final class MockHeadlessSwing {
     }
 
     /**
-     * Replacement for {@code Cursor.getDefaultCursor()}. A predefined cursor is a description, not
-     * a native resource, so a headless JVM builds one happily; only
-     * {@link #replacement_getSystemCustomCursor(String)} needs the display. Returning null here
-     * starved every SUT that asks for a cursor and then uses it - squirrel-sql's CursorChanger does
-     * {@code if (newCursor == null) throw new IllegalArgumentException("null Cursor passed")},
-     * which made 12 action classes unable to run actionPerformed at all.
-     *
-     * @return the default cursor
-     */
-    public static Cursor replacement_getDefaultCursor() {
-        return Cursor.getDefaultCursor();
-    }
-
-    /**
-     * Replacement for {@code Cursor.getPredefinedCursor(int)}. Works headless; see
-     * {@link #replacement_getDefaultCursor()}.
-     *
-     * @param type predefined cursor type
-     * @return the predefined cursor
-     */
-    public static Cursor replacement_getPredefinedCursor(int type) {
-        return Cursor.getPredefinedCursor(type);
-    }
-
-    /**
-     * Replacement for {@code Cursor.getSystemCustomCursor(String)}.
+     * Replacement for {@code Cursor.getSystemCustomCursor(String)}. Of the cursor factories only
+     * this one needs the display. The predefined cursors and {@code new Cursor(int)} work headless
+     * and are not replaced: returning null for them made squirrel-sql's CursorChanger reject the
+     * cursor, so 12 action classes never reached actionPerformed.
      *
      * @param name cursor name
      * @return system custom cursor or null in headless mode when mocking is enabled
@@ -1376,17 +1353,6 @@ public final class MockHeadlessSwing {
             return null;
         }
         return Cursor.getSystemCustomCursor(name);
-    }
-
-    /**
-     * Replacement for {@code new Cursor(int)}. Works headless; see
-     * {@link #replacement_getDefaultCursor()}.
-     *
-     * @param type predefined cursor type
-     * @return a cursor instance
-     */
-    public static Cursor replacement_newCursor(int type) {
-        return new Cursor(type);
     }
 
     /**
@@ -2438,21 +2404,10 @@ public final class MockHeadlessSwing {
     }
 
     /**
-     * Replacement for {@code KeyboardFocusManager.getCurrentKeyboardFocusManager()}. Focus
-     * bookkeeping needs no display - the JDK hands out a DefaultKeyboardFocusManager headless too -
-     * and a null here only moves the failure one call later: freemind's IndependantMapViewCreator
-     * dies with "Cannot invoke KeyboardFocusManager.addPropertyChangeListener because
-     * \"focusManager\" is null". With no focus owner the real manager answers everything with null,
-     * which is what a SUT asking about focus in a headless run should see.
-     *
-     * @return the current keyboard focus manager
-     */
-    public static KeyboardFocusManager replacement_getCurrentKeyboardFocusManager() {
-        return KeyboardFocusManager.getCurrentKeyboardFocusManager();
-    }
-
-    /**
      * Replacement for {@code KeyboardFocusManager.setCurrentKeyboardFocusManager(KeyboardFocusManager)}.
+     * Reading the current manager and {@code new DefaultKeyboardFocusManager()} work headless and
+     * are not replaced: a null manager only moved the failure one call later (freemind's
+     * IndependantMapViewCreator).
      *
      * @param manager the keyboard focus manager
      */
@@ -2461,16 +2416,6 @@ public final class MockHeadlessSwing {
             return;
         }
         KeyboardFocusManager.setCurrentKeyboardFocusManager(manager);
-    }
-
-    /**
-     * Replacement for {@code new DefaultKeyboardFocusManager()}. Works headless; see
-     * {@link #replacement_getCurrentKeyboardFocusManager()}.
-     *
-     * @return a keyboard focus manager
-     */
-    public static DefaultKeyboardFocusManager replacement_newDefaultKeyboardFocusManager() {
-        return new DefaultKeyboardFocusManager();
     }
 
     /**

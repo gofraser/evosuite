@@ -25,8 +25,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Emits cumulative array-allocation accounting around JVM array opcodes.
@@ -39,8 +37,7 @@ public class ArrayAllocationMethodAdapter extends GeneratorAdapter {
 
     private static final int REFERENCE_ELEMENT_WIDTH_BYTES = 8;
 
-    public ArrayAllocationMethodAdapter(MethodVisitor mv, String className, int access,
-                                        String methodName, String desc) {
+    public ArrayAllocationMethodAdapter(MethodVisitor mv, int access, String methodName, String desc) {
         super(Opcodes.ASM9, mv, access, methodName, desc);
     }
 
@@ -71,11 +68,10 @@ public class ArrayAllocationMethodAdapter extends GeneratorAdapter {
      */
     @Override
     public void visitMultiANewArrayInsn(String desc, int dims) {
-        Map<Integer, Integer> locals = new HashMap<>();
+        int[] locals = new int[dims];
         for (int i = dims - 1; i >= 0; i--) {
-            int local = newLocal(Type.INT_TYPE);
-            storeLocal(local);
-            locals.put(i, local);
+            locals[i] = newLocal(Type.INT_TYPE);
+            storeLocal(locals[i]);
         }
 
         push(dims);
@@ -83,7 +79,7 @@ public class ArrayAllocationMethodAdapter extends GeneratorAdapter {
         for (int i = 0; i < dims; i++) {
             dup();
             push(i);
-            loadLocal(locals.get(i));
+            loadLocal(locals[i]);
             arrayStore(Type.INT_TYPE);
         }
         push(multiArrayElementWidthBytes(desc, dims));
@@ -92,7 +88,7 @@ public class ArrayAllocationMethodAdapter extends GeneratorAdapter {
                 "checkAndRecord", "([II)V", false);
 
         for (int i = 0; i < dims; i++) {
-            loadLocal(locals.get(i));
+            loadLocal(locals[i]);
         }
         super.visitMultiANewArrayInsn(desc, dims);
     }

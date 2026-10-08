@@ -692,7 +692,6 @@ public class DataDependencyUtil {
         if (setterAnalysisTimedOut()) {
             return;
         }
-        int initialRelationCount = cascadingCallRelations.size();
         List<BytecodeInstruction> insList = null;
 
         try {
@@ -702,26 +701,19 @@ public class DataDependencyUtil {
                             .getInstructionsIn(className, methodName);
 
             if (insList == null) {
-                GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                        .registerClass(className);
+                GraphPool.getInstance(classLoader).registerClass(className);
 
                 insList =
                         BytecodeInstructionPool.getInstance(classLoader)
                                 .getInstructionsIn(className, methodName);
                 if (insList == null) {
-                    Class<?> c =
-                            TestGenerationContext.getInstance()
-                                    .getClassLoaderForSUT()
-                                    .loadClass(className);
-                    Class<?> superClass = c.getSuperclass();
+                    Class<?> superClass = classLoader.loadClass(className).getSuperclass();
 
                     while (superClass != null) {
                         String superClassName = superClass.getCanonicalName();
 
                         insList =
-                                BytecodeInstructionPool.getInstance(
-                                                TestGenerationContext.getInstance()
-                                                        .getClassLoaderForSUT())
+                                BytecodeInstructionPool.getInstance(classLoader)
                                         .getInstructionsIn(superClassName, methodName);
 
                         if (insList != null) {
@@ -739,12 +731,13 @@ public class DataDependencyUtil {
         int fieldWriteOpcode =
                 Modifier.isStatic(field.getModifiers()) ? Opcodes.PUTSTATIC : Opcodes.PUTFIELD;
         String fieldOwner = field.getDeclaringClass().getName().replace('.', '/');
+        boolean containerField = isContainerType(field.getType());
         if (insList != null) {
             for (BytecodeInstruction ins : insList) {
                 if (setterAnalysisTimedOut()) {
                     return;
                 }
-                if (isContainerType(field.getType())) {
+                if (containerField) {
                     if (isCallElementModification(ins, field, cascadingCallRelations)) {
                         ValueSettings settings =
                                 new ValueSettings(
@@ -799,10 +792,6 @@ public class DataDependencyUtil {
                 }
             }
         }
-        while (cascadingCallRelations.size() > initialRelationCount) {
-            cascadingCallRelations.remove(cascadingCallRelations.size() - 1);
-        }
-
     }
 
     /**

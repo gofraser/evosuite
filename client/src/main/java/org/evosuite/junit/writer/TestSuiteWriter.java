@@ -38,6 +38,7 @@ import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testsuite.PrefixMergingInserter;
 import org.evosuite.utils.FileIOUtils;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.runner.RunWith;
@@ -50,6 +51,7 @@ import javax.swing.*;
 import java.io.File;
 import java.io.PrintStream;
 import java.util.*;
+import java.util.function.Function;
 
 import static org.evosuite.junit.writer.TestSuiteWriterUtils.*;
 
@@ -124,31 +126,7 @@ public class TestSuiteWriter implements Opcodes {
      * @return Index of the test case
      */
     public int insertTest(TestCase test) {
-        if (Properties.CALL_PROBABILITY <= 0) {
-            for (int i = 0; i < testCases.size(); i++) {
-                if (test.isPrefix(testCases.get(i))) {
-                    // It's shorter than an existing one
-                    // test_cases.set(i, test);
-                    logger.info("This is a prefix of an existing test");
-                    testCases.get(i).addAssertions(test);
-                    return i;
-                } else {
-                    // Already have that one...
-                    if (testCases.get(i).isPrefix(test)) {
-                        test.addAssertions(testCases.get(i));
-                        testCases.set(i, test);
-                        logger.info("We have a prefix of this one");
-                        return i;
-                    }
-                }
-            }
-        }
-        logger.info("Adding new test case:");
-        if (logger.isDebugEnabled()) {
-            logger.debug(test.toCode());
-        }
-        testCases.add(test);
-        return testCases.size() - 1;
+        return PrefixMergingInserter.insert(testCases, test, Function.identity(), logger);
     }
 
     /**

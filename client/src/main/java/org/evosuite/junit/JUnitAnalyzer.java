@@ -887,13 +887,8 @@ public abstract class JUnitAnalyzer {
                         + "abandoning JUnit check and keeping the suite as-is. "
                         + "An orphan runner thread will continue until process exit.",
                         graceMs);
-                // The orphan keeps running, so it will never call goingToEndTestCase(). Take the
-                // sandbox lock back on its behalf now rather than making the next test execution
-                // discover the leak by burning its whole acquisition timeout.
-                Sandbox.abandonThread(runnerThread.get());
-                checkRunnerAbandoned = true;
-                recordCheckIncomplete("runner did not respond " + graceMs + " ms after interrupt");
-                return JUnitResult.allPassed(testClasses.length);
+                return abandonRunner(runnerThread.get(),
+                        "runner did not respond " + graceMs + " ms after interrupt", testClasses.length);
             } catch (CancellationException ce) {
                 // The check was cancelled rather than completed, so it observed no failure for
                 // any specific test. Treating that as "every test failed" would throw away a
@@ -901,10 +896,8 @@ public abstract class JUnitAnalyzer {
                 // is the wrong trade: report the tests as passing and skip the phase.
                 logger.error("JUnit check was cancelled before completing; "
                         + "keeping the suite as-is without checking it.");
-                Sandbox.abandonThread(runnerThread.get());
-                checkRunnerAbandoned = true;
-                recordCheckIncomplete("runner was cancelled before completing");
-                return JUnitResult.allPassed(testClasses.length);
+                return abandonRunner(runnerThread.get(), "runner was cancelled before completing",
+                        testClasses.length);
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
@@ -1573,6 +1566,25 @@ public abstract class JUnitAnalyzer {
         CHECK_INCOMPLETE = false;
         INCOMPLETE_CHECK_ROUNDS = 0;
         trackCheckIncompleteness();
+    }
+
+    /**
+     * Gives up on a JUnit check whose runner did not finish, keeping the suite as it is.
+     *
+     * <p>The orphan runner keeps running, so it will never call goingToEndTestCase(). The sandbox
+     * lock is taken back on its behalf now rather than making the next test execution discover the
+     * leak by burning its whole acquisition timeout.
+     *
+     * @param runner the runner thread, or null if it never started
+     * @param reason why the check was abandoned
+     * @param testCount the number of test classes the check covered
+     * @return a result reporting every test as passing
+     */
+    private static JUnitResult abandonRunner(Thread runner, String reason, int testCount) {
+        Sandbox.abandonThread(runner);
+        checkRunnerAbandoned = true;
+        recordCheckIncomplete(reason);
+        return JUnitResult.allPassed(testCount);
     }
 
     /**

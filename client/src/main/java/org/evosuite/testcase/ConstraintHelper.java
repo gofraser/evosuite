@@ -157,19 +157,10 @@ public class ConstraintHelper {
             return false;
         }
 
-        // Do not call VariableReference#getStPosition() here. If a synthesized test temporarily
-        // contains an orphan/stale argument, getStPosition() builds its assertion message by
-        // rendering every statement. During overload detection that re-enters TestCodeVisitor,
-        // which calls this method again and eventually overflows the stack. Statement parameters
-        // normally share the exact return-value object, so an identity lookup is both sufficient
-        // and safe; an orphan simply is not known to be null.
-        int position = -1;
-        for (int i = 0; i < tc.size(); i++) {
-            if (tc.getStatement(i).getReturnValue() == vr) {
-                position = i;
-                break;
-            }
-        }
+        // Statement parameters normally share the exact return-value object, so an identity
+        // lookup is sufficient, and unlike getStPosition() it does not throw for an orphan/stale
+        // argument a synthesized test may temporarily hold; an orphan simply is not known to be null.
+        int position = tc.positionOfReturnValue(vr);
         if (position < 0) {
             return false;
         }

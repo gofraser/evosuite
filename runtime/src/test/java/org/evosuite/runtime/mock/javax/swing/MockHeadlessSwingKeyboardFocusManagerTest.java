@@ -47,8 +47,8 @@ public class MockHeadlessSwingKeyboardFocusManagerTest {
     }
 
     /**
-     * The focus manager replacements deliberately pass through to the real JDK rather than
-     * returning null. Focus bookkeeping needs no display, and returning null only moved the
+     * The current focus manager is deliberately left to the real JDK rather than replaced by a
+     * mock returning null. Focus bookkeeping needs no display, and returning null only moved the
      * failure one call later: freemind's {@code IndependantMapViewCreator} died with "Cannot
      * invoke KeyboardFocusManager.addPropertyChangeListener because focusManager is null" in 20
      * generated suites of the SF110 replication. With no focus owner the real manager answers
@@ -61,7 +61,7 @@ public class MockHeadlessSwingKeyboardFocusManagerTest {
     @Test
     public void keyboardFocusManagerStaticCallsPassThroughWhenHeadlessAndMockingEnabled() {
         Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
-        Assertions.assertNotNull(MockHeadlessSwing.replacement_getCurrentKeyboardFocusManager());
+        Assertions.assertNotNull(java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager());
         Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_setCurrentKeyboardFocusManager(null));
     }
 

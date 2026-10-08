@@ -110,6 +110,9 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     }
 
     private static boolean hasNullGenericArrayComponent(Type type) {
+        if (type == null || type instanceof Class) {
+            return false;
+        }
         return hasNullGenericArrayComponent(type, Collections.newSetFromMap(new IdentityHashMap<>()));
     }
 
@@ -1790,16 +1793,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return boolean
      */
     public boolean isGenericSuperTypeOf(GenericClass<?> subType) {
-        if (hasNullGenericArrayComponent(type) || hasNullGenericArrayComponent(subType.getType())) {
-            logger.debug("Cannot compare malformed generic array type {} with {}", type, subType.getType());
-            return false;
-        }
-        try {
-            return GenericTypeReflector.isSuperType(type, subType.getType());
-        } catch (NullPointerException e) {
-            logger.debug("Cannot compare malformed generic type {} with {}", type, subType.getType(), e);
-            return false;
-        }
+        return isGenericSuperTypeOf(subType.getType());
     }
 
     /**

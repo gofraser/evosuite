@@ -989,13 +989,10 @@ public class TestCodeVisitor extends TestVisitor {
         if (variableReference == null || test == null) {
             return -1;
         }
-        // Avoid VariableReference#getStPosition() here: on stale/orphan references it
-        // builds diagnostics via Statement#getCode(), which re-enters this visitor and
-        // can recurse indefinitely while we are already rendering code.
-        for (int i = 0; i < test.size(); i++) {
-            if (test.getStatement(i).getReturnValue() == variableReference) {
-                return i;
-            }
+        // Avoid VariableReference#getStPosition() here: it throws on stale/orphan references.
+        int position = test.positionOfReturnValue(variableReference);
+        if (position >= 0) {
+            return position;
         }
         for (int i = 0; i < test.size(); i++) {
             VariableReference candidate = test.getStatement(i).getReturnValue();
@@ -2073,14 +2070,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (thisParameterTypes == null || arguments == null || otherParameterTypes == null) {
             return false;
         }
-        boolean hasRenderedNull = false;
-        for (int i = startPos; i < arguments.size() && i < thisParameterTypes.length; i++) {
-            if (isRenderedNullArgument(arguments.get(i))) {
-                hasRenderedNull = true;
-                break;
-            }
-        }
-        if (!hasRenderedNull) {
+        if (!hasRenderedNullArgument(thisParameterTypes, arguments, startPos)) {
             return false;
         }
 
@@ -2109,6 +2099,20 @@ public class TestCodeVisitor extends TestVisitor {
         return false;
     }
 
+    /**
+     * Whether a parameter slot from {@code startPos} on receives an argument rendered as a bare null.
+     */
+    private boolean hasRenderedNullArgument(Class<?>[] parameterTypes,
+                                            List<VariableReference> arguments,
+                                            int startPos) {
+        for (int i = startPos; i < arguments.size() && i < parameterTypes.length; i++) {
+            if (isRenderedNullArgument(arguments.get(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean requiresNullArgumentDisambiguation(Constructor<?> constructor,
                                                        List<VariableReference> arguments,
                                                        int startPos) {
@@ -2116,6 +2120,9 @@ public class TestCodeVisitor extends TestVisitor {
             return false;
         }
         Class<?>[] thisParameterTypes = constructor.getParameterTypes();
+        if (!hasRenderedNullArgument(thisParameterTypes, arguments, startPos)) {
+            return false;
+        }
         List<Class<?>[]> alternatives = new ArrayList<>();
         // EvoSuite emits the *_ESTest into the target class's own package, so
         // javac resolves overloads against every non-private constructor, not
@@ -2143,6 +2150,9 @@ public class TestCodeVisitor extends TestVisitor {
             return false;
         }
         Class<?>[] thisParameterTypes = method.getParameterTypes();
+        if (!hasRenderedNullArgument(thisParameterTypes, arguments, startPos)) {
+            return false;
+        }
         List<Class<?>[]> alternatives = new ArrayList<>();
         // javac resolves an overloaded call against the *receiver's* static type,
         // not the type that declares the resolved method. When EvoSuite invokes a

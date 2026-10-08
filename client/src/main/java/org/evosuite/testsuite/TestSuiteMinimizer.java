@@ -691,7 +691,7 @@ public class TestSuiteMinimizer {
                 // reproduce their coverage, and an empty/failing test would
                 // just bloat the output suite.
                 if (covered.size() > coveredBefore) {
-                    insertMinimizedTest(minimizedTests, copy);
+                    PrefixMergingInserter.insert(minimizedTests, copy, TestChromosome::getTestCase, logger);
                     keptMinimizedTests++;
                 } else {
                     discardedMinimizedTestsWithoutCoverage++;
@@ -788,32 +788,6 @@ public class TestSuiteMinimizer {
             }
         }
         return statusForStopCause(incompleteStopCause);
-    }
-
-    private static void insertMinimizedTest(List<TestChromosome> minimizedTests, TestChromosome candidate) {
-        if (Properties.CALL_PROBABILITY <= 0) {
-            TestCase candidateTest = candidate.getTestCase();
-            for (int i = 0; i < minimizedTests.size(); i++) {
-                TestChromosome existing = minimizedTests.get(i);
-                TestCase existingTest = existing.getTestCase();
-                if (candidateTest.isPrefix(existingTest)) {
-                    logger.info("This is a prefix of an existing test");
-                    existingTest.addAssertions(candidateTest);
-                    return;
-                }
-                if (existingTest.isPrefix(candidateTest)) {
-                    candidateTest.addAssertions(existingTest);
-                    minimizedTests.set(i, candidate);
-                    logger.info("We have a prefix of this one");
-                    return;
-                }
-            }
-        }
-        logger.info("Adding new test case:");
-        if (logger.isDebugEnabled()) {
-            logger.debug(candidate.getTestCase().toCode());
-        }
-        minimizedTests.add(candidate);
     }
 
     private boolean isTimeoutReached() {

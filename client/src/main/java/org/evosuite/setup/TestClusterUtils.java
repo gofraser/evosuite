@@ -297,14 +297,12 @@ public class TestClusterUtils {
         if (!result.isNamed()) {
             return false;
         }
+        // Prefix alone is not provenance (see the Javadoc above): a java.* or jdk.* module counts
+        // only if it was actually resolved from the running JDK's image, not merely named like
+        // one that exists somewhere in it. The other names below never carry those prefixes.
         String name = result.moduleName();
-        if (name.startsWith("java.") || name.startsWith("jdk.")) {
-            // Prefix alone is not provenance (see the Javadoc above): confirm this class's own
-            // module was actually resolved from the running JDK's image, not merely named like
-            // one that exists somewhere in it.
-            return JavaModuleLookup.isFromSystemImage(result);
-        }
-        return name.startsWith("javafx.") || name.equals("java") || name.equals("jdk");
+        return JavaModuleLookup.isSystemImageJdkModule(result)
+                || name.startsWith("javafx.") || name.equals("java") || name.equals("jdk");
     }
 
     /**

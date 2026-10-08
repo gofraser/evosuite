@@ -106,11 +106,8 @@ public class AssignmentStatement extends AbstractStatement {
      * @param target the statement's assignment target
      */
     private static void rejectFinalFieldTarget(VariableReference target) {
-        if (!(target instanceof FieldReference)) {
-            return;
-        }
-        GenericField field = ((FieldReference) target).getField();
-        if (field == null || !field.isFinal()) {
+        GenericField field = finalFieldTarget(target);
+        if (field == null) {
             return;
         }
         String message = "Refusing to construct an assignment statement targeting final field "
@@ -118,6 +115,20 @@ public class AssignmentStatement extends AbstractStatement {
                 + "; direct writes to final fields are never legal Java";
         logger.error(message);
         throw new IllegalArgumentException(message);
+    }
+
+    /**
+     * Returns the final field {@code target} writes to, or null if it is not a final field.
+     *
+     * @param target an assignment target
+     * @return the final field, or null
+     */
+    private static GenericField finalFieldTarget(VariableReference target) {
+        if (!(target instanceof FieldReference)) {
+            return null;
+        }
+        GenericField field = ((FieldReference) target).getField();
+        return field != null && field.isFinal() ? field : null;
     }
 
     /**
@@ -605,16 +616,14 @@ public class AssignmentStatement extends AbstractStatement {
     @Override
     public void changeClassLoader(ClassLoader loader) {
         super.changeClassLoader(loader);
-        if (retval instanceof FieldReference) {
-            GenericField field = ((FieldReference) retval).getField();
-            if (field != null && field.isFinal()) {
-                String message = "Rejecting a reconstructed assignment statement that targets "
-                        + "final field " + field.getDeclaringClass().getName() + "."
-                        + field.getName() + " after a classloader change; direct writes to "
-                        + "final fields are never legal Java";
-                logger.error(message);
-                throw new IllegalStateException(message);
-            }
+        GenericField field = finalFieldTarget(retval);
+        if (field != null) {
+            String message = "Rejecting a reconstructed assignment statement that targets "
+                    + "final field " + field.getDeclaringClass().getName() + "."
+                    + field.getName() + " after a classloader change; direct writes to "
+                    + "final fields are never legal Java";
+            logger.error(message);
+            throw new IllegalStateException(message);
         }
     }
 

@@ -250,7 +250,7 @@ public final class LlmPostProcessingEditApplier {
 
     private static boolean bindExpression(String expression, LlmPostProcessingReferences references,
                                           Map<String, Integer> bindings) {
-        Set<String> symbolicVariables = TemplateCodeAssertion.extractSymbolicVariables(expression);
+        Set<String> symbolicVariables = LlmPostProcessingExpressionUtils.extractSymbolicVariables(expression);
         for (String variableId : symbolicVariables) {
             if (!references.hasVariableId(variableId)) {
                 return false;

@@ -226,11 +226,6 @@ public class EvoSocketChannel extends SocketChannel {
                 && !socket.isClosed() && !socket.isOutputShutdown();
     }
 
-    /** Connections are completed synchronously by the virtual network. */
-    boolean isConnectionReady() {
-        return false;
-    }
-
     @Override
     public int read(ByteBuffer dst) throws IOException {
         ensureOpenAndConnected();

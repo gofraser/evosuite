@@ -33,17 +33,8 @@ import org.objectweb.asm.Opcodes;
  */
 public class ArrayAllocationClassAdapter extends ClassVisitor {
 
-    private String className;
-
     public ArrayAllocationClassAdapter(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);
-    }
-
-    @Override
-    public void visit(int version, int access, String name, String signature,
-                      String superName, String[] interfaces) {
-        className = name;
-        super.visit(version, access, name, signature, superName, interfaces);
     }
 
     @Override
@@ -59,6 +50,6 @@ public class ArrayAllocationClassAdapter extends ClassVisitor {
             return mv;
         }
 
-        return new ArrayAllocationMethodAdapter(mv, className, access, name, desc);
+        return new ArrayAllocationMethodAdapter(mv, access, name, desc);
     }
 }

@@ -284,6 +284,21 @@ final class JavaModuleLookup {
     }
 
     /**
+     * Whether {@code result} is a named {@code java.*} or {@code jdk.*} module that was resolved
+     * from the running JDK's own install image (see {@link #isFromSystemImage(Result)}).
+     *
+     * @param result a {@link #lookupModule(Class)} outcome
+     * @return true for a genuine JDK module
+     */
+    static boolean isSystemImageJdkModule(Result result) {
+        if (!result.isNamed()) {
+            return false;
+        }
+        String name = result.moduleName();
+        return (name.startsWith("java.") || name.startsWith("jdk.")) && isFromSystemImage(result);
+    }
+
+    /**
      * Whether {@code result}'s module is one the <em>running JDK's own install image</em> actually
      * shipped it from, rather than merely one with a {@code java.}/{@code jdk.}-prefixed name.
      *

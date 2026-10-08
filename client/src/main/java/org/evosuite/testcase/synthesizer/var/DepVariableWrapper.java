@@ -6,6 +6,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.synthesizer.VariableInTest;
 import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
 import org.evosuite.testcase.variable.VariableReference;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
@@ -107,15 +108,10 @@ public abstract class DepVariableWrapper {
             } else {
                 DepVariable other = varWrapper.var;
                 if (var.getType() == other.getType()) {
-                    if (var.getType() == DepVariable.INSTANCE_FIELD) {
-                        FieldInsnNode thatField = (FieldInsnNode)(var.getInstruction().getASMNode());
-                        FieldInsnNode thisField = (FieldInsnNode)(other.getInstruction().getASMNode());
-                        return thisField.desc.equals(thatField.desc)
-                                && thisField.owner.equals(thatField.owner)
-                                && thisField.name.equals(thatField.name);
-                    } else if (var.getType() == DepVariable.STATIC_FIELD) {
-                        FieldInsnNode thatField = (FieldInsnNode)(var.getInstruction().getASMNode());
-                        FieldInsnNode thisField = (FieldInsnNode)(other.getInstruction().getASMNode());
+                    if (var.getType() == DepVariable.INSTANCE_FIELD
+                            || var.getType() == DepVariable.STATIC_FIELD) {
+                        FieldInsnNode thatField = (FieldInsnNode) (var.getInstruction().getASMNode());
+                        FieldInsnNode thisField = (FieldInsnNode) (other.getInstruction().getASMNode());
                         return thisField.desc.equals(thatField.desc)
                                 && thisField.owner.equals(thatField.owner)
                                 && thisField.name.equals(thatField.name);
@@ -125,31 +121,18 @@ public abstract class DepVariableWrapper {
                                 && var.getParamOrder() == other.getParamOrder();
                     } else if (var.getType() == DepVariable.THIS) {
                         return var.getInstruction().getClassName().equals(other.getInstruction().getClassName());
-                    } else if (var.getType() == DepVariable.ARRAY_ELEMENT) {
-                        //FIXME ziheng
                     } else if (var.getType() == DepVariable.OTHER) {
-                        //FIXME ziheng
-                        // we need to come up with how to define the equivalence of two instruction like
-                        // method call, etc.
-
-                        if (var.getInstruction().toString().contains("ALOAD")
-                                && other.getInstruction().toString().contains("ALOAD")) {
-
-                            if (var.getInstruction().getClassName().equals(other.getInstruction().getClassName())
-                                    && var.getInstruction().getMethodName()
-                                            .equals(other.getInstruction().getMethodName())) {
-
-                                AbstractInsnNode node1 = var.getInstruction().getASMNode();
-                                AbstractInsnNode node2 = other.getInstruction().getASMNode();
-                                if (node1 instanceof VarInsnNode && node2 instanceof VarInsnNode) {
-                                    VarInsnNode v1 = (VarInsnNode)node1;
-                                    VarInsnNode v2 = (VarInsnNode)node2;
-
-                                    return (v1.var == v2.var);
-                                }
-                            }
-
-                        }
+                        // Two loads of the same local variable slot in the same method are the same
+                        // value. Equivalence of other instructions, such as method calls, is not
+                        // defined yet. (ARRAY_ELEMENT has no equivalence either.)
+                        AbstractInsnNode node1 = var.getInstruction().getASMNode();
+                        AbstractInsnNode node2 = other.getInstruction().getASMNode();
+                        return node1.getOpcode() == Opcodes.ALOAD
+                                && node2.getOpcode() == Opcodes.ALOAD
+                                && var.getInstruction().getClassName().equals(other.getInstruction().getClassName())
+                                && var.getInstruction().getMethodName()
+                                        .equals(other.getInstruction().getMethodName())
+                                && ((VarInsnNode) node1).var == ((VarInsnNode) node2).var;
                     }
                 }
 

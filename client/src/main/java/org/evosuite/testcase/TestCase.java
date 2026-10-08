@@ -509,6 +509,24 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     int size();
 
     /**
+     * Returns the position of the statement whose return value is {@code reference} itself.
+     *
+     * <p>Unlike {@link VariableReference#getStPosition()} this matches by identity and does not
+     * throw for a reference no statement defines.
+     *
+     * @param reference the reference to look up
+     * @return the position, or -1 if no statement returns this exact reference
+     */
+    default int positionOfReturnValue(VariableReference reference) {
+        for (int i = 0; i < size(); i++) {
+            if (getStatement(i).getReturnValue() == reference) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
      * Get number of statements plus the number of assertions.
      *
      * @return Number of statements plus number of assertions

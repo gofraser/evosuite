@@ -386,13 +386,21 @@ public class LlmPostProcessor {
         return count;
     }
 
+    /**
+     * Whether assertion lifecycle and diagnostic records are written. They only feed the trace,
+     * so without one there is nothing to build or to keep for the final reconciliation.
+     */
+    private boolean isTracing() {
+        return llmService != null && llmService.isTraceEnabled();
+    }
+
     void recordAssertionLifecycle(
             List<LlmPostProcessingResponse.AssertionProposal> proposals,
             int testIndex,
             MinimizationResult minimizationResult,
             String lifecycleState,
             String callKind) {
-        if (proposals == null || llmService == null) {
+        if (proposals == null || !isTracing()) {
             return;
         }
         for (LlmPostProcessingResponse.AssertionProposal proposal : proposals) {
@@ -438,7 +446,7 @@ public class LlmPostProcessor {
             List<TemplateCodeAssertion> appliedAssertions,
             int testIndex,
             MinimizationResult minimizationResult) {
-        if (response == null || appliedAssertions == null || appliedAssertions.isEmpty()) {
+        if (response == null || appliedAssertions == null || appliedAssertions.isEmpty() || !isTracing()) {
             return;
         }
         Map<String, LlmPostProcessingResponse.AssertionProposal> proposals = proposalsById(response);
@@ -608,7 +616,7 @@ public class LlmPostProcessor {
                                    MinimizationResult minimizationResult,
                                    String callKind,
                                    String diagnosticSource) {
-        if (diagnostics == null || diagnostics.isEmpty() || llmService == null) {
+        if (diagnostics == null || diagnostics.isEmpty() || !isTracing()) {
             return;
         }
         Map<String, LlmPostProcessingResponse.AssertionProposal> proposalsById =

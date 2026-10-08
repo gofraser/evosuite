@@ -25,7 +25,6 @@ import org.evosuite.testcase.synthesizer.ConstructionReferenceUtil;
 import org.evosuite.testcase.synthesizer.DataDependencyUtil;
 import org.evosuite.testcase.synthesizer.FieldInitializer;
 import org.evosuite.testcase.synthesizer.NonPrimitiveFieldInitializer;
-import org.evosuite.testcase.synthesizer.ParameterMatch;
 import org.evosuite.testcase.synthesizer.PrimitiveFieldInitializer;
 import org.evosuite.testcase.synthesizer.ReflectionUtil;
 import org.evosuite.testcase.synthesizer.UsedReferenceSearcher;
@@ -36,12 +35,13 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -53,6 +53,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 public class VariableCodeGenerationUtil {
+
+    private static final Logger logger = LoggerFactory.getLogger(VariableCodeGenerationUtil.class);
 
     /**
      * Resolves an ASM type to the corresponding class, loading it through the class loader of the SUT.
@@ -110,7 +112,7 @@ public class VariableCodeGenerationUtil {
                     return clazzArray;
                 }
             } catch (ClassNotFoundException e) {
-                e.printStackTrace();
+                logger.debug("Ignored failure during object-rule synthesis", e);
             }
         }
         return null;
@@ -163,7 +165,6 @@ public class VariableCodeGenerationUtil {
      * @param fieldDeclaringClass class declaring the field
      * @param field field for which the getter is generated
      * @param usedRefSearcher helper for locating existing references
-     * @param fieldGetter getter method to invoke
      * @return the generated getter result, or {@code null}
      * @throws ConstructionFailedException if statement construction fails
      */
@@ -173,8 +174,7 @@ public class VariableCodeGenerationUtil {
             Map<DepVariableWrapper, VarRelevance> map,
             Class<?> fieldDeclaringClass,
             Field field,
-            UsedReferenceSearcher usedRefSearcher,
-            Method fieldGetter)
+            UsedReferenceSearcher usedRefSearcher)
             throws ConstructionFailedException {
 
         /*
@@ -224,15 +224,8 @@ public class VariableCodeGenerationUtil {
                                 UsedReferenceSearcher searcher = new UsedReferenceSearcher();
                                 String methodName = constructorStat.getMethodName() + constructorStat.getDescriptor();
 
-                                ParameterMatch result =
-                                        searcher.searchRelevantParameterOfSetterInTest(
-                                                fieldDeclaringClass.getCanonicalName(),
-                                                methodName,
-                                                field);
-                                List<VariableReference> paramRefs = new ArrayList<>();
-                                for (Integer index : result.parameterPoisitions) {
-                                    paramRefs.add(paramList.get(index));
-                                }
+                                List<VariableReference> paramRefs = searcher.relevantSetterArguments(
+                                        paramList, fieldDeclaringClass.getCanonicalName(), methodName, field);
 
                                 if (!paramRefs.isEmpty()) {
                                     return paramRefs.get(0);
@@ -243,142 +236,9 @@ public class VariableCodeGenerationUtil {
                         }
                     }
                 } catch (ClassNotFoundException e) {
-                    e.printStackTrace();
+                    logger.debug("Ignored failure during object-rule synthesis", e);
                 } catch (ConstructionFailedException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            if (fieldSetter != null) {
-                insertionPostion = fieldSetter.getStPosition() + 1;
-                if (targetObjectReference != null
-                        && targetObjectReference.getStPosition() > fieldSetter.getStPosition()) {
-                    insertionPostion = targetObjectReference.getStPosition() + 1;
-                }
-            } else if (targetObjectReference == null) {
-                EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
-                insertionPostion = methodStat.getPosition() - 1;
-            } else {
-                insertionPostion = targetObjectReference.getStPosition() + 1;
-            }
-        }
-
-        if (fieldGetter != null) {
-            VariableReference newParentVarRef = null;
-            GenericMethod genericMethod = new GenericMethod(fieldGetter, fieldGetter.getDeclaringClass());
-            if (targetObjectReference == null) {
-                newParentVarRef =
-                        TestFactory.getInstance()
-                                .addMethod(test, genericMethod, insertionPostion, 2, false);
-            } else {
-                genericMethod = genericMethod.copyWithNewOwner(targetObjectReference.getGenericClass());
-                newParentVarRef =
-                        TestFactory.getInstance()
-                                .addMethodFor(
-                                        test,
-                                        targetObjectReference,
-                                        genericMethod,
-                                        insertionPostion,
-                                        false);
-            }
-            return newParentVarRef;
-        }
-
-        return null;
-    }
-
-    /**
-     * Generates a getter invocation for a non-leaf target node.
-     *
-     * @param test the test case being extended
-     * @param targetObjectReference the object owning the field
-     * @param map already generated variables by dependency wrapper
-     * @param fieldDeclaringClass class declaring the field
-     * @param field field for which the getter is generated
-     * @param usedRefSearcher helper for locating existing references
-     * @param b branch being synthesized
-     * @return the generated getter result, or {@code null}
-     * @throws ConstructionFailedException if statement construction fails
-     */
-    public static VariableReference generateFieldGetterInTest(
-            TestCase test,
-            VariableReference targetObjectReference,
-            Map<DepVariableWrapper, VarRelevance> map,
-            Class<?> fieldDeclaringClass,
-            Field field,
-            UsedReferenceSearcher usedRefSearcher,
-            Branch b)
-            throws ConstructionFailedException {
-
-        /*
-         * make sure this field has been set before get, otherwise we may have a null pointer
-         * exception after using the retrieved field.
-         */
-        boolean isPossibleToBeNull =
-                checkNullOfField(test, field, fieldDeclaringClass, targetObjectReference);
-
-        int insertionPostion = targetObjectReference.getStPosition() + 1;
-        if (isPossibleToBeNull) {
-            VariableReference fieldSetter =
-                    usedRefSearcher.searchRelevantFieldWritingReferenceInTest(
-                            test, field, targetObjectReference);
-            if (fieldSetter == null) {
-                try {
-                    fieldSetter =
-                            generateFieldSetterInTest(
-                                    test,
-                                    targetObjectReference,
-                                    map,
-                                    fieldDeclaringClass,
-                                    field,
-                                    false);
-                    if (fieldSetter != null) {
-                        Statement s = test.getStatement(fieldSetter.getStPosition());
-
-                        /*
-                         * if the field setter is a constructor, thus, the object represented by the
-                         * field setter, o_new, should be the target object reference as the field
-                         * is now only relevant to o_new.
-                         */
-                        if (s instanceof ConstructorStatement) {
-                            ConstructorStatement constructorStat = (ConstructorStatement) s;
-                            VariableReference relevantParam = null;
-
-                            for (VariableReference valueRef : constructorStat.getParameterReferences()) {
-                                if (valueRef.getType().equals(field.getGenericType())) {
-                                    relevantParam = valueRef;
-                                }
-                            }
-
-                            if (relevantParam != null) {
-                                return relevantParam;
-                            } else {
-                                List<VariableReference> paramList = constructorStat.getParameterReferences();
-                                UsedReferenceSearcher searcher = new UsedReferenceSearcher();
-                                String methodName = constructorStat.getMethodName() + constructorStat.getDescriptor();
-
-                                ParameterMatch result =
-                                        searcher.searchRelevantParameterOfSetterInTest(
-                                                fieldDeclaringClass.getCanonicalName(),
-                                                methodName,
-                                                field);
-                                List<VariableReference> paramRefs = new ArrayList<>();
-                                for (Integer index : result.parameterPoisitions) {
-                                    paramRefs.add(paramList.get(index));
-                                }
-
-                                if (!paramRefs.isEmpty()) {
-                                    return paramRefs.get(0);
-                                }
-                            }
-
-                            targetObjectReference = fieldSetter;
-                        }
-                    }
-                } catch (ClassNotFoundException e) {
-                    e.printStackTrace();
-                } catch (ConstructionFailedException e) {
-                    e.printStackTrace();
+                    logger.debug("Ignored failure during object-rule synthesis", e);
                 }
             }
 
@@ -476,7 +336,7 @@ public class VariableCodeGenerationUtil {
                     return false;
 
                 } catch (NoSuchMethodException | SecurityException e) {
-                    e.printStackTrace();
+                    logger.debug("Ignored failure during object-rule synthesis", e);
                 }
 
             } catch (ConstructionFailedException e) {
@@ -566,7 +426,7 @@ public class VariableCodeGenerationUtil {
             return parentClass.isAssignableFrom(subClass);
 
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            logger.debug("Ignored failure during object-rule synthesis", e);
         }
 
         return false;
@@ -618,7 +478,7 @@ public class VariableCodeGenerationUtil {
                     TestFactory.getInstance()
                             .addMethodFor(test, usedFieldInTest, genericMethod, position, false);
                 } catch (ConstructionFailedException e) {
-                    e.printStackTrace();
+                    logger.debug("Ignored failure during object-rule synthesis", e);
                 }
             }
         }

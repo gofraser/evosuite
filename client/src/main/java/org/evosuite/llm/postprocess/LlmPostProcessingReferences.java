@@ -77,14 +77,6 @@ public final class LlmPostProcessingReferences {
         return variableIds;
     }
 
-    public Map<String, Integer> getStatementPositions() {
-        return statementPositions;
-    }
-
-    public Map<String, Integer> getVariablePositions() {
-        return variablePositions;
-    }
-
     public boolean hasStatementId(String statementId) {
         return statementPositions.containsKey(statementId);
     }

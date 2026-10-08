@@ -542,13 +542,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     public static boolean hasUsefulMockSurface(Class<?> rawClass) {
         // Called on the object-creation hot path (once per interface/abstract dependency
         // resolution), so cache the per-class reflection scan below.
-        Boolean cached = usefulMockSurfaceCache.get(rawClass);
-        if (cached != null) {
-            return cached;
-        }
-        boolean result = computeHasUsefulMockSurface(rawClass);
-        usefulMockSurfaceCache.put(rawClass, result);
-        return result;
+        return usefulMockSurfaceCache.computeIfAbsent(rawClass, FunctionalMockStatement::computeHasUsefulMockSurface);
     }
 
     private static boolean computeHasUsefulMockSurface(Class<?> rawClass) {

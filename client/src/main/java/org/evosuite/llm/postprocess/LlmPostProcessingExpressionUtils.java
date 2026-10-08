@@ -43,6 +43,13 @@ public final class LlmPostProcessingExpressionUtils {
 
     private static final Pattern SYMBOLIC_VARIABLE = Pattern.compile("\\bv\\d+\\b");
 
+    /** An unmodifiable set of the field names a response object may carry. */
+    static Set<String> allowedFields(String... fields) {
+        Set<String> result = new LinkedHashSet<>();
+        Collections.addAll(result, fields);
+        return Collections.unmodifiableSet(result);
+    }
+
     private LlmPostProcessingExpressionUtils() {
         // Utility class.
     }

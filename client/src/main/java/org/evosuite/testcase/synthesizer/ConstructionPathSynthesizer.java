@@ -244,6 +244,16 @@ public class ConstructionPathSynthesizer {
         return penalty;
     }
 
+    /** Method calls first, then nodes with fewer children first. */
+    private static final Comparator<DepVariableWrapper> CHILD_ORDER = (o1, o2) -> {
+        if (o1.var.isMethodCall() && !o2.var.isMethodCall()) {
+            return -1;
+        } else if (!o1.var.isMethodCall() && o2.var.isMethodCall()) {
+            return 1;
+        }
+        return o1.children.size() - o2.children.size();
+    };
+
     private PartialGraph partialGraph;
     private Map<DepVariableWrapper, VarRelevance> graph2CodeMap;
     private boolean unresolvedRequiredRoot;
@@ -353,20 +363,7 @@ public class ConstructionPathSynthesizer {
                 node.processed = true;
 
                 /* the order of children size matters */
-                Collections.sort(
-                        node.children,
-                        new Comparator<DepVariableWrapper>() {
-                            @Override
-                            public int compare(DepVariableWrapper o1, DepVariableWrapper o2) {
-                                if (o1.var.isMethodCall() && !o2.var.isMethodCall()) {
-                                    return -1;
-                                } else if (!o1.var.isMethodCall() && o2.var.isMethodCall()) {
-                                    return 1;
-                                }
-
-                                return o1.children.size() - o2.children.size();
-                            }
-                        });
+                Collections.sort(node.children, CHILD_ORDER);
 
                 if (node.traverseChildrenAfterGeneration(derived)) {
                     for (DepVariableWrapper child : node.children) {

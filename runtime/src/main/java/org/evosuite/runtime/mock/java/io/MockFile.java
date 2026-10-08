@@ -580,17 +580,15 @@ public class MockFile extends File implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.listFiles(filter);
         }
-        String[] ss = list();
+        String[] ss = list(filter);
         if (ss == null) {
             return null;
         }
-        ArrayList<File> files = new ArrayList<>();
-        for (String s : ss) {
-            if ((filter == null) || filter.accept(this, s)) {
-                files.add(new MockFile(this, s));
-            }
+        File[] files = new File[ss.length];
+        for (int i = 0; i < ss.length; i++) {
+            files[i] = new MockFile(this, ss[i]);
         }
-        return files.toArray(new File[files.size()]);
+        return files;
     }
 
     @Override

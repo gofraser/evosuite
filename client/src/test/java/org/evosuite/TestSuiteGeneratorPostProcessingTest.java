@@ -62,10 +62,10 @@ class TestSuiteGeneratorPostProcessingTest {
         Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
 
-        assertFalse(TestSuiteGenerator.shouldGenerateStandardAssertions());
+        assertFalse(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
 
         Properties.LLM_POSTPROCESSING_ASSERTIONS = false;
-        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions());
+        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
     }
 
     @Test
@@ -76,7 +76,7 @@ class TestSuiteGeneratorPostProcessingTest {
         Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
 
-        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions());
+        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
     }
 
     @Test
@@ -100,6 +100,6 @@ class TestSuiteGeneratorPostProcessingTest {
         Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
 
-        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions());
+        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
     }
 }

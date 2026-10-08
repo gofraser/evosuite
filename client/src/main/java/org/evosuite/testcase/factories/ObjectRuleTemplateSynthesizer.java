@@ -100,23 +100,18 @@ class ObjectRuleTemplateSynthesizer {
         if (b == null) {
             return owner.fallbackToDefault(size, stateBeforeAttempt);
         }
-        TestCase synthesisTest = Objects.requireNonNull(test, "test");
-        Branch synthesisBranch = Objects.requireNonNull(b, "branch");
 
         long synthesisStart = System.currentTimeMillis();
         boolean reachedTargetCall = false;
         boolean producedUsableTemplate = false;
-        boolean freshSynthesisStarted = false;
         boolean immediateCoveredWorkingGoal = false;
         boolean improvedWorkingGoal = false;
         boolean benefitedWorkingGoal = false;
 
-        int originalStatementCount = synthesisTest.size();
+        int originalStatementCount = test.size();
 
         try {
             session.freshSyntheses++;
-
-            freshSynthesisStarted = true;
             ConstructionPathSynthesizer synthesizer = owner.newConstructionPathSynthesizer();
             org.evosuite.testcase.factories.ObjectRuleRuntime runtime =
                     org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime();
@@ -138,7 +133,7 @@ class ObjectRuleTemplateSynthesizer {
                 }
                 preparedGraph = Objects.requireNonNull(preparedGraph, "partial graph");
                 synthesizer.buildNodeStatementCorrespondence(
-                        synthesisTest, synthesisBranch, allowNullValue, preparedGraph, size);
+                        test, b, allowNullValue, preparedGraph, size);
             } finally {
                 if (runtime.synthesisAttemptTimedOut()) {
                     String targetClass = org.evosuite.testcase.synthesizer.TargetContext.activeClassName();
@@ -307,7 +302,7 @@ class ObjectRuleTemplateSynthesizer {
                 if (!acceptedSetupProposal) {
                     FirstShotClassification classification = classifyFirstShot(test, result);
                     immediateCoveredWorkingGoal = classification.immediateCoverage;
-                    improvedWorkingGoal = classification.improvedWorkingGoal;
+                    improvedWorkingGoal = classification.immediateCoverage;
                 }
             } else {
                 return owner.fallbackToDefault(size, stateBeforeAttempt);
@@ -346,28 +341,23 @@ class ObjectRuleTemplateSynthesizer {
         } finally {
             long elapsed = System.currentTimeMillis() - synthesisStart;
             session.templateSynthesisTimeMs += elapsed;
-            if (freshSynthesisStarted) {
-                if (reachedTargetCall) {
-                    session.consecutiveTargetUnreached = 0;
-                    session.constructionTimeAtLastTargetReachMs = session.synthesisTimeMs;
-                } else {
-                    session.consecutiveTargetUnreached++;
-                }
-                if (benefitedWorkingGoal) {
-                    session.consecutiveUnbeneficialSyntheses = 0;
-                    session.constructionTimeAtLastBenefitMs = session.synthesisTimeMs;
-                } else {
-                    session.consecutiveUnbeneficialSyntheses++;
-                }
+            if (reachedTargetCall) {
+                session.consecutiveTargetUnreached = 0;
+                session.constructionTimeAtLastTargetReachMs = session.synthesisTimeMs;
+            } else {
+                session.consecutiveTargetUnreached++;
+            }
+            if (benefitedWorkingGoal) {
+                session.consecutiveUnbeneficialSyntheses = 0;
+                session.constructionTimeAtLastBenefitMs = session.synthesisTimeMs;
+            } else {
+                session.consecutiveUnbeneficialSyntheses++;
             }
 
             // Feed the outcome back to the branch selector's negative cache.
-            if (freshSynthesisStarted) {
-
-                branchSelector()
-                        .recordSynthesisAttempt(
-                                b, producedUsableTemplate, immediateCoveredWorkingGoal);
-            }
+            branchSelector()
+                    .recordSynthesisAttempt(
+                            b, producedUsableTemplate, immediateCoveredWorkingGoal);
         }
 
         return test;
@@ -386,12 +376,6 @@ class ObjectRuleTemplateSynthesizer {
                 session.synthesisTimeMs - session.constructionTimeAtLastTargetReachMs,
                 session.consecutiveUnbeneficialSyntheses,
                 session.synthesisTimeMs - session.constructionTimeAtLastBenefitMs);
-    }
-
-    static boolean shouldStopSynthesisForNoPayoff(
-            int consecutiveUnreached, long constructionTimeSinceReachMs) {
-        return shouldStopSynthesisForNoPayoff(
-                consecutiveUnreached, constructionTimeSinceReachMs, 0, 0);
     }
 
     static boolean shouldStopSynthesisForNoPayoff(
@@ -568,11 +552,9 @@ class ObjectRuleTemplateSynthesizer {
 
     static final class FirstShotClassification {
         final boolean immediateCoverage;
-        final boolean improvedWorkingGoal;
 
         private FirstShotClassification(boolean immediateCoverage) {
             this.immediateCoverage = immediateCoverage;
-            this.improvedWorkingGoal = immediateCoverage;
         }
     }
 

@@ -270,22 +270,12 @@ public class MethodCallReplacementCache {
                     PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.java.security.MockCodeSource.class),
                     "replacement_getLocation",
                     "(Ljava/security/CodeSource;)Ljava/net/URL;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Cursor", "getDefaultCursor",
-                    "()Ljava/awt/Cursor;", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_getDefaultCursor",
-                    "()Ljava/awt/Cursor;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Cursor", "getPredefinedCursor",
-                    "(I)Ljava/awt/Cursor;", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_getPredefinedCursor",
-                    "(I)Ljava/awt/Cursor;", false, false));
+            // Cursor.getDefaultCursor/getPredefinedCursor/new Cursor(int) and the keyboard focus
+            // manager accessors work headless, so they are deliberately not replaced.
             addReplacementCall(new MethodCallReplacement("java/awt/Cursor", "getSystemCustomCursor",
                     "(Ljava/lang/String;)Ljava/awt/Cursor;", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_getSystemCustomCursor",
                     "(Ljava/lang/String;)Ljava/awt/Cursor;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Cursor", "<init>",
-                    "(I)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newCursor",
-                    "(I)Ljava/awt/Cursor;", true, true));
             addReplacementCall(new MethodCallReplacement("java/awt/Button", "<init>",
                     "()V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_newButton",
@@ -482,19 +472,10 @@ public class MethodCallReplacementCache {
                     headlessSwing, "replacement_newInsets",
                     "(IIII)Ljava/awt/Insets;", true, true));
             addReplacementCall(new MethodCallReplacement("java/awt/KeyboardFocusManager",
-                    "getCurrentKeyboardFocusManager",
-                    "()Ljava/awt/KeyboardFocusManager;", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_getCurrentKeyboardFocusManager",
-                    "()Ljava/awt/KeyboardFocusManager;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/KeyboardFocusManager",
                     "setCurrentKeyboardFocusManager",
                     "(Ljava/awt/KeyboardFocusManager;)V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_setCurrentKeyboardFocusManager",
                     "(Ljava/awt/KeyboardFocusManager;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/DefaultKeyboardFocusManager", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDefaultKeyboardFocusManager",
-                    "()Ljava/awt/DefaultKeyboardFocusManager;", true, true));
             addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
                     "()V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_newDropTarget",

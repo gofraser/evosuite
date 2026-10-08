@@ -40,6 +40,8 @@ import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -54,6 +56,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class ArrayElementVariableWrapper extends DepVariableWrapper {
+
+    private static final Logger logger = LoggerFactory.getLogger(ArrayElementVariableWrapper.class);
 
     protected ArrayElementVariableWrapper(DepVariable var) {
         super(var);
@@ -72,7 +76,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
         try {
             return generateArrayElementStatement(test, isLeaf, variable, map);
         } catch (ConstructionFailedException e) {
-            e.printStackTrace();
+            logger.debug("Ignored failure during object-rule synthesis", e);
         }
 
         return null;
@@ -722,18 +726,6 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
                 && left.desc.equals(right.desc);
     }
 
-    private static String fieldOwner(FieldInsnNode field) {
-        return field == null ? null : field.owner.replace('/', '.');
-    }
-
-    private static String fieldName(FieldInsnNode field) {
-        return field == null ? "[element]" : field.name;
-    }
-
-    private int nodeId() {
-        return var.getInstruction() == null ? -1 : var.getInstruction().getInstructionId();
-    }
-
     /**
      * Checks if the given method is a valid getter for the array element.
      *
@@ -886,7 +878,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
                                             test, primitiveStatement, arrayRef.getStPosition() + 1);
                     return returnedVar;
                 } catch (ConstructionFailedException e) {
-                    e.printStackTrace();
+                    logger.debug("Ignored failure during object-rule synthesis", e);
                 }
             } else {
                 return null;
@@ -903,7 +895,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
             return returnedVar;
 
         } catch (ConstructionFailedException e) {
-            e.printStackTrace();
+            logger.debug("Ignored failure during object-rule synthesis", e);
         }
 
         return null;

@@ -102,10 +102,6 @@ public final class PostProcessingOptions {
                 Properties.MIN_FREE_MEM);
     }
 
-    public static Builder builder() {
-        return new Builder(fromProperties());
-    }
-
     /**
      * Fresh requests always use the winning treatment.
      */
@@ -517,49 +513,6 @@ public final class PostProcessingOptions {
 
         public Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy() {
             return fallbackStrategy;
-        }
-    }
-
-    /**
-     * Small builder used by unit tests without mutating global Properties.
-     */
-    public static final class Builder {
-        private PostProcessingOptions value;
-
-        private Builder(PostProcessingOptions value) {
-            this.value = value;
-        }
-
-        /**
-         * Replaces the feature switches.
-         *
-         * @param features the new feature switches
-         * @return this builder
-         */
-        public Builder features(Features features) {
-            value = new PostProcessingOptions(features, value.contextLimits, value.assertionPolicy,
-                    value.phaseBudget, value.repairFallbackPolicy, value.targetClass,
-                    value.enabled, value.provider, value.callTimeoutSeconds,
-                    value.minimumFreeMemoryBytes);
-            return this;
-        }
-
-        /**
-         * Replaces the name of the class under test.
-         *
-         * @param targetClass the new class name
-         * @return this builder
-         */
-        public Builder targetClass(String targetClass) {
-            value = new PostProcessingOptions(value.features, value.contextLimits, value.assertionPolicy,
-                    value.phaseBudget, value.repairFallbackPolicy, targetClass,
-                    value.enabled, value.provider, value.callTimeoutSeconds,
-                    value.minimumFreeMemoryBytes);
-            return this;
-        }
-
-        public PostProcessingOptions build() {
-            return value;
         }
     }
 

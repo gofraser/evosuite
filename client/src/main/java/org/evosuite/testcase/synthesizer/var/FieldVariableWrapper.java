@@ -26,6 +26,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -42,6 +44,8 @@ import java.util.Set;
  * Wrapper for a field dependency, which finds or generates the statements that provide the field's value.
  */
 public class FieldVariableWrapper extends DepVariableWrapper {
+
+    private static final Logger logger = LoggerFactory.getLogger(FieldVariableWrapper.class);
 
     private boolean terminalWriterGenerated;
 
@@ -260,8 +264,7 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                         map,
                         fieldDeclaringClass,
                         field,
-                        usedRefSearcher,
-                        b);
+                        usedRefSearcher);
             } else {
                 // TODO
                 VariableReference setterObject =
@@ -280,7 +283,7 @@ public class FieldVariableWrapper extends DepVariableWrapper {
 
         } catch (ClassNotFoundException | SecurityException | ConstructionFailedException e) {
             //            this.printConstructionError(test, b);
-            e.printStackTrace();
+            logger.debug("Ignored failure during object-rule synthesis", e);
             return null;
         }
     }
@@ -509,7 +512,7 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                 return usedFieldInTest;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.debug("Ignored failure during object-rule synthesis", e);
         }
 
         return null;

@@ -39,7 +39,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
+import static org.evosuite.llm.postprocess.LlmPostProcessingExpressionUtils.allowedFields;
 import static org.evosuite.llm.postprocess.LlmPostProcessingParseResult.Diagnostic;
 import static org.evosuite.llm.postprocess.LlmPostProcessingParseResult.DiagnosticCode;
 
@@ -49,6 +51,7 @@ import static org.evosuite.llm.postprocess.LlmPostProcessingParseResult.Diagnost
 public final class LlmPostProcessingResponseParser {
 
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Set<String> ROOT_FIELDS = allowedFields("schemaVersion", "testName", "variableNames",
             "comments", "sectionBreaksAfter", "assertions", "assertionDecision", "noAssertionReason");
     private static final Set<String> ASSERTION_DECISIONS = allowedFields("PROPOSED", "NO_SAFE_ORACLE");
@@ -146,12 +149,6 @@ public final class LlmPostProcessingResponseParser {
 
     static String normalizeJsonResponse(String response) {
         return PostProcessingResponseDecoder.normalizeJsonResponse(response);
-    }
-
-    private static Set<String> allowedFields(String... fields) {
-        Set<String> result = new HashSet<>();
-        Collections.addAll(result, fields);
-        return Collections.unmodifiableSet(result);
     }
 
     public static final class ParseContext {
@@ -285,8 +282,9 @@ public final class LlmPostProcessingResponseParser {
                     + "|" + normalize(delta);
         }
 
-        private static String normalize(String expression) {
-            return expression == null ? "" : expression.replaceAll("\\s+", "");
+        /** Removes all whitespace, so that formatting does not distinguish two expressions. */
+        static String normalize(String expression) {
+            return expression == null ? "" : WHITESPACE.matcher(expression).replaceAll("");
         }
 
     }
@@ -476,25 +474,19 @@ public final class LlmPostProcessingResponseParser {
                 }
                 String candidateId = text(entry.get("candidateId"));
                 boolean selectedCandidate = candidateId != null && !candidateId.trim().isEmpty();
-                SelectableCandidate candidate = null;
+                boolean parsed;
                 if (selectedCandidate) {
-                    candidate = context.selectableCandidates.get(candidateId.trim());
+                    SelectableCandidate candidate = context.selectableCandidates.get(candidateId.trim());
                     if (candidate == null) {
                         diagnostic(DiagnosticCode.UNKNOWN_ID, path + ".candidateId",
                                 "Unknown candidate ID: " + candidateId.trim());
                         continue;
                     }
+                    parsed = parseSelectedCandidate(entry, path, assertionId, candidate, candidateId.trim());
+                } else {
+                    parsed = parseSynthesizedAssertion(entry, path, assertionId, assertionKeys);
                 }
-                if (selectedCandidate) {
-                    if (parseSelectedCandidate(entry, path, assertionId, candidate,
-                            candidateId.trim())) {
-                        acceptedAssertions.put(i, response.getAssertions()
-                                .get(response.getAssertions().size() - 1));
-                        accepted++;
-                    }
-                    continue;
-                }
-                if (parseSynthesizedAssertion(entry, path, assertionId, assertionKeys)) {
+                if (parsed) {
                     acceptedAssertions.put(i, response.getAssertions()
                             .get(response.getAssertions().size() - 1));
                     accepted++;
@@ -579,7 +571,7 @@ public final class LlmPostProcessingResponseParser {
                     || !canRenderCanonicalAssertion(kind, expected, actual, delta, path)) {
                 return false;
             }
-            String assertionKey = assertionKey(kind, expected, actual, delta);
+            String assertionKey = SelectableCandidate.canonicalKey(kind, expected, actual, delta);
             if (!assertionKeys.add(assertionKey)) {
                 diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate assertion expression");
                 return false;
@@ -694,9 +686,8 @@ public final class LlmPostProcessingResponseParser {
             if (!expectedType.isFloatingPoint() && !actualType.isFloatingPoint()) {
                 return null;
             }
-            String type = expectedType.isFloatingPoint() ? expectedType.typeName : actualType.typeName;
-            return "float".equals(type) || "java.lang.Float".equals(type) || "Float".equals(type)
-                    ? "0.0F" : "0.0D";
+            ExprType floatingType = expectedType.isFloatingPoint() ? expectedType : actualType;
+            return floatingType.isFloatLike() ? "0.0F" : "0.0D";
         }
 
         /**
@@ -721,9 +712,7 @@ public final class LlmPostProcessingResponseParser {
             } else {
                 return expression;
             }
-            String typeName = inferredType == null ? null : canonicalType(inferredType.typeName);
-            String owner = "float".equals(typeName) || "java.lang.Float".equals(typeName)
-                    ? "Float" : "Double";
+            String owner = inferredType != null && inferredType.isFloatLike() ? "Float" : "Double";
             return owner + "." + member;
         }
 
@@ -980,23 +969,10 @@ public final class LlmPostProcessingResponseParser {
             return operandPolicy.isNegativeNumericLiteral(expression);
         }
 
-        private String canonicalType(String typeName) {
-            return expressionTypes.canonicalType(typeName);
-        }
-
-        private String assertionKey(LlmPostProcessingResponse.AssertionKind kind, String expected, String actual,
-                                    String delta) {
-            return SelectableCandidate.canonicalKey(kind, expected, actual, delta);
-        }
-
-        private String normalizedExpression(String expression) {
-            return expression == null ? "" : expression.replaceAll("\\s+", "");
-        }
-
         private boolean isDirectSetupInputAssertion(LlmPostProcessingResponse.AssertionKind kind,
                                                     String expected, String actual) {
-            String normalizedActual = normalizedExpression(actual);
-            String normalizedExpected = normalizedExpression(expected);
+            String normalizedActual = SelectableCandidate.normalize(actual);
+            String normalizedExpected = SelectableCandidate.normalize(expected);
             if (normalizedActual.isEmpty()) {
                 return false;
             }
@@ -1020,8 +996,8 @@ public final class LlmPostProcessingResponseParser {
 
         private boolean isObviousTautology(LlmPostProcessingResponse.AssertionKind kind, String expected,
                                            String actual) {
-            String normalizedExpected = normalizedExpression(expected);
-            String normalizedActual = normalizedExpression(actual);
+            String normalizedExpected = SelectableCandidate.normalize(expected);
+            String normalizedActual = SelectableCandidate.normalize(actual);
             if ((kind == LlmPostProcessingResponse.AssertionKind.EQUALS
                     || kind == LlmPostProcessingResponse.AssertionKind.SAME)
                     && !normalizedExpected.isEmpty()
@@ -1053,8 +1029,8 @@ public final class LlmPostProcessingResponseParser {
                 return false;
             }
             BinaryExpr binary = (BinaryExpr) parsed;
-            if (!normalizedExpression(binary.getLeft().toString())
-                    .equals(normalizedExpression(binary.getRight().toString()))) {
+            if (!SelectableCandidate.normalize(binary.getLeft().toString())
+                    .equals(SelectableCandidate.normalize(binary.getRight().toString()))) {
                 return false;
             }
             BinaryExpr.Operator operator = binary.getOperator();

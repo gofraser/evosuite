@@ -686,7 +686,7 @@ public class TestRepairLoop {
             List<ParseResult> droppedAtExecution = new ArrayList<>();
             Map<ParseResult, ExecutionFailureContext> executionErrorByTest = new LinkedHashMap<>();
             for (ParseResult pr : validTests) {
-                ExecutionFailureContext failure = checkExecution(pr, repairOptions);
+                ExecutionFailureContext failure = checkExecution(pr);
                 if (failure == null) {
                     finalTests.add(pr);
                 } else {
@@ -1080,13 +1080,9 @@ public class TestRepairLoop {
         Collections.sort(positions);
         for (Integer position : positions) {
             Throwable thrown = result.getExceptionThrownAtPosition(position);
-            if (!isUndeclaredException(testCase, origin.getExpectedExceptionClass(), position, thrown)) {
-                continue;
+            if (countsAsExecutionFailure(testCase, origin.getExpectedExceptionClass(), position, thrown)) {
+                return position;
             }
-            if (!repairOptions.isRepairOnAssertionFailures() && thrown instanceof AssertionError) {
-                continue;
-            }
-            return position;
         }
         return null;
     }
@@ -1527,17 +1523,25 @@ public class TestRepairLoop {
         return (name == null || name.isEmpty()) ? "<unnamed>" : name;
     }
 
-    private ExecutionFailureContext checkExecution(ParseResult parseResult, RepairOptions options) {
+    /**
+     * Whether {@code thrown} at {@code position} is a failure the repair loop acts on: an
+     * exception the test does not declare, and an assertion failure only when repairing those.
+     */
+    private boolean countsAsExecutionFailure(TestCase testCase, String expectedExceptionClass,
+                                             Integer position, Throwable thrown) {
+        return isUndeclaredException(testCase, expectedExceptionClass, position, thrown)
+                && (repairOptions.isRepairOnAssertionFailures() || !(thrown instanceof AssertionError));
+    }
+
+    private ExecutionFailureContext checkExecution(ParseResult parseResult) {
         ExecutionResult executionResult;
         try {
             executionResult = testExecutor.execute(parseResult.getTestCase());
             if (executionResult != null) {
                 for (Integer position : executionResult.getPositionsWhereExceptionsWereThrown()) {
                     Throwable thrown = executionResult.getExceptionThrownAtPosition(position);
-                    if (!isUndeclaredException(parseResult, position, thrown)) {
-                        continue;
-                    }
-                    if (!options.isRepairOnAssertionFailures() && thrown instanceof AssertionError) {
+                    if (!countsAsExecutionFailure(parseResult.getTestCase(),
+                            parseResult.getExpectedExceptionClass(), position, thrown)) {
                         continue;
                     }
                     Integer diagnosticPosition = resolveDiagnosticStatementPosition(parseResult, position, thrown);
@@ -1553,7 +1557,7 @@ public class TestRepairLoop {
                     + buildExecutionContext(parseResult, null, executionFailure);
             return new ExecutionFailureContext(message, executionFailure, null);
         }
-        if (options.isRepairOnAssertionFailures()) {
+        if (repairOptions.isRepairOnAssertionFailures()) {
             ExecutionFailureContext assertionError = checkAssertions(parseResult, executionResult);
             if (assertionError != null) {
                 return assertionError;
@@ -1662,14 +1666,6 @@ public class TestRepairLoop {
                 + " were never reached because of this exception."
                 + buildExecutionContext(parseResult, exceptionPosition, thrown);
         return new ExecutionFailureContext(message, thrown, exceptionPosition);
-    }
-
-    private boolean isUndeclaredException(ParseResult parseResult, Integer position, Throwable thrown) {
-        if (parseResult == null) {
-            return false;
-        }
-        return isUndeclaredException(parseResult.getTestCase(), parseResult.getExpectedExceptionClass(),
-                position, thrown);
     }
 
     private boolean isUndeclaredException(TestCase testCase, String expectedExceptionClass,
@@ -5183,7 +5179,7 @@ public class TestRepairLoop {
         try {
             tmpDir = Files.createTempDirectory("evosuite-llm-parse-compile-");
             String packageName = getSutPackage();
-            String className = "__ParseCompileProbe_" + Integer.toUnsignedString(methodName.hashCode());
+            String className = compilationProbeClassName(methodName);
             Path pkgDir = tmpDir;
             if (packageName != null && !packageName.trim().isEmpty()) {
                 pkgDir = tmpDir.resolve(packageName.replace('.', File.separatorChar));
@@ -5266,12 +5262,16 @@ public class TestRepairLoop {
         return false;
     }
 
+    /** The probe class's name, which must match between its source file and its declaration. */
+    private static String compilationProbeClassName(String methodName) {
+        return "__ParseCompileProbe_" + Integer.toUnsignedString(methodName.hashCode());
+    }
+
     private String buildCompilationProbeSource(ParseResult parseResult,
                                                String methodBody,
                                                Set<Class<?>> imports) {
         String packageName = getSutPackage();
-        String className = "__ParseCompileProbe_"
-                + Integer.toUnsignedString(safeMethodName(parseResult).hashCode());
+        String className = compilationProbeClassName(safeMethodName(parseResult));
         StringBuilder sb = new StringBuilder();
         if (packageName != null && !packageName.trim().isEmpty()) {
             sb.append("package ").append(packageName).append(";\n\n");

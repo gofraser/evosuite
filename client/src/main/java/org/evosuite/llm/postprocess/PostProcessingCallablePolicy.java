@@ -27,6 +27,8 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import static org.evosuite.llm.postprocess.LlmPostProcessingExpressionUtils.allowedFields;
+
 /**
  * Safety and type-matching policy for callable expressions in post-processing
  * assertions.
@@ -590,12 +592,6 @@ final class PostProcessingCallablePolicy {
             return java.util.Objects.hash(owner, method,
                     signature == null ? null : signature.descriptor(), varargs);
         }
-    }
-
-    private static Set<String> allowedFields(String... fields) {
-        Set<String> result = new LinkedHashSet<>();
-        Collections.addAll(result, fields);
-        return Collections.unmodifiableSet(result);
     }
 
     private static String canonicalType(String typeName) {

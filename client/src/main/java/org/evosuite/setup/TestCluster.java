@@ -1362,15 +1362,18 @@ public class TestCluster {
      * constructed objects;). Weight of a candidate is {@code paramCount + 1}.
      */
     private GenericAccessibleObject<?> chooseByParamNumBias(List<GenericAccessibleObject<?>> candidates) {
-        List<Double> cumulative = new ArrayList<>();
+        // getNumParameters() is the arity without resolving the generic parameter types.
+        int[] weights = new int[candidates.size()];
         double sum = 0;
-        for (GenericAccessibleObject<?> candidate : candidates) {
-            sum += candidate.getGenericParameterTypes().length + 1;
+        for (int i = 0; i < weights.length; i++) {
+            weights[i] = candidates.get(i).getNumParameters() + 1;
+            sum += weights[i];
         }
 
+        List<Double> cumulative = new ArrayList<>();
         double acc = 0;
-        for (GenericAccessibleObject<?> candidate : candidates) {
-            acc += (candidate.getGenericParameterTypes().length + 1) / sum;
+        for (int weight : weights) {
+            acc += weight / sum;
             cumulative.add(acc);
         }
 

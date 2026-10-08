@@ -19,6 +19,7 @@
  */
 package org.evosuite.runtime.mock.javax.swing;
 
+import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
 import org.evosuite.runtime.mock.MockFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -48,27 +49,31 @@ public class MockHeadlessSwingCursorTest {
      */
     @Test
     public void cursorFactoriesThatWorkHeadlessAreNotMockedAway() {
-        // Left unguarded on purpose: the contract is now "always a real cursor", which holds in
-        // both modes. Note this only FAILS on a headless JVM, because that is the only place the
-        // old code returned null - on a machine with a display it passes either way. Run it with
-        // -Djava.awt.headless=true to exercise the regression.
-        Assertions.assertEquals(java.awt.Cursor.DEFAULT_CURSOR,
-                MockHeadlessSwing.replacement_getDefaultCursor().getType());
+        // The calls are left to the JDK, which builds a predefined cursor headless too. Run with
+        // -Djava.awt.headless=true to exercise the headless case.
+        MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/Cursor", "getDefaultCursor()Ljava/awt/Cursor;"));
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/Cursor", "getPredefinedCursor(I)Ljava/awt/Cursor;"));
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/Cursor", "<init>(I)V"));
+        Assertions.assertEquals(java.awt.Cursor.DEFAULT_CURSOR, java.awt.Cursor.getDefaultCursor().getType());
         Assertions.assertEquals(java.awt.Cursor.HAND_CURSOR,
-                MockHeadlessSwing.replacement_getPredefinedCursor(java.awt.Cursor.HAND_CURSOR).getType());
-        Assertions.assertEquals(java.awt.Cursor.HAND_CURSOR,
-                MockHeadlessSwing.replacement_newCursor(java.awt.Cursor.HAND_CURSOR).getType());
+                java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR).getType());
+        Assertions.assertEquals(java.awt.Cursor.HAND_CURSOR, new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR).getType());
     }
 
     /**
      * Focus bookkeeping needs no display either, and a null manager only defers the failure:
      * freemind's IndependantMapViewCreator threw on addPropertyChangeListener. Same caveat as
-     * above - this only fails on a headless JVM.
+     * above - the headless case only runs on a headless JVM.
      */
     @Test
     public void keyboardFocusManagersAreNotMockedAway() {
-        Assertions.assertNotNull(MockHeadlessSwing.replacement_getCurrentKeyboardFocusManager());
-        Assertions.assertNotNull(MockHeadlessSwing.replacement_newDefaultKeyboardFocusManager());
+        MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/KeyboardFocusManager",
+                "getCurrentKeyboardFocusManager()Ljava/awt/KeyboardFocusManager;"));
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/DefaultKeyboardFocusManager", "<init>()V"));
+        Assertions.assertNotNull(java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager());
+        Assertions.assertNotNull(new java.awt.DefaultKeyboardFocusManager());
     }
 
     @Test

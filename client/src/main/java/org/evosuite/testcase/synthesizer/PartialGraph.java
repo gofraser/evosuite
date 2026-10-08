@@ -1,5 +1,6 @@
 package org.evosuite.testcase.synthesizer;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
@@ -344,22 +345,11 @@ public class PartialGraph {
             return input != String.class
                     && input != Class.class
                     && !input.isEnum()
-                    && !isBoxedPrimitive(input);
+                    && !ClassUtils.isPrimitiveWrapper(input)
+                    && input != Void.class;
         } catch (Throwable ignored) {
             return false;
         }
-    }
-
-    private static boolean isBoxedPrimitive(Class<?> type) {
-        return type == Boolean.class
-                || type == Byte.class
-                || type == Character.class
-                || type == Short.class
-                || type == Integer.class
-                || type == Long.class
-                || type == Float.class
-                || type == Double.class
-                || type == Void.class;
     }
 
     private static boolean isWritableStaticField(DepVariable variable) {
@@ -434,56 +424,38 @@ public class PartialGraph {
      */
     public DepVariableWrapper fetchAndMerge(DepVariable var) {
         DepVariableWrapper tempWrapper = DepVariableWrapperFactory.createWrapperInstance(var);
-
-        if (var.toString().contains("ALOAD")) {
-            // Intentionally empty: ALOAD variables need no special handling here.
-        }
-
         DepVariableWrapper wrapper = allRelevantNodes.get(tempWrapper);
         if (wrapper == null) {
-            wrapper = DepVariableWrapperFactory.createWrapperInstance(var);
-            allRelevantNodes.put(wrapper, wrapper);
-        } else {
-            for (int i = 0; i < wrapper.var.getRelations().length; i++) {
-                List<DepVariable> list = wrapper.var.getRelations()[i];
-                List<DepVariable> list0 = var.getRelations()[i];
-
-                if (list0 != null) {
-                    if (list == null) {
-                        list = new ArrayList<>();
-                    }
-
-                    for (DepVariable v : list0) {
-                        if (!list.contains(v)) {
-                            list.add(v);
-                        }
-                    }
-                }
-
-                wrapper.var.getRelations()[i] = list;
-            }
-
-            for (int i = 0; i < wrapper.var.getReverseRelations().length; i++) {
-                List<DepVariable> list = wrapper.var.getReverseRelations()[i];
-                List<DepVariable> list0 = var.getReverseRelations()[i];
-
-                if (list0 != null) {
-                    if (list == null) {
-                        list = new ArrayList<>();
-                    }
-
-                    for (DepVariable v : list0) {
-                        if (!list.contains(v)) {
-                            list.add(v);
-                        }
-                    }
-                }
-
-                wrapper.var.getReverseRelations()[i] = list;
-            }
+            allRelevantNodes.put(tempWrapper, tempWrapper);
+            return tempWrapper;
         }
-
+        mergeRelations(wrapper.var.getRelations(), var.getRelations());
+        mergeRelations(wrapper.var.getReverseRelations(), var.getReverseRelations());
         return wrapper;
+    }
+
+    /**
+     * Adds to each operand slot of {@code into} the variables of {@code from} it does not hold yet.
+     */
+    private static void mergeRelations(List<DepVariable>[] into, List<DepVariable>[] from) {
+        for (int i = 0; i < into.length; i++) {
+            List<DepVariable> list = into[i];
+            List<DepVariable> list0 = from[i];
+
+            if (list0 != null) {
+                if (list == null) {
+                    list = new ArrayList<>();
+                }
+
+                for (DepVariable v : list0) {
+                    if (!list.contains(v)) {
+                        list.add(v);
+                    }
+                }
+            }
+
+            into[i] = list;
+        }
     }
 
     /**

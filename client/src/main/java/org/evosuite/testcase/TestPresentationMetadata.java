@@ -173,12 +173,7 @@ public final class TestPresentationMetadata implements Serializable {
      */
     public TestPresentationMetadata copy() {
         TestPresentationMetadata copy = new TestPresentationMetadata();
-        copy.testName = testName;
-        copy.variableNames.putAll(variableNames);
-        for (Map.Entry<Integer, List<String>> entry : commentsAfter.entrySet()) {
-            copy.commentsAfter.put(entry.getKey(), new ArrayList<>(entry.getValue()));
-        }
-        copy.sectionBreaksAfter.addAll(sectionBreaksAfter);
+        copy.replaceWith(this);
         return copy;
     }
 

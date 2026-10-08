@@ -259,10 +259,6 @@ public class TemplateCodeAssertion extends Assertion {
                 && placement == other.placement;
     }
 
-    public static Set<String> extractSymbolicVariables(String expression) {
-        return SymbolicExpressionUtils.extractSymbolicVariables(expression);
-    }
-
     private static TemplateAssertionKind toTemplateKind(Enum<?> kind) {
         return kind == null ? null : TemplateAssertionKind.valueOf(kind.name());
     }

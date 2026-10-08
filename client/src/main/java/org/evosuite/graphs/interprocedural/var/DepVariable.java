@@ -1,10 +1,8 @@
 package org.evosuite.graphs.interprocedural.var;
 
-import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.interprocedural.ConstructionPath;
 import org.evosuite.graphs.interprocedural.Relation;
-import org.evosuite.testcase.TestCase;
 import org.evosuite.utils.MethodUtil;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -29,27 +27,6 @@ public abstract class DepVariable {
 
     private static final Logger logger = LoggerFactory.getLogger(DepVariable.class);
 
-    /*
-     * Type-name constants used by {@link #getDataType()} / {@link #isPrimitive()}. These were
-     * originally defined in the fork's {@code seeding.smart.BranchSeedInfo}; per the reference
-     * bundle README they are inlined here rather than porting that (unrelated) class.
-     */
-    private static final String BYTE = "byte";
-    private static final String DOUBLE = "double";
-    private static final String FLOAT = "float";
-    private static final String INT = "int";
-    private static final String LONG = "long";
-    private static final String SHORT = "short";
-    private static final String STRING = "string";
-    private static final String CHARACTER = "character";
-    private static final String TBYTE = Byte.class.getCanonicalName();
-    private static final String TDOUBLE = Double.class.getCanonicalName();
-    private static final String TFLOAT = Float.class.getCanonicalName();
-    private static final String TINT = Integer.class.getCanonicalName();
-    private static final String TLONG = Long.class.getCanonicalName();
-    private static final String TSHORT = Short.class.getCanonicalName();
-    private static final String TSTRING = String.class.getCanonicalName();
-    private static final String TCHARACTER = Character.class.getCanonicalName();
     private static final String OTHER_TYPE = "unknown";
 
     private String className;
@@ -579,7 +556,8 @@ public abstract class DepVariable {
     private BytecodeInstruction extractedDefinition(int slotNum) {
         BytecodeInstruction ins = this.getInstruction();
         while (ins != null) {
-            if (ins.explain().toLowerCase().contains("store")) {
+            int opcode = ins.getASMNode().getOpcode();
+            if (opcode >= Opcodes.ISTORE && opcode <= Opcodes.ASTORE) {
                 int storeSlot = ins.getLocalVariableSlot();
                 if (storeSlot == slotNum) {
                     return ins;
@@ -804,52 +782,4 @@ public abstract class DepVariable {
 
         return OTHER_TYPE;
     }
-
-
-
-    /**
-     * Checks whether the value of this variable is of a primitive, boxed primitive or string type.
-     *
-     * @return true if it is
-     */
-    public boolean isPrimitive() {
-        String type = inferType(this.getInstruction().getInstructionType());
-
-        if (type.equals(BYTE)
-                || type.equals(CHARACTER)
-                || type.equals(DOUBLE)
-                || type.equals(FLOAT)
-                || type.equals(INT)
-                || type.equals(LONG)
-                || type.equals(SHORT)
-                || type.equals(STRING)
-                || type.equals(TBYTE)
-                || type.equals(TCHARACTER)
-                || type.equals(TDOUBLE)
-                || type.equals(TFLOAT)
-                || type.equals(TINT)
-                || type.equals(TLONG)
-                || type.equals(TSHORT)
-                || type.equals(TSTRING)) {
-            return true;
-        }
-
-        return false;
-    }
-
-
-
-    /**
-     * Logs the failure to construct a test for a branch.
-     *
-     * @param test the partially constructed test
-     * @param b    the branch being processed
-     */
-    public void printConstructionError(TestCase test, Branch b) {
-        logger.error("exception happens when processing branch " + b);
-        logger.error("working on node" + this);
-        logger.error("partial test case:");
-        logger.error(test.toString());
-    }
-
 }

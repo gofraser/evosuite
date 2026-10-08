@@ -27,6 +27,8 @@ import org.evosuite.utils.generic.GenericMethod;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -41,6 +43,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class ParameterVariableWrapper extends DepVariableWrapper {
+
+    private static final Logger logger = LoggerFactory.getLogger(ParameterVariableWrapper.class);
 
     protected ParameterVariableWrapper(DepVariable var) {
         super(var);
@@ -114,7 +118,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
             try {
                 newParameter = generateParameter(test, castSubClass, allowNullValue && isLeaf);
             } catch (ConstructionFailedException e) {
-                e.printStackTrace();
+                logger.debug("Ignored failure during object-rule synthesis", e);
             }
 
             if (newParameter == null) {

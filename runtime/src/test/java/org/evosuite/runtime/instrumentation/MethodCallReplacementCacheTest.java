@@ -209,10 +209,10 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/GraphicsEnvironment",
                 getLocalGraphicsEnvironmentKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/security/CodeSource", codeSourceGetLocationKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", getDefaultCursorKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", getPredefinedCursorKey));
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/Cursor", getDefaultCursorKey));
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/Cursor", getPredefinedCursorKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", getSystemCustomCursorKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", newCursorKey));
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/Cursor", newCursorKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Button", newButtonDefaultKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Button", newButtonLabelKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Label", newLabelDefaultKey));
@@ -247,9 +247,9 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/CheckboxMenuItem",
                 newCheckboxMenuItemLabelStateKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Insets", newInsetsKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/KeyboardFocusManager", getCurrentKfmKey));
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/KeyboardFocusManager", getCurrentKfmKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/KeyboardFocusManager", setCurrentKfmKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/DefaultKeyboardFocusManager", newDefaultKfmKey));
+        Assertions.assertFalse(cache.hasReplacementCall("java/awt/DefaultKeyboardFocusManager", newDefaultKfmKey));
     }
 
     @Test

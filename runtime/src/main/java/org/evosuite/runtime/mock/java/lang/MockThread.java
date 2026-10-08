@@ -143,6 +143,38 @@ public class MockThread extends Thread implements OverrideMock {
         return new TooManyResourcesException(message);
     }
 
+    /**
+     * A real {@code pause} (a sleep or a wait) on a thread the SUT started. Once its test's
+     * threads are being stopped, the brief {@code stoppingPause} is taken instead and the thread
+     * is ended with {@code stopMessage}; see {@link #pauseThenStopLeftover}.
+     *
+     * <p>The interrupt that ends a leftover thread's real pause is the one that tells its loop to
+     * stop: LoopCounter ends a loop whose thread is still flagged as interrupted. A SUT loop that
+     * swallows the exception would otherwise find the flag cleared and go on until the iteration
+     * cap, tens of milliseconds of busy looping that the finished test's join has to wait for, for
+     * every test that started such a thread (27_gangup's Kernel). So the flag is set again before
+     * the exception is rethrown.
+     *
+     * @param stoppingPause the brief pause taken when the thread is being stopped
+     * @param pause the pause taken otherwise
+     * @param stopMessage message of the exception that stops a leftover thread
+     * @throws InterruptedException if the pause is interrupted
+     */
+    static void pauseOnSutThread(RealPause stoppingPause, RealPause pause, String stopMessage)
+            throws InterruptedException {
+        if (org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
+            throw pauseThenStopLeftover(stoppingPause, stopMessage);
+        }
+        try {
+            pause.run();
+        } catch (InterruptedException e) {
+            if (org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
+                Thread.currentThread().interrupt();
+            }
+            throw e;
+        }
+    }
+
     public static void reset() {
         threadMap.clear();
         sleepCallCount.set(0L);  // AtomicLong — visible to all threads
@@ -252,26 +284,9 @@ public class MockThread extends Thread implements OverrideMock {
             // (it catches RuntimeException or Throwable) would otherwise spin without
             // pausing for the whole stop window, and ThreadStopper keeps that window
             // open for at least 200 ms.
-            if (org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
-                long pauseMillis = Math.min(millis, STOPPING_REAL_PAUSE_MS);
-                throw pauseThenStopLeftover(() -> Thread.sleep(pauseMillis),
-                        "MockThread: thread kept sleeping after its test ended");
-            }
-            try {
-                Thread.sleep(Math.min(millis, MAX_REAL_SLEEP_PER_CALL_MS));
-            } catch (InterruptedException e) {
-                // The interrupt that ends a leftover thread's real pause is the one
-                // that tells its loop to stop: LoopCounter ends a loop whose thread is
-                // still flagged as interrupted. A SUT loop that swallows this exception
-                // would otherwise find the flag cleared and go on until the iteration
-                // cap, tens of milliseconds of busy looping that the finished test's
-                // join has to wait for, for every test that started such a thread
-                // (27_gangup's Kernel).
-                if (org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
-                    Thread.currentThread().interrupt();
-                }
-                throw e;
-            }
+            pauseOnSutThread(() -> Thread.sleep(Math.min(millis, STOPPING_REAL_PAUSE_MS)),
+                    () -> Thread.sleep(Math.min(millis, MAX_REAL_SLEEP_PER_CALL_MS)),
+                    "MockThread: thread kept sleeping after its test ended");
         } else {
             // The test's own thread only ever sleeps in a polling loop that runs into
             // the call cap (27_gangup's Kernel.run(), HSQLDB's Server.start() in

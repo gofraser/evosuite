@@ -217,21 +217,14 @@ public class ArrayAllocationBudget {
     }
 
     /**
-     * Compare-and-swap loop implementing a saturating {@code allocatedBytes += delta},
-     * so that concurrent charges from multiple SUT threads are all counted (finding 6:
-     * a plain {@code volatile long +=} is a read-modify-write and silently loses
-     * concurrent updates) and a running total near {@link Long#MAX_VALUE} saturates
-     * instead of wrapping around to a negative number that would then read as under
-     * budget.
+     * Atomic, saturating {@code allocatedBytes += delta}, so that concurrent charges from
+     * multiple SUT threads are all counted (a plain {@code volatile long +=} is a
+     * read-modify-write and silently loses concurrent updates) and a running total near
+     * {@link Long#MAX_VALUE} saturates instead of wrapping around to a negative number that
+     * would then read as under budget.
      */
     private static long addSaturating(long delta) {
-        while (true) {
-            long current = allocatedBytes.get();
-            long next = saturatingAdd(current, delta);
-            if (allocatedBytes.compareAndSet(current, next)) {
-                return next;
-            }
-        }
+        return allocatedBytes.accumulateAndGet(delta, ArrayAllocationBudget::saturatingAdd);
     }
 
     private static long saturatingAdd(long a, long b) {
