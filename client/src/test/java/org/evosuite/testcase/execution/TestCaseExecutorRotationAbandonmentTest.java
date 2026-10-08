@@ -32,6 +32,12 @@ public class TestCaseExecutorRotationAbandonmentTest {
         runFork("ordinary");
     }
 
+    /** The streams the abandoned worker muted are handed back by the executor, not left muted. */
+    @Test
+    public void giveUpOnStalledWorkerHandsTheStreamsBack() throws Exception {
+        runFork("streams");
+    }
+
     private void runFork(String scenario) throws Exception {
         Path output = scratch.resolve(scenario + ".log");
         String java = System.getProperty("java.home") + File.separator + "bin"

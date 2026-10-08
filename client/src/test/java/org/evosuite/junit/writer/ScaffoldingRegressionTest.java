@@ -75,6 +75,182 @@ public class ScaffoldingRegressionTest {
         Assertions.assertTrue(code.contains("import javax.swing.DebugGraphics;"));
     }
 
+    private static final String SAVE = "standardStreams = org.evosuite.runtime.StandardStreams.save();";
+    private static final String RESTORE = "org.evosuite.runtime.StandardStreams.restore(standardStreams);";
+
+    @Test
+    public void testStandardStreamsAreRestoredWithoutResetStandardStreams() {
+        configureDefaults();
+
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug5Test", false, Collections.emptyList());
+        Assertions.assertTrue(code.contains(SAVE), code);
+        Assertions.assertTrue(code.contains(RESTORE), code);
+        Assertions.assertFalse(code.contains("DebugGraphics"), code);
+    }
+
+    @Test
+    public void testStandardStreamsAreRestoredAfterTheClassReset() {
+        configureDefaults();
+        Properties.RESET_STATIC_FIELDS = true;
+
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug6Test", false, Collections.emptyList());
+        int reset = code.indexOf("resetClasses(); ");
+        int restore = code.indexOf(RESTORE);
+        Assertions.assertTrue(reset >= 0 && restore > reset, code);
+    }
+
+    @Test
+    public void testStandardStreamsAreRestoredEvenWhenAResetThrows() {
+        configureDefaults();
+        Properties.RESET_STATIC_FIELDS = true;
+
+        String all = new Scaffolding().getBeforeAndAfterMethods("Bug8Test", false, Collections.emptyList());
+        String code = all.substring(all.indexOf("doneWithTestCase"));
+        int tryBlock = code.indexOf("try { ");
+        int reset = code.indexOf("resetClasses(); ");
+        int finallyBlock = code.indexOf("\n    } finally { \n");
+        int restore = code.indexOf(RESTORE);
+        int sandbox = code.indexOf("Sandbox.doneWithExecutingSUTCode();");
+        Assertions.assertTrue(tryBlock >= 0 && reset > tryBlock && finallyBlock > reset
+                && restore > finallyBlock && sandbox > restore, code);
+    }
+
+    @Test
+    public void testEachCleanupStepRunsEvenWhenAnEarlierOneThrows() {
+        configureDefaults();
+        boolean headless = Properties.HEADLESS_MODE;
+        Properties.HEADLESS_MODE = true;
+        Properties.RESET_STATIC_FIELDS = true;
+        try {
+            String all = new Scaffolding().getBeforeAndAfterMethods("Bug11Test", false, Collections.emptyList());
+            String code = all.substring(all.indexOf("doneWithTestCase"));
+            String expected = "    } finally { \n"
+                    + "      try { \n"
+                    + "        " + RESTORE + " \n"
+                    + "      } finally { \n"
+                    + "        try { \n"
+                    + "          org.evosuite.runtime.sandbox.Sandbox.doneWithExecutingSUTCode(); \n"
+                    + "        } finally { \n"
+                    + "          try { \n"
+                    + "            org.evosuite.runtime.agent.InstrumentingAgent.deactivate(); \n"
+                    + "          } finally { \n"
+                    + "            org.evosuite.runtime.GuiSupport.restoreHeadlessMode(); \n"
+                    + "          } \n"
+                    + "        } \n"
+                    + "      } \n"
+                    + "    } \n"
+                    + "  } \n";
+            Assertions.assertTrue(code.contains(expected), code);
+        } finally {
+            Properties.HEADLESS_MODE = headless;
+        }
+    }
+
+    @Test
+    public void testEachResetStepRunsEvenWhenAnEarlierOneThrows() {
+        configureDefaults();
+        Properties.REPLACE_CALLS = true;
+        Properties.RESET_STATIC_FIELDS = true;
+
+        String all = new Scaffolding().getBeforeAndAfterMethods("Bug14Test", false, Collections.emptyList());
+        String code = all.substring(all.indexOf("doneWithTestCase"));
+        Assertions.assertTrue(code.contains("    try { \n"
+                + "      try { \n"
+                + "        threadStopper.killAndJoinClientThreads(); \n"
+                + "      } finally { \n"
+                + "        try { \n"
+                + "          org.evosuite.runtime.jvm.ShutdownHookHandler.getInstance().safeExecuteAddedHooks(); \n"
+                + "        } finally { \n"
+                + "          try { \n"
+                + "            org.evosuite.runtime.classhandling.JDKClassResetter.reset(); \n"
+                + "          } finally { \n"
+                + "            resetClasses(); \n"
+                + "          } \n"
+                + "        } \n"
+                + "      } \n"
+                + "    } finally { \n"), code);
+    }
+
+    @Test
+    public void testOnlyTheStepsInUseAreChained() {
+        configureDefaults();
+        boolean headless = Properties.HEADLESS_MODE;
+        Properties.HEADLESS_MODE = true;
+        try {
+            String all = new Scaffolding().getBeforeAndAfterMethods("Bug12Test", false, Collections.emptyList());
+            String code = all.substring(all.indexOf("doneWithTestCase"));
+            Assertions.assertTrue(code.contains("    } finally { \n"
+                    + "      try { \n"
+                    + "        " + RESTORE + " \n"
+                    + "      } finally { \n"
+                    + "        try { \n"
+                    + "          org.evosuite.runtime.agent.InstrumentingAgent.deactivate(); \n"
+                    + "        } finally { \n"
+                    + "          org.evosuite.runtime.GuiSupport.restoreHeadlessMode(); \n"
+                    + "        } \n"
+                    + "      } \n"
+                    + "    } \n"), code);
+            Assertions.assertFalse(code.contains("Sandbox.doneWithExecutingSUTCode"), code);
+        } finally {
+            Properties.HEADLESS_MODE = headless;
+        }
+    }
+
+    @Test
+    public void testEachClassCleanupStepRunsEvenWhenAnEarlierOneThrows() {
+        configureDefaults();
+        Properties.REPLACE_CALLS = true;
+        Properties.RESET_STATIC_FIELDS = true;
+
+        String all = new Scaffolding().getBeforeAndAfterMethods("Bug13Test", true, Collections.emptyList());
+        String code = all.substring(all.indexOf("clearEvoSuiteFramework"));
+        Assertions.assertTrue(code.contains("    try { \n"
+                + "      try { \n"
+                + "        Sandbox.resetDefaultSecurityManager(); \n"
+                + "      } finally { \n"
+                + "        executor.shutdownNow(); \n"
+                + "      } \n"
+                + "    } finally { \n"
+                + "      org.evosuite.runtime.StandardStreams.restore(classStandardStreams); \n"
+                + "    } \n"), code);
+    }
+
+    @Test
+    public void testStandardStreamsOfTheClassAreSavedBeforeAndRestoredAfterTheClass() {
+        configureDefaults();
+        Properties.REPLACE_CALLS = true;
+        Properties.RESET_STATIC_FIELDS = true;
+
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug9Test", false, Collections.emptyList());
+        int save = code.indexOf("classStandardStreams = org.evosuite.runtime.StandardStreams.save();");
+        int init = code.indexOf("initializeSecurityManagerForSUT");
+        int restore = code.indexOf("org.evosuite.runtime.StandardStreams.restore(classStandardStreams);");
+        int afterClass = code.indexOf("clearEvoSuiteFramework");
+        Assertions.assertTrue(save > 0 && init > save, code);
+        Assertions.assertTrue(afterClass > init && restore > afterClass, code);
+    }
+
+    @Test
+    public void testStandardStreamsOfTheClassAreRestoredWhenOnlyTheAgentIsUsed() {
+        configureDefaults();
+        Properties.REPLACE_CALLS = true;
+
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug10Test", false, Collections.emptyList());
+        Assertions.assertTrue(code.contains("clearEvoSuiteFramework"), code);
+        Assertions.assertTrue(code.contains("classStandardStreams"), code);
+    }
+
+    @Test
+    public void testNoRuntimeDependencyEmitsNoStreamFields() {
+        configureDefaults();
+        Properties.NO_RUNTIME_DEPENDENCY = true;
+
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug11Test", false, Collections.emptyList());
+        Assertions.assertFalse(code.contains("standardStreams"), code);
+        Assertions.assertFalse(code.contains("StandardStreams"), code);
+        Assertions.assertFalse(code.contains("systemOut"), code);
+    }
+
     @Test
     public void testScaffoldingHeaderIsDeterministic() {
         configureDefaults();

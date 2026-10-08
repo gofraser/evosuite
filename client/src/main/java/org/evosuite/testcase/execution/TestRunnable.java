@@ -24,6 +24,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.dse.VMError;
 import org.evosuite.runtime.GuiSupport;
+import org.evosuite.runtime.StandardStreams;
 import org.evosuite.runtime.System.SystemExitException;
 import org.evosuite.runtime.UnmockableTypes;
 import org.evosuite.runtime.jvm.ShutdownHookHandler;
@@ -56,6 +57,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -78,10 +80,27 @@ public class TestRunnable implements InterfaceTestRunnable {
     protected volatile boolean runFinished;
 
     /**
-     * Set by the thread that waited for this run once it has given up on it.
-     * The worker keeps going afterwards, but the sandbox is no longer its own.
+     * Set by the thread that waited for this run as soon as it starts handling the timeout.
+     * The worker keeps going afterwards, but its result is discarded and the sandbox is no
+     * longer its own. This only silences observers and sandbox writes; who restores the
+     * streams is decided by {@link #streamsHandedBack}.
      */
-    private volatile boolean abandonedByTimeout;
+    private volatile boolean resultDiscarded;
+
+    /**
+     * The streams this run has to hand back, taken at the start of {@link #call()}; null
+     * before that.
+     */
+    private volatile StandardStreams.Snapshot standardStreams;
+
+    /** Whether this run muted the streams and so has to unmute them. */
+    private volatile boolean streamsMuted;
+
+    /**
+     * Set by whichever side hands the streams back first: the worker when it unwinds, or the
+     * waiting thread when it gives up on a worker that does not.
+     */
+    private final AtomicBoolean streamsHandedBack = new AtomicBoolean(true);
 
     /** The thread currently inside {@link #call()}, or null; guarded by {@code this}. */
     private Thread worker;
@@ -261,7 +280,7 @@ public class TestRunnable implements InterfaceTestRunnable {
      * @param s the statement to execute
      */
     protected void informObservers_before(Statement s) {
-        if (abandonedByTimeout) {
+        if (resultDiscarded) {
             return; // the result of this run is discarded
         }
         ExecutionTracer.disable();
@@ -280,7 +299,7 @@ public class TestRunnable implements InterfaceTestRunnable {
      *                        be null)
      */
     protected void informObservers_after(Statement s, Throwable exceptionThrown) {
-        if (abandonedByTimeout) {
+        if (resultDiscarded) {
             return; // the result of this run is discarded
         }
         ExecutionTracer.disable();
@@ -292,7 +311,7 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     protected void informObservers_finished(ExecutionResult result) {
-        if (abandonedByTimeout) {
+        if (resultDiscarded) {
             return; // the result of this run is discarded
         }
         ExecutionTracer.disable();
@@ -332,6 +351,15 @@ public class TestRunnable implements InterfaceTestRunnable {
         //        Runtime.getInstance().resetRuntime();
         ExecutionTracer.enable();
 
+        // The code under test may replace System.out/err (a logger that wraps them on
+        // construction); they are handed back below whether or not print_to_system is set,
+        // or one wrapper would be stacked per execution.
+        // Taken from LoggingUtils: an earlier, timed-out execution may still have the streams
+        // muted, and System would then hand back the discarding stream.
+        PrintStream[] unmuted = LoggingUtils.currentUnmutedOutAndErrStream();
+        streamsMuted = !Properties.PRINT_TO_SYSTEM;
+        standardStreams = StandardStreams.of(unmuted[0], unmuted[1]);
+        streamsHandedBack.set(false);
         PrintStream out = (Properties.PRINT_TO_SYSTEM ? System.out : new PrintStream(byteStream));
         byteStream.reset();
 
@@ -391,16 +419,16 @@ public class TestRunnable implements InterfaceTestRunnable {
                 result.setDmonContaminated(true);
             }
             resetMockitoProgressStateBestEffort();
-            if (!Properties.PRINT_TO_SYSTEM) {
-                LoggingUtils.restorePreviousOutAndErrStream();
-            }
+            // A no-op if the thread that gave up on this run has already handed them back:
+            // whatever executes next may be muting them by now.
+            handBackStreams();
             if (Properties.REPLACE_CALLS) {
                 /*
                  * For simplicity, we call it here. Ideally, we could call it among the
                  * statements, with "non-safe" version, to check if any exception is thrown.
                  * But that would be quite a bit of work, which maybe is not really warranted
                  */
-                ShutdownHookHandler.getInstance().safeExecuteAddedHooks(this::isAbandonedByTimeout);
+                ShutdownHookHandler.getInstance().safeExecuteAddedHooks(this::isResultDiscarded);
             }
 
             runFinished = true;
@@ -1273,10 +1301,11 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     /**
-     * Records that the thread waiting for this run timed out and gave up on it.
+     * Records that the thread waiting for this run timed out and is handling it. The result
+     * is discarded from here on; the streams stay as they are until {@link #handBackStreams()}.
      */
-    public void markAbandonedByTimeout() {
-        abandonedByTimeout = true;
+    public void markResultDiscarded() {
+        resultDiscarded = true;
         /*
          * The worker goes on running this test, but the sandbox state is global
          * and now belongs to whatever executes next: whatever the worker's
@@ -1290,10 +1319,27 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     /**
-     * @return true if the thread waiting for this run timed out and gave up on it
+     * @return true if the thread waiting for this run timed out and its result is discarded
      */
-    public boolean isAbandonedByTimeout() {
-        return abandonedByTimeout;
+    public boolean isResultDiscarded() {
+        return resultDiscarded;
+    }
+
+    /**
+     * Unmutes the streams if this run muted them and restores the snapshot taken when it
+     * started. Called by the worker when it unwinds and by the waiting thread when it gives
+     * up on a worker that does not; only the first call does anything, so a late worker
+     * cannot clobber the streams of whatever executes next.
+     */
+    public void handBackStreams() {
+        StandardStreams.Snapshot snapshot = standardStreams;
+        if (snapshot == null || !streamsHandedBack.compareAndSet(false, true)) {
+            return;
+        }
+        if (streamsMuted) {
+            LoggingUtils.restorePreviousOutAndErrStream();
+        }
+        snapshot.restore();
     }
 
 }

@@ -28,6 +28,7 @@ import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.InitializingListener;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.StandardStreams;
 import org.evosuite.runtime.agent.InstrumentingAgent;
 import org.evosuite.runtime.annotation.EvoSuiteClassExclude;
 import org.evosuite.runtime.classhandling.ClassResetter;
@@ -128,6 +129,17 @@ public class Scaffolding {
     private static final String DEFAULT_PROPERTIES = "defaultProperties";
 
     private static final String THREAD_STOPPER = "threadStopper";
+
+    private static final String STANDARD_STREAMS = StandardStreams.Snapshot.class.getCanonicalName();
+
+    /**
+     * Whether the scaffolding has a {@code @BeforeClass} method (which can run static
+     * initialisers of the code under test) and so also needs the matching {@code @AfterClass}.
+     */
+    private static boolean hasClassLevelSetup(boolean wasSecurityException) {
+        return !Properties.NO_RUNTIME_DEPENDENCY
+                && (wasSecurityException || TestSuiteWriterUtils.needToUseAgent());
+    }
 
     /**
      * Return full JUnit code for scaffolding file for the give test.
@@ -265,7 +277,7 @@ public class Scaffolding {
         }
 
         if (Properties.RESET_STATIC_FIELDS || requirements.needsThreadWrapper()
-                || requirements.shouldResetProperties()) {
+                || requirements.shouldResetProperties() || requirements.needsAgent()) {
             list.add(getAdapter().afterAll().getCanonicalName());
         }
 
@@ -570,52 +582,90 @@ public class Scaffolding {
         bd.append(METHOD_SPACE);
         bd.append("public void doneWithTestCase(){ \n");
 
+        // The cleanup below must not be skipped when one of the resets throws: the streams
+        // would stay wrapped and the sandbox window open. The resets are independent of each
+        // other as well, so a throwing thread stopper must not leave static state of this test
+        // behind for the next one.
         bd.append(BLOCK_SPACE);
-        bd.append(THREAD_STOPPER + ".killAndJoinClientThreads();\n");
+        bd.append("try { \n");
+
+        List<String> resets = new ArrayList<>();
+        resets.add(THREAD_STOPPER + ".killAndJoinClientThreads();");
 
         if (Properties.REPLACE_CALLS) {
-            bd.append(BLOCK_SPACE);
-            bd.append(ShutdownHookHandler.class.getName()).append(".getInstance().safeExecuteAddedHooks(); \n");
+            resets.add(ShutdownHookHandler.class.getName() + ".getInstance().safeExecuteAddedHooks();");
         }
 
         if (Properties.RESET_STANDARD_STREAMS) {
-            bd.append(BLOCK_SPACE);
-            bd.append("java.lang.System.setErr(systemErr); \n");
-
-            bd.append(BLOCK_SPACE);
-            bd.append("java.lang.System.setOut(systemOut); \n");
-
-            bd.append(BLOCK_SPACE);
-            bd.append("DebugGraphics.setLogStream(logStream); \n");
+            resets.add("DebugGraphics.setLogStream(logStream);");
         }
 
         if (Properties.RESET_STATIC_FIELDS) {
-            bd.append(BLOCK_SPACE);
-            bd.append(JDKClassResetter.class.getName()).append(".reset(); \n");
-            bd.append(BLOCK_SPACE);
-            bd.append("resetClasses(); \n");
+            resets.add(JDKClassResetter.class.getName() + ".reset();");
+            resets.add("resetClasses();");
         }
 
+        appendIndependentSteps(bd, resets, INNER_BLOCK_SPACE);
+
+        bd.append(BLOCK_SPACE);
+        bd.append("} finally { \n");
+
+        // Each step runs even when an earlier one throws, so every step but the last sits in a
+        // try whose finally holds the rest. The streams come first, after the class reset
+        // (which runs static initializers again): code under test may wrap System.out/err on
+        // construction (a redirecting logger), and the wrappers would stack up across the
+        // tests. Restoring headless mode is last.
+        List<String> cleanup = new ArrayList<>();
+        cleanup.add(StandardStreams.class.getName() + ".restore(standardStreams);");
+
         if (Properties.RESET_STATIC_FIELDS || wasSecurityException) {
-            bd.append(BLOCK_SPACE);
-            bd.append(Sandbox.class.getName()).append(".doneWithExecutingSUTCode(); \n");
+            cleanup.add(Sandbox.class.getName() + ".doneWithExecutingSUTCode();");
         }
 
         if (TestSuiteWriterUtils.needToUseAgent()) {
-            bd.append(BLOCK_SPACE);
-            bd.append(InstrumentingAgent.class.getName()).append(".deactivate(); \n");
+            cleanup.add(InstrumentingAgent.class.getName() + ".deactivate();");
         }
 
-        // TODO: see comment in @Before
         if (Properties.HEADLESS_MODE) {
-            bd.append(BLOCK_SPACE);
-            bd.append(GuiSupport.class.getName()).append(".restoreHeadlessMode(); \n");
+            cleanup.add(GuiSupport.class.getName() + ".restoreHeadlessMode();");
         }
+
+        appendIndependentSteps(bd, cleanup, INNER_BLOCK_SPACE);
+
+        bd.append(BLOCK_SPACE);
+        bd.append("} \n");
 
         bd.append(METHOD_SPACE);
         bd.append("} \n");
 
         bd.append("\n");
+    }
+
+    private static String pad(int levels) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < levels; i++) {
+            sb.append("  ");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Emits statements so that each one runs even if an earlier one throws:
+     * {@code try { a } finally { try { b } finally { c } }}.
+     */
+    private static void appendIndependentSteps(StringBuilder bd, List<String> steps, String indent) {
+        for (int i = 0; i < steps.size() - 1; i++) {
+            String level = indent + pad(i);
+            bd.append(level).append("try { \n");
+            bd.append(level).append("  ").append(steps.get(i)).append(" \n");
+            bd.append(level).append("} finally { \n");
+        }
+        int last = steps.size() - 1;
+        bd.append(indent).append(pad(last)).append(steps.get(last)).append(" \n");
+        // Close the finally blocks opened above, innermost first.
+        for (int i = last - 1; i >= 0; i--) {
+            bd.append(indent).append(pad(i)).append("} \n");
+        }
     }
 
     private void generateBefore(StringBuilder bd, boolean wasSecurityException, List<ExecutionResult> results) {
@@ -656,15 +706,11 @@ public class Scaffolding {
 
         // FIXME those should be handled in the mocked classes,eg mock for
         // java.lang.System
+        bd.append(BLOCK_SPACE);
+        bd.append("standardStreams = ").append(StandardStreams.class.getName()).append(".save();");
+        bd.append(" \n");
+
         if (Properties.RESET_STANDARD_STREAMS) {
-            bd.append(BLOCK_SPACE);
-            bd.append("systemErr = java.lang.System.err;");
-            bd.append(" \n");
-
-            bd.append(BLOCK_SPACE);
-            bd.append("systemOut = java.lang.System.out;");
-            bd.append(" \n");
-
             bd.append(BLOCK_SPACE);
             bd.append("logStream = DebugGraphics.logStream();");
             bd.append(" \n");
@@ -721,25 +767,43 @@ public class Scaffolding {
     private void generateAfterClass(StringBuilder bd, boolean wasSecurityException, List<ExecutionResult> results) {
 
         if (Properties.RESET_STATIC_FIELDS || wasSecurityException
-                || TestSuiteWriterUtils.shouldResetProperties(results)) {
+                || TestSuiteWriterUtils.shouldResetProperties(results)
+                || hasClassLevelSetup(wasSecurityException)) {
             bd.append(METHOD_SPACE);
             bd.append("@").append(getAdapter().afterAll().getSimpleName()).append("\n");
             bd.append(METHOD_SPACE);
             bd.append("public static void clearEvoSuiteFramework(){ \n");
 
-            if (Properties.RESET_STATIC_FIELDS || wasSecurityException) {
+            boolean restoreStreams = hasClassLevelSetup(wasSecurityException);
+            if (restoreStreams) {
                 bd.append(BLOCK_SPACE);
-                bd.append("Sandbox.resetDefaultSecurityManager(); \n");
+                bd.append("try { \n");
+            }
+            String space = restoreStreams ? INNER_BLOCK_SPACE : BLOCK_SPACE;
+
+            // Each step runs even when an earlier one throws.
+            List<String> classCleanup = new ArrayList<>();
+            if (Properties.RESET_STATIC_FIELDS || wasSecurityException) {
+                classCleanup.add("Sandbox.resetDefaultSecurityManager();");
             }
             if (wasSecurityException) {
-                bd.append(BLOCK_SPACE);
-                bd.append(EXECUTOR_SERVICE + ".shutdownNow(); \n");
+                classCleanup.add(EXECUTOR_SERVICE + ".shutdownNow();");
+            }
+            if (TestSuiteWriterUtils.shouldResetProperties(results)) {
+                classCleanup.add(getResetPropertiesCommand());
+            }
+            if (!classCleanup.isEmpty()) {
+                appendIndependentSteps(bd, classCleanup, space);
             }
 
-            if (TestSuiteWriterUtils.shouldResetProperties(results)) {
+            if (restoreStreams) {
+                // Hands back what the static initialisers run by @BeforeClass wrapped.
                 bd.append(BLOCK_SPACE);
-                bd.append(getResetPropertiesCommand());
-                bd.append(" \n");
+                bd.append("} finally { \n");
+                bd.append(INNER_BLOCK_SPACE);
+                bd.append(StandardStreams.class.getName()).append(".restore(classStandardStreams); \n");
+                bd.append(BLOCK_SPACE);
+                bd.append("} \n");
             }
 
             bd.append(METHOD_SPACE);
@@ -811,6 +875,12 @@ public class Scaffolding {
         bd.append("@").append(getAdapter().beforeAll().getSimpleName()).append("\n");
         bd.append(METHOD_SPACE);
         bd.append("public static void initEvoSuiteFramework() { \n");
+
+        if (hasClassLevelSetup(wasSecurityException)) {
+            // Before anything of the code under test is initialised, which may wrap the streams.
+            bd.append(BLOCK_SPACE);
+            bd.append("classStandardStreams = ").append(StandardStreams.class.getName()).append(".save(); \n");
+        }
 
         // FIXME: This is just commented out for experiments
         // bd.append("org.evosuite.utils.LoggingUtils.setLoggingForJUnit();
@@ -908,13 +978,18 @@ public class Scaffolding {
 
     private void generateFields(StringBuilder bd, boolean wasSecurityException, List<ExecutionResult> results) {
 
+        // A suite without runtime dependency gets neither @Before nor @After, so nothing
+        // would use the snapshot fields.
+        if (!Properties.NO_RUNTIME_DEPENDENCY) {
+            bd.append(METHOD_SPACE);
+            bd.append("private " + STANDARD_STREAMS + " standardStreams = null;" + '\n');
+            if (hasClassLevelSetup(wasSecurityException)) {
+                bd.append(METHOD_SPACE);
+                bd.append("private static " + STANDARD_STREAMS + " classStandardStreams = null;" + '\n');
+            }
+        }
+
         if (Properties.RESET_STANDARD_STREAMS) {
-            bd.append(METHOD_SPACE);
-            bd.append("private PrintStream systemOut = null;" + '\n');
-
-            bd.append(METHOD_SPACE);
-            bd.append("private PrintStream systemErr = null;" + '\n');
-
             bd.append(METHOD_SPACE);
             bd.append("private PrintStream logStream = null;" + '\n');
         }

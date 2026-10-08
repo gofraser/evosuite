@@ -102,7 +102,7 @@ public class TestRunnableAbandonedByTimeoutTest {
             Assertions.assertTrue(observer.inObserver.await(10, TimeUnit.SECONDS));
 
             // the waiting thread times out, and the next test starts
-            runnable.markAbandonedByTimeout();
+            runnable.markResultDiscarded();
             Sandbox.goingToExecuteSUTCode();
             Assertions.assertTrue(Sandbox.isOnAndExecutingSUTCode());
 

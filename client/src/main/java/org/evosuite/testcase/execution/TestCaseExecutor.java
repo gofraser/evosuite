@@ -736,8 +736,9 @@ public class TestCaseExecutor implements ThreadFactory {
             return result; // FIXME: is this reachable?
         } catch (TimeoutException e1) {
             // The worker will finish on its own time, after the sandbox has been
-            // cleared below; mark it before anything is cleared.
-            callable.markAbandonedByTimeout();
+            // cleared below; mark it before anything is cleared. The streams stay with
+            // the worker until we give up on it, below.
+            callable.markResultDiscarded();
             // Snapshot immediately on timeout catch, before any interrupt/wait/cleanup
             // can move the worker back to the executor idle loop.
             StackTraceElement[] timeoutStackSnapshot = currentThread != null
@@ -1016,6 +1017,9 @@ public class TestCaseExecutor implements ThreadFactory {
                     }
                 }
             }
+            // This is the point where we give up on the worker: whatever it still does, it
+            // no longer gets to hand the streams back. A no-op if it already did.
+            callable.handBackStreams();
             ExecutionTracer.disable();
 
             // Record whether execution is genuinely still running in SUT code

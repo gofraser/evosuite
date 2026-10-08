@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import org.evosuite.utils.LoggingUtils;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -88,10 +89,15 @@ public class ExecutorRotationAbandonmentFixture {
             int rotations = executor.getTotalRotationCount();
 
             boolean initializer = "initializer".equals(args[0]);
+            boolean streams = "streams".equals(args[0]);
+            Properties.PRINT_TO_SYSTEM = !streams;
             ExecutionResult timedOut = executor.execute(blockingTest(
                     initializer ? "enterInitializer" : "blockOrdinaryWorker"));
             check(entered.await(1, TimeUnit.SECONDS), "worker never entered the fixture");
             check(timedOut.hasTimeout(), "fixture must traverse real timeout handling");
+            if (streams) {
+                checkStreamsWereHandedBack();
+            }
             check(executor.getTotalRotationCount() == rotations + 1,
                     "fixture must traverse real executor rotation");
             check(retired.isShutdown(), "retired pool should stop accepting tasks");
@@ -124,6 +130,24 @@ public class ExecutorRotationAbandonmentFixture {
             }
             ExecutionTracer.setKillSwitch(false);
             TestCaseExecutor.pullDown();
+        }
+    }
+
+    /**
+     * The worker is still blocked inside the fixture, so only the executor can have handed the
+     * streams back by now. The executor also resets System.out/err itself, which hides a missing
+     * hand-back there, so look at the mute instead: muting is a no-op while an earlier mute is
+     * still in force.
+     */
+    private static void checkStreamsWereHandedBack() {
+        check(blockedWorker.isAlive(), "the worker must not have unwound for this scenario");
+        java.io.PrintStream before = System.out;
+        LoggingUtils.muteCurrentOutAndErrStream();
+        try {
+            check(System.out != before,
+                    "the executor gave up on the worker without handing the streams back");
+        } finally {
+            LoggingUtils.restorePreviousOutAndErrStream();
         }
     }
 
