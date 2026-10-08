@@ -871,6 +871,9 @@ public class StatementFactory {
             throw new ConstructionFailedException(message);
         }
 
+        if (AssignmentStatement.isNullForPrimitiveTarget(test, f, var)) {
+            throw new ConstructionFailedException("Cannot assign null to a primitive field");
+        }
         Statement st = new AssignmentStatement(test, f, var);
         VariableReference ret = test.addStatement(st, position);
         assert (test.isValid());
@@ -917,7 +920,11 @@ public class StatementFactory {
             throw new ConstructionFailedException(message);
         }
 
-        Statement st = new AssignmentStatement(test, new FieldReference(test, field, callee), value);
+        FieldReference target = new FieldReference(test, field, callee);
+        if (AssignmentStatement.isNullForPrimitiveTarget(test, target, value)) {
+            throw new ConstructionFailedException("Cannot assign null to a primitive field");
+        }
+        Statement st = new AssignmentStatement(test, target, value);
         VariableReference ret = test.addStatement(st, position);
         ret.setDistance(callee.getDistance() + 1);
 

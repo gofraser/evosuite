@@ -67,6 +67,7 @@ public class AssignmentStatement extends AbstractStatement {
     public AssignmentStatement(TestCase tc, VariableReference var, VariableReference value) {
         super(tc, var);
         rejectFinalFieldTarget(var);
+        rejectNullForPrimitiveTarget(tc, var, value);
         this.parameter = value;
 
         // TODO:
@@ -105,6 +106,49 @@ public class AssignmentStatement extends AbstractStatement {
      *
      * @param target the statement's assignment target
      */
+    /**
+     * Whether {@code value} is a null that would be written into the primitive {@code target}.
+     * Such a write cannot be compiled ("&lt;nulltype&gt; cannot be converted to boolean") and
+     * fails at run time (Field.set of null into a primitive field throws), so no assignment
+     * statement may combine them.
+     *
+     * @param tc     the test case, used to look up the statement defining {@code value}
+     * @param target the assignment target
+     * @param value  the assigned value
+     * @return true if a null would be assigned to a primitive
+     */
+    public static boolean isNullForPrimitiveTarget(TestCase tc, VariableReference target,
+                                                   VariableReference value) {
+        if (target == null || value == null || !target.isPrimitive()) {
+            return false;
+        }
+        if (value instanceof NullReference
+                || (value instanceof ConstantValue && ((ConstantValue) value).getValue() == null)) {
+            return true;
+        }
+        if (tc == null || value instanceof ArrayIndex || value instanceof FieldReference) {
+            return false;
+        }
+        try {
+            int position = value.getStPosition();
+            return position >= 0 && position < tc.size()
+                    && tc.getStatement(position) instanceof NullStatement;
+        } catch (AssertionError e) {
+            // The value is not (yet) defined by a statement of this test.
+            return false;
+        }
+    }
+
+    private static void rejectNullForPrimitiveTarget(TestCase tc, VariableReference target,
+                                                     VariableReference value) {
+        if (isNullForPrimitiveTarget(tc, target, value)) {
+            String message = "Refusing to construct an assignment statement that writes null into "
+                    + "the primitive " + target.getType();
+            logger.error(message);
+            throw new IllegalArgumentException(message);
+        }
+    }
+
     private static void rejectFinalFieldTarget(VariableReference target) {
         GenericField field = finalFieldTarget(target);
         if (field == null) {
@@ -307,12 +351,12 @@ public class AssignmentStatement extends AbstractStatement {
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
         if (retval.equals(var1)) {
-            if (isAssignable(var2, parameter)) {
+            if (isAssignable(var2, parameter) && !isNullForPrimitiveTarget(tc, var2, parameter)) {
                 retval = var2;
             }
         }
         if (parameter.equals(var1)) {
-            if (isAssignable(retval, var2)) {
+            if (isAssignable(retval, var2) && !isNullForPrimitiveTarget(tc, retval, var2)) {
                 parameter = var2;
             }
         } else {
@@ -374,6 +418,9 @@ public class AssignmentStatement extends AbstractStatement {
     @Override
     public boolean isValid() {
         assert (super.isValid());
+        if (isNullForPrimitiveTarget(tc, retval, parameter)) {
+            return false;
+        }
         if (retval instanceof ArrayIndex) {
             ArrayIndex arrayIndex = (ArrayIndex) retval;
             ArrayReference arrayRef = arrayIndex.getArray();
@@ -539,7 +586,8 @@ public class AssignmentStatement extends AbstractStatement {
                 // Need to double check, because we might try to replace e.g.
                 // a long with an int, which is assignable
                 // but if the long is assigned to a Long field, then it is not!
-                if (GenericClassUtils.isAssignable(newRetVal.getType(), parameter.getType())) {
+                if (GenericClassUtils.isAssignable(newRetVal.getType(), parameter.getType())
+                        && !isNullForPrimitiveTarget(tc, newRetVal, parameter)) {
 
                     // Need to check array status because commons lang
                     // is sometimes confused about what is assignable
@@ -571,7 +619,8 @@ public class AssignmentStatement extends AbstractStatement {
             objects.remove(parameter);
             if (!objects.isEmpty()) {
                 VariableReference choice = Randomness.choice(objects);
-                if (GenericClassUtils.isAssignable(retval.getType(), choice.getType())) {
+                if (GenericClassUtils.isAssignable(retval.getType(), choice.getType())
+                        && !isNullForPrimitiveTarget(tc, retval, choice)) {
 
                     // Need special care if it is a wrapper class
                     if (retval.getGenericClass().isWrapperType()) {

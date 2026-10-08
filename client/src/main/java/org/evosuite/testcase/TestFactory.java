@@ -825,6 +825,9 @@ public class TestFactory {
             logger.trace("Reusing value: {}", choice);
 
             ArrayIndex index = new ArrayIndex(test, arrRef, arrayIndex);
+            if (AssignmentStatement.isNullForPrimitiveTarget(test, index, choice)) {
+                throw new ConstructionFailedException("Cannot assign null to a primitive element");
+            }
             Statement st = new AssignmentStatement(test, index, choice);
             test.addStatement(st, position);
         } else {
@@ -847,6 +850,9 @@ public class TestFactory {
 
             position += test.size() - oldLength;
             ArrayIndex index = new ArrayIndex(test, arrRef, arrayIndex);
+            if (AssignmentStatement.isNullForPrimitiveTarget(test, index, var)) {
+                throw new ConstructionFailedException("Cannot assign null to a primitive element");
+            }
             Statement st = new AssignmentStatement(test, index, var);
             test.addStatement(st, position);
         }
