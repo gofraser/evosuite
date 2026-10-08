@@ -171,13 +171,13 @@ public class ExecutionTracer {
         }
     }
 
-    /** Threads given up on; weakly held so that a finished orphan does not stay reachable. */
-    private static final java.util.Set<Thread> abandonedThreads =
-            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(
-                    new java.util.WeakHashMap<Thread, Boolean>()));
-
-    /** True while {@link #abandonedThreads} may be non-empty; keeps the probe a single read. */
-    private static volatile boolean anyThreadAbandoned = false;
+    /**
+     * Threads given up on, weakly held so that a finished orphan does not stay reachable. The
+     * array is replaced, never changed, so the probe reads it without a lock: once a run has
+     * abandoned a thread, every probe of the rest of the run consults it.
+     */
+    private static volatile java.lang.ref.WeakReference<?>[] abandonedThreads =
+            new java.lang.ref.WeakReference<?>[0];
 
     /**
      * Makes every further timeout probe of one thread throw, for good. The kill switch cannot do
@@ -192,8 +192,26 @@ public class ExecutionTracer {
         if (thread == null) {
             return;
         }
-        abandonedThreads.add(thread);
-        anyThreadAbandoned = true;
+        synchronized (ExecutionTracer.class) {
+            java.util.List<java.lang.ref.WeakReference<?>> kept = new java.util.ArrayList<>();
+            for (java.lang.ref.WeakReference<?> ref : abandonedThreads) {
+                Thread abandoned = (Thread) ref.get();
+                if (abandoned != null && abandoned.isAlive() && abandoned != thread) {
+                    kept.add(ref);
+                }
+            }
+            kept.add(new java.lang.ref.WeakReference<>(thread));
+            abandonedThreads = kept.toArray(new java.lang.ref.WeakReference<?>[0]);
+        }
+    }
+
+    private static boolean isAbandoned(Thread thread) {
+        for (java.lang.ref.WeakReference<?> ref : abandonedThreads) {
+            if (ref.get() == thread) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -487,7 +505,7 @@ public class ExecutionTracer {
         if (LoopCounter.getInstance().shouldTerminateAbandonedStaticInitializer()) {
             throw new TestCaseExecutor.TimeoutExceeded();
         }
-        if (anyThreadAbandoned && abandonedThreads.contains(Thread.currentThread())) {
+        if (abandonedThreads.length > 0 && isAbandoned(Thread.currentThread())) {
             throw new TestCaseExecutor.TimeoutExceeded();
         }
         if (!tracer.killSwitch) {
