@@ -135,7 +135,9 @@ public class DecompiledContextProvider implements SutContextProvider {
         return "Decompiled source";
     }
 
-    /** Reads the (original) class bytes for {@code className}, or {@code null} if unavailable. */
+    /**
+     * Reads the (original) class bytes for {@code className}, or {@code null} if unavailable.
+     */
     private static byte[] readClassBytes(String className) {
         // Prefer the original bytes from the project classpath: this avoids the
         // instrumented/mock-redirected bytecode that the SUT class loader may
@@ -168,6 +170,7 @@ public class DecompiledContextProvider implements SutContextProvider {
                 try {
                     is.close();
                 } catch (IOException ignored) {
+                    // Best-effort close of the class-bytes stream; nothing useful to do on failure.
                 }
             }
         }

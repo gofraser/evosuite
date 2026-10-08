@@ -198,7 +198,7 @@ public final class ClinitResetSafetyAnalyzer {
      * @param reader a fresh {@link ClassReader} over the original,
      *               uninstrumented bytecode
      * @return true if {@code __STATIC_RESET()} should not be generated for
-     * this class
+     *     this class
      */
     public static boolean isUnsafeToReplayClinit(ClassReader reader) {
         // Field and method declarations decide most classes; only parse code when they pass.

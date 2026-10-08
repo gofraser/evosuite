@@ -41,7 +41,8 @@ import java.util.List;
  * <p>Output schema (one row per recorded individual):
  * <pre>
  *   population_shape_&lt;TARGET_CLASS&gt;.csv :
- *     gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs,struct_features
+ *     gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,
+ *     branches,method_sigs,struct_features
  * </pre>
  * {@code branches} holds covered branch IDs sorted ascending, joined with
  * {@code ';'} (empty if no execution trace). {@code method_sigs} holds the
@@ -68,7 +69,8 @@ public final class PopulationShapeRecorder {
     public static final String FILENAME_PREFIX = "population_shape";
 
     private static final String HEADER =
-            "gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs,struct_features";
+            "gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,"
+                    + "method_sigs,struct_features";
 
     private final List<Row> rows = new ArrayList<>();
     private final String path;
@@ -183,8 +185,8 @@ public final class PopulationShapeRecorder {
         final String[] structFeatures;
 
         Row(int gen, long elapsedMs, int idx, int speciesId, int rank,
-            String injectionSource, int coveredGoals, double sumFitness, int[] branches,
-            String[] methodSigs, String[] structFeatures) {
+                String injectionSource, int coveredGoals, double sumFitness, int[] branches,
+                String[] methodSigs, String[] structFeatures) {
             this.gen = gen;
             this.elapsedMs = elapsedMs;
             this.idx = idx;

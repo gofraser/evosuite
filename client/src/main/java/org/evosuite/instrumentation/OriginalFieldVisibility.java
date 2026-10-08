@@ -27,7 +27,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/** Original source visibility of fields promoted by {@link AccessibleClassAdapter}. */
+/**
+ * Original source visibility of fields promoted by {@link AccessibleClassAdapter}.
+ */
 public final class OriginalFieldVisibility {
     private static final int ACCESS_MASK = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE;
     // Values contain no Class or ClassLoader references, so finished SUT loaders remain collectable.
@@ -42,6 +44,13 @@ public final class OriginalFieldVisibility {
                 .putIfAbsent(key(className, name, descriptor), modifiers & ACCESS_MASK);
     }
 
+    /**
+     * Returns the modifiers a field had in the original source, restoring its access bits if the class adapter
+     * promoted the field.
+     *
+     * @param field the field to inspect
+     * @return the field's modifiers, with the recorded original access flags if there are any
+     */
     public static synchronized int getModifiers(Field field) {
         Map<String, Integer> fields = VISIBILITY.get(field.getDeclaringClass().getClassLoader());
         Integer original = fields == null ? null : fields.get(key(field.getDeclaringClass().getName(),

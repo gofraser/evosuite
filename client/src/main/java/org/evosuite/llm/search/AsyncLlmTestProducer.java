@@ -141,6 +141,16 @@ public class AsyncLlmTestProducer {
         this(uncoveredGoalsSupplier, populationSupplier, llmService, queueSize, refreshInterval, delayMs, null);
     }
 
+    /**
+     * Creates a producer that also records the outcome of each injection attempt in the given memory.
+     * @param uncoveredGoalsSupplier supplies the currently uncovered goals, may be null
+     * @param populationSupplier supplies the current population
+     * @param llmService the service used to query the model
+     * @param queueSize capacity of the queue of produced tests
+     * @param refreshInterval number of tests generated before the prompt context is refreshed
+     * @param delayMs delay between generations in milliseconds
+     * @param repeatedInjectionMemory memory of earlier attempts, may be null
+     */
     public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
                                 Supplier<List<TestChromosome>> populationSupplier,
                                 LlmService llmService,
@@ -199,6 +209,11 @@ public class AsyncLlmTestProducer {
         return tests;
     }
 
+    /**
+     * Removes and returns the metadata of the injection attempt that produced a candidate.
+     * @param candidate the candidate test, may be null
+     * @return the attempt metadata, or null if there is none
+     */
     public InjectionAttemptMetadata consumeAttemptMetadata(TestChromosome candidate) {
         if (candidate == null) {
             return null;
@@ -206,6 +221,11 @@ public class AsyncLlmTestProducer {
         return attemptMetadataByCandidate.remove(candidate);
     }
 
+    /**
+     * Reports how many goals an earlier injection attempt covered, so repeated attempts can be prioritised.
+     * @param attemptId identifier of the attempt, ignored if null or blank
+     * @param gainedGoals number of goals the attempt newly covered
+     */
     public void reportAttemptOutcome(String attemptId, int gainedGoals) {
         if (repeatedInjectionMemory == null || attemptId == null || attemptId.trim().isEmpty()) {
             return;

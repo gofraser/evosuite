@@ -1491,18 +1491,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             try {
                 int[] speciesPerSlot = buildSpeciesPerSlot(this.population, lastTrackedSpeciesMap);
                 int[] rankPerSlot = buildRankPerSlot(this.population);
-                int nInjected = 0;
-                int nInjectedIncubator = 0;
-                int nInjectedPostIncubator = 0;
+                int numInjected = 0;
+                int numInjectedIncubator = 0;
+                int numInjectedPostIncubator = 0;
                 Map<InjectionSource, Integer> sourceCounts = new EnumMap<>(InjectionSource.class);
                 for (TestChromosome tc : this.population) {
                     InjectionSource src = tc.getInjectionSource();
                     if (src != null) {
-                        nInjected++;
+                        numInjected++;
                         if (isIncubatorActive(tc)) {
-                            nInjectedIncubator++;
+                            numInjectedIncubator++;
                         } else {
-                            nInjectedPostIncubator++;
+                            numInjectedPostIncubator++;
                         }
                         sourceCounts.merge(src, 1, Integer::sum);
                     }
@@ -1571,9 +1571,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                 elapsedMs,
                                 this.population.size(),
                                 lastTrackedSpeciesMap.size(),
-                                nInjected,
-                                nInjectedIncubator,
-                                nInjectedPostIncubator,
+                                numInjected,
+                                numInjectedIncubator,
+                                numInjectedPostIncubator,
                                 dominant,
                                 lastGenInjectedAttemptsCount,
                                 lastGenDominantAttemptSource,
@@ -1872,9 +1872,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     private int[] buildRankPerSlot(List<TestChromosome> population) {
-        int nFronts = this.rankingFunction.getNumberOfSubfronts();
+        int numFronts = this.rankingFunction.getNumberOfSubfronts();
         IdentityHashMap<TestChromosome, Integer> rankLookup = new IdentityHashMap<>();
-        for (int r = 0; r < nFronts; r++) {
+        for (int r = 0; r < numFronts; r++) {
             for (TestChromosome tc : this.rankingFunction.getSubfront(r)) {
                 rankLookup.put(tc, r);
             }

@@ -109,7 +109,9 @@ public class ClientNodeImpl<T extends Chromosome<T>>
      */
     private ExecutorService remoteActionExecutor;
 
-    /** The thread of {@link #remoteActionExecutor}, once it has been created. */
+    /**
+     * The thread of {@link #remoteActionExecutor}, once it has been created.
+     */
     private volatile Thread remoteActionThread;
 
     private final Object remoteActionLock = new Object();

@@ -161,6 +161,11 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         return resolved;
     }
 
+    /**
+     * Checks whether a parameter type of the method is a type variable or wildcard.
+     * @param method the method to inspect
+     * @return true if at least one generic parameter type is unresolved
+     */
     public static boolean hasUnresolvedGenericParameterTypes(Method method) {
         for (Type type : method.getGenericParameterTypes()) {
             if (type instanceof TypeVariable || type instanceof WildcardType) {
@@ -364,7 +369,9 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         return !Properties.USE_SEPARATE_CLASSLOADER && RemoveFinalClassAdapter.isFinalMethod(method);
     }
 
-    /** The class-level counterpart of {@link #wasOriginallyFinal(Method)}. */
+    /**
+     * The class-level counterpart of {@link #wasOriginallyFinal(Method)}.
+     */
     public static boolean wasOriginallyFinal(Class<?> clazz) {
         return !Properties.USE_SEPARATE_CLASSLOADER
                 && RemoveFinalClassAdapter.finalClasses.contains(clazz.getName());

@@ -42,10 +42,10 @@ import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.ExecutionTracer;
+import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testcase.execution.reset.ClassReInitializer;
-import org.evosuite.testcase.execution.ExecutionTracer;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
@@ -152,7 +152,9 @@ public abstract class JUnitAnalyzer {
      */
     private static volatile boolean CHECK_INCOMPLETE = false;
 
-    /** Number of distinct give-up events recorded via {@link #recordCheckIncomplete(String)}. */
+    /**
+     * Number of distinct give-up events recorded via {@link #recordCheckIncomplete(String)}.
+     */
     private static volatile int INCOMPLETE_CHECK_ROUNDS = 0;
 
     /**
@@ -385,7 +387,8 @@ public abstract class JUnitAnalyzer {
                  * "generated" instead and are not re-recorded here.
                  */
                 logger.warn("Failed to compile the test cases ");
-                recordCheckIncomplete("instability check: whole-suite compile failed unexpectedly; test(s) kept unchecked");
+                recordCheckIncomplete(
+                        "instability check: whole-suite compile failed unexpectedly; test(s) kept unchecked");
                 return numUnstable;
             }
             if (shouldSkipCompileDependentExecutionAfterCompile()) {
@@ -411,7 +414,8 @@ public abstract class JUnitAnalyzer {
                 // not an ordinary compile rejection: the suite is kept unchecked and the round
                 // never validated it.
                 logger.error("Found no classes for compiled tests");
-                recordCheckIncomplete("instability check: failed to load compiled test classes; test(s) kept unchecked");
+                recordCheckIncomplete(
+                        "instability check: failed to load compiled test classes; test(s) kept unchecked");
                 return numUnstable;
             }
 
@@ -503,8 +507,8 @@ public abstract class JUnitAnalyzer {
                         + failure.getExceptionClassName() + ": " + failure.getMessage());
                 if (isReflectiveAssertThrowsMismatch(failure)) {
                     logger.warn("Likely reflective assertThrows mismatch in {}: Method.invoke wraps user "
-                            + "exceptions in InvocationTargetException. Prefer direct invocation for accessible methods, "
-                            + "or assert InvocationTargetException and then assert on getCause().", testName);
+                            + "exceptions in InvocationTargetException. Prefer direct invocation for accessible "
+                            + "methods, or assert InvocationTargetException and then assert on getCause().", testName);
                 }
 
                 if (Properties.JUNIT_UNSTABLE_DIAGNOSTICS) {
@@ -1420,7 +1424,8 @@ public abstract class JUnitAnalyzer {
             }
             if (!hasCompiledClassFilesForGeneratedSources(generated)) {
                 disableCompileCheckDueToInfrastructure(
-                        new IllegalStateException("javac reported success but produced no .class files for generated tests"),
+                        new IllegalStateException(
+                                "javac reported success but produced no .class files for generated tests"),
                         compilerClasspath);
                 return generated;
             }
@@ -1931,7 +1936,7 @@ public abstract class JUnitAnalyzer {
                     return Collections.emptyList();
                 }
                 try (InputStream in = jar.getInputStream(serviceEntry);
-                     BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
                     return parseServiceProviderDeclarations(reader);
                 }
             } catch (IOException e) {

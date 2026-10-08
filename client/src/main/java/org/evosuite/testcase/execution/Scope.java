@@ -118,7 +118,9 @@ public class Scope {
                     if (declaredType == null || declaredType.isAssignableFrom(inferredType)) {
                         retypeIfCalleesAllow(reference, inferredType);
                     }
-                } else if (o.getClass().getName().contains("EnhancerByMockito") || o.getClass().getName().contains("MockitoMock") || org.mockito.Mockito.mockingDetails(o).isMock()) {
+                } else if (o.getClass().getName().contains("EnhancerByMockito")
+                        || o.getClass().getName().contains("MockitoMock")
+                        || org.mockito.Mockito.mockingDetails(o).isMock()) {
                     /*
                         tricky: this is a functional mock for a class X. We do not want to set
                         scopes on mock objects, as their class definitions are created on the fly

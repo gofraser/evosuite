@@ -298,7 +298,9 @@ final class ObjectRuleGenerationCoordinator {
         return owner.newConstructionPathSynthesizer();
     }
 
-    /** Consistency seam paired with {@link #newConstructionPathSynthesizer()}. */
+    /**
+     * Consistency seam paired with {@link #newConstructionPathSynthesizer()}.
+     */
     boolean isSynthesizedTestConsistent(TestCase test) {
         return owner.isSynthesizedTestConsistent(test);
     }

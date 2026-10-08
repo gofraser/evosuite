@@ -311,6 +311,13 @@ public class TestCaseExecutor implements ThreadFactory {
             this(message, stackTrace, null, null);
         }
 
+        /**
+         * Creates a timeout marker with the position and code of the statement that was running.
+         * @param message the exception message
+         * @param stackTrace the stack trace to report, may be null
+         * @param statementPosition the position of the running statement, may be null
+         * @param statementCode the code of the running statement, may be null
+         */
         public TimeoutExceeded(String message,
                                StackTraceElement[] stackTrace,
                                Integer statementPosition,

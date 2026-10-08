@@ -20,10 +20,10 @@
 package org.evosuite.llm.postprocess;
 
 import org.evosuite.Properties;
+import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.AssertionGenerator;
 import org.evosuite.assertion.CompleteAssertionGenerator;
 import org.evosuite.assertion.SimpleMutationAssertionGenerator;
-import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
@@ -49,8 +49,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +76,10 @@ public class LlmPostProcessor {
     private final PhaseClock phaseClock;
     private final PostProcessingTelemetry telemetry;
 
+    /**
+     * Creates a post-processor that queries the shared {@link LlmService} and uses the default runners, guards and
+     * telemetry.
+     */
     public LlmPostProcessor() {
         this(LlmService.getInstance(), new TraceAssertionFallbackRunner(),
                 new TraceAssertionCandidateRunner(), new DefaultStabilityExecutionRunner(),
@@ -816,7 +820,7 @@ public class LlmPostProcessor {
             if (repairParseResult.isInfrastructureFailure()) {
                 logger.debug("Unified LLM post-processing repair response could not be parsed: {}",
                         repairParseResult.getInfrastructureFailureReason());
-                    return AssertionRepairResult.called(acceptedResponse, rejected.size(),
+                return AssertionRepairResult.called(acceptedResponse, rejected.size(),
                         0, 0, java.util.Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList(),
                         java.util.Collections.<LlmPostProcessingParseResult.RawAssertion>emptyList());
             }

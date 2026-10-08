@@ -85,7 +85,9 @@ public class ObjectRuleBranchSelector {
     /** Branches that have been eligible at least once in this run. */
     private final Set<Branch> everEligible = new LinkedHashSet<>();
 
-    /** How many branches the last {@link #prepareEligibility(Collection)} call left unclassified. */
+    /**
+     * How many branches the last {@link #prepareEligibility(Collection)} call left unclassified.
+     */
     private int skippedForBudget;
 
     /**

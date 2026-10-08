@@ -25,20 +25,24 @@ import org.evosuite.runtime.mock.MockFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.swing.ComboBoxEditor;
+import javax.swing.ComboBoxModel;
+import javax.swing.Icon;
+import javax.swing.JColorChooser;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
-import javax.swing.JComboBox;
 import javax.swing.JList;
 import javax.swing.JMenuBar;
-import javax.swing.JTable;
 import javax.swing.JTabbedPane;
+import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTree;
-import javax.swing.Icon;
-import javax.swing.ComboBoxModel;
-import javax.swing.ComboBoxEditor;
+import javax.swing.event.DocumentListener;
+import javax.swing.event.UndoableEditListener;
 import javax.swing.plaf.basic.BasicComboBoxEditor;
+import javax.swing.text.BadLocationException;
 import javax.swing.text.Caret;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.Document;
@@ -47,29 +51,27 @@ import javax.swing.text.JTextComponent;
 import javax.swing.text.Position;
 import javax.swing.text.Segment;
 import javax.swing.text.SimpleAttributeSet;
-import javax.swing.text.BadLocationException;
-import javax.swing.JColorChooser;
-import javax.swing.event.DocumentListener;
-import javax.swing.event.UndoableEditListener;
+
 import java.awt.AWTError;
 import java.awt.AWTException;
 import java.awt.Button;
+import java.awt.CheckboxMenuItem;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Cursor;
-import java.awt.Desktop;
 import java.awt.DefaultKeyboardFocusManager;
+import java.awt.Desktop;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.HeadlessException;
 import java.awt.Frame;
-import java.awt.GraphicsEnvironment;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.HeadlessException;
 import java.awt.Insets;
 import java.awt.KeyboardFocusManager;
-import java.awt.CheckboxMenuItem;
 import java.awt.Label;
 import java.awt.MediaTracker;
 import java.awt.Menu;
@@ -79,6 +81,7 @@ import java.awt.MenuShortcut;
 import java.awt.MouseInfo;
 import java.awt.PointerInfo;
 import java.awt.PopupMenu;
+import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.Shape;
 import java.awt.SystemTray;
@@ -87,16 +90,14 @@ import java.awt.TextField;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
 import java.awt.Window;
-import java.awt.Color;
-import java.awt.Rectangle;
 import java.awt.datatransfer.FlavorMap;
 import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.net.URI;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -1106,6 +1107,12 @@ public final class MockHeadlessSwing {
         return Desktop.getDesktop();
     }
 
+    /**
+     * Replacement for {@code Desktop.open(File)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param file the file to open
+     */
     public static void replacement_desktopOpen(Desktop source, File file) {
         if (source == null) {
             throw new NullPointerException();
@@ -1116,9 +1123,16 @@ public final class MockHeadlessSwing {
         try {
             source.open(file);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.edit(File)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param file the file to edit
+     */
     public static void replacement_desktopEdit(Desktop source, File file) {
         if (source == null) {
             throw new NullPointerException();
@@ -1129,9 +1143,16 @@ public final class MockHeadlessSwing {
         try {
             source.edit(file);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.print(File)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param file the file to print
+     */
     public static void replacement_desktopPrint(Desktop source, File file) {
         if (source == null) {
             throw new NullPointerException();
@@ -1142,9 +1163,16 @@ public final class MockHeadlessSwing {
         try {
             source.print(file);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.browse(URI)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param uri the URI to browse
+     */
     public static void replacement_desktopBrowse(Desktop source, URI uri) {
         if (source == null) {
             throw new NullPointerException();
@@ -1155,9 +1183,15 @@ public final class MockHeadlessSwing {
         try {
             source.browse(uri);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.mail()}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     */
     public static void replacement_desktopMail(Desktop source) {
         if (source == null) {
             throw new NullPointerException();
@@ -1168,9 +1202,16 @@ public final class MockHeadlessSwing {
         try {
             source.mail();
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.mail(URI)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param uri the mailto URI
+     */
     public static void replacement_desktopMail(Desktop source, URI uri) {
         if (source == null) {
             throw new NullPointerException();
@@ -1181,6 +1222,7 @@ public final class MockHeadlessSwing {
         try {
             source.mail(uri);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
@@ -1204,6 +1246,12 @@ public final class MockHeadlessSwing {
         return SystemTray.getSystemTray();
     }
 
+    /**
+     * Replacement for {@code SystemTray.add(TrayIcon)}; does nothing in a headless environment.
+     *
+     * @param source the system tray the call was made on
+     * @param trayIcon the icon to add
+     */
     public static void replacement_systemTrayAdd(SystemTray source, TrayIcon trayIcon) {
         if (source == null) {
             throw new NullPointerException();
@@ -1214,9 +1262,16 @@ public final class MockHeadlessSwing {
         try {
             source.add(trayIcon);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code SystemTray.remove(TrayIcon)}; does nothing in a headless environment.
+     *
+     * @param source the system tray the call was made on
+     * @param trayIcon the icon to remove
+     */
     public static void replacement_systemTrayRemove(SystemTray source, TrayIcon trayIcon) {
         if (source == null) {
             throw new NullPointerException();
@@ -1255,6 +1310,13 @@ public final class MockHeadlessSwing {
         }
     }
 
+    /**
+     * Replacement for {@code Robot.createScreenCapture(Rectangle)}; returns a blank image in a headless environment.
+     *
+     * @param source the robot the call was made on
+     * @param screenRect the area to capture
+     * @return the captured image, or a transparent image of the requested size when headless
+     */
     public static BufferedImage replacement_robotCreateScreenCapture(Robot source, Rectangle screenRect) {
         if (source == null) {
             throw new NullPointerException();
@@ -2369,7 +2431,7 @@ public final class MockHeadlessSwing {
      * @param bottom bottom inset
      * @param right right inset
      * @return an insets instance. In headless mode we still return a real object
-     * to avoid downstream NPEs in code that clones or dereferences insets.
+     *     to avoid downstream NPEs in code that clones or dereferences insets.
      */
     public static Insets replacement_newInsets(int top, int left, int bottom, int right) {
         return new Insets(top, left, bottom, right);

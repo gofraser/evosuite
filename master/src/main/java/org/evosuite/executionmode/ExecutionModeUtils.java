@@ -423,7 +423,9 @@ public final class ExecutionModeUtils {
         return result;
     }
 
-    /** {@code java.base/java.util=ALL-UNNAMED} to {@code java.base/java.util}, or null. */
+    /**
+     * Maps {@code java.base/java.util=ALL-UNNAMED} to {@code java.base/java.util}, or null.
+     */
     private static String modulePackage(String value) {
         int eq = value.indexOf('=');
         if (eq <= 0 || !value.substring(0, eq).contains("/")) {

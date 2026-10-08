@@ -25,7 +25,6 @@ import org.evosuite.runtime.mock.OverrideMock;
 import java.awt.Dialog;
 import java.awt.FileDialog;
 import java.awt.Frame;
-import java.awt.HeadlessException;
 
 /**
  * OverrideMock for {@link java.awt.FileDialog}. Uses mock owners so dialog

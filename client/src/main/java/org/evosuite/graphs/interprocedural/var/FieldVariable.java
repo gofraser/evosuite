@@ -4,8 +4,8 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
 
 public abstract class FieldVariable extends DepVariable {
 
-	protected FieldVariable(BytecodeInstruction ins) {
-		super(ins);
-	}
+    protected FieldVariable(BytecodeInstruction ins) {
+        super(ins);
+    }
 
 }

@@ -57,6 +57,13 @@ public final class RepairFailureSignal {
         this.detailB = detailB;
     }
 
+    /**
+     * Creates a signal for an exception of the given type.
+     *
+     * @param exceptionType the exception class name
+     * @param message the exception message
+     * @return the signal
+     */
     public static RepairFailureSignal exceptionType(String exceptionType, String message) {
         String safeType = safe(exceptionType);
         String safeMessage = safe(message);
@@ -65,6 +72,13 @@ public final class RepairFailureSignal {
         return new RepairFailureSignal(Type.EXCEPTION_TYPE, key, summary, safeType, safeMessage, null, null);
     }
 
+    /**
+     * Creates a signal for a NullPointerException caused by a null receiver.
+     *
+     * @param memberSignature the called member
+     * @param nullVariable the variable that was null
+     * @return the signal
+     */
     public static RepairFailureSignal nullReceiverNpe(String memberSignature, String nullVariable) {
         String member = safe(memberSignature);
         String receiver = safe(nullVariable);
@@ -74,6 +88,13 @@ public final class RepairFailureSignal {
                 "NullPointerException", null, member, receiver);
     }
 
+    /**
+     * Creates a signal for a ClassCastException between two types.
+     *
+     * @param sourceType the type of the value
+     * @param targetType the type it was cast to
+     * @return the signal
+     */
     public static RepairFailureSignal classCast(String sourceType, String targetType) {
         String src = safe(sourceType);
         String dst = safe(targetType);
@@ -82,6 +103,12 @@ public final class RepairFailureSignal {
         return new RepairFailureSignal(Type.CLASS_CAST, key, summary, "ClassCastException", null, src, dst);
     }
 
+    /**
+     * Creates a signal for a class whose static initialisation failed.
+     *
+     * @param className the class that failed to initialise
+     * @return the signal
+     */
     public static RepairFailureSignal staticInitFailure(String className) {
         String poisoned = safe(className);
         String key = "clinit:" + poisoned;
@@ -90,6 +117,12 @@ public final class RepairFailureSignal {
                 "ExceptionInInitializerError", null, poisoned, null);
     }
 
+    /**
+     * Creates a signal for a class that stays unusable after a failed static initialisation.
+     *
+     * @param className the class left unusable
+     * @return the signal
+     */
     public static RepairFailureSignal staticInitAftershock(String className) {
         String poisoned = safe(className);
         String key = "clinit-aftershock:" + poisoned;

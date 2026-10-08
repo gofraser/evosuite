@@ -40,6 +40,7 @@ import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -99,7 +100,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
         int opcodeWrite = getCorrespondingWriteOpcode(opcodeRead);
         Integer preferredIndex = preferredAccessorIndex(test, map);
 
-        /** check reused array element */
+        /* check reused array element */
         List<VariableReference> usedArrayElementList =
                 searchUsedArrayElementReference(test, variable, preferredIndex);
         if (!usedArrayElementList.isEmpty()) {
@@ -140,16 +141,16 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
         if (prob > 0.8) {
             if (isLeaf) {
 
-                /** generate setter */
+                /* generate setter */
                 ElementSetter setter = searchSetterForArrayElement(opcodeWrite, variable, context);
                 if (setter != null) {
-                    GenericMethod gMethod =
+                    GenericMethod genericMethod =
                             new GenericMethod(setter.method, setter.method.getDeclaringClass());
                     TestFactory.getInstance()
                             .addMethodFor(
                                     test,
                                     context.ownerReference,
-                                    gMethod,
+                                    genericMethod,
                                     ConstructionReferenceUtil.definitionPosition(
                                                     test, context.ownerReference)
                                             + 1,
@@ -158,17 +159,17 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
                 }
             } else {
 
-                /** generate getter */
+                /* generate getter */
                 Method getter = searchGetterForArrayElement(opcodeRead, variable, context);
                 if (getter != null) {
                     VariableReference newParentVarRef = null;
-                    GenericMethod gMethod = new GenericMethod(getter, getter.getDeclaringClass());
+                    GenericMethod genericMethod = new GenericMethod(getter, getter.getDeclaringClass());
                     newParentVarRef =
                             TestFactory.getInstance()
                                     .addMethodFor(
                                             test,
                                             context.ownerReference,
-                                            gMethod,
+                                            genericMethod,
                                             ConstructionReferenceUtil.definitionPosition(
                                                             test, context.ownerReference)
                                                     + 1,
@@ -197,7 +198,9 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 
                 ArrayIndex arrayIndex = new ArrayIndex(test, arrayRef, index);
                 VariableReference varRef = createArrayElementVariable(test, arrayRef);
-                if (varRef == null) return null;
+                if (varRef == null) {
+                    return null;
+                }
 
                 AssignmentStatement assignStat = new AssignmentStatement(test, arrayIndex, varRef);
                 test.addStatement(assignStat, varRef.getStPosition() + 1);
@@ -222,15 +225,15 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
             for (int i = 0; i < test.size(); i++) {
                 Statement statement = test.getStatement(i);
                 if (statement instanceof AssignmentStatement) {
-                    AssignmentStatement aStat = (AssignmentStatement) statement;
-                    VariableReference var = aStat.getReturnValue();
+                    AssignmentStatement assignmentStat = (AssignmentStatement) statement;
+                    VariableReference var = assignmentStat.getReturnValue();
                     if (var.isArrayIndex()) {
                         if (var instanceof ArrayIndex) {
                             ArrayIndex index = (ArrayIndex) var;
                             if (index.getArray().equals(arrayObject)
                                     && (preferredIndex == null
                                             || index.getArrayIndex() == preferredIndex)) {
-                                elementList.add(aStat.getValue());
+                                elementList.add(assignmentStat.getValue());
                             }
                         }
                     }
@@ -424,7 +427,10 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
         return targetMethods;
     }
 
-    /** AASTORE, BASTORE, CASTORE, DASTORE, FASTORE, IASTORE, LASTORE, SASTORE */
+    /**
+     * Searches for the references that write an array element (AASTORE, BASTORE, CASTORE, DASTORE, FASTORE,
+     * IASTORE, LASTORE, SASTORE).
+     */
     private List<VariableReference> searchArrayElementWritingReference(
             TestCase test, VariableInTest variable, int opcodeWrite, ArrayAccessContext context) {
 
@@ -447,16 +453,16 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
             for (int i = 0; i < test.size(); i++) {
                 Statement stat = test.getStatement(i);
                 if (stat instanceof MethodStatement) {
-                    MethodStatement mStat = (MethodStatement) stat;
-                    VariableReference ref = mStat.getCallee();
+                    MethodStatement methodStat = (MethodStatement) stat;
+                    VariableReference ref = methodStat.getCallee();
                     if (ConstructionReferenceUtil.sameReference(test, ref, context.ownerReference)) {
                         Integer parameterPosition =
                                 checkValidArrayElementSetter(
-                                        mStat.getMethod().getMethod(), opcodeWrite, variable);
+                                        methodStat.getMethod().getMethod(), opcodeWrite, variable);
                         if (parameterPosition >= 0
-                                && parameterPosition < mStat.getParameterReferences().size()) {
+                                && parameterPosition < methodStat.getParameterReferences().size()) {
                             VariableReference param =
-                                    mStat.getParameterReferences().get(parameterPosition);
+                                    methodStat.getParameterReferences().get(parameterPosition);
                             variableList.add(param);
                         }
                     }
@@ -500,7 +506,8 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
             if (!oldStatements.contains(statement) && statement instanceof MethodStatement) {
                 MethodStatement candidate = (MethodStatement) statement;
                 if (selected.method.equals(candidate.getMethod().getMethod())
-                        && ConstructionReferenceUtil.sameReference(test, candidate.getCallee(), context.ownerReference)) {
+                        && ConstructionReferenceUtil.sameReference(
+                                test, candidate.getCallee(), context.ownerReference)) {
                     generated = candidate;
                     break;
                 }
@@ -600,7 +607,8 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
         }
 
         private boolean hasDistinctOwner(TestCase test) {
-            return ownerReference != null && !ConstructionReferenceUtil.sameReference(test, arrayReference, ownerReference);
+            return ownerReference != null
+                    && !ConstructionReferenceUtil.sameReference(test, arrayReference, ownerReference);
         }
     }
 
@@ -628,13 +636,12 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
     }
 
     /**
-     * check if current method is a valid setter for array element
+     * Checks if the given method is a valid setter for the array element.
      *
-     * @param className
-     * @param methodName
-     * @param node
-     * @param opcodeWrite
-     * @return
+     * @param method the candidate setter
+     * @param opcodeWrite the array-store opcode to look for
+     * @param variable the variable in the test the setter would be called on
+     * @return the position of the parameter stored into the array, or -1 if the method is not a valid setter
      */
     private Integer checkValidArrayElementSetter(
             Method method, int opcodeWrite, VariableInTest variable) {
@@ -728,13 +735,12 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
     }
 
     /**
-     * check if current method is a valid getter for array element
+     * Checks if the given method is a valid getter for the array element.
      *
-     * @param className
-     * @param methodName
-     * @param node
-     * @param opcodeRead
-     * @return
+     * @param method the candidate getter
+     * @param opcodeRead the array-load opcode to look for
+     * @param variable the variable in the test the getter would be called on
+     * @return true if the method returns an element of the array field
      */
     private boolean checkValidArrayElementGetter(
             Method method, int opcodeRead, VariableInTest variable) {
@@ -793,13 +799,13 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
             Statement stat = test.getStatement(i);
             // check reading through method call
             if (stat instanceof MethodStatement) {
-                MethodStatement mStat = (MethodStatement) stat;
-                Method method = mStat.getMethod().getMethod();
-                VariableReference ref = mStat.getCallee();
+                MethodStatement methodStat = (MethodStatement) stat;
+                Method method = methodStat.getMethod().getMethod();
+                VariableReference ref = methodStat.getCallee();
                 if (ConstructionReferenceUtil.sameReference(test, ref, context.ownerReference)) {
                     boolean isValid = checkValidArrayElementGetter(method, opcodeRead, variable);
                     if (isValid) {
-                        VariableReference var = mStat.getReturnValue();
+                        VariableReference var = methodStat.getReturnValue();
                         varList.add(var);
                     }
                 }
@@ -888,12 +894,12 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
         }
 
         Constructor<?> constructor = clazz.getConstructors()[0];
-        GenericConstructor gConstructor =
+        GenericConstructor newConstructor =
                 new GenericConstructor(constructor, constructor.getDeclaringClass());
         try {
             VariableReference returnedVar =
                     TestFactory.getInstance()
-                            .addConstructor(test, gConstructor, arrayRef.getStPosition() + 1, 2);
+                            .addConstructor(test, newConstructor, arrayRef.getStPosition() + 1, 2);
             return returnedVar;
 
         } catch (ConstructionFailedException e) {

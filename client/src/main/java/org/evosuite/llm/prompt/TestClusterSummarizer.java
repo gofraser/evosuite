@@ -43,9 +43,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.Locale;
 
 /**
  * Produces concise prompt context from the current test cluster.
@@ -376,7 +376,8 @@ public class TestClusterSummarizer {
             TypeSummary summary;
             try {
                 summary = buildTypeSummary(rawClass, generators, modifiers, compactSignatures,
-                        methodFrequency, concreteSubtypeLookup.getOrDefault(className, Collections.<Class<?>>emptyList()),
+                        methodFrequency,
+                        concreteSubtypeLookup.getOrDefault(className, Collections.<Class<?>>emptyList()),
                         targetPackageName);
             } catch (LinkageError | TypeNotPresentException e) {
                 // Reflecting on a type's members resolves every type in their signatures, and

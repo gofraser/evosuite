@@ -14,8 +14,16 @@ import java.util.regex.Pattern;
 /** Stable expression helpers needed by assertion rendering. */
 public final class SymbolicExpressionUtils {
     private static final Pattern SYMBOLIC_VARIABLE = Pattern.compile("\\bv\\d+\\b");
-    private SymbolicExpressionUtils() { }
 
+    private SymbolicExpressionUtils() {
+    }
+
+    /**
+     * Extracts the symbolic variable identifiers (such as {@code v12}) used in an expression.
+     *
+     * @param expression the expression source, may be null or empty
+     * @return the identifiers in order of first occurrence
+     */
     public static Set<String> extractSymbolicVariables(String expression) {
         if (expression == null || expression.trim().isEmpty()) {
             return Collections.emptySet();
@@ -39,6 +47,12 @@ public final class SymbolicExpressionUtils {
         }
     }
 
+    /**
+     * Checks whether an identifier has the form of a symbolic variable id, a {@code v} followed by digits.
+     *
+     * @param identifier the identifier to check, may be null
+     * @return true if the identifier looks like a variable id
+     */
     public static boolean looksLikeVariableId(String identifier) {
         if (identifier == null || identifier.length() < 2 || identifier.charAt(0) != 'v') {
             return false;

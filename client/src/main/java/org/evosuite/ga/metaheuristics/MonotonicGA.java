@@ -339,7 +339,9 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         return uncoveredGoals;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void generateSolution() {
         if (Properties.ENABLE_SECONDARY_OBJECTIVE_AFTER > 0 || Properties.ENABLE_SECONDARY_OBJECTIVE_STARVATION) {

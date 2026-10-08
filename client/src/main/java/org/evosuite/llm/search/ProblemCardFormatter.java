@@ -31,7 +31,8 @@ import java.util.Locale;
  */
 public final class ProblemCardFormatter {
 
-    private ProblemCardFormatter() {}
+    private ProblemCardFormatter() {
+    }
 
     /**
      * Renders the given non-empty card list as prompt text. Callers
@@ -43,6 +44,13 @@ public final class ProblemCardFormatter {
         return format(cards, Collections.<TestCase>emptyList());
     }
 
+    /**
+     * Renders cards as a numbered prompt section, including concrete examples.
+     * @param cards the cards to render
+     * @param existingTests the tests already in the suite
+     * @return the rendered text
+     * @throws IllegalArgumentException if {@code cards} is null
+     */
     public static String format(List<ProblemCard> cards, List<TestCase> existingTests) {
         if (cards == null) {
             throw new IllegalArgumentException("cards must not be null");

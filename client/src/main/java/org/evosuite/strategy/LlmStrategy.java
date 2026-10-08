@@ -26,8 +26,8 @@ import org.evosuite.ga.stoppingconditions.MaxFitnessEvaluationsStoppingCondition
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
-import org.evosuite.llm.IterativeLlmTimelineRecorder;
 import org.evosuite.llm.IterativeLlmSidecarRecorder;
+import org.evosuite.llm.IterativeLlmTimelineRecorder;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
@@ -50,7 +50,6 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
-import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ArrayUtil;
@@ -549,7 +548,9 @@ public class LlmStrategy extends TestGenerationStrategy {
         return suite;
     }
 
-    /** Iterative-mode loop exit reasons; surfaced via {@code LLM_Iterative_Exit_Reason}. */
+    /**
+     * Iterative-mode loop exit reasons; surfaced via {@code LLM_Iterative_Exit_Reason}.
+     */
     private enum ExitReason {
         STOPPING_CONDITION,
         ALL_GOALS_COVERED,
@@ -827,7 +828,9 @@ public class LlmStrategy extends TestGenerationStrategy {
      */
     private static final class QueryOutcome {
         final List<TestChromosome> tests;
-        /** Short, single-line summary of what went wrong; {@code null} on success. */
+        /**
+         * Short, single-line summary of what went wrong; {@code null} on success.
+         */
         final String failureSummary;
         final long latencyMillis;
         /** The response parsed, but every candidate test failed at execution. */

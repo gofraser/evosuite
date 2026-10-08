@@ -285,7 +285,8 @@ public class ClientProcess {
              * window. If generation already completed successfully, a blocked zero-status
              * exit should not turn the run into CLIENT_CRASH.
              */
-            logger().warn("System.exit(0) was blocked after successful test generation; returning from main instead", e);
+            logger().warn(
+                    "System.exit(0) was blocked after successful test generation; returning from main instead", e);
         }
     }
 }

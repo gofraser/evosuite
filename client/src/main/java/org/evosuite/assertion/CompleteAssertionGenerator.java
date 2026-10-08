@@ -81,6 +81,13 @@ public class CompleteAssertionGenerator extends AssertionGenerator {
         private final ExecutionResult executionResult;
         private final List<Assertion> assertions;
 
+        /**
+         * Creates a collection of candidate assertions for one executed test.
+         *
+         * @param test            the test the assertions belong to
+         * @param executionResult the result of executing the test
+         * @param assertions      the candidate assertions, copied defensively
+         */
         public CandidateCollection(TestCase test, ExecutionResult executionResult, List<Assertion> assertions) {
             this.test = test;
             this.executionResult = executionResult;

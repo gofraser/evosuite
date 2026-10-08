@@ -237,12 +237,16 @@ public final class ObjectRuleRuntime {
         synthesisAttemptTimedOut = false;
     }
 
-    /** Whether the physical method {@code className#methodName} already exhausted its analysis budget. */
+    /**
+     * Whether the physical method {@code className#methodName} already exhausted its analysis budget.
+     */
     public boolean isAnalysisTimedOut(String physicalMethodKey) {
         return analysisTimedOutMethods.contains(physicalMethodKey);
     }
 
-    /** Records that the physical method {@code className#methodName} exhausted its analysis budget. */
+    /**
+     * Records that the physical method {@code className#methodName} exhausted its analysis budget.
+     */
     public void markAnalysisTimedOut(String physicalMethodKey) {
         analysisTimedOutMethods.add(physicalMethodKey);
     }

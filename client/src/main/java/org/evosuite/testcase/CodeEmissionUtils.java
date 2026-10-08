@@ -37,6 +37,12 @@ public final class CodeEmissionUtils {
     private CodeEmissionUtils() {
     }
 
+    /**
+     * Rewrites an {@code assertDoesNotThrow} call that takes a method reference into one that takes a lambda,
+     * so the statement compiles without ambiguity.
+     * @param code the statement source to rewrite
+     * @return the rewritten source, or {@code code} unchanged if it has another shape or cannot be parsed
+     */
     public static String renderCompilableSource(String code) {
         if (code == null || code.isEmpty()) {
             return code;

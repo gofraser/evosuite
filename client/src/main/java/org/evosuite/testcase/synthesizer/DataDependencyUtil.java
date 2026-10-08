@@ -190,8 +190,9 @@ public class DataDependencyUtil {
     static synchronized int setterAnalysisCacheSize() {
         return SETTER_ANALYSIS_CACHE.size();
     }
+
     /**
-     * Output is the valid parameter position of most top method call
+     * Output is the valid parameter position of most top method call.
      *
      * @param setterInstruction parameter.
      * @param className class name.
@@ -253,10 +254,9 @@ public class DataDependencyUtil {
     }
 
     /**
-     * search for new load instruction when analyzing next layer of method invocation
+     * Searches for new load instructions when analyzing the next layer of method invocation.
      *
      * @param call parameter.
-     * @param paramPos parameter.
      * @return the computed result.
      */
     private static Set<BytecodeInstruction> searchForNewParameterInstruction(
@@ -282,7 +282,7 @@ public class DataDependencyUtil {
     }
 
     /**
-     * return localVariableUse instruction for parameter
+     * Returns the localVariableUse instructions for a parameter.
      *
      * @param descIns parameter.
      * @param paramInstructionSet parameter.
@@ -333,6 +333,7 @@ public class DataDependencyUtil {
             c1 = classLoader.loadClass(class1);
             c2 = classLoader.loadClass(class2);
         } catch (ClassNotFoundException e) {
+            // A class that cannot be loaded leaves c1 or c2 null, which the check below handles.
         }
 
         if (c1 != null && c2 != null) {
@@ -424,13 +425,21 @@ public class DataDependencyUtil {
      */
     public static String getFieldName(BytecodeInstruction ins) {
         if (ins.getASMNode().getType() == AbstractInsnNode.FIELD_INSN) {
-            FieldInsnNode fNode = (FieldInsnNode) ins.getASMNode();
-            return fNode.name;
+            FieldInsnNode fieldNode = (FieldInsnNode) ins.getASMNode();
+            return fieldNode.name;
         }
 
         return null;
     }
 
+    /**
+     * Searches the target class and its superclasses for methods and constructors that can set a field.
+     * Setters that assign the field directly are preferred; deeper call chains are only explored if there are none.
+     * @param field the field to be set
+     * @param targetClassName the name of the class to search
+     * @return the setters with the value settings that reach the field, in discovery order
+     * @throws ClassNotFoundException if the target class cannot be loaded
+     */
     @SuppressWarnings("rawtypes")
     public static LinkedHashMap<Executable, List<ValueSettings>> searchForPotentialSettersInClass(
             Field field, String targetClassName) throws ClassNotFoundException {
@@ -758,17 +767,17 @@ public class DataDependencyUtil {
                     }
                 } else if (node instanceof MethodInsnNode) {
                     if (depth > 0) {
-                        MethodInsnNode mNode = (MethodInsnNode) node;
+                        MethodInsnNode methodInsnNode = (MethodInsnNode) node;
 
-                        String calledClass = mNode.owner;
+                        String calledClass = methodInsnNode.owner;
                         calledClass = calledClass.replace("/", ".");
 
                         if (calledClass.equals(className)
                                 || DependencyAnalysis.isTargetProject(calledClass)) {
-                            String calledMethodName = mNode.name + mNode.desc;
+                            String calledMethodName = methodInsnNode.name + methodInsnNode.desc;
 
                             String confirmedCalledClass =
-                                    confirmClassNameInParentClass(calledClass, mNode);
+                                    confirmClassNameInParentClass(calledClass, methodInsnNode);
                             if (confirmedCalledClass != null) {
                                 cascadingCallRelations.add(ins);
                                 try {
@@ -807,7 +816,9 @@ public class DataDependencyUtil {
             Field field,
             List<BytecodeInstruction> cascadingCallRelations) {
 
-        if (!ins.isMethodCall()) return false;
+        if (!ins.isMethodCall()) {
+            return false;
+        }
 
         BytecodeInstruction receiver = invocationReceiver(ins);
         boolean useCorrectField =
@@ -1098,15 +1109,15 @@ public class DataDependencyUtil {
         return Collection.class.isAssignableFrom(type) || Map.class.isAssignableFrom(type);
     }
 
-    private static String confirmClassNameInParentClass(String calledClass, MethodInsnNode mNode) {
+    private static String confirmClassNameInParentClass(String calledClass, MethodInsnNode methodInsnNode) {
         ClassNode classNode = DependencyAnalysis.getClassNode(calledClass);
         List<String> superClassList =
                 DependencyAnalysis.getInheritanceTree().getOrderedSuperclasses(calledClass);
-        if (superClassList.isEmpty() || containMethod(classNode, mNode)) {
+        if (superClassList.isEmpty() || containMethod(classNode, methodInsnNode)) {
             return calledClass;
         }
         for (String superClass : superClassList) {
-            if (containMethod(DependencyAnalysis.getClassNode(superClass), mNode)) {
+            if (containMethod(DependencyAnalysis.getClassNode(superClass), methodInsnNode)) {
                 return superClass;
             }
         }
@@ -1114,9 +1125,9 @@ public class DataDependencyUtil {
         return calledClass;
     }
 
-    private static boolean containMethod(ClassNode classNode, MethodInsnNode mNode) {
+    private static boolean containMethod(ClassNode classNode, MethodInsnNode methodInsnNode) {
         for (MethodNode methodNode : classNode.methods) {
-            if (methodNode.name.equals(mNode.name) && methodNode.desc.equals(mNode.desc)) {
+            if (methodNode.name.equals(methodInsnNode.name) && methodNode.desc.equals(methodInsnNode.desc)) {
                 return true;
             }
         }

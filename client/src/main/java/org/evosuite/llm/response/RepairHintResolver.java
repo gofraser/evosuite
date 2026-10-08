@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,6 +65,9 @@ public final class RepairHintResolver {
 
     private final List<RepairHintRule> rules;
 
+    /**
+     * Creates a resolver holding the built-in repair hint rules.
+     */
     public RepairHintResolver() {
         List<RepairHintRule> configured = new ArrayList<>();
 
@@ -110,7 +112,8 @@ public final class RepairHintResolver {
         // Error-triggered hints.
         configured.add(new RepairHintRule(
                 "trigger.static.init",
-                "Static initialization failed. Do not touch the poisoned class path in this run; rewrite the test to avoid loading it.",
+                "Static initialization failed. Do not touch the poisoned class path in this run; rewrite the test to "
+                        + "avoid loading it.",
                 20,
                 1,
                 false,
@@ -124,7 +127,8 @@ public final class RepairHintResolver {
                 }));
         configured.add(new RepairHintRule(
                 "trigger.class.cast",
-                "ClassCastException indicates wrong-type setup/stubbing. Return the exact runtime type expected at that lookup/call site.",
+                "ClassCastException indicates wrong-type setup/stubbing. Return the exact runtime type expected at "
+                        + "that lookup/call site.",
                 30,
                 1,
                 false,
@@ -136,7 +140,8 @@ public final class RepairHintResolver {
                 }));
         configured.add(new RepairHintRule(
                 "trigger.receiver.null.npe",
-                "Receiver-null NPE indicates missing collaborator initialization. Initialize/stub upstream dependencies so the receiver is non-null before dereference.",
+                "Receiver-null NPE indicates missing collaborator initialization. Initialize/stub upstream "
+                        + "dependencies so the receiver is non-null before dereference.",
                 31,
                 1,
                 false,
@@ -148,7 +153,8 @@ public final class RepairHintResolver {
                 }));
         configured.add(new RepairHintRule(
                 "trigger.dependency.missing",
-                "NoClassDefFoundError/ClassNotFound signals unavailable dependencies; avoid those paths and prefer pure SUT/JDK flows.",
+                "NoClassDefFoundError/ClassNotFound signals unavailable dependencies; avoid those paths and prefer "
+                        + "pure SUT/JDK flows.",
                 32,
                 1,
                 false,

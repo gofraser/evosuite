@@ -81,6 +81,10 @@ public final class ProblemCardLogRecorder {
         this.path = path;
     }
 
+    /**
+     * Returns the shared recorder, creating it on first use.
+     * @return the singleton recorder
+     */
     public static synchronized ProblemCardLogRecorder getInstance() {
         if (instance == null) {
             instance = new ProblemCardLogRecorder();

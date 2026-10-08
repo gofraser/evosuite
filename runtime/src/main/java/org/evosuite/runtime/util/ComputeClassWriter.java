@@ -56,13 +56,17 @@ public class ComputeClassWriter extends ClassWriter {
         private final Map<String, String> answers = Collections.synchronizedMap(new LinkedHashMap<>());
     }
 
-    /** The context loader's cache, resolved once per {@link #getCommonSuperClass} call. */
+    /**
+     * The context loader's cache, resolved once per {@link #getCommonSuperClass} call.
+     */
     private LoaderCache cache;
 
     /** Bounds the per-loader answer cache; the fact cache is bounded by the classpath itself. */
     private static final int MAX_CACHED_ANSWERS = 20_000;
 
-    /** What frame computation needs to know about a type, or {@link #MISSING} if it has no bytecode. */
+    /**
+     * What frame computation needs to know about a type, or {@link #MISSING} if it has no bytecode.
+     */
     private static final class TypeFacts {
         private final String superName;
         private final String[] interfaces;
@@ -163,7 +167,9 @@ public class ComputeClassWriter extends ClassWriter {
         return loader == null ? ComputeClassWriter.class.getClassLoader() : loader;
     }
 
-    /** The cached facts about a type, or {@link #MISSING} when its bytecode cannot be read. */
+    /**
+     * The cached facts about a type, or {@link #MISSING} when its bytecode cannot be read.
+     */
     private TypeFacts typeFacts(final String type) {
         Map<String, TypeFacts> facts = cache.facts;
         TypeFacts known = facts.get(type);

@@ -429,13 +429,14 @@ public class PartialGraph {
      * In the original computation graph, multiple node can represent the same variable. Therefore,
      * we need to merge those nodes when generating the partial graph.
      *
-     * @param var
-     * @return
+     * @param var the variable to look up or add
+     * @return the wrapper that represents the variable in this graph
      */
     public DepVariableWrapper fetchAndMerge(DepVariable var) {
         DepVariableWrapper tempWrapper = DepVariableWrapperFactory.createWrapperInstance(var);
 
         if (var.toString().contains("ALOAD")) {
+            // Intentionally empty: ALOAD variables need no special handling here.
         }
 
         DepVariableWrapper wrapper = allRelevantNodes.get(tempWrapper);
@@ -448,7 +449,9 @@ public class PartialGraph {
                 List<DepVariable> list0 = var.getRelations()[i];
 
                 if (list0 != null) {
-                    if (list == null) list = new ArrayList<>();
+                    if (list == null) {
+                        list = new ArrayList<>();
+                    }
 
                     for (DepVariable v : list0) {
                         if (!list.contains(v)) {
@@ -465,7 +468,9 @@ public class PartialGraph {
                 List<DepVariable> list0 = var.getReverseRelations()[i];
 
                 if (list0 != null) {
-                    if (list == null) list = new ArrayList<>();
+                    if (list == null) {
+                        list = new ArrayList<>();
+                    }
 
                     for (DepVariable v : list0) {
                         if (!list.contains(v)) {
@@ -481,6 +486,10 @@ public class PartialGraph {
         return wrapper;
     }
 
+    /**
+     * Returns the nodes without parents.
+     * @return the top-layer nodes
+     */
     public List<DepVariableWrapper> getTopLayer() {
         List<DepVariableWrapper> list = new ArrayList<DepVariableWrapper>();
         for (DepVariableWrapper node : allRelevantNodes.values()) {
@@ -492,6 +501,10 @@ public class PartialGraph {
         return list;
     }
 
+    /**
+     * Returns the nodes without children.
+     * @return the leaf nodes
+     */
     public List<DepVariableWrapper> getLeaves() {
         List<DepVariableWrapper> list = new ArrayList<DepVariableWrapper>();
         for (DepVariableWrapper node : allRelevantNodes.values()) {

@@ -140,29 +140,43 @@ public final class PopulationSpeciesRecorder {
      * (generations since each individual was last changed).
      */
     public static final class BreedingStats {
-        public final int nOffspring;
-        public final int nBetter;
-        public final int nNeutral;
-        public final int nWorse;
-        public final int nUnchanged;
-        public final int nDiscarded;
-        public final int nRandom;
-        public final int nSurvived;
-        public final int nPopNew;
+        public final int numOffspring;
+        public final int numBetter;
+        public final int numNeutral;
+        public final int numWorse;
+        public final int numUnchanged;
+        public final int numDiscarded;
+        public final int numRandom;
+        public final int numSurvived;
+        public final int numPopNew;
         public final int[] agePerSlot;
 
-        public BreedingStats(int nOffspring, int nBetter, int nNeutral, int nWorse,
-                             int nUnchanged, int nDiscarded, int nRandom,
-                             int nSurvived, int nPopNew, int[] agePerSlot) {
-            this.nOffspring = nOffspring;
-            this.nBetter = nBetter;
-            this.nNeutral = nNeutral;
-            this.nWorse = nWorse;
-            this.nUnchanged = nUnchanged;
-            this.nDiscarded = nDiscarded;
-            this.nRandom = nRandom;
-            this.nSurvived = nSurvived;
-            this.nPopNew = nPopNew;
+        /**
+         * Creates the breeding statistics of one generation.
+         *
+         * @param numOffspring the number of offspring produced
+         * @param numBetter    the number of offspring fitter than their parent
+         * @param numNeutral   the number of offspring as fit as their parent
+         * @param numWorse     the number of offspring less fit than their parent
+         * @param numUnchanged the number of offspring identical to their parent
+         * @param numDiscarded the number of offspring discarded
+         * @param numRandom    the number of randomly generated individuals
+         * @param numSurvived  the number of offspring that survived into the next population
+         * @param numPopNew    the number of individuals in the next population that are new
+         * @param agePerSlot   generations since each population slot was last changed, null for none
+         */
+        public BreedingStats(int numOffspring, int numBetter, int numNeutral, int numWorse,
+                             int numUnchanged, int numDiscarded, int numRandom,
+                             int numSurvived, int numPopNew, int[] agePerSlot) {
+            this.numOffspring = numOffspring;
+            this.numBetter = numBetter;
+            this.numNeutral = numNeutral;
+            this.numWorse = numWorse;
+            this.numUnchanged = numUnchanged;
+            this.numDiscarded = numDiscarded;
+            this.numRandom = numRandom;
+            this.numSurvived = numSurvived;
+            this.numPopNew = numPopNew;
             this.agePerSlot = (agePerSlot != null) ? agePerSlot : new int[0];
         }
 
@@ -180,99 +194,106 @@ public final class PopulationSpeciesRecorder {
         public final int gen;
         public final long elapsedMs;
         public final int popSize;
-        public final int nSpecies;
-        public final int nInjected;
-        public final int nInjectedIncubator;
-        public final int nInjectedPostIncubator;
+        public final int numSpecies;
+        public final int numInjected;
+        public final int numInjectedIncubator;
+        public final int numInjectedPostIncubator;
         public final InjectionSource dominantInjectionSource;
-        public final int nInjectedAttempts;
+        public final int numInjectedAttempts;
         public final InjectionSource dominantAttemptSource;
-        public final int nInjectedAttemptsLlmStagnation;
-        public final int nInjectedAttemptsLlmAsync;
-        public final int nInjectedAttemptsIslandImmigrant;
-        public final int nInjectedAttemptsLocalSearch;
+        public final int numInjectedAttemptsLlmStagnation;
+        public final int numInjectedAttemptsLlmAsync;
+        public final int numInjectedAttemptsIslandImmigrant;
+        public final int numInjectedAttemptsLocalSearch;
         public final int coveredGoals;
         public final int remainingGoals;
-        public final int nFronts;
+        public final int numFronts;
         public final double bestFitness;
         public final double meanFitness;
         public final double diversity;
         public final double largestSpeciesShare;
-        public final int nQuotaProtected;
-        public final int nNewbornProtected;
-        public final int nIncubatorProtected;
-        public final int nSharingAdjusted;
+        public final int numQuotaProtected;
+        public final int numNewbornProtected;
+        public final int numIncubatorProtected;
+        public final int numSharingAdjusted;
         public final int[] speciesPerSlot;
         public final int[] rankPerSlot;
         public final BreedingStats breeding;
         public final String problemCards;
         public final String blendChannelAdmissions;
 
+        /**
+         * Creates a snapshot with empty blend channel admissions. The parameters are those of the full
+         * constructor without its last one.
+         */
         public GenerationSnapshot(int gen,
                                   long elapsedMs,
                                   int popSize,
-                                  int nSpecies,
-                                  int nInjected,
-                                  int nInjectedIncubator,
-                                  int nInjectedPostIncubator,
+                                  int numSpecies,
+                                  int numInjected,
+                                  int numInjectedIncubator,
+                                  int numInjectedPostIncubator,
                                   InjectionSource dominantInjectionSource,
-                                  int nInjectedAttempts,
+                                  int numInjectedAttempts,
                                   InjectionSource dominantAttemptSource,
-                                  int nInjectedAttemptsLlmStagnation,
-                                  int nInjectedAttemptsLlmAsync,
-                                  int nInjectedAttemptsIslandImmigrant,
-                                  int nInjectedAttemptsLocalSearch,
+                                  int numInjectedAttemptsLlmStagnation,
+                                  int numInjectedAttemptsLlmAsync,
+                                  int numInjectedAttemptsIslandImmigrant,
+                                  int numInjectedAttemptsLocalSearch,
                                   int coveredGoals,
                                   int remainingGoals,
-                                  int nFronts,
+                                  int numFronts,
                                   double bestFitness,
                                   double meanFitness,
                                   double diversity,
                                   double largestSpeciesShare,
-                                  int nQuotaProtected,
-                                  int nNewbornProtected,
-                                  int nIncubatorProtected,
-                                  int nSharingAdjusted,
+                                  int numQuotaProtected,
+                                  int numNewbornProtected,
+                                  int numIncubatorProtected,
+                                  int numSharingAdjusted,
                                   int[] speciesPerSlot,
                                   int[] rankPerSlot,
                                   BreedingStats breeding,
                                   String problemCards) {
-            this(gen, elapsedMs, popSize, nSpecies, nInjected, nInjectedIncubator,
-                    nInjectedPostIncubator, dominantInjectionSource, nInjectedAttempts,
-                    dominantAttemptSource, nInjectedAttemptsLlmStagnation,
-                    nInjectedAttemptsLlmAsync, nInjectedAttemptsIslandImmigrant,
-                    nInjectedAttemptsLocalSearch, coveredGoals, remainingGoals, nFronts,
+            this(gen, elapsedMs, popSize, numSpecies, numInjected, numInjectedIncubator,
+                    numInjectedPostIncubator, dominantInjectionSource, numInjectedAttempts,
+                    dominantAttemptSource, numInjectedAttemptsLlmStagnation,
+                    numInjectedAttemptsLlmAsync, numInjectedAttemptsIslandImmigrant,
+                    numInjectedAttemptsLocalSearch, coveredGoals, remainingGoals, numFronts,
                     bestFitness, meanFitness, diversity, largestSpeciesShare,
-                    nQuotaProtected, nNewbornProtected, nIncubatorProtected,
-                    nSharingAdjusted, speciesPerSlot, rankPerSlot, breeding,
+                    numQuotaProtected, numNewbornProtected, numIncubatorProtected,
+                    numSharingAdjusted, speciesPerSlot, rankPerSlot, breeding,
                     problemCards, "");
         }
 
+        /**
+         * Creates a snapshot of one generation; all values are recorded as given.
+         */
         public GenerationSnapshot(int gen,
                                   long elapsedMs,
                                   int popSize,
-                                  int nSpecies,
-                                  int nInjected,
-                                  int nInjectedIncubator,
-                                  int nInjectedPostIncubator,
+                                  int numSpecies,
+                                  int numInjected,
+                                  int numInjectedIncubator,
+                                  int numInjectedPostIncubator,
                                   InjectionSource dominantInjectionSource,
-                                  int nInjectedAttempts,
+                                  int numInjectedAttempts,
                                   InjectionSource dominantAttemptSource,
-                                  int nInjectedAttemptsLlmStagnation,
-                                  int nInjectedAttemptsLlmAsync,
-                                  int nInjectedAttemptsIslandImmigrant,
-                                  int nInjectedAttemptsLocalSearch,
+                                  int numInjectedAttemptsLlmStagnation,
+                                  int numInjectedAttemptsLlmAsync,
+                                  int numInjectedAttemptsIslandImmigrant,
+                                  int numInjectedAttemptsLocalSearch,
                                   int coveredGoals,
                                   int remainingGoals,
-                                  int nFronts,
+                                  int numFronts,
                                   double bestFitness,
                                   double meanFitness,
                                   double diversity,
                                   double largestSpeciesShare,
-                                  int nQuotaProtected,
-                                  int nNewbornProtected,
-                                  int nIncubatorProtected,
-                                  int nSharingAdjusted,
+                                  int numQuotaProtected,
+                                  int numNewbornProtected,
+                                  int numIncubatorProtected,
+                                  int numSharingAdjusted,
                                   int[] speciesPerSlot,
                                   int[] rankPerSlot,
                                   BreedingStats breeding,
@@ -281,28 +302,28 @@ public final class PopulationSpeciesRecorder {
             this.gen = gen;
             this.elapsedMs = elapsedMs;
             this.popSize = popSize;
-            this.nSpecies = nSpecies;
-            this.nInjected = nInjected;
-            this.nInjectedIncubator = nInjectedIncubator;
-            this.nInjectedPostIncubator = nInjectedPostIncubator;
+            this.numSpecies = numSpecies;
+            this.numInjected = numInjected;
+            this.numInjectedIncubator = numInjectedIncubator;
+            this.numInjectedPostIncubator = numInjectedPostIncubator;
             this.dominantInjectionSource = dominantInjectionSource;
-            this.nInjectedAttempts = nInjectedAttempts;
+            this.numInjectedAttempts = numInjectedAttempts;
             this.dominantAttemptSource = dominantAttemptSource;
-            this.nInjectedAttemptsLlmStagnation = nInjectedAttemptsLlmStagnation;
-            this.nInjectedAttemptsLlmAsync = nInjectedAttemptsLlmAsync;
-            this.nInjectedAttemptsIslandImmigrant = nInjectedAttemptsIslandImmigrant;
-            this.nInjectedAttemptsLocalSearch = nInjectedAttemptsLocalSearch;
+            this.numInjectedAttemptsLlmStagnation = numInjectedAttemptsLlmStagnation;
+            this.numInjectedAttemptsLlmAsync = numInjectedAttemptsLlmAsync;
+            this.numInjectedAttemptsIslandImmigrant = numInjectedAttemptsIslandImmigrant;
+            this.numInjectedAttemptsLocalSearch = numInjectedAttemptsLocalSearch;
             this.coveredGoals = coveredGoals;
             this.remainingGoals = remainingGoals;
-            this.nFronts = nFronts;
+            this.numFronts = numFronts;
             this.bestFitness = bestFitness;
             this.meanFitness = meanFitness;
             this.diversity = diversity;
             this.largestSpeciesShare = largestSpeciesShare;
-            this.nQuotaProtected = nQuotaProtected;
-            this.nNewbornProtected = nNewbornProtected;
-            this.nIncubatorProtected = nIncubatorProtected;
-            this.nSharingAdjusted = nSharingAdjusted;
+            this.numQuotaProtected = numQuotaProtected;
+            this.numNewbornProtected = numNewbornProtected;
+            this.numIncubatorProtected = numIncubatorProtected;
+            this.numSharingAdjusted = numSharingAdjusted;
             this.speciesPerSlot = speciesPerSlot;
             this.rankPerSlot = rankPerSlot;
             this.breeding = (breeding != null) ? breeding : BreedingStats.empty();
@@ -316,40 +337,40 @@ public final class PopulationSpeciesRecorder {
             sb.append(gen).append(',')
               .append(elapsedMs).append(',')
               .append(popSize).append(',')
-              .append(nSpecies).append(',')
-              .append(nInjected).append(',')
-              .append(nInjectedIncubator).append(',')
-              .append(nInjectedPostIncubator).append(',')
+              .append(numSpecies).append(',')
+              .append(numInjected).append(',')
+              .append(numInjectedIncubator).append(',')
+              .append(numInjectedPostIncubator).append(',')
               .append(dominantInjectionSource == null ? "" : dominantInjectionSource.name()).append(',')
-              .append(nInjectedAttempts).append(',')
+              .append(numInjectedAttempts).append(',')
               .append(dominantAttemptSource == null ? "" : dominantAttemptSource.name()).append(',')
-              .append(nInjectedAttemptsLlmStagnation).append(',')
-              .append(nInjectedAttemptsLlmAsync).append(',')
-              .append(nInjectedAttemptsIslandImmigrant).append(',')
-              .append(nInjectedAttemptsLocalSearch).append(',')
+              .append(numInjectedAttemptsLlmStagnation).append(',')
+              .append(numInjectedAttemptsLlmAsync).append(',')
+              .append(numInjectedAttemptsIslandImmigrant).append(',')
+              .append(numInjectedAttemptsLocalSearch).append(',')
               .append(coveredGoals).append(',')
               .append(remainingGoals).append(',')
-              .append(nFronts).append(',')
+              .append(numFronts).append(',')
               .append(formatDouble(bestFitness)).append(',')
               .append(formatDouble(meanFitness)).append(',')
               .append(formatDouble(diversity)).append(',')
               .append(formatDouble(largestSpeciesShare)).append(',')
-              .append(nQuotaProtected).append(',')
-              .append(nNewbornProtected).append(',')
-              .append(nIncubatorProtected).append(',')
-              .append(nSharingAdjusted).append(',');
+              .append(numQuotaProtected).append(',')
+              .append(numNewbornProtected).append(',')
+              .append(numIncubatorProtected).append(',')
+              .append(numSharingAdjusted).append(',');
             appendIntArray(sb, speciesPerSlot);
             sb.append(',');
             appendIntArray(sb, rankPerSlot);
-            sb.append(',').append(breeding.nOffspring)
-              .append(',').append(breeding.nBetter)
-              .append(',').append(breeding.nNeutral)
-              .append(',').append(breeding.nWorse)
-              .append(',').append(breeding.nUnchanged)
-              .append(',').append(breeding.nDiscarded)
-              .append(',').append(breeding.nRandom)
-              .append(',').append(breeding.nSurvived)
-              .append(',').append(breeding.nPopNew)
+            sb.append(',').append(breeding.numOffspring)
+              .append(',').append(breeding.numBetter)
+              .append(',').append(breeding.numNeutral)
+              .append(',').append(breeding.numWorse)
+              .append(',').append(breeding.numUnchanged)
+              .append(',').append(breeding.numDiscarded)
+              .append(',').append(breeding.numRandom)
+              .append(',').append(breeding.numSurvived)
+              .append(',').append(breeding.numPopNew)
               .append(',');
             appendIntArray(sb, breeding.agePerSlot);
             sb.append(',').append(problemCards);

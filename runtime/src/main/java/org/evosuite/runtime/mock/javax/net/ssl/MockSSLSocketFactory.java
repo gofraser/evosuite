@@ -24,6 +24,7 @@ import org.evosuite.runtime.mock.StaticReplacementMock;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
@@ -44,6 +45,11 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return SSLSocketFactory.class.getName();
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#getDefault()}.
+     *
+     * @return the delegating mock factory while mocks are enabled, otherwise the real default factory
+     */
     public static SocketFactory getDefault() {
         if (!MockFramework.isEnabled()) {
             return SSLSocketFactory.getDefault();
@@ -51,6 +57,12 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return FACTORY;
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#getDefaultCipherSuites()}.
+     *
+     * @param factory the factory the call was made on
+     * @return a fake cipher suite while mocks are enabled, otherwise the real default cipher suites
+     */
     public static String[] getDefaultCipherSuites(SSLSocketFactory factory) {
         if (!MockFramework.isEnabled()) {
             return realFactory(factory).getDefaultCipherSuites();
@@ -58,6 +70,12 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return DEFAULT_CIPHER_SUITES.clone();
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#getSupportedCipherSuites()}.
+     *
+     * @param factory the factory the call was made on
+     * @return a fake cipher suite while mocks are enabled, otherwise the real supported cipher suites
+     */
     public static String[] getSupportedCipherSuites(SSLSocketFactory factory) {
         if (!MockFramework.isEnabled()) {
             return realFactory(factory).getSupportedCipherSuites();
@@ -65,6 +83,13 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return DEFAULT_CIPHER_SUITES.clone();
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#createSocket()}.
+     *
+     * @param factory the factory the call was made on
+     * @return a mock SSL socket while mocks are enabled, otherwise a real socket
+     * @throws IOException if the real factory fails to create the socket
+     */
     public static Socket createSocket(SSLSocketFactory factory) throws IOException {
         if (!MockFramework.isEnabled()) {
             return realFactory(factory).createSocket();
@@ -72,6 +97,17 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return new MockSSLSocket();
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#createSocket(Socket, String, int, boolean)}.
+     *
+     * @param factory the factory the call was made on
+     * @param socket the existing socket
+     * @param host the server host
+     * @param port the server port
+     * @param autoClose whether closing the returned socket closes the underlying socket
+     * @return a connected mock SSL socket while mocks are enabled, otherwise a real socket
+     * @throws IOException if the connection fails
+     */
     public static Socket createSocket(SSLSocketFactory factory, Socket socket,
                                       String host, int port, boolean autoClose) throws IOException {
         if (!MockFramework.isEnabled()) {
@@ -82,6 +118,16 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return ssl;
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#createSocket(Socket, InputStream, boolean)}.
+     *
+     * @param factory the factory the call was made on
+     * @param socket the existing socket
+     * @param consumed the bytes already read from the socket
+     * @param autoClose whether closing the returned socket closes the underlying socket
+     * @return an unconnected mock SSL socket while mocks are enabled, otherwise a real socket
+     * @throws IOException if the real factory fails to create the socket
+     */
     public static Socket createSocket(SSLSocketFactory factory, Socket socket,
                                       InputStream consumed, boolean autoClose) throws IOException {
         if (!MockFramework.isEnabled()) {
@@ -91,6 +137,16 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return new MockSSLSocket();
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#createSocket(String, int)}.
+     *
+     * @param factory the factory the call was made on
+     * @param host the server host
+     * @param port the server port
+     * @return a connected mock SSL socket while mocks are enabled, otherwise a real socket
+     * @throws IOException if the connection fails
+     * @throws UnknownHostException if the host cannot be resolved
+     */
     public static Socket createSocket(SSLSocketFactory factory, String host, int port)
             throws IOException, UnknownHostException {
         if (!MockFramework.isEnabled()) {
@@ -101,6 +157,18 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return ssl;
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#createSocket(String, int, InetAddress, int)}.
+     *
+     * @param factory the factory the call was made on
+     * @param host the server host
+     * @param port the server port
+     * @param localAddress the local address to bind to, or null
+     * @param localPort the local port to bind to, or 0 or less for any
+     * @return a bound and connected mock SSL socket while mocks are enabled, otherwise a real socket
+     * @throws IOException if the connection fails
+     * @throws UnknownHostException if the host cannot be resolved
+     */
     public static Socket createSocket(SSLSocketFactory factory, String host, int port,
                                       InetAddress localAddress, int localPort)
             throws IOException, UnknownHostException {
@@ -115,6 +183,15 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return ssl;
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#createSocket(InetAddress, int)}.
+     *
+     * @param factory the factory the call was made on
+     * @param address the server address
+     * @param port the server port
+     * @return a connected mock SSL socket while mocks are enabled, otherwise a real socket
+     * @throws IOException if the connection fails
+     */
     public static Socket createSocket(SSLSocketFactory factory, InetAddress address, int port) throws IOException {
         if (!MockFramework.isEnabled()) {
             return realFactory(factory).createSocket(address, port);
@@ -124,6 +201,17 @@ public class MockSSLSocketFactory implements StaticReplacementMock {
         return ssl;
     }
 
+    /**
+     * Replacement for {@link SSLSocketFactory#createSocket(InetAddress, int, InetAddress, int)}.
+     *
+     * @param factory the factory the call was made on
+     * @param address the server address
+     * @param port the server port
+     * @param localAddress the local address to bind to, or null
+     * @param localPort the local port to bind to, or 0 or less for any
+     * @return a bound and connected mock SSL socket while mocks are enabled, otherwise a real socket
+     * @throws IOException if the connection fails
+     */
     public static Socket createSocket(SSLSocketFactory factory, InetAddress address, int port,
                                       InetAddress localAddress, int localPort) throws IOException {
         if (!MockFramework.isEnabled()) {

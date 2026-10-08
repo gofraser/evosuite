@@ -109,8 +109,10 @@ public class DmonCoordinator {
         if (!Properties.DMON_CACHE_ANALYSIS) {
             return analyzer.analyzeConstructorNpe(statement, throwable, false);
         }
-        CacheKey key = CacheKey.from("CTOR_ASSIST", statement == null ? null : statement.getDeclaringClassName(), throwable);
-        return ephemeralAssistCache.computeIfAbsent(key, k -> analyzer.analyzeConstructorNpe(statement, throwable, false));
+        CacheKey key = CacheKey.from("CTOR_ASSIST", statement == null ? null : statement.getDeclaringClassName(),
+                throwable);
+        return ephemeralAssistCache.computeIfAbsent(key, k -> analyzer.analyzeConstructorNpe(statement, throwable,
+                false));
     }
 
     /**
@@ -128,7 +130,8 @@ public class DmonCoordinator {
         if (!Properties.DMON_CACHE_ANALYSIS) {
             return analyzer.analyzeMethodNpe(statement, throwable, false);
         }
-        CacheKey key = CacheKey.from("METHOD_ASSIST", statement == null ? null : statement.getDeclaringClassName(), throwable);
+        CacheKey key = CacheKey.from("METHOD_ASSIST", statement == null ? null : statement.getDeclaringClassName(),
+                throwable);
         return ephemeralAssistCache.computeIfAbsent(key, k -> analyzer.analyzeMethodNpe(statement, throwable, false));
     }
 

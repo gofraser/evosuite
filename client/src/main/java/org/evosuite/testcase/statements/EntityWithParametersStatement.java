@@ -61,6 +61,7 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
     protected static CodeUnderTestException allocationRejected() {
         return new CodeUnderTestException(new TooManyResourcesException(ALLOCATION_REJECTED));
     }
+
     protected final List<VariableReference> parameters;
     protected final Annotation[][] parameterAnnotations;
     protected final Annotation[] annotations;

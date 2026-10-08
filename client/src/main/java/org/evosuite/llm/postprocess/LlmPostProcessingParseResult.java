@@ -21,9 +21,9 @@ package org.evosuite.llm.postprocess;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
 
 /**
  * Result of parsing a unified LLM post-processing response.
@@ -58,6 +58,12 @@ public final class LlmPostProcessingParseResult {
                 Collections.<AssertionParseEntry>emptyList());
     }
 
+    /**
+     * Creates a result for a response that could not be processed because of a failure outside the response itself.
+     *
+     * @param reason a description of the failure
+     * @return a result without a response that is marked as an infrastructure failure
+     */
     public static LlmPostProcessingParseResult infrastructureFailure(String reason) {
         return new LlmPostProcessingParseResult(null, PostProcessingCounts.none(),
                 Collections.<AssertionParseEntry>emptyList(), true, reason,
@@ -122,6 +128,14 @@ public final class LlmPostProcessingParseResult {
             this(-1, assertionId, rawJson, fields);
         }
 
+        /**
+         * Creates a raw assertion that keeps its position in the response.
+         *
+         * @param index the position of the assertion in the response
+         * @param assertionId the identifier of the assertion
+         * @param rawJson the JSON text of the assertion
+         * @param fields the decoded fields of the assertion, null for none
+         */
         public RawAssertion(int index, String assertionId, String rawJson,
                             Map<String, Object> fields) {
             this.index = index;
@@ -131,10 +145,21 @@ public final class LlmPostProcessingParseResult {
                     fields == null ? Collections.<String, Object>emptyMap() : fields));
         }
 
-        public int getIndex() { return index; }
-        public String getAssertionId() { return assertionId; }
-        public String getRawJson() { return rawJson; }
-        public Map<String, Object> getFields() { return fields; }
+        public int getIndex() {
+            return index;
+        }
+
+        public String getAssertionId() {
+            return assertionId;
+        }
+
+        public String getRawJson() {
+            return rawJson;
+        }
+
+        public Map<String, Object> getFields() {
+            return fields;
+        }
     }
 
     public static final class AssertionParseEntry {
@@ -142,6 +167,13 @@ public final class LlmPostProcessingParseResult {
         private final LlmPostProcessingResponse.AssertionProposal proposal;
         private final List<Diagnostic> diagnostics;
 
+        /**
+         * Creates an entry that pairs a raw assertion with the proposal parsed from it.
+         *
+         * @param raw the raw assertion
+         * @param proposal the proposal parsed from the raw assertion, null if parsing failed
+         * @param diagnostics the diagnostics of parsing, null for none
+         */
         public AssertionParseEntry(RawAssertion raw,
                                    LlmPostProcessingResponse.AssertionProposal proposal,
                                    List<Diagnostic> diagnostics) {
@@ -151,11 +183,17 @@ public final class LlmPostProcessingParseResult {
                     diagnostics == null ? Collections.<Diagnostic>emptyList() : diagnostics));
         }
 
-        public RawAssertion getRaw() { return raw; }
+        public RawAssertion getRaw() {
+            return raw;
+        }
 
-        public LlmPostProcessingResponse.AssertionProposal getProposal() { return proposal; }
+        public LlmPostProcessingResponse.AssertionProposal getProposal() {
+            return proposal;
+        }
 
-        public List<Diagnostic> getDiagnostics() { return diagnostics; }
+        public List<Diagnostic> getDiagnostics() {
+            return diagnostics;
+        }
     }
 
     public enum DiagnosticCode {

@@ -4,8 +4,8 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
 
 public class InstanceFieldVariable extends FieldVariable {
 
-	public InstanceFieldVariable(BytecodeInstruction insn) {
-		super(insn);
-	}
+    public InstanceFieldVariable(BytecodeInstruction insn) {
+        super(insn);
+    }
 
 }

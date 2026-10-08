@@ -21,8 +21,8 @@ package org.evosuite.llm;
 
 import com.google.gson.Gson;
 import org.evosuite.Properties;
-import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.postprocess.LlmPostProcessingProtocol;
+import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -265,6 +265,11 @@ public class LlmTraceRecorder {
         private final String candidateId;
         private final Map<String, Object> assertionJson;
 
+        /**
+         * Creates a diagnostic record without origin and candidate identifier of the assertion.
+         *
+         * @param testIndex the index of the test the assertion belongs to
+         */
         public PostProcessingAssertionDiagnosticRecord(int testIndex,
                                                        String minimizationStatus,
                                                        String minimizationStopCause,
@@ -288,6 +293,11 @@ public class LlmTraceRecorder {
                     placementAfterStatementId, purpose, "", "", assertionJson);
         }
 
+        /**
+         * Creates a diagnostic record with the origin and candidate identifier of the assertion.
+         *
+         * @param testIndex the index of the test the assertion belongs to
+         */
         public PostProcessingAssertionDiagnosticRecord(int testIndex,
                                                        String minimizationStatus,
                                                        String minimizationStopCause,
@@ -351,6 +361,11 @@ public class LlmTraceRecorder {
         private final String assertionSource;
         private final String candidateId;
 
+        /**
+         * Creates a lifecycle record without placement site and placement exception.
+         *
+         * @param testIndex the index of the test the assertion belongs to
+         */
         public PostProcessingAssertionLifecycleRecord(int testIndex,
                                                       String minimizationStatus,
                                                       String minimizationStopCause,
@@ -371,6 +386,11 @@ public class LlmTraceRecorder {
                     placementAfterStatementId, purpose, assertionSource, candidateId, "", "");
         }
 
+        /**
+         * Creates a lifecycle record with the placement site and placement exception of the assertion.
+         *
+         * @param testIndex the index of the test the assertion belongs to
+         */
         public PostProcessingAssertionLifecycleRecord(int testIndex,
                                                       String minimizationStatus,
                                                       String minimizationStopCause,
@@ -506,6 +526,11 @@ public class LlmTraceRecorder {
         writeQuietly(traceRecord, "LLM trace");
     }
 
+    /**
+     * Writes the trace record for an assertion that post-processing rejected, if tracing is enabled.
+     *
+     * @param record the diagnostic to record; null is ignored
+     */
     public void recordPostProcessingAssertionDiagnostic(PostProcessingAssertionDiagnosticRecord record) {
         if (!configuration.isTraceEnabled() || record == null) {
             return;

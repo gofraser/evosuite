@@ -154,7 +154,8 @@ public class PromptBuilder {
         this.sutContextSelectivelyTruncated = result.isSelectivelyTruncated();
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
-            userSections.add("CLASS UNDER TEST (SUT): " + className + "\n\n" + result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
+            userSections.add("CLASS UNDER TEST (SUT): " + className + "\n\n" + result.getModeUsed().name()
+                    + " context:\n```\n" + text + "\n```");
             if (includeTestGenerationReminders) {
                 userSections.add("IMPORTANT: Ensure that all generic types "
                         + "(e.g., Vector<Character>, List<String>) match the "
@@ -221,7 +222,8 @@ public class PromptBuilder {
             userSections.add("Available dependency types (standard Java library "
                     + "classes may also be used freely):\n" + summary);
             userSections.add("IMPORTANT: Instantiate only concrete classes. "
-                    + "Do NOT use new on abstract classes or interfaces; use concrete subtypes listed in dependency context.");
+                    + "Do NOT use new on abstract classes or interfaces; use concrete subtypes listed in dependency "
+                            + "context.");
             dependencyContextAdded = true;
         }
     }

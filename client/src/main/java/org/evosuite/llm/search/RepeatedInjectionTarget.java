@@ -34,6 +34,12 @@ public final class RepeatedInjectionTarget {
         this(key, fingerprint, null);
     }
 
+    /**
+     * Creates a target.
+     * @param key identifier of the target
+     * @param fingerprint fingerprint of the card content at selection time
+     * @param diagnosticCardType type of the card that produced the target
+     */
     public RepeatedInjectionTarget(String key, String fingerprint, ProblemCardType diagnosticCardType) {
         this.key = sanitize(key);
         this.fingerprint = sanitize(fingerprint);

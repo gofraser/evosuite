@@ -33,7 +33,9 @@ public class MockSelector implements StaticReplacementMock {
         return Selector.class.getName();
     }
 
-    /** Replacement for {@link Selector#open()}. */
+    /**
+     * Replacement for {@link Selector#open()}.
+     */
     public static Selector open() throws IOException {
         if (!MockFramework.isEnabled()) {
             return Selector.open();

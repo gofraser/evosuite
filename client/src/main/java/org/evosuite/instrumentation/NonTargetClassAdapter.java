@@ -18,9 +18,9 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.instrumentation;
-import org.evosuite.runtime.instrumentation.TimeoutExceededRethrowAdapter;
 
 import org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter;
+import org.evosuite.runtime.instrumentation.TimeoutExceededRethrowAdapter;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;

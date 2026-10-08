@@ -154,7 +154,9 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
 
     private Label pendingShiftedStart;
 
-    /** Whether a range that leads to {@code handler} has started and not yet ended here. */
+    /**
+     * Whether a range that leads to {@code handler} has started and not yet ended here.
+     */
     private boolean isCoveredByOwnRange(Label handler) {
         java.util.List<Label[]> ranges = tryCatchRangesByHandler.get(handler);
         if (ranges == null) {

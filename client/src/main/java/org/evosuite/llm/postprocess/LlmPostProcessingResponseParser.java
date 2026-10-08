@@ -58,6 +58,7 @@ public final class LlmPostProcessingResponseParser {
     private static final Set<String> ASSERTION_FIELDS = allowedFields("assertionId", "kind", "expected", "actual",
             "delta", "purpose", "intent", "container", "element", "target", "size", "map", "key",
             "candidateId", "value", "expression");
+
     private LlmPostProcessingResponseParser() {
         // Utility class.
     }
@@ -73,6 +74,14 @@ public final class LlmPostProcessingResponseParser {
                 setupInputVariableIds, variableTypes, selectableCandidates, options);
     }
 
+    /**
+     * Decodes and validates a post-processing response against the ids and callables that the context allows.
+     *
+     * @param response the raw text of the response
+     * @param context the context that describes what the response may refer to
+     * @return the proposals found in the response, together with the diagnostics for what was rejected
+     * @throws IllegalArgumentException if the context is null
+     */
     public static LlmPostProcessingParseResult parse(String response, ParseContext context) {
         if (context == null) {
             throw new IllegalArgumentException("Post-processing parse context must not be null");
@@ -232,6 +241,14 @@ public final class LlmPostProcessingResponseParser {
         private final String actual;
         private final String delta;
 
+        /**
+         * Creates a candidate assertion that the response may select.
+         *
+         * @param kind the kind of the assertion
+         * @param expected the expected expression
+         * @param actual the actual expression
+         * @param delta the delta for floating-point comparisons, may be null
+         */
         public SelectableCandidate(LlmPostProcessingResponse.AssertionKind kind, String expected,
                                    String actual, String delta) {
             this.kind = kind;
@@ -291,6 +308,15 @@ public final class LlmPostProcessingResponseParser {
             this(receiverId, null, methodName, argumentCount, returnType);
         }
 
+        /**
+         * Creates a callable method that is identified by its number of arguments.
+         *
+         * @param receiverId the id of the receiver variable
+         * @param ownerType the declaring type of the method
+         * @param methodName the name of the method
+         * @param argumentCount the number of arguments
+         * @param returnType the return type of the method
+         */
         public CallableMethod(String receiverId, String ownerType, String methodName, int argumentCount,
                               String returnType) {
             this.receiverId = receiverId;
@@ -302,6 +328,15 @@ public final class LlmPostProcessingResponseParser {
             this.returnType = returnType;
         }
 
+        /**
+         * Creates a callable method that is identified by its JVM descriptor.
+         *
+         * @param receiverId the id of the receiver variable
+         * @param ownerType the declaring type of the method
+         * @param methodName the name of the method
+         * @param descriptor the JVM descriptor of the method
+         * @param returnType the return type of the method
+         */
         public CallableMethod(String receiverId, String ownerType, String methodName, String descriptor,
                               String returnType) {
             this.receiverId = receiverId;

@@ -67,7 +67,9 @@ final class SutConstantVocabulary {
         return buildVocabularyHint(pool, cap);
     }
 
-    /** Visible for testing — same contract as {@link #buildVocabularyHint()} but with explicit dependencies. */
+    /**
+     * Visible for testing — same contract as {@link #buildVocabularyHint()} but with explicit dependencies.
+     */
     static String buildVocabularyHint(ConstantPool pool, int cap) {
         if (pool == null || cap <= 0) {
             return "";

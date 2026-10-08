@@ -258,7 +258,8 @@ public class CastClassManager {
 
             for (final Class<?> concreteClass : concreteClasses) {
                 if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
-                    logger.warn("Stopping concrete cast-class expansion for {} because initialization time is exhausted",
+                    logger.warn("Stopping concrete cast-class expansion for {} "
+                            + "because initialization time is exhausted",
                             clazz);
                     break;
                 }
@@ -291,7 +292,8 @@ public class CastClassManager {
      * @return the selected cast class
      * @throws ConstructionFailedException if no assignable class is found
      */
-    public synchronized GenericClass<?> selectCastClass(final TypeVariable<?> typeVariable, final boolean allowRecursion,
+    public synchronized GenericClass<?> selectCastClass(final TypeVariable<?> typeVariable,
+            final boolean allowRecursion,
                                            final Map<TypeVariable<?>, Type> ownerVariableMap)
             throws ConstructionFailedException {
         final Map<TypeVariable<?>, Type> sanitizedOwnerVariableMap = sanitizeOwnerVariableMap(ownerVariableMap);
@@ -673,14 +675,10 @@ public class CastClassManager {
         return chosen;
     }
 
-    /**
+    /*
      * Add an assignable class for a type variable for a given type variable map.
      *
-     * <p>A type is only added to the classMap, if it is usable according to {@link TestUsageChecker#canUse(Type)}.
-     *
-     * @param typeVariable the type variable to be instantiated.
-     * @param typeMap      the type map.
-     * @return Whether an assignable class was added.
+     * A type is only added to the classMap, if it is usable according to TestUsageChecker#canUse(Type).
      */
     /**
      * Computes a cache key for {@link #failedBoundsKeys} from the type variable's identity and

@@ -159,7 +159,7 @@ final class JavaModuleLookup {
      */
     static final class Result {
 
-        private enum Kind {UNAVAILABLE, UNNAMED, NAMED}
+        private enum Kind { UNAVAILABLE, UNNAMED, NAMED }
 
         private static final Result UNAVAILABLE = new Result(Kind.UNAVAILABLE, null, null);
         private static final Result UNNAMED = new Result(Kind.UNNAMED, null, null);
@@ -179,30 +179,38 @@ final class JavaModuleLookup {
         }
 
         /**
-         * @return true if the module system could not be consulted: no Java 9+ module system on
-         * this JVM, or the reflective lookup itself failed.
+         * Whether the module system could not be consulted.
+         *
+         * @return true if there is no Java 9+ module system on this JVM, or the reflective lookup
+         *     itself failed
          */
         boolean isUnavailable() {
             return kind == Kind.UNAVAILABLE;
         }
 
         /**
-         * @return true if the class's module was looked up successfully and has a name.
+         * Whether the class's module was looked up successfully and has a name.
+         *
+         * @return true if the module is named
          */
         boolean isNamed() {
             return kind == Kind.NAMED;
         }
 
         /**
-         * @return the module's name; only valid when {@link #isNamed()} is true.
+         * Returns the module's name; only valid when {@link #isNamed()} is true.
+         *
+         * @return the module name
          */
         String moduleName() {
             return moduleName;
         }
 
         /**
-         * @return the underlying {@code java.lang.Module} instance, untyped; only valid when
+         * Returns the underlying {@code java.lang.Module} instance, untyped; only valid when
          * {@link #isNamed()} is true.
+         *
+         * @return the module instance
          */
         Object rawModule() {
             return rawModule;
@@ -306,7 +314,7 @@ final class JavaModuleLookup {
      *
      * @param result a {@link #lookupModule(Class)} outcome with {@link Result#isNamed()} true
      * @return true if the specific module {@code result} describes was resolved from the running
-     * JDK's own install image
+     *     JDK's own install image
      */
     static boolean isFromSystemImage(Result result) {
         if (!result.isNamed() || !IMAGE_ORIGIN_LOOKUP_SUPPORTED) {

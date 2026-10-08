@@ -42,6 +42,19 @@ public final class LlmPostProcessingEditApplier {
         // Utility class.
     }
 
+    /**
+     * Applies the proposals of a post-processing response to a test: its name, variable names, comments, section
+     * breaks and assertions, each as far as the enabled features and the referenced ids allow. The edits are
+     * reverted if the test cannot be rendered with them.
+     *
+     * @param test the test to edit
+     * @param references the ids the response may refer to
+     * @param response the proposals to apply
+     * @param assertionsAllowed whether assertions may be attached to the test
+     * @param executionResult the result of executing the test, may be null
+     * @param options the options that select the enabled features
+     * @return the number of edits of each kind that were applied
+     */
     public static ApplyResult apply(TestCase test, LlmPostProcessingReferences references,
                                     LlmPostProcessingResponse response, boolean assertionsAllowed,
                                     ExecutionResult executionResult, PostProcessingOptions options) {
@@ -295,10 +308,20 @@ public final class LlmPostProcessingEditApplier {
             return appliedAssertions.size();
         }
 
+        /**
+         * Returns the assertions that were attached to the test.
+         *
+         * @return the applied assertions
+         */
         public List<TemplateCodeAssertion> getAppliedAssertions() {
             return appliedAssertions;
         }
 
+        /**
+         * Tells whether any edit was applied.
+         *
+         * @return true if at least one name, comment, section break or assertion was applied
+         */
         public boolean hasAppliedEdits() {
             return testNamesApplied > 0
                     || variableNamesApplied > 0

@@ -27,6 +27,7 @@ import org.evosuite.utils.generic.GenericMethod;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -132,15 +133,15 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
             return newParameter;
         } else {
 
-            /** find the existing parameters */
-            EntityWithParametersStatement mStat = test.findTargetExecutableStatement();
-            if (mStat == null) {
+            // find the existing parameters
+            EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
+            if (methodStat == null) {
                 return null;
             }
             int paramPosition = this.var.getParamOrder();
-            VariableReference paramRef = mStat.getParameterReferences().get(paramPosition - 1);
+            VariableReference paramRef = methodStat.getParameterReferences().get(paramPosition - 1);
 
-            /** make sure the parameter obj is not null */
+            // make sure the parameter obj is not null
             int paramPosInTest = ConstructionReferenceUtil.definitionPosition(test, paramRef);
             if (paramPosInTest < 0) {
                 return null;
@@ -152,7 +153,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 TestFactory testFactory = TestFactory.getInstance();
                 boolean isSuccess = testFactory.changeNullStatement(test, paramDef);
                 if (isSuccess) {
-                    paramRef = mStat.getParameterReferences().get(paramPosition - 1);
+                    paramRef = methodStat.getParameterReferences().get(paramPosition - 1);
                 } else {
 
                     return null;
@@ -182,8 +183,8 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 BytecodeInstruction ins = v.getInstruction();
                 AbstractInsnNode insNode = ins.getASMNode();
                 if (insNode instanceof TypeInsnNode) {
-                    TypeInsnNode tNode = (TypeInsnNode) insNode;
-                    String classType = tNode.desc;
+                    TypeInsnNode targetNode = (TypeInsnNode) insNode;
+                    String classType = targetNode.desc;
                     potentialCastType =
                             org.objectweb.asm.Type.getObjectType(classType).getClassName();
 
@@ -235,8 +236,8 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 selectConstructor(paramDeclaringClazz.getRawClass().getConstructors());
         if (constructor != null) {
             GenericConstructor gc = new GenericConstructor(constructor, paramDeclaringClazz);
-            EntityWithParametersStatement mStat = test.findTargetExecutableStatement();
-            if (mStat == null) {
+            EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
+            if (methodStat == null) {
                 return null;
             }
 
@@ -244,12 +245,12 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 if (Randomness.nextDouble() < Properties.NULL_PROBABILITY) {
                     paramRef =
                             TestFactory.getInstance()
-                                    .createNull(test, paramClass, mStat.getPosition() - 1, 0);
+                                    .createNull(test, paramClass, methodStat.getPosition() - 1, 0);
                 }
             } else {
                 paramRef =
                         TestFactory.getInstance()
-                                .addConstructor(test, gc, mStat.getPosition() - 1, 2);
+                                .addConstructor(test, gc, methodStat.getPosition() - 1, 2);
             }
         }
 

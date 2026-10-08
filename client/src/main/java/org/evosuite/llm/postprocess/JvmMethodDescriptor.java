@@ -11,11 +11,11 @@
  */
 package org.evosuite.llm.postprocess;
 
+import org.objectweb.asm.Type;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import org.objectweb.asm.Type;
 
 /**
  * Parsed JVM method descriptor used by callable-policy matching.

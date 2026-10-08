@@ -21,6 +21,7 @@ package org.evosuite.runtime.mock.java.io;
 
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -114,9 +115,16 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
      */
     private final Writer encoder;
 
-    /** The platform line separator, resolved once; see {@link #println()}. */
+    /**
+     * The platform line separator, resolved once; see {@link #println()}.
+     */
     private static final String LINE_SEPARATOR = System.lineSeparator();
 
+    /**
+     * Creates a print stream without automatic flushing and with the default charset.
+     *
+     * @param out the stream to write to
+     */
     public MockPrintStream(OutputStream out) {
         super(out);
         this.charset = null;
@@ -124,6 +132,12 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
         this.encoder = null;
     }
 
+    /**
+     * Creates a print stream with the default charset.
+     *
+     * @param out the stream to write to
+     * @param autoFlush whether to flush the output on println and newline characters
+     */
     public MockPrintStream(OutputStream out, boolean autoFlush) {
         super(out, autoFlush);
         this.charset = null;
@@ -131,6 +145,14 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
         this.encoder = null;
     }
 
+    /**
+     * Creates a print stream with a named character encoding.
+     *
+     * @param out the stream to write to
+     * @param autoFlush whether to flush the output on println and newline characters
+     * @param encoding the name of a supported charset
+     * @throws UnsupportedEncodingException if the named charset is not supported
+     */
     public MockPrintStream(OutputStream out, boolean autoFlush, String encoding)
             throws UnsupportedEncodingException {
         super(out, autoFlush, encoding);

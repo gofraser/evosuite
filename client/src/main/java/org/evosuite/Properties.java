@@ -163,7 +163,8 @@ public class Properties {
     public static int COMPUTATION_GRAPH_METHOD_CALL_DEPTH = 5;
 
     @Parameter(key = "object_rule_analysis_timeout", group = "Test Creation",
-            description = "Maximum milliseconds spent analyzing one entry method on demand in whole-class EvoObj mode (0 disables the limit)")
+            description = "Maximum milliseconds spent analyzing one entry method on demand in whole-class EvoObj mode "
+                    + "(0 disables the limit)")
     @IntValue(min = 0)
     public static int OBJECT_RULE_ANALYSIS_TIMEOUT = 2000;
 
@@ -338,7 +339,8 @@ public class Properties {
     public static long ADAPTIVE_SEEDED_CONSTANT_INITIAL_LIMIT = 8192L;
 
     @Parameter(key = "adaptive_seeded_constant_min_limit", group = "Test Creation",
-            description = "Minimum absolute cap when adaptively tightening seeded numeric constants after repeated OOMs")
+            description = "Minimum absolute cap when adaptively tightening seeded numeric constants "
+                    + "after repeated OOMs")
     public static long ADAPTIVE_SEEDED_CONSTANT_MIN_LIMIT = 64L;
 
     @Parameter(key = "restrict_pool", group = "Test Creation",
@@ -2084,6 +2086,9 @@ public class Properties {
                 LLM_ENRICH_OBJECT_POOL = true;
                 LLM_SEED_INITIAL_POPULATION = true;
                 LLM_TEST_FACTORY = true;
+                break;
+            default:
+                break;
         }
     }
 
@@ -2652,7 +2657,8 @@ public class Properties {
     public static int LLM_REPAIR_ATTEMPTS = 4;
 
     @Parameter(key = "llm_include_dependency_code_on_repair", group = "LLM",
-            description = "Inline decompiled/bytecode excerpts of non-CUT classes whose code triggered a repair-blocking exception")
+            description = "Inline decompiled/bytecode excerpts of non-CUT classes whose code triggered "
+                    + "a repair-blocking exception")
     public static boolean LLM_INCLUDE_DEPENDENCY_CODE_ON_REPAIR = true;
 
     @Parameter(key = "llm_repair_hints_enabled", group = "LLM",

@@ -385,7 +385,8 @@ final class TypeBarrierObserver {
             telemetry.increment(ExtractorRejectReason.BLOCKED_TYPE_MAPPING_FAILURE);
         }
         traceSink.trace(tracePhase,
-                "test={} stmt={} action=map_blocked_type_failure observed_type={} observed_has_goals=false mapped_type={}",
+                "test={} stmt={} action=map_blocked_type_failure observed_type={} observed_has_goals=false "
+                        + "mapped_type={}",
                 chromosomeIndex, statementIndex, observedTypeName, "");
         return "";
     }

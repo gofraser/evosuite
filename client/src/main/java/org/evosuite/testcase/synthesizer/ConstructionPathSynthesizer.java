@@ -57,9 +57,10 @@ public class ConstructionPathSynthesizer {
     }
 
     /**
-     * @param b
-     * @param isBranchInTargetMethod
-     * @return
+     * Builds the partial computation graph of the variables that the given branch depends on.
+     *
+     * @param b the branch to construct the graph for
+     * @return the partial graph for the branch
      */
     public PartialGraph constructPartialComputationGraph(Branch b) {
         Map<String, Map<Branch, Set<DepVariable>>> analyzedBranches =
@@ -108,7 +109,7 @@ public class ConstructionPathSynthesizer {
                     continue;
                 }
 
-                /** this=> class; parameter => method; static field=> whatever */
+                /* this=> class; parameter => method; static field=> whatever */
                 if ((root.referenceToThis()
                                 && root.getInstruction()
                                         .getClassName()
@@ -247,6 +248,14 @@ public class ConstructionPathSynthesizer {
     private Map<DepVariableWrapper, VarRelevance> graph2CodeMap;
     private boolean unresolvedRequiredRoot;
 
+    /**
+     * Builds the partial graph for a branch and generates the statements that realise it in the test.
+     * @param test the test case to extend
+     * @param b the branch whose dependencies are constructed
+     * @param allowNullValue whether null is acceptable as a value
+     * @throws ConstructionFailedException if the statements cannot be generated
+     * @throws ClassNotFoundException if a class involved cannot be loaded
+     */
     public void buildNodeStatementCorrespondence(TestCase test, Branch b, boolean allowNullValue)
             throws ConstructionFailedException, ClassNotFoundException {
 
@@ -285,7 +294,7 @@ public class ConstructionPathSynthesizer {
 
         List<DepVariableWrapper> topLayer = partialGraph.getTopLayer();
 
-        /**
+        /*
          * track what variable reference can be reused. Note that, one node can corresponding to
          * multiple statements. It is because a static field/method can be called twice dynamically.
          * Therefore, we need to construct multiple fields/methods for different object of the same
@@ -301,14 +310,14 @@ public class ConstructionPathSynthesizer {
         }
         bindTargetParameterRoots(test, topLayer, map);
 
-        /**
+        /*
          * use BFS on partial graph to generate test code, but we need to check the dependency,
          * making sure that we have generated the code of its dependency.
          */
         Queue<DepVariableWrapper> queue =
                 semanticInputHandled ? new ArrayDeque<>() : new ArrayDeque<>(topLayer);
 
-        /** when constructing some instruction, its dependency may not be ready. */
+        /* when constructing some instruction, its dependency may not be ready. */
         Map<DepVariableWrapper, Integer> methodCounter = new HashMap<>();
         while (!queue.isEmpty()) {
             if (test.size() >= maxStatements) {
@@ -317,7 +326,7 @@ public class ConstructionPathSynthesizer {
             DepVariableWrapper node = queue.remove();
 
 
-            /** for each method callsite, we only generate once. */
+            /* for each method callsite, we only generate once. */
             if (map.containsKey(node) && node.var.isMethodCall()) {
                 continue;
             }
@@ -343,7 +352,7 @@ public class ConstructionPathSynthesizer {
 
                 node.processed = true;
 
-                /** the order of children size matters */
+                /* the order of children size matters */
                 Collections.sort(
                         node.children,
                         new Comparator<DepVariableWrapper>() {
@@ -367,7 +376,9 @@ public class ConstructionPathSynthesizer {
 
             } else {
                 Integer count = methodCounter.get(node);
-                if (count == null) count = 0;
+                if (count == null) {
+                    count = 0;
+                }
 
                 if (count < 5) {
                     queue.add(node);
@@ -490,7 +501,7 @@ public class ConstructionPathSynthesizer {
     protected boolean checkDependency(
             DepVariableWrapper node, Map<DepVariableWrapper, VarRelevance> map) {
 
-        /** ensure every parent of current node is visited in the map */
+        /* ensure every parent of current node is visited in the map */
         for (DepVariableWrapper parent : node.parents) {
             if (map.get(parent) == null
                     || map.get(parent).matchedVars == null
@@ -518,7 +529,7 @@ public class ConstructionPathSynthesizer {
             Map<DepVariableWrapper, VarRelevance> map, DepVariableWrapper node) {
         List<DepVariableWrapper> callerNodes = node.getCallerNode();
 
-        /** for root nodes */
+        /* for root nodes */
         if (callerNodes == null) {
             callerNodes = new ArrayList<>();
             callerNodes.add(node);
@@ -614,6 +625,11 @@ public class ConstructionPathSynthesizer {
         return true;
     }
 
+    /**
+     * Finds the method call whose result a use instruction reads.
+     * @param ins the instruction to trace back from
+     * @return the method call instruction, or null if the instruction is not a use fed by a call
+     */
     public static BytecodeInstruction traceBackToMethodCall(BytecodeInstruction ins) {
 
         if (ins.isUse()) {
@@ -655,6 +671,16 @@ public class ConstructionPathSynthesizer {
         }
     }
 
+    /**
+     * Inserts a randomly chosen constructor call, or a null, for a class given by its descriptor.
+     * @param testFactory the factory used to insert statements
+     * @param test the test case to extend
+     * @param position the position at which to insert
+     * @param desc the class name or descriptor; interfaces and abstract classes are replaced by a random subclass
+     * @param allowNullValue whether null is acceptable as a value
+     * @return the reference to the new value, or null if no constructor could be used
+     * @throws ConstructionFailedException if the constructor call cannot be inserted
+     */
     public static VariableReference addConstructorForClass(
             TestFactory testFactory,
             TestCase test,
@@ -714,12 +740,20 @@ public class ConstructionPathSynthesizer {
         this.partialGraph = partialGraph;
     }
 
+    /**
+     * Returns the mapping from graph nodes to the variables generated for them.
+     * @return an unmodifiable view, empty if none was computed
+     */
     public Map<DepVariableWrapper, VarRelevance> getGraph2CodeMap() {
         return graph2CodeMap == null
                 ? Collections.emptyMap()
                 : Collections.unmodifiableMap(graph2CodeMap);
     }
 
+    /**
+     * Sets the mapping from graph nodes to the variables generated for them.
+     * @param graph2CodeMap the mapping, copied; may be null
+     */
     public void setGraph2CodeMap(Map<DepVariableWrapper, VarRelevance> graph2CodeMap) {
         this.graph2CodeMap = graph2CodeMap == null
                 ? null

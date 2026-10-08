@@ -589,7 +589,7 @@ public class MethodStatement extends EntityWithParametersStatement {
         }
     }
 
-    /**
+    /*
      * Rejects method calls whose int args exceed a dynamically learned threshold.
      * The threshold is set after a previous OOM from the same method, starting at
      * half the smallest arg that caused OOM, and halving on each subsequent OOM.

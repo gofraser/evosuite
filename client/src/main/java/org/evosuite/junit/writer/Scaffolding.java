@@ -39,9 +39,9 @@ import org.evosuite.runtime.thread.KillSwitchHandler;
 import org.evosuite.runtime.thread.ThreadStopper;
 import org.evosuite.runtime.util.JOptionPaneInputs;
 import org.evosuite.runtime.util.SystemInUtil;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
-import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -106,7 +106,9 @@ public class Scaffolding {
                 collectMockClassNames(tests), RuntimeRequirements.fromResults(results));
     }
 
-    /** The distinct names of the classes the functional mocks of {@code tests} mock. */
+    /**
+     * The distinct names of the classes the functional mocks of {@code tests} mock.
+     */
     private static List<String> collectMockClassNames(Iterable<TestCase> tests) {
         Set<String> mockClasses = new LinkedHashSet<>();
         for (TestCase test : tests) {

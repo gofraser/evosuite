@@ -437,10 +437,10 @@ class ObjectRuleTemplateSynthesizer {
         }
         Boolean jumpTaken = null;
         for (BranchCoverageTestFitness goal : session().getWorkingGoals()) {
-                if (goal != null && branch.equals(goal.getBranch())) {
-                    jumpTaken = goal.getValue();
-                    break;
-                }
+            if (goal != null && branch.equals(goal.getBranch())) {
+                jumpTaken = goal.getValue();
+                break;
+            }
         }
         if (jumpTaken == null) {
             return null;

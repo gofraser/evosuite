@@ -19,8 +19,8 @@
  */
 package org.evosuite.instrumentation.coverage;
 
-import org.evosuite.TestGenerationContext;
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationObserver;

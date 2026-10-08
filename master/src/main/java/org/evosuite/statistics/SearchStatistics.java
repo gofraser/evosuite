@@ -663,11 +663,13 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * @return true if the client reported an incomplete coverage-analysis sweep via {@link
-     *         RuntimeVariable#CoverageAnalysisComplete} (see {@link
-     *         org.evosuite.coverage.CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()}).
-     *         Reads the raw {@link #outputVariables} map, not a projected {@code map}, because
-     *         this gate must apply even when the marker itself was not selected into the output.
+     * Checks whether the client reported an incomplete coverage-analysis sweep via {@link
+     * RuntimeVariable#CoverageAnalysisComplete} (see {@link
+     * org.evosuite.coverage.CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()}).
+     * Reads the raw {@link #outputVariables} map, not a projected {@code map}, because
+     * this gate must apply even when the marker itself was not selected into the output.
+     *
+     * @return true if the sweep was reported incomplete
      */
     private boolean isCoverageAnalysisReportedIncomplete() {
         OutputVariable<?> completeVar = outputVariables.get(RuntimeVariable.CoverageAnalysisComplete.toString());

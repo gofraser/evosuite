@@ -24,10 +24,9 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
-
-import org.evosuite.utils.Randomness;
 
 import java.util.ArrayList;
 import java.util.Arrays;

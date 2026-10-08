@@ -449,6 +449,8 @@ public class CoverageCriteriaAnalyzer {
     }
 
     /**
+     * Reports whether the coverage analysis of this run has so far been complete.
+     *
      * @return whether every per-criterion coverage analysis performed so far in this run
      *         evaluated all of its goals (see {@link #coverageAnalysisComplete}).
      */

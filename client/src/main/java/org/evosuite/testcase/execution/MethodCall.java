@@ -183,9 +183,6 @@ public class MethodCall implements Cloneable {
     }
 
     /**
-     * {@inheritDoc}
-     */
-    /**
      * Returns, for every branch executed in this call, the minimum true and false
      * distance over all its executions.
      *

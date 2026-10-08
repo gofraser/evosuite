@@ -73,6 +73,11 @@ public class InstrumentingClassLoader extends ClassLoader {
         logger.debug("STANDARD classloader running now");
     }
 
+    /**
+     * Creates a classloader that instruments classes with a default {@link BytecodeInstrumentation}.
+     *
+     * @param parent the parent classloader that loads classes which are not instrumented
+     */
     public InstrumentingClassLoader(ClassLoader parent) {
         this(new BytecodeInstrumentation(), parent);
         setClassAssertionStatus(Properties.TARGET_CLASS, true);

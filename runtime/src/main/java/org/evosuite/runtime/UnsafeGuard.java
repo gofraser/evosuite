@@ -80,7 +80,9 @@ public final class UnsafeGuard {
     private static final Map<Class<?>, FieldTable> TABLES =
             Collections.synchronizedMap(new WeakHashMap<Class<?>, FieldTable>());
 
-    /** An Unsafe method signature, resolved to its {@link Method} on first use. */
+    /**
+     * An Unsafe method signature, resolved to its {@link Method} on first use.
+     */
     private static final class Sig {
         final String name;
         final Class<?>[] types;
@@ -260,6 +262,13 @@ public final class UnsafeGuard {
         }
     }
 
+    /**
+     * Allocates native memory through {@code Unsafe} and records the block so later accesses can be checked.
+     *
+     * @param unsafe the {@code Unsafe} instance
+     * @param bytes the number of bytes to allocate
+     * @return the address of the new block
+     */
     public static long allocateMemory(Object unsafe, long bytes) {
         long address = (Long) invoke(unsafe, ALLOCATE_MEMORY, bytes);
         if (bytes > 0) {
@@ -268,6 +277,15 @@ public final class UnsafeGuard {
         return address;
     }
 
+    /**
+     * Reallocates a block previously allocated through this guard.
+     *
+     * @param unsafe the {@code Unsafe} instance
+     * @param address the address of the block, or 0 to allocate a new one
+     * @param bytes the new size in bytes
+     * @return the address of the reallocated block
+     * @throws IllegalArgumentException if the address was not allocated by the class
+     */
     public static long reallocateMemory(Object unsafe, long address, long bytes) {
         if (address != 0) {
             Long size = ALLOCATIONS.get(address);
@@ -284,6 +302,13 @@ public final class UnsafeGuard {
         return result;
     }
 
+    /**
+     * Frees a block previously allocated through this guard.
+     *
+     * @param unsafe the {@code Unsafe} instance
+     * @param address the address of the block, or 0 to do nothing
+     * @throws IllegalArgumentException if the address was not allocated by the class
+     */
     public static void freeMemory(Object unsafe, long address) {
         if (address == 0) {
             return;
@@ -305,12 +330,32 @@ public final class UnsafeGuard {
         invoke(unsafe, SET_MEMORY, base, offset, bytes, value);
     }
 
+    /**
+     * Copies bytes between two blocks of live native memory.
+     *
+     * @param unsafe the {@code Unsafe} instance
+     * @param from the source address
+     * @param to the destination address
+     * @param bytes the number of bytes to copy
+     * @throws IllegalArgumentException if either range is not inside memory the class allocated
+     */
     public static void copyMemory(Object unsafe, long from, long to, long bytes) {
         requireLive(from, bytes);
         requireLive(to, bytes);
         invoke(unsafe, COPY_MEMORY_ADDRESS, from, to, bytes);
     }
 
+    /**
+     * Copies bytes between two regions, each either an array or live native memory.
+     *
+     * @param unsafe the {@code Unsafe} instance
+     * @param srcBase the source array, or null if the offset is an address
+     * @param srcOffset the source offset or address
+     * @param dstBase the destination array, or null if the offset is an address
+     * @param dstOffset the destination offset or address
+     * @param bytes the number of bytes to copy
+     * @throws IllegalArgumentException if either region is not legitimate
+     */
     public static void copyMemory(Object unsafe, Object srcBase, long srcOffset, Object dstBase,
                                   long dstOffset, long bytes) {
         checkRegion(unsafe, srcBase, srcOffset, bytes);
@@ -381,6 +426,11 @@ public final class UnsafeGuard {
     // ---- checks --------------------------------------------------------------------------
 
     /**
+     * Checks that a write to a field offset is valid for the declared type of the field.
+     *
+     * @param unsafe the {@code Unsafe} instance
+     * @param base the object holding the field, or null if the offset is an absolute address
+     * @param offset the field offset or address
      * @param expectedType {@code Object.class} for a reference write, otherwise the primitive
      *                     class of the write
      * @param value        the reference being stored, ignored for a primitive write
@@ -427,7 +477,13 @@ public final class UnsafeGuard {
     private static final Map<Class<?>, long[]> ARRAY_LAYOUTS =
             Collections.synchronizedMap(new WeakHashMap<Class<?>, long[]>());
 
-    /** @return base offset and index scale of an array class, looked up once per class */
+    /**
+     * Looks up the base offset and index scale of an array class once per class.
+     *
+     * @param unsafe the {@code Unsafe} instance
+     * @param arrayClass the array class
+     * @return the base offset followed by the index scale
+     */
     private static long[] arrayLayout(Object unsafe, Class<?> arrayClass) {
         long[] layout = ARRAY_LAYOUTS.get(arrayClass);
         if (layout == null) {

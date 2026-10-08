@@ -23,6 +23,9 @@ import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.runtime.mock.javax.swing.filechooser.MockFileSystemView;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.accessibility.AccessibleContext;
 import javax.swing.Icon;
 import javax.swing.JComponent;
@@ -35,6 +38,7 @@ import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileSystemView;
 import javax.swing.filechooser.FileView;
 import javax.swing.plaf.FileChooserUI;
+
 import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -60,8 +64,6 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.Vector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class MockJFileChooser extends javax.swing.JFileChooser implements OverrideMock {
 
@@ -1266,6 +1268,11 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
         return uiClassID;
     }
 
+    /**
+     * Returns the file chooser UI, installing a headless-safe stub if none is set.
+     *
+     * @return the current UI
+     */
     public FileChooserUI getUI() {
         FileChooserUI current = (FileChooserUI) ui;
         if (current == null) {

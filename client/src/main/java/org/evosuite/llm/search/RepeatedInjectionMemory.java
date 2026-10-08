@@ -43,6 +43,13 @@ public class RepeatedInjectionMemory {
     private static final long DEFAULT_RECENT_COOLDOWN_CAP = 3L;
     private static final long LOW_STEERABILITY_COOLDOWN_CAP = 8L;
 
+    /**
+     * Adjusts the selection priority of a target according to how often it was injected before.
+     * @param target the target to rate
+     * @param basePriority the priority before adjustment
+     * @param suppressInFlight whether targets with an attempt still in flight are suppressed
+     * @return the adjusted priority or a suppression
+     */
     public synchronized SelectionAdjustment adjustPriority(RepeatedInjectionTarget target,
                                                            double basePriority,
                                                            boolean suppressInFlight) {
@@ -101,6 +108,12 @@ public class RepeatedInjectionMemory {
         return fingerprint != null && fingerprint.contains("|steer=low");
     }
 
+    /**
+     * Registers a prompt attempt for the given targets.
+     * @param targets the targets covered by the prompt
+     * @param asyncInFlight whether the attempt runs asynchronously and stays in flight until its outcome
+     * @return the attempt identifier and the registered targets
+     */
     public synchronized PromptAttemptRegistration registerAttempt(List<RepeatedInjectionTarget> targets,
                                                                   boolean asyncInFlight) {
         List<RepeatedInjectionTarget> safeTargets = sanitizeTargets(targets);
@@ -121,6 +134,11 @@ public class RepeatedInjectionMemory {
         return new PromptAttemptRegistration(attemptId, safeTargets);
     }
 
+    /**
+     * Records how many goals a registered attempt gained and releases it.
+     * @param attemptId identifier of the attempt
+     * @param gainedGoals number of goals the attempt newly covered
+     */
     public synchronized void recordAttemptOutcome(String attemptId, int gainedGoals) {
         PromptAttempt attempt = attempts.remove(attemptId == null ? "" : attemptId.trim());
         if (attempt == null) {
@@ -142,6 +160,10 @@ public class RepeatedInjectionMemory {
         }
     }
 
+    /**
+     * Releases an attempt without counting it as success or failure.
+     * @param attemptId identifier of the attempt
+     */
     public synchronized void clearAttempt(String attemptId) {
         PromptAttempt attempt = attempts.remove(attemptId == null ? "" : attemptId.trim());
         if (attempt == null) {

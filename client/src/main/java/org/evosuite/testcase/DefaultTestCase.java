@@ -20,7 +20,6 @@
 package org.evosuite.testcase;
 
 import org.apache.commons.lang3.reflect.MethodUtils;
-import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
@@ -111,6 +110,10 @@ public class DefaultTestCase implements TestCase, Serializable {
         return presentationMetadata;
     }
 
+    /**
+     * Returns the presentation metadata, creating it if the test case has none yet.
+     * @return the presentation metadata, never null
+     */
     public TestPresentationMetadata getOrCreatePresentationMetadata() {
         if (presentationMetadata == null) {
             presentationMetadata = new TestPresentationMetadata();

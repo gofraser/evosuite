@@ -324,14 +324,14 @@ public class TimeController {
 
     /**
      * How much time is left for a phase that has no timeout of its own.
-     * <p>
-     * The master kills the client once the overall budget is up, so whatever one phase spends is
+     *
+     * <p>The master kills the client once the overall budget is up, so whatever one phase spends is
      * taken away from everything that follows it. A phase with a timeout is bounded by it; a
      * phase without one - inlining, value minimization, coverage analysis - is bounded by nothing
      * and is free to spend the budget that was planned for minimization, assertion generation and
      * writing the tests out. Holding that budget back is what turns the plan into a limit.
-     * <p>
-     * Deliberately not applied to the phases that do have a timeout: reserving there would take
+     *
+     * <p>Deliberately not applied to the phases that do have a timeout: reserving there would take
      * an earlier phase's overrun out of the phase that follows it, which for a slow
      * initialization means taking it out of the search - the opposite of what is wanted. Those
      * phases keep spending against the overall budget in the order they run, so the search still

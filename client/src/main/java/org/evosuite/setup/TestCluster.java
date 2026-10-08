@@ -381,18 +381,18 @@ public class TestCluster {
 
     }
 
-    /**
-     * Add a generator reflection object.
-     *
-     * @param target is assumed to have wildcard types
-     * @param call the generator call
-     */
     private static boolean isNotCallableFromSource(GenericAccessibleObject<?> call) {
         return call.isMethod() && call.getAccessibleObject() instanceof java.lang.reflect.Method
                 && TestUsageChecker.isNotCallableFromSource(
                         (java.lang.reflect.Method) call.getAccessibleObject());
     }
 
+    /**
+     * Add a generator reflection object.
+     *
+     * @param target is assumed to have wildcard types
+     * @param call the generator call
+     */
     public void addGenerator(GenericClass<?> target, GenericAccessibleObject<?> call) {
         if (isNotCallableFromSource(call)) {
             logger.debug("Skipping synthetic or bridge method {}", call);

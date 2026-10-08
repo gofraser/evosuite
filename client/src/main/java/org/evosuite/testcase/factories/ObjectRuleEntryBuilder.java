@@ -75,10 +75,11 @@ class ObjectRuleEntryBuilder {
                     .loadClass(context.getClassName());
             if (context.isConstructorEntry()) {
                 for (java.lang.reflect.Constructor<?> c : clazz.getDeclaredConstructors()) {
-                    if (("<init>" + org.evosuite.utils.MethodUtil.getSignature(c)).equals(context.getMethodSignature())) {
-                        org.evosuite.utils.generic.GenericConstructor gConstructor =
+                    if (("<init>"
+                            + org.evosuite.utils.MethodUtil.getSignature(c)).equals(context.getMethodSignature())) {
+                        org.evosuite.utils.generic.GenericConstructor genericConstructor =
                                 new org.evosuite.utils.generic.GenericConstructor(c, clazz);
-                        TestFactory.getInstance().addConstructor(test, gConstructor, test.size(), 0);
+                        TestFactory.getInstance().addConstructor(test, genericConstructor, test.size(), 0);
                         return findConstructorCallStatement(test, context.getClassName(),
                                 context.getMethodSignature()) != null
                                 ? EntryInsertionResult.SUCCESS : EntryInsertionResult.RETRYABLE_FAILURE;
@@ -90,9 +91,9 @@ class ObjectRuleEntryBuilder {
             if (entry == null) {
                 return EntryInsertionResult.PERMANENT_FAILURE;
             }
-            GenericMethod gMethod = new GenericMethod(entry, clazz);
+            GenericMethod genericMethod = new GenericMethod(entry, clazz);
             if (java.lang.reflect.Modifier.isStatic(entry.getModifiers())) {
-                insertStableEntryInvocation(test, gMethod, null, entry.getGenericParameterTypes());
+                insertStableEntryInvocation(test, genericMethod, null, entry.getGenericParameterTypes());
             } else {
                 Set<String> requiredFields = entryGraph == null
                         ? Collections.emptySet()
@@ -103,7 +104,7 @@ class ObjectRuleEntryBuilder {
                             ? EntryInsertionResult.RETRYABLE_FAILURE
                             : EntryInsertionResult.PERMANENT_FAILURE;
                 }
-                GenericMethod boundEntry = gMethod.copyWithNewOwner(receiver.getGenericClass());
+                GenericMethod boundEntry = genericMethod.copyWithNewOwner(receiver.getGenericClass());
                 insertStableEntryInvocation(
                         test, boundEntry, receiver, boundEntry.getParameterTypes());
             }

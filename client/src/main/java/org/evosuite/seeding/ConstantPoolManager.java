@@ -21,9 +21,9 @@ package org.evosuite.seeding;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -229,6 +229,10 @@ public class ConstantPoolManager {
         return pools[SUT_POOL_INDEX];
     }
 
+    /**
+     * Halves the limit on seeded numeric constants after an out-of-memory error and prunes constants above it.
+     * @return the new limit and the number of pruned constants
+     */
     public synchronized AdaptiveSeedLimitUpdate tightenSeededNumericLimitAfterOom() {
         if (!Properties.ADAPTIVE_SEEDED_CONSTANTS_ON_OOM) {
             return AdaptiveSeedLimitUpdate.disabled();
@@ -253,6 +257,11 @@ public class ConstantPoolManager {
         return update;
     }
 
+    /**
+     * Removes all seeded numeric constants whose absolute value is not below the given bound.
+     * @param maxAbsExclusive exclusive upper bound on the absolute value
+     * @return the number of removed constants
+     */
     public synchronized int pruneOversizedNumericConstants(long maxAbsExclusive) {
         if (maxAbsExclusive <= 0L || pools == null) {
             return 0;
@@ -264,6 +273,11 @@ public class ConstantPoolManager {
         return removed;
     }
 
+    /**
+     * Clamps numeric literals of a test case to the current seeded-constant limit.
+     * @param testCase the test case to modify, may be null
+     * @return the number of literals that were changed
+     */
     public static int sanitizeTestCaseNumericLiterals(TestCase testCase) {
         if (testCase == null) {
             return 0;

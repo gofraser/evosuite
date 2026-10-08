@@ -68,10 +68,23 @@ public class TemplateCodeAssertion extends Assertion {
     private final Map<String, Integer> bindings;
     private final String purpose;
     private final Placement placement;
-    /** Cached {@link #operandShape(String)} of the expected and actual expressions. */
+    /**
+     * Cached {@link #operandShape(String)} of the expected and actual expressions.
+     */
     private transient Object expectedShape;
     private transient Object actualShape;
 
+    /**
+     * Creates an assertion that is placed at the end of the test.
+     *
+     * @param assertionId        the identifier of the assertion
+     * @param kind               the kind of assertion
+     * @param expectedExpression the expression for the expected value
+     * @param actualExpression   the expression for the actual value
+     * @param deltaExpression    the expression for the delta, may be null
+     * @param bindings           the symbolic variable bindings
+     * @param purpose            the purpose of the assertion
+     */
     public TemplateCodeAssertion(String assertionId,
                                  Enum<?> kind,
                                  String expectedExpression,
@@ -83,6 +96,18 @@ public class TemplateCodeAssertion extends Assertion {
                 purpose, Placement.END_OF_TEST);
     }
 
+    /**
+     * Creates an assertion with an explicit placement.
+     *
+     * @param assertionId        the identifier of the assertion
+     * @param kind               the kind of assertion
+     * @param expectedExpression the expression for the expected value
+     * @param actualExpression   the expression for the actual value
+     * @param deltaExpression    the expression for the delta, may be null
+     * @param bindings           the symbolic variable bindings
+     * @param purpose            the purpose of the assertion
+     * @param placement          where the assertion is placed in the test, null for the end of the test
+     */
     public TemplateCodeAssertion(String assertionId,
                                  Enum<?> kind,
                                  String expectedExpression,
@@ -129,10 +154,23 @@ public class TemplateCodeAssertion extends Assertion {
         return render(null);
     }
 
+    /**
+     * Renders the assertion as source code.
+     *
+     * @param visitor the visitor that resolves variable names
+     * @return the assertion source code
+     */
     public String render(TestCodeVisitor visitor) {
         return render(visitor, null);
     }
 
+    /**
+     * Renders the assertion as source code, resolving exception identifiers against a catch variable.
+     *
+     * @param visitor           the visitor that resolves variable names
+     * @param catchVariableName the name of the catch variable standing in for the exception, may be null
+     * @return the assertion source code
+     */
     public String render(TestCodeVisitor visitor, String catchVariableName) {
         String actual = resolveExceptionId(resolveExpression(actualExpression, visitor), catchVariableName);
         String expected = resolveExceptionId(resolveExpression(expectedExpression, visitor), catchVariableName);

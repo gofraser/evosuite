@@ -113,6 +113,11 @@ public final class StagnationLlmHelper {
     private final AtomicLong stagnationResponsesReceived = new AtomicLong();
     private final AtomicLong stagnationTestsPublished = new AtomicLong();
 
+    /**
+     * Creates a helper using the configured stagnation mode and budget guard.
+     * @param detector detects stagnation and builds prompts
+     * @param remainingBudgetSecondsSupplier supplies the remaining search budget in seconds
+     */
     public StagnationLlmHelper(StagnationDetector detector,
                                LongSupplier remainingBudgetSecondsSupplier) {
         this(detector,
@@ -255,6 +260,8 @@ public final class StagnationLlmHelper {
                 break;
             case ASYNC:
                 runAsync(prompt);
+                break;
+            default:
                 break;
         }
     }
@@ -572,6 +579,11 @@ public final class StagnationLlmHelper {
         return candidate == null ? Collections.<ProblemCardType>emptyList() : candidate.getDiagnosticCardTypes();
     }
 
+    /**
+     * Removes and returns the metadata of the injection attempt that produced a candidate.
+     * @param candidate the candidate test, may be null
+     * @return the attempt metadata, or null if there is none
+     */
     public InjectionAttemptMetadata consumeAttemptMetadata(TestChromosome candidate) {
         if (candidate == null) {
             return null;
@@ -627,7 +639,7 @@ public final class StagnationLlmHelper {
      *
      * <pre>stagnation outcome={x} mode={SYNC|ASYNC} covered={n} uncovered={n} latencyMs={n} tests={n}</pre>
      *
-     * Cheap (single SLF4J call, guarded by isDebugEnabled).
+     * <p>Cheap (single SLF4J call, guarded by isDebugEnabled).
      */
     private void traceOutcome(String outcome, int coveredCount, int uncoveredSize,
                               long latencyMs, int testsProduced) {

@@ -24,7 +24,9 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectionKey;
 
-/** Selection key owned by an {@link EvoSelector}. */
+/**
+ * Selection key owned by an {@link EvoSelector}.
+ */
 final class EvoSelectionKey extends AbstractSelectionKey {
 
     private final EvoSelector selector;

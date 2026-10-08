@@ -163,15 +163,15 @@ public class BytecodeInstrumentation {
 
     /**
      * Check whether the given class is the class under test (CUT).
-     * <p>
-     * This uses the narrow CUT definition that the coverage goal factories use (see
+     *
+     * <p>This uses the narrow CUT definition that the coverage goal factories use (see
      * {@code AbstractFitnessFactory.isCUT} and {@code InstrumentingClassLoader.shouldWarnForMissingClass}):
      * the target class itself plus its nested classes ({@code Foo$Bar}).  Nested classes
      * count as CUT because their branches and lines are part of the target's coverage
      * goals, so losing their probes degrades the reported coverage just as silently as
      * losing the probes of the outer class.
-     * <p>
-     * The broader {@link org.evosuite.setup.TestCluster#isTargetClassName(String)} is
+     *
+     * <p>The broader {@link org.evosuite.setup.TestCluster#isTargetClassName(String)} is
      * deliberately NOT used here: it also matches every class below
      * {@code TARGET_CLASS_PREFIX} and, with {@code INSTRUMENT_PARENT}, subclasses of the
      * target.  Those are exactly the dependency classes that the instrumentation fallback
@@ -192,8 +192,8 @@ public class BytecodeInstrumentation {
     /**
      * Abort instead of silently returning bytecode without coverage probes for the class
      * under test.
-     * <p>
-     * The fallback rungs that stop emitting probes ({@link #transformBytesMinimal},
+     *
+     * <p>The fallback rungs that stop emitting probes ({@link #transformBytesMinimal},
      * {@link #transformBytesBarePassthrough} and {@link #copyOriginalBytecode}) are the
      * right answer for dependency classes: the run continues and only loses instrumentation
      * we do not measure anyway.  For the CUT they are the wrong answer: no probes means no

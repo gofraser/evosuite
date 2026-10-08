@@ -94,26 +94,66 @@ final class ExprType {
             return "";
         }
         String trimmed = typeName.trim();
-        if ("String".equals(trimmed)) return "java.lang.String";
-        if ("Boolean".equals(trimmed)) return "java.lang.Boolean";
-        if ("Byte".equals(trimmed)) return "java.lang.Byte";
-        if ("Short".equals(trimmed)) return "java.lang.Short";
-        if ("Character".equals(trimmed)) return "java.lang.Character";
-        if ("Integer".equals(trimmed)) return "java.lang.Integer";
-        if ("Long".equals(trimmed)) return "java.lang.Long";
-        if ("Float".equals(trimmed)) return "java.lang.Float";
-        if ("Double".equals(trimmed)) return "java.lang.Double";
-        if ("Object".equals(trimmed)) return "java.lang.Object";
-        if ("BigInteger".equals(trimmed)) return "java.math.BigInteger";
-        if ("BigDecimal".equals(trimmed)) return "java.math.BigDecimal";
-        if ("Optional".equals(trimmed)) return "java.util.Optional";
-        if ("UUID".equals(trimmed)) return "java.util.UUID";
-        if ("LocalDate".equals(trimmed)) return "java.time.LocalDate";
-        if ("LocalTime".equals(trimmed)) return "java.time.LocalTime";
-        if ("LocalDateTime".equals(trimmed)) return "java.time.LocalDateTime";
-        if ("Instant".equals(trimmed)) return "java.time.Instant";
-        if ("Duration".equals(trimmed)) return "java.time.Duration";
-        if ("Period".equals(trimmed)) return "java.time.Period";
+        if ("String".equals(trimmed)) {
+            return "java.lang.String";
+        }
+        if ("Boolean".equals(trimmed)) {
+            return "java.lang.Boolean";
+        }
+        if ("Byte".equals(trimmed)) {
+            return "java.lang.Byte";
+        }
+        if ("Short".equals(trimmed)) {
+            return "java.lang.Short";
+        }
+        if ("Character".equals(trimmed)) {
+            return "java.lang.Character";
+        }
+        if ("Integer".equals(trimmed)) {
+            return "java.lang.Integer";
+        }
+        if ("Long".equals(trimmed)) {
+            return "java.lang.Long";
+        }
+        if ("Float".equals(trimmed)) {
+            return "java.lang.Float";
+        }
+        if ("Double".equals(trimmed)) {
+            return "java.lang.Double";
+        }
+        if ("Object".equals(trimmed)) {
+            return "java.lang.Object";
+        }
+        if ("BigInteger".equals(trimmed)) {
+            return "java.math.BigInteger";
+        }
+        if ("BigDecimal".equals(trimmed)) {
+            return "java.math.BigDecimal";
+        }
+        if ("Optional".equals(trimmed)) {
+            return "java.util.Optional";
+        }
+        if ("UUID".equals(trimmed)) {
+            return "java.util.UUID";
+        }
+        if ("LocalDate".equals(trimmed)) {
+            return "java.time.LocalDate";
+        }
+        if ("LocalTime".equals(trimmed)) {
+            return "java.time.LocalTime";
+        }
+        if ("LocalDateTime".equals(trimmed)) {
+            return "java.time.LocalDateTime";
+        }
+        if ("Instant".equals(trimmed)) {
+            return "java.time.Instant";
+        }
+        if ("Duration".equals(trimmed)) {
+            return "java.time.Duration";
+        }
+        if ("Period".equals(trimmed)) {
+            return "java.time.Period";
+        }
         return trimmed;
     }
 

@@ -138,12 +138,18 @@ public class ReflectionAccess {
         }
     }
 
-    /** @return the feature version of this JVM, or -1 if it could not be determined */
+    /**
+     * Returns the feature version of this JVM.
+     *
+     * @return the feature version, or -1 if it could not be determined
+     */
     static int javaSpecificationVersion() {
         return SPEC_VERSION;
     }
 
     /**
+     * Checks whether a package was opened by EvoSuite for its own runtime.
+     *
      * @param modulePackage a {@code module/package} pair
      * @return whether EvoSuite opened it for its own runtime and must hide it from the SUT
      */

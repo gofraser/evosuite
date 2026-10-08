@@ -39,6 +39,11 @@ public interface CanonicalAssertionRenderer {
                   String delta,
                   boolean arrayEquality);
 
+    /**
+     * Returns the renderer matching the configured test output format.
+     *
+     * @return the JUnit 3 renderer for JUnit 3 output, otherwise the JUnit 4/5 renderer
+     */
     static CanonicalAssertionRenderer forConfiguredFormat() {
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT3) {
             return JUnit3CanonicalAssertionRenderer.INSTANCE;

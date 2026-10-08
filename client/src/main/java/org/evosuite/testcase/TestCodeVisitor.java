@@ -35,17 +35,17 @@ import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.assertion.*;
-// Presentation metadata is a neutral test-case concern.
-import org.evosuite.testcase.TestPresentationMetadata;
-import org.evosuite.runtime.PrivateAccess;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.LenientMockAnswer;
 import org.evosuite.runtime.MockInvocationLimit;
+import org.evosuite.runtime.PrivateAccess;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.ViolatedAssumptionAnswer;
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
+// Presentation metadata is a neutral test-case concern.
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.environment.EnvironmentDataStatement;
@@ -2237,9 +2237,9 @@ public class TestCodeVisitor extends TestVisitor {
         return false;
     }
 
-    /**
+    /*
      * For Class literals with nested generic arguments, casting to the fully parameterized
-     * type may be a compile-time error (e.g. Class&lt;LinkedList&gt; to Class&lt;LinkedList&lt;Integer&gt;&gt;).
+     * type may be a compile-time error (e.g. Class<LinkedList> to Class<LinkedList<Integer>>).
      * In those cases we fall back to a raw Class cast.
      */
     /**
@@ -3381,7 +3381,8 @@ public class TestCodeVisitor extends TestVisitor {
                     }
 
                     parameterString = getParameterString(types, params, false, isOverloaded, 0);
-                    parameterString = inlineForwardReferencedMockReturnValues(parameterString, params, st.getPosition());
+                    parameterString = inlineForwardReferencedMockReturnValues(
+                            parameterString, params, st.getPosition());
                     parameterString = sanitizeMockitoDoReturnArguments(parameterString, params);
                     // TODO unsure of these parameters
                 } else {
@@ -3389,7 +3390,8 @@ public class TestCodeVisitor extends TestVisitor {
                     //if return type is a primitive, then things can get complicated due to autoboxing :(
 
                     parameterString = getParameterStringForFMthatReturnPrimitive(returnType.getRawClass(), params);
-                    parameterString = inlineForwardReferencedMockReturnValues(parameterString, params, st.getPosition());
+                    parameterString = inlineForwardReferencedMockReturnValues(
+                            parameterString, params, st.getPosition());
                 }
 
                 // this does not work when throwing exception as default answer
@@ -3408,11 +3410,13 @@ public class TestCodeVisitor extends TestVisitor {
                     // Mockito sometimes intercepts methods on the generated proxy class.
                     // To resolve generic type parameters correctly, we need the method
                     // from the original target interface/class.
-                    originalMethod = st.getTargetClass().getMethod(md.getMethodName(), md.getMethod().getParameterTypes());
+                    originalMethod = st.getTargetClass().getMethod(
+                            md.getMethodName(), md.getMethod().getParameterTypes());
                 } catch (Exception e) {
                     // Fallback
                 }
-                org.evosuite.testcase.fm.MethodDescriptor updatedMd = new org.evosuite.testcase.fm.MethodDescriptor(originalMethod, retval.getGenericClass());
+                org.evosuite.testcase.fm.MethodDescriptor updatedMd =
+                        new org.evosuite.testcase.fm.MethodDescriptor(originalMethod, retval.getGenericClass());
                 
                 // The variable may be declared wider than the mocked class (Object for an
                 // erased type variable), and the stubbed method must resolve on the receiver.
@@ -3716,7 +3720,8 @@ public class TestCodeVisitor extends TestVisitor {
         boolean requiresReturnCast = !unused
                 && ((!retval.isAssignableFrom(method.getReturnType())
                 || requiresReturnValueCastForRawReceiver(statement, method, retval)
-                || requiresReturnCastDueToRawParameterCast(isGenericMethod, renderedParameterTypes, parameters, method, retval))
+                || requiresReturnCastDueToRawParameterCast(
+                        isGenericMethod, renderedParameterTypes, parameters, method, retval))
                 || (forceRawReceiverInvocation
                 && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType()))
                 || requiresStaticGenericReturnCast(method, retval))
@@ -3924,7 +3929,7 @@ public class TestCodeVisitor extends TestVisitor {
             return false;
         }
         for (Class<?> current = calleeClass; current != null && current != declaringClass;
-             current = current.getSuperclass()) {
+                current = current.getSuperclass()) {
             Method override;
             try {
                 override = current.getDeclaredMethod(method.getName(), method.getParameterTypes());
@@ -4653,7 +4658,9 @@ public class TestCodeVisitor extends TestVisitor {
         return "((" + getClassName(enclosing) + ")" + outerName + ")";
     }
 
-    /** The member class javac finds for {@code simpleName} in {@code type}: own, then inherited. */
+    /**
+     * Finds the member class javac resolves for {@code simpleName} in {@code type}: own, then inherited.
+     */
     private static Class<?> findMemberClass(Class<?> type, String simpleName) {
         if (type == null) {
             return null;
@@ -5320,7 +5327,7 @@ public class TestCodeVisitor extends TestVisitor {
         Map<String, String> enclosingTypes = new HashMap<>();
         Map<String, Integer> memberAccess = new HashMap<>();
         for (int dollar = binaryName.lastIndexOf('$'); dollar > simpleNameStart;
-             dollar = binaryName.lastIndexOf('$', dollar - 1)) {
+                dollar = binaryName.lastIndexOf('$', dollar - 1)) {
             String resource = binaryName.substring(0, dollar).replace('.', '/') + ".class";
             try (InputStream input = loader.getResourceAsStream(resource)) {
                 if (input == null) {
@@ -5555,7 +5562,7 @@ public class TestCodeVisitor extends TestVisitor {
      */
 
     /**
-     * {@inheritDoc}
+     * Checks whether a value renders as a null literal.
      */
     private boolean isNullLiteralValue(VariableReference value) {
         return value instanceof NullReference
@@ -5634,7 +5641,9 @@ public class TestCodeVisitor extends TestVisitor {
         return false;
     }
 
-    /** True when {@code typeArgument} is anything other than an unbounded wildcard or type variable. */
+    /**
+     * Checks whether {@code typeArgument} is anything other than an unbounded wildcard or type variable.
+     */
     private boolean requiresExactTypeArgument(Type typeArgument) {
         if (typeArgument instanceof Class<?> || typeArgument instanceof ParameterizedType
                 || typeArgument instanceof GenericArrayType) {
@@ -5660,7 +5669,7 @@ public class TestCodeVisitor extends TestVisitor {
      * class; the cast is inconvertible when any type-argument position is provably
      * distinct -- including a nested raw-vs-parameterized mismatch such as a
      * declared {@code Set<Class<Object>>} against an actual raw {@code Set<Class>}
-     * (javac: "Set<Class> cannot be converted to Set<Class<Object>>"). Wildcards on
+     * (javac: "Set&lt;Class&gt; cannot be converted to Set&lt;Class&lt;Object&gt;&gt;"). Wildcards on
      * the actual side are convertible and never trigger this.
      */
     boolean returnCastIsInconvertible(Type declaredType, Type actualReturnType) {

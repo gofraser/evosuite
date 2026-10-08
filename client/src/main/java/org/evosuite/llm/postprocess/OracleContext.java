@@ -24,8 +24,8 @@ import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import org.evosuite.Properties;
-import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.ArrayLengthAssertion;
+import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.assertion.ContainsAssertion;
 import org.evosuite.assertion.EqualsAssertion;
@@ -38,8 +38,8 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ArrayStatement;
-import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
@@ -797,7 +797,8 @@ final class OracleContext {
                 break;
         }
         if (options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.INSPECTORS_ONLY
-                || options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
+                || options.assertionPolicy().callablePolicy()
+                        == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
             addInspectorMembers(members, variableId, declaredClass, runtimeValue);
         }
         if (options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED

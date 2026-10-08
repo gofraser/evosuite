@@ -113,7 +113,7 @@ public class Sandbox {
     }
 
     private static boolean isCurrentThreadAbandoned(String call) {
-        if (abandonedThreads.isEmpty() ||!abandonedThreads.contains(Thread.currentThread())) {
+        if (abandonedThreads.isEmpty() || !abandonedThreads.contains(Thread.currentThread())) {
             return false;
         }
         logger.debug("Ignoring Sandbox.{}() from abandoned thread '{}'", call,

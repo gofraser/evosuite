@@ -216,7 +216,9 @@ public class DependencyCodeContextResolver {
         return hardTruncate(result, charBudget);
     }
 
-    /** Stubs members that don't match {@code frame}. Returns true if we kept anything. */
+    /**
+     * Stubs members that don't match {@code frame}. Returns true if we kept anything.
+     */
     private boolean pruneMembers(TypeDeclaration<?> primary,
                                  DependencyFailureAnalysis.Frame frame) {
         boolean keptAny = false;

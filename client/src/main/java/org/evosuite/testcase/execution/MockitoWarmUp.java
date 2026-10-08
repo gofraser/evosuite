@@ -41,6 +41,10 @@ public final class MockitoWarmUp {
         // Utility class
     }
 
+    /**
+     * Initialises Mockito once by creating a throw-away mock, so the cost does not fall into the first test execution.
+     * Failures are logged and ignored; the initialisation then happens lazily during test execution.
+     */
     public static synchronized void warmUp() {
         if (warmedUp) {
             return;

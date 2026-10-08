@@ -59,6 +59,7 @@ import org.evosuite.testcase.factories.ObjectRuleRuntime;
 import org.evosuite.utils.MasterClassLoaderBridge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
@@ -160,6 +161,9 @@ public class TestGenerationContext {
         return this.getClass().getClassLoader();
     }
 
+    /**
+     * Replaces the instrumenting class loader if its parent is no longer the preferred parent class loader.
+     */
     public synchronized void rebindToPreferredParentClassLoader() {
         ClassLoader preferred = getPreferredParentClassLoader();
         if (classLoader == null || classLoader.getParent() != preferred) {

@@ -61,6 +61,9 @@ public final class SpeciesProtectionStats {
         incubatorProtectedCount++;
     }
 
+    /**
+     * Resets all protection counters to zero.
+     */
     public void clear() {
         quotaProtectedCount = 0;
         newbornProtectedCount = 0;

@@ -1495,9 +1495,11 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
                 || this.asmNode.getOpcode() == Opcodes.CALOAD || this.asmNode.getOpcode() == Opcodes.CASTORE
                 || this.asmNode.getOpcode() == Opcodes.SALOAD || this.asmNode.getOpcode() == Opcodes.SASTORE) {
             return 2;
-        } else if (this.asmNode.getOpcode() == Opcodes.LOOKUPSWITCH || this.asmNode.getOpcode() == Opcodes.TABLESWITCH) {
+        } else if (this.asmNode.getOpcode() == Opcodes.LOOKUPSWITCH
+                || this.asmNode.getOpcode() == Opcodes.TABLESWITCH) {
             return 1;
-        } else if (this.asmNode.getOpcode() == Opcodes.MONITORENTER || this.asmNode.getOpcode() == Opcodes.MONITOREXIT) {
+        } else if (this.asmNode.getOpcode() == Opcodes.MONITORENTER
+                || this.asmNode.getOpcode() == Opcodes.MONITOREXIT) {
             return 1;
         } else if (this.asmNode.getOpcode() == Opcodes.POP) {
             return 1;

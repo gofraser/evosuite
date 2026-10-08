@@ -40,6 +40,7 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.*;
 import java.util.*;
 
@@ -1104,6 +1105,21 @@ public class TestFactory {
     }
 
     /**
+     * Public entry point used by EvoObj template synthesis to insert a null statement.
+     *
+     * @param test the test case for which to create the {@code null} variable
+     * @param type represents the type of the variable to create
+     * @param position the position in {@code test} at which to insert
+     * @param recursionDepth the generation depth to start from
+     * @return a reference to the inserted {@code null} variable
+     * @throws ConstructionFailedException if the creation of the variable fails
+     */
+    public VariableReference createNull(TestCase test, Type type, int position, int recursionDepth)
+            throws ConstructionFailedException {
+        return createNull(test, type, position, GenerationContext.fromDepth(recursionDepth));
+    }
+
+    /**
      * Creates a new {@code null} variable of the given {@code type} at the given {@code position}
      * in the {@code test} case.
      *
@@ -1120,12 +1136,6 @@ public class TestFactory {
      * @return a reference to the inserted {@code null} variable
      * @throws ConstructionFailedException if the creation of the variable fails
      */
-    /** Public entry point used by EvoObj template synthesis to insert a null statement. */
-    public VariableReference createNull(TestCase test, Type type, int position, int recursionDepth)
-            throws ConstructionFailedException {
-        return createNull(test, type, position, GenerationContext.fromDepth(recursionDepth));
-    }
-
     VariableReference createNull(TestCase test, Type type, int position,
                                          GenerationContext context) throws ConstructionFailedException {
         GenericClass<?> genericType = GenericClassFactory.get(type);

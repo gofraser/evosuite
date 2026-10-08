@@ -36,6 +36,11 @@ public final class MasterClassLoaderBridge {
     private MasterClassLoaderBridge() {
     }
 
+    /**
+     * Looks up the master class loader through reflection, without loading the master module.
+     *
+     * @return the master class loader, or null if it is unavailable or not initialized
+     */
     public static ClassLoader getMasterClassLoaderIfInitialized() {
         Method m = getMethodGetIfInitialized();
         if (m == null) {
@@ -49,6 +54,11 @@ public final class MasterClassLoaderBridge {
         }
     }
 
+    /**
+     * Checks through reflection whether this JVM is the master process.
+     *
+     * @return true if the master module is available and reports the master process
+     */
     public static boolean isMasterProcess() {
         Method m = getMethodIsMasterProcess();
         if (m == null) {

@@ -50,7 +50,9 @@ public class CallContext implements Serializable {
      */
     private volatile List<Call> context;
 
-    /** The calls of a context derived on method entry, until {@link #context} is built. */
+    /**
+     * The calls of a context derived on method entry, until {@link #context} is built.
+     */
     private transient Node node;
 
     private final int hcode;
@@ -216,7 +218,9 @@ public class CallContext implements Serializable {
         final Call call;
         final Node prev;
         final int size;
-        /** {@link List#hashCode()} of the calls up to this one, so a context is hashed once. */
+        /**
+         * {@link List#hashCode()} of the calls up to this one, so a context is hashed once.
+         */
         final int hash;
 
         Node(Call call, Node prev) {
@@ -227,7 +231,9 @@ public class CallContext implements Serializable {
         }
     }
 
-    /** {@link List#hashCode()} of an empty list. */
+    /**
+     * {@link List#hashCode()} of an empty list.
+     */
     private static final int EMPTY_HASH = 1;
 
     /**
@@ -298,7 +304,9 @@ public class CallContext implements Serializable {
         return new ArrayList<>(Arrays.asList(calls));
     }
 
-    /** The excluded prefixes and the value of {@link Properties#JUNIT} they were derived from. */
+    /**
+     * The excluded prefixes and the value of {@link Properties#JUNIT} they were derived from.
+     */
     private static final class Excludes {
         final String junit;
         final String[] prefixes;

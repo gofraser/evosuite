@@ -819,6 +819,12 @@ public class LlmService implements AutoCloseable {
         }
     }
 
+    /**
+     * Records an assertion diagnostic of post-processing in the trace; a failure to write the trace is logged and
+     * does not propagate.
+     *
+     * @param record the diagnostic to record
+     */
     public void recordPostProcessingAssertionDiagnostic(
             LlmTraceRecorder.PostProcessingAssertionDiagnosticRecord record) {
         try {
@@ -830,6 +836,12 @@ public class LlmService implements AutoCloseable {
         }
     }
 
+    /**
+     * Records an assertion lifecycle event of post-processing in the trace; a failure to write the trace is logged
+     * and does not propagate.
+     *
+     * @param record the lifecycle event to record
+     */
     public void recordPostProcessingAssertionLifecycle(
             LlmTraceRecorder.PostProcessingAssertionLifecycleRecord record) {
         try {

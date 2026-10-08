@@ -48,8 +48,8 @@ import java.awt.Panel;
 import java.awt.PopupMenu;
 import java.awt.PrintJob;
 import java.awt.Robot;
-import java.awt.Scrollbar;
 import java.awt.ScrollPane;
+import java.awt.Scrollbar;
 import java.awt.TextArea;
 import java.awt.TextField;
 import java.awt.Toolkit;
@@ -174,6 +174,8 @@ final class PeerCreationGuardToolkit extends Toolkit
     private final Toolkit headless;
 
     /**
+     * Creates a guard around the real platform toolkit.
+     *
      * @param real     the unwrapped real platform toolkit (the one {@code
      *                 sun.awt.HeadlessToolkit.getUnderlyingToolkit()} returns)
      * @param headless the {@code sun.awt.HeadlessToolkit} that was installed

@@ -48,6 +48,14 @@ public class InterproceduralGraphAnalysis {
         TestGenerationContext.getInstance().getObjectRuleRuntime().reset();
     }
 
+    /**
+     * Checks whether the target instruction can be reached from the source instruction within the same method.
+     *
+     * @param source the instruction to start from
+     * @param target the instruction to reach
+     * @return true if the target is in a later block or later in the same block; false if not or if the
+     *         distance cannot be computed
+     */
     public static boolean isReachableInClass(
             BytecodeInstruction source, BytecodeInstruction target) {
 
@@ -220,6 +228,12 @@ public class InterproceduralGraphAnalysis {
                 + "]";
     }
 
+    /**
+     * Collects the classes that a method checks its parameters against with {@code instanceof}.
+     *
+     * @param cfg the control flow graph of the method
+     * @return the checked class names, keyed by parameter position
+     */
     @SuppressWarnings("rawtypes")
     public static Map<Integer, List<String>> analyzeRecommendationClasses(
             ActualControlFlowGraph cfg) {
@@ -234,10 +248,8 @@ public class InterproceduralGraphAnalysis {
                 BytecodeInstructionPool.getInstance(classLoader)
                         .getInstructionsIn(className, methodName)) {
 
-            /**
-             * handle instanceof instruction, it is essential for test initialization with
-             * polymorphism
-             */
+            // handle instanceof instruction, it is essential for test initialization with
+            // polymorphism
             if (ins.checkInstanceOf()) {
                 String checkingClassName = ins.getInstanceOfCheckingType();
                 if (checkingClassName != null) {
@@ -254,7 +266,7 @@ public class InterproceduralGraphAnalysis {
                         MethodNode node =
                                 DefUseAnalyzer.getMethodNode(classLoader, className, methodName);
 
-                        /** get all the instruction defining the value. */
+                        // get all the instruction defining the value.
                         for (AbstractInsnNode insNode : srcValue.insns) {
                             BytecodeInstruction defIns =
                                     DefUseAnalyzer.convert2BytecodeInstruction(cfg, node, insNode);
@@ -281,6 +293,13 @@ public class InterproceduralGraphAnalysis {
         return recommendationClasses;
     }
 
+    /**
+     * Analyzes every branch of a method, collecting the input variables its operands depend on.
+     *
+     * @param cfg                  the control flow graph of the method
+     * @param interestedNodeFilter selects the nodes of interest during traversal
+     * @return the root variables of each branch
+     */
     @SuppressWarnings("rawtypes")
     public static Map<Branch, Set<DepVariable>> analyzeIndividualMethod(
             ActualControlFlowGraph cfg, IInterestedNodeFilter interestedNodeFilter) {
@@ -332,6 +351,14 @@ public class InterproceduralGraphAnalysis {
         return map;
     }
 
+    /**
+     * Analyzes a single branch, collecting the input variables its operands depend on.
+     *
+     * @param cfg                  the control flow graph of the method containing the branch
+     * @param branch               the branch to analyze
+     * @param interestedNodeFilter selects the nodes of interest during traversal
+     * @return the root variables of the branch
+     */
     @SuppressWarnings("rawtypes")
     public static Map<Branch, Set<DepVariable>> analyzeIndividualBranch(
             ActualControlFlowGraph cfg, Branch branch, IInterestedNodeFilter interestedNodeFilter) {
@@ -348,7 +375,9 @@ public class InterproceduralGraphAnalysis {
         return map;
     }
 
-    /** Collects into {@code inputRootVars} the variables the operands of {@code branch} depend on. */
+    /**
+     * Collects into {@code inputRootVars} the variables the operands of {@code branch} depend on.
+     */
     private static void sliceBranchOperands(
             InterproceduralGraphAnalyzer graphAnalyzer,
             ActualControlFlowGraph cfg,

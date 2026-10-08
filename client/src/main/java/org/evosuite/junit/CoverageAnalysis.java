@@ -233,8 +233,10 @@ public class CoverageAnalysis {
     }
 
     /**
-     * @return whether {@link #analyzeCoverage()}'s measurement phase has already finished for the
-     *         most recent attempt (see {@link #measurementFinished}).
+     * Tells whether the measurement phase of {@link #analyzeCoverage()} has already finished.
+     *
+     * @return whether the measurement phase has already finished for the most recent attempt
+     *         (see {@link #measurementFinished})
      */
     public static boolean isMeasurementFinished() {
         return measurementFinished;

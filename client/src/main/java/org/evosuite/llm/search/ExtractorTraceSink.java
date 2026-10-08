@@ -47,10 +47,16 @@ public interface ExtractorTraceSink {
         }
     };
 
-    /** Sink that delegates to an SLF4J logger gated by {@link DiagnosticTraceSupport}. */
+    /**
+     * Sink that delegates to an SLF4J logger gated by {@link DiagnosticTraceSupport}.
+     */
     final class DiagnosticLoggerSink implements ExtractorTraceSink {
         private final Logger logger;
 
+        /**
+         * Creates a sink that writes to the given logger.
+         * @param logger the logger to write to, must not be null
+         */
         public DiagnosticLoggerSink(Logger logger) {
             if (logger == null) {
                 throw new IllegalArgumentException("logger must not be null");

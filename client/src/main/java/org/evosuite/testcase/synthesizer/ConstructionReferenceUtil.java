@@ -49,7 +49,9 @@ public final class ConstructionReferenceUtil {
         return leftPosition >= 0 && leftPosition == rightPosition;
     }
 
-    /** Returns whether {@code references} holds {@code candidate} itself (not merely an equal one). */
+    /**
+     * Returns whether {@code references} holds {@code candidate} itself (not merely an equal one).
+     */
     public static boolean containsIdentity(
             Iterable<VariableReference> references, VariableReference candidate) {
         if (references == null) {

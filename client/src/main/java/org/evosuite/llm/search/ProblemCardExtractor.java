@@ -56,7 +56,9 @@ public class ProblemCardExtractor {
         this(new ExtractorTraceSink.DiagnosticLoggerSink(logger), ProblemCardThresholds.defaults());
     }
 
-    /** Test-friendly constructor allowing a custom trace sink (e.g. {@link ExtractorTraceSink#NOOP}). */
+    /**
+     * Test-friendly constructor allowing a custom trace sink (e.g. {@link ExtractorTraceSink#NOOP}).
+     */
     public ProblemCardExtractor(ExtractorTraceSink traceSink) {
         this(traceSink, ProblemCardThresholds.defaults());
     }
@@ -102,6 +104,14 @@ public class ProblemCardExtractor {
         return extractWithTelemetry(uncoveredGoals, population, maxCards, Collections.emptyMap());
     }
 
+    /**
+     * Extracts and scores problem cards and reports how often each extraction step fired.
+     * @param uncoveredGoals the goals that are not yet covered
+     * @param population the current population, may be null
+     * @param maxCards maximum number of cards to return
+     * @param persistentExceptionStats exception statistics accumulated over earlier extractions
+     * @return the selected cards together with extraction telemetry
+     */
     public ExtractionResult extractWithTelemetry(
             Collection<TestFitnessFunction> uncoveredGoals,
             List<TestChromosome> population,

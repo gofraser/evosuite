@@ -22,6 +22,7 @@ package org.evosuite.testcase.statements;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
 import org.evosuite.dse.VM;
+import org.evosuite.runtime.GuiSupport;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
@@ -33,8 +34,6 @@ import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.objectweb.asm.Type;
-
-import org.evosuite.runtime.GuiSupport;
 
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
@@ -417,9 +416,9 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         throw allocationRejected();
     }
 
-    /**
+    /*
      * Rejects constructor calls whose int args exceed a dynamically learned threshold.
-     * Uses the same mechanism as MethodStatement — the key is className.&lt;init&gt;.
+     * Uses the same mechanism as MethodStatement - the key is className.<init>.
      */
     /**
      * Rejects constructor calls whose non-int inputs (byte[], String, InputStream)

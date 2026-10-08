@@ -19,8 +19,8 @@
  */
 package org.evosuite.llm.search;
 
-import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestFitnessFunction;
 
 import java.util.ArrayList;
 import java.util.Collection;

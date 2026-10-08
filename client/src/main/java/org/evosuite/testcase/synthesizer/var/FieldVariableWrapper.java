@@ -1,13 +1,12 @@
 package org.evosuite.testcase.synthesizer.var;
 
-import org.evosuite.setup.TestUsageChecker;
-
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.EntityWithParametersStatement;
 import org.evosuite.testcase.statements.FieldStatement;
@@ -27,6 +26,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -38,7 +38,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class FieldVariableWrapper extends DepVariableWrapper{
+/**
+ * Wrapper for a field dependency, which finds or generates the statements that provide the field's value.
+ */
+public class FieldVariableWrapper extends DepVariableWrapper {
 
     private boolean terminalWriterGenerated;
 
@@ -47,14 +50,16 @@ public class FieldVariableWrapper extends DepVariableWrapper{
     }
 
     /**
-     * set the field into the parentVarRef
+     * Finds or generates the statements that set the field on the caller object.
      *
-     * @param test
-     * @param position
-     * @param var
-     * @param parentVarRef
-     * @param isStatic
-     * @return
+     * @param test the test to search and extend
+     * @param isLeaf whether this wrapper is a leaf of the dependency tree
+     * @param variable the variable in the test the field is accessed on
+     * @param map the relevance information of the wrappers already processed
+     * @param b the targeted branch
+     * @param allowNullValue whether a null value may be used
+     * @param recommendation the recommended operation for the synthesis
+     * @return the matched and relevant variables
      */
     @Override
     public VarRelevance generateOrFindStatement(
@@ -77,6 +82,17 @@ public class FieldVariableWrapper extends DepVariableWrapper{
         return new VarRelevance(list, list);
     }
 
+    /**
+     * Finds or generates a variable holding the value of the field.
+     *
+     * @param test the test to search and extend
+     * @param isLeaf whether this wrapper is a leaf of the dependency tree
+     * @param variable the variable in the test the field is accessed on
+     * @param map the relevance information of the wrappers already processed
+     * @param b the targeted branch
+     * @param allowNullValue whether a null value may be used
+     * @return the variable reference for the field, or null if none could be produced
+     */
     public VariableReference generateOrFind(
             TestCase test,
             boolean isLeaf,
@@ -97,7 +113,9 @@ public class FieldVariableWrapper extends DepVariableWrapper{
         String fieldName = fieldNode.name;
 
         // string value
-        if (fieldOwner.equals("java.lang.String") && fieldName.equals("value")) return null;
+        if (fieldOwner.equals("java.lang.String") && fieldName.equals("value")) {
+            return null;
+        }
 
         if (variable.callerObject != null) {
             int callerPosition =
@@ -138,7 +156,7 @@ public class FieldVariableWrapper extends DepVariableWrapper{
                 return factoryInput;
             }
 
-            /**
+            /*
              * if the field is leaf, check if there is setter in the testcase if the field is not
              * leaf, check if there is getter in the testcase if found, stop here
              */
@@ -154,7 +172,7 @@ public class FieldVariableWrapper extends DepVariableWrapper{
             //            System.currentTimeMillis();
             if (usedFieldInTest != null) {
 
-                /** generate some elements for container classes */
+                /* generate some elements for container classes */
                 if (Collection.class.isAssignableFrom(usedFieldInTest.getVariableClass())) {
                     VariableCodeGenerationUtil.generateElements(
                             field.getType(), test, usedFieldInTest);
@@ -163,11 +181,11 @@ public class FieldVariableWrapper extends DepVariableWrapper{
                 return usedFieldInTest;
             }
 
-            /** now we try to generate the relevant statement in the test case. */
+            /* now we try to generate the relevant statement in the test case. */
             GenericField genericField = new GenericField(field, field.getDeclaringClass());
             int fieldModifiers = TestUsageChecker.getOriginalFieldModifiers(field);
 
-            /**
+            /*
              * deal with public field, we handle the public field getter/setter in the same way,
              * a.k.a., create a new public field instance.
              */
@@ -207,12 +225,12 @@ public class FieldVariableWrapper extends DepVariableWrapper{
                                         b);
                         return obj;
                     } catch (ConstructionFailedException e) {
-
+                        // Construction failed on this attempt; retry, up to three times.
                     }
                 }
             }
 
-            /** deal with non-public field */
+            /* deal with non-public field */
             if (!isLeaf) {
                 /*
                  * A non-leaf field is often followed by observational plumbing such as
@@ -450,7 +468,9 @@ public class FieldVariableWrapper extends DepVariableWrapper{
         String fieldName = fieldNode.name;
 
         // string value
-        if (fieldOwner.equals("java.lang.String") && fieldName.equals("value")) return null;
+        if (fieldOwner.equals("java.lang.String") && fieldName.equals("value")) {
+            return null;
+        }
 
         if (callerObject != null) {
             Statement stat = test.getStatement(callerObject.getStPosition());
@@ -474,7 +494,7 @@ public class FieldVariableWrapper extends DepVariableWrapper{
             //            registerAllMethods(fieldDeclaringClass);
             Field field = VariableCodeGenerationUtil.searchForField(fieldDeclaringClass, fieldName);
 
-            /**
+            /*
              * if the field is leaf, check if there is setter in the testcase if the field is not
              * leaf, check if there is getter in the testcase if found, stop here
              */

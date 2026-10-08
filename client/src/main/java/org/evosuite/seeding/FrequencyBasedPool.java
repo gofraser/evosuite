@@ -81,6 +81,11 @@ public class FrequencyBasedPool<T> {
         return Collections.unmodifiableList(new ArrayList<>(constants.keySet()));
     }
 
+    /**
+     * Removes all constants matching a predicate.
+     * @param predicate selects the constants to remove
+     * @return the number of occurrences removed
+     */
     public synchronized int removeIf(Predicate<? super T> predicate) {
         int removed = 0;
         Iterator<Map.Entry<T, Integer>> iterator = constants.entrySet().iterator();

@@ -47,6 +47,12 @@ public final class LlmPostProcessingExpressionUtils {
         // Utility class.
     }
 
+    /**
+     * Parses a Java expression.
+     *
+     * @param expression the source text of the expression
+     * @return the parsed expression, or null if the text is blank or not a valid expression
+     */
     public static Expression parseExpressionOrNull(String expression) {
         if (expression == null || expression.trim().isEmpty()) {
             return null;
@@ -58,6 +64,13 @@ public final class LlmPostProcessingExpressionUtils {
         }
     }
 
+    /**
+     * Collects the symbolic variable identifiers (such as {@code v3}) that an expression refers to. If the text
+     * does not parse, identifiers are found by pattern matching instead.
+     *
+     * @param expression the source text of the expression
+     * @return the identifiers in order of first occurrence
+     */
     public static Set<String> extractSymbolicVariables(String expression) {
         if (expression == null || expression.trim().isEmpty()) {
             return Collections.emptySet();
@@ -82,6 +95,13 @@ public final class LlmPostProcessingExpressionUtils {
         return names;
     }
 
+    /**
+     * Tells whether an identifier has the form of a symbolic variable identifier, that is the letter {@code v}
+     * followed by digits.
+     *
+     * @param identifier the identifier to check
+     * @return true if the identifier looks like a variable id
+     */
     public static boolean looksLikeVariableId(String identifier) {
         if (identifier == null || identifier.length() < 2 || identifier.charAt(0) != 'v') {
             return false;
@@ -94,6 +114,13 @@ public final class LlmPostProcessingExpressionUtils {
         return true;
     }
 
+    /**
+     * Tells whether an expression contains a construct that is not allowed in proposed expressions: an assignment,
+     * lambda, method reference, variable declaration or increment or decrement.
+     *
+     * @param expression the expression to check
+     * @return true if an unsupported construct occurs
+     */
     public static boolean containsUnsupportedExpressionConstruct(Expression expression) {
         if (expression == null) {
             return false;
@@ -115,6 +142,12 @@ public final class LlmPostProcessingExpressionUtils {
         return false;
     }
 
+    /**
+     * Tells whether an expression calls an assertion method.
+     *
+     * @param expression the expression to check
+     * @return true if a call to a method for which {@link #isAssertionMethodName(String)} holds occurs
+     */
     public static boolean containsRawAssertionCall(Expression expression) {
         if (expression == null) {
             return false;
@@ -131,6 +164,12 @@ public final class LlmPostProcessingExpressionUtils {
         return methodName != null && (methodName.startsWith("assert") || "fail".equals(methodName));
     }
 
+    /**
+     * Tells whether an expression calls {@code toString}.
+     *
+     * @param expression the expression to check
+     * @return true if a call to {@code toString} occurs
+     */
     public static boolean containsArbitraryToStringCall(Expression expression) {
         if (expression == null) {
             return false;
@@ -143,6 +182,13 @@ public final class LlmPostProcessingExpressionUtils {
         return false;
     }
 
+    /**
+     * Tells whether the longest chain of method calls and field accesses in an expression is deeper than a limit.
+     *
+     * @param expression the expression to check
+     * @param limit the maximum depth allowed; a non-positive limit disables the check
+     * @return true if the limit is exceeded
+     */
     public static boolean exceedsMemberChainDepth(Expression expression, int limit) {
         if (expression == null || limit <= 0) {
             return false;

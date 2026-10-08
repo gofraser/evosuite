@@ -37,8 +37,8 @@ import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
-import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.ConstantValue;
+import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
@@ -293,7 +293,8 @@ public final class DmonPromotionOperator {
                     newStatements.add(buildInstanceFieldAssignment(test, instanceField, receiver, mockRef));
                 } else {
                     return new PromotionAttempt(
-                            rollbackMutatedTestCase(individual, backup, originalResult), false, "NO_INSTANCE_INJECTION_TARGET");
+                            rollbackMutatedTestCase(individual, backup, originalResult), false,
+                                    "NO_INSTANCE_INJECTION_TARGET");
                 }
             }
             int insertionIndex = 1;

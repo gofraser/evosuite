@@ -55,6 +55,24 @@ public final class PromptResult {
         private final int droppedByPerClassCap;
         private final int droppedByGlobalBudget;
 
+        /**
+         * Creates the metadata describing how the dependency summary was built.
+         *
+         * @param budgetChars character budget of the summary
+         * @param perClassSoftCapChars soft cap of characters per dependency class
+         * @param perClassSoftCapAuto whether the per-class soft cap was derived automatically
+         * @param compactSignatures whether compact signatures were used
+         * @param budgetMode name of the budget mode, or null for none
+         * @param candidateClasses number of candidate dependency classes
+         * @param emittedClasses number of classes emitted
+         * @param emittedTier1Classes number of tier 1 classes emitted
+         * @param emittedTier2Classes number of tier 2 classes emitted
+         * @param emittedTier3Classes number of tier 3 classes emitted
+         * @param emittedInstantiators number of instantiators emitted
+         * @param emittedModifiers number of modifiers emitted
+         * @param droppedByPerClassCap number of entries dropped by the per-class cap
+         * @param droppedByGlobalBudget number of entries dropped by the global budget
+         */
         public DependencySummaryMetadata(int budgetChars, int perClassSoftCapChars,
                                          boolean perClassSoftCapAuto, boolean compactSignatures,
                                          String budgetMode,
@@ -325,6 +343,11 @@ public final class PromptResult {
         return repeatedInjectionTargets;
     }
 
+    /**
+     * Creates a builder pre-populated with the values of this result.
+     *
+     * @return a new builder
+     */
     public Builder toBuilder() {
         return new Builder()
                 .messages(messages)

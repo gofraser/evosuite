@@ -244,7 +244,9 @@ public class Randomness implements Serializable {
         }
     }
 
-    /** Restores a state returned by {@link #snapshot()}. */
+    /**
+     * Restores a state returned by {@link #snapshot()}.
+     */
     public static void restore(State state) {
         if (state == null) {
             throw new IllegalArgumentException("Random state must not be null");

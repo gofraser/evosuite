@@ -4,8 +4,8 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
 
 public class StaticFieldVariable extends FieldVariable {
 
-	protected StaticFieldVariable(BytecodeInstruction ins) {
-		super(ins);
-	}
+    protected StaticFieldVariable(BytecodeInstruction ins) {
+        super(ins);
+    }
 
 }

@@ -9,6 +9,15 @@ public final class PostProcessingCounts {
     private final int sectionBreaks;
     private final int assertions;
 
+    /**
+     * Creates the counts; negative values are treated as zero.
+     *
+     * @param testNames the number of test-name proposals
+     * @param variableNames the number of variable-name proposals
+     * @param comments the number of comment proposals
+     * @param sectionBreaks the number of section-break proposals
+     * @param assertions the number of assertion proposals
+     */
     public PostProcessingCounts(int testNames, int variableNames, int comments,
                                 int sectionBreaks, int assertions) {
         this.testNames = Math.max(0, testNames);
@@ -18,11 +27,25 @@ public final class PostProcessingCounts {
         this.assertions = Math.max(0, assertions);
     }
 
-    public int getTestNames() { return testNames; }
-    public int getVariableNames() { return variableNames; }
-    public int getComments() { return comments; }
-    public int getSectionBreaks() { return sectionBreaks; }
-    public int getAssertions() { return assertions; }
+    public int getTestNames() {
+        return testNames;
+    }
+
+    public int getVariableNames() {
+        return variableNames;
+    }
+
+    public int getComments() {
+        return comments;
+    }
+
+    public int getSectionBreaks() {
+        return sectionBreaks;
+    }
+
+    public int getAssertions() {
+        return assertions;
+    }
 
     public static PostProcessingCounts none() {
         return new PostProcessingCounts(0, 0, 0, 0, 0);

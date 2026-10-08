@@ -11,6 +11,7 @@ import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.Randomness;
+
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -19,6 +20,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Searches a test for the variables that read or write a given field of a target object.
+ */
 public class UsedReferenceSearcher {
 
     /**
@@ -31,6 +35,14 @@ public class UsedReferenceSearcher {
         return TestGenerationContext.getInstance().getObjectRuleRuntime().synthesisAttemptTimedOut();
     }
 
+    /**
+     * Finds a variable in the test that reads the given field of the target object.
+     *
+     * @param test the test to search
+     * @param field the field to be read
+     * @param targetObject the object owning the field
+     * @return a reference reading the field, a fallback writing reference, or null if none is found
+     */
     public VariableReference searchRelevantFieldReadingReferenceInTest(
             TestCase test, Field field, VariableReference targetObject) {
         List<VariableReference> relevantRefs = new ArrayList<VariableReference>();
@@ -43,14 +55,14 @@ public class UsedReferenceSearcher {
                 }
                 Statement stat = test.getStatement(i);
                 if (stat instanceof MethodStatement) {
-                    MethodStatement mStat = (MethodStatement) stat;
-                    VariableReference ref = mStat.getCallee();
+                    MethodStatement methodStat = (MethodStatement) stat;
+                    VariableReference ref = methodStat.getCallee();
                     if (ConstructionReferenceUtil.sameReference(test, ref, targetObject)) {
                         boolean isValidGetter =
                                 DataDependencyUtil.isFieldGetter(
-                                        mStat.getMethod().getMethod(), field);
+                                        methodStat.getMethod().getMethod(), field);
                         if (isValidGetter) {
-                            relevantRefs.add(mStat.getReturnValue());
+                            relevantRefs.add(methodStat.getReturnValue());
                         } else {
                             VariableReference usedFieldInTest =
                                     searchRelevantFieldWritingReferenceInTest(
@@ -86,7 +98,7 @@ public class UsedReferenceSearcher {
             }
         }
 
-        /** FIXME, ziheng: we need to provide some priority for those parameters here. */
+        // FIXME, ziheng: we need to provide some priority for those parameters here.
         if (relevantRefs.isEmpty()) {
             if (backuprelevantRefs.isEmpty()) {
                 return null;
@@ -104,10 +116,11 @@ public class UsedReferenceSearcher {
      *
      * <p>The cascade call is checked to find such a method. The more controllable a variable is,
      * the more likely it is returned.
-     * @param test
-     * @param field
-     * @param targetObject
-     * @return
+     *
+     * @param test the test to search
+     * @param field the field to be written
+     * @param targetObject the object owning the field
+     * @return a reference whose value is written to the field, or null if none is found
      */
     public VariableReference searchRelevantFieldWritingReferenceInTest(
             TestCase test, Field field, VariableReference targetObject) {
@@ -118,10 +131,9 @@ public class UsedReferenceSearcher {
 
         if (targetObject != null) {
 
-            /**
-             * check the variables passed as parameters to the constructor of targetObject, which
-             * are data-flow relevant to writing the field @{code field}
-             */
+            // check the variables passed as parameters to the constructor of targetObject, which
+            // are data-flow relevant to writing the field
+
             int pos = ConstructionReferenceUtil.definitionPosition(test, targetObject);
             if (pos < 0) {
                 return null;
@@ -154,29 +166,28 @@ public class UsedReferenceSearcher {
                     // searchRelevantParameterOfSetterInTest(params, className, methodName, field);
                     relevantRefs.addAll(paramRefs);
 
-                    for (VariableReference vRef : paramRefs) {
-                        actionPositions.put(vRef, pos);
+                    for (VariableReference paramRef : paramRefs) {
+                        actionPositions.put(paramRef, pos);
                     }
                     //                    System.currentTimeMillis();
                 }
             }
 
-            /**
-             * check the variables passed as parameters to the method invocation from targetObject,
-             * which are data-flow relevant to writing the field @{code field}
-             */
+            // check the variables passed as parameters to the method invocation from targetObject,
+            // which are data-flow relevant to writing the field
+
             for (int i = 0; i < test.size(); i++) {
                 if (synthesisBudgetExceeded()) {
                     break;
                 }
                 Statement stat = test.getStatement(i);
                 if (stat instanceof MethodStatement) {
-                    MethodStatement mStat = (MethodStatement) stat;
-                    VariableReference ref = mStat.getCallee();
+                    MethodStatement methodStat = (MethodStatement) stat;
+                    VariableReference ref = methodStat.getCallee();
                     if (ConstructionReferenceUtil.sameReference(test, ref, targetObject)) {
-                        List<VariableReference> params = mStat.getParameterReferences();
-                        String className = mStat.getDeclaringClassName();
-                        String methodName = mStat.getMethodName() + mStat.getDescriptor();
+                        List<VariableReference> params = methodStat.getParameterReferences();
+                        String className = methodStat.getDeclaringClassName();
+                        String methodName = methodStat.getMethodName() + methodStat.getDescriptor();
 
                         ParameterMatch result =
                                 searchRelevantParameterOfSetterInTest(className, methodName, field);
@@ -190,25 +201,25 @@ public class UsedReferenceSearcher {
                         // searchRelevantParameterOfSetterInTest(params, className, methodName,
                         //                                field);
 
-                        for (VariableReference pRef : paramRefs) {
-                            if (!ConstructionReferenceUtil.containsIdentity(relevantRefs, pRef)) {
-                                relevantRefs.add(pRef);
-                                actionPositions.put(pRef, i);
+                        for (VariableReference paramRef2 : paramRefs) {
+                            if (!ConstructionReferenceUtil.containsIdentity(relevantRefs, paramRef2)) {
+                                relevantRefs.add(paramRef2);
+                                actionPositions.put(paramRef2, i);
                             }
                         }
                     }
                 } else if (stat instanceof AssignmentStatement) {
                     // obj.name = string;
-                    AssignmentStatement aStat = (AssignmentStatement) stat;
-                    String returnName = aStat.getReturnValue().getName();
+                    AssignmentStatement assignStat = (AssignmentStatement) stat;
+                    String returnName = assignStat.getReturnValue().getName();
                     if (returnName.contains(".")) {
                         String fieldName = returnName.substring(returnName.lastIndexOf(".") + 1);
                         if (fieldName.equals(field.getName())
                                 && ConstructionReferenceUtil.sameReference(
                                         test,
-                                        aStat.getReturnValue().getAdditionalVariableReference(),
+                                        assignStat.getReturnValue().getAdditionalVariableReference(),
                                         targetObject)) {
-                            VariableReference ref = aStat.getValue();
+                            VariableReference ref = assignStat.getValue();
                             if (!ConstructionReferenceUtil.containsIdentity(relevantRefs, ref)) {
                                 relevantRefs.add(ref);
                                 actionPositions.put(ref, i);
@@ -219,8 +230,10 @@ public class UsedReferenceSearcher {
             }
         }
 
-        /** get the var reference with more compatible types */
-        if (relevantRefs.isEmpty()) return null;
+        // get the var reference with more compatible types
+        if (relevantRefs.isEmpty()) {
+            return null;
+        }
 
         List<VariableReference> compatibles = getCompatibleRef(relevantRefs, field);
         VariableReference ref = null;
@@ -266,12 +279,12 @@ public class UsedReferenceSearcher {
     }
 
     /**
-     * opcode should always be "getfield"
+     * Determines which parameters of a method influence or directly set the given field.
      *
-     * @param statement
-     * @param params
-     * @param opcode
-     * @return
+     * @param className the declaring class of the method
+     * @param methodName the method name followed by its descriptor
+     * @param field the field that is set
+     * @return the match, holding the positions of the relevant parameters
      */
     public ParameterMatch searchRelevantParameterOfSetterInTest(
             String className, String methodName, Field field) {
@@ -281,10 +294,8 @@ public class UsedReferenceSearcher {
             return new ParameterMatch(false, emptyParams);
         }
 
-        /**
-         * get all the field setter bytecode instructions in the method. TODO: the field setter can
-         * be taken from callee method of @code{methodName}.
-         */
+        // get all the field setter bytecode instructions in the method. TODO: the field setter can
+        // be taken from callee method of methodName.
         List<BytecodeInstruction> cascadingCallRelations = new ArrayList<>();
         List<ValueSettings> setter = new ArrayList<>();
         DataDependencyUtil.analyzeFieldSetter(

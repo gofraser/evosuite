@@ -452,7 +452,8 @@ public final class LlmAssertionSanitizer {
         } else if (unwrapped instanceof ClassExpr) {
             candidate = resolveClassByName(((ClassExpr) unwrapped).getType().asString());
         } else if (unwrapped instanceof NameExpr) {
-            VariableReference binding = bindings == null ? null : bindings.get(((NameExpr) unwrapped).getNameAsString());
+            VariableReference binding =
+                    bindings == null ? null : bindings.get(((NameExpr) unwrapped).getNameAsString());
             candidate = binding == null ? null : binding.getVariableClass();
         }
         if (candidate == null || !Throwable.class.isAssignableFrom(candidate)) {
@@ -552,11 +553,13 @@ public final class LlmAssertionSanitizer {
         try {
             return Class.forName(normalized, false, cl);
         } catch (ClassNotFoundException ignored) {
+            // Not loadable by the context class loader; fall through to the other lookups.
         }
         if (!normalized.contains(".")) {
             try {
                 return Class.forName("java.lang." + normalized, false, cl);
             } catch (ClassNotFoundException ignored) {
+                // Not a java.lang type; fall through to the next lookup.
             }
         }
         try {

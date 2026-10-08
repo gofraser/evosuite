@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase;
 
+import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
@@ -40,7 +41,6 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.commons.lang3.reflect.TypeUtils;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -608,7 +608,9 @@ public class VariableResolver {
         return rawClass != null && rawClass.isInterface() && FUNCTIONAL_INTERFACES.get(rawClass);
     }
 
-    /** Public methods of {@code Object}, as name plus parameter types. */
+    /**
+     * Public methods of {@code Object}, as name plus parameter types.
+     */
     private static final Set<List<Object>> OBJECT_METHOD_SIGNATURES = new HashSet<>();
 
     static {

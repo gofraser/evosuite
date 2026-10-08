@@ -343,6 +343,12 @@ public class LlmStatistics {
         return diagnosticCardsDeduplicated.get();
     }
 
+    /**
+     * Counts diagnostic-card candidates that reached the published stage.
+     *
+     * @param cardTypes the card type of each contributing card
+     * @param candidateCount the number of candidates to add
+     */
     public static void recordDiagnosticCandidatesPublished(Collection<ProblemCardType> cardTypes, int candidateCount) {
         recordDiagnosticCandidateStage(cardTypes, candidateCount,
                 diagnosticCandidatesPublished,
@@ -359,6 +365,12 @@ public class LlmStatistics {
         return getCounterValue(diagnosticCandidatesPublishedByType, type);
     }
 
+    /**
+     * Counts diagnostic-card candidates that reached the admitted stage.
+     *
+     * @param cardTypes the card type of each contributing card
+     * @param candidateCount the number of candidates to add
+     */
     public static void recordDiagnosticCandidatesAdmitted(Collection<ProblemCardType> cardTypes, int candidateCount) {
         recordDiagnosticCandidateStage(cardTypes, candidateCount,
                 diagnosticCandidatesAdmitted,
@@ -375,6 +387,12 @@ public class LlmStatistics {
         return getCounterValue(diagnosticCandidatesAdmittedByType, type);
     }
 
+    /**
+     * Counts diagnostic-card candidates that reached the survived stage.
+     *
+     * @param cardTypes the card type of each contributing card
+     * @param candidateCount the number of candidates to add
+     */
     public static void recordDiagnosticCandidatesSurvived(Collection<ProblemCardType> cardTypes, int candidateCount) {
         recordDiagnosticCandidateStage(cardTypes, candidateCount,
                 diagnosticCandidatesSurvived,
@@ -391,6 +409,11 @@ public class LlmStatistics {
         return getCounterValue(diagnosticCandidatesSurvivedByType, type);
     }
 
+    /**
+     * Counts the candidates the diagnostic extractors rejected, by reject reason.
+     *
+     * @param rejectCounts the number of rejected candidates per reason; null or empty is ignored
+     */
     public static void recordDiagnosticExtractorRejects(Map<ExtractorRejectReason, Integer> rejectCounts) {
         if (rejectCounts == null || rejectCounts.isEmpty()) {
             return;
@@ -408,6 +431,11 @@ public class LlmStatistics {
         }
     }
 
+    /**
+     * Counts the candidates the diagnostic extractors produced, by metric.
+     *
+     * @param candidateCounts the number of candidates per metric; null or empty is ignored
+     */
     public static void recordDiagnosticExtractorCandidates(Map<ExtractorCandidateMetric, Integer> candidateCounts) {
         if (candidateCounts == null || candidateCounts.isEmpty()) {
             return;
@@ -512,6 +540,13 @@ public class LlmStatistics {
         return counter == null ? 0L : counter.get();
     }
 
+    /**
+     * Counts uncovered-goal gains that cannot be attributed to a single diagnostic-card type because several
+     * types were selected; gains with at most one selected type are ignored.
+     *
+     * @param selectedTypes the card types that were selected when the gain occurred
+     * @param gainedGoals the number of goals gained; non-positive values are ignored
+     */
     public static void recordDiagnosticCoverageGainAttributionAmbiguous(
             Collection<ProblemCardType> selectedTypes,
             int gainedGoals) {
@@ -864,7 +899,8 @@ public class LlmStatistics {
             case EXCEPTION_BARRIER_UPSTREAM_CANDIDATES:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierUpstreamCandidates;
             case EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedInsufficientAttempts;
+                return RuntimeVariable
+                        .LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedInsufficientAttempts;
             case EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedLowFailureRate;
             case MOCK_NEEDED_DEPENDENCY_CANDIDATES:

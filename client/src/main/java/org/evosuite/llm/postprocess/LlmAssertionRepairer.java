@@ -308,13 +308,16 @@ final class LlmAssertionRepairer {
             case UNSUPPORTED_KIND:
                 return "Replace kind with one supported by the listed operand forms; preserve assertionId.";
             case COMPILE:
-                return "Rewrite only the expression named by the compiler diagnostic using listed variables and exact Java types.";
+                return "Rewrite only the expression named by the compiler diagnostic using listed variables "
+                        + "and exact Java types.";
             case OBSERVED_EXECUTION:
-                return "Correct the expected value from the stable observation, or return no repair if the observation does not justify it.";
+                return "Correct the expected value from the stable observation, or return no repair if the "
+                        + "observation does not justify it.";
             case INVALID_FIELD:
                 if (message.contains("type") || message.contains("compatible") || message.contains("numeric")
                         || message.contains("boolean") || message.contains("reference")) {
-                    return "Replace the named operand with an expression of the exact required type shown in observations.";
+                    return "Replace the named operand with an expression of the exact required type shown in "
+                            + "observations.";
                 }
                 if (message.contains("delta")) {
                     return "Use a non-negative numeric delta only for floating-point equality; otherwise omit delta.";

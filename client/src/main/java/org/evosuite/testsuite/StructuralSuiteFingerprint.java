@@ -19,9 +19,9 @@
  */
 package org.evosuite.testsuite;
 
-import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
+import org.evosuite.testcase.TestPresentationMetadata;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -38,6 +38,12 @@ public final class StructuralSuiteFingerprint {
         // utility class
     }
 
+    /**
+     * Computes a SHA-256 digest of the assertion-free source rendering of every test in a suite.
+     *
+     * @param suite the suite to fingerprint
+     * @return the digest as a hexadecimal string
+     */
     public static String compute(TestSuiteChromosome suite) {
         if (suite == null) {
             throw new IllegalArgumentException("suite must not be null");

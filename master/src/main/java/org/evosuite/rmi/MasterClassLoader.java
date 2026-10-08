@@ -44,6 +44,11 @@ public final class MasterClassLoader {
     private MasterClassLoader() {
     }
 
+    /**
+     * Returns the master class loader, creating it on first use.
+     *
+     * @return the master class loader
+     */
     public static URLClassLoader get() {
         URLClassLoader current = instance;
         if (current != null) {
@@ -78,7 +83,8 @@ public final class MasterClassLoader {
         }
         addClasspathEntries(urls, projectClasspath);
         if (urls.isEmpty()) {
-            throw new IllegalStateException("Target project classpath has no existing entries; cannot initialize MasterClassLoader");
+            throw new IllegalStateException(
+                    "Target project classpath has no existing entries; cannot initialize MasterClassLoader");
         }
 
         URL[] cp = urls.toArray(new URL[0]);

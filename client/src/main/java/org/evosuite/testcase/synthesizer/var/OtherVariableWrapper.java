@@ -29,6 +29,7 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -78,6 +79,17 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         return !terminalObservation;
     }
 
+    /**
+     * Finds an existing variable in the test for this dependency or generates one.
+     *
+     * @param test the test to search and extend
+     * @param isLeaf whether this wrapper is a leaf of the dependency tree
+     * @param callerObject the object on which the dependency is accessed
+     * @param map the relevance information of the wrappers in the tree
+     * @param b the targeted branch
+     * @param allowNullValue whether a null value may be used
+     * @return the variable reference for this dependency, or null if none could be produced
+     */
     public VariableReference generateOrFind(
             TestCase test,
             boolean isLeaf,
@@ -1132,16 +1144,16 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         for (int i = start; i < test.size(); i++) {
             Statement s = test.getStatement(i);
             if (s instanceof MethodStatement) {
-                MethodStatement mStatement = (MethodStatement) s;
-                Method invocation = mStatement.getMethod().getMethod();
-                VariableReference calleeObject = mStatement.getCallee();
+                MethodStatement methodStatement = (MethodStatement) s;
+                Method invocation = methodStatement.getMethod().getMethod();
+                VariableReference calleeObject = methodStatement.getCallee();
                 if (calleeObject != null && callerObject != null) {
                     if (sameReference(calleeObject, callerObject) && invocation.equals(call)) {
-                        return mStatement;
+                        return methodStatement;
                     }
                 } else if (calleeObject == null && callerObject == null) {
                     if (invocation.equals(call)) {
-                        return mStatement;
+                        return methodStatement;
                     }
                 }
             }
@@ -1206,15 +1218,16 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                             fieldDeclaringClass.getMethod(
                                     fullName.substring(0, fullName.indexOf("(")), paramClasses);
                 } catch (Exception e) {
+                    // The method cannot be resolved reflectively; call stays null and is handled below.
                 }
 
                 if (call == null) {
                     return null;
                 }
 
-                MethodStatement mStatement = findMethodCall(call, callerObject, test);
-                if (mStatement != null) {
-                    return mStatement.getReturnValue();
+                MethodStatement methodStatement = findMethodCall(call, callerObject, test);
+                if (methodStatement != null) {
+                    return methodStatement.getReturnValue();
                 }
             }
         } catch (Exception e) {

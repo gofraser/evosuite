@@ -165,6 +165,12 @@ public final class ProblemCard {
             return this;
         }
 
+        /**
+         * Appends a concrete example; ignored if the test case is null.
+         * @param testCase the test case that illustrates the problem
+         * @param description what the test case shows
+         * @return this builder
+         */
         public Builder concreteExample(TestCase testCase, String description) {
             if (testCase == null) {
                 return this;
@@ -175,6 +181,11 @@ public final class ProblemCard {
             return this;
         }
 
+        /**
+         * Builds the card.
+         * @return the new card
+         * @throws IllegalStateException if the card has no title, evidence or related goals
+         */
         public ProblemCard build() {
             if ((title == null || title.trim().isEmpty())
                     && (evidence == null || evidence.isEmpty())
@@ -240,6 +251,12 @@ public final class ProblemCard {
         return concreteExamples;
     }
 
+    /**
+     * Returns a copy of this card with one more concrete example.
+     * @param testCase the test case that illustrates the problem, ignored if null
+     * @param description what the test case shows
+     * @return the new card, or this card if the test case is null
+     */
     public ProblemCard withConcreteExample(TestCase testCase, String description) {
         if (testCase == null) {
             return this;
@@ -251,6 +268,10 @@ public final class ProblemCard {
                 selectionFingerprint, examples);
     }
 
+    /**
+     * Derives the key under which repeated injections of this card are tracked.
+     * @return the repeated-injection target for this card
+     */
     public RepeatedInjectionTarget toRepeatedInjectionTarget() {
         String key = !scopeKey.isEmpty() ? scopeKey : rootCauseKey;
         if (key.isEmpty()) {

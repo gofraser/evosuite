@@ -16,24 +16,3 @@ interface PostProcessingTelemetry {
 
     void publishAssertionReconciliation(int removedUnstable, int removedCompile, int shipped);
 }
-
-final class RuntimePostProcessingTelemetry implements PostProcessingTelemetry {
-
-    @Override
-    public void publishMinimizationContext(MinimizationResult minimizationResult) {
-        PostProcessingTelemetryPublisher.publishMinimizationContext(minimizationResult);
-    }
-
-    @Override
-    public void publish(LlmPostProcessor.PostProcessingMetrics metrics) {
-        PostProcessingTelemetryPublisher.publish(metrics);
-    }
-
-    @Override
-    public void publishAssertionReconciliation(int removedUnstable,
-                                               int removedCompile,
-                                               int shipped) {
-        PostProcessingTelemetryPublisher.publishAssertionReconciliation(
-                removedUnstable, removedCompile, shipped);
-    }
-}

@@ -20,8 +20,8 @@
 package org.evosuite.utils.generic;
 
 import org.evosuite.testcase.ConstraintHelper;
-import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.NullReference;
+import org.evosuite.testcase.variable.VariableReference;
 
 import java.lang.reflect.Executable;
 import java.lang.reflect.Parameter;

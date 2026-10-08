@@ -44,6 +44,8 @@ public class TooManyResourcesException extends RuntimeException {
     }
 
     /**
+     * Creates an exception that records whether a loop already threw one on this thread.
+     *
      * @param msg      the message
      * @param repeated whether the same loop already threw such an exception on this thread in
      *                 the same test and the code under test went on running, so it must not be

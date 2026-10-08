@@ -21,9 +21,9 @@ package org.evosuite.testsuite;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestPresentationMetadata;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,6 +43,16 @@ public final class StructuralSuiteArtifact {
         // utility class
     }
 
+    /**
+     * Writes the assertion-free structure of a suite and its metadata to disk.
+     *
+     * @param artifactFile the file the suite is serialized to; its metadata goes next to it
+     * @param targetClass the class under test
+     * @param suite the suite to store
+     * @param minimizationResult the result of the minimization that produced the suite
+     * @return the metadata that was written
+     * @throws IOException if the artifact cannot be written
+     */
     public static StructuralSuiteMetadata write(File artifactFile, String targetClass,
                                                 TestSuiteChromosome suite,
                                                 MinimizationResult minimizationResult) throws IOException {
@@ -141,6 +151,14 @@ public final class StructuralSuiteArtifact {
         return metadata;
     }
 
+    /**
+     * Loads a stored suite and verifies it against its metadata and structural fingerprint.
+     *
+     * @param artifactFile the file the suite was serialized to
+     * @param expectedTargetClass the class under test the artifact must belong to
+     * @return the loaded suite with its metadata
+     * @throws IOException if the artifact is missing, malformed or does not match its metadata
+     */
     public static Loaded read(File artifactFile, String expectedTargetClass) throws IOException {
         validatePath(artifactFile);
         File artifact = artifactFile.getAbsoluteFile();
@@ -242,7 +260,12 @@ public final class StructuralSuiteArtifact {
             this.metadata = metadata;
         }
 
-        public TestSuiteChromosome getSuite() { return suite; }
-        public StructuralSuiteMetadata getMetadata() { return metadata; }
+        public TestSuiteChromosome getSuite() {
+            return suite;
+        }
+
+        public StructuralSuiteMetadata getMetadata() {
+            return metadata;
+        }
     }
 }

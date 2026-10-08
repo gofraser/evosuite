@@ -33,8 +33,8 @@ import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.ConcolicMutation;
 import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.ExecutionTrace;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
@@ -46,6 +46,7 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -54,6 +55,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
+
 import static java.util.stream.Collectors.toCollection;
 
 /**
@@ -166,7 +168,11 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         return this;
     }
 
-    /** @return the injection source, or null if this chromosome originated from the GA itself. */
+    /**
+     * Returns where this chromosome was injected from.
+     *
+     * @return the injection source, or null if this chromosome originated from the GA itself
+     */
     public InjectionSource getInjectionSource() {
         return injectionSource;
     }
@@ -200,10 +206,20 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         this.incubatorEligible = incubatorEligible;
     }
 
+    /**
+     * Returns the problem card types attached to this chromosome.
+     *
+     * @return the diagnostic card types, possibly empty
+     */
     public List<ProblemCardType> getDiagnosticCardTypes() {
         return diagnosticCardTypes;
     }
 
+    /**
+     * Sets the problem card types attached to this chromosome.
+     *
+     * @param types the card types; duplicates are dropped, and null or empty clears them
+     */
     public void setDiagnosticCardTypes(Collection<ProblemCardType> types) {
         if (types == null || types.isEmpty()) {
             this.diagnosticCardTypes = Collections.emptyList();
@@ -220,16 +236,29 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                 : Collections.unmodifiableList(new ArrayList<>(uniqueTypes));
     }
 
-    /** @return the blend channel, or null for ordinary GA offspring. */
+    /**
+     * Returns the blend channel this chromosome was produced on.
+     *
+     * @return the blend channel, or null for ordinary GA offspring
+     */
     public BlendChannel getBlendChannel() {
         return blendChannel;
     }
 
+    /**
+     * Sets the blend channel this chromosome was produced on.
+     *
+     * @param blendChannel the blend channel, or null for ordinary GA offspring
+     */
     public void setBlendChannel(BlendChannel blendChannel) {
         this.blendChannel = blendChannel;
     }
 
-    /** @return the injected lineages this chromosome descends from (never null). */
+    /**
+     * Returns the injected lineages this chromosome descends from.
+     *
+     * @return the descent lineage ids (never null)
+     */
     public Set<Long> getDescentLineageIds() {
         return descentLineageIds;
     }
@@ -238,6 +267,8 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * Merges the given lineage ids into this chromosome's descent marks, enforcing {@link
      * #DESCENT_LINEAGE_CAP} by keeping the lowest (oldest) ids so long-lived lineages remain
      * traceable.
+     *
+     * @param lineageIds the lineage ids to add; null and negative ids are ignored
      */
     public void addDescentLineages(Collection<Long> lineageIds) {
         if (lineageIds == null || lineageIds.isEmpty()) {
@@ -258,8 +289,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * @return descent marks plus this chromosome's own injection lineage when set — the full set of
-     *     lineages whose material this chromosome carries.
+     * Returns the descent marks plus this chromosome's own injection lineage when set.
+     *
+     * @return the full set of lineages whose material this chromosome carries
      */
     public Set<Long> effectiveLineages() {
         if (injectionLineageId < 0L) {

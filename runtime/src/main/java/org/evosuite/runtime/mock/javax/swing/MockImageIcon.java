@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.ImageIcon;
+
 import java.awt.Image;
 import java.awt.Toolkit;
 import java.net.URL;
@@ -74,6 +75,11 @@ public class MockImageIcon extends ImageIcon implements OverrideMock {
         loadImageSafely(() -> Toolkit.getDefaultToolkit().createImage(location));
     }
 
+    /**
+     * Creates an icon from an image file, using the file name as description.
+     *
+     * @param filename the file name or path of the image, or null for an empty icon
+     */
     public MockImageIcon(String filename) {
         super();
         if (filename == null) {
@@ -88,6 +94,11 @@ public class MockImageIcon extends ImageIcon implements OverrideMock {
         setDescription(description != null ? description : filename);
     }
 
+    /**
+     * Creates an icon from the bytes of an image.
+     *
+     * @param imageData the encoded image, or null for an empty icon
+     */
     public MockImageIcon(byte[] imageData) {
         super();
         if (imageData == null) {
@@ -101,6 +112,11 @@ public class MockImageIcon extends ImageIcon implements OverrideMock {
         setDescription(description);
     }
 
+    /**
+     * Creates an icon from an existing image.
+     *
+     * @param image the image, or null for an empty icon
+     */
     public MockImageIcon(Image image) {
         super();
         if (image != null) {

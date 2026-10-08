@@ -24,6 +24,7 @@ import org.evosuite.Properties.SecondaryObjective;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.TestFitnessFactory;
+import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.rmi.ClientServices;
@@ -31,7 +32,6 @@ import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -101,7 +101,7 @@ public class TestSuiteMinimizer {
      */
     private static final double MIN_REEXECUTION_SURVIVAL_RATIO = 0.5;
 
-    /**
+    /*
      * Minimization must not cost coverage in any criterion, so goals are
      * compared per criterion rather than pooled, and every loss is treated as
      * a fault to be corrected rather than tolerated.
@@ -828,7 +828,7 @@ public class TestSuiteMinimizer {
      * blown by minutes (GC thrashing makes the cooperative time checks fire
      * far too late).
      *
-     * Returns true if memory remains critically low even after a hint GC.
+     * <p>Returns true if memory remains critically low even after a hint GC.
      * Callers should treat this like a timeout and break out of long loops,
      * preserving partial results.
      */

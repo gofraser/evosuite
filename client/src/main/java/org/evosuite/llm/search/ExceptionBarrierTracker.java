@@ -20,8 +20,8 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.llm.prompt.GoalDescriptionMapper;
-import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.statements.MethodStatement;
@@ -32,8 +32,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -496,8 +496,10 @@ public class ExceptionBarrierTracker {
             this.dominantException = Objects.toString(dominantException, "");
             this.dominantFailingInvocationLabel = Objects.toString(dominantFailingInvocationLabel, "");
             this.failingInvocationsWithSuccessfulPrefix = Math.max(0, failingInvocationsWithSuccessfulPrefix);
-            this.contextStats = contextStats == null ? Collections.emptyMap() : Collections.unmodifiableMap(contextStats);
-            this.upstreamStats = upstreamStats == null ? Collections.emptyMap() : Collections.unmodifiableMap(upstreamStats);
+            this.contextStats = contextStats == null ? Collections.emptyMap()
+                    : Collections.unmodifiableMap(contextStats);
+            this.upstreamStats = upstreamStats == null ? Collections.emptyMap()
+                    : Collections.unmodifiableMap(upstreamStats);
         }
 
         public int getAttempts() {

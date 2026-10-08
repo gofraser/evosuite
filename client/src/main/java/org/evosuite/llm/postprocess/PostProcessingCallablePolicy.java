@@ -179,7 +179,9 @@ final class PostProcessingCallablePolicy {
         return selectedReturnType;
     }
 
-    /** A null {@code canonicalOwner} matches any owner type. */
+    /**
+     * A null {@code canonicalOwner} matches any owner type.
+     */
     private static boolean matchesCallSite(LlmPostProcessingResponseParser.CallableMethod method,
                                            String receiverId, String canonicalOwner, MethodCallExpr call) {
         return java.util.Objects.equals(receiverId, method.receiverId())
@@ -430,13 +432,27 @@ final class PostProcessingCallablePolicy {
 
     private String unboxedNumericType(String typeName) {
         String canonical = canonicalType(typeName);
-        if ("java.lang.Byte".equals(canonical)) return "byte";
-        if ("java.lang.Short".equals(canonical)) return "short";
-        if ("java.lang.Character".equals(canonical)) return "char";
-        if ("java.lang.Integer".equals(canonical)) return "int";
-        if ("java.lang.Long".equals(canonical)) return "long";
-        if ("java.lang.Float".equals(canonical)) return "float";
-        if ("java.lang.Double".equals(canonical)) return "double";
+        if ("java.lang.Byte".equals(canonical)) {
+            return "byte";
+        }
+        if ("java.lang.Short".equals(canonical)) {
+            return "short";
+        }
+        if ("java.lang.Character".equals(canonical)) {
+            return "char";
+        }
+        if ("java.lang.Integer".equals(canonical)) {
+            return "int";
+        }
+        if ("java.lang.Long".equals(canonical)) {
+            return "long";
+        }
+        if ("java.lang.Float".equals(canonical)) {
+            return "float";
+        }
+        if ("java.lang.Double".equals(canonical)) {
+            return "double";
+        }
         return isNumericPrimitiveOrChar(canonical) ? canonical : null;
     }
 
@@ -448,12 +464,24 @@ final class PostProcessingCallablePolicy {
     }
 
     private int numericRank(String primitive) {
-        if ("byte".equals(primitive)) return 0;
-        if ("short".equals(primitive)) return 1;
-        if ("int".equals(primitive)) return 2;
-        if ("long".equals(primitive)) return 3;
-        if ("float".equals(primitive)) return 4;
-        if ("double".equals(primitive)) return 5;
+        if ("byte".equals(primitive)) {
+            return 0;
+        }
+        if ("short".equals(primitive)) {
+            return 1;
+        }
+        if ("int".equals(primitive)) {
+            return 2;
+        }
+        if ("long".equals(primitive)) {
+            return 3;
+        }
+        if ("float".equals(primitive)) {
+            return 4;
+        }
+        if ("double".equals(primitive)) {
+            return 5;
+        }
         return -1;
     }
 

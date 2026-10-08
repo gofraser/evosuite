@@ -24,7 +24,9 @@ import org.evosuite.runtime.mock.StaticReplacementMock;
 
 import java.nio.channels.spi.SelectorProvider;
 
-/** Static replacement for {@link SelectorProvider#provider()}. */
+/**
+ * Static replacement for {@link SelectorProvider#provider()}.
+ */
 public class MockSelectorProvider implements StaticReplacementMock {
 
     @Override
@@ -32,7 +34,9 @@ public class MockSelectorProvider implements StaticReplacementMock {
         return SelectorProvider.class.getName();
     }
 
-    /** Replacement for {@link SelectorProvider#provider()}. */
+    /**
+     * Replacement for {@link SelectorProvider#provider()}.
+     */
     public static SelectorProvider provider() {
         if (!MockFramework.isEnabled()) {
             return SelectorProvider.provider();

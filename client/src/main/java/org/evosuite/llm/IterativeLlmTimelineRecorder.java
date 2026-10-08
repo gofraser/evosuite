@@ -38,6 +38,9 @@ public final class IterativeLlmTimelineRecorder {
     private final List<Row> rows = new ArrayList<>();
     private final String path;
 
+    /**
+     * Creates a recorder that writes to the default timeline file in the report directory.
+     */
     public IterativeLlmTimelineRecorder() {
         this(defaultPath());
     }
@@ -46,6 +49,28 @@ public final class IterativeLlmTimelineRecorder {
         this.path = path;
     }
 
+    /**
+     * Appends one row to the timeline, describing the outcome of an iterative round.
+     *
+     * @param round the index of the round
+     * @param roundType the kind of round
+     * @param elapsedMs the time elapsed since the start of the search in milliseconds
+     * @param remainingMs the time budget left in milliseconds
+     * @param targetGoals the number of goals targeted in the round
+     * @param queryLatencyMs the latency of the LLM query in milliseconds
+     * @param testsParsed the number of tests parsed from the response
+     * @param testsUnique the number of parsed tests that are not duplicates
+     * @param duplicates the number of duplicate tests
+     * @param newGoals the number of goals newly covered in the round
+     * @param coveredGoals the number of goals covered after the round
+     * @param totalGoals the total number of goals
+     * @param suiteSize the number of tests in the suite
+     * @param suiteLength the number of statements in the suite
+     * @param coverage the coverage of the suite
+     * @param assertionsRetained the number of assertions retained
+     * @param testsWithAssertions the number of tests that carry assertions
+     * @param failure a description of the failure of the round, or null
+     */
     public synchronized void record(int round, String roundType,
                                     long elapsedMs, long remainingMs,
                                     int targetGoals, long queryLatencyMs,
@@ -61,6 +86,9 @@ public final class IterativeLlmTimelineRecorder {
                 assertionsRetained, testsWithAssertions, failure));
     }
 
+    /**
+     * Writes all recorded rows to the timeline file, if the timeline is enabled.
+     */
     public synchronized void flush() {
         if (!Properties.LLM_ITERATIVE_TIMELINE_ENABLED) {
             return;

@@ -24,6 +24,10 @@ public final class ObjectRuleStatisticsReporter {
     private ObjectRuleStatisticsReporter() {
     }
 
+    /**
+     * Reports the statistics collected by the runtime and its session to the statistics service.
+     * @param runtime the runtime whose session is reported
+     */
     public static void publish(ObjectRuleRuntime runtime) {
         ObjectRuleSession session = runtime.getSession();
 

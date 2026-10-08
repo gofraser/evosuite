@@ -8,7 +8,8 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericField;
 
 public abstract class FieldInitializer {
-	
-	public abstract VariableReference assignField(TestFactory testFactory, TestCase test, String fieldType, GenericField genericField,
-			int insertionPosition, FieldReference fieldVar, boolean allowNullValue) throws ConstructionFailedException;
+
+    public abstract VariableReference assignField(TestFactory testFactory, TestCase test, String fieldType,
+            GenericField genericField,
+            int insertionPosition, FieldReference fieldVar, boolean allowNullValue) throws ConstructionFailedException;
 }

@@ -26,8 +26,8 @@ import org.mockito.stubbing.Answer;
 import java.io.InputStream;
 import java.io.Reader;
 import java.lang.reflect.Array;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 
 /**

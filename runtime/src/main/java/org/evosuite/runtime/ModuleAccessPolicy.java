@@ -37,12 +37,16 @@ import java.lang.reflect.AccessibleObject;
 interface ModuleAccessPolicy {
 
     /**
+     * Decides whether a caller in the unnamed module may open up an accessible object.
+     *
      * @param ao the accessible object a caller in the unnamed module wants to open up
      * @return whether a JVM without EvoSuite's own {@code --add-opens} would allow it
      */
     boolean isAccessAllowed(AccessibleObject ao);
 
     /**
+     * Creates the exception for refused access.
+     *
      * @param ao the accessible object whose access was refused
      * @return the {@code InaccessibleObjectException} a stock JVM would have thrown
      */

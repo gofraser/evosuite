@@ -82,7 +82,9 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
         this.socket = new MockServerSocket();
     }
 
-    /** See {@link EvoSelectorProvider#closeIfStale(long, java.io.Closeable)}. */
+    /**
+     * See {@link EvoSelectorProvider#closeIfStale(long, java.io.Closeable)}.
+     */
     private boolean staleGeneration() {
         return EvoSelectorProvider.closeIfStale(openGeneration, this);
     }

@@ -24,7 +24,8 @@ import org.slf4j.Logger;
 
 final class DiagnosticTraceSupport {
 
-    private DiagnosticTraceSupport() {}
+    private DiagnosticTraceSupport() {
+    }
 
     static boolean shouldWarnForCurrentTarget(Logger logger) {
         if (logger == null || !logger.isWarnEnabled()) {

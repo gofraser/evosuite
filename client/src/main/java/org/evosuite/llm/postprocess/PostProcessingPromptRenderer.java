@@ -75,22 +75,34 @@ final class PostProcessingPromptRenderer {
             builder.append("- Variable and test names must be Java identifiers and not Java keywords.\n");
         }
         if (variableNames) {
-            builder.append("- Propose names for every nameable vN whose current rendered name is generic, type-only, or numeric-suffixed.\n");
-            builder.append("- Variable names must describe the variable's role in this test, using constructor arguments, method-call receivers/arguments, observations, and later use sites.\n");
-            builder.append("- The variableNames object should normally include every current rendered name ending in digits; leave one out only when renaming it would be misleading or unsafe.\n");
-            builder.append("- Do not merely remove leading zeroes or keep type-only names such as object0, string1, actionEvent2, map3, list4, or variants with numeric suffixes.\n");
-            builder.append("- If no precise domain role is clear, still prefer a suffix-free type/role fallback such as gui, event, source, value, result, input, output, collection, list, map, array, expectedValue, or actualValue over the current numeric EvoSuite name.\n");
-            builder.append("- For multiple variables of the same type, choose distinct role names; keep a numeric suffix only as a last resort to avoid a real collision.\n");
+            builder.append("- Propose names for every nameable vN whose current rendered name is generic, type-only, "
+                    + "or numeric-suffixed.\n");
+            builder.append("- Variable names must describe the variable's role in this test, using constructor "
+                    + "arguments, method-call receivers/arguments, observations, and later use sites.\n");
+            builder.append("- The variableNames object should normally include every current rendered name ending in "
+                    + "digits; leave one out only when renaming it would be misleading or unsafe.\n");
+            builder.append("- Do not merely remove leading zeroes or keep type-only names such as object0, string1, "
+                    + "actionEvent2, map3, list4, or variants with numeric suffixes.\n");
+            builder.append("- If no precise domain role is clear, still prefer a suffix-free type/role fallback such "
+                    + "as gui, event, source, value, result, input, output, collection, list, map, array, "
+                    + "expectedValue, or actualValue over the current numeric EvoSuite name.\n");
+            builder.append("- For multiple variables of the same type, choose distinct role names; keep a numeric "
+                    + "suffix only as a last resort to avoid a real collision.\n");
         }
         if (comments) {
-            builder.append("- Add comments only when they clarify test intent, logical phases, non-obvious setup, or why a strange generated value matters.\n");
-            builder.append("- Do not comment obvious constructor calls, primitive assignments, or method calls by restating the code.\n");
+            builder.append("- Add comments only when they clarify test intent, logical phases, non-obvious setup, or "
+                    + "why a strange generated value matters.\n");
+            builder.append("- Do not comment obvious constructor calls, primitive assignments, or method calls by "
+                    + "restating the code.\n");
             builder.append("- Prefer no comment over a redundant comment.\n");
-            builder.append("- Use at most one comment per logical phase; use sectionBreaksAfter for visual grouping without prose.\n");
+            builder.append("- Use at most one comment per logical phase; use sectionBreaksAfter for visual grouping "
+                    + "without prose.\n");
         }
         if (sectionBreaks) {
-            builder.append("- Add sectionBreaksAfter only between logical phases such as setup, action, and verification.\n");
-            builder.append("- Add a section break only when it would noticeably improve readability; if unsure, omit it.\n");
+            builder.append("- Add sectionBreaksAfter only between logical phases such as setup, action, and "
+                    + "verification.\n");
+            builder.append("- Add a section break only when it would noticeably improve readability; if unsure, omit "
+                    + "it.\n");
             builder.append("- Prefer section breaks over comments when visual grouping is enough.\n");
             builder.append("- Do not add section breaks after every statement or inside a short linear setup.\n");
             builder.append("- Do not add a trailing section break after the final meaningful statement.\n");
@@ -259,7 +271,8 @@ final class PostProcessingPromptRenderer {
             builder.append(line);
         }
         if (truncatedTypes > 0) {
-            appendCapped(builder, LlmPostProcessingProtocol.CALLABLE_TYPES_TRUNCATED_MARKER + truncatedTypes + "\n", maxChars);
+            appendCapped(builder,
+                    LlmPostProcessingProtocol.CALLABLE_TYPES_TRUNCATED_MARKER + truncatedTypes + "\n", maxChars);
         }
         return builder.length() == 0 ? "none\n" : builder.toString();
     }
@@ -293,7 +306,8 @@ final class PostProcessingPromptRenderer {
     }
 
     private static void appendCandidateTruncation(StringBuilder builder, int truncatedCount, int maxChars) {
-        String truncationLine = LlmPostProcessingProtocol.CANDIDATES_TRUNCATED_MARKER + Math.max(0, truncatedCount) + "\n";
+        String truncationLine =
+                LlmPostProcessingProtocol.CANDIDATES_TRUNCATED_MARKER + Math.max(0, truncatedCount) + "\n";
         if (maxChars <= 0 || builder.length() + truncationLine.length() <= maxChars) {
             builder.append(truncationLine);
         }
@@ -304,7 +318,8 @@ final class PostProcessingPromptRenderer {
         builder.append("Assertion object forms:\n");
         builder.append("- TRUE/FALSE/NULL/NOT_NULL: assertionId, kind, actual; never expected.\n");
         builder.append("- EQUALS/NOT_EQUALS/SAME/NOT_SAME and comparisons: assertionId, kind, expected, actual.\n");
-        builder.append("- Floating EQUALS/NOT_EQUALS additionally accepts delta; scalar JSON values are normalized to expression strings.\n");
+        builder.append("- Floating EQUALS/NOT_EQUALS additionally accepts delta; scalar JSON values are normalized to "
+                + "expression strings.\n");
         for (OracleContext.CandidateFact fact : context.getCandidateFacts()) {
             if (fact.getCandidateId() != null) {
                 builder.append("- Context-valid candidate selection: {\"assertionId\":\"a0\",\"candidateId\":\"")
@@ -324,28 +339,53 @@ final class PostProcessingPromptRenderer {
                     .append(" high-value assertions over verbosity");
         }
         builder.append(".\n");
-        builder.append("- When a stable non-input observation or selectable candidate supports a useful oracle, normally return at least one.\n");
+        builder.append("- When a stable non-input observation or selectable candidate supports a useful oracle, "
+                + "normally return at least one.\n");
         builder.append("- Observations with provenance INPUT are setup values; do not assert them directly.\n");
-        builder.append("- Candidate facts with candidateId are validated EvoSuite assertions. Select one with {\"assertionId\":\"aN\",\"candidateId\":\"cN\"}; do not copy or reconstruct it.\n");
+        builder.append("- Candidate facts with candidateId are validated EvoSuite assertions. Select one with "
+                + "{\"assertionId\":\"aN\",\"candidateId\":\"cN\"}; do not copy or reconstruct it.\n");
         builder.append("- You may select useful candidates and propose assertions that add semantic value.\n");
-        builder.append("- Observations with complete=false are truncated; do not use them for exact equality, exact size, or exact content assertions.\n");
-        builder.append("- Call only callable members listed in the Callable members section. Those entries are the purity allowlist; if it says none, do not call instance methods.\n");
-        builder.append("- Assertion kind must be one of EQUALS, NOT_EQUALS, TRUE, FALSE, NULL, NOT_NULL, SAME, NOT_SAME, CONTAINS, NOT_CONTAINS, SIZE_EQUALS, MAP_CONTAINS_KEY, IS_EMPTY, GREATER, LESS, GREATER_EQUALS, LESS_EQUALS.\n");
-        builder.append("- Prefer the highest-value grounded oracles, whether selected candidates or novel assertions. Novel assertions are especially useful for relationships between two observed SUT results, constructed expected values via allowlisted immutable constructors or pure static factories, and meaningful object/collection state.\n");
-        builder.append("- GREATER/LESS/GREATER_EQUALS/LESS_EQUALS assert that actual compares to expected (GREATER means actual > expected) and require numeric operands.\n");
-        builder.append("- Assertion intent is optional and currently must be REGRESSION; do not infer specification-expected behavior beyond the observed SUT behavior.\n");
-        builder.append("- Assertions are attached after the final test statement; do not emit placement or afterStatementId for assertions.\n");
-        builder.append("- Collection assertion aliases are allowed: CONTAINS/NOT_CONTAINS may use container+element, SIZE_EQUALS may use target+size, MAP_CONTAINS_KEY may use map+key, and IS_EMPTY may use target.\n");
-        builder.append("- Assertion expressions must use only the canonical Java expression dialect accepted by the parser: literals, stable variable ids, listed callable members, simple field/array access, pure arithmetic/boolean/comparison operators, and observed-literal one-dimensional arrays.\n");
-        builder.append("- Even when proposing variableNames, assertion expressions must use the stable vN ids, not the proposed names.\n");
-        builder.append("- Chained calls are allowed only when every call in the chain is listed for the receiver variable or receiver type in Callable members.\n");
-        builder.append("- Assertion expressions must be side-effect-free Java expressions and must not end with semicolons.\n");
-        builder.append("- expected and actual are Java expression strings: preserve Java quoting and escaping for String and char literals (for example, use \"\\\"text\\\"\" as the JSON value for the Java expression \"text\").\n");
-        builder.append("- Use CONTAINS, SIZE_EQUALS, MAP_CONTAINS_KEY, or IS_EMPTY only when the corresponding contains, size, containsKey, or isEmpty method is listed for that receiver/type.\n");
-        builder.append("- Floating-point EQUALS assertions require a non-negative numeric delta; non-floating equality must omit delta.\n");
-        builder.append("- Array EQUALS assertions require compatible one-dimensional array operands; do not use NOT_EQUALS on arrays.\n");
+        builder.append("- Observations with complete=false are truncated; do not use them for exact equality, exact "
+                + "size, or exact content assertions.\n");
+        builder.append("- Call only callable members listed in the Callable members section. Those entries are the "
+                + "purity allowlist; if it says none, do not call instance methods.\n");
+        builder.append("- Assertion kind must be one of EQUALS, NOT_EQUALS, TRUE, FALSE, NULL, NOT_NULL, SAME, "
+                + "NOT_SAME, CONTAINS, NOT_CONTAINS, SIZE_EQUALS, MAP_CONTAINS_KEY, IS_EMPTY, GREATER, LESS, "
+                + "GREATER_EQUALS, LESS_EQUALS.\n");
+        builder.append("- Prefer the highest-value grounded oracles, whether selected candidates or novel assertions. "
+                + "Novel assertions are especially useful for relationships between two observed SUT results, "
+                + "constructed expected values via allowlisted immutable constructors or pure static factories, and "
+                + "meaningful object/collection state.\n");
+        builder.append("- GREATER/LESS/GREATER_EQUALS/LESS_EQUALS assert that actual compares to expected (GREATER "
+                + "means actual > expected) and require numeric operands.\n");
+        builder.append("- Assertion intent is optional and currently must be REGRESSION; do not infer "
+                + "specification-expected behavior beyond the observed SUT behavior.\n");
+        builder.append("- Assertions are attached after the final test statement; do not emit placement or "
+                + "afterStatementId for assertions.\n");
+        builder.append("- Collection assertion aliases are allowed: CONTAINS/NOT_CONTAINS may use container+element, "
+                + "SIZE_EQUALS may use target+size, MAP_CONTAINS_KEY may use map+key, and IS_EMPTY may use target.\n");
+        builder.append("- Assertion expressions must use only the canonical Java expression dialect accepted by the "
+                + "parser: literals, stable variable ids, listed callable members, simple field/array access, pure "
+                + "arithmetic/boolean/comparison operators, and observed-literal one-dimensional arrays.\n");
+        builder.append("- Even when proposing variableNames, assertion expressions must use the stable vN ids, not the "
+                + "proposed names.\n");
+        builder.append("- Chained calls are allowed only when every call in the chain is listed for the receiver "
+                + "variable or receiver type in Callable members.\n");
+        builder.append("- Assertion expressions must be side-effect-free Java expressions and must not end with "
+                + "semicolons.\n");
+        builder.append("- expected and actual are Java expression strings: preserve Java quoting and escaping for "
+                + "String and char literals (for example, use \"\\\"text\\\"\" as the JSON value for the Java "
+                + "expression \"text\").\n");
+        builder.append("- Use CONTAINS, SIZE_EQUALS, MAP_CONTAINS_KEY, or IS_EMPTY only when the corresponding "
+                + "contains, size, containsKey, or isEmpty method is listed for that receiver/type.\n");
+        builder.append("- Floating-point EQUALS assertions require a non-negative numeric delta; non-floating equality "
+                + "must omit delta.\n");
+        builder.append("- Array EQUALS assertions require compatible one-dimensional array operands; do not use "
+                + "NOT_EQUALS on arrays.\n");
         builder.append("- If assertions is non-empty, set assertionDecision to PROPOSED and omit noAssertionReason.\n");
-        builder.append("- If assertions is empty, set assertionDecision to NO_SAFE_ORACLE and choose noAssertionReason from NO_STABLE_OBSERVATION, NO_LEGAL_CALLABLE, THROWING_TEST, CANDIDATE_REDUNDANCY, ONLY_SETUP_VALUES, TRUNCATED_OBSERVATION, OTHER.\n");
+        builder.append("- If assertions is empty, set assertionDecision to NO_SAFE_ORACLE and choose noAssertionReason "
+                + "from NO_STABLE_OBSERVATION, NO_LEGAL_CALLABLE, THROWING_TEST, CANDIDATE_REDUNDANCY, "
+                + "ONLY_SETUP_VALUES, TRUNCATED_OBSERVATION, OTHER.\n");
     }
 
     private static void appendEnabledField(StringBuilder builder, String field, boolean enabled) {

@@ -154,7 +154,9 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         return new ConstructionPathSynthesizer();
     }
 
-    /** Consistency seam paired with {@link #newConstructionPathSynthesizer()}. */
+    /**
+     * Consistency seam paired with {@link #newConstructionPathSynthesizer()}.
+     */
     protected boolean isSynthesizedTestConsistent(TestCase test) {
         return ObjectRuleTemplateSynthesizer.isConsistent(test);
     }

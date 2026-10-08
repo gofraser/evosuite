@@ -128,7 +128,8 @@ public class MemberAnalyzer {
                 cluster.getAnalyzedClasses().add(rawClass);
             } catch (Throwable t) {
                 if (isRecoverableDependencyAnalysisFailure(t)) {
-                    logger.warn("Problem for {}. Skipping problematic dependency class {} due to recoverable failure: {}",
+                    logger.warn("Problem for {}. Skipping problematic dependency class {} "
+                            + "due to recoverable failure: {}",
                             Properties.TARGET_CLASS, clazz.getClassName(), t.toString());
                     logger.debug("Recoverable dependency analysis failure stack trace", t);
                     cluster.getAnalyzedClasses().add(rawClass);
