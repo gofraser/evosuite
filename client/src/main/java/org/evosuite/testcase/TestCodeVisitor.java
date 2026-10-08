@@ -3761,8 +3761,11 @@ public class TestCodeVisitor extends TestVisitor {
                 && !retval.getVariableClass().isAnonymousClass()
                 // Static generic methods are a special case where we shouldn't add a cast
                 && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic());
-        boolean rawReturnCastForRedeclaredReceiver = !unused && !method.isStatic()
-                && returnDependsOnRedeclaredReceiver(statement, method, retval);
+        boolean rawReturnCastForRedeclaredReceiver = !unused
+                && (method.isStatic()
+                ? isGenericMethod && method.getParameterTypes().length == 0
+                && uninferableStaticGenericReturn(method, retval)
+                : returnDependsOnRedeclaredReceiver(statement, method, retval));
         if (requiresReturnCast || rawReturnCastForRedeclaredReceiver) {
             String name = getAccessibleGenericReturnTypeName(method, retval);
             if (!name.matches(".*\\.\\d+$")) {
@@ -4282,6 +4285,37 @@ public class TestCodeVisitor extends TestVisitor {
             Type actualParamType = argRef.getType();
             if (!declaredParamType.equals(actualParamType)
                     && requiresRawCastForInconvertibleParameterizedTypes(declaredParamType, actualParamType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A zero-argument static generic call is left uncast because a cast gives javac no target
+     * type to infer from. When the variable's type arguments cannot be matched by inference at
+     * all (Comparator&lt;Object&gt; for Comparator&lt;Entry&lt;K,V&gt;&gt;), only a raw cast, which
+     * is unchecked but legal, makes the assignment compile.
+     */
+    private boolean uninferableStaticGenericReturn(GenericMethod method, VariableReference retval) {
+        Type declaredReturn = method.getMethod().getGenericReturnType();
+        Type variableType = retval.getType();
+        if (!(declaredReturn instanceof ParameterizedType)
+                || !(variableType instanceof ParameterizedType)) {
+            return false;
+        }
+        Type[] returnArguments = ((ParameterizedType) declaredReturn).getActualTypeArguments();
+        Type[] variableArguments = ((ParameterizedType) variableType).getActualTypeArguments();
+        if (!((ParameterizedType) declaredReturn).getRawType()
+                .equals(((ParameterizedType) variableType).getRawType())
+                || returnArguments.length != variableArguments.length) {
+            return false;
+        }
+        for (int i = 0; i < returnArguments.length; i++) {
+            if (returnArguments[i] instanceof ParameterizedType
+                    && !(variableArguments[i] instanceof ParameterizedType
+                    && ((ParameterizedType) returnArguments[i]).getRawType().equals(
+                            ((ParameterizedType) variableArguments[i]).getRawType()))) {
                 return true;
             }
         }

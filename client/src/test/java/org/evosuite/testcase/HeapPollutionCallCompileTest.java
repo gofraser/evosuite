@@ -196,6 +196,37 @@ public class HeapPollutionCallCompileTest {
         assertCompiles(tc);
     }
 
+    /**
+     * Defects4J Collections-6: {@code Comparator<Object> c = Map.Entry.comparingByValue();} has no
+     * type that javac can infer, so the static generic call needs a raw cast.
+     */
+    @Test
+    public void testZeroArgumentStaticGenericCallWithUnrelatedVariableTypeCompiles()
+            throws Exception {
+        for (Type variableType : new Type[] {
+                TypeUtils.parameterize(java.util.Comparator.class, Object.class),
+                TypeUtils.parameterize(java.util.Comparator.class, String.class),
+                TypeUtils.parameterize(java.util.Comparator.class,
+                        TypeUtils.parameterize(java.util.Map.Entry.class, String.class,
+                                Integer.class))}) {
+            TestCase tc = new DefaultTestCase();
+            GenericMethod comparing = new GenericMethod(
+                    java.util.Map.Entry.class.getMethod("comparingByValue"),
+                    java.util.Map.Entry.class);
+            VariableReference comparator = tc.addStatement(
+                    new MethodStatement(tc, comparing, null, Arrays.asList()));
+            comparator.setType(variableType);
+            tc.addStatement(new MethodStatement(tc, new GenericMethod(
+                    java.util.Comparator.class.getMethod("reversed"),
+                    java.util.Comparator.class), comparator, Arrays.asList()));
+            try {
+                assertCompiles(tc);
+            } catch (AssertionError e) {
+                throw new AssertionError(variableType + ": " + e.getMessage());
+            }
+        }
+    }
+
     @Test
     public void testPutOfObjectToStringStringMapCompiles()throws Exception {
         TestCase tc = new DefaultTestCase();
