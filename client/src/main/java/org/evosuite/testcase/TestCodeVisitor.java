@@ -3784,6 +3784,14 @@ public class TestCodeVisitor extends TestVisitor {
                 // override with the specific parameter type; viewing the receiver as the generic
                 // declaring class binds to the erased signature the bridge implements.
                 calleeStr += "((" + getClassName(bridgeSource) + ") " + getVariableName(callee) + ")";
+            } else if (!(callee instanceof ConstantValue)
+                    && (bridgeSource = genericDeclaringClassOverriddenByBridge(method.getMethod(),
+                    callee.getVariableClass())) != null) {
+                // The generic method itself was called on a subclass receiver whose override
+                // narrows the parameter type (ResourceTrackerImpl<T>.calculateBytes(T) on a
+                // StringTracker, argument not a String). Source code naming the method on the
+                // subclass binds to the override; the raw generic class binds to this method.
+                calleeStr += "((" + getClassName(bridgeSource) + ") " + getVariableName(callee) + ")";
             } else if (callee instanceof ConstantValue) {
                 Class<?> declaringClass = method.getMethod().getDeclaringClass();
                 Class<?> calleeClass = callee.getVariableClass();
@@ -3874,6 +3882,40 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    /**
+     * The declaring class of the generic, non-bridge {@code method} when a strict subclass
+     * {@code calleeClass} of it declares a bridge with the same erased signature (the subclass
+     * overrides the method with a narrower parameter type); null otherwise or when the
+     * declaring class cannot be named from the test.
+     */
+    private static Class<?> genericDeclaringClassOverriddenByBridge(Method method, Class<?> calleeClass) {
+        if (method == null || calleeClass == null || method.isBridge()
+                || Modifier.isStatic(method.getModifiers())) {
+            return null;
+        }
+        Class<?> declaring = method.getDeclaringClass();
+        if (declaring == calleeClass || !declaring.isAssignableFrom(calleeClass)
+                || !Modifier.isPublic(declaring.getModifiers())
+                || Arrays.equals(method.getGenericParameterTypes(), method.getParameterTypes())) {
+            return null;
+        }
+        try {
+            for (Class<?> current = calleeClass; current != null && current != declaring;
+                 current = current.getSuperclass()) {
+                for (Method candidate : current.getDeclaredMethods()) {
+                    if (candidate.isBridge() && candidate.getName().equals(method.getName())
+                            && Arrays.equals(candidate.getParameterTypes(),
+                            method.getParameterTypes())) {
+                        return declaring;
+                    }
+                }
+            }
+        } catch (LinkageError e) {
+            // unresolvable hierarchy: leave the call as it is
+        }
+        return null;
     }
 
     /**

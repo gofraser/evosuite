@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -80,6 +81,43 @@ public class BridgeMethodCallCompileTest {
         VariableReference arg = tc.addStatement(new ConstructorStatement(tc,
                 new GenericConstructor(Object.class.getConstructor(), Object.class), Arrays.asList()));
         tc.addStatement(new MethodStatement(tc, new GenericMethod(bridge, Sub.class), sub,
+                Arrays.asList(arg)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        StringBuilder source = new StringBuilder("package org.evosuite.testcase;\n");
+        for (Class<?> imported : visitor.getImports()) {
+            String canonical = imported.getCanonicalName();
+            if (canonical != null) {
+                source.append("import ").append(canonical).append(";\n");
+            }
+        }
+        String className = "BridgeProbe" + System.nanoTime();
+        source.append("public class ").append(className).append(" {\n")
+                .append("    public static void run() throws Throwable {\n");
+        for (String line : code.split("\\R")) {
+            source.append("        ").append(line).append("\n");
+        }
+        source.append("    }\n}\n");
+
+        JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
+                "evosuite-bridge", className, source.toString());
+        assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+    }
+
+    @Test
+    public void testGenericMethodCalledOnSubclassReceiverWithNonStringArgumentCompiles() throws Exception {
+        // The target class is the generic base: the method is Base.calc(T), not the bridge.
+        java.lang.reflect.Method bridge = Base.class.getMethod("calc", Object.class);
+        assertFalse(bridge.isBridge());
+        TestCase tc = new DefaultTestCase();
+        VariableReference sub = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(Sub.class.getConstructor(), Sub.class), Arrays.asList()));
+        VariableReference arg = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(Object.class.getConstructor(), Object.class), Arrays.asList()));
+        tc.addStatement(new MethodStatement(tc, new GenericMethod(bridge, Base.class), sub,
                 Arrays.asList(arg)));
 
         TestCodeVisitor visitor = new TestCodeVisitor();
