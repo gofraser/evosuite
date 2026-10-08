@@ -1004,7 +1004,6 @@ public class TestCaseExecutor implements ThreadFactory {
                                     stoppedThread.getName());
                         }
                     }
-                    ExecutionTracer.disable();
                 }
             }
             ExecutionTracer.disable();
@@ -1114,6 +1113,21 @@ public class TestCaseExecutor implements ThreadFactory {
         }
     }
 
+    /**
+     * Tracks an abandoned worker so ResourceController can count it. Its loop-iteration counts
+     * are protected from the reset() that every subsequent, unrelated test triggers; see
+     * LoopCounter.protectFromReset() for why an abandoned thread would otherwise never reach its
+     * own iteration-limit escape hatch.
+     */
+    private void retireStalledThread(Thread thread) {
+        thread.setPriority(Thread.MIN_PRIORITY);
+        stalledThreads.add(thread);
+        LoopCounter.getInstance().protectFromReset(thread);
+        if (lastTimeoutWasStuckClinit) {
+            clinitStuckThreads.add(thread);
+        }
+    }
+
     private synchronized void rotateExecutorAfterStalledTimeout() {
         long now = System.currentTimeMillis();
         long elapsed = now - lastRotationTimestamp;
@@ -1122,16 +1136,7 @@ public class TestCaseExecutor implements ThreadFactory {
                     + "Reusing existing executor.", elapsed, Properties.ROTATION_COOLDOWN_MS);
             // Still track the stalled thread even if we skip rotation
             if (currentThread != null && currentThread.isAlive()) {
-                currentThread.setPriority(Thread.MIN_PRIORITY);
-                stalledThreads.add(currentThread);
-                // Protect its loop-iteration counts from being wiped by the reset()
-                // that every subsequent, unrelated test triggers — see the javadoc
-                // on LoopCounter.protectFromReset() for why an abandoned thread would
-                // otherwise never reach its own iteration-limit escape hatch.
-                LoopCounter.getInstance().protectFromReset(currentThread);
-                if (lastTimeoutWasStuckClinit) {
-                    clinitStuckThreads.add(currentThread);
-                }
+                retireStalledThread(currentThread);
             }
             return;
         }
@@ -1147,12 +1152,7 @@ public class TestCaseExecutor implements ThreadFactory {
                 sb.append("\n  at ").append(elem);
             }
             logger.warn(sb.toString());
-            currentThread.setPriority(Thread.MIN_PRIORITY);
-            stalledThreads.add(currentThread);
-            LoopCounter.getInstance().protectFromReset(currentThread);
-            if (lastTimeoutWasStuckClinit) {
-                clinitStuckThreads.add(currentThread);
-            }
+            retireStalledThread(currentThread);
         }
         if (executor != null) {
             if (lastTimeoutWasStuckClinit) {

@@ -316,9 +316,7 @@ public class TestCodeVisitor extends TestVisitor {
             while (clazz.isArray()) {
                 clazz = clazz.getComponentType();
             }
-            return !clazz.isPrimitive()
-                    && (!isDeclaredTypeNameableInGeneratedTest(clazz)
-                    || TestUsageChecker.isInUnexportedPackage(clazz));
+            return !clazz.isPrimitive() && !isDeclaredTypeNameableInGeneratedTest(clazz);
         } else if (type instanceof ParameterizedType) {
             ParameterizedType parameterized = (ParameterizedType) type;
             if (containsUnnameableType(parameterized.getRawType())) {
@@ -3748,6 +3746,7 @@ public class TestCodeVisitor extends TestVisitor {
             calleeStr += getClassName(method.getMethod().getDeclaringClass());
         } else {
             VariableReference callee = statement.getCallee();
+            Class<?> bridgeSource;
             if (forceRawReceiverInvocation) {
                 Class<?> declaringClass = method.getMethod().getDeclaringClass();
                 Class<?> calleeClass = callee.getVariableClass();
@@ -3757,14 +3756,13 @@ public class TestCodeVisitor extends TestVisitor {
                 } else {
                     calleeStr += "((" + getTypeName(declaringClass) + ")" + calleeName + ")";
                 }
-            } else if (bridgeSourceDeclaringClass(method.getMethod()) != null
-                    && !(callee instanceof ConstantValue)) {
+            } else if (!(callee instanceof ConstantValue)
+                    && (bridgeSource = bridgeSourceDeclaringClass(method.getMethod())) != null) {
                 // The search called a synthetic bridge, typically to feed an argument of the
                 // wrong type into a generic override. Source code naming the method binds to the
                 // override with the specific parameter type; viewing the receiver as the generic
                 // declaring class binds to the erased signature the bridge implements.
-                calleeStr += "((" + getClassName(bridgeSourceDeclaringClass(method.getMethod()))
-                        + ") " + getVariableName(callee) + ")";
+                calleeStr += "((" + getClassName(bridgeSource) + ") " + getVariableName(callee) + ")";
             } else if (callee instanceof ConstantValue) {
                 Class<?> declaringClass = method.getMethod().getDeclaringClass();
                 Class<?> calleeClass = callee.getVariableClass();
@@ -5283,16 +5281,42 @@ public class TestCodeVisitor extends TestVisitor {
      * top-level identifier alone does not establish nesting or make it inaccessible.
      */
     private static boolean hasInaccessibleEnclosingMetadata(Class<?> type, String testPackageName) {
-        if (type.getEnclosingClass() != null) {
+        if (type.getEnclosingClass() != null || type.getClassLoader() == null) {
             return false;
         }
+        String binaryName = type.getName();
+        if (binaryName.lastIndexOf('$') <= binaryName.lastIndexOf('.') + 1) {
+            return false;
+        }
+        int memberChainAccess = ENCLOSING_METADATA_ACCESS.get(type);
+        if ((memberChainAccess & ENCLOSING_METADATA_PRIVATE) != 0) {
+            return true;
+        }
+        return (memberChainAccess & ENCLOSING_METADATA_NON_PUBLIC) != 0
+                && !isEmptyPackageName(testPackageName)
+                && !isSamePackage(type, testPackageName);
+    }
+
+    private static final int ENCLOSING_METADATA_PRIVATE = 1;
+    private static final int ENCLOSING_METADATA_NON_PUBLIC = 2;
+
+    /**
+     * Per class, which access restrictions the InnerClasses tables of its binary-name
+     * prefixes record along its member chain. Reading those tables means parsing class
+     * files, so the result is kept; only the package comparison depends on the run.
+     */
+    private static final ClassValue<Integer> ENCLOSING_METADATA_ACCESS = new ClassValue<Integer>() {
+        @Override
+        protected Integer computeValue(Class<?> type) {
+            return readEnclosingMetadataAccess(type);
+        }
+    };
+
+    private static int readEnclosingMetadataAccess(Class<?> type) {
         String binaryName = type.getName();
         int simpleNameStart = binaryName.lastIndexOf('.') + 1;
         String internalName = binaryName.replace('.', '/');
         ClassLoader loader = type.getClassLoader();
-        if (loader == null) {
-            return false;
-        }
         Map<String, String> enclosingTypes = new HashMap<>();
         Map<String, Integer> memberAccess = new HashMap<>();
         for (int dollar = binaryName.lastIndexOf('$'); dollar > simpleNameStart;
@@ -5319,18 +5343,18 @@ public class TestCodeVisitor extends TestVisitor {
         }
         // Only an exact member entry establishes nesting. A private binary-name
         // prefix can belong to an unrelated class when an identifier contains '$'.
+        int restrictions = 0;
         Set<String> visited = new HashSet<>();
         for (String member = internalName; enclosingTypes.containsKey(member)
                 && visited.add(member); member = enclosingTypes.get(member)) {
             int access = memberAccess.get(member);
-            if (Modifier.isPrivate(access)
-                    || (!Modifier.isPublic(access)
-                    && !isEmptyPackageName(testPackageName)
-                    && !isSamePackage(type, testPackageName))) {
-                return true;
+            if (Modifier.isPrivate(access)) {
+                restrictions |= ENCLOSING_METADATA_PRIVATE;
+            } else if (!Modifier.isPublic(access)) {
+                restrictions |= ENCLOSING_METADATA_NON_PUBLIC;
             }
         }
-        return false;
+        return restrictions;
     }
 
     private static boolean isEmptyPackageName(String packageName) {

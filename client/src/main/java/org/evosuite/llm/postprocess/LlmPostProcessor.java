@@ -32,6 +32,8 @@ import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmTraceRecorder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.rmi.ClientServices;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -115,13 +117,17 @@ public class LlmPostProcessor {
         if (phaseContext == null) {
             return false;
         }
-        PostProcessingOptions options = phaseContext.options();
-        return options.enabled()
-                && options.provider() != Properties.LlmProvider.NONE
-                && options.features().any()
+        return isAnyFeatureEnabled(phaseContext.options())
                 && llmService != null
                 && llmService.isAvailable()
                 && llmService.hasBudget();
+    }
+
+    /** Tracks every post-processing runtime variable at its empty default. */
+    public static void initializeRuntimeVariables() {
+        PostProcessingTelemetryPublisher.publish(new PostProcessingMetrics(""));
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Minimization_Status, "");
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Minimization_Stop_Cause, "");
     }
 
     /**
@@ -140,13 +146,6 @@ public class LlmPostProcessor {
             return false;
         }
         return isAnyResponseFeatureEnabled(options);
-    }
-
-    /**
-     * Whether the unified response schema has any enabled edit category.
-     */
-    public static boolean isAnyResponseFeatureEnabled() {
-        return isAnyResponseFeatureEnabled(PostProcessingOptions.fromProperties());
     }
 
     static boolean isAnyResponseFeatureEnabled(PostProcessingOptions options) {

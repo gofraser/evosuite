@@ -93,24 +93,7 @@ public class StatisticsSender {
         if (!(individual instanceof TestSuiteChromosome)) {
             return individual;
         }
-        TestSuiteChromosome suite = (TestSuiteChromosome) individual;
-        TestSuiteChromosome copy = new TestSuiteChromosome();
-        for (TestChromosome test : suite.getTestChromosomes()) {
-            TestChromosome light = new TestChromosome();
-            light.setTestCase(test.getTestCase().clone());
-            copy.addTestChromosome(light);
-        }
-        copy.setFitnessValues(suite.getFitnessValues());
-        copy.setPreviousFitnessValues(suite.getPreviousFitnessValues());
-        copy.setCoverageValues(suite.getCoverageValues());
-        copy.setNumsOfCoveredGoals(suite.getNumsOfCoveredGoals());
-        copy.setNumsOfNotCoveredGoals(suite.getNumsNotCoveredGoals());
-        copy.setNumberOfMutations(suite.getNumberOfMutations());
-        copy.setNumberOfEvaluations(suite.getNumberOfEvaluations());
-        copy.setKineticEnergy(suite.getKineticEnergy());
-        copy.setNumCollisions(suite.getNumCollisions());
-        copy.setChanged(suite.isChanged());
-        return (T) copy;
+        return (T) ((TestSuiteChromosome) individual).copyWithBareTests();
     }
 
     /**

@@ -2,7 +2,6 @@ package org.evosuite.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -19,6 +18,7 @@ import org.evosuite.graphs.cfg.ActualControlFlowGraph;
 import org.evosuite.graphs.cfg.BytecodeAnalyzer;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
@@ -279,27 +279,11 @@ public class MethodUtil {
 	}
 
 	public static String getSignature(Method m) {
-		String sig;
-		StringBuilder sb = new StringBuilder("(");
-		for (Class<?> c : m.getParameterTypes())
-			sb.append((sig = Array.newInstance(c, 0).toString()).substring(1, sig.indexOf('@')));
-		String str = sb.append(')')
-				.append(m.getReturnType() == void.class ? "V"
-						: (sig = Array.newInstance(m.getReturnType(), 0).toString()).substring(1, sig.indexOf('@')))
-				.toString();
-		return str.replace(".", "/");
+		return Type.getMethodDescriptor(m);
 	}
 
-	@SuppressWarnings("rawtypes")
-	public static String getSignature(Constructor m) {
-		String sig;
-
-		StringBuilder sb = new StringBuilder("(");
-		for (Class<?> c : m.getParameterTypes())
-			sb.append((sig = Array.newInstance(c, 0).toString()).substring(1, sig.indexOf('@')));
-		String str = sb.append(')').append("V").toString();
-
-		return str.replace(".", "/");
+	public static String getSignature(Constructor<?> m) {
+		return Type.getConstructorDescriptor(m);
 	}
 
 }

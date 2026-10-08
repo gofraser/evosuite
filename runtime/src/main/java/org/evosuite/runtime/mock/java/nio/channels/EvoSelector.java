@@ -227,12 +227,7 @@ final class EvoSelector extends AbstractSelector {
                     readyPresent = true;
                 }
                 try {
-                    int oldReady;
-                try {
-                    oldReady = key.readyOps();
-                } catch (CancelledKeyException ignored) {
-                    continue;
-                }
+                    int oldReady = key.readyOps();
                     if (selectedKeys.contains(key)) {
                         ready |= oldReady;
                         key.setReadyOps(ready);
@@ -269,9 +264,7 @@ final class EvoSelector extends AbstractSelector {
             deregister(key);
             synchronized (this) {
                 if (keys.get(key.channel()) == key) {
-                    if (keys.get(key.channel()) == key) {
                     keys.remove(key.channel());
-                }
                 }
                 keySet.remove(key);
                 selectedKeys.remove(key);

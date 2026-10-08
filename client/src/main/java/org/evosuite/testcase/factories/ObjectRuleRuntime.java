@@ -13,6 +13,7 @@ import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.synthesizer.TemplateCache;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,22 @@ public final class ObjectRuleRuntime {
     private volatile Long synthesisAttemptDeadlineNanos;
     private volatile boolean synthesisAttemptTimedOut;
     private final AtomicLong resetEpoch = new AtomicLong();
+
+    /**
+     * Physical methods ({@code className#methodName}, keyed on the branch's own containing method
+     * rather than the resolved accessible entry) that already blew their analysis budget in the
+     * current run. {@code InterproceduralGraphAnalysis.analyzeBranchOnDemand} caches per branch when
+     * a private method's graph is exposed through a nearest accessible caller, so that two private
+     * methods sharing one caller do not suppress each other's analysis (see the cache-key comment
+     * there). But that means every branch of the *same* expensive private method independently pays
+     * the full {@link org.evosuite.Properties#OBJECT_RULE_ANALYSIS_TIMEOUT} budget with no memory of
+     * previous timeouts — measured as 154 repeated timeouts analyzing {@code
+     * JVCParserTokenManager.jjMoveNfa_2} and 132 analyzing {@code LovinsStemmer.removeEnding} on the
+     * release corpus, enough on its own to starve those classes' searches. This set lets later
+     * branches of a method already known to be too expensive skip straight to the conservative "no
+     * graph" outcome.
+     */
+    private final Set<String> analysisTimedOutMethods = new HashSet<>();
 
     /**
      * Returns the run-scoped object-rule session.
@@ -92,6 +109,7 @@ public final class ObjectRuleRuntime {
     /** Replaces the recommended concrete classes discovered during analysis. */
     public void setRecommendedClasses(Map<Integer, List<String>> recommendations) {
         recommendedClasses.clear();
+        analysisTimedOutMethods.clear();
         recommendedClasses.putAll(recommendations);
     }
 
@@ -217,6 +235,16 @@ public final class ObjectRuleRuntime {
     public void endSynthesisAttempt() {
         synthesisAttemptDeadlineNanos = null;
         synthesisAttemptTimedOut = false;
+    }
+
+    /** Whether the physical method {@code className#methodName} already exhausted its analysis budget. */
+    public boolean isAnalysisTimedOut(String physicalMethodKey) {
+        return analysisTimedOutMethods.contains(physicalMethodKey);
+    }
+
+    /** Records that the physical method {@code className#methodName} exhausted its analysis budget. */
+    public void markAnalysisTimedOut(String physicalMethodKey) {
+        analysisTimedOutMethods.add(physicalMethodKey);
     }
 
     /**

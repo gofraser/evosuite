@@ -277,6 +277,7 @@ public final class LlmPostProcessingResponseParser {
     public static final class CallableMethod {
         private final String receiverId;
         private final String ownerType;
+        private final String canonicalOwnerType;
         private final String methodName;
         private final int argumentCount;
         private final JvmMethodDescriptor signature;
@@ -294,6 +295,7 @@ public final class LlmPostProcessingResponseParser {
                               String returnType) {
             this.receiverId = receiverId;
             this.ownerType = ownerType;
+            this.canonicalOwnerType = ExprType.canonicalRawName(ownerType);
             this.methodName = methodName;
             this.argumentCount = argumentCount;
             this.signature = null;
@@ -304,6 +306,7 @@ public final class LlmPostProcessingResponseParser {
                               String returnType) {
             this.receiverId = receiverId;
             this.ownerType = ownerType;
+            this.canonicalOwnerType = ExprType.canonicalRawName(ownerType);
             this.methodName = methodName;
             this.signature = JvmMethodDescriptor.parse(descriptor);
             this.argumentCount = signature == null ? 0 : signature.argumentCount();
@@ -321,23 +324,19 @@ public final class LlmPostProcessingResponseParser {
             CallableMethod that = (CallableMethod) other;
             return argumentCount == that.argumentCount
                     && java.util.Objects.equals(receiverId, that.receiverId)
-                    && java.util.Objects.equals(canonicalOwnerType(ownerType), canonicalOwnerType(that.ownerType))
+                    && java.util.Objects.equals(canonicalOwnerType, that.canonicalOwnerType)
                     && java.util.Objects.equals(methodName, that.methodName)
                     && java.util.Objects.equals(signatureText(), that.signatureText());
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(receiverId, canonicalOwnerType(ownerType), methodName, argumentCount,
+            return java.util.Objects.hash(receiverId, canonicalOwnerType, methodName, argumentCount,
                     signatureText());
         }
 
         private String signatureText() {
             return signature == null ? null : signature.descriptor();
-        }
-
-        private JvmMethodDescriptor signature() {
-            return signature;
         }
 
         String receiverId() {
@@ -346,6 +345,10 @@ public final class LlmPostProcessingResponseParser {
 
         String ownerType() {
             return ownerType;
+        }
+
+        String canonicalOwnerType() {
+            return canonicalOwnerType;
         }
 
         String methodName() {
@@ -362,16 +365,6 @@ public final class LlmPostProcessingResponseParser {
 
         String returnType() {
             return returnType;
-        }
-
-        private static String canonicalOwnerType(String typeName) {
-            if (typeName == null) {
-                return null;
-            }
-            String trimmed = typeName.trim();
-            int genericStart = trimmed.indexOf('<');
-            String raw = genericStart < 0 ? trimmed : trimmed.substring(0, genericStart);
-            return ExprType.canonicalName(raw);
         }
     }
 
@@ -952,10 +945,6 @@ public final class LlmPostProcessingResponseParser {
             return operandPolicy.isNegativeNumericLiteral(expression);
         }
 
-        private boolean sameType(String first, String second) {
-            return expressionTypes.sameType(first, second);
-        }
-
         private String canonicalType(String typeName) {
             return expressionTypes.canonicalType(typeName);
         }
@@ -990,16 +979,8 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean isLiteralOrNullExpression(String expression) {
-            if (expression == null || expression.isEmpty()) {
-                return false;
-            }
-            Expression parsed;
-            try {
-                parsed = StaticJavaParser.parseExpression(expression);
-            } catch (RuntimeException e) {
-                return false;
-            }
-            return parsed.isLiteralExpr() || parsed.isNullLiteralExpr();
+            Expression parsed = LlmPostProcessingExpressionUtils.parseExpressionOrNull(expression);
+            return parsed != null && (parsed.isLiteralExpr() || parsed.isNullLiteralExpr());
         }
 
         private boolean isObviousTautology(LlmPostProcessingResponse.AssertionKind kind, String expected,
@@ -1032,15 +1013,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean isSelfComparison(String expression, boolean assertedTrue) {
-            if (expression == null || expression.trim().isEmpty()) {
-                return false;
-            }
-            Expression parsed;
-            try {
-                parsed = StaticJavaParser.parseExpression(expression);
-            } catch (RuntimeException e) {
-                return false;
-            }
+            Expression parsed = LlmPostProcessingExpressionUtils.parseExpressionOrNull(expression);
             if (!(parsed instanceof BinaryExpr)) {
                 return false;
             }
@@ -1216,26 +1189,6 @@ public final class LlmPostProcessingResponseParser {
                 }
             }
             return changed;
-        }
-
-        private boolean containsDisallowedObjectConstruction(Expression expression) {
-            return callablePolicy.containsDisallowedObjectConstruction(expression);
-        }
-
-        private boolean containsDisallowedStaticMethodCall(Expression expression) {
-            return callablePolicy.containsDisallowedStaticMethodCall(expression);
-        }
-
-        private boolean isInstanceCallScope(Expression scope) {
-            return callablePolicy.isInstanceCallScope(scope);
-        }
-
-        private boolean containsDisallowedInstanceMethodCall(Expression expression) {
-            return callablePolicy.containsDisallowedInstanceMethodCall(expression);
-        }
-
-        private boolean isCallableMethod(String receiverId, String ownerType, MethodCallExpr call) {
-            return callablePolicy.isCallableMethod(receiverId, ownerType, call);
         }
 
         private static final class ExpressionParseResult {

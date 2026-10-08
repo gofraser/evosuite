@@ -97,28 +97,11 @@ public class MethodCallReplacementCache {
                     PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockJComponent.class),
                     "getPreferredSize", "()Ljava/awt/Dimension;", true, false));
 
+            // setDragEnabled, setDropTarget, setMixingCutoutShape, setCursor, Container.add/remove
+            // and JTabbedPane.addTab/insertTab are rewritten by the generic fallbacks in
+            // MethodCallReplacementMethodAdapter, which run before this cache is consulted.
             String headlessSwing = PackageInfo.getNameWithSlash(
                     org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class);
-            addReplacementCall(new MethodCallReplacement("javax/swing/JList", "setDragEnabled",
-                    "(Z)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setDragEnabled",
-                    "(Ljavax/swing/JList;Z)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTree", "setDragEnabled",
-                    "(Z)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setDragEnabled",
-                    "(Ljavax/swing/JTree;Z)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTable", "setDragEnabled",
-                    "(Z)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setDragEnabled",
-                    "(Ljavax/swing/JTable;Z)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JFileChooser", "setDragEnabled",
-                    "(Z)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setDragEnabled",
-                    "(Ljavax/swing/JFileChooser;Z)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JComponent", "setDropTarget",
-                    "(Ljava/awt/dnd/DropTarget;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setDropTarget",
-                    "(Ljavax/swing/JComponent;Ljava/awt/dnd/DropTarget;)V", false, false));
             addReplacementCall(new MethodCallReplacement("javax/swing/JComboBox", "setSelectedItem",
                     "(Ljava/lang/Object;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_setSelectedItem",
@@ -164,10 +147,6 @@ public class MethodCallReplacementCache {
                     Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_showColorDialog",
                     "(Ljava/awt/Component;Ljava/lang/String;Ljava/awt/Color;)Ljava/awt/Color;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Component", "setMixingCutoutShape",
-                    "(Ljava/awt/Shape;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setMixingCutoutShape",
-                    "(Ljava/awt/Component;Ljava/awt/Shape;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "isDesktopSupported",
                     "()Z", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_isDesktopSupported",
@@ -291,56 +270,6 @@ public class MethodCallReplacementCache {
                     PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.java.security.MockCodeSource.class),
                     "replacement_getLocation",
                     "(Ljava/security/CodeSource;)Ljava/net/URL;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Component", "setCursor",
-                    "(Ljava/awt/Cursor;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setCursor",
-                    "(Ljava/awt/Component;Ljava/awt/Cursor;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
-                    "(Ljava/awt/Component;)Ljava/awt/Component;", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_addComponentGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Component;)Ljava/awt/Component;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
-                    "(Ljava/lang/String;Ljava/awt/Component;)Ljava/awt/Component;", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_addNameComponentGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/awt/Component;)Ljava/awt/Component;",
-                    false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
-                    "(Ljava/awt/Component;I)Ljava/awt/Component;", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_addComponentIndexGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Component;I)Ljava/awt/Component;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
-                    "(Ljava/awt/Component;Ljava/lang/Object;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_addComponentConstraintsGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Component;Ljava/lang/Object;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
-                    "(Ljava/awt/Component;Ljava/lang/Object;I)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_addComponentConstraintsIndexGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Component;Ljava/lang/Object;I)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Container", "remove",
-                    "(Ljava/awt/Component;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_removeComponentGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Component;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTabbedPane", "addTab",
-                    "(Ljava/lang/String;Ljava/awt/Component;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_addTabTitleComponentGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/awt/Component;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTabbedPane", "addTab",
-                    "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_addTabTitleIconComponentGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;)V",
-                    false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTabbedPane", "addTab",
-                    "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;)V",
-                    Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_addTabTitleIconComponentTipGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;)V",
-                    false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTabbedPane", "insertTab",
-                    "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;I)V",
-                    Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_insertTabGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;I)V",
-                    false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Cursor", "getDefaultCursor",
                     "()Ljava/awt/Cursor;", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_getDefaultCursor",

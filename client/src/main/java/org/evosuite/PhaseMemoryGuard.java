@@ -91,7 +91,7 @@ final class PhaseMemoryGuard {
         return thresholdBytes;
     }
 
-    private static long currentFreeHeapBytes() {
+    static long currentFreeHeapBytes() {
         Runtime runtime = Runtime.getRuntime();
         return runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
     }

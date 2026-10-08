@@ -466,7 +466,7 @@ public class TestSuiteGenerator {
                             suite.getTests(), suite.getLastExecutionResults());
 
             MinimizationResult minimizationResult = metadata.toMinimizationResult();
-            publishMinimizationResult(minimizationResult);
+            minimizationResult.publish();
             ClientServices.track(RuntimeVariable.Oracle_Replay_Strategy,
                     Properties.ORACLE_REPLAY_STRATEGY.name());
             ClientServices.track(RuntimeVariable.Oracle_Replay_Input_Fingerprint,
@@ -814,7 +814,7 @@ public class TestSuiteGenerator {
                 ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
                 ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
                 ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
-                publishMinimizationResult(minimizationResult);
+                minimizationResult.publish();
             } else {
                 double before = testSuite.getFitness();
                 TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
@@ -857,7 +857,7 @@ public class TestSuiteGenerator {
             ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
             ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
             ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
-            publishMinimizationResult(minimizationResult);
+            minimizationResult.publish();
         }
 
         runCoverageAnalysisIfEnabled(testSuite);
@@ -1324,22 +1324,6 @@ public class TestSuiteGenerator {
                 withTimeout, withTestException, withSecurityException, firstExceptionHistogram);
     }
 
-    private void publishMinimizationResult(MinimizationResult result) {
-        ClientServices.track(RuntimeVariable.Minimization_Status, result.getStatus().name());
-        ClientServices.track(RuntimeVariable.Minimization_Stop_Cause,
-                result.getUnderlyingStopCause().name());
-        ClientServices.track(RuntimeVariable.Minimization_Original_Tests,
-                result.getOriginalTests());
-        ClientServices.track(RuntimeVariable.Minimization_Original_Length,
-                result.getOriginalLength());
-        ClientServices.track(RuntimeVariable.Minimization_Final_Tests,
-                result.getFinalTests());
-        ClientServices.track(RuntimeVariable.Minimization_Final_Length,
-                result.getFinalLength());
-        ClientServices.track(RuntimeVariable.Minimization_Elapsed_Millis,
-                result.getElapsedMillis());
-    }
-
     /**
      * Runs coverage analysis if {@link Properties#COVERAGE} requests it, recording the sweep as
      * incomplete whenever this method itself gives up before, or partway through, calling
@@ -1404,27 +1388,18 @@ public class TestSuiteGenerator {
      * @return true if memory is too low (caller should skip the phase)
      */
     private boolean isMemoryTooLowForPhase(String phaseName) {
-        LongSupplier freeMemoryBytes =
-                freeMemoryBytesForTesting != null ? freeMemoryBytesForTesting : TestSuiteGenerator::currentFreeMemoryBytes;
-        long freeMem = freeMemoryBytes.getAsLong();
-        long threshold = Properties.MIN_FREE_MEM * 2L;
-        if (freeMem < threshold) {
-            System.gc();
-            freeMem = freeMemoryBytes.getAsLong();
-            if (freeMem < threshold) {
-                LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Skipping " + phaseName + " due to low memory: "
-                        + (freeMem / 1024 / 1024) + " MB free, need "
-                        + (threshold / 1024 / 1024) + " MB");
-                return true;
-            }
+        LongSupplier freeMemoryBytes = freeMemoryBytesForTesting != null
+                ? freeMemoryBytesForTesting : PhaseMemoryGuard::currentFreeHeapBytes;
+        PhaseMemoryGuard guard =
+                new PhaseMemoryGuard(freeMemoryBytes, System::gc, Properties.MIN_FREE_MEM * 2L);
+        if (!guard.isExhausted()) {
+            return false;
         }
-        return false;
-    }
-
-    private static long currentFreeMemoryBytes() {
-        Runtime runtime = Runtime.getRuntime();
-        return runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Skipping " + phaseName + " due to low memory: "
+                + (guard.getLastFreeBytes() / 1024 / 1024) + " MB free, need "
+                + (guard.getThresholdBytes() / 1024 / 1024) + " MB");
+        return true;
     }
 
     /**
@@ -1834,7 +1809,7 @@ public class TestSuiteGenerator {
      * @return the result of the test generation process
      */
     public static TestGenerationResult writeJUnitTestsAndCreateResult(TestSuiteChromosome testSuite, String suffix) {
-        return writeJUnitTestsAndCreateResult(testSuite, suffix, false, null);
+        return writeJUnitTestsAndCreateResult(testSuite, suffix, false, null, null);
     }
 
     private static TestGenerationResult writeReplayJUnitTestsAndCreateResult(
@@ -1847,22 +1822,13 @@ public class TestSuiteGenerator {
 
     private static TestGenerationResult writeJUnitTestsAndCreateResult(
             TestSuiteChromosome testSuite, String suffix, boolean preserveExactStructure,
-            ReplayStructureSnapshot replayStructure) {
-        return writeJUnitTestsAndCreateResult(testSuite, suffix,
-                preserveExactStructure, replayStructure, null);
-    }
-
-    private static TestGenerationResult writeJUnitTestsAndCreateResult(
-            TestSuiteChromosome testSuite, String suffix, boolean preserveExactStructure,
             ReplayStructureSnapshot replayStructure,
             Scaffolding.ReplaySnapshot replayScaffoldingSnapshot) {
         TestSuiteChromosome suiteToWrite = testSuite;
-        boolean checkWriterStructure = false;
         int writerInputTests = 0;
         int writerInputStatements = 0;
         if (preserveExactStructure) {
             suiteToWrite = cloneSuiteForWriting(testSuite);
-            checkWriterStructure = true;
             writerInputTests = suiteToWrite.size();
             writerInputStatements = suiteToWrite.totalLengthOfTestCases();
         }
@@ -1899,7 +1865,7 @@ public class TestSuiteGenerator {
             // matching the authoritative preservation signal computed before
             // rendering. Compare those counts rather than object identity so a
             // structure-preserving rendering is not misreported as a change.
-            if (checkWriterStructure
+            if (preserveExactStructure
                     && !writerPreservedExecutableStructure(
                             suiteToWrite, writerInputTests, writerInputStatements)) {
                 throw new IllegalStateException(

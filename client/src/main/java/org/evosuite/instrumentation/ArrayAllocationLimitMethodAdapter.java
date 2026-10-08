@@ -109,6 +109,20 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
         super.visitInsn(Opcodes.ATHROW);
     }
 
+    /**
+     * Stack: ..., int(size). Leaves the stack as it is if size &lt;= ARRAY_LIMIT, and throws
+     * otherwise.
+     */
+    private void emitSizeGuard() {
+        Label ok = new Label();
+        visitInsn(Opcodes.DUP);
+        visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
+                "ARRAY_LIMIT", "I");
+        super.visitJumpInsn(Opcodes.IF_ICMPLE, ok);
+        throwAllocationRejected("Array allocation exceeds the configured array_limit");
+        super.visitLabel(ok);
+    }
+
     /* (non-Javadoc)
      * @see org.objectweb.asm.MethodVisitor#visitIntInsn(int, int)
      */
@@ -120,13 +134,7 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
     public void visitIntInsn(int opcode, int operand) {
         if (opcode == Opcodes.NEWARRAY) {
             if (sizeGuardEnabled) {
-                Label origTarget = new Label();
-                visitInsn(Opcodes.DUP);
-                visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
-                        "ARRAY_LIMIT", "I");
-                super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
-                throwAllocationRejected("Array allocation exceeds the configured array_limit");
-                super.visitLabel(origTarget);
+                emitSizeGuard();
             }
         }
         super.visitIntInsn(opcode, operand);
@@ -144,13 +152,7 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
 
         if (opcode == Opcodes.ANEWARRAY) {
             if (sizeGuardEnabled) {
-                Label origTarget = new Label();
-                visitInsn(Opcodes.DUP);
-                visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
-                        "ARRAY_LIMIT", "I");
-                super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
-                throwAllocationRejected("Array allocation exceeds the configured array_limit");
-                super.visitLabel(origTarget);
+                emitSizeGuard();
             }
         }
         super.visitTypeInsn(opcode, type);
@@ -165,15 +167,7 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
     public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
                                 boolean isInterface) {
         if (sizeGuardEnabled && shouldLimitSizeArg(opcode, owner, name, descriptor)) {
-            // Stack: ..., int(size)  →  clamp size to ARRAY_LIMIT
-            Label ok = new Label();
-            visitInsn(Opcodes.DUP);
-            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
-                    "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPLE, ok);
-            // size > ARRAY_LIMIT → reject the allocation
-            throwAllocationRejected("Array allocation exceeds the configured array_limit");
-            super.visitLabel(ok);
+            emitSizeGuard();
         }
         super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
     }

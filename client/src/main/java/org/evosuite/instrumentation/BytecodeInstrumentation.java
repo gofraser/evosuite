@@ -802,13 +802,7 @@ public class BytecodeInstrumentation {
     private ClassVisitor handleStaticReset(String className, ClassVisitor cv, ClassReader reader) {
         // Create a __STATIC_RESET() cloning the original <clinit> method or
         // create one by default
-        final CreateClassResetClassAdapter resetClassAdapter;
-        if (config.resetStaticFinalFields()) {
-            resetClassAdapter = new CreateClassResetClassAdapter(cv, className, true, reader);
-        } else {
-            resetClassAdapter = new CreateClassResetClassAdapter(cv, className, false, reader);
-        }
-        cv = resetClassAdapter;
+        cv = new CreateClassResetClassAdapter(cv, className, config.resetStaticFinalFields(), reader);
 
         // Adds a callback before leaving the <clinit> method
         EndOfClassInitializerVisitor exitClassInitAdapter = new EndOfClassInitializerVisitor(cv, className);

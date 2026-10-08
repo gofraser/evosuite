@@ -363,24 +363,6 @@ public class LlmTraceRecorder {
                                                       String delta,
                                                       String intent,
                                                       String placementAfterStatementId,
-                                                      String purpose) {
-            this(testIndex, minimizationStatus, minimizationStopCause, lifecycleState, callKind,
-                    assertionId, assertionKind, actual, expected, delta, intent,
-                    placementAfterStatementId, purpose, "", "", "", "");
-        }
-
-        public PostProcessingAssertionLifecycleRecord(int testIndex,
-                                                      String minimizationStatus,
-                                                      String minimizationStopCause,
-                                                      String lifecycleState,
-                                                      String callKind,
-                                                      String assertionId,
-                                                      String assertionKind,
-                                                      String actual,
-                                                      String expected,
-                                                      String delta,
-                                                      String intent,
-                                                      String placementAfterStatementId,
                                                       String purpose,
                                                       String assertionSource,
                                                       String candidateId) {
@@ -446,13 +428,7 @@ public class LlmTraceRecorder {
         List<LlmMessage> safeMessages = record.messages;
         List<String> expanded = record.expandedClasses;
         PostProcessingTraceContext postProcessingContext = POST_PROCESSING_TRACE_CONTEXT.get();
-        Map<String, Object> traceRecord = new LinkedHashMap<>();
-        traceRecord.put("schema_version", TRACE_SCHEMA_VERSION);
-        traceRecord.put("event_type", "llm_call");
-        traceRecord.put("run_id", configuration.getRunId());
-        traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
-        traceRecord.put("timestamp", Instant.now().toString());
-        traceRecord.put("feature", record.feature.name());
+        Map<String, Object> traceRecord = newTraceRecord("llm_call", record.feature);
         traceRecord.put("postprocessing_call_kind",
                 record.feature == LlmFeature.POST_PROCESSING
                         ? (record.repairAttempt > 1 ? "repair" : "initial")
@@ -527,13 +503,7 @@ public class LlmTraceRecorder {
         traceRecord.put("cluster_summary_emitted_modifiers", dep.getEmittedModifiers());
         traceRecord.put("cluster_summary_dropped_per_class_cap", dep.getDroppedByPerClassCap());
         traceRecord.put("cluster_summary_dropped_global_budget", dep.getDroppedByGlobalBudget());
-        String json = GSON.toJson(traceRecord);
-        try {
-            writeJsonLine(json);
-        } catch (Throwable writeFailure) {
-            logger.warn("Failed writing LLM trace: {}", writeFailure.getMessage());
-            logger.debug("LLM trace write failure details", writeFailure);
-        }
+        writeQuietly(traceRecord, "LLM trace");
     }
 
     public void recordPostProcessingAssertionDiagnostic(PostProcessingAssertionDiagnosticRecord record) {
@@ -541,13 +511,8 @@ public class LlmTraceRecorder {
             return;
         }
 
-        Map<String, Object> traceRecord = new LinkedHashMap<>();
-        traceRecord.put("schema_version", TRACE_SCHEMA_VERSION);
-        traceRecord.put("event_type", "postprocessing_assertion_rejection");
-        traceRecord.put("run_id", configuration.getRunId());
-        traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
-        traceRecord.put("timestamp", Instant.now().toString());
-        traceRecord.put("feature", LlmFeature.POST_PROCESSING.name());
+        Map<String, Object> traceRecord = newTraceRecord("postprocessing_assertion_rejection",
+                LlmFeature.POST_PROCESSING);
         addPostProcessingProtocolMetadata(traceRecord);
         traceRecord.put("postprocessing_call_kind", record.callKind);
         traceRecord.put("postprocessing_test_index", record.testIndex);
@@ -573,13 +538,7 @@ public class LlmTraceRecorder {
         traceRecord.put("candidate_id", record.candidateId);
         traceRecord.put("assertion_json", record.assertionJson);
 
-        String json = GSON.toJson(traceRecord);
-        try {
-            writeJsonLine(json);
-        } catch (Throwable writeFailure) {
-            logger.warn("Failed writing LLM post-processing diagnostic trace: {}", writeFailure.getMessage());
-            logger.debug("LLM post-processing diagnostic trace write failure details", writeFailure);
-        }
+        writeQuietly(traceRecord, "LLM post-processing diagnostic trace");
     }
 
     /** Records one transition in the accepted assertion's lifecycle. */
@@ -588,13 +547,8 @@ public class LlmTraceRecorder {
             return;
         }
 
-        Map<String, Object> traceRecord = new LinkedHashMap<>();
-        traceRecord.put("schema_version", TRACE_SCHEMA_VERSION);
-        traceRecord.put("event_type", "postprocessing_assertion_lifecycle");
-        traceRecord.put("run_id", configuration.getRunId());
-        traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
-        traceRecord.put("timestamp", Instant.now().toString());
-        traceRecord.put("feature", LlmFeature.POST_PROCESSING.name());
+        Map<String, Object> traceRecord = newTraceRecord("postprocessing_assertion_lifecycle",
+                LlmFeature.POST_PROCESSING);
         addPostProcessingProtocolMetadata(traceRecord);
         traceRecord.put("postprocessing_test_index", record.testIndex);
         traceRecord.put("postprocessing_minimization_status", record.minimizationStatus);
@@ -614,11 +568,26 @@ public class LlmTraceRecorder {
         traceRecord.put("assertion_source", record.assertionSource);
         traceRecord.put("candidate_id", record.candidateId);
 
+        writeQuietly(traceRecord, "LLM post-processing lifecycle trace");
+    }
+
+    private Map<String, Object> newTraceRecord(String eventType, LlmFeature feature) {
+        Map<String, Object> traceRecord = new LinkedHashMap<>();
+        traceRecord.put("schema_version", TRACE_SCHEMA_VERSION);
+        traceRecord.put("event_type", eventType);
+        traceRecord.put("run_id", configuration.getRunId());
+        traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
+        traceRecord.put("timestamp", Instant.now().toString());
+        traceRecord.put("feature", feature.name());
+        return traceRecord;
+    }
+
+    private void writeQuietly(Map<String, Object> traceRecord, String label) {
         try {
             writeJsonLine(GSON.toJson(traceRecord));
         } catch (Throwable writeFailure) {
-            logger.warn("Failed writing LLM post-processing lifecycle trace: {}", writeFailure.getMessage());
-            logger.debug("LLM post-processing lifecycle trace write failure details", writeFailure);
+            logger.warn("Failed writing {}: {}", label, writeFailure.getMessage());
+            logger.debug(label + " write failure details", writeFailure);
         }
     }
 
@@ -663,11 +632,9 @@ public class LlmTraceRecorder {
                 continue;
             }
             String content = message.getContent();
-            if (content != null && (content.contains("truncated=true")
-                    || content.contains("truncatedCandidates=")
-                    || content.contains("truncatedCallableTypes=")
-                    || content.contains("droppedMethods=")
-                    || content.contains("droppedRelationalOpportunities="))) {
+            if (content != null && (content.contains(LlmPostProcessingProtocol.OBSERVATIONS_TRUNCATED_MARKER)
+                    || content.contains(LlmPostProcessingProtocol.CANDIDATES_TRUNCATED_MARKER)
+                    || content.contains(LlmPostProcessingProtocol.CALLABLE_TYPES_TRUNCATED_MARKER))) {
                 return true;
             }
         }
@@ -704,11 +671,15 @@ public class LlmTraceRecorder {
                 configuration.getPostProcessingCapabilities());
         traceRecord.put("postprocessing_repair_policy",
                 configuration.getPostProcessingRepairPolicy());
-        traceRecord.put("system_prompt_hash", contentHash(
-                new SystemPromptProvider().getPostProcessingSystemPrompt()));
+        traceRecord.put("system_prompt_hash", PostProcessingSystemPromptHash.VALUE);
     }
 
-    private String contentHash(String content) {
+    /** The post-processing system prompt is a constant, so its hash is computed once. */
+    private static final class PostProcessingSystemPromptHash {
+        static final String VALUE = contentHash(new SystemPromptProvider().getPostProcessingSystemPrompt());
+    }
+
+    private static String contentHash(String content) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.update((content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
@@ -737,7 +708,7 @@ public class LlmTraceRecorder {
         return serialized;
     }
 
-    private String toHex(byte[] data) {
+    private static String toHex(byte[] data) {
         StringBuilder builder = new StringBuilder(data.length * 2);
         for (byte datum : data) {
             builder.append(String.format("%02x", datum));

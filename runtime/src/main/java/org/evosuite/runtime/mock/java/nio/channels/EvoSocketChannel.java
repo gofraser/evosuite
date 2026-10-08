@@ -54,14 +54,12 @@ public class EvoSocketChannel extends SocketChannel {
 
     private final MockSocket socket;
 
-    private volatile boolean blocking = true;
-
     private InputStream in;
     private OutputStream out;
 
     /**
      * The {@link VirtualNetwork} reset generation at the time this channel was created.
-     * See {@link EvoServerSocketChannel#staleGeneration()} for why this matters: once the
+     * See {@link EvoSelectorProvider#closeIfStale(long, java.io.Closeable)} for why this matters: once the
      * network has moved past this generation, the test that owned this channel is over.
      */
     private final long openGeneration = VirtualNetwork.getInstance().getResetGeneration();
@@ -83,18 +81,10 @@ public class EvoSocketChannel extends SocketChannel {
     /**
      * Returns {@code true} if the virtual network has moved past the generation this
      * channel was opened in, closing the channel as a side effect the first time this is
-     * detected (see {@link EvoServerSocketChannel#staleGeneration()}).
+     * detected (see {@link EvoSelectorProvider#closeIfStale(long, java.io.Closeable)}).
      */
     private boolean staleGeneration() {
-        if (VirtualNetwork.getInstance().getResetGeneration() != openGeneration) {
-            try {
-                close();
-            } catch (IOException ignored) {
-                // best effort; the channel is being reported as stale/closed regardless
-            }
-            return true;
-        }
-        return false;
+        return EvoSelectorProvider.closeIfStale(openGeneration, this);
     }
 
     private static Set<SocketOption<?>> supportedOptionsSet() {
@@ -295,7 +285,7 @@ public class EvoSocketChannel extends SocketChannel {
             // connection was closed outright. Either way more data is never coming.
             return -1;
         }
-        if (!blocking) {
+        if (!isBlocking()) {
             // Nonblocking: the connection is still open, there is simply nothing to read yet.
             return 0;
         }
@@ -308,6 +298,7 @@ public class EvoSocketChannel extends SocketChannel {
             if (isShutdownForInput()) {
                 return -1;
             }
+            long version = VirtualNetwork.getInstance().getStateVersion();
             int retry = in().read(buf, off, len);
             if (retry != -1) {
                 return retry;
@@ -320,7 +311,7 @@ public class EvoSocketChannel extends SocketChannel {
                 return 0;
             }
             try {
-                Thread.sleep(BLOCKING_READ_POLL_MS);
+                VirtualNetwork.getInstance().awaitStateChange(version, BLOCKING_READ_POLL_MS);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 throw new ClosedByInterruptException();
@@ -433,7 +424,6 @@ public class EvoSocketChannel extends SocketChannel {
 
     @Override
     protected void implConfigureBlocking(boolean block) throws IOException {
-        this.blocking = block;
         VirtualNetwork.getInstance().signalStateChange();
     }
 }

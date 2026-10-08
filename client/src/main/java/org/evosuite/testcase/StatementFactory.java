@@ -51,6 +51,10 @@ public class StatementFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(StatementFactory.class);
 
+    /** Receivers are never null and never functional mocks (see the call sites). */
+    private static final VariableResolutionConfig NON_NULL_CALLEE_CONFIG =
+            new VariableResolutionConfig.Builder().withAllowNull(false).withCanUseMocks(false).build();
+
     private final TestFactory testFactory;
 
     public StatementFactory(TestFactory testFactory) {
@@ -632,59 +636,7 @@ public class StatementFactory {
      */
     public VariableReference addMethod(TestCase test, GenericMethod method, int position,
                                        GenerationContext context) throws ConstructionFailedException {
-        rejectUncallableFromSource(method);
-
-        if (context.getDepth() > Properties.MAX_RECURSION) {
-            throw new ConstructionFailedException("Max recursion depth reached");
-        }
-
-        int length = test.size();
-        VariableReference callee = null;
-        List<VariableReference> parameters = null;
-
-        try {
-            method = bindTypeParameters(method, null);
-            if (!method.isStatic()) {
-                // A functional mock can never be a callee: mocking the receiver would both hide
-                // the real behaviour and short-circuit the lazy dependency resolution that pulls
-                // the receiver's own class (and its parameter types) into the test cluster.
-                VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
-                        VariableResolutionConfig.defaultConfig())
-                        .withAllowNull(false)
-                        .withCanUseMocks(false)
-                        .build();
-                callee = testFactory.createOrReuseVariable(test, method.getOwnerType(), position,
-                        context, nonNullCalleeConfig);
-                
-                position += test.size() - length;
-                length = test.size();
-
-                if (!TestUsageChecker.canUse(method.getMethod(), callee.getVariableClass())) {
-                    throw new ConstructionFailedException("Cannot apply method to this callee");
-                }
-                if (!MethodStatement.isCompatibleCalleeType(method, callee.getType())) {
-                    throw new ConstructionFailedException("Cannot apply method to this callee");
-                }
-            }
-
-            parameters = testFactory.satisfyParameters(test, callee,
-                    Arrays.asList(method.getParameterTypes()),
-                    Arrays.asList(method.getMethod().getParameters()),
-                    position, context.deeper(), true, false, true);
-
-        } catch (ConstructionFailedException e) {
-            throw e;
-        }
-
-        int newLength = test.size();
-        position += (newLength - length);
-
-        Statement st = new MethodStatement(test, method, callee, parameters);
-        VariableReference ret = test.addStatement(st, position);
-        if (callee != null) {
-            ret.setDistance(callee.getDistance() + 1);
-        }
-        return ret;
+        return addMethod(test, method, position, context, true);
     }
 
     /**
@@ -724,28 +676,7 @@ public class StatementFactory {
     public VariableReference addMethodFor(TestCase test, VariableReference callee,
                                           GenericMethod method, int position, GenerationContext context)
             throws ConstructionFailedException {
-        rejectUncallableFromSource(method);
-
-        if (position <= callee.getStPosition()) {
-            throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
-        }
-
-        method = bindTypeParameters(method, callee.getGenericClass());
-        int length = test.size();
-
-        List<VariableReference> parameters = testFactory.satisfyParameters(
-                test, callee,
-                Arrays.asList(method.getParameterTypes()),
-                Arrays.asList(method.getMethod().getParameters()), position, context.deeper(), true, false, true);
-
-        int newLength = test.size();
-        position += (newLength - length);
-
-        Statement st = new MethodStatement(test, method, callee, parameters);
-        VariableReference ret = test.addStatement(st, position);
-        ret.setDistance(callee.getDistance() + 1);
-
-        return ret;
+        return addMethodFor(test, callee, method, position, context, true);
     }
 
     /**
@@ -771,13 +702,8 @@ public class StatementFactory {
             // A functional mock can never be a callee: mocking the receiver would both hide the
             // real behaviour and short-circuit the lazy dependency resolution that pulls the
             // receiver's own class (and its parameter types) into the test cluster.
-            VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
-                    VariableResolutionConfig.defaultConfig())
-                    .withAllowNull(false)
-                    .withCanUseMocks(false)
-                    .build();
             callee = testFactory.createOrReuseVariable(test, method.getOwnerType(), position,
-                    context, nonNullCalleeConfig);
+                    context, NON_NULL_CALLEE_CONFIG);
 
             position += test.size() - length;
             length = test.size();
@@ -865,13 +791,8 @@ public class StatementFactory {
             // A functional mock can never be a callee: mocking the receiver would both hide the
             // real behaviour and short-circuit the lazy dependency resolution that pulls the
             // receiver's own class (and its parameter types) into the test cluster.
-            VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
-                    VariableResolutionConfig.defaultConfig())
-                    .withAllowNull(false)
-                    .withCanUseMocks(false)
-                    .build();
             callee = testFactory.createOrReuseVariable(test, field.getOwnerType(), position,
-                    context, nonNullCalleeConfig);
+                    context, NON_NULL_CALLEE_CONFIG);
             position += test.size() - length;
 
             if (!TestUsageChecker.canUse(field.getField(), callee.getVariableClass())) {
@@ -923,13 +844,8 @@ public class StatementFactory {
             // A functional mock can never be a callee: mocking the receiver would both hide the
             // real behaviour and short-circuit the lazy dependency resolution that pulls the
             // receiver's own class (and its parameter types) into the test cluster.
-            VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
-                    VariableResolutionConfig.defaultConfig())
-                    .withAllowNull(false)
-                    .withCanUseMocks(false)
-                    .build();
             callee = testFactory.createOrReuseVariable(test, field.getOwnerType(), position,
-                    context, nonNullCalleeConfig);
+                    context, NON_NULL_CALLEE_CONFIG);
             position += test.size() - length;
             length = test.size();
             if (!TestUsageChecker.canUse(field.getField(), callee.getVariableClass())) {

@@ -227,19 +227,8 @@ public class MockObjectWait {
             // The test has ended and this leftover thread is being asked to stop; see MockThread.sleep.
             // Wait briefly for real so the monitor is released and a loop that swallows the
             // exception is no hot spin; see MockThread.STOPPING_REAL_PAUSE_MS.
-            // ThreadStopper has interrupted the thread: with the flag still set every real
-            // wait would throw at once, and a loop that swallows the exception would spin.
-            // Clear it around the pause, and set it again for the loop to see.
-            boolean wasInterrupted = Thread.interrupted();
-            try {
-                obj.wait(MockThread.STOPPING_REAL_PAUSE_MS);
-            } catch (InterruptedException e) {
-                wasInterrupted = true;
-            }
-            if (wasInterrupted) {
-                Thread.currentThread().interrupt();
-            }
-            throw new TooManyResourcesException("MockObjectWait: thread kept waiting after its test ended");
+            throw MockThread.pauseThenStopLeftover(() -> obj.wait(MockThread.STOPPING_REAL_PAUSE_MS),
+                    "MockObjectWait: thread kept waiting after its test ended");
         }
         if (sutThread || shouldWaitForReal(testThreadRealWaits.incrementAndGet())) {
             try {

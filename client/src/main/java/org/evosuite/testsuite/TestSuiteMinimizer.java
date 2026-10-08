@@ -218,7 +218,7 @@ public class TestSuiteMinimizer {
             logger.error("Minimization failed ({}); reverting to pre-minimization snapshot of {} tests.",
                     t.getClass().getSimpleName(), snapshot.size(), t);
             suite.tests.clear();
-            suite.tests.addAll(deepCloneTests(snapshot));
+            suite.tests.addAll(snapshot);
             System.gc();
         }
 
@@ -235,7 +235,7 @@ public class TestSuiteMinimizer {
         MinimizationResult result = new MinimizationResult(status, firstStopCause,
                 originalTests, originalLength, suite.size(), suite.totalLengthOfTestCases(),
                 System.currentTimeMillis() - startTime);
-        publishResult(result);
+        result.publish();
         return result;
     }
 
@@ -299,7 +299,7 @@ public class TestSuiteMinimizer {
                     lostGoals.size(), coveredGoalsBefore.size(), lostByCriterion, retention,
                     MIN_GOAL_RETENTION_FOR_REPAIR, snapshot.size());
             suite.tests.clear();
-            suite.tests.addAll(deepCloneTests(snapshot));
+            suite.tests.addAll(snapshot);
             // Keep an already-reported timeout/low-memory status: it explains
             // why coverage was lost and is more informative than the rollback
             // itself. The rollback is recorded either way by the log above.
@@ -307,7 +307,7 @@ public class TestSuiteMinimizer {
         }
 
         List<TestChromosome> repairTests = testsCoveringGoals(snapshot, lostGoals);
-        suite.tests.addAll(deepCloneTests(repairTests));
+        suite.tests.addAll(repairTests);
         logger.warn("Minimization lost {} of {} covered goals ({}); repaired by restoring {} "
                         + "pre-minimization test(s) that covered them.",
                 lostGoals.size(), coveredGoalsBefore.size(), lostByCriterion, repairTests.size());
@@ -393,16 +393,6 @@ public class TestSuiteMinimizer {
             clones.add(test.clone());
         }
         return clones;
-    }
-
-    private void publishResult(MinimizationResult result) {
-        ClientServices.track(RuntimeVariable.Minimization_Status, result.getStatus().name());
-        ClientServices.track(RuntimeVariable.Minimization_Stop_Cause, result.getUnderlyingStopCause().name());
-        ClientServices.track(RuntimeVariable.Minimization_Original_Tests, result.getOriginalTests());
-        ClientServices.track(RuntimeVariable.Minimization_Original_Length, result.getOriginalLength());
-        ClientServices.track(RuntimeVariable.Minimization_Final_Tests, result.getFinalTests());
-        ClientServices.track(RuntimeVariable.Minimization_Final_Length, result.getFinalLength());
-        ClientServices.track(RuntimeVariable.Minimization_Elapsed_Millis, result.getElapsedMillis());
     }
 
     private void updateClientStatus(int progress) {

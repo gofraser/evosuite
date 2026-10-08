@@ -74,13 +74,6 @@ public class CastClassManager {
     private final List<GenericClass<?>> poolAdditions = new ArrayList<>();
 
     /**
-     * Bumped every time {@link #putCastClass} adds to the pool. Not read directly for
-     * invalidation -- {@link #putCastClass} clears {@link #assignableClassesCache} itself -- but
-     * kept around as a cheap diagnostic/testing hook for "has the pool changed".
-     */
-    private int poolVersion = 0;
-
-    /**
      * Memoises, per (type variable/wildcard, allowRecursion, owner-variable-map) query, the
      * subset of the cast-class pool that satisfies {@link GenericClass#satisfiesBoundaries}.
      *
@@ -443,7 +436,6 @@ public class CastClassManager {
         failedBoundsKeys.clear();
         poolAdditions.clear();
         assignableClassesCache.clear();
-        poolVersion = 0;
         initDefaultClasses();
     }
 
@@ -913,20 +905,12 @@ public class CastClassManager {
      */
     private List<GenericClass<?>> getAssignableClasses(final WildcardType wildcardType, final boolean allowRecursion,
             final Map<TypeVariable<?>, Type> ownerVariableMap) {
-        AssignableClassesCacheKey key =
-                new AssignableClassesCacheKey(wildcardType, allowRecursion, ownerVariableMap);
-        List<GenericClass<?>> filtered = assignableClassesCache.computeIfAbsent(key, k -> {
-            // Filter, whether a class is assignable.
-            Predicate<GenericClass<?>> keepClass =
-                    gc -> gc.satisfiesBoundaries(wildcardType, ownerVariableMap)
-                            && (allowRecursion || !gc.hasWildcardOrTypeVariables());
-            return prioritization.getElements().stream().filter(keepClass).collect(Collectors.toList());
-        });
-        return prioritization.sorted(filtered);
+        return getAssignableClasses(wildcardType,
+                gc -> gc.satisfiesBoundaries(wildcardType, ownerVariableMap), allowRecursion, ownerVariableMap);
     }
 
     /**
-     * Search for the assignable classes for a wildcard type stored in this manager.
+     * Search for the assignable classes for a type variable stored in this manager.
      * The elements are sorted first by the number of parameters, then by the assigned priority.
      *
      * @param typeVariable     The type variable to be resolved.
@@ -936,12 +920,18 @@ public class CastClassManager {
      */
     private List<GenericClass<?>> getAssignableClasses(final TypeVariable<?> typeVariable,
             final boolean allowRecursion, final Map<TypeVariable<?>, Type> ownerVariableMap) {
+        return getAssignableClasses(typeVariable,
+                gc -> gc.satisfiesBoundaries(typeVariable, ownerVariableMap), allowRecursion, ownerVariableMap);
+    }
+
+    private List<GenericClass<?>> getAssignableClasses(Object queriedType,
+            Predicate<GenericClass<?>> satisfiesBoundaries, boolean allowRecursion,
+            Map<TypeVariable<?>, Type> ownerVariableMap) {
         AssignableClassesCacheKey key =
-                new AssignableClassesCacheKey(typeVariable, allowRecursion, ownerVariableMap);
+                new AssignableClassesCacheKey(queriedType, allowRecursion, ownerVariableMap);
         List<GenericClass<?>> filtered = assignableClassesCache.computeIfAbsent(key, k -> {
-            Predicate<GenericClass<?>> keepClass =
-                    gc -> gc.satisfiesBoundaries(typeVariable, ownerVariableMap)
-                            && (allowRecursion || !gc.hasWildcardOrTypeVariables());
+            Predicate<GenericClass<?>> keepClass = gc -> satisfiesBoundaries.test(gc)
+                    && (allowRecursion || !gc.hasWildcardOrTypeVariables());
             return prioritization.getElements().stream().filter(keepClass).collect(Collectors.toList());
         });
         return prioritization.sorted(filtered);
@@ -979,7 +969,6 @@ public class CastClassManager {
     private void putCastClass(GenericClass<?> clazz, int priority) {
         prioritization.add(clazz, priority);
         poolAdditions.add(clazz);
-        poolVersion++;
         // The pool (or a priority within it) just changed: any cached getAssignableClasses()
         // result may now be missing this class, or missing a class this call gave a new priority,
         // so drop the whole cache rather than track which queries are affected.

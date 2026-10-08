@@ -26,10 +26,12 @@ import org.evosuite.Properties;
  */
 public interface CanonicalAssertionRenderer {
 
-    String render(TemplateAssertionKind kind,
-                  String expected,
-                  String actual,
-                  String delta);
+    default String render(TemplateAssertionKind kind,
+                          String expected,
+                          String actual,
+                          String delta) {
+        return render(kind, expected, actual, delta, false);
+    }
 
     String render(TemplateAssertionKind kind,
                   String expected,

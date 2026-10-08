@@ -201,6 +201,14 @@ public final class ClinitResetSafetyAnalyzer {
      * this class
      */
     public static boolean isUnsafeToReplayClinit(ClassReader reader) {
+        // Field and method declarations decide most classes; only parse code when they pass.
+        ClassNode skeleton = new ClassNode();
+        reader.accept(skeleton, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        if (NEVER_SKIP_EXACT_CLASSES.contains(skeleton.name.replace('/', '.'))
+                || findMethod(skeleton, "<clinit>", null) == null
+                || !hasRegistryFieldSignal(skeleton)) {
+            return false;
+        }
         ClassNode cn = new ClassNode();
         reader.accept(cn, ClassReader.SKIP_FRAMES);
         return isUnsafeToReplayClinit(cn);

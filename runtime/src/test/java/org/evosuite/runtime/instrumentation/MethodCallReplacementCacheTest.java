@@ -63,20 +63,9 @@ public class MethodCallReplacementCacheTest {
 
     @Test
     public void testHeadlessSwingReplacementsAreRegistered() throws Exception {
-        Method jListDrag = javax.swing.JList.class.getMethod("setDragEnabled", boolean.class);
-        String jListKey = jListDrag.getName() + Type.getMethodDescriptor(jListDrag);
 
-        Method jTreeDrag = javax.swing.JTree.class.getMethod("setDragEnabled", boolean.class);
-        String jTreeKey = jTreeDrag.getName() + Type.getMethodDescriptor(jTreeDrag);
 
-        Method jTableDrag = javax.swing.JTable.class.getMethod("setDragEnabled", boolean.class);
-        String jTableKey = jTableDrag.getName() + Type.getMethodDescriptor(jTableDrag);
-        Method jFileChooserDrag = javax.swing.JFileChooser.class.getMethod("setDragEnabled", boolean.class);
-        String jFileChooserKey = jFileChooserDrag.getName() + Type.getMethodDescriptor(jFileChooserDrag);
 
-        Method setDropTarget = javax.swing.JComponent.class.getMethod(
-                "setDropTarget", java.awt.dnd.DropTarget.class);
-        String dropTargetKey = setDropTarget.getName() + Type.getMethodDescriptor(setDropTarget);
         Method comboSetSelectedItem = javax.swing.JComboBox.class.getMethod("setSelectedItem", Object.class);
         String comboSetSelectedItemKey =
                 comboSetSelectedItem.getName() + Type.getMethodDescriptor(comboSetSelectedItem);
@@ -126,60 +115,10 @@ public class MethodCallReplacementCacheTest {
         Method mouseInfoPointer = java.awt.MouseInfo.class.getMethod("getPointerInfo");
         String mouseInfoPointerKey = mouseInfoPointer.getName() + Type.getMethodDescriptor(mouseInfoPointer);
 
-        Method setMixingCutoutShape = java.awt.Component.class.getMethod(
-                "setMixingCutoutShape", java.awt.Shape.class);
-        String mixingCutoutKey = setMixingCutoutShape.getName() + Type.getMethodDescriptor(setMixingCutoutShape);
-        Method setCursor = java.awt.Component.class.getMethod(
-                "setCursor", java.awt.Cursor.class);
-        String setCursorKey = setCursor.getName() + Type.getMethodDescriptor(setCursor);
         Method getScreenSize = java.awt.Toolkit.class.getMethod("getScreenSize");
         String getScreenSizeKey = getScreenSize.getName() + Type.getMethodDescriptor(getScreenSize);
         Method getDefaultToolkit = java.awt.Toolkit.class.getMethod("getDefaultToolkit");
         String getDefaultToolkitKey = getDefaultToolkit.getName() + Type.getMethodDescriptor(getDefaultToolkit);
-        Method containerAddComponent = java.awt.Container.class.getMethod("add", java.awt.Component.class);
-        String containerAddComponentKey =
-                containerAddComponent.getName() + Type.getMethodDescriptor(containerAddComponent);
-        Method containerAddNameComponent =
-                java.awt.Container.class.getMethod("add", String.class, java.awt.Component.class);
-        String containerAddNameComponentKey =
-                containerAddNameComponent.getName() + Type.getMethodDescriptor(containerAddNameComponent);
-        Method containerAddComponentIndex =
-                java.awt.Container.class.getMethod("add", java.awt.Component.class, int.class);
-        String containerAddComponentIndexKey =
-                containerAddComponentIndex.getName() + Type.getMethodDescriptor(containerAddComponentIndex);
-        Method containerAddComponentConstraints =
-                java.awt.Container.class.getMethod("add", java.awt.Component.class, Object.class);
-        String containerAddComponentConstraintsKey =
-                containerAddComponentConstraints.getName() + Type.getMethodDescriptor(containerAddComponentConstraints);
-        Method containerAddComponentConstraintsIndex =
-                java.awt.Container.class.getMethod("add", java.awt.Component.class, Object.class, int.class);
-        String containerAddComponentConstraintsIndexKey = containerAddComponentConstraintsIndex.getName()
-                + Type.getMethodDescriptor(containerAddComponentConstraintsIndex);
-        Method tabbedPaneAddTabTitleComponent =
-                javax.swing.JTabbedPane.class.getMethod("addTab", String.class, java.awt.Component.class);
-        String tabbedPaneAddTabTitleComponentKey =
-                tabbedPaneAddTabTitleComponent.getName() + Type.getMethodDescriptor(tabbedPaneAddTabTitleComponent);
-        Method tabbedPaneAddTabTitleIconComponent =
-                javax.swing.JTabbedPane.class.getMethod(
-                        "addTab", String.class, javax.swing.Icon.class, java.awt.Component.class);
-        String tabbedPaneAddTabTitleIconComponentKey =
-                tabbedPaneAddTabTitleIconComponent.getName()
-                        + Type.getMethodDescriptor(tabbedPaneAddTabTitleIconComponent);
-        Method tabbedPaneAddTabTitleIconComponentTip =
-                javax.swing.JTabbedPane.class.getMethod(
-                        "addTab", String.class, javax.swing.Icon.class, java.awt.Component.class, String.class);
-        String tabbedPaneAddTabTitleIconComponentTipKey =
-                tabbedPaneAddTabTitleIconComponentTip.getName()
-                        + Type.getMethodDescriptor(tabbedPaneAddTabTitleIconComponentTip);
-        Method tabbedPaneInsertTab =
-                javax.swing.JTabbedPane.class.getMethod(
-                        "insertTab",
-                        String.class,
-                        javax.swing.Icon.class,
-                        java.awt.Component.class,
-                        String.class,
-                        int.class);
-        String tabbedPaneInsertTabKey = tabbedPaneInsertTab.getName() + Type.getMethodDescriptor(tabbedPaneInsertTab);
         Method getLocalGraphicsEnvironment = java.awt.GraphicsEnvironment.class.getMethod(
                 "getLocalGraphicsEnvironment");
         String getLocalGraphicsEnvironmentKey =
@@ -236,11 +175,6 @@ public class MethodCallReplacementCacheTest {
         String setCurrentKfmKey = setCurrentKfm.getName() + Type.getMethodDescriptor(setCurrentKfm);
 
         MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
-        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JList", jListKey));
-        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTree", jTreeKey));
-        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTable", jTableKey));
-        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JFileChooser", jFileChooserKey));
-        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComponent", dropTargetKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComboBox", comboSetSelectedItemKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComboBox", comboSetEditableKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComboBox", comboGetEditorKey));
@@ -270,30 +204,8 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Robot", newRobotDeviceKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Robot", robotCreateCaptureKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/MouseInfo", mouseInfoPointerKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", mixingCutoutKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", setCursorKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Toolkit", getScreenSizeKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Toolkit", getDefaultToolkitKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddComponentKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddNameComponentKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddComponentIndexKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddComponentConstraintsKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddComponentConstraintsIndexKey));
-        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTabbedPane", tabbedPaneAddTabTitleComponentKey));
-        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTabbedPane", tabbedPaneAddTabTitleIconComponentKey));
-        Assertions.assertTrue(
-                cache.hasReplacementCall("javax/swing/JTabbedPane", tabbedPaneAddTabTitleIconComponentTipKey));
-        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTabbedPane", tabbedPaneInsertTabKey));
-        MethodCallReplacement containerAddReplacement = cache.getReplacementCall(
-                "java/awt/Container", containerAddComponentKey);
-        int containerAddOrigOpcode = origOpcodeField.getInt(containerAddReplacement);
-        Assertions.assertEquals(Opcodes.INVOKEVIRTUAL, containerAddOrigOpcode,
-                "Fallback opcode for Container#add(Component) must remain INVOKEVIRTUAL");
-        MethodCallReplacement tabbedPaneAddTabReplacement = cache.getReplacementCall(
-                "javax/swing/JTabbedPane", tabbedPaneAddTabTitleComponentKey);
-        int tabbedPaneAddTabOrigOpcode = origOpcodeField.getInt(tabbedPaneAddTabReplacement);
-        Assertions.assertEquals(Opcodes.INVOKEVIRTUAL, tabbedPaneAddTabOrigOpcode,
-                "Fallback opcode for JTabbedPane#addTab(String, Component) must remain INVOKEVIRTUAL");
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/GraphicsEnvironment",
                 getLocalGraphicsEnvironmentKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/security/CodeSource", codeSourceGetLocationKey));

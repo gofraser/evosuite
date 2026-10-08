@@ -47,11 +47,17 @@ public class ComputeClassWriter extends ClassWriter {
      * abandoned. Both the parsed facts and the answers are cached per class loader, keyed
      * weakly so a discarded test-generation context takes its cache with it.
      */
-    private static final Map<ClassLoader, Map<String, TypeFacts>> TYPE_FACTS =
+    private static final Map<ClassLoader, LoaderCache> CACHES =
             Collections.synchronizedMap(new WeakHashMap<>());
 
-    private static final Map<ClassLoader, Map<String, String>> COMMON_SUPERCLASS =
-            Collections.synchronizedMap(new WeakHashMap<>());
+    /** The parsed facts and the common-superclass answers for one class loader. */
+    private static final class LoaderCache {
+        private final Map<String, TypeFacts> facts = Collections.synchronizedMap(new LinkedHashMap<>());
+        private final Map<String, String> answers = Collections.synchronizedMap(new LinkedHashMap<>());
+    }
+
+    /** The context loader's cache, resolved once per {@link #getCommonSuperClass} call. */
+    private LoaderCache cache;
 
     /** Bounds the per-loader answer cache; the fact cache is bounded by the classpath itself. */
     private static final int MAX_CACHED_ANSWERS = 20_000;
@@ -77,7 +83,8 @@ public class ComputeClassWriter extends ClassWriter {
 
     @Override
     protected String getCommonSuperClass(final String type1, final String type2) {
-        Map<String, String> answers = answerCache();
+        cache = CACHES.computeIfAbsent(contextLoader(), cl -> new LoaderCache());
+        Map<String, String> answers = cache.answers;
         String key = type1 + ' ' + type2;
         String cached = answers.get(key);
         if (cached != null) {
@@ -151,11 +158,6 @@ public class ComputeClassWriter extends ClassWriter {
         }
     }
 
-    private Map<String, String> answerCache() {
-        return COMMON_SUPERCLASS.computeIfAbsent(contextLoader(),
-                cl -> Collections.synchronizedMap(new LinkedHashMap<>()));
-    }
-
     private static ClassLoader contextLoader() {
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
         return loader == null ? ComputeClassWriter.class.getClassLoader() : loader;
@@ -163,8 +165,7 @@ public class ComputeClassWriter extends ClassWriter {
 
     /** The cached facts about a type, or {@link #MISSING} when its bytecode cannot be read. */
     private TypeFacts typeFacts(final String type) {
-        Map<String, TypeFacts> facts = TYPE_FACTS.computeIfAbsent(contextLoader(),
-                cl -> Collections.synchronizedMap(new LinkedHashMap<>()));
+        Map<String, TypeFacts> facts = cache.facts;
         TypeFacts known = facts.get(type);
         if (known != null) {
             return known;

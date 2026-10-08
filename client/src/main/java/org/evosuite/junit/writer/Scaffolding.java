@@ -102,6 +102,12 @@ public class Scaffolding {
                 ClassReInitializer.getInstance().getInitializedClasses();
         List<String> classesToInitialize = TestGenerationContext.getInstance()
                 .getClassLoaderForSUT().getViewOfInstrumentedClasses();
+        return new ReplaySnapshot(classesToReset, classesToInitialize,
+                collectMockClassNames(tests), RuntimeRequirements.fromResults(results));
+    }
+
+    /** The distinct names of the classes the functional mocks of {@code tests} mock. */
+    private static List<String> collectMockClassNames(Iterable<TestCase> tests) {
         Set<String> mockClasses = new LinkedHashSet<>();
         for (TestCase test : tests) {
             for (Statement statement : test) {
@@ -112,8 +118,7 @@ public class Scaffolding {
                 }
             }
         }
-        return new ReplaySnapshot(classesToReset, classesToInitialize,
-                new ArrayList<>(mockClasses), RuntimeRequirements.fromResults(results));
+        return new ArrayList<>(mockClasses);
     }
 
     public static final String EXECUTOR_SERVICE = "executor";
@@ -388,23 +393,20 @@ public class Scaffolding {
         bd.append(METHOD_SPACE);
         bd.append("private static void initMocksToAvoidTimeoutsInTheTests() throws ClassNotFoundException { \n");
 
-        Set<String> mockStatements = new LinkedHashSet<>();
+        List<String> mockClasses;
         if (replaySnapshot == null) {
+            List<TestCase> tests = new ArrayList<>(results.size());
             for (ExecutionResult er : results) {
-                for (Statement st : er.test) {
-                    if (st instanceof FunctionalMockStatement) {
-                        FunctionalMockStatement fms = (FunctionalMockStatement) st;
-                        String name = GenericClassFactory.get(fms.getReturnType()).getRawClass().getTypeName();
-                        mockStatements.add("mock(Class.forName(\"" + name + "\", false, "
-                                + testClassName + ".class.getClassLoader()));");
-                    }
-                }
+                tests.add(er.test);
             }
+            mockClasses = collectMockClassNames(tests);
         } else {
-            for (String name : replaySnapshot.mockClasses) {
-                mockStatements.add("mock(Class.forName(\"" + name + "\", false, "
-                        + testClassName + ".class.getClassLoader()));");
-            }
+            mockClasses = replaySnapshot.mockClasses;
+        }
+        Set<String> mockStatements = new LinkedHashSet<>();
+        for (String name : mockClasses) {
+            mockStatements.add("mock(Class.forName(\"" + name + "\", false, "
+                    + testClassName + ".class.getClassLoader()));");
         }
 
         mockStatements.stream()

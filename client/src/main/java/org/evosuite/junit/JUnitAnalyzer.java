@@ -320,7 +320,7 @@ public abstract class JUnitAnalyzer {
                     iter.remove();
                     String code = test.toCode();
                     logger.error("Failed to compile test case:\n" + code);
-                } else if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK) {
+                } else if (checksSuspended()) {
                     return;
                 }
             } finally {
@@ -356,7 +356,7 @@ public abstract class JUnitAnalyzer {
         if (tests == null || tests.isEmpty()) { //nothing to do
             return numUnstable;
         }
-        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK) {
+        if (checksSuspended()) {
             logCompileDependentExecutionSkippedIfNeeded();
             return numUnstable;
         }
@@ -1190,7 +1190,7 @@ public abstract class JUnitAnalyzer {
     }
 
     private static Set<String> executeAndCollectUnexpectedFailures(List<TestCase> tests) {
-        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK) {
+        if (checksSuspended()) {
             logCompileDependentExecutionSkippedIfNeeded();
             return Collections.emptySet();
         }
@@ -1504,6 +1504,11 @@ public abstract class JUnitAnalyzer {
         }
     }
 
+    /** Whether checks are off for the rest of the run: javac infrastructure failed or memory ran out. */
+    private static boolean checksSuspended() {
+        return COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK;
+    }
+
     public static boolean isCompileCheckDisabledDueToInfrastructure() {
         return COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE;
     }
@@ -1635,7 +1640,7 @@ public abstract class JUnitAnalyzer {
     }
 
     private static boolean shouldSkipCompileDependentExecutionAfterCompile() {
-        if (!COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE && !MEMORY_EXHAUSTED_DURING_CHECK) {
+        if (!checksSuspended()) {
             return false;
         }
         logCompileDependentExecutionSkippedIfNeeded();
@@ -1692,8 +1697,8 @@ public abstract class JUnitAnalyzer {
         if (compilerOutput == null || compilerOutput.isEmpty()) {
             return false;
         }
+        // java.lang.OutOfMemoryError is not listed: the caller handles reportsOutOfMemory first.
         return compilerOutput.contains("An exception has occurred in the compiler")
-                || compilerOutput.contains("java.lang.OutOfMemoryError")
                 || compilerOutput.contains("java.lang.StackOverflowError");
     }
 
@@ -2325,7 +2330,7 @@ public abstract class JUnitAnalyzer {
             //nothing to compile or run
             return true;
         }
-        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK) {
+        if (checksSuspended()) {
             logCompileDependentExecutionSkippedIfNeeded();
             return true;
         }

@@ -90,27 +90,6 @@ public abstract class DepVariable {
 	}
 
 
-	public boolean isMethodInput() {
-		if (this.isParameter() &&
-				this.getInstruction().getMethodName()
-						.equals(org.evosuite.testcase.synthesizer.TargetContext.activeMethodSignature()) &&
-				this.getClassName()
-						.equals(org.evosuite.testcase.synthesizer.TargetContext.activeClassName())) {
-			return true;
-		}
-
-		if (this.isStaticField()) {
-			return true;
-		}
-
-		if (this.isInstaceField() && this.getClassName()
-				.equals(org.evosuite.testcase.synthesizer.TargetContext.activeClassName())) {
-			return true;
-		}
-
-		return false;
-	}
-
 	public boolean isConstant() {
 		return this.instruction.isConstant();
 	}
@@ -200,16 +179,6 @@ public abstract class DepVariable {
 		return this.instruction.isArrayLoadInstruction();
 	}
 
-	public boolean hasNoParent() {
-		for (int i = 0; i < this.reverseRelations.length; i++) {
-			if (this.reverseRelations[i] != null) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
 
 	public boolean referenceToThis() {
 		return this.instruction.loadsReferenceToThis();
@@ -253,100 +222,6 @@ public abstract class DepVariable {
 	@Override
 	public int hashCode() {
 		return getInstruction() == null ? 0 : getInstruction().hashCode();
-	}
-
-	public String getUniqueLabel() {
-		StringBuffer buffer = new StringBuffer();
-		buffer.append(getTypeString() + "\n");
-
-		if (this.getType() == DepVariable.INSTANCE_FIELD || this.getType() == DepVariable.STATIC_FIELD) {
-			FieldInsnNode thisField = (FieldInsnNode) (this.getInstruction().getASMNode());
-			buffer.append(thisField.owner + "\n");
-			buffer.append(thisField.desc + "\n");
-			buffer.append(thisField.name + "\n");
-
-		}
-		else if (this.getType() == DepVariable.PARAMETER) {
-			buffer.append(this.getInstruction().getClassName() + "\n");
-			buffer.append(this.getInstruction().getMethodName() + "\n");
-			buffer.append(this.getParamOrder() + "\n");
-		}
-		else if (this.getType() == DepVariable.THIS) {
-			buffer.append(this.getInstruction().getClassName() + "\n");
-		}
-		else if (this.getType() == DepVariable.ARRAY_ELEMENT) {
-			buffer.append(this.getInstruction() + "\n");
-		}
-		else if (this.getType() == DepVariable.OTHER) {
-			buffer.append(this.getInstruction() + "\n");
-		}
-
-		return buffer.toString();
-	}
-
-	public String getShortLabel() {
-		StringBuffer buffer = new StringBuffer();
-		buffer.append(getTypeString() + "\n");
-		String className = this.getInstruction().getClassName();
-		String owner = className.substring(className.lastIndexOf("."), className.length());
-		buffer.append("OWNER: " + owner + "\n");
-
-		if (this.getType() == DepVariable.INSTANCE_FIELD || this.getType() == DepVariable.STATIC_FIELD) {
-			FieldInsnNode thisField = (FieldInsnNode) (this.getInstruction().getASMNode());
-			String desc = thisField.desc;
-			if (thisField.desc.contains(";")) {
-				desc = thisField.desc.substring(thisField.desc.lastIndexOf("/"), thisField.desc.length());
-			}
-			buffer.append("TYPE_f: " + desc + "\n");
-			buffer.append("NAME: " + thisField.name + "\n");
-
-		}
-		else if (this.getType() == DepVariable.PARAMETER) {
-			String shortMethodName = extractShortMethodName(this.getInstruction().getMethodName());
-			buffer.append("METHOD: " + shortMethodName + "\n");
-			buffer.append("ORDER: " + this.getParamOrder() + "\n");
-		}
-		else if (this.getType() == DepVariable.THIS) {
-			// owner already printed above
-		}
-		else if (this.getType() == DepVariable.ARRAY_ELEMENT) {
-			buffer.append(this.getInstruction() + "\n");
-		}
-		else if (this.getType() == DepVariable.OTHER) {
-			if (this.getInstruction().checkInstanceOf()) {
-				// instanceof; nothing extra to print
-			}
-			else if (this.getInstruction().toString().contains("CHECKCAST")
-					&& this.getInstruction().getASMNode() instanceof TypeInsnNode) {
-				TypeInsnNode n = (TypeInsnNode) this.getInstruction().getASMNode();
-				String desc = n.desc;
-				desc = desc.substring(desc.lastIndexOf("/"), desc.length());
-				buffer.append("checkcast " + desc + "\n");
-			}
-			else if (this.getInstruction().isMethodCall()) {
-				String methodName = this.instruction.getCalledMethod();
-				String shortMethodName = extractShortMethodName(methodName);
-				buffer.append("invoke " + shortMethodName + "\n");
-			}
-			else {
-				buffer.append(this.getInstruction() + "\n");
-			}
-		}
-
-		buffer.append("ID: " + this.getInstruction().getInstructionId() + "\n");
-		buffer.append("LINE:" + this.getInstruction().getLineNumber() + "\n");
-
-		return buffer.toString();
-	}
-
-	private String extractShortMethodName(String methodName) {
-		String returnType = methodName.substring(methodName.indexOf(")") + 1, methodName.length());
-		if (returnType.contains("/")) {
-			returnType = returnType.substring(returnType.lastIndexOf("/") + 1, returnType.length());
-		}
-		String name = methodName.substring(0, methodName.indexOf("("));
-		String shortMethodName = name + "()" + returnType;
-		return shortMethodName;
 	}
 
 	@Override
@@ -904,18 +779,6 @@ public abstract class DepVariable {
 	}
 
 
-	public boolean incurZeroInformation() {
-		if (this.isLoadArrayElement() ||
-				this.getInstruction().explain().toLowerCase().contains("load") ||
-				this.getInstruction().explain().toLowerCase().contains("cast") ||
-				this.getInstruction().explain().toLowerCase().contains("store") ||
-				this.getInstruction().explain().toLowerCase().contains("dup")) {
-			return true;
-		}
-
-		return false;
-	}
-
 
 	public boolean isPrimitive() {
 		String type = inferType(this.getInstruction().getInstructionType());
@@ -943,58 +806,6 @@ public abstract class DepVariable {
 	}
 
 
-	public boolean isCompare() {
-		switch (this.instruction.getASMNode().getOpcode()) {
-		case Opcodes.IF_ACMPEQ:
-		case Opcodes.IF_ACMPNE:
-		case Opcodes.IF_ICMPEQ:
-		case Opcodes.IF_ICMPGE:
-		case Opcodes.IF_ICMPGT:
-		case Opcodes.IF_ICMPLE:
-		case Opcodes.IF_ICMPLT:
-		case Opcodes.IF_ICMPNE:
-		case Opcodes.LCMP:
-		case Opcodes.FCMPL:
-		case Opcodes.FCMPG:
-		case Opcodes.DCMPL:
-		case Opcodes.DCMPG:
-			return true;
-		}
-		return false;
-	}
-
-	public List<DepVariable> getAllChildrenNodesIncludingItself() {
-
-		List<DepVariable> primitiveSet = new ArrayList<>();
-		List<DepVariable> allSet = new ArrayList<>();
-
-		primitiveSet.add(this);
-		collectChildren(this, primitiveSet, allSet);
-
-		return primitiveSet;
-	}
-
-
-	private void collectChildren(DepVariable depVariable,
-			List<DepVariable> primitiveSet, List<DepVariable> allSet) {
-
-		for (List<DepVariable> children : depVariable.getRelations()) {
-			if (children == null) continue;
-
-			for (DepVariable child : children) {
-				if (!allSet.contains(child)) {
-					allSet.add(child);
-					if (child.isPrimitive()) {
-						primitiveSet.add(child);
-					}
-					else {
-						collectChildren(child, primitiveSet, allSet);
-					}
-				}
-			}
-		}
-
-	}
 
 	public void printConstructionError(TestCase test, Branch b) {
 		logger.error("exception happens when processing branch " + b);

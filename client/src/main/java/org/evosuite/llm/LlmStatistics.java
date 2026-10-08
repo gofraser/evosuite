@@ -20,6 +20,7 @@
 package org.evosuite.llm;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.postprocess.LlmPostProcessor;
 import org.evosuite.llm.search.DiagnosticCardSelector;
 import org.evosuite.llm.search.ExtractorCandidateMetric;
 import org.evosuite.llm.search.ExtractorRejectReason;
@@ -580,22 +581,12 @@ public class LlmStatistics {
                 .recordRetryAttempt(latencyMs);
     }
 
-    /** Records a failed LLM call for the given feature. */
-    public void recordFailure(LlmFeature feature) {
-        recordFailure(feature, 0L);
-    }
-
     /** Records a final failed provider attempt, including its elapsed time. */
     public void recordFailure(LlmFeature feature, long latencyMs) {
         totalCalls.incrementAndGet();
         failedCalls.incrementAndGet();
         totalLatencyMs.addAndGet(Math.max(0L, latencyMs));
         perFeature.computeIfAbsent(feature, ignored -> new FeatureStats()).recordFailure(latencyMs);
-    }
-
-    /** Records an LLM call timeout for the given feature. */
-    public void recordTimeout(LlmFeature feature) {
-        recordTimeout(feature, 0L);
     }
 
     /** Records a final timed-out provider attempt, including its elapsed time. */
@@ -756,52 +747,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Parsed_Timeline, "");
         ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Unique_Timeline, "");
         ClientServices.track(RuntimeVariable.LLM_Iterative_Target_Goals_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Skip_Reason, "");
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Minimization_Status, "");
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Minimization_Stop_Cause, "");
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Requested_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Requested_Statements, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Initial_Calls, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Repair_Calls, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Repair_Calls_Skipped_Budget, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Accepted_Responses, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Skipped_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Cap_Skipped_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Infrastructure_Failures, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Edits, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Unknown_Ids, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Duplicates, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Invalid_Fields, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Unsupported_Kinds, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Limit_Exceeded, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Compile, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Observed_Execution, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Stability_Execution, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_Infrastructure, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_No_Accepted, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_All, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_Mutation, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Fallback_Assertions_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Processed_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Partially_Processed_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Test_Names_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Test_Names_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Variable_Names_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Variable_Names_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Comments_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Comments_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_Initial, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Repair_Requested, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed_After_Repair, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped, 0);
+        LlmPostProcessor.initializeRuntimeVariables();
         ClientServices.track(RuntimeVariable.LLM_StagnationCalls, 0);
         ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls, 0);
         ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Cards_Used, 0);

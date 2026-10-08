@@ -1283,17 +1283,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
     }
 
     /**
-     * Near-duplicate name of {@link #getSourceOfStackInstructionList(int)} present in the
-     * reference implementation; kept as an alias so ported call sites resolve.
-     *
-     * @param positionFromTop position from the top of the operand stack (0 = topmost)
-     * @return the producing instructions, or null if the stack position is invalid
-     */
-    public List<BytecodeInstruction> getSourceListOfStackInstruction(int positionFromTop) {
-        return getSourceOfStackInstructionList(positionFromTop);
-    }
-
-    /**
      * All producing instructions of all operands this instruction pops from the stack, i.e.
      * for each of the {@link #getOperandNum()} operand slots, the instructions referenced by
      * that slot's {@link SourceValue}. Empty when no frame is set.
@@ -1344,17 +1333,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
             return null;
         }
         return graph.getInstruction(this.instructionId - 1);
-    }
-
-    /**
-     * The neighbouring instruction with the following instructionId in this method's
-     * {@link ActualControlFlowGraph}, or null at the method boundary.
-     *
-     * @return the next instruction, or null
-     */
-    public BytecodeInstruction getNextInstruction() {
-        ActualControlFlowGraph graph = this.getActualCFG();
-        return graph.getInstruction(this.instructionId + 1);
     }
 
     /**

@@ -26,7 +26,6 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.EvosuiteError;
-import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.UncompilableCodeException;
 import org.evosuite.testcase.variable.VariableReference;
@@ -285,17 +284,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * Message carried by the {@link TooManyResourcesException} that the allocation guards below
-     * raise. Refusing a call because its arguments would allocate an absurd amount of memory is
-     * a resource decision of ours, not the execution watchdog firing, so it must not be reported
-     * as {@code TestCaseExecutor.TimeoutExceeded}: that inflates the timeout statistics, trips
-     * the "disable functional mocking after N consecutive timeouts" heuristic, and makes the
-     * JUnit re-check drop the test as unstable.
-     */
-    private static final String ALLOCATION_REJECTED =
-            "EvoSuite refused this call: its arguments would allocate an excessive amount of memory";
-
-    /**
      * Sanity check for constructors of allocation-sensitive classes: rejects
      * individual int args ≥ ABSURD_INT_THRESHOLD, and rejects when the product
      * of all positive int args exceeds the threshold. Only applies to classes
@@ -318,8 +306,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                 if (val >= ABSURD_INT_THRESHOLD || val <= -ABSURD_INT_THRESHOLD) {
                     logger.info("Rejecting constructor {} with absurd int arg {} = {}",
                             constructor.getDeclaringClass().getName(), i, val);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
                 if (val > 0) {
                     product *= val;
@@ -330,8 +317,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         if (hasPositiveInt && product > ABSURD_INT_THRESHOLD) {
             logger.info("Rejecting constructor {}: product of int args = {} exceeds {}",
                     constructor.getDeclaringClass().getName(), product, ABSURD_INT_THRESHOLD);
-            throw new CodeUnderTestException(
-                    new TooManyResourcesException(ALLOCATION_REJECTED));
+            throw allocationRejected();
         }
     }
 
@@ -365,8 +351,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                     logger.info("Rejecting allocation-sensitive constructor {}: "
                             + "int arg {} = {} exceeds limit {}",
                             constructor.getDeclaringClass().getName(), i, val, limit);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
                 if (val > 0) {
                     factor = val;
@@ -429,7 +414,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
             throws CodeUnderTestException {
         logger.info("Rejecting allocation-sensitive constructor {}: {} = {} exceeds limit {}",
                 constructor.getDeclaringClass().getName(), reason, value, limit);
-        throw new CodeUnderTestException(new TooManyResourcesException(ALLOCATION_REJECTED));
+        throw allocationRejected();
     }
 
     /**
@@ -462,16 +447,14 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                 if (len > byteLimit) {
                     logger.info("Rejecting allocation-sensitive constructor {}: byte[] arg {} "
                             + "length {} exceeds limit {}", className, i, len, byteLimit);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
             } else if (stringLimit > 0 && arg instanceof String) {
                 int len = ((String) arg).length();
                 if (len > stringLimit) {
                     logger.info("Rejecting allocation-sensitive constructor {}: String arg {} "
                             + "length {} exceeds limit {}", className, i, len, stringLimit);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
             } else if (byteLimit > 0 && arg instanceof java.io.InputStream) {
                 // Best-effort: only inspect streams that cheaply report their length.
@@ -483,8 +466,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                         logger.info("Rejecting allocation-sensitive constructor {}: InputStream "
                                 + "arg {} available {} exceeds byte limit {}",
                                 className, i, available, byteLimit);
-                        throw new CodeUnderTestException(
-                                new TooManyResourcesException(ALLOCATION_REJECTED));
+                        throw allocationRejected();
                     }
                 } catch (java.io.IOException ignored) {
                     // can't bound it — let the constructor try
@@ -507,8 +489,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                 if (val > threshold) {
                     logger.info("Rejecting constructor {}: int arg {} = {} exceeds learned threshold {}",
                             className, i, val, threshold);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
             }
         }

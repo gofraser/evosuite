@@ -514,11 +514,7 @@ public class TestFactory {
         }
         NullStatement nullStat = (NullStatement) statement;
         Type type = nullStat.getReturnType();
-        Set<Statement> originalStatements =
-                Collections.newSetFromMap(new IdentityHashMap<>());
-        for (Statement existing : test) {
-            originalStatements.add(existing);
-        }
+        StatementInserter inserter = new StatementInserter(test, nullStat.getPosition());
 
         try {
             VariableReference obj = null;
@@ -532,6 +528,16 @@ public class TestFactory {
                 try {
                     Class<?> clazz = Class.forName(className, false,
                             TestGenerationContext.getInstance().getClassLoaderForSUT());
+                    // Honor the global mock policy (MOCK_IF_NO_GENERATOR / P_FUNCTIONAL_MOCKING)
+                    // for the fallbacks below, so mocks appear only when actually allowed.
+                    VariableResolutionConfig config = new VariableResolutionConfig.Builder()
+                            .withAllowNull(false)
+                            .withCanUseMocks(true)
+                            .withCanReuseExistingVariables(false)
+                            .withPreferConcreteGenerators(TestGenerationContext.getInstance()
+                                    .getObjectRuleRuntime().isEntryConstruction()
+                                    && isPreferredConcreteFactoryType(clazz))
+                            .build();
                     if (clazz.isInterface()) {
                         InheritanceTree inheritanceTree = DependencyAnalysis.getInheritanceTree();
                         Set<String> subclasses = inheritanceTree.getSubclasses(className);
@@ -549,24 +555,8 @@ public class TestFactory {
                             }
                         }
                         if (obj == null) {
-                            // Honor MOCK_IF_NO_GENERATOR / P_FUNCTIONAL_MOCKING: with no reachable
-
-                            // implementation, let the resolver mock the interface itself, subject
-                            // to
-                            // the global mocking policy (so mocks appear only when actually
-                            // allowed).
-                            VariableResolutionConfig config =
-                                    new VariableResolutionConfig.Builder()
-                                            .withAllowNull(false)
-                                            .withCanUseMocks(true)
-                                            .withCanReuseExistingVariables(false)
-                                            .withPreferConcreteGenerators(
-                                                    TestGenerationContext.getInstance()
-                                                                    .getObjectRuleRuntime()
-                                                                    .isEntryConstruction()
-                                                            && isPreferredConcreteFactoryType(
-                                                                    clazz))
-                                            .build();
+                            // With no reachable implementation, let the resolver mock the
+                            // interface itself, subject to the global mocking policy.
                             obj = createObject(test, type, nullStat.getPosition(),
                                     GenerationContext.fromDepth(0), config);
                         }
@@ -577,20 +567,7 @@ public class TestFactory {
                             ss.randomize();
                             obj = test.addStatement(ss, nullStat.getPosition());
                         } else {
-                            // Honor the global mock policy for concrete no-generator types too, so
-                            // MOCK_IF_NO_GENERATOR applies here as it does elsewhere in generation.
-                            VariableResolutionConfig config =
-                                    new VariableResolutionConfig.Builder()
-                                            .withAllowNull(false)
-                                            .withCanUseMocks(true)
-                                            .withCanReuseExistingVariables(false)
-                                            .withPreferConcreteGenerators(
-                                                    TestGenerationContext.getInstance()
-                                                                    .getObjectRuleRuntime()
-                                                                    .isEntryConstruction()
-                                                            && isPreferredConcreteFactoryType(
-                                                                    clazz))
-                                            .build();
+                            // Concrete no-generator types follow the same mock policy.
                             obj = createObject(test, type, nullStat.getPosition(),
                                     GenerationContext.fromDepth(0), config);
                         }
@@ -605,7 +582,7 @@ public class TestFactory {
                 test.replace(ref, obj);
                 test.remove(nullStat.getPosition());
             } else {
-                rollbackInsertedStatements(test, originalStatements);
+                inserter.rollback();
                 return false;
             }
         } catch (ConstructionFailedException | RuntimeException | AssertionError e) {
@@ -616,20 +593,11 @@ public class TestFactory {
              * only statements introduced by this attempt; the original statement identities and
              * their references remain untouched because replacement happens only after success.
              */
-            rollbackInsertedStatements(test, originalStatements);
+            inserter.rollback();
             return false;
         }
 
         return true;
-    }
-
-    private static void rollbackInsertedStatements(
-            TestCase test, Set<Statement> originalStatements) {
-        for (int i = test.size() - 1; i >= 0; i--) {
-            if (!originalStatements.contains(test.getStatement(i))) {
-                test.remove(i);
-            }
-        }
     }
 
     private boolean checkRealArray(String typeName) {
@@ -2017,6 +1985,9 @@ public class TestFactory {
             int position,
             Type expectedType,
             VariableReference actualVar) {
+        if (!logger.isDebugEnabled()) {
+            return;
+        }
         if (actualVar != null && isClassLiteralAssignableByErasure(expectedType, actualVar.getType())) {
             return;
         }

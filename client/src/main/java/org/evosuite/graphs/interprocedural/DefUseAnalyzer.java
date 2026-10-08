@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -61,12 +62,16 @@ public class DefUseAnalyzer {
 	// Sentinels so a "not found" result is cached too, instead of re-parsing/re-walking on every
 	// repeated miss (which is exactly the pattern that made the uncached lookup so expensive).
 	private static final ClassNode MISSING_CLASS_NODE = new ClassNode();
+	/** Per raw CFG index for {@link #convert2BytecodeInstruction}; cleared with the caches above. */
+	private static final Map<RawControlFlowGraph, AsmNodeIndex> ASM_NODE_INDEX =
+			java.util.Collections.synchronizedMap(new IdentityHashMap<>());
 	private static final MethodNode MISSING_METHOD_NODE = new MethodNode();
 
 	public static void resetSingleton() {
 		analizedList.clear();
 		CLASS_NODE_CACHE.clear();
 		METHOD_NODE_CACHE.clear();
+		ASM_NODE_INDEX.clear();
 	}
 
 	/**
@@ -148,15 +153,40 @@ public class DefUseAnalyzer {
 		RawControlFlowGraph rawCfg = GraphPool.getInstance(classLoader)
 				.getRawCFG(cfg.getClassName(), cfg.getMethodName());
 		if (rawCfg != null) {
-			for (BytecodeInstruction candidate : rawCfg.vertexSet()) {
-				if (candidate.getASMNode() == ins) {
-					return candidate;
-				}
+			BytecodeInstruction candidate = asmNodeIndex(rawCfg).get(ins);
+			if (candidate != null) {
+				return candidate;
 			}
 		}
 
 		int instructionIndex = node == null ? -1 : node.instructions.indexOf(ins);
 		return instructionIndex < 0 ? null : cfg.getInstruction(instructionIndex);
+	}
+
+	/**
+	 * Maps each ASM node of {@code rawCfg} to its first vertex, so the slicer resolves a stack
+	 * source without scanning the whole graph. Rebuilt if the graph's vertex count has changed.
+	 */
+	private static Map<AbstractInsnNode, BytecodeInstruction> asmNodeIndex(RawControlFlowGraph rawCfg) {
+		Set<BytecodeInstruction> vertices = rawCfg.vertexSet();
+		AsmNodeIndex index = ASM_NODE_INDEX.get(rawCfg);
+		if (index == null || index.vertexCount != vertices.size()) {
+			index = new AsmNodeIndex(vertices);
+			ASM_NODE_INDEX.put(rawCfg, index);
+		}
+		return index.byNode;
+	}
+
+	private static final class AsmNodeIndex {
+		final int vertexCount;
+		final Map<AbstractInsnNode, BytecodeInstruction> byNode = new IdentityHashMap<>();
+
+		AsmNodeIndex(Set<BytecodeInstruction> vertices) {
+			vertexCount = vertices.size();
+			for (BytecodeInstruction vertex : vertices) {
+				byNode.putIfAbsent(vertex.getASMNode(), vertex);
+			}
+		}
 	}
 
 	public static MethodNode getMethodNode(InstrumentingClassLoader classLoader, String className, String methodName) {
@@ -273,18 +303,6 @@ public class DefUseAnalyzer {
 			}
 		}
 		analizedList.add(methodId);
-	}
-
-	@SuppressWarnings("unused")
-	private int getNextLocalVariable(MethodNode mn) {
-		int var = 1;
-		List<LocalVariableNode> nodes = mn.localVariables;
-		for (LocalVariableNode varNode : nodes) {
-			if (varNode.index >= var) {
-				var = varNode.index + 1;
-			}
-		}
-		return var;
 	}
 
 }

@@ -23,7 +23,6 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.testcase.TestCase;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -88,14 +87,6 @@ public class TemplateCache {
         if (uncoveredBranches == null) {
             return;
         }
-        Set<Branch> keep = new HashSet<>(uncoveredBranches);
-        Iterator<Map.Entry<Branch, TestCase>> it = bestTemplate.entrySet().iterator();
-        while (it.hasNext()) {
-            Branch branch = it.next().getKey();
-            if (!keep.contains(branch)) {
-                it.remove();
-
-            }
-        }
+        bestTemplate.keySet().retainAll(new HashSet<>(uncoveredBranches));
     }
 }

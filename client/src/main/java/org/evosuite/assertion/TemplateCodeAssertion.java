@@ -51,6 +51,8 @@ public class TemplateCodeAssertion extends Assertion {
 
     private static final long serialVersionUID = 1L;
 
+    private static final Pattern EXCEPTION_ID = Pattern.compile("\\be0\\b");
+
     public enum Placement {
         END_OF_TEST,
         BEFORE_TRY,
@@ -66,6 +68,9 @@ public class TemplateCodeAssertion extends Assertion {
     private final Map<String, Integer> bindings;
     private final String purpose;
     private final Placement placement;
+    /** Cached {@link #operandShape(String)} of the expected and actual expressions. */
+    private transient Object expectedShape;
+    private transient Object actualShape;
 
     public TemplateCodeAssertion(String assertionId,
                                  Enum<?> kind,
@@ -134,7 +139,7 @@ public class TemplateCodeAssertion extends Assertion {
         String delta = resolveExceptionId(resolveExpression(deltaExpression, visitor), catchVariableName);
         boolean arrayEquality = kind == TemplateAssertionKind.EQUALS
                 && delta == null
-                && (isArrayOperand(expectedExpression) || isArrayOperand(actualExpression));
+                && (isArrayOperand(expectedShape()) || isArrayOperand(actualShape()));
         return CanonicalAssertionRenderer.forConfiguredFormat().render(kind, expected, actual, delta, arrayEquality);
     }
 
@@ -258,30 +263,56 @@ public class TemplateCodeAssertion extends Assertion {
         if (expression == null || catchVariableName == null) {
             return expression;
         }
-        return expression.replaceAll("\\be0\\b", Matcher.quoteReplacement(catchVariableName));
+        return EXCEPTION_ID.matcher(expression).replaceAll(Matcher.quoteReplacement(catchVariableName));
     }
 
-    private boolean isArrayOperand(String expression) {
-        if (expression == null || expression.trim().isEmpty()) {
-            return false;
+    private boolean isArrayOperand(Object shape) {
+        if (shape instanceof Boolean) {
+            return (Boolean) shape;
+        }
+        Integer position = bindings.get((String) shape);
+        if (position != null && statement != null && statement.getTestCase() != null
+                && position >= 0 && position < statement.getTestCase().size()) {
+            VariableReference variable = statement.getTestCase().getStatement(position).getReturnValue();
+            return variable != null && variable.getVariableClass().isArray();
+        }
+        return false;
+    }
+
+    private Object expectedShape() {
+        if (expectedShape == null) {
+            expectedShape = operandShape(expectedExpression);
+        }
+        return expectedShape;
+    }
+
+    private Object actualShape() {
+        if (actualShape == null) {
+            actualShape = operandShape(actualExpression);
+        }
+        return actualShape;
+    }
+
+    /**
+     * What parsing an operand tells about array equality, independent of the test it is bound
+     * to: {@code Boolean} when that settles it, or the name a bare variable operand refers to.
+     */
+    private static Object operandShape(String expression) {
+        if (expression == null || expression.isEmpty()) {
+            return Boolean.FALSE;
         }
         try {
             Expression parsed = StaticJavaParser.parseExpression(expression);
             if (parsed instanceof ArrayCreationExpr) {
-                return true;
+                return Boolean.TRUE;
             }
             if (parsed instanceof NameExpr) {
-                Integer position = bindings.get(((NameExpr) parsed).getNameAsString());
-                if (position != null && statement != null && statement.getTestCase() != null
-                        && position >= 0 && position < statement.getTestCase().size()) {
-                    VariableReference variable = statement.getTestCase().getStatement(position).getReturnValue();
-                    return variable != null && variable.getVariableClass().isArray();
-                }
+                return ((NameExpr) parsed).getNameAsString();
             }
+            return Boolean.FALSE;
         } catch (RuntimeException ignored) {
             return expression.trim().startsWith("new ") && expression.contains("[]");
         }
-        return false;
     }
 
     private Map<String, VariableReference> resolveBindings(TestCase testCase) {

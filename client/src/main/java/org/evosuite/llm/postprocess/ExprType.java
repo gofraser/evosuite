@@ -79,6 +79,16 @@ final class ExprType {
         return reference(canonicalName(trimmed));
     }
 
+    /** Canonical name of a type with any generic arguments dropped, or null for null. */
+    static String canonicalRawName(String typeName) {
+        if (typeName == null) {
+            return null;
+        }
+        String trimmed = typeName.trim();
+        int genericStart = trimmed.indexOf('<');
+        return canonicalName(genericStart < 0 ? trimmed : trimmed.substring(0, genericStart));
+    }
+
     static String canonicalName(String typeName) {
         if (typeName == null) {
             return "";

@@ -12,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.IntUnaryOperator;
 
 /** Source-neutral presentation edits attached to one test case. */
 public final class TestPresentationMetadata implements Serializable {
@@ -82,37 +83,7 @@ public final class TestPresentationMetadata implements Serializable {
      * the in-place equivalent for a single statement removal.
      */
     public void removePosition(int position) {
-        Map<Integer, String> shiftedVariableNames = new LinkedHashMap<>();
-        for (Map.Entry<Integer, String> entry : variableNames.entrySet()) {
-            int key = entry.getKey();
-            if (key == position) {
-                continue;
-            }
-            shiftedVariableNames.put(key > position ? key - 1 : key, entry.getValue());
-        }
-        variableNames.clear();
-        variableNames.putAll(shiftedVariableNames);
-
-        Map<Integer, List<String>> shiftedCommentsAfter = new LinkedHashMap<>();
-        for (Map.Entry<Integer, List<String>> entry : commentsAfter.entrySet()) {
-            int key = entry.getKey();
-            if (key == position) {
-                continue;
-            }
-            shiftedCommentsAfter.put(key > position ? key - 1 : key, entry.getValue());
-        }
-        commentsAfter.clear();
-        commentsAfter.putAll(shiftedCommentsAfter);
-
-        Set<Integer> shiftedSectionBreaksAfter = new LinkedHashSet<>();
-        for (Integer key : sectionBreaksAfter) {
-            if (key == position) {
-                continue;
-            }
-            shiftedSectionBreaksAfter.add(key > position ? key - 1 : key);
-        }
-        sectionBreaksAfter.clear();
-        sectionBreaksAfter.addAll(shiftedSectionBreaksAfter);
+        remap(key -> key == position ? -1 : (key > position ? key - 1 : key));
     }
 
     /**
@@ -121,28 +92,34 @@ public final class TestPresentationMetadata implements Serializable {
      * three collections. The inverse of {@link #removePosition(int)}.
      */
     public void insertPosition(int position) {
-        Map<Integer, String> shiftedVariableNames = new LinkedHashMap<>();
-        for (Map.Entry<Integer, String> entry : variableNames.entrySet()) {
-            int key = entry.getKey();
-            shiftedVariableNames.put(key >= position ? key + 1 : key, entry.getValue());
-        }
-        variableNames.clear();
-        variableNames.putAll(shiftedVariableNames);
+        remap(key -> key >= position ? key + 1 : key);
+    }
 
-        Map<Integer, List<String>> shiftedCommentsAfter = new LinkedHashMap<>();
-        for (Map.Entry<Integer, List<String>> entry : commentsAfter.entrySet()) {
-            int key = entry.getKey();
-            shiftedCommentsAfter.put(key >= position ? key + 1 : key, entry.getValue());
-        }
-        commentsAfter.clear();
-        commentsAfter.putAll(shiftedCommentsAfter);
-
+    /** Moves every entry of all three collections to {@code newKey(key)}, dropping it on -1. */
+    private void remap(IntUnaryOperator newKey) {
+        remap(variableNames, newKey);
+        remap(commentsAfter, newKey);
         Set<Integer> shiftedSectionBreaksAfter = new LinkedHashSet<>();
         for (Integer key : sectionBreaksAfter) {
-            shiftedSectionBreaksAfter.add(key >= position ? key + 1 : key);
+            int shifted = newKey.applyAsInt(key);
+            if (shifted >= 0) {
+                shiftedSectionBreaksAfter.add(shifted);
+            }
         }
         sectionBreaksAfter.clear();
         sectionBreaksAfter.addAll(shiftedSectionBreaksAfter);
+    }
+
+    private static <V> void remap(Map<Integer, V> map, IntUnaryOperator newKey) {
+        Map<Integer, V> shifted = new LinkedHashMap<>();
+        for (Map.Entry<Integer, V> entry : map.entrySet()) {
+            int key = newKey.applyAsInt(entry.getKey());
+            if (key >= 0) {
+                shifted.put(key, entry.getValue());
+            }
+        }
+        map.clear();
+        map.putAll(shifted);
     }
 
     /**

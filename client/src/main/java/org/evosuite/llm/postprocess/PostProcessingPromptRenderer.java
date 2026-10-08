@@ -164,7 +164,7 @@ final class PostProcessingPromptRenderer {
             }
             line.append('\n');
             if (maxChars > 0 && builder.length() + line.length() > maxChars) {
-                String truncationLine = "truncated=true\n";
+                String truncationLine = LlmPostProcessingProtocol.OBSERVATIONS_TRUNCATED_MARKER + "\n";
                 if (builder.length() + truncationLine.length() <= maxChars) {
                     builder.append(truncationLine);
                 }
@@ -259,7 +259,7 @@ final class PostProcessingPromptRenderer {
             builder.append(line);
         }
         if (truncatedTypes > 0) {
-            appendCapped(builder, "truncatedCallableTypes=" + truncatedTypes + "\n", maxChars);
+            appendCapped(builder, LlmPostProcessingProtocol.CALLABLE_TYPES_TRUNCATED_MARKER + truncatedTypes + "\n", maxChars);
         }
         return builder.length() == 0 ? "none\n" : builder.toString();
     }
@@ -293,7 +293,7 @@ final class PostProcessingPromptRenderer {
     }
 
     private static void appendCandidateTruncation(StringBuilder builder, int truncatedCount, int maxChars) {
-        String truncationLine = "truncatedCandidates=" + Math.max(0, truncatedCount) + "\n";
+        String truncationLine = LlmPostProcessingProtocol.CANDIDATES_TRUNCATED_MARKER + Math.max(0, truncatedCount) + "\n";
         if (maxChars <= 0 || builder.length() + truncationLine.length() <= maxChars) {
             builder.append(truncationLine);
         }

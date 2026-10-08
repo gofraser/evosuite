@@ -448,22 +448,38 @@ public class InstrumentingClassLoader extends ClassLoader {
      * the classpath string so a change still takes effect, and remember the answers.
      */
     private volatile String cachedClasspath;
-    private volatile List<File> cachedClasspathEntries = Collections.emptyList();
+    private volatile List<ClasspathEntry> cachedClasspathEntries = Collections.emptyList();
     private final Map<String, List<URL>> firstResourceCache = new ConcurrentHashMap<>();
 
-    private List<File> targetClasspathEntries(String targetClasspath) {
-        List<File> entries = cachedClasspathEntries;
+    /** A classpath entry that can hold resources: a directory, or a jar/war archive. */
+    private static final class ClasspathEntry {
+        final File file;
+        final boolean directory;
+
+        ClasspathEntry(File file, boolean directory) {
+            this.file = file;
+            this.directory = directory;
+        }
+    }
+
+    private List<ClasspathEntry> targetClasspathEntries(String targetClasspath) {
+        List<ClasspathEntry> entries = cachedClasspathEntries;
         if (targetClasspath.equals(cachedClasspath)) {
             return entries;
         }
-        List<File> fresh = new ArrayList<>();
+        List<ClasspathEntry> fresh = new ArrayList<>();
         for (String entry : targetClasspath.split(File.pathSeparator)) {
             if (entry == null || entry.isEmpty()) {
                 continue;
             }
             File cpEntry = new File(entry);
-            if (cpEntry.exists()) {
-                fresh.add(cpEntry);
+            if (cpEntry.isDirectory()) {
+                fresh.add(new ClasspathEntry(cpEntry, true));
+            } else if (cpEntry.exists()) {
+                String lower = cpEntry.getName().toLowerCase(Locale.ROOT);
+                if (lower.endsWith(".jar") || lower.endsWith(".war")) {
+                    fresh.add(new ClasspathEntry(cpEntry, false));
+                }
             }
         }
         cachedClasspathEntries = fresh;
@@ -484,7 +500,7 @@ public class InstrumentingClassLoader extends ClassLoader {
             return Collections.emptyList();
         }
 
-        List<File> entries = targetClasspathEntries(targetClasspath);
+        List<ClasspathEntry> entries = targetClasspathEntries(targetClasspath);
         if (firstMatchOnly) {
             List<URL> cached = firstResourceCache.get(name);
             if (cached != null) {
@@ -493,8 +509,9 @@ public class InstrumentingClassLoader extends ClassLoader {
         }
 
         LinkedHashSet<URL> resources = new LinkedHashSet<>();
-        for (File cpEntry : entries) {
-            if (cpEntry.isDirectory()) {
+        for (ClasspathEntry entry : entries) {
+            File cpEntry = entry.file;
+            if (entry.directory) {
                 File resourceFile = new File(cpEntry, name);
                 if (resourceFile.isFile()) {
                     try {
@@ -503,24 +520,15 @@ public class InstrumentingClassLoader extends ClassLoader {
                         // Best-effort fallback.
                     }
                 }
-                if (firstMatchOnly && !resources.isEmpty()) {
-                    break;
+            } else if (entryNamesOf(cpEntry).contains(name)) {
+                try {
+                    resources.add(new URL("jar:" + cpEntry.toURI().toURL() + "!/" + name));
+                } catch (Exception ignored) {
+                    // Best-effort fallback.
                 }
-                continue;
             }
-
-            String lower = cpEntry.getName().toLowerCase(Locale.ROOT);
-            if (lower.endsWith(".jar") || lower.endsWith(".war")) {
-                if (entryNamesOf(cpEntry).contains(name)) {
-                    try {
-                        resources.add(new URL("jar:" + cpEntry.toURI().toURL() + "!/" + name));
-                    } catch (Exception ignored) {
-                        // Best-effort fallback.
-                    }
-                }
-                if (firstMatchOnly && !resources.isEmpty()) {
-                    break;
-                }
+            if (firstMatchOnly && !resources.isEmpty()) {
+                break;
             }
         }
         List<URL> result = new ArrayList<>(resources);

@@ -1,5 +1,6 @@
 package org.evosuite.testcase.synthesizer.var;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.ga.ConstructionFailedException;
@@ -53,9 +54,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 public class VariableCodeGenerationUtil {
-
-    //    private static final Logger logger =
-    // LoggerFactory.getLogger(VariableCodeGenerationUtil.class);
 
     public static Class<?> getClassForType(org.objectweb.asm.Type type) {
         if (type == org.objectweb.asm.Type.BOOLEAN_TYPE) {
@@ -145,42 +143,6 @@ public class VariableCodeGenerationUtil {
         }
     }
 
-    public static Type convertToType(String desc) {
-        switch (desc) {
-            case "Z":
-                return Boolean.TYPE;
-            case "B":
-                return Byte.TYPE;
-            case "C":
-                return Character.TYPE;
-            case "S":
-                return Short.TYPE;
-            case "I":
-                return Integer.TYPE;
-            case "J":
-                return Long.TYPE;
-            case "F":
-                return Float.TYPE;
-            case "D":
-                return Double.TYPE;
-            default:
-                Class<?> clazz;
-                String str = desc.substring(1, desc.length() - 1);
-                String className = str.replace("/", ".");
-                try {
-                    clazz =
-                            Class.forName(
-                                    className,
-                                    true,
-                                    TestGenerationContext.getInstance().getClassLoaderForSUT());
-                } catch (ClassNotFoundException e) {
-                    clazz = null;
-                    e.printStackTrace();
-                }
-                return clazz;
-        }
-    }
-
     /**
      * Generates a getter invocation for a non-leaf target node.
      *
@@ -238,12 +200,6 @@ public class VariableCodeGenerationUtil {
                             ConstructorStatement cStat = (ConstructorStatement) s;
                             VariableReference relevantParam = null;
 
-                            //                            if(cStat.getParameterReferences().size()
-                            // == 1) {
-                            //                                relevantParam =
-                            // cStat.getParameterReferences().get(0);
-                            //                            }
-
                             for (VariableReference vRef : cStat.getParameterReferences()) {
                                 if (vRef.getType().equals(field.getGenericType())) {
                                     relevantParam = vRef;
@@ -256,11 +212,7 @@ public class VariableCodeGenerationUtil {
                                 List<VariableReference> pList = cStat.getParameterReferences();
                                 UsedReferenceSearcher searcher = new UsedReferenceSearcher();
                                 String methodName = cStat.getMethodName() + cStat.getDescriptor();
-                                //                                List<VariableReference> params =
 
-                                //
-                                // searcher.searchRelevantParameterOfSetterInTest(pList,
-                                // fieldDeclaringClass.getCanonicalName(), methodName, field);
                                 ParameterMatch result =
                                         searcher.searchRelevantParameterOfSetterInTest(
                                                 fieldDeclaringClass.getCanonicalName(),
@@ -282,7 +234,6 @@ public class VariableCodeGenerationUtil {
                 } catch (ClassNotFoundException e) {
                     e.printStackTrace();
                 } catch (ConstructionFailedException e) {
-                    //                    printConstructionError(test, null, b);
                     e.printStackTrace();
                 }
             }
@@ -382,12 +333,6 @@ public class VariableCodeGenerationUtil {
                             ConstructorStatement cStat = (ConstructorStatement) s;
                             VariableReference relevantParam = null;
 
-                            //                            if(cStat.getParameterReferences().size()
-                            // == 1) {
-                            //                                relevantParam =
-                            // cStat.getParameterReferences().get(0);
-                            //                            }
-
                             for (VariableReference vRef : cStat.getParameterReferences()) {
                                 if (vRef.getType().equals(field.getGenericType())) {
                                     relevantParam = vRef;
@@ -400,11 +345,7 @@ public class VariableCodeGenerationUtil {
                                 List<VariableReference> pList = cStat.getParameterReferences();
                                 UsedReferenceSearcher searcher = new UsedReferenceSearcher();
                                 String methodName = cStat.getMethodName() + cStat.getDescriptor();
-                                //                                List<VariableReference> params =
 
-                                //
-                                // searcher.searchRelevantParameterOfSetterInTest(pList,
-                                // fieldDeclaringClass.getCanonicalName(), methodName, field);
                                 ParameterMatch result =
                                         searcher.searchRelevantParameterOfSetterInTest(
                                                 fieldDeclaringClass.getCanonicalName(),
@@ -426,7 +367,6 @@ public class VariableCodeGenerationUtil {
                 } catch (ClassNotFoundException e) {
                     e.printStackTrace();
                 } catch (ConstructionFailedException e) {
-                    //                    printConstructionError(test, null, b);
                     e.printStackTrace();
                 }
             }
@@ -500,7 +440,6 @@ public class VariableCodeGenerationUtil {
                                         insertionPostion,
                                         false);
 
-                //                System.currentTimeMillis();
                 Method m;
                 try {
                     m = field.getType().getMethod("equals", Object.class);
@@ -686,7 +625,6 @@ public class VariableCodeGenerationUtil {
                         targetClassName,
                         targetObjectReference == null,
                         isFreshlyConstructedReceiver(test, targetObjectReference));
-        //        System.currentTimeMillis();
         if (setter != null && !isTarget(setter)) {
             if (setter instanceof Method) {
                 GenericMethod gMethod =
@@ -921,7 +859,7 @@ public class VariableCodeGenerationUtil {
         for (DepVariableWrapper key : map.keySet()) {
             List<VariableReference> list = map.get(key).influentialVars;
 
-            if (containsIdentity(list, oldObject)) {
+            if (ConstructionReferenceUtil.containsIdentity(list, oldObject)) {
                 for (int i = 0; i < list.size(); i++) {
                     if (list.get(i) == oldObject) {
                         list.set(i, newObject);
@@ -931,7 +869,7 @@ public class VariableCodeGenerationUtil {
 
             list = map.get(key).matchedVars;
 
-            if (containsIdentity(list, oldObject)) {
+            if (ConstructionReferenceUtil.containsIdentity(list, oldObject)) {
                 for (int i = 0; i < list.size(); i++) {
                     if (list.get(i) == oldObject) {
                         list.set(i, newObject);
@@ -939,19 +877,6 @@ public class VariableCodeGenerationUtil {
                 }
             }
         }
-    }
-
-    private static boolean containsIdentity(
-            List<VariableReference> references, VariableReference candidate) {
-        if (references == null) {
-            return false;
-        }
-        for (VariableReference reference : references) {
-            if (reference == candidate) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean isTarget(Executable setter) {
@@ -1019,16 +944,8 @@ public class VariableCodeGenerationUtil {
 
         LinkedHashMap<Executable, List<ValueSettings>> setterMap =
                 DataDependencyUtil.searchForPotentialSettersInClass(field, targetClassName);
-        //        List<Executable> fieldSettingMethods = potentialSetter.setterList;
-
-        //        List<Map<BytecodeInstruction, List<BytecodeInstruction>>> difficultyList =
-        // potentialSetter.difficultyList;
-        //        List<Set<Integer>> numberOfValidParams = potentialSetter.numberOfValidParams;
-
-        //        System.currentTimeMillis();
 
         if (!setterMap.isEmpty()) {
-            //            Executable entry = Randomness.choice(fieldSettingMethods);
             double[] scores = new double[setterMap.size()];
             Map<Executable, String> rejectionReasons = new LinkedHashMap<>();
             Set<Executable> directAssignments = new HashSet<>();
@@ -1121,7 +1038,6 @@ public class VariableCodeGenerationUtil {
                     rejectionReasons.put(entry.getKey(), "destructive_mutation_on_fresh_receiver");
                 }
 
-                //                System.currentTimeMillis();
             }
 
             double[] probability = normalizeEligible(scores, setterMap, rejectionReasons);
@@ -1130,7 +1046,6 @@ public class VariableCodeGenerationUtil {
                 return null;
             }
             double p = Randomness.nextDouble();
-            //            System.currentTimeMillis();
             int selected = select(p, probability);
             Executable initiallySelected = (Executable) setterMap.keySet().toArray()[selected];
             if (rejectionReasons.containsKey(initiallySelected)) {
@@ -1215,27 +1130,11 @@ public class VariableCodeGenerationUtil {
     }
 
     private static boolean isValueParameterCompatible(Class<?> fieldType, Class<?> parameterType) {
-        Class<?> boxedFieldType = boxPrimitive(fieldType);
-        Class<?> boxedParameterType = boxPrimitive(parameterType);
+        Class<?> boxedFieldType = ClassUtils.primitiveToWrapper(fieldType);
+        Class<?> boxedParameterType = ClassUtils.primitiveToWrapper(parameterType);
         return boxedFieldType != null
                 && boxedParameterType != null
                 && boxedFieldType.isAssignableFrom(boxedParameterType);
-    }
-
-    private static Class<?> boxPrimitive(Class<?> type) {
-        if (type == null || !type.isPrimitive()) {
-            return type;
-        }
-        if (type == boolean.class) return Boolean.class;
-        if (type == byte.class) return Byte.class;
-        if (type == char.class) return Character.class;
-        if (type == short.class) return Short.class;
-        if (type == int.class) return Integer.class;
-        if (type == long.class) return Long.class;
-        if (type == float.class) return Float.class;
-        if (type == double.class) return Double.class;
-        if (type == void.class) return Void.class;
-        return type;
     }
 
     private static double[] normalizeEligible(
@@ -1318,24 +1217,6 @@ public class VariableCodeGenerationUtil {
         }
 
         return 0;
-    }
-
-    private static double[] normalize(double[] scores) {
-        double sum = 0;
-        for (int i = 0; i < scores.length; i++) {
-            sum += scores[i];
-        }
-
-        double[] prob = new double[scores.length];
-        for (int i = 0; i < scores.length; i++) {
-            prob[i] = scores[i] / sum;
-        }
-
-        for (int i = 1; i < scores.length; i++) {
-            prob[i] += prob[i - 1];
-        }
-
-        return prob;
     }
 
     public static String checkTargetClassName(

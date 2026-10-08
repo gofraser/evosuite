@@ -403,8 +403,6 @@ public class InterproceduralGraphAnalyzer {
 					 * join unrelated compiler-generated live ranges, so the frame source above is
 					 * authoritative.
 					 */
-					DefUseAnalyzer defUseAnalyzer = new DefUseAnalyzer();
-					defUseAnalyzer.analyze(classLoader, node, className, methodName, node.access);
 					List<BytecodeInstruction> definitions = DefUseAnalyzer.getDefFromUse(defIns);
 					for (BytecodeInstruction definition : definitions) {
 						buildInputOutputForInstruction(definition, node, outputVar, cfg,
@@ -422,9 +420,6 @@ public class InterproceduralGraphAnalyzer {
 				}
 			} else {
 				// Field uses are not subject to local-slot killing; retain the ordinary def-use walk.
-				DefUseAnalyzer defUseAnalyzer = new DefUseAnalyzer();
-				defUseAnalyzer.analyze(classLoader, node, className, methodName, node.access);
-
 				List<BytecodeInstruction> defs = DefUseAnalyzer.getDefFromUse(defIns);
 				for (BytecodeInstruction def : defs) {
 					buildInputOutputForInstruction(def, node,
@@ -646,11 +641,7 @@ public class InterproceduralGraphAnalyzer {
 	}
 
 	static boolean isPlatformImplementationClass(String className) {
-		return className != null && (className.startsWith("java.")
-				|| className.startsWith("javax.")
-				|| className.startsWith("jdk.")
-				|| className.startsWith("sun.")
-				|| className.startsWith("com.sun."));
+		return ObjectConstructionBoundary.isPlatformClass(className);
 	}
 
 	private boolean isAbstractDispatch(BytecodeInstruction instruction) {
@@ -683,7 +674,9 @@ public class InterproceduralGraphAnalyzer {
 		Set<DepVariable> relatedVariables = relatedVariableMap.get(className);
 
 		for (DepVariable var : relatedVariables) {
-			for (DepVariable rootVar : var.getRootVars().keySet()) {
+			Map<DepVariable, ArrayList<ConstructionPath>> rootVars = var.getRootVars();
+			for (Map.Entry<DepVariable, ArrayList<ConstructionPath>> rootEntry : rootVars.entrySet()) {
+				DepVariable rootVar = rootEntry.getKey();
 				if (rootVar.getType() == DepVariable.PARAMETER) {
 					if (!(rootVar.getInstruction().getClassName().
 							equals(className) &&
@@ -704,8 +697,7 @@ public class InterproceduralGraphAnalyzer {
 					allLeafDepVars.add(var);
 				}
 				else {
-					ArrayList<ConstructionPath> paths = var.getRootVars().get(rootVar);
-					ConstructionPath path = paths.get(0);
+					ConstructionPath path = rootEntry.getValue().get(0);
 
 					if (path != null) {
 						if (path.getPath().size() < 2) {
@@ -780,10 +772,10 @@ public class InterproceduralGraphAnalyzer {
 				}
 				DepVariable inputVar = parseVariable(newDefIns);
 				inputVar.buildRelation(outputVar, i);
-
-				searchDependantVariables(val, cfg, allDepVars, visitedIns, callGraphDepth);
-
 				inputVars.add(inputVar);
+			}
+			if (!inputVars.isEmpty()) {
+				searchDependantVariables(val, cfg, allDepVars, visitedIns, callGraphDepth);
 			}
 
 			intputVarArray[i] = inputVars;

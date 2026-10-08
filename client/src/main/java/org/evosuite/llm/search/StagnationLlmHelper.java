@@ -353,32 +353,17 @@ public final class StagnationLlmHelper {
             future.cancel(true);
             // Wall-clock timeout: the call never produced a response — don't penalize
             // the repeated-injection cooldown for what is effectively a non-delivery.
-            if (hardShutdown) {
-                return;
-            }
-            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            traceOutcome("timeout:sync", coveredCount, uncoveredSize, elapsedMs, 0);
+            recordSyncNonResponse(registration, false, "timeout:sync", t0, coveredCount, uncoveredSize);
             return;
         } catch (CancellationException e) {
             // Cancelled before completion — treat as non-delivery.
-            if (hardShutdown) {
-                return;
-            }
-            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            traceOutcome("cancelled:sync", coveredCount, uncoveredSize, elapsedMs, 0);
+            recordSyncNonResponse(registration, false, "cancelled:sync", t0, coveredCount, uncoveredSize);
             return;
         } catch (InterruptedException e) {
             future.cancel(true);
             Thread.currentThread().interrupt();
             // Interrupt during the wait — non-delivery.
-            if (hardShutdown) {
-                return;
-            }
-            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            traceOutcome("interrupted:sync", coveredCount, uncoveredSize, elapsedMs, 0);
+            recordSyncNonResponse(registration, false, "interrupted:sync", t0, coveredCount, uncoveredSize);
             return;
         } catch (ExecutionException e) {
             // Worker raised an exception while executing the call — the call was
@@ -387,12 +372,7 @@ public final class StagnationLlmHelper {
             Throwable cause = e.getCause();
             logger.debug("Sync stagnation call failed: {}",
                     cause == null ? e.toString() : cause.toString());
-            if (hardShutdown) {
-                return;
-            }
-            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            traceOutcome("error:sync", coveredCount, uncoveredSize, elapsedMs, 0);
+            recordSyncNonResponse(registration, true, "error:sync", t0, coveredCount, uncoveredSize);
             return;
         }
         synchronized (lifecycleLock) {
@@ -406,6 +386,25 @@ public final class StagnationLlmHelper {
             traceOutcome("completed:sync", coveredCount, uncoveredSize, elapsedMs, produced);
             publishTests(tests, prompt, registration);
         }
+    }
+
+    /**
+     * Settles a sync call that produced no tests. Only a delivered call ({@code delivered}) counts
+     * against the repeated-injection cooldown; a non-delivery just releases its attempt.
+     */
+    private void recordSyncNonResponse(RepeatedInjectionMemory.PromptAttemptRegistration registration,
+                                       boolean delivered, String label, long t0,
+                                       int coveredCount, int uncoveredSize) {
+        if (hardShutdown) {
+            return;
+        }
+        if (delivered) {
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+        } else {
+            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
+        }
+        long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+        traceOutcome(label, coveredCount, uncoveredSize, elapsedMs, 0);
     }
 
     private long computeSyncWaitSeconds() {

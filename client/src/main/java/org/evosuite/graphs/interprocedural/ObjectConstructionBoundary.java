@@ -7,6 +7,9 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.setup.DependencyAnalysis;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /** Identifies implementation classes whose internal state is outside the target artifact. */
 public final class ObjectConstructionBoundary {
 
@@ -41,12 +44,33 @@ public final class ObjectConstructionBoundary {
         }
         try {
             ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
-            String candidate = classpathOrigin(loader, className);
-            String target = classpathOrigin(loader, Properties.TARGET_CLASS);
+            String candidate = cachedClasspathOrigin(loader, className);
+            String target = cachedClasspathOrigin(loader, Properties.TARGET_CLASS);
             return candidate == null || target == null ? null : candidate.equals(target);
         } catch (Throwable ignored) {
             return null;
         }
+    }
+
+    /** Origins resolved through {@link #originLoader}; a new SUT loader starts a fresh cache. */
+    private static final Map<String, String> ORIGINS = new ConcurrentHashMap<>();
+    private static final String NO_ORIGIN = "";
+    private static volatile ClassLoader originLoader;
+
+    private static String cachedClasspathOrigin(ClassLoader loader, String className) {
+        if (loader != originLoader) {
+            synchronized (ORIGINS) {
+                if (loader != originLoader) {
+                    ORIGINS.clear();
+                    originLoader = loader;
+                }
+            }
+        }
+        String origin = ORIGINS.computeIfAbsent(className, name -> {
+            String resolved = classpathOrigin(loader, name);
+            return resolved == null ? NO_ORIGIN : resolved;
+        });
+        return origin == NO_ORIGIN ? null : origin;
     }
 
     private static String classpathOrigin(ClassLoader loader, String className) {

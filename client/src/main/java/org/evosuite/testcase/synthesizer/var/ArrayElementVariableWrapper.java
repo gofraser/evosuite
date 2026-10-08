@@ -98,7 +98,6 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
         int opcodeRead = this.var.getInstruction().getASMNode().getOpcode();
         int opcodeWrite = getCorrespondingWriteOpcode(opcodeRead);
         Integer preferredIndex = preferredAccessorIndex(test, map);
-        //        Statement statement = test.getStatement(variable.callerObject.getStPosition());
 
         /** check reused array element */
         List<VariableReference> usedArrayElementList =
@@ -174,7 +173,6 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
                                                             test, context.ownerReference)
                                                     + 1,
                                             false);
-                    //                    V newParentVarRef;
                     List<VariableReference> vars = new ArrayList<>();
                     if (newParentVarRef != null) {
                         vars.add(newParentVarRef);
@@ -451,7 +449,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
                 if (stat instanceof MethodStatement) {
                     MethodStatement mStat = (MethodStatement) stat;
                     VariableReference ref = mStat.getCallee();
-                    if (sameReference(test, ref, context.ownerReference)) {
+                    if (ConstructionReferenceUtil.sameReference(test, ref, context.ownerReference)) {
                         Integer parameterPosition =
                                 checkValidArrayElementSetter(
                                         mStat.getMethod().getMethod(), opcodeWrite, variable);
@@ -502,7 +500,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
             if (!oldStatements.contains(statement) && statement instanceof MethodStatement) {
                 MethodStatement candidate = (MethodStatement) statement;
                 if (selected.method.equals(candidate.getMethod().getMethod())
-                        && sameReference(test, candidate.getCallee(), context.ownerReference)) {
+                        && ConstructionReferenceUtil.sameReference(test, candidate.getCallee(), context.ownerReference)) {
                     generated = candidate;
                     break;
                 }
@@ -559,7 +557,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
             Method method = getter.getMethod().getMethod();
             if (!owner.equals(method.getDeclaringClass().getName())
                     || !methodSignature.equals(method.getName() + MethodUtil.getSignature(method))
-                    || !sameReference(test, getter.getCallee(), context.ownerReference)) {
+                    || !ConstructionReferenceUtil.sameReference(test, getter.getCallee(), context.ownerReference)) {
                 continue;
             }
             VariableReference oldResult = getter.getReturnValue();
@@ -602,7 +600,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
         }
 
         private boolean hasDistinctOwner(TestCase test) {
-            return ownerReference != null && !sameReference(test, arrayReference, ownerReference);
+            return ownerReference != null && !ConstructionReferenceUtil.sameReference(test, arrayReference, ownerReference);
         }
     }
 
@@ -729,16 +727,6 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
         return var.getInstruction() == null ? -1 : var.getInstruction().getInstructionId();
     }
 
-    private static boolean sameReference(
-            TestCase test, VariableReference left, VariableReference right) {
-        if (left == right) {
-            return left != null;
-        }
-        int leftPosition = ConstructionReferenceUtil.definitionPosition(test, left);
-        int rightPosition = ConstructionReferenceUtil.definitionPosition(test, right);
-        return leftPosition >= 0 && leftPosition == rightPosition;
-    }
-
     /**
      * check if current method is a valid getter for array element
      *
@@ -808,7 +796,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
                 MethodStatement mStat = (MethodStatement) stat;
                 Method method = mStat.getMethod().getMethod();
                 VariableReference ref = mStat.getCallee();
-                if (sameReference(test, ref, context.ownerReference)) {
+                if (ConstructionReferenceUtil.sameReference(test, ref, context.ownerReference)) {
                     boolean isValid = checkValidArrayElementGetter(method, opcodeRead, variable);
                     if (isValid) {
                         VariableReference var = mStat.getReturnValue();
@@ -914,74 +902,6 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 
         return null;
     }
-
-    //    @Override
-
-    //    public List<VariableReference> findCorrespondingVariables(TestCase test, boolean isLeaf,
-    // VariableReference callerObject, Map<DepVariableWrapper, List<VariableReference>> map) {
-    //        Statement stat = test.getStatement(callerObject.getStPosition());
-    //        if(stat instanceof NullStatement) {
-    //            List<VariableReference> list = new ArrayList<>();
-    //            list.add(stat.getReturnValue());
-    //            return list;
-    //        }
-    //
-    //        if(this.var.getType() == DepVariable.PARAMETER) {
-
-    //            List<VariableReference> usedArrayElementList =
-    // searchUsedArrayElementReference(test,
-    // callerObject);
-    //            if(!usedArrayElementList.isEmpty()) {
-    //                return usedArrayElementList;
-    //            }
-    //        }
-    //
-    //        if (callerObject instanceof ArrayReference) {
-    //            int opcodeRead = this.var.getInstruction().getASMNode().getOpcode();
-    //            int opcodeWrite = getCorrespondingWriteOpcode(opcodeRead);
-    //            VariableReference realParentRef = null;
-    //            Statement statement = test.getStatement(callerObject.getStPosition());
-    //
-    //            if (statement instanceof MethodStatement) {
-    //                MethodStatement mStatement = (MethodStatement) statement;
-    //                realParentRef = mStatement.getCallee();
-    //            }
-    //
-
-    //            List<VariableReference> usedArrayElementList =
-    // searchUsedArrayElementReference(test,
-    // callerObject);
-    //            if(!usedArrayElementList.isEmpty()) {
-    //                return usedArrayElementList;
-    //            }
-    //
-    //            double prob = Randomness.nextDouble();
-    //            if (realParentRef  != null && prob > 0.8) {
-    //                /**
-    //                 * check reused array element
-    //                 */
-    //                VariableReference usedArrayRef = isLeaf
-
-    //                        ? searchArrayElementWritingReference(test, callerObject,
-    // realParentRef,
-    // opcodeWrite)
-    //                        : searchArrayElementReadingReference(test, callerObject,
-    // realParentRef,
-    // opcodeRead);
-    //                if (usedArrayRef != null) {
-    //                    VariableReference generatedVariable = isLeaf ? null : usedArrayRef;
-    //                    List<VariableReference> vars = new ArrayList<>();
-    //                    if(generatedVariable != null) {
-    //                        vars.add(generatedVariable);
-    //                    }
-    //                    return vars;
-    //                }
-    //
-    //            }
-    //        }
-    //
-    //        return new ArrayList<>();
-    //    }
 
     @Override
     public VariableReference find(

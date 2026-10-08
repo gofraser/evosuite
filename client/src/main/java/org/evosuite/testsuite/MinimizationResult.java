@@ -19,6 +19,9 @@
  */
 package org.evosuite.testsuite;
 
+import org.evosuite.rmi.ClientServices;
+import org.evosuite.statistics.RuntimeVariable;
+
 public final class MinimizationResult {
 
     private final MinimizationStatus status;
@@ -73,6 +76,17 @@ public final class MinimizationResult {
 
     public long getElapsedMillis() {
         return elapsedMillis;
+    }
+
+    /** Tracks this result as the {@code Minimization_*} runtime variables. */
+    public void publish() {
+        ClientServices.track(RuntimeVariable.Minimization_Status, status.name());
+        ClientServices.track(RuntimeVariable.Minimization_Stop_Cause, getUnderlyingStopCause().name());
+        ClientServices.track(RuntimeVariable.Minimization_Original_Tests, originalTests);
+        ClientServices.track(RuntimeVariable.Minimization_Original_Length, originalLength);
+        ClientServices.track(RuntimeVariable.Minimization_Final_Tests, finalTests);
+        ClientServices.track(RuntimeVariable.Minimization_Final_Length, finalLength);
+        ClientServices.track(RuntimeVariable.Minimization_Elapsed_Millis, elapsedMillis);
     }
 
     public boolean isIncomplete() {

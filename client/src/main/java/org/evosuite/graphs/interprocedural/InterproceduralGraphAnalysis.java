@@ -42,55 +42,6 @@ public class InterproceduralGraphAnalysis {
     private static final Logger logger =
             LoggerFactory.getLogger(InterproceduralGraphAnalysis.class);
 
-    /**
-     * Physical methods ({@code className#methodName}, keyed on the branch's own containing method
-     * rather than the resolved accessible entry) that already blew their analysis budget in the
-     * current run. {@link #analyzeBranchOnDemand} caches per branch when a private method's graph
-     * is exposed through a nearest accessible caller, so that two private methods sharing one
-     * caller do not suppress each other's analysis (see the cache-key comment there). But that
-     * means every branch of the *same* expensive private method independently pays the full
-     * {@link Properties#OBJECT_RULE_ANALYSIS_TIMEOUT} budget with no memory of previous timeouts —
-     * measured as 154 repeated timeouts analyzing {@code JVCParserTokenManager.jjMoveNfa_2} and 132
-     * analyzing {@code LovinsStemmer.removeEnding} on the release corpus, enough on its own to
-     * starve those classes' searches. This map lets later branches of a method already known to be
-     * too expensive skip straight to the conservative "no graph" outcome.
-     *
-     * <p>This class only exposes static entry points, so it has no lifecycle hook of its own to
-     * clear the map on a fresh run or target class. Instead it follows the same reset-epoch pattern
-     * as {@code ObjectRuleEntryBuilder.synchronizeFailureCache}: the map is only ever read and
-     * written after checking it against the current {@link
-     * org.evosuite.testcase.factories.ObjectRuleRuntime#getResetEpoch()}, and is dropped whenever
-     * that epoch has moved on.
-     */
-    private static final Map<String, Boolean> timedOutMethods = new LinkedHashMap<>();
-
-    /** The reset epoch {@link #timedOutMethods} was last cleared for. */
-    private static volatile long timedOutMethodsEpoch = -1L;
-
-    /**
-     * Whether the physical method identified by {@code physicalMethodKey} (see {@link
-     * #timedOutMethods}) already blew its analysis budget in the current run.
-     */
-    private static boolean isMethodAnalysisTimedOut(String physicalMethodKey) {
-        synchronizeTimedOutMethods();
-        return timedOutMethods.containsKey(physicalMethodKey);
-    }
-
-    /** Records that the physical method identified by {@code physicalMethodKey} timed out. */
-    private static void markMethodAnalysisTimedOut(String physicalMethodKey) {
-        synchronizeTimedOutMethods();
-        timedOutMethods.put(physicalMethodKey, Boolean.TRUE);
-    }
-
-    private static void synchronizeTimedOutMethods() {
-        long currentEpoch =
-                TestGenerationContext.getInstance().getObjectRuleRuntime().getResetEpoch();
-        if (timedOutMethodsEpoch != currentEpoch) {
-            timedOutMethods.clear();
-            timedOutMethodsEpoch = currentEpoch;
-        }
-    }
-
     /** Clear the analysis state owned by the current run. */
     public static void clear() {
 
@@ -192,7 +143,8 @@ public class InterproceduralGraphAnalysis {
         }
 
         String physicalMethodKey = className + "#" + methodName;
-        if (branchSpecificEntry && isMethodAnalysisTimedOut(physicalMethodKey)) {
+        if (branchSpecificEntry && TestGenerationContext.getInstance().getObjectRuleRuntime()
+                        .isAnalysisTimedOut(physicalMethodKey)) {
             // A previous branch of this same physical method already exhausted the analysis
             // budget; inherit that outcome instead of re-running the same expensive search.
             Map<Branch, Set<DepVariable>> failed = cached == null ? new LinkedHashMap<>() : cached;
@@ -236,7 +188,8 @@ public class InterproceduralGraphAnalysis {
 
             if (branchSpecificEntry) {
                 if (e instanceof InterproceduralGraphAnalyzer.AnalysisTimeoutException) {
-                    markMethodAnalysisTimedOut(physicalMethodKey);
+                    TestGenerationContext.getInstance().getObjectRuleRuntime()
+                            .markAnalysisTimedOut(physicalMethodKey);
                 }
                 Map<Branch, Set<DepVariable>> failed =
                         cached == null ? new LinkedHashMap<>() : cached;
@@ -349,22 +302,8 @@ public class InterproceduralGraphAnalysis {
             }
             InterproceduralGraphAnalyzer graphAnalyzer =
                     new InterproceduralGraphAnalyzer(b, interestedNodeFilter, deadlineNanos);
-            Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
             try {
-                if (!b.isInstrumented()) {
-                    Frame frame = b.getInstruction().getFrame();
-                    for (int i = 0; i < b.getInstruction().getOperandNum(); i++) {
-                        int index = frame.getStackSize() - i - 1;
-                        Value val = frame.getStack(index);
-
-                        graphAnalyzer.searchDependantVariables(
-                                val,
-                                cfg,
-                                inputRootVars,
-                                visitedIns,
-                                Properties.COMPUTATION_GRAPH_METHOD_CALL_DEPTH);
-                    }
-                }
+                sliceBranchOperands(graphAnalyzer, cfg, b, inputRootVars);
             } catch (Exception | StackOverflowError e) {
                 // The object-construction graph is a best-effort search aid. If analyzing one
                 // branch fails (an instruction the interprocedural traversal cannot resolve, or
@@ -402,25 +341,33 @@ public class InterproceduralGraphAnalysis {
                 new InterproceduralGraphAnalyzer(
                         branch, interestedNodeFilter, analysisDeadlineNanos());
         Set<DepVariable> inputRootVars = new LinkedHashSet<DepVariable>();
-        Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
-        if (!branch.isInstrumented()) {
-            Frame frame = branch.getInstruction().getFrame();
-            for (int i = 0; i < branch.getInstruction().getOperandNum(); i++) {
-                int index = frame.getStackSize() - i - 1;
-                Value val = frame.getStack(index);
-
-                graphAnalyzer.searchDependantVariables(
-                        val,
-                        cfg,
-                        inputRootVars,
-                        visitedIns,
-                        Properties.COMPUTATION_GRAPH_METHOD_CALL_DEPTH);
-            }
-        }
+        sliceBranchOperands(graphAnalyzer, cfg, branch, inputRootVars);
 
         map.put(branch, inputRootVars);
 
         return map;
+    }
+
+    /** Collects into {@code inputRootVars} the variables the operands of {@code branch} depend on. */
+    private static void sliceBranchOperands(
+            InterproceduralGraphAnalyzer graphAnalyzer,
+            ActualControlFlowGraph cfg,
+            Branch branch,
+            Set<DepVariable> inputRootVars) {
+        if (branch.isInstrumented()) {
+            return;
+        }
+        Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
+        Frame frame = branch.getInstruction().getFrame();
+        for (int i = 0; i < branch.getInstruction().getOperandNum(); i++) {
+            Value val = frame.getStack(frame.getStackSize() - i - 1);
+            graphAnalyzer.searchDependantVariables(
+                    val,
+                    cfg,
+                    inputRootVars,
+                    visitedIns,
+                    Properties.COMPUTATION_GRAPH_METHOD_CALL_DEPTH);
+        }
     }
 
     private static long analysisDeadlineNanos() {
@@ -432,46 +379,5 @@ public class InterproceduralGraphAnalysis {
 
     private static boolean deadlineReached(long deadlineNanos) {
         return deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0;
-    }
-
-    private static boolean isCUT(String className) {
-        if (!Properties.TARGET_CLASS.equals("")
-                && !(className.equals(Properties.TARGET_CLASS)
-                        || className.startsWith(Properties.TARGET_CLASS + "$"))) {
-            return false;
-        }
-        return true;
-    }
-
-    public static Map<Branch, List<ConstructionPath>> checkObjectDifficultPath() {
-        Map<Branch, Set<DepVariable>> interestedBranches =
-                TestGenerationContext.getInstance()
-                        .getObjectRuleRuntime()
-                        .getBranchInterestedVarsMap()
-                        .get(Properties.TARGET_METHOD);
-
-        Map<Branch, List<ConstructionPath>> interestedPaths = new LinkedHashMap<>();
-        for (Map.Entry<Branch, Set<DepVariable>> entry : interestedBranches.entrySet()) {
-            Branch branch = entry.getKey();
-            Set<DepVariable> interestedVariables = entry.getValue();
-
-            List<ConstructionPath> paths = new ArrayList<ConstructionPath>();
-            for (DepVariable interestVar : interestedVariables) {
-                for (DepVariable root : interestVar.getRootVars().keySet()) {
-                    ConstructionPath path = root.findPath(interestVar);
-                    if (path != null) {
-                        if (path.hasValidRoot() && !paths.contains(path)) {
-                            paths.add(path);
-                        }
-                    }
-                }
-            }
-
-            if (!paths.isEmpty()) {
-                interestedPaths.put(branch, paths);
-            }
-        }
-
-        return interestedPaths;
     }
 }

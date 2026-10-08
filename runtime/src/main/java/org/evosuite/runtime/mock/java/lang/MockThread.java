@@ -117,6 +117,32 @@ public class MockThread extends Thread implements OverrideMock {
      */
     public static final long STOPPING_REAL_PAUSE_MS = 2L;
 
+    /** A real, interruptible pause: a sleep or a wait. */
+    interface RealPause {
+        void run() throws InterruptedException;
+    }
+
+    /**
+     * Ends a leftover thread's sleep() or wait() once its test's threads are being stopped,
+     * after a brief real {@code pause}. ThreadStopper has interrupted the thread: with the flag
+     * still set the real pause would throw at once and a loop that swallows the exception would
+     * spin. So the flag is cleared around the pause and set again for the loop to see.
+     *
+     * @return the exception to throw
+     */
+    static TooManyResourcesException pauseThenStopLeftover(RealPause pause, String message) {
+        boolean wasInterrupted = Thread.interrupted();
+        try {
+            pause.run();
+        } catch (InterruptedException e) {
+            wasInterrupted = true;
+        }
+        if (wasInterrupted) {
+            Thread.currentThread().interrupt();
+        }
+        return new TooManyResourcesException(message);
+    }
+
     public static void reset() {
         threadMap.clear();
         sleepCallCount.set(0L);  // AtomicLong — visible to all threads
@@ -227,19 +253,9 @@ public class MockThread extends Thread implements OverrideMock {
             // pausing for the whole stop window, and ThreadStopper keeps that window
             // open for at least 200 ms.
             if (org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
-                // ThreadStopper has interrupted the thread: with the flag still set the
-                // real sleep would throw at once and a loop that swallows the exception
-                // would spin. Clear it around the pause, and set it again for the loop.
-                boolean wasInterrupted = Thread.interrupted();
-                try {
-                    Thread.sleep(Math.min(millis, STOPPING_REAL_PAUSE_MS));
-                } catch (InterruptedException e) {
-                    wasInterrupted = true;
-                }
-                if (wasInterrupted) {
-                    Thread.currentThread().interrupt();
-                }
-                throw new TooManyResourcesException("MockThread: thread kept sleeping after its test ended");
+                long pauseMillis = Math.min(millis, STOPPING_REAL_PAUSE_MS);
+                throw pauseThenStopLeftover(() -> Thread.sleep(pauseMillis),
+                        "MockThread: thread kept sleeping after its test ended");
             }
             try {
                 Thread.sleep(Math.min(millis, MAX_REAL_SLEEP_PER_CALL_MS));

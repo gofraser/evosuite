@@ -45,7 +45,7 @@ public class UsedReferenceSearcher {
                 if (stat instanceof MethodStatement) {
                     MethodStatement mStat = (MethodStatement) stat;
                     VariableReference ref = mStat.getCallee();
-                    if (sameReference(test, ref, targetObject)) {
+                    if (ConstructionReferenceUtil.sameReference(test, ref, targetObject)) {
                         boolean isValidGetter =
                                 DataDependencyUtil.isFieldGetter(
                                         mStat.getMethod().getMethod(), field);
@@ -60,7 +60,7 @@ public class UsedReferenceSearcher {
                     }
                 } else if (stat instanceof ConstructorStatement) {
                     ConstructorStatement constructorStat = (ConstructorStatement) stat;
-                    if (sameReference(test, constructorStat.getReturnValue(), targetObject)) {
+                    if (ConstructionReferenceUtil.sameReference(test, constructorStat.getReturnValue(), targetObject)) {
                         List<VariableReference> params = constructorStat.getParameterReferences();
                         String className = constructorStat.getDeclaringClassName();
                         String methodName =
@@ -173,7 +173,7 @@ public class UsedReferenceSearcher {
                 if (stat instanceof MethodStatement) {
                     MethodStatement mStat = (MethodStatement) stat;
                     VariableReference ref = mStat.getCallee();
-                    if (sameReference(test, ref, targetObject)) {
+                    if (ConstructionReferenceUtil.sameReference(test, ref, targetObject)) {
                         List<VariableReference> params = mStat.getParameterReferences();
                         String className = mStat.getDeclaringClassName();
                         String methodName = mStat.getMethodName() + mStat.getDescriptor();
@@ -191,7 +191,7 @@ public class UsedReferenceSearcher {
                         //                                field);
 
                         for (VariableReference pRef : paramRefs) {
-                            if (!containsIdentity(relevantRefs, pRef)) {
+                            if (!ConstructionReferenceUtil.containsIdentity(relevantRefs, pRef)) {
                                 relevantRefs.add(pRef);
                                 actionPositions.put(pRef, i);
                             }
@@ -204,12 +204,12 @@ public class UsedReferenceSearcher {
                     if (returnName.contains(".")) {
                         String fieldName = returnName.substring(returnName.lastIndexOf(".") + 1);
                         if (fieldName.equals(field.getName())
-                                && sameReference(
+                                && ConstructionReferenceUtil.sameReference(
                                         test,
                                         aStat.getReturnValue().getAdditionalVariableReference(),
                                         targetObject)) {
                             VariableReference ref = aStat.getValue();
-                            if (!containsIdentity(relevantRefs, ref)) {
+                            if (!ConstructionReferenceUtil.containsIdentity(relevantRefs, ref)) {
                                 relevantRefs.add(ref);
                                 actionPositions.put(ref, i);
                             }
@@ -245,29 +245,6 @@ public class UsedReferenceSearcher {
             }
         }
         return result;
-    }
-
-    private static boolean containsIdentity(
-            List<VariableReference> references, VariableReference candidate) {
-        for (VariableReference reference : references) {
-            if (reference == candidate) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean sameReference(
-            TestCase test, VariableReference left, VariableReference right) {
-        if (left == null || right == null) {
-            return false;
-        }
-        if (left == right) {
-            return true;
-        }
-        int leftPosition = ConstructionReferenceUtil.definitionPosition(test, left);
-        int rightPosition = ConstructionReferenceUtil.definitionPosition(test, right);
-        return leftPosition >= 0 && leftPosition == rightPosition;
     }
 
     private List<VariableReference> getCompatibleRef(

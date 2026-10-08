@@ -20,7 +20,7 @@
 package org.evosuite.assertion;
 
 
-final class JUnit4Or5CanonicalAssertionRenderer implements CanonicalAssertionRenderer {
+final class JUnit4Or5CanonicalAssertionRenderer extends AbstractCanonicalAssertionRenderer {
 
     static final JUnit4Or5CanonicalAssertionRenderer INSTANCE = new JUnit4Or5CanonicalAssertionRenderer();
 
@@ -28,66 +28,14 @@ final class JUnit4Or5CanonicalAssertionRenderer implements CanonicalAssertionRen
     }
 
     @Override
-    public String render(TemplateAssertionKind kind,
-                         String expected,
-                         String actual,
-                         String delta) {
-        return render(kind, expected, actual, delta, false);
+    protected String renderArrayEquals(String expected, String actual) {
+        return "assertArrayEquals(" + expected + ", " + actual + ");";
     }
 
     @Override
-    public String render(TemplateAssertionKind kind,
-                         String expected,
-                         String actual,
-                         String delta,
-                         boolean arrayEquality) {
-        switch (kind) {
-            case EQUALS:
-                if (arrayEquality) {
-                    if (delta != null) {
-                        throw new IllegalStateException("Array equality does not support delta");
-                    }
-                    return "assertArrayEquals(" + expected + ", " + actual + ");";
-                }
-                return delta == null
-                        ? "assertEquals(" + expected + ", " + actual + ");"
-                        : "assertEquals(" + expected + ", " + actual + ", " + delta + ");";
-            case NOT_EQUALS:
-                return delta == null
-                        ? "assertNotEquals(" + expected + ", " + actual + ");"
-                        : "assertNotEquals(" + expected + ", " + actual + ", " + delta + ");";
-            case TRUE:
-                return "assertTrue(" + actual + ");";
-            case FALSE:
-                return "assertFalse(" + actual + ");";
-            case NULL:
-                return "assertNull(" + actual + ");";
-            case NOT_NULL:
-                return "assertNotNull(" + actual + ");";
-            case SAME:
-                return "assertSame(" + expected + ", " + actual + ");";
-            case NOT_SAME:
-                return "assertNotSame(" + expected + ", " + actual + ");";
-            case CONTAINS:
-                return "assertTrue(" + actual + ".contains(" + expected + "));";
-            case NOT_CONTAINS:
-                return "assertFalse(" + actual + ".contains(" + expected + "));";
-            case SIZE_EQUALS:
-                return "assertEquals(" + expected + ", " + actual + ".size());";
-            case MAP_CONTAINS_KEY:
-                return "assertTrue(" + actual + ".containsKey(" + expected + "));";
-            case IS_EMPTY:
-                return "assertTrue(" + actual + ".isEmpty());";
-            case GREATER:
-                return "assertTrue(" + actual + " > " + expected + ");";
-            case LESS:
-                return "assertTrue(" + actual + " < " + expected + ");";
-            case GREATER_EQUALS:
-                return "assertTrue(" + actual + " >= " + expected + ");";
-            case LESS_EQUALS:
-                return "assertTrue(" + actual + " <= " + expected + ");";
-            default:
-                throw new IllegalStateException("Unsupported template assertion kind: " + kind);
-        }
+    protected String renderNotEquals(String expected, String actual, String delta) {
+        return delta == null
+                ? "assertNotEquals(" + expected + ", " + actual + ");"
+                : "assertNotEquals(" + expected + ", " + actual + ", " + delta + ");";
     }
 }

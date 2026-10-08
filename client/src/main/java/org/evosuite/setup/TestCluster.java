@@ -552,8 +552,7 @@ public class TestCluster {
                             }
 
                             // If it is a generic method, instantiate generic type variables for the
-                            // produced
-                            // class
+                            // produced class
                             if (newGenerator.hasTypeParameters()) {
                                 logger.debug("Instantiating type parameters");
                                 /*
@@ -609,8 +608,8 @@ public class TestCluster {
                     // FIXME:
 
                     // There are cases where this might lead to relevant cast classes not being
-                    // included
-                    // but in manycases it will pull in large numbers of useless dependencies.
+                    // included but in manycases it will pull in large numbers of useless
+                    // dependencies.
 
                     // Commented out for now, until we find a case where the problem can be properly
                     // studied.
@@ -1011,8 +1010,7 @@ public class TestCluster {
                         && !Map.class.isAssignableFrom(call.getDeclaringClass())) {
 
                     // Methods that return collections are candidates, unless they are methods of
-                    // the
-                    // collections
+                    // the collections
                     calls.add(call);
                 } else if (!call.getDeclaringClass().getName().startsWith("java")) {
                     calls.add(call);
@@ -1416,9 +1414,14 @@ public class TestCluster {
 
         // Stable sort, best (highest score) first, so ties keep their original relative order
         // and the result stays deterministic for a given input order and random seed.
+        // Score each generator once rather than on every comparison.
+        Map<GenericAccessibleObject<?>, Double> scores = new IdentityHashMap<>();
+        for (GenericAccessibleObject<?> generator : compatible) {
+            scores.computeIfAbsent(generator, g -> scoreGenerator(g, targetType));
+        }
         List<GenericAccessibleObject<?>> ranked = new ArrayList<>(compatible);
         ranked.sort(Comparator
-                .comparingDouble((GenericAccessibleObject<?> g) -> scoreGenerator(g, targetType))
+                .comparingDouble((GenericAccessibleObject<?> g) -> scores.get(g))
                 .reversed());
 
         int index = RankSelection.getIndex(ranked.size(), bias);

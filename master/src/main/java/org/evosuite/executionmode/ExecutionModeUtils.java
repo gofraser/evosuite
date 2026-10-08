@@ -343,10 +343,9 @@ public final class ExecutionModeUtils {
         // forwarded to the client and stays visible. Liferay's XStream needs
         // java.base/java.util on JDK 17 in production too; a user who runs EvoSuite with
         // that --add-opens gets the same behaviour in the search and in the generated tests.
-        Set<String> userGranted = userGrantedModuleAccess();
-        for (String arg : userModuleAccessArguments()) {
-            cmdLine.add(arg);
-        }
+        List<String> userArgs = userModuleAccessArguments();
+        Set<String> userGranted = userGrantedModuleAccess(userArgs);
+        cmdLine.addAll(userArgs);
         Set<String> privateAccess = new LinkedHashSet<>();
         for (int i = 0; i + 1 < cmdLine.size(); i++) {
             if ("--add-opens".equals(cmdLine.get(i)) || "--add-exports".equals(cmdLine.get(i))) {
@@ -365,8 +364,11 @@ public final class ExecutionModeUtils {
      * which the launcher reports as input arguments).
      */
     static Set<String> userGrantedModuleAccess() {
+        return userGrantedModuleAccess(userModuleAccessArguments());
+    }
+
+    private static Set<String> userGrantedModuleAccess(List<String> args) {
         Set<String> pairs = new LinkedHashSet<>();
-        List<String> args = userModuleAccessArguments();
         for (int i = 0; i + 1 < args.size(); i += 2) {
             String pair = modulePackage(args.get(i + 1));
             if (pair != null) {

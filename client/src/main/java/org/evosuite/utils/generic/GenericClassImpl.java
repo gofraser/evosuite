@@ -1965,6 +1965,20 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      */
     public boolean satisfiesBoundaries(TypeVariable<?> typeVariable,
                                        Map<TypeVariable<?>, Type> typeMap) {
+        // A bound that erases to a class can only be satisfied by a subtype of that class,
+        // whatever its type arguments turn out to be. Checking that first spares the cache
+        // key and the substitution for the bulk of the cast-class pool: a CUT bounded by
+        // Sequence<T> is asked about several hundred classes, of which a handful are
+        // sequences, and this check is asked once per pool class per instantiation.
+        for (Type bound : typeVariable.getBounds()) {
+            if (bound instanceof TypeVariable<?>) {
+                continue;
+            }
+            Class<?> boundClass = GenericTypeReflector.erase(bound);
+            if (boundClass != null && !boundClass.isAssignableFrom(rawClass)) {
+                return false;
+            }
+        }
         String cacheKey = satisfiesBoundariesCacheKey(typeVariable, typeMap);
         Boolean cached = SATISFIES_BOUNDARIES_CACHE.get(cacheKey);
         if (cached != null) {
@@ -1977,21 +1991,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     private boolean computeSatisfiesBoundaries(TypeVariable<?> typeVariable,
                                        Map<TypeVariable<?>, Type> typeMap) {
-        // A bound that erases to a class can only be satisfied by a subtype of that class,
-        // whatever its type arguments turn out to be. Checking that first spares the
-        // substitution below for the bulk of the cast-class pool: a CUT bounded by
-        // Sequence<T> is asked about several hundred classes, of which a handful are
-        // sequences, and this check is asked once per pool class per instantiation.
-        for (Type bound : typeVariable.getBounds()) {
-            if (bound instanceof TypeVariable<?>) {
-                continue;
-            }
-            Class<?> boundClass = GenericTypeReflector.erase(bound);
-            if (boundClass != null && !boundClass.isAssignableFrom(rawClass)) {
-                return false;
-            }
-        }
-
         boolean isAssignable = true;
         // logger.debug("Checking class: " + type + " against type variable " + typeVariable+" with map "+typeMap);
         Map<TypeVariable<?>, Type> ownerVariableMap = getTypeVariableMap();

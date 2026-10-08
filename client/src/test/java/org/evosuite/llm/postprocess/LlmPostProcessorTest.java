@@ -191,16 +191,6 @@ class LlmPostProcessorTest {
     }
 
     @Test
-    void isAnyResponseFeatureEnabled_noFeaturesEnabled() {
-        Properties.LLM_POSTPROCESSING_ASSERTIONS = false;
-        Properties.LLM_POSTPROCESSING_TEST_NAMES = false;
-        Properties.LLM_POSTPROCESSING_VARIABLE_NAMES = false;
-        Properties.LLM_POSTPROCESSING_COMMENTS = false;
-        Properties.LLM_POSTPROCESSING_SECTION_BREAKS = false;
-        assertFalse(LlmPostProcessor.isAnyResponseFeatureEnabled());
-    }
-
-    @Test
     void runUnifiedPostProcessing_enabledButNoLlmProvider_gracefulNoop() {
         Properties.LLM_POSTPROCESSING_ENABLED = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;

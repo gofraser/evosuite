@@ -152,15 +152,10 @@ final class PostProcessingCallablePolicy {
     }
 
     boolean isCallableMethod(String receiverId, String ownerType, MethodCallExpr call) {
+        String canonicalOwner = ExprType.canonicalRawName(ownerType);
         for (LlmPostProcessingResponseParser.CallableMethod method : context.callableMethods()) {
-            if (!java.util.Objects.equals(receiverId, method.receiverId())
-                    || (ownerType != null && !java.util.Objects.equals(
-                    canonicalOwnerType(ownerType), canonicalOwnerType(method.ownerType())))
-                    || !java.util.Objects.equals(call.getNameAsString(), method.methodName())
-                    || call.getArguments().size() != method.argumentCount()) {
-                continue;
-            }
-            if (argumentsMatchDescriptor(call, method.signatureDescriptor())) {
+            if (matchesCallSite(method, receiverId, canonicalOwner, call)
+                    && argumentsMatchDescriptor(call, method.signatureDescriptor())) {
                 return true;
             }
         }
@@ -168,14 +163,11 @@ final class PostProcessingCallablePolicy {
     }
 
     String callableReturnType(String receiverId, String ownerType, MethodCallExpr call) {
+        String canonicalOwner = ExprType.canonicalRawName(ownerType);
         String selectedReturnType = null;
         int selectedScore = Integer.MAX_VALUE;
         for (LlmPostProcessingResponseParser.CallableMethod method : context.callableMethods()) {
-            if (!java.util.Objects.equals(receiverId, method.receiverId())
-                    || (ownerType != null && !java.util.Objects.equals(
-                    canonicalOwnerType(ownerType), canonicalOwnerType(method.ownerType())))
-                    || !java.util.Objects.equals(call.getNameAsString(), method.methodName())
-                    || call.getArguments().size() != method.argumentCount()) {
+            if (!matchesCallSite(method, receiverId, canonicalOwner, call)) {
                 continue;
             }
             int score = descriptorMatchScore(call, method.signatureDescriptor());
@@ -185,6 +177,15 @@ final class PostProcessingCallablePolicy {
             }
         }
         return selectedReturnType;
+    }
+
+    /** A null {@code canonicalOwner} matches any owner type. */
+    private static boolean matchesCallSite(LlmPostProcessingResponseParser.CallableMethod method,
+                                           String receiverId, String canonicalOwner, MethodCallExpr call) {
+        return java.util.Objects.equals(receiverId, method.receiverId())
+                && (canonicalOwner == null || canonicalOwner.equals(method.canonicalOwnerType()))
+                && java.util.Objects.equals(call.getNameAsString(), method.methodName())
+                && call.getArguments().size() == method.argumentCount();
     }
 
     ExprType staticMethodReturnType(String owner, MethodCallExpr call) {
@@ -529,7 +530,7 @@ final class PostProcessingCallablePolicy {
 
         private static StaticAllowlistEntry parse(String entry, boolean builtIn) {
             int separator = entry.indexOf('#');
-            String owner = canonicalOwnerType(entry.substring(0, separator));
+            String owner = ExprType.canonicalRawName(entry.substring(0, separator));
             String member = entry.substring(separator + 1);
             if ("*".equals(member)) {
                 return new StaticAllowlistEntry(owner, null, null, true, builtIn, false);
@@ -567,16 +568,6 @@ final class PostProcessingCallablePolicy {
         Set<String> result = new LinkedHashSet<>();
         Collections.addAll(result, fields);
         return Collections.unmodifiableSet(result);
-    }
-
-    private static String canonicalOwnerType(String typeName) {
-        if (typeName == null) {
-            return null;
-        }
-        String trimmed = typeName.trim();
-        int genericStart = trimmed.indexOf('<');
-        String raw = genericStart < 0 ? trimmed : trimmed.substring(0, genericStart);
-        return ExprType.canonicalName(raw);
     }
 
     private static String canonicalType(String typeName) {

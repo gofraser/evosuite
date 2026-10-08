@@ -20,7 +20,9 @@
 package org.evosuite.runtime.mock.java.nio.channels;
 
 import org.evosuite.runtime.mock.java.io.MockIOException;
+import org.evosuite.runtime.vnet.VirtualNetwork;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.Pipe;
@@ -46,6 +48,25 @@ public final class EvoSelectorProvider extends SelectorProvider {
     /** Return the provider used by all virtual selectable channels. */
     public static EvoSelectorProvider provider() {
         return INSTANCE;
+    }
+
+    /**
+     * Returns {@code true} if the virtual network has moved past {@code openGeneration}, the
+     * reset generation a channel was opened in. As a side effect, the first time this is
+     * detected the channel is actually closed, so that {@code isOpen()} -- which is
+     * {@code final} in {@link java.nio.channels.spi.AbstractInterruptibleChannel} and only
+     * reflects the real closed flag -- starts reporting {@code false} too.
+     */
+    static boolean closeIfStale(long openGeneration, Closeable channel) {
+        if (VirtualNetwork.getInstance().getResetGeneration() == openGeneration) {
+            return false;
+        }
+        try {
+            channel.close();
+        } catch (IOException ignored) {
+            // best effort; the channel is being reported as stale/closed regardless
+        }
+        return true;
     }
 
     @Override

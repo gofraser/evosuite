@@ -134,14 +134,15 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
     private static final Pattern ANONYMOUS_MATCHER1 = Pattern.compile(".*\\$\\d+.*$");
 
     /**
-     * True if {@link ClinitResetSafetyAnalyzer} judged this class's {@code
-     * <clinit>} unsafe to replay. When true, no {@code __STATIC_RESET()} is
+     * The original bytecode, or null to skip the safety check. If {@link
+     * ClinitResetSafetyAnalyzer} judges this class's {@code <clinit>} unsafe
+     * to replay, no {@code __STATIC_RESET()} is
      * generated at all for this class, so its static state simply persists
      * across tests for the lifetime of the JVM - the same trade-off already
      * made deliberately for {@code SKIP_RESET_PREFIXES} in {@link
      * ClassResetter}.
      */
-    private final boolean unsafeToReplayClinit;
+    private final ClassReader originalClassReader;
 
     /**
      * Creates a new <code>CreateClassResetClassAdapter</code> instance.
@@ -175,20 +176,27 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
         super(Opcodes.ASM9, visitor);
         this.className = className;
         this.removeFinalModifierOnStaticFields = removeFinalModifierOnStaticFields;
-        boolean unsafe = false;
-        if (originalClassReader != null) {
-            try {
-                unsafe = ClinitResetSafetyAnalyzer.isUnsafeToReplayClinit(originalClassReader);
-            } catch (RuntimeException e) {
-                // Detection is a heuristic best-effort pass over the
-                // bytecode; if it fails for some reason, fall back to the
-                // previous behavior (generate the reset method) rather than
-                // letting a bug in the analyzer break instrumentation.
-                logger.debug("ClinitResetSafetyAnalyzer failed for {}: {}", className, e.toString());
-                unsafe = false;
-            }
+        this.originalClassReader = originalClassReader;
+    }
+
+    /**
+     * Whether replaying {@code <clinit>} is unsafe. Only asked once a {@code <clinit>} is
+     * visited, so classes without one never pay for the analysis.
+     */
+    private boolean isUnsafeToReplayClinit() {
+        if (originalClassReader == null) {
+            return false;
         }
-        this.unsafeToReplayClinit = unsafe;
+        try {
+            return ClinitResetSafetyAnalyzer.isUnsafeToReplayClinit(originalClassReader);
+        } catch (RuntimeException e) {
+            // Detection is a heuristic best-effort pass over the
+            // bytecode; if it fails for some reason, fall back to the
+            // previous behavior (generate the reset method) rather than
+            // letting a bug in the analyzer break instrumentation.
+            logger.debug("ClinitResetSafetyAnalyzer failed for {}: {}", className, e.toString());
+            return false;
+        }
     }
 
     /**
@@ -317,7 +325,7 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
             clinitFound = true;
             resetMethodAdded = true;
 
-            if (unsafeToReplayClinit) {
+            if (isUnsafeToReplayClinit()) {
                 // Don't emit __STATIC_RESET() at all: replaying this
                 // <clinit> can succeed while rebuilding a registry wrong
                 // (e.g. an empty resource scan, or a freshly built object

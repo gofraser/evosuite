@@ -80,8 +80,65 @@ public final class UnsafeGuard {
     private static final Map<Class<?>, FieldTable> TABLES =
             Collections.synchronizedMap(new WeakHashMap<Class<?>, FieldTable>());
 
-    private static final Map<String, Method> METHODS =
-            Collections.synchronizedMap(new HashMap<String, Method>());
+    /** An Unsafe method signature, resolved to its {@link Method} on first use. */
+    private static final class Sig {
+        final String name;
+        final Class<?>[] types;
+        volatile Method method;
+
+        Sig(String name, Class<?>... types) {
+            this.name = name;
+            this.types = types;
+        }
+    }
+
+    private static final Sig PUT_OBJECT = new Sig("putObject", Object.class, long.class, Object.class);
+    private static final Sig PUT_OBJECT_VOLATILE =
+            new Sig("putObjectVolatile", Object.class, long.class, Object.class);
+    private static final Sig PUT_ORDERED_OBJECT =
+            new Sig("putOrderedObject", Object.class, long.class, Object.class);
+    private static final Sig COMPARE_AND_SWAP_OBJECT =
+            new Sig("compareAndSwapObject", Object.class, long.class, Object.class, Object.class);
+    private static final Sig PUT_BOOLEAN = new Sig("putBoolean", Object.class, long.class, boolean.class);
+    private static final Sig PUT_BYTE = new Sig("putByte", Object.class, long.class, byte.class);
+    private static final Sig PUT_BYTE_ADDRESS = new Sig("putByte", long.class, byte.class);
+    private static final Sig PUT_SHORT = new Sig("putShort", Object.class, long.class, short.class);
+    private static final Sig PUT_SHORT_ADDRESS = new Sig("putShort", long.class, short.class);
+    private static final Sig PUT_CHAR = new Sig("putChar", Object.class, long.class, char.class);
+    private static final Sig PUT_CHAR_ADDRESS = new Sig("putChar", long.class, char.class);
+    private static final Sig PUT_INT = new Sig("putInt", Object.class, long.class, int.class);
+    private static final Sig PUT_INT_ADDRESS = new Sig("putInt", long.class, int.class);
+    private static final Sig PUT_INT_VOLATILE =
+            new Sig("putIntVolatile", Object.class, long.class, int.class);
+    private static final Sig PUT_ORDERED_INT = new Sig("putOrderedInt", Object.class, long.class, int.class);
+    private static final Sig COMPARE_AND_SWAP_INT =
+            new Sig("compareAndSwapInt", Object.class, long.class, int.class, int.class);
+    private static final Sig PUT_LONG = new Sig("putLong", Object.class, long.class, long.class);
+    private static final Sig PUT_LONG_ADDRESS = new Sig("putLong", long.class, long.class);
+    private static final Sig PUT_LONG_VOLATILE =
+            new Sig("putLongVolatile", Object.class, long.class, long.class);
+    private static final Sig PUT_ORDERED_LONG =
+            new Sig("putOrderedLong", Object.class, long.class, long.class);
+    private static final Sig COMPARE_AND_SWAP_LONG =
+            new Sig("compareAndSwapLong", Object.class, long.class, long.class, long.class);
+    private static final Sig PUT_FLOAT = new Sig("putFloat", Object.class, long.class, float.class);
+    private static final Sig PUT_FLOAT_ADDRESS = new Sig("putFloat", long.class, float.class);
+    private static final Sig PUT_DOUBLE = new Sig("putDouble", Object.class, long.class, double.class);
+    private static final Sig PUT_DOUBLE_ADDRESS = new Sig("putDouble", long.class, double.class);
+    private static final Sig ALLOCATE_MEMORY = new Sig("allocateMemory", long.class);
+    private static final Sig REALLOCATE_MEMORY = new Sig("reallocateMemory", long.class, long.class);
+    private static final Sig FREE_MEMORY = new Sig("freeMemory", long.class);
+    private static final Sig SET_MEMORY =
+            new Sig("setMemory", Object.class, long.class, long.class, byte.class);
+    private static final Sig SET_MEMORY_ADDRESS = new Sig("setMemory", long.class, long.class, byte.class);
+    private static final Sig COPY_MEMORY =
+            new Sig("copyMemory", Object.class, long.class, Object.class, long.class, long.class);
+    private static final Sig COPY_MEMORY_ADDRESS = new Sig("copyMemory", long.class, long.class, long.class);
+    private static final Sig PUT_ADDRESS = new Sig("putAddress", long.class, long.class);
+    private static final Sig ARRAY_BASE_OFFSET = new Sig("arrayBaseOffset", Class.class);
+    private static final Sig ARRAY_INDEX_SCALE = new Sig("arrayIndexScale", Class.class);
+    private static final Sig STATIC_FIELD_OFFSET = new Sig("staticFieldOffset", Field.class);
+    private static final Sig OBJECT_FIELD_OFFSET = new Sig("objectFieldOffset", Field.class);
 
     private UnsafeGuard() {
     }
@@ -90,118 +147,97 @@ public final class UnsafeGuard {
 
     public static void putObject(Object unsafe, Object base, long offset, Object value) {
         checkField(unsafe, base, offset, Object.class, value);
-        invoke(unsafe, "putObject", new Class<?>[]{Object.class, long.class, Object.class},
-                base, offset, value);
+        invoke(unsafe, PUT_OBJECT, base, offset, value);
     }
 
     public static void putObjectVolatile(Object unsafe, Object base, long offset, Object value) {
         checkField(unsafe, base, offset, Object.class, value);
-        invoke(unsafe, "putObjectVolatile", new Class<?>[]{Object.class, long.class, Object.class},
-                base, offset, value);
+        invoke(unsafe, PUT_OBJECT_VOLATILE, base, offset, value);
     }
 
     public static void putOrderedObject(Object unsafe, Object base, long offset, Object value) {
         checkField(unsafe, base, offset, Object.class, value);
-        invoke(unsafe, "putOrderedObject", new Class<?>[]{Object.class, long.class, Object.class},
-                base, offset, value);
+        invoke(unsafe, PUT_ORDERED_OBJECT, base, offset, value);
     }
 
     public static boolean compareAndSwapObject(Object unsafe, Object base, long offset,
                                                Object expected, Object value) {
         checkField(unsafe, base, offset, Object.class, value);
-        return (Boolean) invoke(unsafe, "compareAndSwapObject",
-                new Class<?>[]{Object.class, long.class, Object.class, Object.class},
-                base, offset, expected, value);
+        return (Boolean) invoke(unsafe, COMPARE_AND_SWAP_OBJECT, base, offset, expected, value);
     }
 
     // ---- primitive writes ----------------------------------------------------------------
 
     public static void putBoolean(Object unsafe, Object base, long offset, boolean value) {
         checkField(unsafe, base, offset, boolean.class, null);
-        invoke(unsafe, "putBoolean", new Class<?>[]{Object.class, long.class, boolean.class},
-                base, offset, value);
+        invoke(unsafe, PUT_BOOLEAN, base, offset, value);
     }
 
     public static void putByte(Object unsafe, Object base, long offset, byte value) {
         checkField(unsafe, base, offset, byte.class, null);
-        invoke(unsafe, "putByte", new Class<?>[]{Object.class, long.class, byte.class},
-                base, offset, value);
+        invoke(unsafe, PUT_BYTE, base, offset, value);
     }
 
     public static void putShort(Object unsafe, Object base, long offset, short value) {
         checkField(unsafe, base, offset, short.class, null);
-        invoke(unsafe, "putShort", new Class<?>[]{Object.class, long.class, short.class},
-                base, offset, value);
+        invoke(unsafe, PUT_SHORT, base, offset, value);
     }
 
     public static void putChar(Object unsafe, Object base, long offset, char value) {
         checkField(unsafe, base, offset, char.class, null);
-        invoke(unsafe, "putChar", new Class<?>[]{Object.class, long.class, char.class},
-                base, offset, value);
+        invoke(unsafe, PUT_CHAR, base, offset, value);
     }
 
     public static void putInt(Object unsafe, Object base, long offset, int value) {
         checkField(unsafe, base, offset, int.class, null);
-        invoke(unsafe, "putInt", new Class<?>[]{Object.class, long.class, int.class},
-                base, offset, value);
+        invoke(unsafe, PUT_INT, base, offset, value);
     }
 
     public static void putIntVolatile(Object unsafe, Object base, long offset, int value) {
         checkField(unsafe, base, offset, int.class, null);
-        invoke(unsafe, "putIntVolatile", new Class<?>[]{Object.class, long.class, int.class},
-                base, offset, value);
+        invoke(unsafe, PUT_INT_VOLATILE, base, offset, value);
     }
 
     public static void putOrderedInt(Object unsafe, Object base, long offset, int value) {
         checkField(unsafe, base, offset, int.class, null);
-        invoke(unsafe, "putOrderedInt", new Class<?>[]{Object.class, long.class, int.class},
-                base, offset, value);
+        invoke(unsafe, PUT_ORDERED_INT, base, offset, value);
     }
 
     public static boolean compareAndSwapInt(Object unsafe, Object base, long offset,
                                             int expected, int value) {
         checkField(unsafe, base, offset, int.class, null);
-        return (Boolean) invoke(unsafe, "compareAndSwapInt",
-                new Class<?>[]{Object.class, long.class, int.class, int.class},
-                base, offset, expected, value);
+        return (Boolean) invoke(unsafe, COMPARE_AND_SWAP_INT, base, offset, expected, value);
     }
 
     public static void putLong(Object unsafe, Object base, long offset, long value) {
         checkField(unsafe, base, offset, long.class, null);
-        invoke(unsafe, "putLong", new Class<?>[]{Object.class, long.class, long.class},
-                base, offset, value);
+        invoke(unsafe, PUT_LONG, base, offset, value);
     }
 
     public static void putLongVolatile(Object unsafe, Object base, long offset, long value) {
         checkField(unsafe, base, offset, long.class, null);
-        invoke(unsafe, "putLongVolatile", new Class<?>[]{Object.class, long.class, long.class},
-                base, offset, value);
+        invoke(unsafe, PUT_LONG_VOLATILE, base, offset, value);
     }
 
     public static void putOrderedLong(Object unsafe, Object base, long offset, long value) {
         checkField(unsafe, base, offset, long.class, null);
-        invoke(unsafe, "putOrderedLong", new Class<?>[]{Object.class, long.class, long.class},
-                base, offset, value);
+        invoke(unsafe, PUT_ORDERED_LONG, base, offset, value);
     }
 
     public static boolean compareAndSwapLong(Object unsafe, Object base, long offset,
                                              long expected, long value) {
         checkField(unsafe, base, offset, long.class, null);
-        return (Boolean) invoke(unsafe, "compareAndSwapLong",
-                new Class<?>[]{Object.class, long.class, long.class, long.class},
-                base, offset, expected, value);
+        return (Boolean) invoke(unsafe, COMPARE_AND_SWAP_LONG, base, offset, expected, value);
     }
 
     public static void putFloat(Object unsafe, Object base, long offset, float value) {
         checkField(unsafe, base, offset, float.class, null);
-        invoke(unsafe, "putFloat", new Class<?>[]{Object.class, long.class, float.class},
-                base, offset, value);
+        invoke(unsafe, PUT_FLOAT, base, offset, value);
     }
 
     public static void putDouble(Object unsafe, Object base, long offset, double value) {
         checkField(unsafe, base, offset, double.class, null);
-        invoke(unsafe, "putDouble", new Class<?>[]{Object.class, long.class, double.class},
-                base, offset, value);
+        invoke(unsafe, PUT_DOUBLE, base, offset, value);
     }
 
     // ---- absolute-address writes and off-heap memory -------------------------------------
@@ -225,7 +261,7 @@ public final class UnsafeGuard {
     }
 
     public static long allocateMemory(Object unsafe, long bytes) {
-        long address = (Long) invoke(unsafe, "allocateMemory", new Class<?>[]{long.class}, bytes);
+        long address = (Long) invoke(unsafe, ALLOCATE_MEMORY, bytes);
         if (bytes > 0) {
             ALLOCATIONS.put(address, bytes);
         }
@@ -240,8 +276,7 @@ public final class UnsafeGuard {
                         "Refusing Unsafe reallocation of address " + address + ": not allocated by the class");
             }
         }
-        long result = (Long) invoke(unsafe, "reallocateMemory",
-                new Class<?>[]{long.class, long.class}, address, bytes);
+        long result = (Long) invoke(unsafe, REALLOCATE_MEMORY, address, bytes);
         ALLOCATIONS.remove(address);
         if (bytes > 0) {
             ALLOCATIONS.put(result, bytes);
@@ -257,35 +292,30 @@ public final class UnsafeGuard {
             throw new IllegalArgumentException(
                     "Refusing Unsafe free of address " + address + ": not allocated by the class");
         }
-        invoke(unsafe, "freeMemory", new Class<?>[]{long.class}, address);
+        invoke(unsafe, FREE_MEMORY, address);
     }
 
     public static void setMemory(Object unsafe, long address, long bytes, byte value) {
         requireLive(address, bytes);
-        invoke(unsafe, "setMemory", new Class<?>[]{long.class, long.class, byte.class},
-                address, bytes, value);
+        invoke(unsafe, SET_MEMORY_ADDRESS, address, bytes, value);
     }
 
     public static void setMemory(Object unsafe, Object base, long offset, long bytes, byte value) {
         checkRegion(unsafe, base, offset, bytes);
-        invoke(unsafe, "setMemory", new Class<?>[]{Object.class, long.class, long.class, byte.class},
-                base, offset, bytes, value);
+        invoke(unsafe, SET_MEMORY, base, offset, bytes, value);
     }
 
     public static void copyMemory(Object unsafe, long from, long to, long bytes) {
         requireLive(from, bytes);
         requireLive(to, bytes);
-        invoke(unsafe, "copyMemory", new Class<?>[]{long.class, long.class, long.class},
-                from, to, bytes);
+        invoke(unsafe, COPY_MEMORY_ADDRESS, from, to, bytes);
     }
 
     public static void copyMemory(Object unsafe, Object srcBase, long srcOffset, Object dstBase,
                                   long dstOffset, long bytes) {
         checkRegion(unsafe, srcBase, srcOffset, bytes);
         checkRegion(unsafe, dstBase, dstOffset, bytes);
-        invoke(unsafe, "copyMemory",
-                new Class<?>[]{Object.class, long.class, Object.class, long.class, long.class},
-                srcBase, srcOffset, dstBase, dstOffset, bytes);
+        invoke(unsafe, COPY_MEMORY, srcBase, srcOffset, dstBase, dstOffset, bytes);
     }
 
     /** A byte range is legitimate in live native memory or inside the elements of an array. */
@@ -310,42 +340,42 @@ public final class UnsafeGuard {
 
     public static void putByte(Object unsafe, long address, byte value) {
         requireLive(address, 1);
-        invoke(unsafe, "putByte", new Class<?>[]{long.class, byte.class}, address, value);
+        invoke(unsafe, PUT_BYTE_ADDRESS, address, value);
     }
 
     public static void putShort(Object unsafe, long address, short value) {
         requireLive(address, 2);
-        invoke(unsafe, "putShort", new Class<?>[]{long.class, short.class}, address, value);
+        invoke(unsafe, PUT_SHORT_ADDRESS, address, value);
     }
 
     public static void putChar(Object unsafe, long address, char value) {
         requireLive(address, 2);
-        invoke(unsafe, "putChar", new Class<?>[]{long.class, char.class}, address, value);
+        invoke(unsafe, PUT_CHAR_ADDRESS, address, value);
     }
 
     public static void putInt(Object unsafe, long address, int value) {
         requireLive(address, 4);
-        invoke(unsafe, "putInt", new Class<?>[]{long.class, int.class}, address, value);
+        invoke(unsafe, PUT_INT_ADDRESS, address, value);
     }
 
     public static void putLong(Object unsafe, long address, long value) {
         requireLive(address, 8);
-        invoke(unsafe, "putLong", new Class<?>[]{long.class, long.class}, address, value);
+        invoke(unsafe, PUT_LONG_ADDRESS, address, value);
     }
 
     public static void putFloat(Object unsafe, long address, float value) {
         requireLive(address, 4);
-        invoke(unsafe, "putFloat", new Class<?>[]{long.class, float.class}, address, value);
+        invoke(unsafe, PUT_FLOAT_ADDRESS, address, value);
     }
 
     public static void putDouble(Object unsafe, long address, double value) {
         requireLive(address, 8);
-        invoke(unsafe, "putDouble", new Class<?>[]{long.class, double.class}, address, value);
+        invoke(unsafe, PUT_DOUBLE_ADDRESS, address, value);
     }
 
     public static void putAddress(Object unsafe, long address, long value) {
         requireLive(address, 8);
-        invoke(unsafe, "putAddress", new Class<?>[]{long.class, long.class}, address, value);
+        invoke(unsafe, PUT_ADDRESS, address, value);
     }
 
     // ---- checks --------------------------------------------------------------------------
@@ -402,8 +432,8 @@ public final class UnsafeGuard {
         long[] layout = ARRAY_LAYOUTS.get(arrayClass);
         if (layout == null) {
             layout = new long[]{
-                    ((Number) call(unsafe, "arrayBaseOffset", new Class<?>[]{Class.class}, arrayClass)).longValue(),
-                    ((Number) call(unsafe, "arrayIndexScale", new Class<?>[]{Class.class}, arrayClass)).longValue()};
+                    ((Number) invoke(unsafe, ARRAY_BASE_OFFSET, arrayClass)).longValue(),
+                    ((Number) invoke(unsafe, ARRAY_INDEX_SCALE, arrayClass)).longValue()};
             ARRAY_LAYOUTS.put(arrayClass, layout);
         }
         return layout;
@@ -517,8 +547,8 @@ public final class UnsafeGuard {
                     continue;
                 }
                 try {
-                    long off = ((Number) call(unsafe, isStatic ? "staticFieldOffset" : "objectFieldOffset",
-                            new Class<?>[]{Field.class}, f)).longValue();
+                    Sig offset = isStatic ? STATIC_FIELD_OFFSET : OBJECT_FIELD_OFFSET;
+                    long off = ((Number) invoke(unsafe, offset, f)).longValue();
                     (isStatic ? table.statics : table.instance).put(off, f.getType());
                 } catch (Throwable t) {
                     // hidden classes and records refuse an offset; such a field is not writable
@@ -531,13 +561,13 @@ public final class UnsafeGuard {
 
     // ---- reflection on Unsafe ------------------------------------------------------------
 
-    private static Object call(Object unsafe, String name, Class<?>[] types, Object... args) {
-        return invoke(unsafe, name, types, args);
-    }
-
-    private static Object invoke(Object unsafe, String name, Class<?>[] types, Object... args) {
+    private static Object invoke(Object unsafe, Sig sig, Object... args) {
         try {
-            Method m = method(unsafe.getClass(), name, types);
+            Method m = sig.method;
+            if (m == null) {
+                m = unsafe.getClass().getMethod(sig.name, sig.types);
+                sig.method = m;
+            }
             return m.invoke(unsafe, args);
         } catch (java.lang.reflect.InvocationTargetException e) {
             Throwable cause = e.getCause();
@@ -549,21 +579,7 @@ public final class UnsafeGuard {
             }
             throw new IllegalStateException(cause);
         } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Cannot reach Unsafe." + name, e);
+            throw new IllegalStateException("Cannot reach Unsafe." + sig.name, e);
         }
-    }
-
-    private static Method method(Class<?> unsafeClass, String name, Class<?>[] types)
-            throws NoSuchMethodException {
-        StringBuilder key = new StringBuilder(name);
-        for (Class<?> t : types) {
-            key.append(',').append(t.getName());
-        }
-        Method m = METHODS.get(key.toString());
-        if (m == null) {
-            m = unsafeClass.getMethod(name, types);
-            METHODS.put(key.toString(), m);
-        }
-        return m;
     }
 }

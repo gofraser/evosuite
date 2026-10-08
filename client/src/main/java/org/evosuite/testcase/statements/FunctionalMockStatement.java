@@ -393,8 +393,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
-        if (!Properties.USE_SEPARATE_CLASSLOADER
-                && RemoveFinalClassAdapter.finalClasses.contains(rawClass.getName())) {
+        if (MethodDescriptor.wasOriginallyFinal(rawClass)) {
             // Final in the original bytecode: the check above no longer sees that once
             // InstrumentingClassLoader has stripped the modifier. The generated test's JVM
             // usually loads the class unstripped (see MethodDescriptor.shouldBeMocked), and
@@ -533,9 +532,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * no way for the search to steer it. In that situation the search should prefer a
      * real generator over spending evaluations on a mock that cannot be controlled.
      *
-     * <p>This mirrors the filters in {@code MethodDescriptor.shouldBeMocked()} but is
-     * static (no {@code GenericMethod} instance is needed) so it can be asked before a
-     * mock is actually created.
+     * <p>This applies the method filter of {@code MethodDescriptor.shouldBeMocked()}
+     * ({@link MethodDescriptor#isStubbable(Method)}) but needs no {@code GenericMethod}
+     * instance, so it can be asked before a mock is actually created.
      *
      * @param rawClass the type that would be mocked
      * @return true if at least one method exists that a functional mock could usefully stub
@@ -567,17 +566,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             if (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers)) {
                 continue;
             }
-            if (method.getReturnType().equals(Void.TYPE)
-                    || method.getName().equals("equals")
-                    || method.getName().equals("hashCode")
-                    || method.getName().equals("toString")) {
-                continue;
+            if (MethodDescriptor.isStubbable(method)) {
+                return true;
             }
-            if (!Properties.USE_SEPARATE_CLASSLOADER && RemoveFinalClassAdapter.isFinalMethod(method)) {
-                // Final in the original bytecode: unstubbable, see MethodDescriptor.shouldBeMocked().
-                continue;
-            }
-            return true;
         }
         return false;
     }
@@ -1238,7 +1229,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      */
     static Answer<Object> callRealMethodIfOriginallyFinal(Answer<Object> fallback) {
         return invocation -> {
-            if (RemoveFinalClassAdapter.isFinalMethod(invocation.getMethod())) {
+            if (MethodDescriptor.wasOriginallyFinal(invocation.getMethod())) {
                 return invocation.callRealMethod();
             }
             return fallback.answer(invocation);
@@ -1325,8 +1316,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 && returnType != Cloneable.class
                 && !Modifier.isFinal(returnType.getModifiers())
                 // getModifiers() no longer shows final once the class is instrumented
-                && (Properties.USE_SEPARATE_CLASSLOADER
-                        || !RemoveFinalClassAdapter.finalClasses.contains(returnType.getName()))
+                && !MethodDescriptor.wasOriginallyFinal(returnType)
                 && !returnType.isPrimitive()
                 && !UnmockableTypes.isUnmockable(returnType)) {
             try {

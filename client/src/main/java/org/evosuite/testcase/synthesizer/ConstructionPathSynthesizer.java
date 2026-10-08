@@ -203,11 +203,20 @@ public class ConstructionPathSynthesizer {
         if (paths == null || paths.isEmpty()) {
             return null;
         }
+        if (paths.size() == 1) {
+            return paths.get(0);
+        }
+        Map<ConstructionPath, Integer> penalties = new IdentityHashMap<>();
+        Map<ConstructionPath, String> labels = new IdentityHashMap<>();
+        for (ConstructionPath path : paths) {
+            penalties.put(path, pathPenalty(path));
+            labels.put(path, String.valueOf(path));
+        }
         return Collections.min(
                 paths,
-                Comparator.comparingInt(ConstructionPathSynthesizer::pathPenalty)
+                Comparator.comparingInt((ConstructionPath path) -> penalties.get(path))
                         .thenComparingInt(ConstructionPath::size)
-                        .thenComparing(ConstructionPath::toString));
+                        .thenComparing(labels::get));
     }
 
     private static int pathPenalty(ConstructionPath path) {
@@ -301,14 +310,12 @@ public class ConstructionPathSynthesizer {
 
         /** when constructing some instruction, its dependency may not be ready. */
         Map<DepVariableWrapper, Integer> methodCounter = new HashMap<>();
-        int c = 1;
         while (!queue.isEmpty()) {
             if (test.size() >= maxStatements) {
                 break;
             }
             DepVariableWrapper node = queue.remove();
 
-            c++;
 
             /** for each method callsite, we only generate once. */
             if (map.containsKey(node) && node.var.isMethodCall()) {
@@ -433,7 +440,7 @@ public class ConstructionPathSynthesizer {
         for (int i = 0; i < test.size(); i++) {
             Statement statement = test.getStatement(i);
             if (statement instanceof PrimitiveStatement
-                    && containsIdentity(slots, statement.getReturnValue())) {
+                    && ConstructionReferenceUtil.containsIdentity(slots, statement.getReturnValue())) {
                 ((PrimitiveStatement<?>) statement).setObjectRuleSlot(true);
             }
         }
@@ -467,33 +474,13 @@ public class ConstructionPathSynthesizer {
             if (targetCall == null
                     || parameterIndex < 0
                     || parameterIndex >= targetCall.getParameterReferences().size()
-                    || !sameReference(
+                    || !ConstructionReferenceUtil.sameReference(
                             test,
                             mapped,
                             targetCall.getParameterReferences().get(parameterIndex))) {
                 unresolvedRequiredRoot = true;
             }
         }
-    }
-
-    private static boolean sameReference(
-            TestCase test, VariableReference left, VariableReference right) {
-        if (left == right) {
-            return left != null;
-        }
-        int leftPosition = ConstructionReferenceUtil.definitionPosition(test, left);
-        int rightPosition = ConstructionReferenceUtil.definitionPosition(test, right);
-        return leftPosition >= 0 && leftPosition == rightPosition;
-    }
-
-    private static boolean containsIdentity(
-            Iterable<VariableReference> references, VariableReference candidate) {
-        for (VariableReference reference : references) {
-            if (reference == candidate) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public boolean hasUnresolvedRequiredRoot() {
@@ -567,29 +554,9 @@ public class ConstructionPathSynthesizer {
             return new VariableInTest(callerObj, nodePath);
         }
 
-        //        for(int i=0; i<callerObjects.size(); i++){
-        //            VariableReference callerObject = callerObjects.get(i);
-        //            GenericClass t = callerObject.getGenericClass();
-        //            if(t.isPrimitive()) {
-        //                continue;
-        //            }
-        //
-        //            callerObj = callerObject;
-        //        }
-
         Collections.reverse(nodePath);
         return new VariableInTest(variableRel.matchedVars.get(0), nodePath);
     }
-
-    //    private void buildNodeStatementRelation(TestCase test, Map<DepVariableWrapper,
-    // List<VariableReference>> map,
-    //            DepVariableWrapper node, Branch b, boolean allowNullValue) throws
-    // ClassNotFoundException, ConstructionFailedException {
-    //
-    //        VariableReference callerObject = getCallerObject(map, node);
-    //        deriveCodeForTest(map, test, callerObject, node, b, allowNullValue);
-    //
-    //    }
 
     protected boolean deriveCodeForTest(
             Map<DepVariableWrapper, VarRelevance> map,
@@ -610,8 +577,6 @@ public class ConstructionPathSynthesizer {
         } catch (Exception e) {
             logger.debug("Object-rule statement derivation failed for {}", node.getShortName(), e);
         }
-        //        List<VariableReference> generatedVariables = node.generateOrFindStatement(test,
-        // isLeaf, testVariable, map, b, allowNullValue);
         if (relevance != null) {
             VarRelevance rel = map.get(node);
             if (rel == null) {
@@ -626,21 +591,6 @@ public class ConstructionPathSynthesizer {
 
         return true;
     }
-
-    //    private boolean isLoadedClass(Class<?> fieldDeclaringClass) {
-
-    //        InstrumentingClassLoader classLoader =
-    // TestGenerationContext.getInstance().getClassLoaderForSUT();
-    //        String className = fieldDeclaringClass.getName();
-
-    //        Map<String, RawControlFlowGraph> graphMap =
-    // GraphPool.getInstance(classLoader).getRawCFGs(className);
-    //        if(graphMap != null && !graphMap.isEmpty()) {
-    //            return true;
-    //        }
-    //
-    //        return false;
-    //    }
 
     @SuppressWarnings("rawtypes")
     protected boolean hasNotInvoked(TestCase test, Executable setter) {
@@ -663,29 +613,6 @@ public class ConstructionPathSynthesizer {
 
         return true;
     }
-
-    //    private VariableReference retrieveParamReference4Field(TestCase test, Parameter parameter,
-    // Executable executable,
-    //            Statement statement) {
-    //
-    //        if (!(statement instanceof EntityWithParametersStatement)) {
-    //            return null;
-    //        }
-    //
-
-    //        EntityWithParametersStatement newStatement = (EntityWithParametersStatement)
-    // statement;
-    //        for (int i = 0; i < executable.getParameters().length; i++) {
-    //            Parameter setterParam = executable.getParameters()[i];
-    //            if (parameter.equals(setterParam)) {
-    //                List<VariableReference> paramRefs = newStatement.getParameterReferences();
-    //                return paramRefs.get(i);
-    //            }
-    //        }
-    //
-    //
-    //        return null;
-    //    }
 
     public static BytecodeInstruction traceBackToMethodCall(BytecodeInstruction ins) {
 
@@ -711,104 +638,6 @@ public class ConstructionPathSynthesizer {
         return null;
     }
 
-    //            //keep traverse
-    //            DefUseAnalyzer defUseAnalyzer = new DefUseAnalyzer();
-    //            defUseAnalyzer.analyze(classLoader, node, className, methodName, node.access);
-    //            Use use = DefUseFactory.makeUse(defIns);
-    //            // Ignore method parameter
-    //            List<Definition> defs = DefUsePool.getDefinitions(use);
-    //            for (Definition def : CollectionUtil.nullToEmpty(defs)) {
-    //                if (def != null) {
-
-    //                    BytecodeInstruction defInstruction =
-    // DefUseAnalyzer.convert2BytecodeInstruction(cfg, node, def.getASMNode());
-    //                    buildInputOutputForInstruction(defInstruction, node,
-    //                            outputVar, cfg, allLeafDepVars, visitedIns);
-    //                }
-    //            }
-
-    //    @SuppressWarnings("rawtypes")
-
-    //    private Parameter searchForQualifiedParameter(Executable executable, Field field,
-    // Parameter[] parameters,
-    //            String opcode) {
-    //        List<Parameter> qualifiedParams = new ArrayList<>();
-    //        String fullName = null;
-    //        for (Parameter param : parameters) {
-
-    //            if (param.getType().getCanonicalName().equals(field.getType().getCanonicalName()))
-    // {
-    //                qualifiedParams.add(param);
-    //            }
-    //        }
-    //
-    //        if (!qualifiedParams.isEmpty()) {
-    //            if (executable instanceof Method) {
-    //                Method method = ((Method) executable);
-
-    //                fullName = new GenericMethod(method,
-    // method.getDeclaringClass()).getNameWithDescriptor();
-    //            } else if (executable instanceof Constructor) {
-    //                Constructor constructor = ((Constructor) executable);
-
-    //                fullName = new GenericConstructor(constructor,
-    // constructor.getDeclaringClass()).getNameWithDescriptor();
-    //            }
-    //
-    //            List<BytecodeInstruction> insList = BytecodeInstructionPool
-    //                    .getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-
-    //
-
-    //
-    // .getAllInstructionsAtMethod(executable.getDeclaringClass().getCanonicalName(), fullName);
-    //            for (BytecodeInstruction ins : insList) {
-    //                if (ins.getASMNodeString().contains(opcode)) {
-    //                    BytecodeInstruction defIns = ins.getSourceOfStackInstruction(0);
-    //                    int count = 0;
-    //                    if (defIns.isParameter()) {
-    //                        for (int i = 0; i < defIns.getLocalVariableSlot(); i++) {
-    //                            String typeName = executable.getParameterTypes()[i].getTypeName();
-
-    //                            if
-    // (typeName.equals(qualifiedParams.get(0).getType().getCanonicalName())) {
-    //                                count++;
-    //                            }
-    //                        }
-    //                        if (count >= 1) {
-    //                            return qualifiedParams.get(count - 1);
-    //                        }
-    //                    }
-    //                }
-    //            }
-    //        }
-    //        return null;
-    //    }
-
-    //    private boolean isPrimitiveType(String fieldType) {
-    //        boolean flag = !fieldType.contains("L") && !fieldType.contains(";");
-    //        return flag;
-    //    }
-
-    //    @SuppressWarnings("rawtypes")
-
-    //    private boolean isCalledConstructor(TestCase test, VariableReference parentVarRef,
-    // Constructor constructor) {
-    //
-    //        if (parentVarRef == null) {
-    //            return false;
-    //        }
-    //
-    //        Statement stat = test.getStatement(parentVarRef.getStPosition());
-    //        if (stat instanceof ConstructorStatement) {
-    //            ConstructorStatement s = (ConstructorStatement) stat;
-    //            Constructor calledConstructor = s.getConstructor().getConstructor();
-    //
-    //            return calledConstructor.equals(constructor);
-    //        }
-    //        return false;
-    //    }
-
     @SuppressWarnings("rawtypes")
     protected void registerAllMethods(Class<?> fieldDeclaringClass) {
         try {
@@ -825,91 +654,6 @@ public class ConstructionPathSynthesizer {
             logger.debug("Unable to register methods for {}", fieldDeclaringClass, e);
         }
     }
-
-    //    private Set<Integer> searchRelevantParameterOfSetterInMethod(String className, String
-    // methodName, Field field) {
-    //        /**
-    //         * get all the field setter bytecode instructions in the method.
-    //         * the field setter can be taken from callee method of @code{methodName}.
-    //         */
-    //        List<BytecodeInstruction> cascadingCallRelations = new LinkedList<>();
-
-    //        Map<BytecodeInstruction, List<BytecodeInstruction>> setterMap = new
-    // HashMap<BytecodeInstruction, List<BytecodeInstruction>>();
-    //        Map<BytecodeInstruction, List<BytecodeInstruction>> fieldSetterMap =
-    // DataDependencyUtil.analyzeFieldSetter(className, methodName,
-    //                field, 5, cascadingCallRelations, setterMap);
-    //        Set<Integer> validParams = new HashSet<>();
-    //        if (fieldSetterMap.isEmpty()) {
-    //            return validParams;
-    //        }
-    //
-
-    //        for (Entry<BytecodeInstruction, List<BytecodeInstruction>> entry :
-    // fieldSetterMap.entrySet()) {
-    //            BytecodeInstruction setterIns = entry.getKey();
-    //            List<BytecodeInstruction> callList = entry.getValue();
-
-    //            Set<Integer> validParamPos =
-    // DataDependencyUtil.checkValidParameterPositions(setterIns, className, methodName, callList);
-    //            if (!validParamPos.isEmpty()) {
-    //                validParams.addAll(validParamPos);
-    //            }
-    //        }
-    //        return validParams;
-    //    }
-
-    //    private Map.Entry<Constructor, Parameter> searchForPotentialConstructor(Field field,
-    // String
-    // fieldOwner,
-    //            Class<?> fieldDeclaringClass, List<BytecodeInstruction> insList)
-    //            throws NoSuchMethodException, ClassNotFoundException {
-    //
-    //        String opcode = Modifier.isStatic(field.getModifiers()) ? "PUTSTATIC" : "PUTFIELD";
-    //
-    //        Map<Constructor, Parameter> targetConstructors = new HashMap<>();
-    //        for (BytecodeInstruction ins : insList) {
-    //            if (ins.getASMNodeString().contains(opcode)) {
-    //                FieldInsnNode insnNode = ((FieldInsnNode) ins.getASMNode());
-    //                String tmpName = insnNode.name;
-    //                String tmpOwner = insnNode.owner;
-    //                if (tmpName.equals(field.getName()) && tmpOwner.equals(fieldOwner)) {
-    //                    String methodName = ins.getMethodName();
-    //                    org.objectweb.asm.Type[] types = org.objectweb.asm.Type
-
-    //                            .getArgumentTypes(methodName.substring(methodName.indexOf("("),
-    // methodName.length()));
-    //                    Class<?>[] paramClasses = new Class<?>[types.length];
-    //                    int index = 0;
-    //                    for (org.objectweb.asm.Type type : types) {
-    //                        Class<?> paramClass = getClassForType(type);
-    //                        paramClasses[index++] = paramClass;
-    //                    }
-    //
-    //                    if (methodName.contains("<init>")) {
-
-    //                        Constructor targetConstructor =
-    // fieldDeclaringClass.getDeclaredConstructor(paramClasses);
-    //                        Set<Integer> validParamPositions =
-    // searchRelevantParameterOfSetterInMethod(fieldDeclaringClass.getCanonicalName(), methodName,
-    // field);
-    //                        if (!validParamPositions.isEmpty()) {
-    //                            Integer validParamPos = Randomness.choice(validParamPositions);
-
-    //                            Parameter param =
-    // targetConstructor.getParameters()[validParamPos];
-    //                            targetConstructors.put(targetConstructor, param);
-    //                        }
-    //                    }
-    //                }
-    //            }
-    //        }
-    //
-
-    //        Map.Entry<Constructor, Parameter> entry =
-    // Randomness.choice(targetConstructors.entrySet());
-    //        return entry;
-    //    }
 
     public static VariableReference addConstructorForClass(
             TestFactory testFactory,

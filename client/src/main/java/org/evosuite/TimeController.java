@@ -243,12 +243,28 @@ public class TimeController {
      * @return the total expected runtime in seconds
      */
     public int calculateForHowLongClientWillRunInSeconds() {
-        int time = Properties.EXTRA_TIMEOUT;
+        return totalPlannedSeconds(plannedBudgetsInSeconds());
+    }
 
-        for (ClientState phase : ClientState.values()) {
-            time += getPlannedBudgetInSeconds(phase);
+    private static final ClientState[] PHASES = ClientState.values();
+
+    /**
+     * The planned budget of every phase, indexed by {@link ClientState#ordinal()}. Computed once
+     * per time check, since a time check needs both the total and the share of later phases.
+     */
+    private int[] plannedBudgetsInSeconds() {
+        int[] budgets = new int[PHASES.length];
+        for (ClientState phase : PHASES) {
+            budgets[phase.ordinal()] = getPlannedBudgetInSeconds(phase);
         }
+        return budgets;
+    }
 
+    private static int totalPlannedSeconds(int[] budgets) {
+        int time = Properties.EXTRA_TIMEOUT;
+        for (int budget : budgets) {
+            time += budget;
+        }
         return time;
     }
 
@@ -296,11 +312,11 @@ public class TimeController {
      *
      * @return the reserved time in milliseconds
      */
-    private long getBudgetReservedForLaterPhases() {
+    private long getBudgetReservedForLaterPhases(int[] budgets) {
         long reserved = 0;
-        for (ClientState phase : ClientState.values()) {
+        for (ClientState phase : PHASES) {
             if (phase.getNumPhase() > state.getNumPhase()) {
-                reserved += 1000L * getPlannedBudgetInSeconds(phase);
+                reserved += 1000L * budgets[phase.ordinal()];
             }
         }
         return reserved;
@@ -323,8 +339,8 @@ public class TimeController {
      *
      * @return the remaining time in milliseconds
      */
-    private long getLeftTimeBeforeEndOfUntimedPhase() {
-        return getLeftTimeBeforeEnd() - getBudgetReservedForLaterPhases();
+    private long getLeftTimeBeforeEndOfUntimedPhase(long leftTimeBeforeEnd, int[] budgets) {
+        return leftTimeBeforeEnd - getBudgetReservedForLaterPhases(budgets);
     }
 
     private int getLlmPostProcessingTimeoutInSeconds() {
@@ -369,7 +385,8 @@ public class TimeController {
         }
 
         //all time values are in milliseconds
-        long left = getLeftTimeBeforeEnd();
+        int[] budgets = plannedBudgetsInSeconds();
+        long left = getLeftTimeBeforeEnd(budgets);
 
         if (ms > left) {
             return false;
@@ -387,7 +404,7 @@ public class TimeController {
             return ms <= phaseLeft;
         }
 
-        return ms <= getLeftTimeBeforeEndOfUntimedPhase();
+        return ms <= getLeftTimeBeforeEndOfUntimedPhase(left, budgets);
     }
 
     /**
@@ -399,14 +416,15 @@ public class TimeController {
         if (state.equals(ClientState.NOT_STARTED)) {
             return Long.MAX_VALUE;
         }
-        long left = getLeftTimeBeforeEnd();
+        int[] budgets = plannedBudgetsInSeconds();
+        long left = getLeftTimeBeforeEnd(budgets);
         if (currentPhaseHasTimeout()) {
             long timeoutInMs = getCurrentPhaseTimeout();
             long timeSincePhaseStarted = System.currentTimeMillis() - currentPhaseStartTime;
             long phaseLeft = timeoutInMs - timeSincePhaseStarted + timeLeftFromPreviousPhases;
             left = Math.min(left, phaseLeft);
         } else {
-            left = getLeftTimeBeforeEndOfUntimedPhase();
+            left = getLeftTimeBeforeEndOfUntimedPhase(left, budgets);
         }
         return Math.max(0, left);
     }
@@ -417,8 +435,12 @@ public class TimeController {
      * @return the remaining time in milliseconds
      */
     private long getLeftTimeBeforeEnd() {
+        return getLeftTimeBeforeEnd(plannedBudgetsInSeconds());
+    }
+
+    private long getLeftTimeBeforeEnd(int[] budgets) {
         long timeSinceStart = System.currentTimeMillis() - clientStartTime;
-        long totalTimeLimit = 1000L * calculateForHowLongClientWillRunInSeconds();
+        long totalTimeLimit = 1000L * totalPlannedSeconds(budgets);
         return totalTimeLimit - timeSinceStart;
     }
 

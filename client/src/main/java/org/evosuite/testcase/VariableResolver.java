@@ -502,16 +502,15 @@ public class VariableResolver {
         // still best served by a mock: it is a null-safe stand-in the SUT can paint on or
         // notify. weka.gui.beans.BeanVisual passes Graphics2D around, and preferring the
         // concrete PostscriptGraphics over a mock took it from 0.98 to 0.57 branch coverage.
-        boolean mockWouldBeInert = isDeepPlainInterfaceOrAbstract
-                && DependencyAnalysis.isTargetProject(clazz.getRawClass().getName())
-                && !FunctionalMockStatement.hasUsefulMockSurface(clazz.getRawClass())
-                && TestCluster.getInstance().hasGenerator(type);
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
         boolean bypassTimeGate = false;
         if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {
             effectiveMockProb = 1.0;
             bypassTimeGate = true;
-        } else if (isDeepPlainInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR && !mockWouldBeInert) {
+        } else if (isDeepPlainInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR
+                && !(DependencyAnalysis.isTargetProject(clazz.getRawClass().getName())
+                && !FunctionalMockStatement.hasUsefulMockSurface(clazz.getRawClass())
+                && TestCluster.getInstance().hasGenerator(type))) {
             effectiveMockProb = Math.max(effectiveMockProb,
                     context.isConcreteChain() ? CHAIN_MOCK_BOOST : DEEP_MOCK_BOOST);
             bypassTimeGate = true;
@@ -606,46 +605,51 @@ public class VariableResolver {
     }
 
     private static boolean isFunctionalInterface(Class<?> rawClass) {
-        if (rawClass == null || !rawClass.isInterface()) {
-            return false;
-        }
-        try {
-            if (rawClass.isAnnotationPresent(FunctionalInterface.class)) {
-                return true;
-            }
+        return rawClass != null && rawClass.isInterface() && FUNCTIONAL_INTERFACES.get(rawClass);
+    }
 
-            int abstractMethods = 0;
-            for (Method method : rawClass.getMethods()) {
-                if (!Modifier.isAbstract(method.getModifiers())) {
-                    continue;
-                }
-                try {
-                    Object.class.getMethod(method.getName(), method.getParameterTypes());
-                    continue;
-                } catch (NoSuchMethodException ignored) {
-                    // Not an Object method.
-                }
-                abstractMethods++;
-                if (abstractMethods > 1) {
-                    return false;
-                }
-            }
-            return abstractMethods == 1;
-        } catch (LinkageError e) {
-            return false;
+    /** Public methods of {@code Object}, as name plus parameter types. */
+    private static final Set<List<Object>> OBJECT_METHOD_SIGNATURES = new HashSet<>();
+
+    static {
+        for (Method method : Object.class.getMethods()) {
+            OBJECT_METHOD_SIGNATURES.add(methodSignature(method));
         }
     }
 
-    private static boolean isPreferredConcreteFactoryType(Class<?> type) {
-        if (type == null) {
-            return false;
-        }
-        String name = type.getName();
-        return "java.nio.file.Path".equals(name)
-                || "java.nio.charset.Charset".equals(name)
-                || "java.net.URI".equals(name)
-                || "java.io.File".equals(name);
+    private static List<Object> methodSignature(Method method) {
+        List<Object> signature = new ArrayList<>();
+        signature.add(method.getName());
+        signature.addAll(Arrays.asList(method.getParameterTypes()));
+        return signature;
     }
+
+    /** Asked for every deep interface dependency, so the reflection scan is kept per class. */
+    private static final ClassValue<Boolean> FUNCTIONAL_INTERFACES = new ClassValue<Boolean>() {
+        @Override
+        protected Boolean computeValue(Class<?> rawClass) {
+            try {
+                if (rawClass.isAnnotationPresent(FunctionalInterface.class)) {
+                    return true;
+                }
+
+                int abstractMethods = 0;
+                for (Method method : rawClass.getMethods()) {
+                    if (!Modifier.isAbstract(method.getModifiers())
+                            || OBJECT_METHOD_SIGNATURES.contains(methodSignature(method))) {
+                        continue;
+                    }
+                    abstractMethods++;
+                    if (abstractMethods > 1) {
+                        return false;
+                    }
+                }
+                return abstractMethods == 1;
+            } catch (LinkageError e) {
+                return false;
+            }
+        }
+    };
 
     /**
      * Constructs the small set of value/environment types for which a stable public factory is more

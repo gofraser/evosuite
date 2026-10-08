@@ -641,8 +641,7 @@ public class Properties {
     public static boolean CHECK_PARENTS_LENGTH = false; // note, based on STVR experiments
 
     // @Parameter(key = "check_rank_length", group = "Search Algorithm", description = "Use length
-    // in
-    // rank selection")
+    // in rank selection")
     // public static boolean CHECK_RANK_LENGTH = false;
 
     @Parameter(key = "parent_check", group = "Search Algorithm",
@@ -763,10 +762,9 @@ public class Properties {
     }
 
     // NOTE (ilebrero): This is the current method name being explored. This is NOT a good practice,
-    // but it's
-    //         the only way I can imagine to get the current method name for saving the
+    // but it's the only way I can imagine to get the current method name for saving the
     // bytecodeLogging info in a file.
-    //         TODO: Is there a better way of doing this?
+    // TODO: Is there a better way of doing this?
     public static String CURRENT_TARGET_METHOD = "";
 
     // NOTE: by default we use the sage implementation of the algorithm
@@ -1505,9 +1503,7 @@ public class Properties {
     public static String JUNIT_FAILED_SUFFIX = "_Failed_ESTest";
 
     // WARN: do not change this value, as had to be hardcoded in quite a few places :( if really
-    // need
-    // to change it,
-    // all that code has to be changed as well
+    // need to change it, all that code has to be changed as well
 
     /**
      * Suffix used to specify scaffolding files.

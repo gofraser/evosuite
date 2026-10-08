@@ -34,4 +34,32 @@ public final class ConstructionReferenceUtil {
         }
         return -1;
     }
+
+    /**
+     * Returns whether both references denote the same definition in {@code test}: the same
+     * object, or two references whose defining statement is the same.
+     */
+    public static boolean sameReference(
+            TestCase test, VariableReference left, VariableReference right) {
+        if (left == right) {
+            return left != null;
+        }
+        int leftPosition = definitionPosition(test, left);
+        int rightPosition = definitionPosition(test, right);
+        return leftPosition >= 0 && leftPosition == rightPosition;
+    }
+
+    /** Returns whether {@code references} holds {@code candidate} itself (not merely an equal one). */
+    public static boolean containsIdentity(
+            Iterable<VariableReference> references, VariableReference candidate) {
+        if (references == null) {
+            return false;
+        }
+        for (VariableReference reference : references) {
+            if (reference == candidate) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

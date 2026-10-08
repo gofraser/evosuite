@@ -26,6 +26,9 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Resolves the small expression type model used by assertion validation.
  */
@@ -37,6 +40,7 @@ final class PostProcessingExpressionTypeResolver {
 
     private final LlmPostProcessingResponseParser.ParseContext context;
     private final MethodCallResolver methodCallResolver;
+    private final Map<String, ExprType> resolvedStrings = new HashMap<>();
 
     PostProcessingExpressionTypeResolver(LlmPostProcessingResponseParser.ParseContext context,
                                          MethodCallResolver methodCallResolver) {
@@ -48,11 +52,20 @@ final class PostProcessingExpressionTypeResolver {
         if (expression == null || expression.trim().isEmpty()) {
             return ExprType.unknown();
         }
-        try {
-            return resolve(StaticJavaParser.parseExpression(expression));
-        } catch (RuntimeException e) {
-            return ExprType.unknown();
+        // The parse context is immutable, so a source string always resolves to the same type.
+        // Not computeIfAbsent: resolving a method call can re-enter this method.
+        ExprType cached = resolvedStrings.get(expression);
+        if (cached != null) {
+            return cached;
         }
+        ExprType resolved;
+        try {
+            resolved = resolve(StaticJavaParser.parseExpression(expression));
+        } catch (RuntimeException e) {
+            resolved = ExprType.unknown();
+        }
+        resolvedStrings.put(expression, resolved);
+        return resolved;
     }
 
     ExprType resolve(Expression expression) {

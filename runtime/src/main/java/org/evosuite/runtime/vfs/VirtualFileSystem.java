@@ -585,6 +585,7 @@ public final class VirtualFileSystem {
                     path = name;
                 }
                 folder = new VFolder(path, parent);
+                parent.addChild(folder);
             } else {
                 FSObject child = parent.getChild(name);
                 if (child == null) {
@@ -596,9 +597,6 @@ public final class VirtualFileSystem {
                 folder = (VFolder) child;
             }
 
-            if (!parent.hasChild(name)) {
-                parent.addChild(folder);
-            }
             parent = folder;
         }
 

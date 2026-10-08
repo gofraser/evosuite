@@ -358,6 +358,35 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         }
     }
 
+    /**
+     * Delivers one queued output variable: releases a barrier, sends a value to the master, or,
+     * with the client on a thread and no master, records it locally.
+     *
+     * @return false if delivery has to stop, because the master is gone or refused the value
+     */
+    private boolean deliverOutputVariable(OutputVariable ov, String masterUnavailableMessage,
+                                          String exportErrorPrefix) {
+        if (ov.isBarrier()) {
+            ov.acknowledgement.countDown();
+            return true;
+        }
+        if (!ensureMasterNode()) {
+            if (Properties.CLIENT_ON_THREAD) {
+                fallbackSetOutputVariable(ov.variable, ov.value);
+                return true;
+            }
+            logger.warn(masterUnavailableMessage);
+            return false;
+        }
+        try {
+            masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
+            return true;
+        } catch (RemoteException e) {
+            logger.error(exportErrorPrefix + ov.variable + "=" + ov.value, e);
+            return false;
+        }
+    }
+
     @Override
     public void flushStatisticsForClassChange() {
         logger.info("Flushing output variables to master process");
@@ -366,22 +395,9 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             List<OutputVariable> vars = new ArrayList<>();
             outputVariableQueue.drainTo(vars);
             for (OutputVariable ov : vars) {
-                if (ov.isBarrier()) {
-                    ov.acknowledgement.countDown();
-                    continue;
-                }
-                if (!ensureMasterNode()) {
-                    if (Properties.CLIENT_ON_THREAD) {
-                        fallbackSetOutputVariable(ov.variable, ov.value);
-                        continue;
-                    }
-                    logger.warn("Master node is not available; skipping statistics flush on class change");
-                    break;
-                }
-                try {
-                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
-                } catch (RemoteException e) {
-                    logger.error("Error when exporting statistics: " + ov.variable + "=" + ov.value, e);
+                if (!deliverOutputVariable(ov,
+                        "Master node is not available; skipping statistics flush on class change",
+                        "Error when exporting statistics: ")) {
                     break;
                 }
             }
@@ -548,22 +564,9 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 if (ov == POISON_PILL) {
                     continue;
                 }
-                if (ov.isBarrier()) {
-                    ov.acknowledgement.countDown();
-                    continue;
-                }
-                if (!ensureMasterNode()) {
-                    if (Properties.CLIENT_ON_THREAD) {
-                        fallbackSetOutputVariable(ov.variable, ov.value);
-                        continue;
-                    }
-                    logger.warn("Master node is not available; skipping statistics flush on stop");
-                    break;
-                }
-                try {
-                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
-                } catch (RemoteException e) {
-                    logger.error("Error when exporting statistics on stop: " + ov.variable + "=" + ov.value, e);
+                if (!deliverOutputVariable(ov,
+                        "Master node is not available; skipping statistics flush on stop",
+                        "Error when exporting statistics on stop: ")) {
                     break;
                 }
             }
@@ -589,29 +592,18 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 @Override
                 public void run() {
                     while (true) {
-                        OutputVariable ov = null;
+                        OutputVariable ov;
                         try {
                             ov = outputVariableQueue.take(); //this is blocking
-                            if (ov == POISON_PILL) {
-                                break; // clean exit after all real items have been sent
-                            }
-                            if (ov.isBarrier()) {
-                                ov.acknowledgement.countDown();
-                                continue;
-                            }
-                            if (!ensureMasterNode()) {
-                                if (Properties.CLIENT_ON_THREAD) {
-                                    fallbackSetOutputVariable(ov.variable, ov.value);
-                                    continue;
-                                }
-                                logger.warn("Master node is not available; stopping statistics sender thread");
-                                break;
-                            }
-                            masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
                         } catch (InterruptedException e) {
                             break;
-                        } catch (RemoteException e) {
-                            logger.error("Error when exporting statistics: " + ov.variable + "=" + ov.value, e);
+                        }
+                        if (ov == POISON_PILL) {
+                            break; // clean exit after all real items have been sent
+                        }
+                        if (!deliverOutputVariable(ov,
+                                "Master node is not available; stopping statistics sender thread",
+                                "Error when exporting statistics: ")) {
                             break;
                         }
                     }

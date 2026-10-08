@@ -551,53 +551,37 @@ public class VirtualNetwork {
 
     /**
      * Tests whether an inbound virtual TCP connection is waiting without consuming it.
-     * The matching order intentionally mirrors {@link #pullTcpConnection(String, int)} so
-     * a selector's OP_ACCEPT result describes the same connection that accept() will take.
+     * {@link #pullTcpConnection(String, int)} ends by falling back to any pending connection,
+     * so accept() can return one exactly when some TCP queue is non-empty; this keeps a
+     * selector's OP_ACCEPT result in line with what accept() will take.
      *
-     * @param localAddress the local address
-     * @param localPort the local port
      * @return true when accept() can return a pending connection
      */
-    public synchronized boolean hasPendingTcpConnection(String localAddress, int localPort) {
-        EndPointInfo local = new EndPointInfo(localAddress, localPort, ConnectionType.TCP);
-        Queue<NativeTcp> queue = incomingConnections.get(local);
-        if (queue != null && !queue.isEmpty()) {
-            return true;
-        }
-
-        if (hasPendingTcpConnection(key -> key.getHost().equals(localAddress))) {
-            return true;
-        }
-        return hasPendingTcpConnection(key -> true);
-    }
-
-    private boolean hasPendingTcpConnection(java.util.function.Predicate<EndPointInfo> matches) {
-        for (EndPointInfo key : incomingConnections.keySet()) {
-            if (key.getType() == ConnectionType.TCP && matches.test(key)) {
-                Queue<NativeTcp> queue = incomingConnections.get(key);
-                if (queue != null && !queue.isEmpty()) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    public synchronized boolean hasPendingTcpConnection() {
+        return findNonEmptyTcpQueue(key -> true) != null;
     }
 
     private NativeTcp pullTcpConnection(java.util.function.Predicate<EndPointInfo> matches) {
+        Queue<NativeTcp> queue = findNonEmptyTcpQueue(matches);
+        if (queue == null) {
+            return null;
+        }
+        NativeTcp connection = queue.poll();
+        openedTcpConnections.add(connection);
+        return connection;
+    }
+
+    private Queue<NativeTcp> findNonEmptyTcpQueue(java.util.function.Predicate<EndPointInfo> matches) {
         for (EndPointInfo key : incomingConnections.keySet()) {
             if (key.getType() == ConnectionType.TCP && matches.test(key)) {
                 Queue<NativeTcp> queue = incomingConnections.get(key);
                 if (queue != null && !queue.isEmpty()) {
-                    NativeTcp connection = queue.poll();
-                    openedTcpConnections.add(connection);
-                    return connection;
+                    return queue;
                 }
             }
         }
         return null;
     }
-
-
 
     /**
      * Opens a TCP server on the given address and port.

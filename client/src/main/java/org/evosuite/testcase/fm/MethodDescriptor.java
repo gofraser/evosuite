@@ -334,6 +334,43 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
     }
 
     /**
+     * Whether a functional mock can usefully stub {@code method} at all: it returns a value, is
+     * not one of the identity methods, is not private, and was not final in the original
+     * bytecode.
+     */
+    public static boolean isStubbable(Method method) {
+        if (method.getReturnType().equals(Void.TYPE)
+                || method.getName().equals("equals")
+                || method.getName().equals("hashCode")
+                || method.getName().equals("toString")
+                || Modifier.isPrivate(method.getModifiers())) {
+            return false;
+        }
+        // Final in the original bytecode. Stubbing it works during the search only
+        // because InstrumentingClassLoader stripped the modifier; the generated test's
+        // JVM usually loads the class unstripped (the verifier resolves it before the
+        // runtime agent is active, and retransformation cannot change modifiers), and
+        // there Mockito's subclass mock maker runs the real method instead of the
+        // stub. Leave it unstubbed so search and test see the same default answer.
+        return !wasOriginallyFinal(method);
+    }
+
+    /**
+     * Whether {@code method} was final before InstrumentingClassLoader stripped the modifier,
+     * as far as the generated test's JVM is concerned. With use_separate_classloader the test
+     * JVM instruments the class as well, so nothing counts as originally final.
+     */
+    public static boolean wasOriginallyFinal(Method method) {
+        return !Properties.USE_SEPARATE_CLASSLOADER && RemoveFinalClassAdapter.isFinalMethod(method);
+    }
+
+    /** The class-level counterpart of {@link #wasOriginallyFinal(Method)}. */
+    public static boolean wasOriginallyFinal(Class<?> clazz) {
+        return !Properties.USE_SEPARATE_CLASSLOADER
+                && RemoveFinalClassAdapter.finalClasses.contains(clazz.getName());
+    }
+
+    /**
      * For example, do not mock methods with no return value.
      *
      * @return .
@@ -342,24 +379,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
 
         int modifiers = method.getMethod().getModifiers();
 
-        if (method.getReturnType().equals(Void.TYPE)
-                || method.getName().equals("equals")
-                || method.getName().equals("hashCode")
-                || method.getName().equals("toString")
-                || Modifier.isPrivate(modifiers)) {
-
-            return false;
-        }
-
-        if (!Properties.USE_SEPARATE_CLASSLOADER
-                && RemoveFinalClassAdapter.isFinalMethod(method.getMethod())) {
-            // Final in the original bytecode. Stubbing it works during the search only
-            // because InstrumentingClassLoader stripped the modifier; the generated test's
-            // JVM usually loads the class unstripped (the verifier resolves it before the
-            // runtime agent is active, and retransformation cannot change modifiers), and
-            // there Mockito's subclass mock maker runs the real method instead of the
-            // stub. Leave it unstubbed so search and test see the same default answer.
-            // With use_separate_classloader the test JVM instruments the class as well.
+        if (!isStubbable(method.getMethod())) {
             return false;
         }
 

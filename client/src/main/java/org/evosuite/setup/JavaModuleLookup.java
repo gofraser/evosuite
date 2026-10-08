@@ -49,6 +49,7 @@ final class JavaModuleLookup {
     private static final Method GET_MODULE;
     private static final Method IS_NAMED;
     private static final Method GET_NAME;
+    private static final Method IS_EXPORTED;
     private static final boolean MODULES_SUPPORTED;
 
     /**
@@ -73,21 +74,25 @@ final class JavaModuleLookup {
         Method getModule;
         Method isNamed;
         Method getName;
+        Method isExported;
         try {
             getModule = Class.class.getMethod("getModule");
             Class<?> moduleClass = getModule.getReturnType();
             isNamed = moduleClass.getMethod("isNamed");
             getName = moduleClass.getMethod("getName");
+            isExported = moduleClass.getMethod("isExported", String.class);
         } catch (ReflectiveOperationException | RuntimeException e) {
             // No module system on this JVM (plain Java 8), or something refused to resolve.
-            // Leave all three null; every lookup will then report UNAVAILABLE below.
+            // Leave all four null; every lookup will then report UNAVAILABLE below.
             getModule = null;
             isNamed = null;
             getName = null;
+            isExported = null;
         }
         GET_MODULE = getModule;
         IS_NAMED = isNamed;
         GET_NAME = getName;
+        IS_EXPORTED = isExported;
         MODULES_SUPPORTED = GET_MODULE != null;
 
         Method getLayer;
@@ -233,8 +238,7 @@ final class JavaModuleLookup {
             if (dot < 0) {
                 return false;
             }
-            Method isExported = module.getClass().getMethod("isExported", String.class);
-            return !(Boolean) isExported.invoke(module, name.substring(0, dot));
+            return !(Boolean) IS_EXPORTED.invoke(module, name.substring(0, dot));
         } catch (ReflectiveOperationException | RuntimeException e) {
             return false;
         }

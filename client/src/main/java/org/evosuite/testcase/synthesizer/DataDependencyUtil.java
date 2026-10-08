@@ -292,9 +292,6 @@ public class DataDependencyUtil {
             BytecodeInstruction descIns, Set<BytecodeInstruction> paramInstructionSet) {
         if (descIns.isLocalVariableUse()) {
             if (descIns.isParameter()) {
-                // position here similar to list index (i.e., starts from 0)
-                //                int pos = checkSetterParamPos(defIns);
-                //                paramInstructionSet.add(new Integer(pos));
                 paramInstructionSet.add(descIns);
             }
         }
@@ -305,9 +302,6 @@ public class DataDependencyUtil {
             }
             if (defIns.isLocalVariableUse()) {
                 if (defIns.isParameter()) {
-                    // position here similar to list index (i.e., starts from 0)
-                    //                    int pos = checkSetterParamPos(defIns);
-                    //                    paramInstructionSet.add(new Integer(pos));
                     paramInstructionSet.add(defIns);
                 }
             }
@@ -436,43 +430,6 @@ public class DataDependencyUtil {
 
         return null;
     }
-
-    //    public static List<ValueSettings> findSetterInfo(Field field, Class<?> targetClass,
-    //            Executable m, String signature) {
-    //        /**
-    //         * initialization
-    //         */
-    //
-    //        /**
-    //         * get the field setting map
-    //         */
-    //        List<ValueSettings> fieldValueSettings = new ArrayList<>();
-    //        DataDependencyUtil.analyzeFieldSetter(targetClass.getCanonicalName(), signature,
-
-    //                field, Properties.FIELD_SETTER_SEARCH_DEPTH, new ArrayList<>(),
-    // fieldValueSettings);
-    //
-    ////        System.currentTimeMillis();
-    ////
-    ////        Set<Integer> releventPrams = new HashSet<>();
-
-    ////        for (Entry<BytecodeInstruction, List<BytecodeInstruction>> entry :
-    // fieldSetterMap.entrySet()) {
-    ////            BytecodeInstruction setterIns = entry.getKey();
-    ////            List<BytecodeInstruction> callList = entry.getValue();
-
-    ////            Set<Integer> validParamPos =
-    // DataDependencyUtil.checkValidParameterPositions(setterIns,
-    ////                    targetClass.getCanonicalName(), signature, callList);
-    ////            releventPrams.addAll(validParamPos);
-    ////        }
-    ////
-    ////        if(!fieldValueSettings.isEmpty()){
-    ////            fieldSettingMethods.add(m);
-    ////            difficultyList.add(fieldSetterMap);
-    ////            validParams.add(releventPrams);
-    ////        }
-    //    }
 
     @SuppressWarnings("rawtypes")
     public static LinkedHashMap<Executable, List<ValueSettings>> searchForPotentialSettersInClass(
@@ -729,7 +686,6 @@ public class DataDependencyUtil {
         int initialRelationCount = cascadingCallRelations.size();
         List<BytecodeInstruction> insList = null;
 
-        //        MockFramework.disable();
         try {
             ClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
             insList =
@@ -740,8 +696,6 @@ public class DataDependencyUtil {
                 GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                         .registerClass(className);
 
-                //                RawControlFlowGraph cfg =
-                // GraphPool.getInstance(classLoader).getRawCFG(className, methodName);
                 insList =
                         BytecodeInstructionPool.getInstance(classLoader)
                                 .getInstructionsIn(className, methodName);
@@ -755,10 +709,6 @@ public class DataDependencyUtil {
                     while (superClass != null) {
                         String superClassName = superClass.getCanonicalName();
 
-                        //
-                        //
-                        //
-                        // GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).registerClass(superClassName);
                         insList =
                                 BytecodeInstructionPool.getInstance(
                                                 TestGenerationContext.getInstance()
@@ -792,8 +742,6 @@ public class DataDependencyUtil {
                                         ins, cascadingCallRelations, targetClass, targetSig);
                         setterList.add(settings);
 
-                        //                        setterMap.put(ins, new
-                        // ArrayList<>(cascadingCallRelations));
                     }
                 }
 
@@ -807,8 +755,6 @@ public class DataDependencyUtil {
                                         ins, cascadingCallRelations, targetClass, targetSig);
                         setterList.add(settings);
 
-                        //                        setterList.put(ins, new
-                        // ArrayList<>(cascadingCallRelations));
                     }
                 } else if (node instanceof MethodInsnNode) {
                     if (depth > 0) {
@@ -823,7 +769,7 @@ public class DataDependencyUtil {
 
                             String confirmedCalledClass =
                                     confirmClassNameInParentClass(calledClass, mNode);
-                            if (calledMethodName != null && confirmedCalledClass != null) {
+                            if (confirmedCalledClass != null) {
                                 cascadingCallRelations.add(ins);
                                 try {
                                     analyzeFieldSetter(
@@ -848,8 +794,6 @@ public class DataDependencyUtil {
             cascadingCallRelations.remove(cascadingCallRelations.size() - 1);
         }
 
-        //        return setterList;
-
     }
 
     /**
@@ -862,9 +806,6 @@ public class DataDependencyUtil {
             BytecodeInstruction ins,
             Field field,
             List<BytecodeInstruction> cascadingCallRelations) {
-        // TODO aaron
-        //        java.lang.System.out.println(ins.getMethodName());
-        //        java.lang.System.out.println(ins.getASMNodeString());
 
         if (!ins.isMethodCall()) return false;
 
@@ -893,7 +834,6 @@ public class DataDependencyUtil {
                         TestGenerationContext.getInstance()
                                 .getClassLoaderForSUT()
                                 .loadClass(typeString);
-                //                methodClassType = Class.forName();
                 if (isContainerType(methodClassType)) {
                     return isContainerMutationName(methodClassType, methodNode.name);
                 }
@@ -1162,9 +1102,11 @@ public class DataDependencyUtil {
         ClassNode classNode = DependencyAnalysis.getClassNode(calledClass);
         List<String> superClassList =
                 DependencyAnalysis.getInheritanceTree().getOrderedSuperclasses(calledClass);
+        if (superClassList.isEmpty() || containMethod(classNode, mNode)) {
+            return calledClass;
+        }
         for (String superClass : superClassList) {
-            ClassNode parentClassNode = DependencyAnalysis.getClassNode(superClass);
-            if (!containMethod(classNode, mNode) && containMethod(parentClassNode, mNode)) {
+            if (containMethod(DependencyAnalysis.getClassNode(superClass), mNode)) {
                 return superClass;
             }
         }
@@ -1173,15 +1115,8 @@ public class DataDependencyUtil {
     }
 
     private static boolean containMethod(ClassNode classNode, MethodInsnNode mNode) {
-
-        //        if(!mNode.owner.equals(classNode.name)) {
-        //            return false;
-        //        }
-
         for (MethodNode methodNode : classNode.methods) {
-            String methodNodeName = methodNode.name + methodNode.desc;
-            String methodInsName = mNode.name + mNode.desc;
-            if (methodNodeName.equals(methodInsName)) {
+            if (methodNode.name.equals(mNode.name) && methodNode.desc.equals(mNode.desc)) {
                 return true;
             }
         }

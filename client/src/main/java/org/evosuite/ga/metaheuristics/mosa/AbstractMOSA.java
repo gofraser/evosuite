@@ -649,17 +649,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
 
         // EvoObj: collect the uncovered branch goals once per generation (not per inserted test)
-        // and
-        // evict cached templates for branches that are now covered. No-op unless enabled.
+        // and evict cached templates for branches that are now covered. No-op unless enabled.
         List<Branch> uncoveredBranches = null;
-        List<Branch> candidateBranches = null;
         Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch = null;
         boolean objectRuleActive =
                 Properties.APPLY_OBJECT_RULE && !objectRulePermanentlyInert;
         if (objectRuleActive) {
             uncoveredGoalsByBranch = objectRuleUncoveredGoalsByBranch();
             uncoveredBranches = new ArrayList<>(uncoveredGoalsByBranch.keySet());
-            candidateBranches = objectRuleCandidateBranches();
 
             TestGenerationContext.getInstance()
                     .getObjectRuleRuntime()
@@ -678,7 +675,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                             TestGenerationContext.getInstance()
                                     .getObjectRuleRuntime()
                                     .getBranchSelector()
-                                    .selectWorkingBranch(candidateBranches);
+                                    .selectWorkingBranch(uncoveredBranches);
                     ObjectRuleSession session =
                             TestGenerationContext.getInstance().getObjectRuleRuntime().getSession();
                     session.setWorkingTarget(
@@ -720,14 +717,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
         logger.debug("Number of offsprings = {}", offspringPopulation.size());
         return offspringPopulation;
-    }
-
-    protected List<Branch> objectRuleCandidateBranches() {
-        return objectRuleUncoveredBranches();
-    }
-
-    protected List<Branch> objectRuleUncoveredBranches() {
-        return new ArrayList<>(objectRuleUncoveredGoalsByBranch().keySet());
     }
 
     protected Map<Branch, List<BranchCoverageTestFitness>> objectRuleUncoveredGoalsByBranch() {
@@ -3180,8 +3169,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         this.fitnessFunctions.forEach(fitnessFunction -> fitnessFunction.getFitness(c));
 
         // if one of the coverage criterion is Criterion.EXCEPTION, then we have to analyse the
-        // results
-        // of the execution to look for generated exceptions
+        // results of the execution to look for generated exceptions
         if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.EXCEPTION)) {
             ExceptionCoverageSuiteFitness.calculateExceptionInfo(
                     Collections.singletonList(c.getLastExecutionResult()),
