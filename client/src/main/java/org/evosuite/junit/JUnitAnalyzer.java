@@ -35,6 +35,7 @@ import org.evosuite.runtime.InitializingListener;
 import org.evosuite.runtime.InitializingListenerUtils;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.classhandling.ClassStateSupport;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.mock.MockFramework;
@@ -470,7 +471,8 @@ public abstract class JUnitAnalyzer {
                 // rerun is reproducing the same termination, not exposing a new bug.
                 // Treat the test as valid and keep it in the suite.
                 if ("org.evosuite.runtime.TooManyResourcesException".equals(failure.getExceptionClassName())
-                        || isMockInvocationLimitFailure(failure)) {
+                        || isMockInvocationLimitFailure(failure)
+                        || isWrappedTooManyResourcesFailure(failure)) {
                     logger.debug("Ignoring expected TooManyResourcesException for test {} "
                             + "(SUT loop terminated by iteration cap, same as during search): {}",
                             testName, failure.getMessage());
@@ -580,6 +582,23 @@ public abstract class JUnitAnalyzer {
         return cls.endsWith("org.mockito.exceptions.base.MockitoException")
                 && message != null && message.contains("MockInvocationLimit")
                 && message.contains("TooManyResourcesException");
+    }
+
+    /**
+     * A failure that is a wrapper around the runtime's resource limit. The code under test can
+     * catch the TooManyResourcesException and throw an exception of its own, as a persistence
+     * layer does with {@code new PersistenceException(e.toString())}. Whether the wrapper is
+     * thrown depends on which handler the limit happens to meet, so its type and message are as
+     * little reproducible as the limit itself: it is the same outcome as the limit.
+     */
+    static boolean isWrappedTooManyResourcesFailure(JUnitFailure failure) {
+        if (failure == null) {
+            return false;
+        }
+        String limit = TooManyResourcesException.class.getName();
+        String message = failure.getMessage();
+        String trace = failure.getTrace();
+        return (message != null && message.contains(limit)) || (trace != null && trace.contains(limit));
     }
 
     private static boolean isClassInitializerFailure(JUnitFailure failure) {

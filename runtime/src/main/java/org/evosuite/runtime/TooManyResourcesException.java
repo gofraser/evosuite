@@ -66,14 +66,25 @@ public class TooManyResourcesException extends RuntimeException {
     }
 
     /**
-     * Whether the throwable is a {@code TooManyResourcesException} or has one in its cause chain.
-     * Mockito wraps an exception thrown by an invocation listener (see
+     * Whether the throwable is a {@code TooManyResourcesException}, has one in its cause chain,
+     * or reports one in a message.
+     *
+     * <p>Mockito wraps an exception thrown by an invocation listener (see
      * {@link MockInvocationLimit}) into a MockitoException, so the limit reaches the test wrapped.
+     * Code under test can also wrap it without keeping the cause, by building its own exception
+     * from the text of the one it caught (a persistence layer that rethrows
+     * {@code new PersistenceException(e.toString())}); the exception that reaches the test then
+     * only names the limit in its message.
      */
     public static boolean isOrWraps(Throwable t) {
+        String name = TooManyResourcesException.class.getName();
         int depth = 0;
         while (t != null && depth++ < 20) {
             if (t instanceof TooManyResourcesException) {
+                return true;
+            }
+            String message = t.getMessage();
+            if (message != null && message.contains(name)) {
                 return true;
             }
             t = t.getCause();
