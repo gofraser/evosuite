@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,7 +88,11 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
      * @param loader the new class loader
      */
     public void changeClassLoader(ClassLoader loader) {
-        for (MethodDescriptor descriptor : map.values()) {
+        List<MethodDescriptor> snapshot;
+        synchronized (map) {
+            snapshot = new ArrayList<>(map.values());
+        }
+        for (MethodDescriptor descriptor : snapshot) {
             if (descriptor != null) {
                 descriptor.changeClassLoader(loader);
             }
@@ -99,7 +104,13 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
      * @return a sorted list
      */
     public List<MethodDescriptor> getCopyOfMethodDescriptors() {
-        return map.values().stream().sorted().collect(Collectors.toList());
+        // A SUT thread left over from an earlier execution may still be reporting
+        // invocations, so copy under the same lock the writers use.
+        List<MethodDescriptor> snapshot;
+        synchronized (map) {
+            snapshot = new ArrayList<>(map.values());
+        }
+        return snapshot.stream().sorted().collect(Collectors.toList());
     }
 
     protected boolean onlyMockAbstractMethods() {

@@ -23,6 +23,9 @@ import org.evosuite.utils.ParameterizedTypeImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
+import org.mockito.invocation.DescribedInvocation;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.listeners.MethodInvocationReport;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
@@ -136,5 +139,52 @@ public class EvoInvocationListenerTest {
 
         list = listener.getCopyOfMethodDescriptors();
         Assertions.assertEquals(4, list.size());
+    }
+
+    /**
+     * A SUT thread left over from an earlier execution may keep invoking a mock while the
+     * search thread reads the listener. Readers must not trip over the writers.
+     */
+    @Test
+    public void testReadingWhileInvocationsAreReported() throws Exception {
+        List<Method> methods = new java.util.ArrayList<>();
+        for (Method m : java.util.Arrays.class.getMethods()) {
+            methods.add(m);
+        }
+        java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        for (int round = 0; round < 200 && failure.get() == null; round++) {
+            EvoInvocationListener listener = new EvoInvocationListener(Object.class);
+            listener.activate();
+            java.util.concurrent.atomic.AtomicBoolean done =
+                    new java.util.concurrent.atomic.AtomicBoolean(false);
+            Thread writer = new Thread(() -> {
+                try {
+                    for (Method m : methods) {
+                        InvocationOnMock invocation = mock(InvocationOnMock.class,
+                                withSettings().extraInterfaces(DescribedInvocation.class));
+                        when(invocation.getMethod()).thenReturn(m);
+                        MethodInvocationReport report = mock(MethodInvocationReport.class);
+                        when(report.getInvocation()).thenReturn((DescribedInvocation) invocation);
+                        listener.reportInvocation(report);
+                    }
+                } catch (Throwable t) {
+                    failure.compareAndSet(null, t);
+                } finally {
+                    done.set(true);
+                }
+            });
+            writer.start();
+            try {
+                while (!done.get()) {
+                    listener.getCopyOfMethodDescriptors();
+                    listener.changeClassLoader(getClass().getClassLoader());
+                }
+            } catch (Throwable t) {
+                failure.compareAndSet(null, t);
+            }
+            writer.join();
+        }
+        assertEquals(null, failure.get());
     }
 }
