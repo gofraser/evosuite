@@ -27,6 +27,13 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
 
 /**
  * When running EvoSuite there are at least three different classpaths
@@ -154,10 +161,99 @@ public class ClassPathHandler {
                 }
             }
 
-            targetClassPath = line != null ? line : Properties.CP;
+            targetClassPath = orderLikeJvm(line != null ? line : Properties.CP);
         }
 
         return targetClassPath;
+    }
+
+    /**
+     * Reorders a classpath the way a JVM or javac reads it: a jar's manifest {@code Class-Path}
+     * entries are searched right after that jar, not where the entry sits in the plain list. When
+     * two jars hold the same class (openhre ships xerces.jar and xercesImpl.jar, and xalan.jar's
+     * manifest names xercesImpl.jar), the plain order and the JVM order pick different copies, so
+     * EvoSuite would generate against one class while the compiled and executed test sees the
+     * other. Only entries already on the classpath are moved; none is added or dropped, so the set
+     * of visible classes is unchanged. The string is returned as is when nothing moves.
+     */
+    static String orderLikeJvm(String classpath) {
+        if (classpath == null || classpath.isEmpty()) {
+            return classpath;
+        }
+        String[] entries = classpath.split(File.pathSeparator);
+        Map<String, String> byKey = new java.util.LinkedHashMap<>();
+        for (String entry : entries) {
+            if (!entry.isEmpty()) {
+                byKey.putIfAbsent(keyOf(entry), entry);
+            }
+        }
+        Set<String> ordered = new LinkedHashSet<>();
+        for (String key : byKey.keySet()) {
+            visitInJvmOrder(key, byKey, ordered);
+        }
+        List<String> result = new ArrayList<>();
+        for (String key : ordered) {
+            result.add(byKey.get(key));
+        }
+        List<String> original = new ArrayList<>(byKey.values());
+        if (result.equals(original)) {
+            return classpath;
+        }
+        logger.info("Ordered the project classpath by jar manifest Class-Path entries as the JVM does");
+        return String.join(File.pathSeparator, result);
+    }
+
+    private static void visitInJvmOrder(String key, Map<String, String> onClasspath,
+                                        Set<String> ordered) {
+        if (!ordered.add(key)) {
+            return;
+        }
+        File file = new File(key);
+        if (!file.isFile() || !file.getName().endsWith(".jar")) {
+            return;
+        }
+        try (JarFile jar = new JarFile(file)) {
+            if (jar.getManifest() == null) {
+                return;
+            }
+            String manifestPath = jar.getManifest().getMainAttributes()
+                    .getValue(Attributes.Name.CLASS_PATH);
+            if (manifestPath == null) {
+                return;
+            }
+            for (String reference : manifestPath.trim().split("\\s+")) {
+                if (reference.isEmpty()) {
+                    continue;
+                }
+                String referenced = keyOf(resolveManifestEntry(file, reference));
+                if (onClasspath.containsKey(referenced)) {
+                    visitInJvmOrder(referenced, onClasspath, ordered);
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            logger.debug("Cannot read the manifest of {}", key, e);
+        }
+    }
+
+    private static String resolveManifestEntry(File jar, String reference) {
+        try {
+            java.net.URI uri = new java.net.URI(reference);
+            if (uri.isAbsolute()) {
+                return new File(uri).getPath();
+            }
+            return new File(jar.getAbsoluteFile().getParentFile(), uri.getPath()).getPath();
+        } catch (java.net.URISyntaxException | IllegalArgumentException e) {
+            return new File(jar.getAbsoluteFile().getParentFile(), reference).getPath();
+        }
+    }
+
+    private static String keyOf(String entry) {
+        File file = new File(entry).getAbsoluteFile();
+        try {
+            return file.getCanonicalPath();
+        } catch (IOException e) {
+            return file.toPath().normalize().toString();
+        }
     }
 
     /**
