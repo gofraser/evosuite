@@ -134,4 +134,34 @@ public class ShutdownHookHandlerTest {
             Sandbox.resetDefaultSecurityManager();
         }
     }
+
+    @Test
+    @SuppressWarnings("removal")
+    public void testIdleSandboxIsExpectedOnlyOnAWorkerThatWasGivenUp() {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
+
+        // Sandbox off: nothing to report either way.
+        Assertions.assertFalse(ShutdownHookHandler.isUnexpectedIdleSandbox(() -> false));
+
+        Sandbox.initializeSecurityManagerForSUT();
+        try {
+            // Sandbox on, no test case marked as executing: this is what a test
+            // thread sees after the thread waiting for it timed out and cleared
+            // the flag.
+            Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
+            Assertions.assertTrue(ShutdownHookHandler.isUnexpectedIdleSandbox(() -> false));
+            Assertions.assertFalse(ShutdownHookHandler.isUnexpectedIdleSandbox(() -> true));
+
+            // While a test case is marked as executing the state is always fine.
+            Sandbox.goingToExecuteSUTCode();
+            try {
+                Assertions.assertFalse(ShutdownHookHandler.isUnexpectedIdleSandbox(() -> false));
+            } finally {
+                Sandbox.doneWithExecutingSUTCode();
+            }
+        } finally {
+            Sandbox.resetDefaultSecurityManager();
+        }
+    }
 }

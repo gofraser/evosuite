@@ -735,6 +735,9 @@ public class TestCaseExecutor implements ThreadFactory {
             }
             return result; // FIXME: is this reachable?
         } catch (TimeoutException e1) {
+            // The worker will finish on its own time, after the sandbox has been
+            // cleared below; mark it before anything is cleared.
+            callable.markAbandonedByTimeout();
             // Snapshot immediately on timeout catch, before any interrupt/wait/cleanup
             // can move the worker back to the executor idle loop.
             StackTraceElement[] timeoutStackSnapshot = currentThread != null

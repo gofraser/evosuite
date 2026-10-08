@@ -78,6 +78,12 @@ public class TestRunnable implements InterfaceTestRunnable {
     protected volatile boolean runFinished;
 
     /**
+     * Set by the thread that waited for this run once it has given up on it.
+     * The worker keeps going afterwards, but the sandbox is no longer its own.
+     */
+    private volatile boolean abandonedByTimeout;
+
+    /**
      * Map a thrown exception ('value') with the the position ('key') in the
      * test sequence in which it was thrown from.
      */
@@ -376,7 +382,7 @@ public class TestRunnable implements InterfaceTestRunnable {
                  * statements, with "non-safe" version, to check if any exception is thrown.
                  * But that would be quite a bit of work, which maybe is not really warranted
                  */
-                ShutdownHookHandler.getInstance().safeExecuteAddedHooks();
+                ShutdownHookHandler.getInstance().safeExecuteAddedHooks(this::isAbandonedByTimeout);
             }
 
             runFinished = true;
@@ -1243,6 +1249,20 @@ public class TestRunnable implements InterfaceTestRunnable {
     @Override
     public boolean isRunFinished() {
         return runFinished;
+    }
+
+    /**
+     * Records that the thread waiting for this run timed out and gave up on it.
+     */
+    public void markAbandonedByTimeout() {
+        abandonedByTimeout = true;
+    }
+
+    /**
+     * @return true if the thread waiting for this run timed out and gave up on it
+     */
+    public boolean isAbandonedByTimeout() {
+        return abandonedByTimeout;
     }
 
 }
