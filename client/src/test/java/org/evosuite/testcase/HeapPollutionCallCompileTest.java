@@ -172,6 +172,30 @@ public class HeapPollutionCallCompileTest {
         }
     }
 
+    /**
+     * Defects4J Collections-3: the list is declared {@code ArrayList<Object>} from the constructor's
+     * owner type, while the call is modelled on the variable's {@code ArrayList<File>}; the
+     * returned iterator must be cast, javac sees {@code ListIterator<Object>}.
+     */
+    @Test
+    public void testListIteratorOfListWhoseDeclarationDiffersFromVariableCompiles()
+            throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(ArrayList.class.getConstructor(),
+                        TypeUtils.parameterize(ArrayList.class, Object.class)),
+                Arrays.asList()));
+        list.setType(TypeUtils.parameterize(ArrayList.class, java.io.File.class));
+        GenericMethod listIterator = new GenericMethod(ArrayList.class.getMethod("listIterator"),
+                TypeUtils.parameterize(ArrayList.class, java.io.File.class));
+        VariableReference iterator = tc.addStatement(
+                new MethodStatement(tc, listIterator, list, Arrays.asList()));
+        tc.addStatement(new MethodStatement(tc, new GenericMethod(
+                java.util.ListIterator.class.getMethod("hasNext"),
+                java.util.ListIterator.class), iterator, Arrays.asList()));
+        assertCompiles(tc);
+    }
+
     @Test
     public void testPutOfObjectToStringStringMapCompiles()throws Exception {
         TestCase tc = new DefaultTestCase();

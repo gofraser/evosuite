@@ -3744,12 +3744,15 @@ public class TestCodeVisitor extends TestVisitor {
                 && !retval.getVariableClass().isAnonymousClass()
                 // Static generic methods are a special case where we shouldn't add a cast
                 && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic());
-        if (requiresReturnCast) {
+        boolean rawReturnCastForRedeclaredReceiver = !unused && !method.isStatic()
+                && returnDependsOnRedeclaredReceiver(statement, method, retval);
+        if (requiresReturnCast || rawReturnCastForRedeclaredReceiver) {
             String name = getAccessibleGenericReturnTypeName(method, retval);
             if (!name.matches(".*\\.\\d+$")) {
                 if (retval.getType() instanceof ParameterizedType
-                        && returnCastIsInconvertible(retval.getType(),
-                                method.getMethod().getGenericReturnType())) {
+                        && (rawReturnCastForRedeclaredReceiver
+                        || returnCastIsInconvertible(retval.getType(),
+                                method.getMethod().getGenericReturnType()))) {
                     // The declared parameterization is generic-inconvertible with the
                     // method's return type -- typically a variable typed
                     // Set<Class<Object>> receiving a raw Set<Class> return (old
@@ -4266,6 +4269,24 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
         return false;
+    }
+
+    /**
+     * The receiver is declared with the constructor's owner type (ArrayList&lt;Object&gt;) while
+     * the call is modelled on the variable's own parameterization (ArrayList&lt;Foo&gt;), so a
+     * generic return value has the declared parameterization for javac, not the modelled one.
+     * Only a raw cast, which is unchecked but legal, bridges the two.
+     */
+    private boolean returnDependsOnRedeclaredReceiver(MethodStatement statement,
+                                                      GenericMethod method,
+                                                      VariableReference retval) {
+        if (statement.getCallee() == null || !(retval.getType() instanceof ParameterizedType)
+                || !dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType())) {
+            return false;
+        }
+        Type declared = declaredReceiverType(statement);
+        return declared instanceof ParameterizedType
+                && !declared.equals(statement.getCallee().getType());
     }
 
     private boolean requiresReturnValueCastForRawReceiver(MethodStatement statement,
