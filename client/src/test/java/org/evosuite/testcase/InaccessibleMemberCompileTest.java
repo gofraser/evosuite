@@ -164,6 +164,22 @@ public class InaccessibleMemberCompileTest {
     }
 
     @Test
+    public void constructedMapOfHiddenValueTypeCanBeAssignedToFieldOfRealType() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference exposer = addExposer(tc);
+        java.lang.reflect.Type owner = org.apache.commons.lang3.reflect.TypeUtils.parameterize(
+                java.util.LinkedHashMap.class, String.class, hiddenClass());
+        VariableReference map = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(java.util.LinkedHashMap.class.getConstructor(), owner),
+                Collections.emptyList()));
+        assignField(tc, exposer, "dict", map);
+
+        String code = render(tc);
+        assertFalse(code.contains("?"), code);
+        assertCompiles(code);
+    }
+
+    @Test
     public void hiddenTypeArgumentVariableCanBePassedAsArgument() throws Exception {
         TestCase tc = new DefaultTestCase();
         VariableReference exposer = addExposer(tc);

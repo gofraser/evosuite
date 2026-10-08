@@ -243,16 +243,22 @@ public class TestCodeVisitor extends TestVisitor {
      * @return a {@link java.lang.String} object.
      */
     public String getClassName(VariableReference var) {
-        Type type = var.getType();
+        return getDeclarationTypeName(var.getType());
+    }
+
+    /**
+     * The type to write in a declaration or cast of a value of {@code type}. When a type
+     * argument cannot be named, a wildcard in its place makes the variable (or a cast to it) a
+     * capture type that is not assignable to the real G&lt;Hidden&gt; a field, parameter or
+     * put() expects. The raw type converts to every parameterization (unchecked), so declare
+     * and cast raw.
+     */
+    private String getDeclarationTypeName(Type type) {
         if (type instanceof ParameterizedType
                 && ((ParameterizedType) type).getRawType() instanceof Class<?>
                 && !containsUnnameableType(((ParameterizedType) type).getRawType())) {
             for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
                 if (containsUnnameableType(argument)) {
-                    // The argument cannot be written, and a wildcard in its place makes the
-                    // variable (or a cast to this type) a capture type that is not assignable
-                    // to the real G<Hidden> a field, parameter or put() expects. The raw type
-                    // converts to every parameterization (unchecked), so declare and cast raw.
                     return getClassName((Class<?>) ((ParameterizedType) type).getRawType());
                 }
             }
@@ -4826,7 +4832,7 @@ public class TestCodeVisitor extends TestVisitor {
             constructorDeclarationType = retval.getType();
         }
         String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
-                ? getTypeName(constructorDeclarationType)
+                ? getDeclarationTypeName(constructorDeclarationType)
                 : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
 
         // The declaration prefix ("Type ") is prepended at the point where the
