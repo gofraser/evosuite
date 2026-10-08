@@ -1056,6 +1056,38 @@ public class TestRunnable implements InterfaceTestRunnable {
         }
     }
 
+    /** Number of rollback failures per site that are reported at WARN before demoting to DEBUG. */
+    static final int DMON_ROLLBACK_WARNINGS_PER_SITE = 3;
+
+    private static final java.util.concurrent.ConcurrentMap<String, java.util.concurrent.atomic.AtomicInteger>
+            DMON_ROLLBACK_FAILURES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * A rollback that keeps failing at one site fails on every execution of every test that
+     * injects there (hundreds of thousands of times in a run), so only the first few failures per
+     * site are warnings; later ones are counted and logged at DEBUG.
+     */
+    static boolean shouldWarnAboutDmonRollbackFailure(String site) {
+        return DMON_ROLLBACK_FAILURES.computeIfAbsent(site,
+                k -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet()
+                <= DMON_ROLLBACK_WARNINGS_PER_SITE;
+    }
+
+    static void resetDmonRollbackFailureCounts() {
+        DMON_ROLLBACK_FAILURES.clear();
+    }
+
+    private static void logDmonRollbackFailure(String site, Throwable t) {
+        String reason = t.getClass().getName() + (t.getMessage() == null ? "" : ": " + t.getMessage());
+        if (shouldWarnAboutDmonRollbackFailure(site)) {
+            logger.warn("DMoN rollback failed for {}: {}{}", site, reason,
+                    DMON_ROLLBACK_FAILURES.get(site).get() == DMON_ROLLBACK_WARNINGS_PER_SITE
+                            ? " (further failures at this site are logged at DEBUG)" : "");
+        } else {
+            logger.debug("DMoN rollback failed for {}: {}", site, reason);
+        }
+    }
+
     private boolean rollbackDmonWrites(ExecutionResult result) {
         boolean ok = true;
         while (!dmonRollbackLog.isEmpty()) {
@@ -1064,7 +1096,7 @@ public class TestRunnable implements InterfaceTestRunnable {
                 write.rollback();
             } catch (Throwable t) {
                 ok = false;
-                logger.warn("DMoN rollback failed for {}: {}", write.describe(), t.getMessage());
+                logDmonRollbackFailure(write.describe(), t);
             }
         }
         if (!ok && result != null) {

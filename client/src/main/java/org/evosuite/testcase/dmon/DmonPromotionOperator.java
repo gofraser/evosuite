@@ -152,15 +152,16 @@ public final class DmonPromotionOperator {
         try {
             attempt = tryPromoteInPlace(individual, plan, result);
         } catch (RuntimeException e) {
-            // Defence in depth: a failure while resolving the injection target happens
-            // before the test case is touched, and failures after that point are rolled
-            // back inside tryPromoteInPlace. Either way the search must not die here.
+            // Only failures before the test case is touched can reach this handler (target
+            // resolution, which is read-only reflection); everything from the backup clone
+            // onwards runs inside tryPromoteInPlace's rollback boundary.
             logger.warn("DMoN promotion aborted: {}", e.toString());
             attempt = new PromotionAttempt(result, false, "UNEXPECTED_FAILURE");
         } catch (LinkageError e) {
             // Reflecting over a SUT class (getMethods, getDeclaredField, ...) links the
             // types it mentions; one that is absent from the classpath raises
-            // NoClassDefFoundError here. That makes this promotion impossible, nothing more:
+            // NoClassDefFoundError here, before the test case is touched. Post-mutation
+            // linkage errors are rolled back in tryPromoteInPlace. That makes this promotion impossible, nothing more:
             // left to propagate it ends the whole client run.
             logger.debug("DMoN promotion abandoned, SUT class cannot be linked: {}", e.toString());
             attempt = new PromotionAttempt(result, false, "LINKAGE_ERROR");
@@ -321,6 +322,13 @@ public final class DmonPromotionOperator {
             logger.debug("DMoN validation restore snapshot failed: {}", e.getMessage(), e);
             return new PromotionAttempt(
                     rollbackMutatedTestCase(individual, backup, originalResult), false, "VALIDATION_SNAPSHOT_FAILED");
+        } catch (LinkageError e) {
+            // Includes ExceptionInInitializerError and NoClassDefFoundError raised by a SUT
+            // static initializer while the validation snapshot reads a field. The test case
+            // is already mutated here, so it must be rolled back like any other failure.
+            logger.debug("DMoN promotion abandoned, SUT class cannot be linked: {}", e.toString());
+            return new PromotionAttempt(
+                    rollbackMutatedTestCase(individual, backup, originalResult), false, "LINKAGE_ERROR");
         }
     }
 
