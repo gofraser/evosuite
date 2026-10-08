@@ -83,6 +83,9 @@ public class TestRunnable implements InterfaceTestRunnable {
      */
     private volatile boolean abandonedByTimeout;
 
+    /** The thread currently inside {@link #call()}, or null; guarded by {@code this}. */
+    private Thread worker;
+
     /**
      * Map a thrown exception ('value') with the the position ('key') in the
      * test sequence in which it was thrown from.
@@ -258,6 +261,9 @@ public class TestRunnable implements InterfaceTestRunnable {
      * @param s the statement to execute
      */
     protected void informObservers_before(Statement s) {
+        if (abandonedByTimeout) {
+            return; // the result of this run is discarded
+        }
         ExecutionTracer.disable();
         try {
             observers.forEach(o -> o.beforeStatement(s, scope));
@@ -274,6 +280,9 @@ public class TestRunnable implements InterfaceTestRunnable {
      *                        be null)
      */
     protected void informObservers_after(Statement s, Throwable exceptionThrown) {
+        if (abandonedByTimeout) {
+            return; // the result of this run is discarded
+        }
         ExecutionTracer.disable();
         try {
             observers.forEach(o -> o.afterStatement(s, scope, exceptionThrown));
@@ -283,6 +292,9 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     protected void informObservers_finished(ExecutionResult result) {
+        if (abandonedByTimeout) {
+            return; // the result of this run is discarded
+        }
         ExecutionTracer.disable();
         try {
             observers.forEach(o -> o.testExecutionFinished(result, scope));
@@ -303,6 +315,12 @@ public class TestRunnable implements InterfaceTestRunnable {
         // SecurityException in setContextClassLoader, so skip it for those thread types.
         if (!(Thread.currentThread() instanceof java.util.concurrent.ForkJoinWorkerThread)) {
             Thread.currentThread().setContextClassLoader(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        }
+
+        synchronized (this) {
+            // A pooled thread that timed out on an earlier test is in use again.
+            worker = Thread.currentThread();
+            org.evosuite.runtime.sandbox.Sandbox.reinstateThread(worker);
         }
 
         exceptionsThrown.clear();
@@ -386,6 +404,9 @@ public class TestRunnable implements InterfaceTestRunnable {
             }
 
             runFinished = true;
+            synchronized (this) {
+                worker = null;
+            }
         }
 
         result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
@@ -1256,6 +1277,16 @@ public class TestRunnable implements InterfaceTestRunnable {
      */
     public void markAbandonedByTimeout() {
         abandonedByTimeout = true;
+        /*
+         * The worker goes on running this test, but the sandbox state is global
+         * and now belongs to whatever executes next: whatever the worker's
+         * observers or hooks do to it from here on must not take effect.
+         */
+        synchronized (this) {
+            if (worker != null) {
+                org.evosuite.runtime.sandbox.Sandbox.abandonThread(worker);
+            }
+        }
     }
 
     /**

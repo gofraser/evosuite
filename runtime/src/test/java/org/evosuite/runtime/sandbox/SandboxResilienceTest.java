@@ -100,6 +100,98 @@ public class SandboxResilienceTest {
         }
     }
 
+    /** What Inspector.getValue does around an inspector call. */
+    private static void inspectorLikeEnterAndExit() {
+        boolean needsSandbox = !Sandbox.isOnAndExecutingSUTCode();
+        if (needsSandbox) {
+            Sandbox.goingToExecuteSUTCode();
+        }
+        if (needsSandbox) {
+            Sandbox.doneWithExecutingSUTCode();
+        }
+    }
+
+    @Test
+    public void abandonedWorkerCannotClearTheFlagOfTheNextTestExecution() throws Exception {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
+
+        Sandbox.initializeSecurityManagerForSUT();
+        MSecurityManager manager = getManager();
+
+        java.util.concurrent.CountDownLatch timedOut = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch nextTestRunning = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        Thread workerA = new Thread(() -> {
+            try {
+                timedOut.await();
+                nextTestRunning.await();
+                // observers of the timed-out test, running during the next test
+                inspectorLikeEnterAndExit();
+                inspectorLikeEnterAndExit();
+            } catch (Throwable t) {
+                failure.set(t);
+            }
+        }, "worker-A");
+        workerA.start();
+        try {
+            // worker A times out: the waiting thread gives up on it
+            Sandbox.abandonThread(workerA);
+            timedOut.countDown();
+
+            // the next test execution (worker B, here the test thread) starts
+            Sandbox.goingToExecuteSUTCode();
+            Assertions.assertTrue(Sandbox.isOnAndExecutingSUTCode());
+            nextTestRunning.countDown();
+            workerA.join(10_000);
+            Assertions.assertFalse(workerA.isAlive());
+            Assertions.assertNull(failure.get());
+
+            Assertions.assertSame(manager, getManager());
+            Assertions.assertTrue(Sandbox.isOnAndExecutingSUTCode());
+            Sandbox.doneWithExecutingSUTCode();
+            Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
+        } finally {
+            timedOut.countDown();
+            nextTestRunning.countDown();
+        }
+    }
+
+    @Test
+    public void reinstatedPooledThreadIsNotMuted() throws Exception {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
+
+        Sandbox.initializeSecurityManagerForSUT();
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            Thread[] worker = new Thread[1];
+            pool.submit(() -> worker[0] = Thread.currentThread()).get(10, java.util.concurrent.TimeUnit.SECONDS);
+
+            // the pooled thread times out on a test and is abandoned...
+            Sandbox.abandonThread(worker[0]);
+            boolean mutedEntered = pool.submit(() -> {
+                Sandbox.goingToExecuteSUTCode();
+                return Sandbox.isOnAndExecutingSUTCode();
+            }).get(10, java.util.concurrent.TimeUnit.SECONDS);
+            Assertions.assertFalse(mutedEntered);
+
+            // ...and is then handed the next test, which reinstates it first
+            boolean enteredAfterReuse = pool.submit(() -> {
+                Sandbox.reinstateThread(Thread.currentThread());
+                Sandbox.goingToExecuteSUTCode();
+                boolean on = Sandbox.isOnAndExecutingSUTCode();
+                Sandbox.doneWithExecutingSUTCode();
+                return on;
+            }).get(10, java.util.concurrent.TimeUnit.SECONDS);
+            Assertions.assertTrue(enteredAfterReuse);
+            Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     @Test
     public void resetShouldRetainInternalStateWhenRestoreIsDenied() throws Exception {
         Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());

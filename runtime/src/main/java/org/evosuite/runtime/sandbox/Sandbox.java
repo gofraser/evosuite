@@ -112,6 +112,19 @@ public class Sandbox {
         return reclaimSandboxLockOwnedBy(lostOwner);
     }
 
+    /**
+     * Lifts the abandonment of a thread that is about to be used again, e.g. a
+     * pooled worker that starts a new test after having timed out on an earlier
+     * one. Its state-changing sandbox calls take effect again.
+     *
+     * @param thread the thread to reinstate, may be null
+     */
+    public static void reinstateThread(Thread thread) {
+        if (thread != null && !abandonedThreads.isEmpty()) {
+            abandonedThreads.remove(thread);
+        }
+    }
+
     private static boolean isCurrentThreadAbandoned(String call) {
         if (abandonedThreads.isEmpty() || !abandonedThreads.contains(Thread.currentThread())) {
             return false;
