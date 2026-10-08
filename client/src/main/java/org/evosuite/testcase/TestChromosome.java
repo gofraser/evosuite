@@ -51,7 +51,9 @@ import java.lang.reflect.Type;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
@@ -495,31 +497,118 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * pass can make the code under test reach calls that no earlier execution observed (for
      * instance a mock returned by a new stub is itself called), so the test is re-executed and
      * updated again, up to {@link Properties#FUNCTIONAL_MOCK_COMPLETION_ROUNDS} passes in
-     * total, while the previous pass added stubs.
+     * total, while the previous pass added stubs and each further pass is drawn with
+     * {@link Properties#FUNCTIONAL_MOCK_COMPLETION_CONTINUE_PROBABILITY}.
      */
     boolean mockChange() {
+        return mockChange(this::mockChangePass, this::anyMockNeedsUpdate);
+    }
+
+    /**
+     * Whether a pass of {@link #mockChangePass(boolean[])} has anything to do, which it has
+     * only if some functional mock observed calls its stubs do not yet cover. This only reads
+     * the state of the mocks, so it is cheap and does not change the test.
+     */
+    private boolean anyMockNeedsUpdate() {
+        for (Statement statement : test) {
+            if (statement instanceof FunctionalMockStatement
+                    && ((FunctionalMockStatement) statement).doesNeedToUpdateInputs()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Runs the completion passes of {@link #mockChange()} with the given pass, which updates the
+     * stubs, reports through its argument whether it added any, and returns whether it changed
+     * anything.
+     */
+    boolean mockChange(Predicate<boolean[]> pass) {
+        return mockChange(pass, () -> true);
+    }
+
+    /**
+     * Runs the completion passes with the given pass. From the second pass on, a pass is only
+     * run, and the test only copied so that the pass can be undone, if {@code mayChange} reports
+     * that the pass may change the test; the last pass of a chain, which finds nothing to
+     * complete, therefore costs no copy.
+     */
+    boolean mockChange(Predicate<boolean[]> pass, BooleanSupplier mayChange) {
         boolean changed = false;
         final int rounds = Math.max(1, Properties.FUNCTIONAL_MOCK_COMPLETION_ROUNDS);
         for (int round = 1; round <= rounds; round++) {
+            // Everything a later pass adds can be undone: a pass that fills a stub with values
+            // the test cannot construct must not replace the test of the previous pass, which
+            // may already run to completion.
+            if (round > 1 && !mayChange.getAsBoolean()) {
+                break;
+            }
+            final TestCase backup = round > 1 ? test.clone() : null;
+            final Set<Statement> existing = round > 1 ? identitySetOf(test) : null;
+            final ExecutionResult resultBefore = lastExecutionResult;
             boolean[] addedStubs = new boolean[1];
-            if (mockChangePass(addedStubs)) {
+            if (pass.test(addedStubs)) {
                 changed = true;
             }
-            if (!addedStubs[0] || round == rounds) {
+            if (!addedStubs[0] || rounds == 1) {
+                break;
+            }
+            // Each further pass happens only with some probability, so that some mutations keep
+            // the shorter chain: that test is evaluated as it is, and may already reach code a
+            // longer chain no longer reaches when its stub values fail to build.
+            boolean another = round < rounds
+                    && Randomness.nextDouble() < Properties.FUNCTIONAL_MOCK_COMPLETION_CONTINUE_PROBABILITY;
+            if (round == 1 && !another) {
                 break;
             }
             try {
                 ExecutionResult result = TestCaseExecutor.runTest(test);
+                if (round > 1 && throwsInNewStatement(result, existing)) {
+                    // The values this pass added to the stubs fail to build, which aborts the
+                    // test before the code under test runs. Keep the test of the previous
+                    // pass: it works with the stubs completed so far, and the search completes
+                    // the remaining ones in a later mutation, as it does with a single round.
+                    test = backup;
+                    if (resultBefore != null) {
+                        // The result describes the test before the pass, which the pass has
+                        // changed in place; that test is now the restored copy.
+                        resultBefore.setTest(backup);
+                    }
+                    this.lastExecutionResult = resultBefore;
+                    break;
+                }
                 this.lastExecutionResult = result;
             } catch (Throwable t) {
                 logger.debug("Re-execution after mock completion failed: {}", t.toString());
+                break;
+            }
+            if (!another) {
                 break;
             }
         }
         return changed;
     }
 
-    private boolean mockChangePass(boolean[] addedStubs) {
+    private static Set<Statement> identitySetOf(TestCase testCase) {
+        Set<Statement> statements = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Statement statement : testCase) {
+            statements.add(statement);
+        }
+        return statements;
+    }
+
+    /**
+     * Whether the execution was aborted by a statement that did not exist before, that is by a
+     * statement a mock completion pass has just inserted to build a stub value.
+     */
+    private boolean throwsInNewStatement(ExecutionResult result, Set<Statement> existing) {
+        Integer position = result.getFirstPositionOfThrownException();
+        return position != null && position >= 0 && position < test.size()
+                && !existing.contains(test.getStatement(position));
+    }
+
+    boolean mockChangePass(boolean[] addedStubs) {
 
         /*
             Be sure to update the mocked values if there has been any change in

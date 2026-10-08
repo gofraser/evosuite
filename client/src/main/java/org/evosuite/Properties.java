@@ -485,6 +485,13 @@ public class Properties {
     @IntValue(min = 1)
     public static int FUNCTIONAL_MOCK_COMPLETION_ROUNDS = 3;
 
+    @Parameter(key = "functional_mock_completion_continue_probability", group = "Test Creation",
+            description = "Probability of each further mock update pass after the first, up to "
+                    + "functional_mock_completion_rounds; mutations that stop early keep the shorter stub "
+                    + "chain, which is evaluated as it is")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double FUNCTIONAL_MOCK_COMPLETION_CONTINUE_PROBABILITY = 0.5;
+
     public enum FunctionalMockingFailoverMode {
         OFF,
         CLASS,
