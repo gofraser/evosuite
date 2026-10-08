@@ -20,6 +20,7 @@
 package org.evosuite.assertion;
 
 import org.evosuite.Properties;
+import org.evosuite.testcase.execution.Scope;
 
 import java.net.URL;
 import java.util.regex.Pattern;
@@ -36,6 +37,25 @@ public final class StringValueFilter {
     private static final Pattern ADDRESS_PATTERN =
             Pattern.compile("(?:[A-Za-z_$][\\w$]*\\.)*[A-Za-z_$][\\w$]*@[A-Fa-f\\d]+(?![A-Za-z\\d_])",
                     Pattern.MULTILINE);
+
+    // AWT components that have not been named get a default name built lazily from a
+    // static per-class counter (java.awt.Component#constructComponentName), e.g.
+    // "dialog771", "frame3", "panel0". The number depends on how many components of that
+    // class the JVM has created so far, i.e. on global, test-order dependent state that
+    // EvoSuite cannot reset because JDK classes are not instrumented.
+    private static final String AWT_DEFAULT_NAMES =
+            "(?:dialog|frame|panel|canvas|button|label|checkbox|choice|list|"
+                    + "scrollbar|scrollpane|textfield|textarea|text|menu|menubar|menuitem|win|"
+                    + "filedlg|popup|checkboxmenuitem)\\d+";
+
+    private static final Pattern AWT_DEFAULT_NAME_PATTERN = Pattern.compile(
+            "(?<![A-Za-z\\d_])" + AWT_DEFAULT_NAMES + "(?![A-Za-z\\d_])");
+
+    // The two shapes a default name takes once a class that is not itself a component hands it
+    // on: the bare getName() result ("dialog549") and the name field of Component#paramString
+    // inside a toString() ("...JDialogSwingWindow[dialog540,0,0,0x0,...").
+    private static final Pattern AWT_DEFAULT_NAME_RELAYED_PATTERN = Pattern.compile(
+            "^" + AWT_DEFAULT_NAMES + "$|\\[" + AWT_DEFAULT_NAMES + ",");
 
     private StringValueFilter() {
         // Utility class
@@ -93,6 +113,12 @@ public final class StringValueFilter {
             return true;
         }
 
+        // Default AWT component names depend on global creation counters
+        if (target != null && isAwtComponentClass(target.getClass())
+                && AWT_DEFAULT_NAME_PATTERN.matcher(value).find()) {
+            return true;
+        }
+
         // Contextual filtering for URLs
         if (target instanceof URL) {
             if (value.startsWith("/") || value.startsWith("file:/")) {
@@ -101,6 +127,57 @@ public final class StringValueFilter {
         }
 
         return false;
+    }
+
+    /**
+     * Returns true if the string, produced by a method declared in (or called on) the given class,
+     * contains an AWT default component name such as "dialog771" or "panel3" and the class is an AWT
+     * component. Such values come from a JDK-wide static counter and differ between runs and test
+     * orders. Trade-off: a name that the SUT assigned explicitly (setName("dialog1")) matches too
+     * and is not asserted on either.
+     *
+     * @param value    the string value
+     * @param producer the class of the component the string was obtained from (may be null)
+     * @return true if the value should not be asserted on
+     */
+    public static boolean isAwtDefaultName(String value, Class<?> producer) {
+        return value != null && producer != null && isAwtComponentClass(producer)
+                && AWT_DEFAULT_NAME_PATTERN.matcher(value).find();
+    }
+
+    /**
+     * Like {@link #isAwtDefaultName(String, Class)} for a string a class that is not an AWT
+     * component hands on, e.g. a window helper whose getName() or toString() delegates to the
+     * dialog it wraps. The producer then says nothing, so the test's own objects decide: the
+     * value is filtered when it is exactly a default name or carries one as the name field of a
+     * component's toString(), and some AWT component is in scope. Trade-off: in a test that
+     * touches an AWT component, a string such as "panel1" the SUT computes itself is not asserted
+     * on either; strings that only contain such a word somewhere are still asserted on.
+     *
+     * @param value the string value
+     * @param scope the objects of the test execution
+     * @return true if the value should not be asserted on
+     */
+    public static boolean isRelayedAwtDefaultName(String value, Scope scope) {
+        if (value == null || scope == null
+                || !AWT_DEFAULT_NAME_RELAYED_PATTERN.matcher(value).find()) {
+            return false;
+        }
+        try {
+            for (Object object : new java.util.ArrayList<>(scope.getObjects())) {
+                if (object instanceof java.awt.Component || object instanceof java.awt.MenuComponent) {
+                    return true;
+                }
+            }
+        } catch (RuntimeException e) {
+            return false;
+        }
+        return false;
+    }
+
+    private static boolean isAwtComponentClass(Class<?> clazz) {
+        return java.awt.Component.class.isAssignableFrom(clazz)
+                || java.awt.MenuComponent.class.isAssignableFrom(clazz);
     }
 
     /**
