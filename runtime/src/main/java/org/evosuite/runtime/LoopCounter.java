@@ -67,7 +67,7 @@ public class LoopCounter {
      * a new test every few milliseconds can then wipe the abandoned loop's progress
      * far faster than it accumulates, so it never reaches either safety threshold in
      * {@link #checkLoop(int)} and spins at 100% CPU — repeatedly re-triggering the
-     * interrupt-driven stack walk in {@link #isInterruptInStaticInit()} — for as long
+     * interrupt-driven stack walk in {@link #isInStaticInitThrottled()} — for as long
      * as the process runs. Once a thread is in this map it keeps counting on its own
      * private copy instead, immune to resets made on behalf of other threads' tests.
      */
@@ -347,7 +347,7 @@ public class LoopCounter {
                 throw new TooManyResourcesException(
                         "Abandoned static initializer exceeded its termination grace period");
             }
-            if (Thread.currentThread().isInterrupted() && !isInterruptInStaticInit()) {
+            if (Thread.currentThread().isInterrupted() && !isInStaticInitThrottled()) {
                 throw new TooManyResourcesException(
                         "Loop terminated early: thread was interrupted (likely timeout)");
             }
@@ -404,7 +404,7 @@ public class LoopCounter {
         // price. A truly stuck static initializer is still terminated by the
         // timeout-probe backstop and, after executor abandonment, by the
         // per-thread deadline checked below.
-        if (Thread.currentThread().isInterrupted() && !isInterruptInStaticInit()) {
+        if (Thread.currentThread().isInterrupted() && !isInStaticInitThrottled()) {
             // Not reset(): that starts a new test, and would make the code under test that
             // swallows this exception and goes on start over with a clean record of tripped
             // loops, see trippedLoops.
@@ -444,7 +444,15 @@ public class LoopCounter {
             // the kill-switch probe in ExecutionTracer.checkTimeout(), the
             // timed-out-class tracking in ClassReInitializeExecutor, and the
             // per-thread deadline armed when TestCaseExecutor abandons a worker.
-            if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInit()) {
+            //
+            // Once past the limit inside such an initializer, every further back-edge would
+            // otherwise pay for a full stack walk: a 10-million-iteration table build then
+            // takes minutes of CPU and no interrupt or kill switch can stop it (they are
+            // deliberately ignored in a <clinit>), which is what stalled JUnit checks for
+            // their whole budget. Walk the stack only on the iteration that crosses the
+            // limit and then only every INTERRUPT_STATIC_INIT_RECHECK_INTERVAL-th time while
+            // it keeps finding a <clinit> (the throttled, positive-only memo).
+            if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInitThrottled()) {
                 interruptMemo.remove();
                 counters.clear();
                 // The counters start from zero again, so a loop whose body swallows the exception
@@ -466,14 +474,15 @@ public class LoopCounter {
 
 
     /**
-     * Called only when the current thread is already interrupted and we are about to
-     * throw because of it. Answers whether we are inside a static initializer, using a
+     * Called when we are about to throw because the thread was interrupted or the iteration
+     * limit was exceeded, both of which stay true on every further back-edge. Answers
+     * whether we are inside a static initializer, using a
      * throttled stack walk so that a hot loop does not pay for
      * {@link #isInStaticInit()} on every remaining back-edge.
      *
      * @return true if the interrupted loop is running inside a &lt;clinit&gt;
      */
-    private boolean isInterruptInStaticInit() {
+    private boolean isInStaticInitThrottled() {
         // Only a positive answer is memoized. Wrongly believing that we are *not*
         // inside a <clinit> would reintroduce the very bug this guards against,
         // whereas wrongly believing that we still are merely postpones termination

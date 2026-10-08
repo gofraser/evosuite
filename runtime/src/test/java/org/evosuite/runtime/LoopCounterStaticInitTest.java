@@ -118,6 +118,66 @@ public class LoopCounterStaticInitTest {
                 "the static initializer should have run to completion");
     }
 
+    /**
+     * A long loop in a static initializer must stay cheap after it passes the limit: the
+     * JUnit check of Jmol's Normix3D/Geodesic table build used to take minutes because every
+     * back-edge past the limit walked the whole stack (here from a deep trigger point).
+     */
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    public void testLongStaticInitLoopPastLimitDoesNotWalkStackEveryIteration() {
+        RuntimeSettings.maxNumberOfIterationsPerLoop = 5;
+        probeIndex = LoopCounter.getInstance().getNewIndex();
+
+        triggerDeep(200);
+
+        assertFalse(DeepClinitProbe.threw, "a static initializer must not be terminated by the limit");
+        assertEquals(DeepClinitProbe.ITERATIONS, DeepClinitProbe.completed);
+    }
+
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    public void testLoopOutsideStaticInitStillStoppedAtLimit() {
+        RuntimeSettings.maxNumberOfIterationsPerLoop = 50;
+        int index = LoopCounter.getInstance().getNewIndex();
+        long calls = 0;
+        try {
+            for (; calls < 100_000; calls++) {
+                LoopCounter.getInstance().checkLoop(index);
+            }
+            org.junit.jupiter.api.Assertions.fail("limit not enforced");
+        } catch (TooManyResourcesException e) {
+            assertEquals(49, calls, "the first crossing of the limit must be detected exactly");
+        }
+    }
+
+    private static void triggerDeep(int depth) {
+        if (depth > 0) {
+            triggerDeep(depth - 1);
+        } else {
+            assertTrue(DeepClinitProbe.completed >= 0); // not a constant, so this triggers <clinit>
+        }
+    }
+
+    private static class DeepClinitProbe {
+
+        static final int ITERATIONS = 1_000_000;
+
+        static boolean threw = false;
+        static int completed = 0;
+
+        static {
+            try {
+                for (int i = 0; i < ITERATIONS; i++) {
+                    LoopCounter.getInstance().checkLoop(probeIndex);
+                    completed++;
+                }
+            } catch (TooManyResourcesException e) {
+                threw = true;
+            }
+        }
+    }
+
     @Test
     @Timeout(value = 10, unit = TimeUnit.SECONDS)
     @SuppressWarnings("deprecation")
