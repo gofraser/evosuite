@@ -350,18 +350,37 @@ public class AssignmentStatement extends AbstractStatement {
 
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
+        VariableReference newRetval = retval;
+        VariableReference newParameter = parameter;
         if (retval.equals(var1)) {
             if (isAssignable(var2, parameter) && !isNullForPrimitiveTarget(tc, var2, parameter)) {
-                retval = var2;
+                newRetval = var2;
             }
         }
         if (parameter.equals(var1)) {
-            if (isAssignable(retval, var2) && !isNullForPrimitiveTarget(tc, retval, var2)) {
-                parameter = var2;
+            if (isAssignable(newRetval, var2) && !isNullForPrimitiveTarget(tc, newRetval, var2)) {
+                newParameter = var2;
             }
         } else {
             parameter.replaceAdditionalVariableReference(var1, var2);
         }
+        if (aliasesItself(newRetval, newParameter)) {
+            // Both sides would become one variable: "x = x" is a no-op that, were x defined by
+            // this very statement, also leaves x without a declaration. Keep the old sides.
+            return;
+        }
+        retval = newRetval;
+        parameter = newParameter;
+    }
+
+    /**
+     * Whether an assignment of {@code value} to {@code target} writes a variable into itself.
+     * Fields and array elements are excluded: two references to the same element can be
+     * written by distinct expressions.
+     */
+    private static boolean aliasesItself(VariableReference target, VariableReference value) {
+        return !(target instanceof FieldReference) && !(target instanceof ArrayIndex)
+                && (target == value || target.equals(value));
     }
 
     /**

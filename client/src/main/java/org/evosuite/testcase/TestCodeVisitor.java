@@ -3319,7 +3319,9 @@ public class TestCodeVisitor extends TestVisitor {
 
         //Foo foo = mock(Foo.class);
         String variableType = getClassName(retval);
-        result.append(variableType).append(" ").append(getVariableName(retval)).append(" = ");
+        // Register the declaration: a later assignment to this local must see it as already
+        // declared, or it is rendered as a second declaration under a "_1" name.
+        result.append(variableType).append(" ").append(getDeclarationVariableName(retval)).append(" = ");
         if (!variableType.equals(rawClassName)) {
             //this can happen in case of generics, eg
             //Foo<String> foo = (Foo<String>) mock(Foo.class);
@@ -5990,6 +5992,13 @@ public class TestCodeVisitor extends TestVisitor {
             declarationVarName = getVariableName(retval);
         }
         VariableReference parameter = statement.getValue();
+
+        if (isLocalTarget && alreadyNamed
+                && declarationVarName.equals(getVariableName(parameter))) {
+            // "x = x" assigns a declared local to itself: it does nothing and is not worth a
+            // statement. Only reached when x was declared by an earlier statement.
+            return;
+        }
 
         if (isNullLiteralValue(parameter) && !retval.isPrimitive()) {
             // null converts to every reference type, so a cast can only do harm: a target whose
