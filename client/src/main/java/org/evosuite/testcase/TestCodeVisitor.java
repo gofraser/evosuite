@@ -4171,7 +4171,7 @@ public class TestCodeVisitor extends TestVisitor {
                 if (constructor.getOwnerType() instanceof ParameterizedType
                         && !declaringClass.isMemberClass()
                         && isDeclaredTypeNameableInGeneratedTest(declaringClass)) {
-                    return constructor.getOwnerType();
+                    return rawIfOutsideOfBounds(constructor.getOwnerType());
                 }
             }
         }
@@ -4338,6 +4338,41 @@ public class TestCodeVisitor extends TestVisitor {
         Type declared = declaredReceiverType(statement);
         return declared instanceof ParameterizedType
                 && !declared.equals(statement.getCallee().getType());
+    }
+
+    /**
+     * A type argument that implements only the raw form of a parameterized bound (UURI, which
+     * is a raw Comparable, for E extends Comparable&lt;E&gt;) is not within the bound for javac,
+     * although the search treats the raw interface as satisfying it. Such a type is declared
+     * and constructed raw, as no parameterization of it compiles.
+     */
+    private Type rawIfOutsideOfBounds(Type type) {
+        if (!(type instanceof ParameterizedType)
+                || !(((ParameterizedType) type).getRawType() instanceof Class<?>)) {
+            return type;
+        }
+        ParameterizedType parameterized = (ParameterizedType) type;
+        Class<?> rawClass = (Class<?>) parameterized.getRawType();
+        TypeVariable<?>[] parameters = rawClass.getTypeParameters();
+        Type[] arguments = parameterized.getActualTypeArguments();
+        for (int i = 0; i < parameters.length && i < arguments.length; i++) {
+            if (!(arguments[i] instanceof Class<?> || arguments[i] instanceof ParameterizedType)) {
+                continue;
+            }
+            Class<?> argumentClass = GenericTypeReflector.erase(arguments[i]);
+            for (Type bound : parameters[i].getBounds()) {
+                if (!(bound instanceof ParameterizedType)) {
+                    continue;
+                }
+                Class<?> boundClass = GenericTypeReflector.erase(bound);
+                if (boundClass.isAssignableFrom(argumentClass)
+                        && GenericTypeReflector.getExactSuperType(arguments[i], boundClass)
+                        instanceof Class<?>) {
+                    return rawClass;
+                }
+            }
+        }
+        return type;
     }
 
     private boolean requiresReturnValueCastForRawReceiver(MethodStatement statement,
@@ -4933,7 +4968,7 @@ public class TestCodeVisitor extends TestVisitor {
         boolean constructorAccessible = isSourceAccessibleFromGeneratedTest(rawConstructor);
         Type constructorDeclarationType = isNonStaticMemberClass
                 ? withEnclosingInstanceOwner(constructor.getOwnerType(), parameters.get(0))
-                : constructor.getOwnerType();
+                : rawIfOutsideOfBounds(constructor.getOwnerType());
         if (isNonStaticMemberClass
                 && constructorDeclarationType.equals(constructor.getOwnerType())
                 && retval.getVariableClass() == rawConstructor.getDeclaringClass()
@@ -4983,7 +5018,8 @@ public class TestCodeVisitor extends TestVisitor {
                         + parameterString + ");";
             } else {
                 result += declarationPrefix + declarationVarName + " = new "
-                        + getConstructorInvocationTypeName(constructor.getOwnerType())
+                        + getConstructorInvocationTypeName(
+                                rawIfOutsideOfBounds(constructor.getOwnerType()))
                         + "(" + parameterString + ");";
             }
         } else {

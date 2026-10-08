@@ -227,6 +227,41 @@ public class HeapPollutionCallCompileTest {
         }
     }
 
+    public static class BoundedBox<E extends Comparable<E>> {
+        public java.util.List<E> values() {
+            return new ArrayList<E>();
+        }
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static class RawComparable implements Comparable {
+        @Override
+        public int compareTo(Object o) {
+            return 0;
+        }
+    }
+
+    /**
+     * SF110 summa: {@code MemoryPool<E extends Comparable<E>>} was instantiated with {@code UURI},
+     * which implements only the raw {@code Comparable}; javac rejects {@code MemoryPool<UURI>}
+     * ("not within bounds of type-variable E"). The receiver is rendered raw instead.
+     */
+    @Test
+    public void testTypeArgumentOutsideOfBoundIsRenderedRaw() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type boxType = TypeUtils.parameterize(BoundedBox.class, RawComparable.class);
+        VariableReference box = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(BoundedBox.class.getConstructor(), boxType),
+                Arrays.asList()));
+        GenericMethod values = new GenericMethod(BoundedBox.class.getMethod("values"), boxType);
+        VariableReference list = tc.addStatement(
+                new MethodStatement(tc, values, box, Arrays.asList()));
+        tc.addStatement(new MethodStatement(tc, new GenericMethod(
+                java.util.List.class.getMethod("size"), java.util.List.class), list,
+                Arrays.asList()));
+        assertCompiles(tc);
+    }
+
     @Test
     public void testPutOfObjectToStringStringMapCompiles()throws Exception {
         TestCase tc = new DefaultTestCase();
