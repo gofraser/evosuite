@@ -5827,6 +5827,14 @@ public class TestCodeVisitor extends TestVisitor {
                     && !targetArgs[i].equals(valueArgs[i])) {
                 return true;
             }
+            // A concrete class against a wildcard bounded by a parameterized type: HashMap's
+            // Map<? extends K, ? extends V> copy constructor with V = List<String> does not take
+            // a Map<String, Sequence> whose Sequence extends a raw ArrayList, because a raw
+            // supertype is only unchecked-convertible at the top level, not as a type argument.
+            if (targetArgs[i] instanceof WildcardType && valueArgs[i] instanceof Class<?>
+                    && wildcardBoundRejectsClass((WildcardType) targetArgs[i], (Class<?>) valueArgs[i])) {
+                return true;
+            }
             // A concrete class against a parameterized type (eg Object against Map<?, ?>,
             // as in MapSerializer -> JsonSerializer<Map<?, ?>> cast to JsonSerializer<Object>)
             // is just as invariant-distinct: javac rejects the direct cast.
@@ -5840,6 +5848,42 @@ public class TestCodeVisitor extends TestVisitor {
             // passed, nor cast with a plain cast skipped, where G<String> is expected, even
             // though erasure-based assignability accepts it.
             if (valueArgs[i] instanceof TypeVariable && requiresExactTypeArgument(targetArgs[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean wildcardBoundRejectsClass(WildcardType wildcard, Class<?> valueArgument) {
+        Type[] upperBounds = wildcard.getUpperBounds();
+        if (wildcard.getLowerBounds().length > 0 || upperBounds.length != 1
+                || !(upperBounds[0] instanceof ParameterizedType)) {
+            return false;
+        }
+        ParameterizedType bound = (ParameterizedType) upperBounds[0];
+        if (!(bound.getRawType() instanceof Class<?>)
+                || !((Class<?>) bound.getRawType()).isAssignableFrom(valueArgument)) {
+            return false;
+        }
+        Type valueAsBound;
+        try {
+            valueAsBound = GenericUtils.getExactSuperType(valueArgument, (Class<?>) bound.getRawType());
+        } catch (Throwable ignored) {
+            return false;
+        }
+        if (!(valueAsBound instanceof ParameterizedType)) {
+            return true;
+        }
+        Type[] boundArgs = bound.getActualTypeArguments();
+        Type[] valueArgs = ((ParameterizedType) valueAsBound).getActualTypeArguments();
+        for (int i = 0; i < boundArgs.length && i < valueArgs.length; i++) {
+            if (boundArgs[i] instanceof Class<?> && valueArgs[i] instanceof Class<?>
+                    && !boundArgs[i].equals(valueArgs[i])) {
+                return true;
+            }
+            // The supertype of a class extending a raw type keeps its own type variable
+            // (List<E> for a class extending a raw ArrayList), which matches nothing concrete.
+            if (valueArgs[i] instanceof TypeVariable && requiresExactTypeArgument(boundArgs[i])) {
                 return true;
             }
         }
