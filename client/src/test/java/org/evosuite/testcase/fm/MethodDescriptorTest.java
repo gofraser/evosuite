@@ -123,4 +123,22 @@ public class MethodDescriptorTest {
         String primitiveRes = primitiveMd.getInputParameterMatchers();
         assertTrue(primitiveRes.contains("anyInt()"), primitiveRes);
     }
+
+    static final class FinalHolder {
+    }
+
+    static class OpenHolder {
+    }
+
+    /**
+     * A class the final-class set has never seen (reset, or defined on a path that does not
+     * record it) must still count as originally final if its class file says so.
+     */
+    @Test
+    public void testOriginallyFinalFallsBackToClassFile() {
+        org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter.reset();
+        assertTrue(MethodDescriptor.wasOriginallyFinal(FinalHolder.class));
+        assertFalse(MethodDescriptor.wasOriginallyFinal(OpenHolder.class));
+        assertFalse(MethodDescriptor.wasOriginallyFinal(Object.class));
+    }
 }

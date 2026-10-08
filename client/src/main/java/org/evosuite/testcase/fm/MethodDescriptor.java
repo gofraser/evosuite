@@ -27,9 +27,14 @@ import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericMethod;
 import org.mockito.Mockito;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.GenericDeclaration;
@@ -41,11 +46,13 @@ import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 
 
@@ -373,8 +380,62 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
      * The class-level counterpart of {@link #wasOriginallyFinal(Method)}.
      */
     public static boolean wasOriginallyFinal(Class<?> clazz) {
-        return !Properties.USE_SEPARATE_CLASSLOADER
-                && RemoveFinalClassAdapter.finalClasses.contains(clazz.getName());
+        if (Properties.USE_SEPARATE_CLASSLOADER) {
+            return false;
+        }
+        if (RemoveFinalClassAdapter.finalClasses.contains(clazz.getName())) {
+            return true;
+        }
+        // The set only knows classes whose definition went through an instrumenting adapter
+        // since the last reset. A class defined earlier, by another loader, or on a path that
+        // does not record finality would otherwise be admitted as mockable although the test
+        // JVM loads it final. Ask the original class file.
+        return !clazz.isPrimitive() && !clazz.isArray() && classFileIsFinal(clazz);
+    }
+
+    private static final Map<Class<?>, Boolean> CLASS_FILE_FINAL =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
+    /**
+     * Whether the class file of {@code clazz} declares ACC_FINAL (including the InnerClasses
+     * entry for member classes). Unreadable class files count as not final.
+     */
+    private static boolean classFileIsFinal(Class<?> clazz) {
+        Boolean cached = CLASS_FILE_FINAL.get(clazz);
+        if (cached != null) {
+            return cached;
+        }
+        boolean[] found = {false};
+        String resource = clazz.getName().replace('.', '/') + ".class";
+        String internalName = clazz.getName().replace('.', '/');
+        ClassLoader loader = clazz.getClassLoader();
+        try (InputStream input = loader == null
+                ? ClassLoader.getSystemResourceAsStream(resource)
+                : loader.getResourceAsStream(resource)) {
+            if (input != null) {
+                new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visit(int version, int access, String name, String signature,
+                                      String superName, String[] interfaces) {
+                        if (name.equals(internalName) && (access & Opcodes.ACC_FINAL) != 0) {
+                            found[0] = true;
+                        }
+                    }
+
+                    @Override
+                    public void visitInnerClass(String name, String outerName, String innerName,
+                                                int access) {
+                        if (name.equals(internalName) && (access & Opcodes.ACC_FINAL) != 0) {
+                            found[0] = true;
+                        }
+                    }
+                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            }
+        } catch (IOException | RuntimeException e) {
+            logger.debug("Cannot read the class file of {}", clazz.getName(), e);
+        }
+        CLASS_FILE_FINAL.put(clazz, found[0]);
+        return found[0];
     }
 
     /**
