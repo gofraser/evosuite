@@ -510,15 +510,24 @@ public class TestFactory {
      * @return {@code true} if the null statement was successfully replaced, {@code false} otherwise
      */
     public boolean changeNullStatement(TestCase test, Statement statement) {
+        return replaceNullStatement(test, statement) != null;
+    }
+
+    /**
+     * Like {@link #changeNullStatement}, but returns the reference that now stands in for the
+     * null, or {@code null} if the null statement was left untouched. The construction may add
+     * several statements, so the replacement is not necessarily at the null's old position.
+     */
+    public VariableReference replaceNullStatement(TestCase test, Statement statement) {
         if (!(statement instanceof NullStatement)) {
-            return false;
+            return null;
         }
         NullStatement nullStat = (NullStatement) statement;
         Type type = nullStat.getReturnType();
         StatementInserter inserter = new StatementInserter(test, nullStat.getPosition());
 
+        VariableReference obj = null;
         try {
-            VariableReference obj = null;
 
             // check real array
             if (type.getTypeName().contains("[") && checkRealArray(type.getTypeName())) {
@@ -579,12 +588,16 @@ public class TestFactory {
             }
 
             if (obj != null) {
-                VariableReference ref = nullStat.getVariableReferences().iterator().next();
+                // The null statement's position is derived from its return value, and replace()
+                // repoints that return value to obj as well. Resolve the position first, while
+                // the return value still identifies the null statement.
+                VariableReference ref = nullStat.getReturnValue();
+                int nullPosition = nullStat.getPosition();
                 test.replace(ref, obj);
-                test.remove(nullStat.getPosition());
+                test.remove(nullPosition);
             } else {
                 inserter.rollback();
-                return false;
+                return null;
             }
         } catch (ConstructionFailedException | RuntimeException | AssertionError e) {
             /*
@@ -595,10 +608,10 @@ public class TestFactory {
              * their references remain untouched because replacement happens only after success.
              */
             inserter.rollback();
-            return false;
+            return null;
         }
 
-        return true;
+        return obj;
     }
 
     private boolean checkRealArray(String typeName) {

@@ -129,8 +129,12 @@ public class UsedReferenceSearcher {
             Statement s = test.getStatement(pos);
             if (s instanceof NullStatement) {
                 TestFactory testFactory = TestFactory.getInstance();
-                boolean isSuccess = testFactory.changeNullStatement(test, s);
-                if (isSuccess) {
+                VariableReference replacement = testFactory.replaceNullStatement(test, s);
+                if (replacement != null) {
+                    // The null is gone and its uses now point at the replacement, which may sit
+                    // after helper statements rather than at the null's old position.
+                    targetObject = replacement;
+                    pos = replacement.getStPosition();
                     s = test.getStatement(pos);
                 }
             }
