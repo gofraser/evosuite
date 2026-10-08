@@ -237,6 +237,10 @@ public class JUnitResult {
         return this.failureCount;
     }
 
+    public void setFailureCount(int failureCount) {
+        this.failureCount = failureCount;
+    }
+
     public void incrementFailureCount() {
         this.failureCount++;
     }

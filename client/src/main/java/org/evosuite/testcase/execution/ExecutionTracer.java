@@ -172,49 +172,6 @@ public class ExecutionTracer {
     }
 
     /**
-     * Threads given up on, weakly held so that a finished orphan does not stay reachable. The
-     * array is replaced, never changed, so the probe reads it without a lock: once a run has
-     * abandoned a thread, every probe of the rest of the run consults it.
-     */
-    private static volatile java.lang.ref.WeakReference<?>[] abandonedThreads =
-            new java.lang.ref.WeakReference<?>[0];
-
-    /**
-     * Makes every further timeout probe of one thread throw, for good. The kill switch cannot do
-     * that for a thread that was given up on while it still runs: it is global, so it would also
-     * stop whatever executes next, and has to be cleared as soon as the waiting is over. A thread
-     * abandoned here is stopped at its own next probe, whichever test it runs by then, and
-     * leaves the others alone.
-     *
-     * @param thread the thread that was given up on, may be null
-     */
-    public static void abandonThread(Thread thread) {
-        if (thread == null) {
-            return;
-        }
-        synchronized (ExecutionTracer.class) {
-            java.util.List<java.lang.ref.WeakReference<?>> kept = new java.util.ArrayList<>();
-            for (java.lang.ref.WeakReference<?> ref : abandonedThreads) {
-                Thread abandoned = (Thread) ref.get();
-                if (abandoned != null && abandoned.isAlive() && abandoned != thread) {
-                    kept.add(ref);
-                }
-            }
-            kept.add(new java.lang.ref.WeakReference<>(thread));
-            abandonedThreads = kept.toArray(new java.lang.ref.WeakReference<?>[0]);
-        }
-    }
-
-    private static boolean isAbandoned(Thread thread) {
-        for (java.lang.ref.WeakReference<?> ref : abandonedThreads) {
-            if (ref.get() == thread) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * Number of times {@link #checkTimeout()} has observed the kill switch active since
      * it was last armed by {@link #setKillSwitch(boolean)}. See
      * {@link #killSwitchProbeCount} for why this is useful.
@@ -503,9 +460,6 @@ public class ExecutionTracer {
         // state, otherwise a runaway SUT loop during JUnit check (where the tracer
         // is deliberately disabled to avoid pollution) would have no way out.
         if (LoopCounter.getInstance().shouldTerminateAbandonedStaticInitializer()) {
-            throw new TestCaseExecutor.TimeoutExceeded();
-        }
-        if (abandonedThreads.length > 0 && isAbandoned(Thread.currentThread())) {
             throw new TestCaseExecutor.TimeoutExceeded();
         }
         if (!tracer.killSwitch) {

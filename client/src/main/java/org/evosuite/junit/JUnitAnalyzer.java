@@ -51,7 +51,6 @@ import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
-import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
@@ -96,13 +95,16 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -178,7 +180,7 @@ public abstract class JUnitAnalyzer {
     /**
      * Test-only override for {@link #getVersionDependentAnalyzer()}. {@code null} in production
      * (and never set outside tests). The call it replaces happens inside the submitted
-     * {@link Callable} of {@link #runJUnitOnCurrentProcess(Class[])}, on a dedicated worker
+     * {@link #runnerTask} of {@link #runJUnitOnCurrentProcess(Class[])}, on a dedicated worker
      * thread -- Mockito's static/construction mocking only intercepts calls made from the thread
      * that registered the mock, so it cannot reach that call. This field is the seam that lets a
      * test make the runner invocation itself throw (e.g. simulating an {@link OutOfMemoryError}
@@ -427,8 +429,7 @@ public abstract class JUnitAnalyzer {
             }
 
 
-            java.util.concurrent.atomic.AtomicBoolean watchdogCulpritSeen =
-                    new java.util.concurrent.atomic.AtomicBoolean(false);
+            AtomicBoolean watchdogCulpritSeen = new AtomicBoolean(false);
             failure_loop:
             for (JUnitFailure failure : result.getFailures()) {
                 String testName = failure.getDescriptionMethodName();//TODO check if correct
@@ -613,7 +614,7 @@ public abstract class JUnitAnalyzer {
      * @return true if the failure is a casualty of the stopped run and its test should be kept
      */
     static boolean isWatchdogCasualty(JUnitResult result, JUnitFailure failure,
-                                      java.util.concurrent.atomic.AtomicBoolean culpritSeen) {
+                                      AtomicBoolean culpritSeen) {
         if (!result.wasWatchdogFired() || !isTimeoutExceeded(failure)) {
             return false;
         }
@@ -898,25 +899,9 @@ public abstract class JUnitAnalyzer {
             return t;
         });
         JUnitCheckProgress progress = new JUnitCheckProgress();
-        Future<JUnitResult> future = executor.submit(() -> {
-            try {
-                return getVersionDependentAnalyzer().runJUnitOnCurrentProcess(testClasses, progress);
-            } catch (OutOfMemoryError e) {
-                // Test triggered a huge allocation (e.g. new DefaultTableModel(351774, 351774)).
-                // Force GC to reclaim before reporting back.
-                System.gc();
-                logger.warn("OutOfMemoryError during JUnit execution — forced GC and treating all tests as failed");
-                // This OOM escaped the whole JUnit runner (runJUnitOnCurrentProcess), rather than
-                // being caught and attributed to one test the way JUnit itself catches per-test
-                // throwables; the result below carries no per-test failure info, so callers that
-                // read result.getFailures() (e.g. handleTestsThatAreUnstable) see an empty list
-                // and treat this exactly like a run that observed nothing wrong. Record it the
-                // same way the other synthesized-result give-ups in this method already do.
-                recordCheckIncomplete("OutOfMemoryError escaped the JUnit runner: " + e);
-                return JUnitResult.allFailed(testClasses.length, e);
-            }
-        });
+        Future<JUnitResult> future = executor.submit(runnerTask(testClasses, progress));
         boolean firedTimeout = false;
+        boolean gaveUp = false;
         try {
             try {
                 return awaitRunner(future, runnerThread, progress, budgetMs, hangLimitMs(), hangGraceMs(),
@@ -933,53 +918,28 @@ public abstract class JUnitAnalyzer {
                 // us down a path that discarded the whole suite. Interrupting the thread leaves
                 // the Future live, so a runner that unwinds in time still reports its real
                 // result, and one that does not falls through to the keep-the-suite branch.
-                Thread runner = runnerThread.get();
-                if (runner != null) {
-                    runner.interrupt();
-                }
+                // The progress sends it, so that it is never cleared as a leftover of a hang.
+                progress.interruptForBudget(runnerThread.get());
             }
-            // Grace window: give the runner a chance to unwind after interrupt.
-            // If it doesn't (typical for OOM-suppression cascades stuck in
-            // synchronized addSuppressed), abandon the check and treat the
-            // tests as passing — the suite already survived search, and we
-            // have no observed failure for any specific test, so dropping the
-            // whole suite would be more punitive than skipping the phase.
-            // The orphan thread will keep spinning until JVM exit;
-            // shutdownNow() below cannot kill it.
-            try {
-                return resultWithinGrace(future, progress, graceMs, testClasses.length);
-            } catch (TimeoutException te) {
-                logger.error("JUnit check did not respond {} ms after interrupt; "
-                        + "abandoning JUnit check and keeping the suite as-is. "
-                        + "An orphan runner thread will continue until process exit.",
-                        graceMs);
-                JUnitResult kept = abandonRunner(runnerThread.get(),
-                        "runner did not respond " + graceMs + " ms after interrupt", testClasses.length);
-                // Tests caught hanging before the budget ran out are still to be dropped.
-                return progress.hasHungTests() ? progress.deadRunnerResult(testClasses.length) : kept;
-            } catch (CancellationException ce) {
-                // The check was cancelled rather than completed, so it observed no failure for
-                // any specific test. Treating that as "every test failed" would throw away a
-                // suite the search already produced because the *check* did not finish, which
-                // is the wrong trade: report the tests as passing and skip the phase.
-                logger.error("JUnit check was cancelled before completing; "
-                        + "keeping the suite as-is without checking it.");
-                return abandonRunner(runnerThread.get(), "runner was cancelled before completing",
-                        testClasses.length);
-            }
+            return resultAfterBudgetRanOut(future, runnerThread.get(), progress, graceMs, testClasses.length);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             // Synthesized result, not an observed one: every test is reported failed without
             // ever having been checked, so this is a give-up like the others above.
+            gaveUp = true;
             recordCheckIncomplete("JUnit check runner interrupted while awaiting its result: " + ie);
             return JUnitResult.allFailed(testClasses.length, ie);
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause() != null ? ee.getCause() : ee;
             // Same reasoning as the InterruptedException branch above: the result is synthesized,
             // not observed.
+            gaveUp = true;
             recordCheckIncomplete("JUnit check runner failed unexpectedly while awaiting its result: " + cause);
             return JUnitResult.allFailed(testClasses.length, cause);
         } finally {
+            abandonRunnerLeftRunning(future, progress, runnerThread.get(), gaveUp);
+            // Interrupts a runner that has either returned or been abandoned; an abandoned one
+            // parks at its next callback whatever the interrupt does to the code it is in.
             executor.shutdownNow();
             // Whichever way we leave, the runner is done with the sandbox: it either returned a
             // result (and released it itself, making this a no-op) or we are walking away from it.
@@ -1003,6 +963,158 @@ public abstract class JUnitAnalyzer {
     }
 
     /**
+     * What the runner thread of a JUnit check executes: the run, and then, however it ended, the
+     * report to the progress that the runner returned from it.
+     *
+     * @param testClasses the test classes to run
+     * @param progress    what the runner does
+     * @return the task
+     */
+    static Callable<JUnitResult> runnerTask(Class<?>[] testClasses, JUnitCheckProgress progress) {
+        return () -> {
+            try {
+                return getVersionDependentAnalyzer().runJUnitOnCurrentProcess(testClasses, progress);
+            } catch (OutOfMemoryError e) {
+                // Test triggered a huge allocation (e.g. new DefaultTableModel(351774, 351774)).
+                // Force GC to reclaim before reporting back.
+                System.gc();
+                logger.warn("OutOfMemoryError during JUnit execution — forced GC and treating all tests as failed");
+                // This OOM escaped the whole JUnit runner (runJUnitOnCurrentProcess), rather than
+                // being caught and attributed to one test the way JUnit itself catches per-test
+                // throwables; the result below carries no per-test failure info, so callers that
+                // read result.getFailures() (e.g. handleTestsThatAreUnstable) see an empty list
+                // and treat this exactly like a run that observed nothing wrong. Record it the
+                // same way the other synthesized-result give-ups in this method already do.
+                recordCheckIncomplete("OutOfMemoryError escaped the JUnit runner: " + e);
+                return JUnitResult.allFailed(testClasses.length, e);
+            } finally {
+                // The runner runs nothing more of the check: from here on it is not abandoned, so
+                // its class loader is released and the sandbox not taken from it.
+                progress.runEnded();
+            }
+        };
+    }
+
+    /**
+     * The result of a check whose budget ran out and whose runner was interrupted for it.
+     *
+     * <p>Grace window: the runner gets a chance to unwind after the interrupt. If it does not
+     * (typical for OOM-suppression cascades stuck in synchronized addSuppressed), the check is
+     * abandoned and the tests are treated as passing: the suite already survived search, and
+     * there is no observed failure for any specific test, so dropping the whole suite would be
+     * more punitive than skipping the phase. The orphan thread parks at its next callback; the
+     * shutdown of its executor cannot kill it. A runner that returns from the run just as the
+     * grace runs out is not abandoned, and reports what it found.
+     *
+     * @param future    the runner's result
+     * @param runner    the runner thread, or null if it never started
+     * @param progress  what the runner did
+     * @param graceMs   how long the runner gets to unwind
+     * @param testCount the number of test classes the check covers
+     * @return the result, flagged as produced after the watchdog fired, unless the check was
+     *         cancelled
+     */
+    static JUnitResult resultAfterBudgetRanOut(Future<JUnitResult> future, Thread runner,
+                                               JUnitCheckProgress progress, long graceMs, int testCount)
+            throws InterruptedException, ExecutionException {
+        try {
+            return resultWithinGrace(future, progress, graceMs, testCount);
+        } catch (TimeoutException te) {
+            JUnitCheckProgress.Abandonment abandonment = progress.abandonAndCollect(testCount);
+            String reason = "runner did not respond " + graceMs + " ms after interrupt";
+            if (abandonment.abandonedTheRunner()) {
+                logger.error("JUnit check did not respond {} ms after interrupt; "
+                        + "abandoning JUnit check and keeping the suite as-is. "
+                        + "The orphan runner thread parks at its next test or class boundary.",
+                        graceMs);
+                abandonRunner(runner, reason);
+                return afterWatchdogAbandonedRunner(abandonment.getResult(), progress, testCount);
+            }
+            // It returned from the run just as the grace ran out, so there is nothing to walk away
+            // from, and its result is handed to the future as it returns: take what it found.
+            JUnitResult returned = resultOfRunnerThatReturned(future, progress, graceMs, testCount);
+            if (returned != null) {
+                return returned;
+            }
+            recordCheckIncomplete(reason);
+            return afterWatchdogAbandonedRunner(abandonment.getResult(), progress, testCount);
+        } catch (CancellationException ce) {
+            // The check was cancelled rather than completed, so it observed no failure for
+            // any specific test. Treating that as "every test failed" would throw away a
+            // suite the search already produced because the *check* did not finish, which
+            // is the wrong trade: report the tests as passing and skip the phase.
+            logger.error("JUnit check was cancelled before completing; "
+                    + "keeping the suite as-is without checking it.");
+            String reason = "runner was cancelled before completing";
+            if (progress.abandon()) {
+                abandonRunner(runner, reason);
+            } else {
+                recordCheckIncomplete(reason);
+            }
+            return JUnitResult.allPassed(testCount);
+        }
+    }
+
+    /**
+     * The result of a runner that returned from the run, read as soon as it is handed over. The
+     * runner reports that it returned before its result reaches the future, so the wait is short;
+     * it is bounded all the same.
+     *
+     * @param future    the runner's result
+     * @param progress  what the runner did
+     * @param waitMs    how long to wait for the result at most
+     * @param testCount the number of test classes the check covers
+     * @return the result, flagged as produced after the watchdog fired, or null if the runner
+     *         did not complete the run with a result after all
+     */
+    private static JUnitResult resultOfRunnerThatReturned(Future<JUnitResult> future, JUnitCheckProgress progress,
+                                                          long waitMs, int testCount)
+            throws InterruptedException {
+        try {
+            return resultWithinGrace(future, progress, waitMs, testCount);
+        } catch (TimeoutException | ExecutionException | CancellationException e) {
+            logger.warn("The JUnit check runner returned from the run without a result: {}", e.toString());
+            return null;
+        }
+    }
+
+    /**
+     * Abandons the runner if it is still going when the wait for it ends. That is left by an exit
+     * the paths of the wait do not handle, such as an interrupt of the waiting thread or an Error
+     * escaping the wait: the runner must not go on with the suite alongside the work that follows.
+     * Whether it is still going is decided by the progress, at the moment it abandons it, so a
+     * runner that returns in the meantime is neither abandoned nor walked away from (which would
+     * keep the class loader of the check from being released).
+     *
+     * @param future         the runner's result
+     * @param progress       what the runner did
+     * @param runner         the runner thread, or null if it never started
+     * @param giveUpRecorded whether the exit already recorded the check as incomplete
+     * @return whether the runner was abandoned
+     */
+    static boolean abandonRunnerLeftRunning(Future<JUnitResult> future, JUnitCheckProgress progress,
+                                            Thread runner, boolean giveUpRecorded) {
+        if (future.isDone() || !progress.abandon()) {
+            return false;
+        }
+        Sandbox.abandonThread(runner);
+        checkRunnerAbandoned = true;
+        if (!giveUpRecorded) {
+            recordCheckIncomplete("runner was still going when the wait for it ended");
+        }
+        return true;
+    }
+
+    /**
+     * Whether a runner was abandoned since the class loader of the check was last released.
+     *
+     * @return whether the class loader of the current check is to be kept for an abandoned runner
+     */
+    static boolean isCheckRunnerAbandoned() {
+        return checkRunnerAbandoned;
+    }
+
+    /**
      * Collects the result of a runner that was interrupted because the budget of the check ran
      * out, within the grace period. The result is judged like the one of a run that finished in
      * time: tests that were caught hanging are blamed, and a runner that died after a test had to
@@ -1022,15 +1134,50 @@ public abstract class JUnitAnalyzer {
         try {
             result = progress.blameHungTests(future.get(graceMs, TimeUnit.MILLISECONDS));
         } catch (ExecutionException died) {
-            if (!progress.hasHungTests()) {
-                throw died;
-            }
-            logger.warn("The JUnit check runner died after a test had to be stopped: {}", died.toString());
-            recordCheckIncomplete("runner died after a hung test was stopped");
-            result = progress.deadRunnerResult(testCount);
+            result = resultOfDeadRunner(died, progress, testCount);
         }
         result.setWatchdogFired(true);
         return result;
+    }
+
+    /**
+     * Makes the result of a check whose runner ignored the interrupt of the watchdog. The suite is
+     * kept as it is, except that tests caught hanging before the budget ran out are still to be
+     * dropped. As for any result produced after the watchdog fired, the timeouts in it say nothing
+     * about the tests: the kill switch was raised for the run.
+     *
+     * @param collected what the runner recorded until it was abandoned
+     * @param progress  what the runner did
+     * @param testCount the number of test classes the check covers
+     * @return the result, flagged as produced after the watchdog fired
+     */
+    static JUnitResult afterWatchdogAbandonedRunner(JUnitResult collected, JUnitCheckProgress progress,
+                                                    int testCount) {
+        JUnitResult result = progress.hasHungTests() ? collected : JUnitResult.allPassed(testCount);
+        result.setWatchdogFired(true);
+        return result;
+    }
+
+    /**
+     * The result of a run whose runner thread died. Stopping the thread of a hung test can raise
+     * the stop outside the test, in the engine, and end the run: the tests that hung are known,
+     * the ones after them were not run. A runner that died without any test having hung is a
+     * failure of the check itself.
+     *
+     * @param died      how the runner ended
+     * @param progress  what the runner did
+     * @param testCount the number of test classes the check covers
+     * @return what the run found
+     * @throws ExecutionException if no test hung, so there is nothing to report but the failure
+     */
+    private static JUnitResult resultOfDeadRunner(ExecutionException died, JUnitCheckProgress progress,
+                                                  int testCount) throws ExecutionException {
+        if (!progress.hasHungTests()) {
+            throw died;
+        }
+        logger.warn("The JUnit check runner died after a test had to be stopped: {}", died.toString());
+        recordCheckIncomplete("runner died after a hung test was stopped");
+        return progress.deadRunnerResult(testCount);
     }
 
     /**
@@ -1042,14 +1189,18 @@ public abstract class JUnitAnalyzer {
     /** Longest a single test may run before it counts as hung, however short its own timeout. */
     static final long MIN_HANG_LIMIT_MS = 30_000L;
 
-    /** Test-only override for {@link #hangGraceMs()}; 0 in production. */
+    /**
+     * Test-only override for {@link #hangGraceMs()}; 0 in production.
+     */
     static volatile long HANG_GRACE_FOR_TESTING_MS = 0L;
 
     static long hangGraceMs() {
         return HANG_GRACE_FOR_TESTING_MS > 0 ? HANG_GRACE_FOR_TESTING_MS : HANG_GRACE_MS;
     }
 
-    /** Test-only override for {@link #hangLimitMs()}; 0 in production. */
+    /**
+     * Test-only override for {@link #hangLimitMs()}; 0 in production.
+     */
     static volatile long HANG_LIMIT_FOR_TESTING_MS = 0L;
 
     /**
@@ -1104,15 +1255,7 @@ public abstract class JUnitAnalyzer {
             } catch (TimeoutException stillRunning) {
                 // fall through to the hang check
             } catch (ExecutionException died) {
-                if (!progress.hasHungTests()) {
-                    throw died;
-                }
-                // Stopping the thread of a hung test can raise the stop outside the test, in the
-                // engine, and end the run. The tests that hung are known; the ones after them
-                // were not run.
-                logger.warn("The JUnit check runner died after a test had to be stopped: {}", died.toString());
-                recordCheckIncomplete("runner died after a hung test was stopped");
-                return progress.deadRunnerResult(testCount);
+                return resultOfDeadRunner(died, progress, testCount);
             }
             // One snapshot: the runner can move to the next test at any moment, and reading the
             // test and the event count separately could blame one test and interrupt the next.
@@ -1123,29 +1266,32 @@ public abstract class JUnitAnalyzer {
             }
             long event = seen.getEventCount();
             long ranMs = seen.getRunningMillis();
-            if (progress.getEventCount() != event) {
+            Thread runner = runnerThread.get();
+            // Blaming and interrupting happen while the runner cannot move to another test, so the
+            // interrupt lands on the test that hung or not at all.
+            if (!progress.interruptHungTest(event, runner, ranMs)) {
                 continue; // it finished or moved on while we looked
             }
-            progress.markHung(running, ranMs);
-            logger.warn("Test {} has been running for {} ms in the JUnit check; interrupting the runner",
+            logger.warn("Test {} has been running for {} ms in the JUnit check; interrupted the runner",
                     running, ranMs);
-            Thread runner = runnerThread.get();
-            if (runner != null) {
-                runner.interrupt();
-            }
             if (waitForRunnerToMoveOn(future, progress, event, hangGraceMs)) {
                 continue;
             }
-            if (runner != null && stopRunner(runner)
+            if (progress.stopIfStill(event, runner)
                     && waitForRunnerToMoveOn(future, progress, event, hangGraceMs)) {
                 logger.warn("Test {} of the JUnit check was stopped after it ignored the interrupt", running);
                 continue;
             }
-            logger.error("Test {} of the JUnit check ignored the interrupt for {} ms; abandoning the "
-                    + "runner and dropping the test. An orphan runner thread will continue until "
-                    + "process exit.", running, ranMs + 2 * hangGraceMs);
-            JUnitResult result = progress.abandonedResult(running, ranMs + 2 * hangGraceMs, testCount);
-            abandonRunner(runner, "test " + running + " hung and ignored the interrupt", testCount);
+            // Checking that the runner is still in the test and abandoning it happen at once, so a
+            // runner that finishes the test meanwhile is not abandoned in the next one.
+            JUnitResult result = progress.abandonIfStill(event, ranMs + 2 * hangGraceMs, testCount);
+            if (result == null) {
+                continue; // it moved on before it could be abandoned
+            }
+            logger.error("Test {} of the JUnit check ignored the interrupt for {} ms; abandoned the "
+                    + "runner and dropped the test. The orphan runner thread parks once the test ends.",
+                    running, ranMs + 2 * hangGraceMs);
+            abandonRunner(runner, "test " + running + " hung and ignored the interrupt");
             return result;
         }
     }
@@ -1159,37 +1305,12 @@ public abstract class JUnitAnalyzer {
                                                  long event, long graceMs) throws InterruptedException {
         long graceEnd = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(graceMs);
         while (System.nanoTime() < graceEnd) {
-            if (progress.getEventCount() != event || future.isDone()) {
+            if (progress.movedOnFrom(event) || future.isDone()) {
                 return true;
             }
             Thread.sleep(50L);
         }
-        return progress.getEventCount() != event || future.isDone();
-    }
-
-    /**
-     * Last resort for a test that spins in code an interrupt does not reach, such as a loop in a
-     * library class that is not instrumented: stop the thread, as the test executor does during
-     * the search. The test then fails with a ThreadDeath, which the JUnit engines record like any
-     * other failure before going on to the next test. Not available from Java 20 on, where
-     * {@code Thread.stop()} only throws.
-     *
-     * @param runner the thread to stop
-     * @return true if the thread was sent the stop
-     */
-    @SuppressWarnings({"deprecation", "removal"})
-    private static boolean stopRunner(Thread runner) {
-        if (!runner.isAlive()) {
-            return false;
-        }
-        try {
-            logger.warn("Stopping thread {} with Thread.stop()", runner.getName());
-            runner.stop();
-            return true;
-        } catch (Throwable t) {
-            logger.info("Cannot stop thread {}: {}", runner.getName(), t.toString());
-            return false;
-        }
+        return progress.movedOnFrom(event) || future.isDone();
     }
 
     /** Shortest watchdog budget a check gets, even when its phase is (nearly) over. */
@@ -1827,25 +1948,22 @@ public abstract class JUnitAnalyzer {
     }
 
     /**
-     * Gives up on a JUnit check whose runner did not finish, keeping the suite as it is.
+     * The bookkeeping for a JUnit check whose runner was abandoned through its
+     * {@link JUnitCheckProgress}, which is what stops the runner: the orphan parks at its next
+     * callback, after the rest of the code it is in (a test, its {@code @After}) has run. The kill
+     * switch could not do that: it is global and cleared when the check ends.
      *
-     * <p>The orphan runner keeps running, so it will never call goingToEndTestCase(). The sandbox
-     * lock is taken back on its behalf now rather than making the next test execution discover the
-     * leak by burning its whole acquisition timeout.
+     * <p>The orphan never calls goingToEndTestCase(). The sandbox lock is taken back on its behalf
+     * now rather than making the next test execution discover the leak by burning its whole
+     * acquisition timeout.
      *
      * @param runner the runner thread, or null if it never started
      * @param reason why the check was abandoned
-     * @param testCount the number of test classes the check covered
-     * @return a result reporting every test as passing
      */
-    private static JUnitResult abandonRunner(Thread runner, String reason, int testCount) {
+    private static void abandonRunner(Thread runner, String reason) {
         Sandbox.abandonThread(runner);
-        // The kill switch is global and is cleared when the check ends, so it cannot hold back
-        // an orphan that wakes up later; this stops that thread alone at its next probe.
-        ExecutionTracer.abandonThread(runner);
         checkRunnerAbandoned = true;
         recordCheckIncomplete(reason);
-        return JUnitResult.allPassed(testCount);
     }
 
     /**
@@ -2832,34 +2950,7 @@ public abstract class JUnitAnalyzer {
         JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses, JUnitCheckProgress progress) {
 
             JUnitCore runner = new JUnitCore();
-            List<org.junit.runner.notification.Failure> failuresSoFar =
-                    new java.util.concurrent.CopyOnWriteArrayList<>();
-            java.util.concurrent.atomic.AtomicInteger finishedSoFar =
-                    new java.util.concurrent.atomic.AtomicInteger();
-            runner.addListener(new org.junit.runner.notification.RunListener() {
-                @Override
-                public void testStarted(org.junit.runner.Description description) {
-                    progress.testStarted(description.getMethodName());
-                }
-
-                @Override
-                public void testFinished(org.junit.runner.Description description) {
-                    finishedSoFar.incrementAndGet();
-                    progress.testFinished();
-                }
-
-                @Override
-                public void testFailure(org.junit.runner.notification.Failure failure) {
-                    failuresSoFar.add(failure);
-                }
-            });
-            progress.setPartialResult(() -> {
-                JUnitResult partial = new JUnitResult(false, failuresSoFar.size(), finishedSoFar.get());
-                for (org.junit.runner.notification.Failure failure : failuresSoFar) {
-                    partial.addFailure(JUnitResultBuilder.toFailure(failure));
-                }
-                return partial;
-            });
+            runner.addListener(progress.junit4Listener());
 
             /*
              * Why deactivating the sandbox? This is pretty tricky.
@@ -2943,9 +3034,7 @@ public abstract class JUnitAnalyzer {
                 privileged = Sandbox.resetDefaultSecurityManager();
             }
             try {
-                List<Pair<TestIdentifier, TestExecutionResult>> result =
-                        new java.util.concurrent.CopyOnWriteArrayList<>();
-                progress.setPartialResult(() -> new JUnitResultBuilder().build(new ArrayList<>(result)));
+                List<Pair<TestIdentifier, TestExecutionResult>> result = new CopyOnWriteArrayList<>();
                 ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
                 boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
                 boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
@@ -2978,23 +3067,7 @@ public abstract class JUnitAnalyzer {
                             .build();
                     Launcher launcher = LauncherFactory.create();
                     TestPlan testPlan = launcher.discover(request);
-                    launcher.registerTestExecutionListeners(new TestExecutionListener() {
-                        @Override
-                        public void executionStarted(TestIdentifier testIdentifier) {
-                            if (testIdentifier.isTest()) {
-                                progress.testStarted(JUnitResultBuilder.methodNameOf(testIdentifier));
-                            }
-                        }
-
-                        @Override
-                        public void executionFinished(TestIdentifier testIdentifier,
-                                                      TestExecutionResult testExecutionResult) {
-                            if (testIdentifier.isTest()) {
-                                progress.testFinished();
-                            }
-                            result.add(Pair.of(testIdentifier, testExecutionResult));
-                        }
-                    });
+                    launcher.registerTestExecutionListeners(progress.junit5Listener(result));
 
                     launcher.execute(request);
                 } finally {

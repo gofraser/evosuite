@@ -174,6 +174,71 @@ public class JUnitAnalyzerHungTestEndToEndTest {
         }
     }
 
+    static volatile boolean laterTestRan;
+    static volatile boolean classCleanupRan;
+
+    /** JUnit 4 flavour: the hang clears after the check gave up, then more tests and a cleanup. */
+    @org.junit.FixMethodOrder(org.junit.runners.MethodSorters.NAME_ASCENDING)
+    public static class HangsThenMore4 {
+        @org.junit.Test
+        public void test0() {
+            wedge();
+        }
+
+        @org.junit.Test
+        public void test1() {
+            laterTestRan = true;
+        }
+
+        @org.junit.AfterClass
+        public static void cleanup() {
+            classCleanupRan = true;
+        }
+    }
+
+    /** JUnit 5 flavour: the hang clears after the check gave up, then more tests and a cleanup. */
+    @org.junit.jupiter.api.TestMethodOrder(org.junit.jupiter.api.MethodOrderer.MethodName.class)
+    public static class HangsThenMore5 {
+        @org.junit.jupiter.api.Test
+        void test0() {
+            wedge();
+        }
+
+        @org.junit.jupiter.api.Test
+        void test1() {
+            laterTestRan = true;
+        }
+
+        @org.junit.jupiter.api.AfterAll
+        static void cleanup() {
+            classCleanupRan = true;
+        }
+    }
+
+    private void assertOrphanStopsWhereItIs(Class<?> suite) throws Exception {
+        laterTestRan = false;
+        classCleanupRan = false;
+        JUnitResult result = check(suite);
+        assertFalse(result.wasSuccessful());
+        // the hang clears only now, with the check long gone
+        release.countDown();
+        Thread.sleep(1_500L);
+        assertFalse(laterTestRan, "the abandoned runner started another test");
+        assertFalse(classCleanupRan, "the abandoned runner ran the class level cleanup");
+    }
+
+    @Test
+    public void junit4AbandonedRunnerStartsNoFurtherTestOnceTheHangClears() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
+        assertOrphanStopsWhereItIs(HangsThenMore4.class);
+    }
+
+    @Test
+    public void junit5AbandonedRunnerStartsNoFurtherTestOnceTheHangClears() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+        assertOrphanStopsWhereItIs(HangsThenMore5.class);
+    }
+
     private static JUnitResult check(Class<?> suite) throws Exception {
         Method run = JUnitAnalyzer.class.getDeclaredMethod("runJUnitOnCurrentProcess", Class[].class);
         run.setAccessible(true);
