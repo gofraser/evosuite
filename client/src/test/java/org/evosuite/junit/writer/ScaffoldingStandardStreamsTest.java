@@ -167,6 +167,16 @@ public class ScaffoldingStandardStreamsTest {
 
     public static volatile String headlessDuringTest;
 
+    private static boolean canInstallSecurityManager() {
+        String allow = System.getProperty("java.security.manager");
+        if ("allow".equals(allow)) {
+            return true;
+        }
+        String version = System.getProperty("java.specification.version");
+        int feature = version.startsWith("1.") ? 8 : Integer.parseInt(version.split("\\.")[0]);
+        return feature < 18 && !"disallow".equals(allow);
+    }
+
     /**
      * The headless mode is handed back even when a cleanup step before it throws: here the
      * restore of the streams, which is the first step of the cleanup.
@@ -176,6 +186,11 @@ public class ScaffoldingStandardStreamsTest {
     public void scaffoldingRestoresHeadlessModeWhenAnEarlierCleanupStepThrows() throws Exception {
         Assumptions.assumeFalse(java.awt.GraphicsEnvironment.isHeadless(),
                 "restoring headless mode is only observable when the JVM is not headless");
+        // From Java 18 on, installing a security manager needs -Djava.security.manager=allow.
+        // The nesting of the cleanup steps is also guarded, on any JVM, by
+        // scaffoldingRunsShutdownHooksWhenTheThreadStopperThrows.
+        Assumptions.assumeTrue(canInstallSecurityManager(),
+                "this JVM does not allow installing a security manager");
         boolean headless = Properties.HEADLESS_MODE;
         Properties.HEADLESS_MODE = true;
         String property = System.getProperty("java.awt.headless");
