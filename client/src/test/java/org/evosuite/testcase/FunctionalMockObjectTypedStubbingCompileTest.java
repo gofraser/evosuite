@@ -120,4 +120,49 @@ public class FunctionalMockObjectTypedStubbingCompileTest {
                 "evosuite-typevar-mock", className, source.toString());
         assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
     }
+
+    /**
+     * Defects4J Math-75: {@code Comparable<?> c} stubbed with {@code compareTo(nullable(Object.class))}
+     * fails because the wildcard capture clashes with the matcher's {@code Class<T>} argument.
+     */
+    @Test
+    public void stubbingOnWildcardTypedMockCompiles() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        java.lang.reflect.Type wildcardComparable = org.apache.commons.lang3.reflect.TypeUtils
+                .parameterize(Comparable.class,
+                        org.apache.commons.lang3.reflect.TypeUtils.wildcardType().build());
+        FunctionalMockStatement mock = new FunctionalMockStatement(
+                tc, wildcardComparable, GenericClassFactory.get(wildcardComparable));
+        tc.addStatement(mock);
+        VariableReference zero = tc.addStatement(
+                new org.evosuite.testcase.statements.numeric.IntPrimitiveStatement(tc, 0));
+        Method compareTo = Comparable.class.getMethod("compareTo", Object.class);
+        MethodDescriptor descriptor =
+                new MethodDescriptor(compareTo, GenericClassFactory.get(Comparable.class));
+        descriptor.increaseCounter();
+        mock.addMethodStubbing(descriptor, Collections.singletonList(zero));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        StringBuilder source = new StringBuilder("package org.evosuite.testcase;\n");
+        for (Class<?> imported : visitor.getImports()) {
+            String canonical = imported.getCanonicalName();
+            if (canonical != null) {
+                source.append("import ").append(canonical).append(";\n");
+            }
+        }
+        source.append("import static org.mockito.Mockito.*;\n")
+                .append("import static org.mockito.ArgumentMatchers.*;\n");
+        String className = "WildcardMockProbe" + System.nanoTime();
+        source.append("public class ").append(className).append(" {\n")
+                .append("    public static void run() throws Throwable {\n");
+        for (String line : visitor.getCode().split("\\R")) {
+            source.append("        ").append(line).append("\n");
+        }
+        source.append("    }\n}\n");
+
+        JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
+                "evosuite-wildcard-mock", className, source.toString());
+        assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+    }
 }

@@ -3445,6 +3445,11 @@ public class TestCodeVisitor extends TestVisitor {
                 if (!originalMethod.getDeclaringClass().isAssignableFrom(declaredVariableClass)
                         && originalMethod.getDeclaringClass().isAssignableFrom(rawClass)) {
                     stubReceiver = "(" + rawClassName + ") " + stubReceiver;
+                } else if (hasWildcardTypeArgument(declaredVariableType)
+                        && originalMethod.getDeclaringClass().isAssignableFrom(rawClass)) {
+                    // Calling on a Comparable<?> captures the wildcard, which then clashes
+                    // with the Class<T> argument of matchers such as nullable(Object.class).
+                    stubReceiver = "(" + rawClassName + ") " + stubReceiver;
                 }
                 result.append("doReturn(").append(parameterString)
                         .append(").when(").append(stubReceiver).append(")");
@@ -3456,6 +3461,18 @@ public class TestCodeVisitor extends TestVisitor {
         } // end if (!st.isUseLenientDefaultAnswer())
 
         testCode.append(result);
+    }
+
+    private static boolean hasWildcardTypeArgument(Type type) {
+        if (!(type instanceof ParameterizedType)) {
+            return false;
+        }
+        for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
+            if (argument instanceof WildcardType) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Class<?> resolveFunctionalMockRawClass(Class<?> variableRawClass, Class<?> mockedTargetClass) {
