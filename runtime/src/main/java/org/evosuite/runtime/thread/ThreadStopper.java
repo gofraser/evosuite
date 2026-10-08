@@ -159,73 +159,76 @@ public class ThreadStopper {
         long deadline = Math.max(startTime + timeout,
                 System.currentTimeMillis() + MIN_KILL_SWITCH_WINDOW_MS);
 
-        /*
-         * try to interrupt the SUT threads
-         */
-        checkThreads:
-        for (Thread t : threadArray) {
-            // May happen...
-            if (t == null) {
-                continue;
+        try {
+            /*
+             * try to interrupt the SUT threads
+             */
+            checkThreads:
+            for (Thread t : threadArray) {
+                // May happen...
+                if (t == null) {
+                    continue;
+                }
+
+                if (t.isAlive() && !currentRunningThreads.contains(t)) {
+                    /*
+                     * We may want to ignore some threads such as GUI event handlers
+                     */
+                    for (String name : threadsToIgnore) {
+                        if (t.getName().startsWith(name)) {
+                            continue checkThreads;
+                        }
+                    }
+                    t.interrupt();
+                }
             }
 
-            if (t.isAlive() && !currentRunningThreads.contains(t)) {
-                /*
-                 * We may want to ignore some threads such as GUI event handlers
-                 */
-                for (String name : threadsToIgnore) {
-                    if (t.getName().startsWith(name)) {
-                        continue checkThreads;
+            /*
+             * now, join up to a total of TIMEOUT ms.
+             */
+            checkThreads:
+            for (Thread t : threadArray) {
+                // May happen...
+                if (t == null) {
+                    continue;
+                }
+
+                if (t.isAlive() && !currentRunningThreads.contains(t)) {
+                    for (String name : threadsToIgnore) {
+                        if (t.getName().startsWith(name)) {
+                            continue checkThreads;
+                        }
+                    }
+
+                    logger.info("Found new thread");
+                    try {
+                        long waitingTime = deadline - System.currentTimeMillis();
+                        if (waitingTime > 0) {
+                            t.join(waitingTime);
+                        }
+                    } catch (InterruptedException e) {
+                        // What can we do?
+                        break;
+                    }
+                    if (t.isAlive()) {
+                        logger.info("Thread is still alive: " + t.getName());
                     }
                 }
-                t.interrupt();
             }
+        } finally {
+            /*
+             * we need it, otherwise issue during search in which accessing enum in SUT would call toString,
+             * and so throw a TimeoutExceeded exception. Also when stopping a thread failed (the SUT can
+             * override Thread.interrupt() and throw): left on, both would stop the threads of later tests.
+             */
+            killSwitch.setKillSwitch(false);
+            KillSwitchHandler.setStoppingLeftoverThreads(false);
+
+            /*
+             * important. this is used to later check if current threads are set
+             */
+            currentRunningThreads = null;
         }
-
-        /*
-         * now, join up to a total of TIMEOUT ms.
-         */
-        checkThreads:
-        for (Thread t : threadArray) {
-            // May happen...
-            if (t == null) {
-                continue;
-            }
-
-            if (t.isAlive() && !currentRunningThreads.contains(t)) {
-                for (String name : threadsToIgnore) {
-                    if (t.getName().startsWith(name)) {
-                        continue checkThreads;
-                    }
-                }
-
-                logger.info("Found new thread");
-                try {
-                    long waitingTime = deadline - System.currentTimeMillis();
-                    if (waitingTime > 0) {
-                        t.join(waitingTime);
-                    }
-                } catch (InterruptedException e) {
-                    // What can we do?
-                    break;
-                }
-                if (t.isAlive()) {
-                    logger.info("Thread is still alive: " + t.getName());
-                }
-            }
-        }
-
-        /*
-         * we need it, otherwise issue during search in which accessing enum in SUT would call toString,
-         * and so throw a TimeoutExceeded exception
-         */
-        killSwitch.setKillSwitch(false);
-        KillSwitchHandler.setStoppingLeftoverThreads(false);
-
-        /*
-         * important. this is used to later check if current threads are set
-         */
-        currentRunningThreads = null;
     }
 
 }
