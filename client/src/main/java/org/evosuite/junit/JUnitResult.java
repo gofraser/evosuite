@@ -59,6 +59,23 @@ public class JUnitResult {
 
     private Class<?> junitClass;
 
+    private boolean watchdogFired = false;
+
+    /**
+     * Whether the JUnit-check watchdog ran out of budget while this result was being produced
+     * and raised the kill switch. From then on every test that touches instrumented code fails
+     * at once with a timeout, so the timeouts in this result say nothing about those tests.
+     *
+     * @return true if the watchdog fired during the run
+     */
+    public boolean wasWatchdogFired() {
+        return watchdogFired;
+    }
+
+    public void setWatchdogFired(boolean watchdogFired) {
+        this.watchdogFired = watchdogFired;
+    }
+
 
     /**
      * Creates a JUnitResult representing a catastrophic failure (e.g. OOM)

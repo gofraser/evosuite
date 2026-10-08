@@ -171,6 +171,31 @@ public class ExecutionTracer {
         }
     }
 
+    /** Threads given up on; weakly held so that a finished orphan does not stay reachable. */
+    private static final java.util.Set<Thread> abandonedThreads =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(
+                    new java.util.WeakHashMap<Thread, Boolean>()));
+
+    /** True while {@link #abandonedThreads} may be non-empty; keeps the probe a single read. */
+    private static volatile boolean anyThreadAbandoned = false;
+
+    /**
+     * Makes every further timeout probe of one thread throw, for good. The kill switch cannot do
+     * that for a thread that was given up on while it still runs: it is global, so it would also
+     * stop whatever executes next, and has to be cleared as soon as the waiting is over. A thread
+     * abandoned here is stopped at its own next probe, whichever test it runs by then, and
+     * leaves the others alone.
+     *
+     * @param thread the thread that was given up on, may be null
+     */
+    public static void abandonThread(Thread thread) {
+        if (thread == null) {
+            return;
+        }
+        abandonedThreads.add(thread);
+        anyThreadAbandoned = true;
+    }
+
     /**
      * Number of times {@link #checkTimeout()} has observed the kill switch active since
      * it was last armed by {@link #setKillSwitch(boolean)}. See
@@ -460,6 +485,9 @@ public class ExecutionTracer {
         // state, otherwise a runaway SUT loop during JUnit check (where the tracer
         // is deliberately disabled to avoid pollution) would have no way out.
         if (LoopCounter.getInstance().shouldTerminateAbandonedStaticInitializer()) {
+            throw new TestCaseExecutor.TimeoutExceeded();
+        }
+        if (anyThreadAbandoned && abandonedThreads.contains(Thread.currentThread())) {
             throw new TestCaseExecutor.TimeoutExceeded();
         }
         if (!tracer.killSwitch) {

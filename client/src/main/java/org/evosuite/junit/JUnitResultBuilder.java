@@ -59,26 +59,47 @@ public class JUnitResultBuilder {
         List<Failure> failures = result.getFailures();
 
         for (Failure failure : failures) {
-            String descriptionMethodName = failure.getDescription()
-                    .getMethodName();
-            String exceptionClassName = failure.getException().getClass()
-                    .toString();
-            String message = failure.getMessage();
-            String trace = failure.getTrace();
-            boolean isAssertionError = (failure.getException() instanceof java.lang.AssertionError);
-
-            JUnitFailure junitFailure = new JUnitFailure(message,
-                    exceptionClassName, descriptionMethodName,
-                    isAssertionError, trace);
-
-            for (StackTraceElement elem : failure.getException()
-                    .getStackTrace()) {
-                String elemToString = elem.toString();
-                junitFailure.addToExceptionStackTrace(elemToString);
-            }
-            junitResult.addFailure(junitFailure);
+            junitResult.addFailure(toFailure(failure));
         }
         return junitResult;
+    }
+
+    /**
+     * Translates one JUnit 4 failure into an evosuite independent object.
+     *
+     * @param failure the failure to translate
+     * @return the translated failure
+     */
+    static JUnitFailure toFailure(Failure failure) {
+        String descriptionMethodName = failure.getDescription().getMethodName();
+        String exceptionClassName = failure.getException().getClass().toString();
+        String message = failure.getMessage();
+        String trace = failure.getTrace();
+        boolean isAssertionError = (failure.getException() instanceof java.lang.AssertionError);
+
+        JUnitFailure junitFailure = new JUnitFailure(message, exceptionClassName, descriptionMethodName,
+                isAssertionError, trace);
+
+        for (StackTraceElement elem : failure.getException().getStackTrace()) {
+            junitFailure.addToExceptionStackTrace(elem.toString());
+        }
+        return junitFailure;
+    }
+
+    /**
+     * The name of the test method of a JUnit 5 test. The display name carries trailing
+     * parentheses (e.g. "test0()"), while the tests of a suite are named by the bare method
+     * name (e.g. "test0").
+     *
+     * @param identifier the test
+     * @return the method name
+     */
+    static String methodNameOf(TestIdentifier identifier) {
+        String name = identifier.getDisplayName();
+        if (name != null && name.endsWith("()")) {
+            name = name.substring(0, name.length() - 2);
+        }
+        return name;
     }
 
     /**
@@ -104,14 +125,8 @@ public class JUnitResultBuilder {
     }
 
     private static JUnitFailure toFailure(TestIdentifier identifier, TestExecutionResult failure) {
-        // JUnit5 display names include trailing "()" (e.g. "test0()"), but
-        // TestSuiteWriterUtils.getNameOfTest returns the bare method name
-        // (e.g. "test0").  Strip the parentheses so that
-        // handleTestsThatAreUnstable can match failures to test cases.
-        String descriptionMethodName = identifier.getDisplayName();
-        if (descriptionMethodName != null && descriptionMethodName.endsWith("()")) {
-            descriptionMethodName = descriptionMethodName.substring(0, descriptionMethodName.length() - 2);
-        }
+        // handleTestsThatAreUnstable matches failures to test cases by the bare method name.
+        String descriptionMethodName = methodNameOf(identifier);
         Throwable throwable = failure.getThrowable().get();
         String exceptionClassName = throwable.getClass().getName();
         String message = throwable.getMessage();
