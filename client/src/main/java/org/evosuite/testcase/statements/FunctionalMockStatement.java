@@ -1093,6 +1093,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         for (int i = 0; i < parameters.size(); i++) {
             VariableReference ref = parameters.get(i);
             if (ref == null) {
+                VariableReference repeated = previousReturnValueOfSameMethod(i);
+                if (repeated != null) {
+                    parameters.set(i, repeated);
+                    continue;
+                }
                 Class<?> expected = getExpectedParameterType(i);
                 Object value = null;
                 if (expected.isPrimitive()) {
@@ -1120,6 +1125,25 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         }
     }
 
+
+    /**
+     * The return value of the call before the {@code i}-th one to the same mocked method. A
+     * mock answers every call beyond its last stubbed value with that last value, so a call
+     * that was not stubbed when the test was observed returned it there; a null in its place
+     * would make the rendered test behave differently from the observation.
+     *
+     * @return the value of the previous call, or null if {@code i} is the first call of its
+     * method or no previous value is known
+     */
+    private VariableReference previousReturnValueOfSameMethod(int i) {
+        for (MethodDescriptor md : mockedMethods) {
+            int[] bounds = methodParameters.get(md.getID());
+            if (bounds != null && i > bounds[0] && i <= bounds[1]) {
+                return parameters.get(i - 1);
+            }
+        }
+        return null;
+    }
 
     /**
      * getExpectedParameterType.
