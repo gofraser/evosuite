@@ -815,7 +815,7 @@ public class TestCluster {
         if (calls.isEmpty()) {
             throw new ConstructionFailedException("No modifiers for " + clazz);
         }
-        logger.debug("Possible modifiers for " + clazz + ": " + calls);
+        logger.debug("Possible modifiers for {}: {}", clazz, calls);
 
         GenericAccessibleObject<?> call = Randomness.choice(calls);
         if (call.hasTypeParameters()) {
@@ -1052,7 +1052,7 @@ public class TestCluster {
                     }
                 }
             }
-            logger.debug("Generators for special case " + clazz + ": " + calls);
+            logger.debug("Generators for special case {}: {}", clazz, calls);
             // FIXXME: This is a workaround for the temporary workaround.
             if (calls.isEmpty()) {
                 addNumericConstructor(clazz);
