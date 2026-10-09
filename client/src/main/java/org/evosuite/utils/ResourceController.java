@@ -113,7 +113,13 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
         return null;
     }
 
-    private void logMemoryDiagnostics(Runtime runtime, long freeMem) {
+    /**
+     * Logs what is using the memory. This runs because the heap is nearly full, so the report
+     * itself (a class histogram, walks over the population) can be what exhausts it; that must
+     * not abort the generation, whose point is to stop the search while there is still memory to
+     * write the results.
+     */
+    void logMemoryDiagnostics(Runtime runtime, long freeMem) {
         try {
             StringBuilder sb = new StringBuilder();
             sb.append("=== Memory Diagnostics ===\n");
@@ -299,6 +305,8 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
             }
 
             logger.warn(sb.toString());
+        } catch (OutOfMemoryError e) {
+            logger.warn("Not enough memory left to collect memory diagnostics");
         } catch (Exception e) {
             logger.warn("Failed to collect memory diagnostics: {}", e.getMessage());
         }
