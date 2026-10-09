@@ -3936,10 +3936,12 @@ public class TestCodeVisitor extends TestVisitor {
         try {
             for (Class<?> current = calleeClass; current != null && current != declaring;
                  current = current.getSuperclass()) {
-                for (Method candidate : current.getDeclaredMethods()) {
+                Method[] declared = current.getDeclaredMethods();
+                for (Method candidate : declared) {
                     if (candidate.isBridge() && candidate.getName().equals(method.getName())
                             && Arrays.equals(candidate.getParameterTypes(),
-                            method.getParameterTypes())) {
+                            method.getParameterTypes())
+                            && declaresNarrowingOverride(declared, method)) {
                         return declaring;
                     }
                 }
@@ -3948,6 +3950,33 @@ public class TestCodeVisitor extends TestVisitor {
             // unresolvable hierarchy: leave the call as it is
         }
         return null;
+    }
+
+    /**
+     * Whether {@code declared} contains a real (non-bridge) override of {@code method} with
+     * narrower parameter types. A bridge alone does not show one: javac also adds a bridge to a
+     * public class for every public method it inherits from a package-private superclass
+     * (PatriciaTrie.put for AbstractPatriciaTrie.put), and that bridge overrides nothing.
+     */
+    private static boolean declaresNarrowingOverride(Method[] declared, Method method) {
+        Class<?>[] erased = method.getParameterTypes();
+        for (Method candidate : declared) {
+            if (candidate.isBridge() || Modifier.isStatic(candidate.getModifiers())
+                    || !candidate.getName().equals(method.getName())
+                    || candidate.getParameterCount() != erased.length
+                    || Arrays.equals(candidate.getParameterTypes(), erased)) {
+                continue;
+            }
+            Class<?>[] narrowed = candidate.getParameterTypes();
+            boolean narrower = true;
+            for (int i = 0; i < erased.length && narrower; i++) {
+                narrower = erased[i].isAssignableFrom(narrowed[i]);
+            }
+            if (narrower) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -3978,7 +4007,8 @@ public class TestCodeVisitor extends TestVisitor {
                             && candidate.getGenericParameterTypes().length > 0
                             && !Arrays.equals(candidate.getGenericParameterTypes(),
                             candidate.getParameterTypes())
-                            && Modifier.isPublic(current.getModifiers())) {
+                            && Modifier.isPublic(current.getModifiers())
+                            && declaresNarrowingOverride(bridgeOwner.getDeclaredMethods(), candidate)) {
                         return current;
                     }
                 } catch (NoSuchMethodException | LinkageError e) {

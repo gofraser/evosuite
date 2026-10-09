@@ -21,6 +21,7 @@ package org.evosuite.testcase;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.accessfixture.PropertyTable;
+import org.evosuite.testcase.accessfixture.StringTrie;
 import org.evosuite.testcase.accessfixture.TableBase;
 import org.evosuite.testcase.accessfixture.other.Exposer;
 import org.evosuite.testcase.accessfixture.other.OpenTableSwt;
@@ -370,6 +371,70 @@ public class InaccessibleMemberCompileTest {
     public void privateInnerClassOfRawOwnerIsNotNamed() throws Exception {
         String code = renderGetProperty(PropertyTable.class);
         assertFalse(code.matches("(?s).*PropertyTable(<\\w+>)?\\.Property\\b.*"), code);
+        assertCompiles(code);
+    }
+
+    // -- public method inherited from a package-private generic superclass -------------------
+
+    /**
+     * Loads the trie fixtures with their access widened as the instrumentation does, so the
+     * package-private {@code AbstractTrie} reflects as public while {@code StringTrie} keeps
+     * the visibility bridges javac gave it for the inherited public methods.
+     */
+    private static final class AccessibleFixtureLoader extends ClassLoader {
+        AccessibleFixtureLoader() {
+            super(InaccessibleMemberCompileTest.class.getClassLoader());
+        }
+
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            if (!name.equals(TEST_PACKAGE + ".AbstractTrie") && !name.equals(StringTrie.class.getName())) {
+                return super.loadClass(name, resolve);
+            }
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> loaded = findLoadedClass(name);
+                if (loaded != null) {
+                    return loaded;
+                }
+                String resource = name.replace('.', '/') + ".class";
+                try (java.io.InputStream input = getParent().getResourceAsStream(resource)) {
+                    org.objectweb.asm.ClassWriter writer = new org.objectweb.asm.ClassWriter(0);
+                    new org.objectweb.asm.ClassReader(input).accept(
+                            new org.evosuite.instrumentation.AccessibleClassAdapter(writer,
+                                    name.replace('.', '/')), 0);
+                    byte[] bytes = writer.toByteArray();
+                    return defineClass(name, bytes, 0, bytes.length);
+                } catch (java.io.IOException e) {
+                    throw new ClassNotFoundException(name, e);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void inheritedTypeVariableReturnKeepsItsTypeOnASubclassReceiver() throws Exception {
+        ClassLoader loader = new AccessibleFixtureLoader();
+        Class<?> abstractTrie = loader.loadClass(TEST_PACKAGE + ".AbstractTrie");
+        Class<?> stringTrie = loader.loadClass(StringTrie.class.getName());
+        assertTrue(java.lang.reflect.Modifier.isPublic(abstractTrie.getModifiers()));
+        assertTrue(stringTrie.getDeclaredMethod("put", Object.class, Object.class).isBridge());
+
+        TestCase tc = new DefaultTestCase();
+        java.lang.reflect.Type trieType = org.apache.commons.lang3.reflect.TypeUtils.parameterize(
+                stringTrie, String.class);
+        VariableReference trie = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(stringTrie.getConstructor(), trieType),
+                Collections.emptyList()));
+        VariableReference key = tc.addStatement(new StringPrimitiveStatement(tc, "key"));
+        VariableReference value = tc.addStatement(new StringPrimitiveStatement(tc, "value"));
+        java.lang.reflect.Method put = abstractTrie.getDeclaredMethod("put", Object.class, Object.class);
+        VariableReference previous = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(put, trieType), trie, Arrays.asList(key, value)));
+        call(tc, String.class, "length", previous);
+
+        String code = render(tc);
+        assertTrue(code.matches("(?s).*\\bString \\w+ = [^;]*\\.put\\(.*"), code);
+        assertFalse(code.contains("(AbstractTrie)"), code);
         assertCompiles(code);
     }
 
