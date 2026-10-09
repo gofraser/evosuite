@@ -78,7 +78,9 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -105,6 +107,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -122,7 +125,7 @@ public abstract class JUnitAnalyzer {
 
     private static final Logger logger = LoggerFactory.getLogger(JUnitAnalyzer.class);
 
-    private static int dirCounter = 0;
+    private static final AtomicInteger dirCounter = new AtomicInteger();
 
     private static final String JAVA = ".java";
     private static final String CLASS = ".class";
@@ -2603,25 +2606,58 @@ public abstract class JUnitAnalyzer {
         }
     }
 
+    /**
+     * How often a tmp dir is attempted before the check gives up on the step that needs it.
+     */
+    private static final int TMP_DIR_ATTEMPTS = 4;
+
     protected static File createNewTmpDir() {
-        File dir = null;
-        String dirName = FileUtils.getTempDirectoryPath() + File.separator + "EvoSuite_"
-                + (dirCounter++) + "_" + +System.currentTimeMillis();
+        return createTmpDirIn(new File(FileUtils.getTempDirectoryPath()), TMP_DIR_ATTEMPTS);
+    }
 
-        //first create a tmp folder
-        dir = new File(dirName);
-        if (!dir.mkdirs()) {
-            logger.error("Cannot create tmp dir: " + dirName);
-            return null;
+    /**
+     * Creates a fresh, empty directory below {@code parent}.
+     *
+     * <p>The directory is created atomically, so a name that is already taken (several JVMs on
+     * one node share /tmp) makes the attempt pick another name instead of failing, and a failure
+     * of the file system is retried a few times and reported with its reason. A tmp dir that
+     * cannot be created costs the JUnit check the compile filter, the instability check or the
+     * order-sensitivity run, so it is worth more than one try.</p>
+     *
+     * @return the directory, or null if none could be created
+     */
+    static File createTmpDirIn(File parent, int attempts) {
+        IOException lastFailure = null;
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            if (attempt > 0 && lastFailure != null) {
+                try {
+                    Thread.sleep(50L * attempt);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            Path dir = parent.toPath().resolve("EvoSuite_" + dirCounter.getAndIncrement() + "_"
+                    + System.currentTimeMillis() + "_"
+                    + Integer.toHexString(java.util.concurrent.ThreadLocalRandom.current().nextInt()));
+            try {
+                Files.createDirectories(parent.toPath());
+                Files.createDirectory(dir);
+                return dir.toFile();
+            } catch (FileAlreadyExistsException e) {
+                if (Files.isDirectory(parent.toPath())) {
+                    // The name was taken; the next attempt uses another one
+                    lastFailure = null;
+                    continue;
+                }
+                lastFailure = e;
+            } catch (IOException | RuntimeException e) {
+                lastFailure = e instanceof IOException ? (IOException) e : new IOException(e);
+            }
         }
-
-        if (!dir.exists()) {
-            logger.error("Weird behavior: we created folder, but Java cannot determine if it exists? Folder: "
-                    + dirName);
-            return null;
-        }
-
-        return dir;
+        logger.error("Cannot create tmp dir in {} after {} attempts: {} (usable space: {} bytes)",
+                parent, attempts, lastFailure, parent.getUsableSpace());
+        return null;
     }
 
     private static Class<?>[] loadTests(List<File> tests) {
