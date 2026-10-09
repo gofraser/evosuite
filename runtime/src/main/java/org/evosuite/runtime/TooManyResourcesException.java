@@ -75,6 +75,11 @@ public class TooManyResourcesException extends RuntimeException {
      * from the text of the one it caught (a persistence layer that rethrows
      * {@code new PersistenceException(e.toString())}); the exception that reaches the test then
      * only names the limit in its message.
+     *
+     * <p>{@code getMessage()} and {@code getCause()} of an exception of the code under test can
+     * run code under test, and that code can throw (a message built by walking a cyclic reference
+     * chain exhausts the loop limit). Such a failure counts as no match: it is not the exception
+     * the test saw.
      */
     public static boolean isOrWraps(Throwable t) {
         String name = TooManyResourcesException.class.getName();
@@ -83,11 +88,20 @@ public class TooManyResourcesException extends RuntimeException {
             if (t instanceof TooManyResourcesException) {
                 return true;
             }
-            String message = t.getMessage();
+            String message;
+            try {
+                message = t.getMessage();
+            } catch (Throwable failed) {
+                message = null;
+            }
             if (message != null && message.contains(name)) {
                 return true;
             }
-            t = t.getCause();
+            try {
+                t = t.getCause();
+            } catch (Throwable failed) {
+                return false;
+            }
         }
         return false;
     }

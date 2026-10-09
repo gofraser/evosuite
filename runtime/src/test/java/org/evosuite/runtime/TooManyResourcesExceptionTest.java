@@ -58,6 +58,36 @@ public class TooManyResourcesExceptionTest {
         assertFalse(TooManyResourcesException.isOrWraps(new RuntimeException("a", new RuntimeException("b"))));
     }
 
+    /**
+     * Jackson's JsonMappingException builds its message by walking its reference path; a cyclic
+     * path exhausts the loop limit inside getMessage(), and EvoSuite asks while rendering the test.
+     */
+    @Test
+    public void aMessageOrCauseThatThrowsIsNoMatch() {
+        Exception throwingMessage = new IllegalStateException() {
+            @Override
+            public String getMessage() {
+                throw new TooManyResourcesException("Loop has been executed more times than the allowed 10000");
+            }
+        };
+        Exception throwingCause = new IllegalStateException("plain") {
+            @Override
+            public synchronized Throwable getCause() {
+                throw new NullPointerException();
+            }
+        };
+
+        assertFalse(TooManyResourcesException.isOrWraps(throwingMessage));
+        assertFalse(TooManyResourcesException.isOrWraps(throwingCause));
+        assertTrue(TooManyResourcesException.isOrWraps(new RuntimeException(LIMIT.toString(), throwingMessage)));
+        assertTrue(TooManyResourcesException.isOrWraps(new RuntimeException("outer", new IllegalStateException("x", LIMIT) {
+            @Override
+            public String getMessage() {
+                throw new NullPointerException();
+            }
+        })));
+    }
+
     @Test
     public void theExtensionSwallowsAQuotedLimitAndRethrowsOtherExceptions() throws Throwable {
         NonFunctionalRequirementExtension extension = new NonFunctionalRequirementExtension();
