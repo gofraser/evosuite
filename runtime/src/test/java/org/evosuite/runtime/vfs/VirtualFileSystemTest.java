@@ -74,6 +74,17 @@ public class VirtualFileSystemTest {
     }
 
     @Test
+    public void testAccessedFilesStayBoundedWhenTheSutProbesManyNames() {
+        VirtualFileSystem vfs = VirtualFileSystem.getInstance();
+        String first = new File("probe-0").getAbsolutePath();
+        for (int i = 0; i < 20 * VirtualFileSystem.MAX_ACCESSED_FILES; i++) {
+            vfs.registerAccessedFile("probe-" + i);
+        }
+        Assertions.assertEquals(VirtualFileSystem.MAX_ACCESSED_FILES, vfs.getAccessedFiles().size());
+        Assertions.assertTrue(vfs.getAccessedFiles().contains(first));
+    }
+
+    @Test
     public void testCreateFolderAfterResetBeforeInitDoesNotThrow() {
         VirtualFileSystem.getInstance().resetSingleton();
 
