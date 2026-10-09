@@ -62,6 +62,12 @@ public class TimeController {
     private volatile long currentPhaseStartTime;
 
     /**
+     * When the current phase was started on the monotonic clock, which unlike the wall clock
+     * cannot step backwards while a phase is running.
+     */
+    private volatile long currentPhaseStartNanos;
+
+    /**
      * Leftover time.
      */
     private volatile long timeLeftFromPreviousPhases;
@@ -209,6 +215,7 @@ public class TimeController {
 
         state = newState;
         currentPhaseStartTime = System.currentTimeMillis();
+        currentPhaseStartNanos = System.nanoTime();
 
         if (state.equals(ClientState.STARTED)) {
             clientStartTime = currentPhaseStartTime;
@@ -452,10 +459,14 @@ public class TimeController {
     public double getPhasePercentage() {
         if (currentPhaseHasTimeout()) {
             long timeoutInMs = getCurrentPhaseTimeout();
-            long timeSincePhaseStarted = System.currentTimeMillis() - currentPhaseStartTime;
+            if (timeoutInMs <= 0) {
+                // A phase without any time has used it all (and 0/0 is not a ratio)
+                return 1;
+            }
+            long timeSincePhaseStarted =
+                    Math.max(0, (System.nanoTime() - currentPhaseStartNanos) / 1_000_000L);
             double ratio = (double) timeSincePhaseStarted / (double) timeoutInMs;
-            assert ratio >= 0; // but could become >1 due to timer
-            return Math.min(ratio, 1);
+            return Math.min(ratio, 1); // can exceed 1 due to timer
         } else {
             return -1;
         }
