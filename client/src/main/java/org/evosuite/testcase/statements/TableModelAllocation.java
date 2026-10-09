@@ -35,7 +35,30 @@ import java.util.Collection;
  */
 final class TableModelAllocation {
 
+    /**
+     * The largest value an int argument may have for a table or its model.
+     *
+     * <p>A dimension is not harmless just because the other one is zero: {@code new JTable(0,
+     * 996806)} creates a column object, a header cell and a name for each of the million
+     * columns (measured at about 400 bytes each), and the allocation happens inside the JDK,
+     * where nothing can budget it. No test needs a table that wide.</p>
+     */
+    static final int MAX_DIMENSION = 100_000;
+
     private TableModelAllocation() {
+    }
+
+    /**
+     * Returns the largest value one int argument may have in a call on {@code declaring}: the
+     * general limit, or {@link #MAX_DIMENSION} if that is lower and the class is a table or a
+     * table model.
+     */
+    static int dimensionLimit(Class<?> declaring, int generalLimit) {
+        if (declaring != null && (javax.swing.JTable.class.isAssignableFrom(declaring)
+                || DefaultTableModel.class.isAssignableFrom(declaring))) {
+            return Math.min(generalLimit, MAX_DIMENSION);
+        }
+        return generalLimit;
     }
 
     /**

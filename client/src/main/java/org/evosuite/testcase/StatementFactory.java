@@ -265,8 +265,15 @@ public class StatementFactory {
             "java.awt.image.DataBufferByte",
             "java.awt.image.DataBufferInt",
             "java.awt.image.DataBufferShort",
+            "java.awt.image.DataBufferUShort",
             "java.awt.image.DataBufferFloat",
             "java.awt.image.DataBufferDouble",
+            // Rasters and sample models allocate bank index and offset arrays per band, and
+            // the sample arrays themselves, from their int arguments (the factories are
+            // static, so the guard has to be keyed on the declaring class)
+            "java.awt.image.Raster",
+            "java.awt.image.WritableRaster",
+            "java.awt.image.SampleModel",
             // I/O — allocate internal byte[]/char[] buffers
             "java.io.ByteArrayInputStream",
             "java.io.ByteArrayOutputStream",

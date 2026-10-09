@@ -156,4 +156,57 @@ public class TableModelAllocationGuardTest {
         assertRefused(call(m, "setNumRows", new Class<?>[]{int.class}, shortVar((short) 1000)));
         assertEquals(0, ((DefaultTableModel) scope.getObject(m)).getRowCount());
     }
+
+    /**
+     * A table with no rows still creates an object per column: {@code new JTable(0, 996806)}
+     * stays under the general capacity limit of a million but is not cheap.
+     */
+    @Test
+    public void aTableWithNoRowsAndVeryManyColumnsIsRefused() throws Exception {
+        GenericConstructor c = new GenericConstructor(
+                javax.swing.JTable.class.getConstructor(int.class, int.class),
+                javax.swing.JTable.class);
+        ConstructorStatement st = new ConstructorStatement(tc, c,
+                Arrays.asList(intVar(0), intVar(TableModelAllocation.MAX_DIMENSION + 1)));
+        tc.addStatement(st);
+        assertRefused(st.execute(scope, OUT));
+
+        ConstructorStatement modest = new ConstructorStatement(tc, c,
+                Arrays.asList(intVar(0), intVar(50)));
+        tc.addStatement(modest);
+        assertNull(modest.execute(scope, OUT));
+    }
+
+    @Test
+    public void aModelResizedToVeryManyColumnsIsRefused() throws Exception {
+        VariableReference m = model(0, 0);
+        assertRefused(call(m, "setColumnCount", new Class<?>[]{int.class},
+                intVar(TableModelAllocation.MAX_DIMENSION + 1)));
+        assertEquals(0, ((DefaultTableModel) scope.getObject(m)).getColumnCount());
+    }
+
+    /**
+     * The factories of a raster are static and allocate bank index and sample arrays from
+     * their int arguments, so they need the guard as much as a constructor does.
+     */
+    @Test
+    public void aRasterFactoryWithAHugeImageIsRefused() throws Exception {
+        GenericMethod m = new GenericMethod(java.awt.image.Raster.class.getMethod(
+                "createBandedRaster", int.class, int.class, int.class, int.class,
+                java.awt.Point.class), java.awt.image.Raster.class);
+        VariableReference origin = tc.addStatement(
+                new NullStatement(tc, java.awt.Point.class));
+        assertNull(tc.getStatement(origin.getStPosition()).execute(scope, OUT));
+        MethodStatement huge = new MethodStatement(tc, m, null,
+                Arrays.asList(intVar(java.awt.image.DataBuffer.TYPE_BYTE), intVar(2000),
+                        intVar(2000), intVar(1), origin));
+        tc.addStatement(huge);
+        assertRefused(huge.execute(scope, OUT));
+
+        MethodStatement small = new MethodStatement(tc, m, null,
+                Arrays.asList(intVar(java.awt.image.DataBuffer.TYPE_BYTE), intVar(20),
+                        intVar(20), intVar(1), origin));
+        tc.addStatement(small);
+        assertNull(small.execute(scope, OUT));
+    }
 }

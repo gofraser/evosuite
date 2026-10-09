@@ -555,6 +555,7 @@ public class MethodStatement extends EntityWithParametersStatement {
         }
         Class<?>[] paramTypes = method.getMethod().getParameterTypes();
         int limit = Properties.COLLECTION_CAPACITY_LIMIT;
+        int argLimit = TableModelAllocation.dimensionLimit(declaringClass, limit);
         String methodName = method.getName();
 
         // Check individual args and compute product
@@ -564,9 +565,9 @@ public class MethodStatement extends EntityWithParametersStatement {
             Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
             if (arg != null) {
                 int val = arg;
-                if (val > limit || val < -limit) {
+                if (val > argLimit || val < -argLimit) {
                     logger.info("Rejecting method {}.{}: int arg {} = {} exceeds limit {}",
-                            declaringClass.getName(), methodName, i, val, limit);
+                            declaringClass.getName(), methodName, i, val, argLimit);
                     throw allocationRejected();
                 }
                 if (val > 0) {

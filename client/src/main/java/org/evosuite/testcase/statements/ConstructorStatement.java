@@ -336,6 +336,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         }
         Class<?>[] paramTypes = constructor.getConstructor().getParameterTypes();
         int limit = Properties.COLLECTION_CAPACITY_LIMIT;
+        int argLimit = TableModelAllocation.dimensionLimit(constructor.getRawGeneratedType(), limit);
 
         // Compute effective allocation size as the product of all dimension factors:
         // - int args contribute their value
@@ -348,10 +349,10 @@ public class ConstructorStatement extends EntityWithParametersStatement {
             Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
             if (arg != null) {
                 int val = arg;
-                if (val > limit || val < -limit) {
+                if (val > argLimit || val < -argLimit) {
                     logger.info("Rejecting allocation-sensitive constructor {}: "
                             + "int arg {} = {} exceeds limit {}",
-                            constructor.getDeclaringClass().getName(), i, val, limit);
+                            constructor.getDeclaringClass().getName(), i, val, argLimit);
                     throw allocationRejected();
                 }
                 if (val > 0) {
