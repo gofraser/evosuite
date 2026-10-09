@@ -208,10 +208,14 @@ public class DmonNpeAnalyzer {
     }
 
     private static StackTraceElement pickFailureSite(Throwable throwable, String declaringClass) {
-        if (throwable.getStackTrace() == null || throwable.getStackTrace().length == 0) {
+        StackTraceElement[] trace = throwable.getStackTrace();
+        if (trace == null || trace.length == 0) {
             return null;
         }
-        for (StackTraceElement element : throwable.getStackTrace()) {
+        for (StackTraceElement element : trace) {
+            if (element == null) {
+                continue;
+            }
             String cls = element.getClassName();
             if (cls == null) {
                 continue;
@@ -231,7 +235,7 @@ public class DmonNpeAnalyzer {
             }
             return element;
         }
-        return throwable.getStackTrace()[0];
+        return trace[0];
     }
 
     /**

@@ -184,15 +184,18 @@ public class ExceptionCoverageHelper {
             return true;
         }
 
-        if (t.getStackTrace() != null && t.getStackTrace().length > 0 && t.getStackTrace()[0] != null) {
+        // The exception comes from the SUT, which may override getStackTrace() with something
+        // that does not return the same array twice, so ask exactly once.
+        StackTraceElement[] trace = t.getStackTrace();
+        if (trace != null && trace.length > 0 && trace[0] != null) {
             // This is to cover cases not handled by CodeUnderTestException, or if bug in EvoSuite itself
-            if (t.getStackTrace()[0].getClassName().startsWith(PackageInfo.getEvoSuitePackage() + ".testcase")) {
+            if (trace[0].getClassName().startsWith(PackageInfo.getEvoSuitePackage() + ".testcase")) {
                 return true;
             }
 
             // Enum valueOf exceptions are not interesting, they just result from invalid strings
-            return t.getStackTrace()[0].getClassName().startsWith(Enum.class.getCanonicalName())
-                    && t.getStackTrace()[0].getMethodName().startsWith("valueOf");
+            return trace[0].getClassName().startsWith(Enum.class.getCanonicalName())
+                    && trace[0].getMethodName().startsWith("valueOf");
         }
 
         return false;

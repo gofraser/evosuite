@@ -4838,10 +4838,11 @@ public class TestCodeVisitor extends TestVisitor {
     }
 
     private String getSourceClassName(Throwable exception) {
-        if (exception.getStackTrace() == null || exception.getStackTrace().length == 0) {
+        StackTraceElement[] trace = exception.getStackTrace();
+        if (trace == null || trace.length == 0 || trace[0] == null) {
             return null;
         }
-        return exception.getStackTrace()[0].getClassName();
+        return trace[0].getClassName();
     }
 
     private boolean isValidSource(String sourceClass) {
