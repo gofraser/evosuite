@@ -45,6 +45,23 @@ import java.util.*;
  */
 public class LenientMockAnswer implements Answer<Object> {
 
+    /**
+     * Number of mocks that may hang off one another through unstubbed accessors. A
+     * {@code getParent()} that always hands out a fresh mock has no end, so code that recurses or
+     * loops up the chain (JOptionPane.getDesktopPaneForComponent) would never return.
+     */
+    static final int MAX_CHAIN = 16;
+
+    private final int chain;
+
+    public LenientMockAnswer() {
+        this(0);
+    }
+
+    private LenientMockAnswer(int chain) {
+        this.chain = chain;
+    }
+
     @Override
     public Object answer(InvocationOnMock invocation) throws Throwable {
         if (isEofReadMethod(invocation)) {
@@ -52,10 +69,10 @@ public class LenientMockAnswer implements Answer<Object> {
             // non-progress loops. Default to EOF; explicit stubs still win.
             return -1;
         }
-        return answerForType(invocation.getMethod().getReturnType());
+        return answerForType(invocation.getMethod().getReturnType(), chain);
     }
 
-    private static Object answerForType(Class<?> type) {
+    private static Object answerForType(Class<?> type, int chain) {
         if (type == void.class || type == Void.class) {
             return null;
         }
@@ -111,10 +128,10 @@ public class LenientMockAnswer implements Answer<Object> {
                 || type == Cloneable.class) {
             return null;
         }
-        if (!Modifier.isFinal(type.getModifiers()) && !type.isPrimitive()
+        if (chain < MAX_CHAIN && !Modifier.isFinal(type.getModifiers()) && !type.isPrimitive()
                 && !UnmockableTypes.isUnmockable(type)) {
             try {
-                return Mockito.mock(type, new LenientMockAnswer());
+                return Mockito.mock(type, new LenientMockAnswer(chain + 1));
             } catch (Exception expected) {
                 // Ignore
             }

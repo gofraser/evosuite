@@ -1241,6 +1241,18 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     @SuppressWarnings("unchecked")
     static Object lenientDefaultAnswer(InvocationOnMock invocation) {
+        return lenientDefaultAnswer(invocation, 0);
+    }
+
+    /**
+     * Number of mocks that may hang off one another through unstubbed accessors. A
+     * {@code getParent()} that always hands out a fresh mock has no end, so SUT or JDK code that
+     * recurses or loops up the chain (JOptionPane.getDesktopPaneForComponent) would never return.
+     */
+    public static final int MAX_LENIENT_MOCK_CHAIN = 16;
+
+    @SuppressWarnings("unchecked")
+    static Object lenientDefaultAnswer(InvocationOnMock invocation, int chain) {
         if (isEofReadMethod(invocation)) {
             // Unstubbed Reader/InputStream read() returning 0 can create
             // non-progress loops. Default to EOF; explicit stubs still win.
@@ -1304,6 +1316,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // where a method returns its own type (e.g., Builder.withX() → Builder).
         int depth = lenientMockDepth.get();
         if (depth < MAX_LENIENT_MOCK_DEPTH
+                && chain < MAX_LENIENT_MOCK_CHAIN
                 && returnType != Object.class
                 && returnType != java.io.Serializable.class
                 && returnType != Comparable.class
@@ -1315,8 +1328,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 && !UnmockableTypes.isUnmockable(returnType)) {
             try {
                 lenientMockDepth.set(depth + 1);
+                final int subMockChain = chain + 1;
                 return Mockito.mock(returnType,
-                        (org.mockito.stubbing.Answer<?>) FunctionalMockStatement::lenientDefaultAnswer);
+                        (org.mockito.stubbing.Answer<?>) inv -> lenientDefaultAnswer(inv, subMockChain));
             } catch (Exception ignored) {
                 // Cannot mock (e.g., final class, sealed) — fall through to null.
             } finally {

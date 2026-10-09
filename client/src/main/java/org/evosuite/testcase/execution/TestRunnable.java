@@ -1169,6 +1169,10 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     private static Object createEphemeralReturnValue(Class<?> returnType) {
+        return createEphemeralReturnValue(returnType, 0);
+    }
+
+    private static Object createEphemeralReturnValue(Class<?> returnType, int chain) {
         if (returnType == null || returnType.equals(Void.TYPE)) {
             return null;
         }
@@ -1194,9 +1198,14 @@ public class TestRunnable implements InterfaceTestRunnable {
         if (UnmockableTypes.isUnmockable(returnType)) {
             return null;
         }
+        // An accessor like getParent() hands out a fresh mock on every call, so bound how many
+        // mocks may hang off one another or a loop up that chain never ends.
+        if (chain >= org.evosuite.testcase.statements.FunctionalMockStatement.MAX_LENIENT_MOCK_CHAIN) {
+            return null;
+        }
         try {
             return Mockito.mock(returnType, invocation ->
-                    createEphemeralReturnValue(invocation.getMethod().getReturnType()));
+                    createEphemeralReturnValue(invocation.getMethod().getReturnType(), chain + 1));
         } catch (Throwable expected) {
             return null;
         }

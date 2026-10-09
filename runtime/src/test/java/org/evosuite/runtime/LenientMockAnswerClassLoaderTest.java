@@ -52,4 +52,21 @@ public class LenientMockAnswerClassLoaderTest {
         // other non-final types are still answered with a lenient mock
         assertNotNull(source.task());
     }
+
+    public interface Node {
+        Node parent();
+    }
+
+    @Test
+    public void chainOfMockedParentsEnds() {
+        Node leaf = Mockito.mock(Node.class, new LenientMockAnswer());
+
+        int length = 0;
+        for (Node n = leaf; n != null; n = n.parent()) {
+            length++;
+            org.junit.jupiter.api.Assertions.assertTrue(length < 10_000, "the chain of mocked parents never ends");
+        }
+
+        org.junit.jupiter.api.Assertions.assertEquals(LenientMockAnswer.MAX_CHAIN + 1, length);
+    }
 }
