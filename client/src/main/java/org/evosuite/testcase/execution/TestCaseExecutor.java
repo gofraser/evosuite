@@ -40,8 +40,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -980,8 +982,8 @@ public class TestCaseExecutor implements ThreadFactory {
                     logger.warn("Run still not finished, thread {} is stuck at:",
                             currentThread == null ? "<null>" : currentThread.getName());
                     if (currentThread != null) {
-                        for (StackTraceElement element : currentThread.getStackTrace()) {
-                            logger.warn("  {}", element);
+                        for (String line : summarizeStuckStack(currentThread.getStackTrace())) {
+                            logger.warn("  {}", line);
                         }
                     }
                     // Try interrupt first — works for threads blocked on I/O,
@@ -1458,4 +1460,39 @@ public class TestCaseExecutor implements ThreadFactory {
         this.observers = observers;
     }
 
+
+    /** Frames of a stuck thread's stack that are logged before the rest is elided. */
+    static final int MAX_LOGGED_TOP_FRAMES = 40;
+
+    /** Frames at the bottom of a stuck thread's stack that are logged after the elision. */
+    static final int MAX_LOGGED_BOTTOM_FRAMES = 10;
+
+    /**
+     * Renders the stack of a stuck thread for the log. A recursion over mocked objects (such as
+     * JOptionPane.getDesktopPaneForComponent walking an endless chain of mocked parents) leaves a
+     * stack tens of thousands of frames deep, all the same frame, and the dump is repeated for
+     * every stuck test. Runs of an identical frame are folded into one line with a count, and a
+     * stack that is still long afterwards keeps only its top and bottom frames.
+     */
+    static List<String> summarizeStuckStack(StackTraceElement[] stack) {
+        List<String> folded = new ArrayList<>();
+        int i = 0;
+        while (i < stack.length) {
+            int j = i + 1;
+            while (j < stack.length && stack[j].equals(stack[i])) {
+                j++;
+            }
+            folded.add(j - i > 1 ? stack[i] + " (and " + (j - i - 1) + " identical frames more)"
+                    : stack[i].toString());
+            i = j;
+        }
+        int limit = MAX_LOGGED_TOP_FRAMES + MAX_LOGGED_BOTTOM_FRAMES;
+        if (folded.size() <= limit) {
+            return folded;
+        }
+        List<String> result = new ArrayList<>(folded.subList(0, MAX_LOGGED_TOP_FRAMES));
+        result.add("... " + (folded.size() - limit) + " more frames omitted ...");
+        result.addAll(folded.subList(folded.size() - MAX_LOGGED_BOTTOM_FRAMES, folded.size()));
+        return result;
+    }
 }
