@@ -155,7 +155,11 @@ public class LoopCounter {
             abandonedStaticInitDeadlines.keySet().removeIf(t -> !t.isAlive());
             abandonedStaticInitArmed = !abandonedStaticInitDeadlines.isEmpty();
         }
-        protectedCounters.putIfAbsent(thread, new ArrayList<>(counters));
+        List<Long> snapshot;
+        synchronized (counters) {
+            snapshot = new ArrayList<>(counters);
+        }
+        protectedCounters.putIfAbsent(thread, snapshot);
     }
 
     /**
@@ -232,7 +236,13 @@ public class LoopCounter {
             return;
         }
         testEpoch.incrementAndGet();
-        counters.clear();
+        clearCounters();
+    }
+
+    private void clearCounters() {
+        synchronized (counters) {
+            counters.clear();
+        }
     }
 
     /**
@@ -323,9 +333,11 @@ public class LoopCounter {
         if (delegate != null) {
             return (Integer) invokeDelegate("getNewIndex");
         }
-        int index = counters.size();
-        counters.add(0L);
-        return index;
+        synchronized (counters) {
+            int index = counters.size();
+            counters.add(0L);
+            return index;
+        }
     }
 
 
@@ -409,7 +421,7 @@ public class LoopCounter {
             // swallows this exception and goes on start over with a clean record of tripped
             // loops, see trippedLoops.
             interruptMemo.remove();
-            counters.clear();
+            clearCounters();
             throw new TooManyResourcesException(
                     "Loop terminated early: thread was interrupted (likely timeout)");
         }
@@ -418,20 +430,23 @@ public class LoopCounter {
         // protectedCounters), otherwise the list shared with the active thread.
         List<Long> active = activeCounters();
 
-        //first check initialization
-        int size = active.size();
-        if (index >= size) {
-            for (int i = 0; i < 1 + (index - size); i++) {
+        // The list is shared with every other thread that runs code under test, and reset()
+        // and the trip below clear it from whichever thread gets there. A thread left over
+        // from an earlier test (the SUT's own background threads, which also pass through
+        // here when the SUT's security manager is asked for a permission during
+        // post-processing) can clear it between the growth and the increment, and
+        // concurrent growth corrupts an ArrayList. So growth and increment are one step.
+        long value;
+        synchronized (active) {
+            int size = active.size();
+            for (int i = size; i <= index; i++) {
                 active.add(0L);
             }
-        }
-        assert index < active.size();
-
-        //do increment
-        try {
-            long value = active.get(index) + 1L;
+            value = active.get(index) + 1L;
             active.set(index, value);
+        }
 
+        try {
             // Static initializers are exempt from the iteration limit. A <clinit> that
             // merely runs a long loop is not stuck: building a large lookup table is
             // ordinary code, and some libraries need far more than the limit allows
@@ -454,7 +469,7 @@ public class LoopCounter {
             // it keeps finding a <clinit> (the throttled, positive-only memo).
             if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInitThrottled()) {
                 interruptMemo.remove();
-                counters.clear();
+                clearCounters();
                 // The counters start from zero again, so a loop whose body swallows the exception
                 // would go round another full limit, and so on until the test times out. From
                 // this loop's second trip on the exception gets through such handlers, see
