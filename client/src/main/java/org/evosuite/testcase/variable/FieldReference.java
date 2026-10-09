@@ -167,6 +167,17 @@ public class FieldReference extends VariableReferenceImpl {
     }
 
     /**
+     * Names an object for a message without calling its toString(), which is code of the SUT and
+     * may throw or run for a long time on an object in an arbitrary state.
+     */
+    private static String describe(Object o) {
+        if (o == null) {
+            return "null";
+        }
+        return o.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(o));
+    }
+
+    /**
      * {@inheritDoc}
      *
      * <p>Set the actual object represented by this variable in a given scope.
@@ -195,8 +206,8 @@ public class FieldReference extends VariableReferenceImpl {
                 if (!field.getField().getDeclaringClass()
                         .isAssignableFrom(sourceObject.getClass())) {
                     throw new CodeUnderTestException(new IllegalArgumentException(
-                            "Cannot assignable: " + value + " of class "
-                                    + value.getClass() + " to field " + field
+                            "Cannot assignable: " + describe(value) + " of class "
+                                    + (value == null ? null : value.getClass()) + " to field " + field
                                     + " of variable " + source));
                 }
             }
@@ -204,7 +215,7 @@ public class FieldReference extends VariableReferenceImpl {
 
         } catch (IllegalArgumentException e) {
             logger.error("Error while assigning field: " + getName() + " with value "
-                    + value + " on object " + sourceObject + ": " + e, e);
+                    + describe(value) + " on object " + describe(sourceObject) + ": " + e, e);
             throw e;
         } catch (IllegalAccessException e) {
             logger.error("Error while assigning field: "

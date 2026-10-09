@@ -22,6 +22,7 @@ package org.evosuite.testcase.variable;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericField;
@@ -86,6 +87,44 @@ public class FieldReferenceTest {
 
         ref.setAdditionalVariableReference(execHolder);
         assertTrue(ref.getType().getTypeName().contains("ExecLexem"));
+    }
+
+    public static class Named {
+        public String name;
+    }
+
+    /**
+     * A value of the SUT whose toString() cannot be called.
+     */
+    public static class Hostile {
+        @Override
+        public String toString() {
+            throw new IllegalStateException("toString of the SUT was called");
+        }
+    }
+
+    @Test
+    public void testSetObjectOfMismatchingValueDoesNotCallToStringOfTheSut() throws Exception {
+        DefaultTestCase testCase = new DefaultTestCase();
+        VariableReference source = testCase.addStatement(new NullStatement(testCase, Named.class));
+        Scope scope = new Scope();
+        scope.setObject(source, new Named());
+        FieldReference ref = new FieldReference(testCase,
+                new GenericField(Named.class.getField("name"), Named.class), source);
+
+        assertThrows(IllegalArgumentException.class, () -> ref.setObject(scope, new Hostile()));
+    }
+
+    @Test
+    public void testSetObjectOnUnrelatedSourceDoesNotCallToStringOfTheSut() throws Exception {
+        DefaultTestCase testCase = new DefaultTestCase();
+        VariableReference source = testCase.addStatement(new NullStatement(testCase, Named.class));
+        Scope scope = new Scope();
+        scope.setObject(source, new Hostile());
+        FieldReference ref = new FieldReference(testCase,
+                new GenericField(Named.class.getField("name"), Named.class), source);
+
+        assertThrows(CodeUnderTestException.class, () -> ref.setObject(scope, new Hostile()));
     }
 
     private static Type holderOf(Class<?> typeArgument) {
