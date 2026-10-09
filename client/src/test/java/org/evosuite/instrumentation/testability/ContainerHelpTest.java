@@ -210,4 +210,36 @@ public class ContainerHelpTest {
         Assertions.assertTrue(map.containsKey("FOO"));
         Assertions.assertTrue(ContainerHelper.mapContainsKey(map, "FOO") > 0);
     }
+
+    /** Throws EvoSuite's loop limit from equals, as a looping equals of the code under test would. */
+    private static final class LimitInEquals {
+        private final int hash;
+
+        LimitInEquals(int hash) {
+            this.hash = hash;
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            throw new org.evosuite.runtime.TooManyResourcesException("Loop has been executed more times than the allowed 10000");
+        }
+    }
+
+    /**
+     * A hash set never calls equals for an element of another hash, but the distance scan does;
+     * the loop limit it hits there must reach the test, not be taken for an untraversable element.
+     */
+    @Test
+    public void theLoopLimitHitWhileScanningForTheDistanceIsNotSwallowed() {
+        Set<Object> set = new HashSet<>();
+        set.add(new LimitInEquals(1));
+
+        Assertions.assertThrows(org.evosuite.runtime.TooManyResourcesException.class,
+                () -> ContainerHelper.collectionContains(set, new LimitInEquals(2)));
+    }
 }

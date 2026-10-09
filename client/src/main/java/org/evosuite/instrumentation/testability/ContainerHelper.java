@@ -19,6 +19,8 @@
  */
 package org.evosuite.instrumentation.testability;
 
+import org.evosuite.runtime.Runtime;
+import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestCluster;
 
@@ -86,6 +88,7 @@ public class ContainerHelper {
         try {
             scanned = scanContains(elements, o1);
         } catch (RuntimeException | StackOverflowError e) {
+            rethrowIfEvoSuiteLimit(e);
             // Only the distance is lost: the scan reads the container the way the program never
             // does, so it may meet an iterator or an element that cannot be traversed.
             scanned = -1;
@@ -156,6 +159,7 @@ public class ContainerHelper {
                 }
             }
         } catch (RuntimeException | StackOverflowError e) {
+            rethrowIfEvoSuiteLimit(e);
             mismatch = 0;
         }
         return -Math.max(mismatch, 1);
@@ -189,6 +193,17 @@ public class ContainerHelper {
         }
 
         return combine(m.containsValue(o1), m.values(), o1);
+    }
+
+    /**
+     * The scan may run code under test (equals of the elements), which can hit the loop limit or
+     * the kill switch; those must reach the test as they would anywhere else.
+     */
+    private static void rethrowIfEvoSuiteLimit(Throwable t) {
+        Runtime.rethrowIfTimeout(t);
+        if (t instanceof TooManyResourcesException) {
+            throw (TooManyResourcesException) t;
+        }
     }
 
 }
