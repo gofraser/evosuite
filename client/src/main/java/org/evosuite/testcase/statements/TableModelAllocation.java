@@ -84,8 +84,9 @@ final class TableModelAllocation {
     }
 
     private static long intArg(Object[] inputs, int index, long fallback) {
-        if (index < inputs.length && inputs[index] instanceof Integer) {
-            return (Integer) inputs[index];
+        Integer value = index < inputs.length ? IntArguments.widened(inputs[index]) : null;
+        if (value != null) {
+            return value;
         }
         return fallback;
     }

@@ -516,8 +516,9 @@ public class MethodStatement extends EntityWithParametersStatement {
         long product = 1;
         boolean hasPositiveInt = false;
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val >= ABSURD_INT_THRESHOLD || val <= -ABSURD_INT_THRESHOLD) {
                     logger.info("Rejecting method {}.{} with absurd int arg {} = {}",
                             method.getMethod().getDeclaringClass().getName(),
@@ -560,8 +561,9 @@ public class MethodStatement extends EntityWithParametersStatement {
         long product = 1;
         boolean hasPositiveInt = false;
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val > limit || val < -limit) {
                     logger.info("Rejecting method {}.{}: int arg {} = {} exceeds limit {}",
                             declaringClass.getName(), methodName, i, val, limit);
@@ -657,8 +659,9 @@ public class MethodStatement extends EntityWithParametersStatement {
         }
         Class<?>[] paramTypes = method.getMethod().getParameterTypes();
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val > threshold) {
                     logger.info("Rejecting {}.{}: int arg {} = {} exceeds learned threshold {}",
                             className, methodName, i, val, threshold);

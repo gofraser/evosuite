@@ -24,6 +24,7 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.testcase.statements.numeric.ShortPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
@@ -53,6 +54,13 @@ public class TableModelAllocationGuardTest {
 
     private VariableReference intVar(int value) throws Exception {
         IntPrimitiveStatement st = new IntPrimitiveStatement(tc, value);
+        VariableReference ref = tc.addStatement(st);
+        assertNull(st.execute(scope, OUT));
+        return ref;
+    }
+
+    private VariableReference shortVar(short value) throws Exception {
+        ShortPrimitiveStatement st = new ShortPrimitiveStatement(tc, value);
         VariableReference ref = tc.addStatement(st);
         assertNull(st.execute(scope, OUT));
         return ref;
@@ -127,5 +135,25 @@ public class TableModelAllocationGuardTest {
         names.setSize(5000);
         assertEquals(25_005_000L,
                 TableModelAllocation.estimateCells(model, "addColumn", new Object[]{"c", null}));
+    }
+
+    /**
+     * A short variable passed to an int parameter reaches reflection as a Short; the guards
+     * only counted Integer arguments, so {@code new DefaultTableModel(short0, int0)} with
+     * 14676 x 672421 cells ran into the heap.
+     */
+    @Test
+    public void aShortDimensionIsCountedLikeAnInt() throws Exception {
+        GenericConstructor c = new GenericConstructor(
+                DefaultTableModel.class.getConstructor(int.class, int.class),
+                DefaultTableModel.class);
+        ConstructorStatement st = new ConstructorStatement(tc, c,
+                Arrays.asList(shortVar((short) 14676), intVar(672421)));
+        tc.addStatement(st);
+        assertRefused(st.execute(scope, OUT));
+
+        VariableReference m = model(0, 5000);
+        assertRefused(call(m, "setNumRows", new Class<?>[]{int.class}, shortVar((short) 1000)));
+        assertEquals(0, ((DefaultTableModel) scope.getObject(m)).getRowCount());
     }
 }

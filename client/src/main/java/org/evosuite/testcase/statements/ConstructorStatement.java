@@ -300,8 +300,9 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         long product = 1;
         boolean hasPositiveInt = false;
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val >= ABSURD_INT_THRESHOLD || val <= -ABSURD_INT_THRESHOLD) {
                     logger.info("Rejecting constructor {} with absurd int arg {} = {}",
                             constructor.getDeclaringClass().getName(), i, val);
@@ -344,8 +345,9 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         boolean hasFactor = false;
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
             long factor = 0;
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val > limit || val < -limit) {
                     logger.info("Rejecting allocation-sensitive constructor {}: "
                             + "int arg {} = {} exceeds limit {}",
@@ -483,8 +485,9 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         }
         Class<?>[] paramTypes = constructor.getConstructor().getParameterTypes();
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val > threshold) {
                     logger.info("Rejecting constructor {}: int arg {} = {} exceeds learned threshold {}",
                             className, i, val, threshold);
