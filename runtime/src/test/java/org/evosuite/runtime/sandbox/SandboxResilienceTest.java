@@ -100,6 +100,33 @@ public class SandboxResilienceTest {
         }
     }
 
+    /**
+     * SUT code that clears the thread locals of all threads (Liferay's ClearThreadLocalUtil)
+     * must not leave the privileged thread that ran it stripped of its privilege, or the
+     * generated tests can no longer be written.
+     */
+    @Test
+    public void privilegedThreadIsRestoredAlthoughTheSutClearedItsThreadLocals() throws Exception {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
+
+        Sandbox.initializeSecurityManagerForSUT();
+        MSecurityManager manager = getManager();
+        Assertions.assertFalse(manager.isSafeToExecuteSUTCode(), "the test thread starts privileged");
+
+        Sandbox.goingToExecuteSUTCode();
+        Assertions.assertTrue(manager.isSafeToExecuteSUTCode(), "SUT code runs sandboxed");
+
+        Field threadLocals = Thread.class.getDeclaredField("threadLocals");
+        threadLocals.setAccessible(true);
+        threadLocals.set(Thread.currentThread(), null);
+
+        Sandbox.doneWithExecutingSUTCode();
+        Assertions.assertFalse(manager.isSafeToExecuteSUTCode(),
+                "the thread is privileged again after the SUT code");
+        Sandbox.resetDefaultSecurityManager();
+    }
+
     /** What Inspector.getValue does around an inspector call. */
     private static void inspectorLikeEnterAndExit() {
         boolean needsSandbox = !Sandbox.isOnAndExecutingSUTCode();

@@ -140,8 +140,27 @@ public class Sandbox {
      * A value > 0 means the current thread was privileged and has been switched to
      * sandboxed checks via {@link MSecurityManager#goingToExecuteUnsafeCodeOnSameThread()}.
      */
-    private static final ThreadLocal<Integer> privilegedDowngradeDepth =
-            ThreadLocal.withInitial(() -> 0);
+    private static final java.util.Map<Thread, Integer> privilegedDowngradeDepth =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
+     * Kept per thread in a map of its own rather than in a {@link ThreadLocal}: SUT code that
+     * clears the thread locals of every thread (Liferay's ClearThreadLocalUtil does, through
+     * reflection) would reset the depth to 0, so the thread would never be restored to its
+     * privileged state and could not write the generated tests afterwards.
+     */
+    private static int downgradeDepthOf(Thread t) {
+        Integer depth = privilegedDowngradeDepth.get(t);
+        return depth == null ? 0 : depth;
+    }
+
+    private static void setDowngradeDepth(Thread t, int depth) {
+        if (depth <= 0) {
+            privilegedDowngradeDepth.remove(t);
+        } else {
+            privilegedDowngradeDepth.put(t, depth);
+        }
+    }
 
     public static void setCheckForInitialization(boolean checkForInitialization) {
         Sandbox.checkForInitialization = checkForInitialization;
@@ -292,7 +311,8 @@ public class Sandbox {
              */
             manager.goingToExecuteUnsafeCodeOnSameThread();
             downgraded = true;
-            privilegedDowngradeDepth.set(privilegedDowngradeDepth.get() + 1);
+            Thread self = Thread.currentThread();
+            setDowngradeDepth(self, downgradeDepthOf(self) + 1);
         } catch (SecurityException ignored) {
             // Non-privileged threads are already sandboxed.
         } catch (IllegalStateException e) {
@@ -375,12 +395,13 @@ public class Sandbox {
     }
 
     private static void restorePrivilegedThreadIfDowngraded() {
-        int depth = privilegedDowngradeDepth.get();
+        Thread self = Thread.currentThread();
+        int depth = downgradeDepthOf(self);
         if (depth <= 0) {
             return;
         }
         if (manager == null) {
-            privilegedDowngradeDepth.remove();
+            setDowngradeDepth(self, 0);
             return;
         }
         try {
@@ -388,12 +409,7 @@ public class Sandbox {
         } catch (SecurityException | IllegalStateException e) {
             logger.debug("Ignoring sandbox privilege restore race: {}", e.getMessage());
         } finally {
-            int updated = depth - 1;
-            if (updated <= 0) {
-                privilegedDowngradeDepth.remove();
-            } else {
-                privilegedDowngradeDepth.set(updated);
-            }
+            setDowngradeDepth(self, depth - 1);
         }
     }
 
