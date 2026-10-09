@@ -56,6 +56,19 @@ public class BridgeMethodCallCompileTest {
         }
     }
 
+    public static class Box<T> {
+        public T swap(T value) {
+            return value;
+        }
+    }
+
+    public static class StringBox extends Box<String> {
+        @Override
+        public String swap(String value) {
+            return value.trim();
+        }
+    }
+
     private String originalTargetClass;
 
     @BeforeEach
@@ -123,6 +136,50 @@ public class BridgeMethodCallCompileTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
         String code = visitor.getCode();
+
+        StringBuilder source = new StringBuilder("package org.evosuite.testcase;\n");
+        for (Class<?> imported : visitor.getImports()) {
+            String canonical = imported.getCanonicalName();
+            if (canonical != null) {
+                source.append("import ").append(canonical).append(";\n");
+            }
+        }
+        String className = "BridgeProbe" + System.nanoTime();
+        source.append("public class ").append(className).append(" {\n")
+                .append("    public static void run() throws Throwable {\n");
+        for (String line : code.split("\\R")) {
+            source.append("        ").append(line).append("\n");
+        }
+        source.append("    }\n}\n");
+
+        JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
+                "evosuite-bridge", className, source.toString());
+        assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+    }
+
+    @Test
+    public void testTypeVariableReturnThroughGenericClassCastIsCastBack() throws Exception {
+        // Box<T>.swap(T) called on a StringBox, the receiver viewed as the raw Box: the call
+        // returns Object to javac, while the variable is a String.
+        java.lang.reflect.Method swap = Box.class.getMethod("swap", Object.class);
+        assertFalse(swap.isBridge());
+        TestCase tc = new DefaultTestCase();
+        VariableReference box = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(StringBox.class.getConstructor(), StringBox.class),
+                Arrays.asList()));
+        VariableReference arg = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(Object.class.getConstructor(), Object.class), Arrays.asList()));
+        VariableReference swapped = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(swap, StringBox.class), box, Arrays.asList(arg)));
+        assertTrue(swapped.getVariableClass().equals(String.class));
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(String.class.getMethod("length"), String.class), swapped,
+                Arrays.asList()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        assertTrue(code.contains("(BridgeMethodCallCompileTest.Box)"), code);
 
         StringBuilder source = new StringBuilder("package org.evosuite.testcase;\n");
         for (Class<?> imported : visitor.getImports()) {

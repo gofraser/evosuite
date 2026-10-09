@@ -3755,6 +3755,109 @@ public class TestCodeVisitor extends TestVisitor {
                 method.getMethod().getGenericParameterTypes());
 
         String calleeStr = "";
+        // The class the receiver is cast to; written raw, it erases a generic return type.
+        Class<?> receiverCastClass = null;
+        if (method.isStatic()) {
+            calleeStr += getClassName(method.getMethod().getDeclaringClass());
+        } else {
+            VariableReference callee = statement.getCallee();
+            Class<?> bridgeSource;
+            if (forceRawReceiverInvocation) {
+                Class<?> declaringClass = method.getMethod().getDeclaringClass();
+                Class<?> calleeClass = callee.getVariableClass();
+                String calleeName = getVariableName(callee);
+                receiverCastClass = declaringClass;
+                if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
+                    calleeStr += "((" + getTypeName(declaringClass) + ")(Object)" + calleeName + ")";
+                } else {
+                    calleeStr += "((" + getTypeName(declaringClass) + ")" + calleeName + ")";
+                }
+            } else if (!(callee instanceof ConstantValue)
+                    && (bridgeSource = bridgeSourceDeclaringClass(method.getMethod())) != null) {
+                // The search called a synthetic bridge, typically to feed an argument of the
+                // wrong type into a generic override. Source code naming the method binds to the
+                // override with the specific parameter type; viewing the receiver as the generic
+                // declaring class binds to the erased signature the bridge implements.
+                receiverCastClass = bridgeSource;
+                calleeStr += "((" + getClassName(bridgeSource) + ") " + getVariableName(callee) + ")";
+            } else if (!(callee instanceof ConstantValue)
+                    && (bridgeSource = genericDeclaringClassOverriddenByBridge(method.getMethod(),
+                    callee.getVariableClass())) != null) {
+                // The generic method itself was called on a subclass receiver whose override
+                // narrows the parameter type (ResourceTrackerImpl<T>.calculateBytes(T) on a
+                // StringTracker, argument not a String). Source code naming the method on the
+                // subclass binds to the override; the raw generic class binds to this method.
+                receiverCastClass = bridgeSource;
+                calleeStr += "((" + getClassName(bridgeSource) + ") " + getVariableName(callee) + ")";
+            } else if (callee instanceof ConstantValue) {
+                Class<?> declaringClass = method.getMethod().getDeclaringClass();
+                Class<?> calleeClass = callee.getVariableClass();
+                String calleeName = getVariableName(callee);
+                // If the constant is not assignable to the declaring class, add an (Object) cast first
+                // to ensure the generated code compiles (e.g., (Target)(Object)"str").
+                receiverCastClass = declaringClass;
+                if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
+                    calleeStr += "((" + getClassName(declaringClass) + ")(Object)" + calleeName + ")";
+                } else {
+                    calleeStr += "((" + getClassName(declaringClass) + ")" + calleeName + ")";
+                }
+            } else if (isShadowedByInaccessibleOverride(method.getMethod(), callee.getVariableClass())) {
+                // The receiver's static type overrides this protected/package-private method in
+                // another package, where javac resolves the call and finds it inaccessible.
+                // Viewing the receiver as the declaring class (which is in the test's package)
+                // resolves it there; the call still dispatches to the override at run time.
+                receiverCastClass = method.getMethod().getDeclaringClass();
+                calleeStr += "((" + getTypeName(method.getMethod().getDeclaringClass()) + ") "
+                        + getVariableName(callee) + ")";
+            } else {
+                boolean calleeDeclaresMethod =
+                        hasMethodBySignatureName(callee.getVariableClass(), method.getMethod());
+                // Only a package-private method can become accessible through this cast. The
+                // declaring package must also be the package of the generated test.
+                if (method.isDefault() && !method.getDeclaringClass().equals(callee.getVariableClass())
+                        && callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
+                    String packageName1 = ClassUtils.getPackageName(method.getDeclaringClass());
+                    String packageName2 = ClassUtils.getPackageName(callee.getVariableClass());
+                    if (packageName1.equals(Properties.CLASS_PREFIX)
+                            && !packageName1.equals(packageName2)) {
+                        receiverCastClass = method.getMethod().getDeclaringClass();
+                        calleeStr += "((" + getClassName(method.getMethod().getDeclaringClass())
+                                + ")" + getVariableName(callee) + ")";
+                    } else {
+                        calleeStr += getVariableName(callee);
+                    }
+                } else if (!calleeDeclaresMethod
+                        || !callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
+                    try {
+                        // If the concrete callee class has that method then it's ok
+                        callee.getVariableClass().getDeclaredMethod(method.getName(), method.getRawParameterTypes());
+                        calleeStr += getVariableName(callee);
+                    } catch (NoSuchMethodException | NoClassDefFoundError e) {
+                        // If not we need to cast to the subtype. If callee is unrelated,
+                        // cast via Object to keep code compilable.
+                        Class<?> declaringClass = method.getMethod().getDeclaringClass();
+                        Class<?> calleeClass = callee.getVariableClass();
+                        receiverCastClass = declaringClass;
+                        if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
+                            calleeStr += "((" + getTypeName(declaringClass) + ")(Object)"
+                                    + getVariableName(callee) + ")";
+                        } else {
+                            calleeStr += "((" + getTypeName(declaringClass) + ") "
+                                    + getVariableName(callee) + ")";
+                        }
+                        // TODO: Here we could check if this is actually possible
+                        // ...but what would we do?
+                        // if(!ClassUtils.getAllSuperclasses(method.getMethod().getDeclaringClass())
+                        // .contains(callee.getVariableClass())) {
+                        //}
+                    }
+                } else {
+                    calleeStr += getVariableName(callee);
+                }
+            }
+        }
+
+        String returnCastStr = "";
         boolean requiresReturnCast = !unused
                 && ((!retval.isAssignableFrom(method.getReturnType())
                 || requiresReturnValueCastForRawReceiver(statement, method, retval)
@@ -3762,6 +3865,7 @@ public class TestCodeVisitor extends TestVisitor {
                         isGenericMethod, renderedParameterTypes, parameters, method, retval))
                 || (forceRawReceiverInvocation
                 && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType()))
+                || requiresReturnCastForRawReceiverCast(receiverCastClass, method, retval)
                 || requiresStaticGenericReturnCast(method, retval))
                 && !retval.getVariableClass().isAnonymousClass()
                 // Static generic methods are a special case where we shouldn't add a cast
@@ -3788,106 +3892,14 @@ public class TestCodeVisitor extends TestVisitor {
                     // Mockito-internal APIs). "(Set<Class<Object>>) x" does not
                     // compile; a raw cast is an unchecked but legal conversion that
                     // still assigns to the parameterized variable.
-                    calleeStr = "(" + getClassName(
+                    returnCastStr = "(" + getClassName(
                             (Class<?>) ((ParameterizedType) retval.getType()).getRawType()) + ")";
                 } else {
-                    calleeStr = "(" + name + ")";
+                    returnCastStr = "(" + name + ")";
                 }
             }
         }
-        if (method.isStatic()) {
-            calleeStr += getClassName(method.getMethod().getDeclaringClass());
-        } else {
-            VariableReference callee = statement.getCallee();
-            Class<?> bridgeSource;
-            if (forceRawReceiverInvocation) {
-                Class<?> declaringClass = method.getMethod().getDeclaringClass();
-                Class<?> calleeClass = callee.getVariableClass();
-                String calleeName = getVariableName(callee);
-                if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
-                    calleeStr += "((" + getTypeName(declaringClass) + ")(Object)" + calleeName + ")";
-                } else {
-                    calleeStr += "((" + getTypeName(declaringClass) + ")" + calleeName + ")";
-                }
-            } else if (!(callee instanceof ConstantValue)
-                    && (bridgeSource = bridgeSourceDeclaringClass(method.getMethod())) != null) {
-                // The search called a synthetic bridge, typically to feed an argument of the
-                // wrong type into a generic override. Source code naming the method binds to the
-                // override with the specific parameter type; viewing the receiver as the generic
-                // declaring class binds to the erased signature the bridge implements.
-                calleeStr += "((" + getClassName(bridgeSource) + ") " + getVariableName(callee) + ")";
-            } else if (!(callee instanceof ConstantValue)
-                    && (bridgeSource = genericDeclaringClassOverriddenByBridge(method.getMethod(),
-                    callee.getVariableClass())) != null) {
-                // The generic method itself was called on a subclass receiver whose override
-                // narrows the parameter type (ResourceTrackerImpl<T>.calculateBytes(T) on a
-                // StringTracker, argument not a String). Source code naming the method on the
-                // subclass binds to the override; the raw generic class binds to this method.
-                calleeStr += "((" + getClassName(bridgeSource) + ") " + getVariableName(callee) + ")";
-            } else if (callee instanceof ConstantValue) {
-                Class<?> declaringClass = method.getMethod().getDeclaringClass();
-                Class<?> calleeClass = callee.getVariableClass();
-                String calleeName = getVariableName(callee);
-                // If the constant is not assignable to the declaring class, add an (Object) cast first
-                // to ensure the generated code compiles (e.g., (Target)(Object)"str").
-                if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
-                    calleeStr += "((" + getClassName(declaringClass) + ")(Object)" + calleeName + ")";
-                } else {
-                    calleeStr += "((" + getClassName(declaringClass) + ")" + calleeName + ")";
-                }
-            } else if (isShadowedByInaccessibleOverride(method.getMethod(), callee.getVariableClass())) {
-                // The receiver's static type overrides this protected/package-private method in
-                // another package, where javac resolves the call and finds it inaccessible.
-                // Viewing the receiver as the declaring class (which is in the test's package)
-                // resolves it there; the call still dispatches to the override at run time.
-                calleeStr += "((" + getTypeName(method.getMethod().getDeclaringClass()) + ") "
-                        + getVariableName(callee) + ")";
-            } else {
-                boolean calleeDeclaresMethod =
-                        hasMethodBySignatureName(callee.getVariableClass(), method.getMethod());
-                // Only a package-private method can become accessible through this cast. The
-                // declaring package must also be the package of the generated test.
-                if (method.isDefault() && !method.getDeclaringClass().equals(callee.getVariableClass())
-                        && callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
-                    String packageName1 = ClassUtils.getPackageName(method.getDeclaringClass());
-                    String packageName2 = ClassUtils.getPackageName(callee.getVariableClass());
-                    if (packageName1.equals(Properties.CLASS_PREFIX)
-                            && !packageName1.equals(packageName2)) {
-                        calleeStr += "((" + getClassName(method.getMethod().getDeclaringClass())
-                                + ")" + getVariableName(callee) + ")";
-                    } else {
-                        calleeStr += getVariableName(callee);
-                    }
-                } else if (!calleeDeclaresMethod
-                        || !callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
-                    try {
-                        // If the concrete callee class has that method then it's ok
-                        callee.getVariableClass().getDeclaredMethod(method.getName(), method.getRawParameterTypes());
-                        calleeStr += getVariableName(callee);
-                    } catch (NoSuchMethodException | NoClassDefFoundError e) {
-                        // If not we need to cast to the subtype. If callee is unrelated,
-                        // cast via Object to keep code compilable.
-                        Class<?> declaringClass = method.getMethod().getDeclaringClass();
-                        Class<?> calleeClass = callee.getVariableClass();
-                        if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
-                            calleeStr += "((" + getTypeName(declaringClass) + ")(Object)"
-                                    + getVariableName(callee) + ")";
-                        } else {
-                            calleeStr += "((" + getTypeName(declaringClass) + ") "
-                                    + getVariableName(callee) + ")";
-                        }
-                        // TODO: Here we could check if this is actually possible
-                        // ...but what would we do?
-                        // if(!ClassUtils.getAllSuperclasses(method.getMethod().getDeclaringClass())
-                        // .contains(callee.getVariableClass())) {
-                        //}
-                    }
-                } else {
-                    calleeStr += getVariableName(callee);
-                }
-            }
-        }
-
+        calleeStr = returnCastStr + calleeStr;
         if (retval.isVoid()) {
             result += calleeStr + "." + method.getName() + "(" + parameterString + ");";
         } else {
@@ -4065,6 +4077,25 @@ public class TestCodeVisitor extends TestVisitor {
             return !Modifier.isPublic(modifiers) && !isSamePackage(current, testPackageName);
         }
         return false;
+    }
+
+    /**
+     * A receiver cast to a generic class is written raw ({@code ((AbstractPatriciaTrie) trie)}),
+     * and every member of a raw type is erased: a method returning {@code V} returns
+     * {@code Object} to javac, which cannot be assigned to the variable's type without a cast.
+     */
+    private boolean requiresReturnCastForRawReceiverCast(Class<?> receiverCastClass,
+                                                         GenericMethod method,
+                                                         VariableReference retval) {
+        if (receiverCastClass == null || retval == null || retval.isVoid() || method.isStatic()
+                || receiverCastClass.getTypeParameters().length == 0
+                || !dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType())) {
+            return false;
+        }
+        Class<?> retvalClass = retval.getVariableClass();
+        Class<?> erasedReturnClass = method.getMethod().getReturnType();
+        return retvalClass != null && erasedReturnClass != null
+                && !ClassUtils.isAssignable(erasedReturnClass, retvalClass, true);
     }
 
     private boolean requiresStaticGenericReturnCast(GenericMethod method, VariableReference retval) {
