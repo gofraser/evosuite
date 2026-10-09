@@ -168,6 +168,17 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
             } catch (GenericSignatureFormatError ignored) {
                 return field.getType();
             }
+        } catch (TypeNotPresentException e) {
+            // The owner (or one of its superclasses) mentions a class that cannot be loaded in
+            // its generic signature, so the field's exact type cannot be resolved. Keep the
+            // declared type instead, as the method counterpart does.
+            logger.debug("Falling back to declared field type for {} due to missing type: {}",
+                    field, e.toString());
+            try {
+                return field.getGenericType();
+            } catch (GenericSignatureFormatError | TypeNotPresentException ignored) {
+                return field.getType();
+            }
         }
     }
 

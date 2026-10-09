@@ -20,6 +20,9 @@
 package org.evosuite.utils.generic;
 
 import org.evosuite.rmi.MasterClassLoader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -39,6 +42,44 @@ public class GenericFieldTest {
 
     public static class FieldFixture {
         public String existingField;
+    }
+
+    public static class GenericBase<T> {
+        public String name;
+    }
+
+    @Test
+    public void testFieldTypeWhenOwnerSuperclassMentionsMissingType() throws Exception {
+        // class Owner extends GenericBase<Missing>, where Missing cannot be loaded
+        String ownerName = "org/evosuite/utils/generic/MissingArgumentOwner";
+        String baseName = GenericBase.class.getName().replace('.', '/');
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, ownerName,
+                "L" + baseName + "<Lorg/evosuite/utils/generic/NoSuchType;>;", baseName, null);
+        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, baseName, "<init>", "()V", false);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(1, 1);
+        mv.visitEnd();
+        cw.visitEnd();
+        byte[] bytes = cw.toByteArray();
+        ClassLoader loader = new ClassLoader(GenericFieldTest.class.getClassLoader()) {
+            @Override
+            protected Class<?> findClass(String name) throws ClassNotFoundException {
+                if (name.equals(ownerName.replace('/', '.'))) {
+                    return defineClass(name, bytes, 0, bytes.length);
+                }
+                throw new ClassNotFoundException(name);
+            }
+        };
+        Class<?> owner = loader.loadClass(ownerName.replace('/', '.'));
+        Assertions.assertThrows(TypeNotPresentException.class, owner::getGenericSuperclass);
+
+        GenericField genericField = new GenericField(GenericBase.class.getField("name"), owner);
+
+        assertEquals(String.class, genericField.getFieldType());
     }
 
     @AfterEach
