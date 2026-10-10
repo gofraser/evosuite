@@ -281,6 +281,7 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     private TestCaseExecutor() {
+        RenderingWarmUp.warmUp();
         executor = Executors.newSingleThreadExecutor(this);
         newObservers();
     }

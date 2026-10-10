@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Cancelling a test that outlives its timeout must not render the test while the executor
@@ -79,6 +80,51 @@ public class TestCaseExecutorLiveRenderTest {
         public DefaultTestCase clone() {
             return this;
         }
+    }
+
+    /** Code under test that runs out of memory. */
+    public static void runOutOfMemory() {
+        throw new OutOfMemoryError("Java heap space");
+    }
+
+    /** Counts renderings instead of failing them, so the executor's own handling is observed. */
+    private static class CountingRenders extends DefaultTestCase {
+        private static final long serialVersionUID = 1L;
+        private static final AtomicInteger RENDERS = new AtomicInteger();
+
+        @Override
+        public String toCode() {
+            RENDERS.incrementAndGet();
+            return super.toCode();
+        }
+
+        @Override
+        public DefaultTestCase clone() {
+            return this;
+        }
+    }
+
+    /**
+     * The executor thread can be stopped by the timeout at any point; rendering the test while
+     * handling an OutOfMemoryError initialised the escaping helper there, the stop landed in its
+     * class initialiser, and every later rendering failed for the rest of the run (jiggler).
+     */
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    public void anOutOfMemoryErrorIsNotHandledByRenderingTheTestOnTheExecutorThread() throws Exception {
+        originalTimeout = Properties.TIMEOUT;
+        originalShutdownTimeout = Properties.SHUTDOWN_TIMEOUT;
+
+        DefaultTestCase testCase = new CountingRenders();
+        testCase.addStatement(new MethodStatement(testCase,
+                new GenericMethod(TestCaseExecutorLiveRenderTest.class.getMethod("runOutOfMemory"),
+                        TestCaseExecutorLiveRenderTest.class),
+                null, Collections.emptyList()));
+        CountingRenders.RENDERS.set(0);
+
+        TestCaseExecutor.runTest(testCase);
+
+        Assertions.assertEquals(0, CountingRenders.RENDERS.get());
     }
 
     @Test

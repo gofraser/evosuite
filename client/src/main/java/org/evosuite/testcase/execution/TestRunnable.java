@@ -382,7 +382,9 @@ public class TestRunnable implements InterfaceTestRunnable {
 
             executeStatements(result, out, num);
         } catch (ThreadDeath e) { // can't stop these guys
-            logger.info("Found error in " + test.toCode(), e);
+            // Not rendered: this thread is being stopped, and rendering a live test can
+            // initialise classes (left unusable if the stop lands there) and repairs mocks.
+            logger.info("Thread stopped at statement {} of {}", num.get(), test.size(), e);
             throw e; // this needs to be propagated
         } catch (TimeoutException | TestCaseExecutor.TimeoutExceeded e) {
             logger.info("Test timed out!");
@@ -493,7 +495,7 @@ public class TestRunnable implements InterfaceTestRunnable {
             currentStatement = s;
 
             if (Thread.currentThread().isInterrupted() || Thread.interrupted()) {
-                logger.info("Thread interrupted at statement " + num + ": " + s.getCode());
+                logger.info("Thread interrupted at statement {}: {}", num, s.getClass().getSimpleName());
                 throw new TimeoutException();
             }
 
@@ -578,9 +580,11 @@ public class TestRunnable implements InterfaceTestRunnable {
                     }
                     if (className != null) {
                         org.evosuite.testcase.StatementFactory.addAllocationSensitiveClass(className);
-                        logger.warn("OOM in {} at statement {}/{}: {}\nFull test case:\n{}",
-                                s.getClass().getSimpleName(), num.get(), test.size(),
-                                s.getCode(), test.toCode());
+                        // Not rendered: this thread can be stopped by the timeout at any point,
+                        // and a stop that lands in a class initialiser run by the rendering
+                        // leaves that class unusable for the rest of the run.
+                        logger.warn("OOM in {} at statement {}/{} of {}",
+                                s.getClass().getSimpleName(), num.get(), test.size(), className);
                     }
 
                     ConstantPoolManager.AdaptiveSeedLimitUpdate update =
