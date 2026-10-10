@@ -27,8 +27,6 @@ import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Instruments classes to call the tracer each time a new line of the source
@@ -42,8 +40,6 @@ public class LineNumberMethodAdapter extends AbstractEvoMethodAdapter {
     private static final Logger logger = LoggerFactory.getLogger(LineNumberMethodAdapter.class);
 
     private final String fullMethodName;
-
-    private final List<Integer> skippedLines = new ArrayList<>();
 
     int currentLine = 0;
 
@@ -73,15 +69,6 @@ public class LineNumberMethodAdapter extends AbstractEvoMethodAdapter {
                 "passedLine", "(Ljava/lang/String;Ljava/lang/String;I)V", false);
     }
 
-    @Override
-    protected void onMethodEnter() {
-        super.onMethodEnter();
-        for (int line : skippedLines) {
-            addLineNumberInstrumentation(line);
-        }
-        skippedLines.clear();
-    }
-
     /**
      * {@inheritDoc}
      */
@@ -94,11 +81,10 @@ public class LineNumberMethodAdapter extends AbstractEvoMethodAdapter {
             return;
         }
 
-        if (!isSuperCallDone) {
-            skippedLines.add(line);
-            return;
-        }
-
+        // Lines before the super()/this() call of a constructor are traced in place. The
+        // tracer call is static and stack-neutral, so it is legal on an uninitialised this,
+        // and deferring it until after super() would lose every line when the arguments of
+        // that call (or the super constructor itself) throw.
         addLineNumberInstrumentation(line);
     }
 
