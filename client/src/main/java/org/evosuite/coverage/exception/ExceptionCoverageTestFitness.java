@@ -118,6 +118,16 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
     public double getFitness(TestChromosome individual, ExecutionResult result) {
         double fitness = 1.0;
 
+        // Whether this goal exists does not depend on what this particular execution
+        // did, so make it known to the archive before any early return. Otherwise a
+        // goal that was derived from another execution of the same test (see
+        // MultiCriteriaManager.deriveCoveredExceptions) can reach the archive through
+        // updateCoveredGoals having never been registered, with the 1.0 returned below
+        // cached on the chromosome so that it is never evaluated again.
+        if (Properties.TEST_ARCHIVE) {
+            Archive.getArchiveInstance().addTarget(this);
+        }
+
         // Using private reflection can lead to false positives
         // that represent unrealistic behaviour. Thus, we only
         // use reflection for basic criteria, not for exception
@@ -156,7 +166,6 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
         }
 
         if (Properties.TEST_ARCHIVE) {
-            Archive.getArchiveInstance().addTarget(this);
             Archive.getArchiveInstance().updateArchive(this, individual, fitness);
         }
 
