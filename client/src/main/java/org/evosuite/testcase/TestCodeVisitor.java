@@ -1118,6 +1118,13 @@ public class TestCodeVisitor extends TestVisitor {
                         + ", (" + NumberFormatter.getBoxedClassName(value) + ")"
                         + getVariableName(source) + ");";
             }
+        } else if (PrimitiveAssertion.needsUnboxingCast(source, value)) {
+            // The variable class and the value disagree (eg a variable of class long whose
+            // declaration is the constructor owner Integer): without a cast
+            // assertEquals(int, Integer) is ambiguous between (long, long) and (Object, Object).
+            stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this)
+                    + ", (" + NumberFormatter.getBoxedClassName(value) + ")"
+                    + getVariableName(source) + ");";
         } else {
             stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
                     + getVariableName(source) + ");";

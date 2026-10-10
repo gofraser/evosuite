@@ -240,4 +240,34 @@ public class PrimitiveAssertionTest {
             Properties.CLASS_PREFIX = oldClassPrefix;
         }
     }
+
+    /**
+     * A long-class variable declared by an Integer constructor renders as Integer, so the bare
+     * assertEquals(int, Integer) is ambiguous; getCode() must cast like the code visitor does.
+     */
+    @Test
+    public void testGetCodeCastsValueWhoseClassDiffersFromPrimitiveVariableClass() {
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        VariableReference source = mock(VariableReference.class);
+        doReturn(long.class).when(source).getVariableClass();
+        when(source.getName()).thenReturn("long0");
+
+        assertion.source = source;
+        assertion.value = Integer.valueOf(-64860000);
+
+        assertEquals("assertEquals((-64860000), (int)long0);", assertion.getCode());
+    }
+
+    @Test
+    public void testGetCodeLeavesMatchingPrimitiveVariableUncast() {
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        VariableReference source = mock(VariableReference.class);
+        doReturn(long.class).when(source).getVariableClass();
+        when(source.getName()).thenReturn("long0");
+
+        assertion.source = source;
+        assertion.value = Long.valueOf(5L);
+
+        assertEquals("assertEquals(5L, long0);", assertion.getCode());
+    }
 }
