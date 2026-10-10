@@ -324,7 +324,10 @@ public class VariableResolver {
                                 + parameterType);
             }
             assert config.isCanUseMocks()
-                    || !(test.getStatement(reference.getStPosition()) instanceof FunctionalMockStatement);
+                    || !(test.getStatement(reference.getStPosition()) instanceof FunctionalMockStatement)
+                    : "Functional mock " + reference + " at position " + reference.getStPosition()
+                    + " (requested at " + position + ", test size " + test.size() + ") for "
+                    + parameterType.getTypeName() + " where mocks are not allowed";
 
             return reference;
         }
