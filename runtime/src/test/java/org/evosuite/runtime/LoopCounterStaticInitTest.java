@@ -151,6 +151,44 @@ public class LoopCounterStaticInitTest {
         }
     }
 
+    /**
+     * {@code __STATIC_RESET()} replays the loops of a static initializer. Cut short by the
+     * iteration limit it leaves the class half reset, with its tables null, so it is exempt
+     * from the limit just like the initializer it replays.
+     */
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    public void testStaticResetReplayIsNotTerminatedByIterationLimit() {
+        RuntimeSettings.maxNumberOfIterationsPerLoop = 50;
+        int index = LoopCounter.getInstance().getNewIndex();
+
+        assertEquals(5_000, ResetReplayProbe.__STATIC_RESET(index, 5_000),
+                "the replayed initializer should have run to completion");
+    }
+
+    /** The exemption is for the iteration limit only: a stuck replay must still yield to an interrupt. */
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    public void testInterruptStillTerminatesStaticResetReplay() {
+        int index = LoopCounter.getInstance().getNewIndex();
+        Thread.currentThread().interrupt();
+
+        assertThrows(TooManyResourcesException.class,
+                () -> ResetReplayProbe.__STATIC_RESET(index, 5_000));
+    }
+
+    private static class ResetReplayProbe {
+        @SuppressWarnings("checkstyle:MethodName")
+        static int __STATIC_RESET(int index, int iterations) {
+            int completed = 0;
+            for (int i = 0; i < iterations; i++) {
+                LoopCounter.getInstance().checkLoop(index);
+                completed++;
+            }
+            return completed;
+        }
+    }
+
     private static void triggerDeep(int depth) {
         if (depth > 0) {
             triggerDeep(depth - 1);

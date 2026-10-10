@@ -19,6 +19,8 @@
  */
 package org.evosuite.runtime;
 
+import org.evosuite.runtime.classhandling.ClassResetter;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -128,6 +130,8 @@ public class LoopCounter {
     private static final class InterruptMemo {
         boolean inStaticInit = false;
         int checksSinceStackWalk = 0;
+        boolean inStaticInitOrReset = false;
+        int checksSinceInitOrResetWalk = 0;
     }
 
 
@@ -467,7 +471,14 @@ public class LoopCounter {
             // their whole budget. Walk the stack only on the iteration that crosses the
             // limit and then only every INTERRUPT_STATIC_INIT_RECHECK_INTERVAL-th time while
             // it keeps finding a <clinit> (the throttled, positive-only memo).
-            if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInitThrottled()) {
+            //
+            // The replay of an initializer by __STATIC_RESET() is exempt from the limit for
+            // the same reason: it runs the very same loops, and an exception out of it leaves
+            // the class half reset (its static fields zeroed, never reassigned), which breaks
+            // every later test that reads them. Unlike for the limit, a stuck replay is still
+            // stopped by an interrupt: the executor interrupts it once its time budget is
+            // used up, so the interrupt checks above do not treat it as an initializer.
+            if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInitOrResetThrottled()) {
                 interruptMemo.remove();
                 clearCounters();
                 // The counters start from zero again, so a loop whose body swallows the exception
@@ -512,9 +523,34 @@ public class LoopCounter {
         return memo.inStaticInit;
     }
 
+    /**
+     * Like {@link #isInStaticInitThrottled()}, but also true while a static initializer is being
+     * replayed by {@code __STATIC_RESET()}. Kept apart from it, with a memo of its own, because
+     * only the iteration limit may ignore a replay, not the interrupt checks.
+     */
+    private boolean isInStaticInitOrResetThrottled() {
+        InterruptMemo memo = interruptMemo.get();
+        if (memo.inStaticInitOrReset && memo.checksSinceInitOrResetWalk < INTERRUPT_STATIC_INIT_RECHECK_INTERVAL) {
+            memo.checksSinceInitOrResetWalk++;
+            return true;
+        }
+        memo.inStaticInitOrReset = isInStaticInit() || isInStaticReset();
+        memo.checksSinceInitOrResetWalk = 1;
+        return memo.inStaticInitOrReset;
+    }
+
     private boolean isInStaticInit() {
         for (StackTraceElement elem : new Throwable().getStackTrace()) {
             if (elem.getMethodName().startsWith("<clinit>")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isInStaticReset() {
+        for (StackTraceElement elem : new Throwable().getStackTrace()) {
+            if (elem.getMethodName().equals(ClassResetter.STATIC_RESET)) {
                 return true;
             }
         }
