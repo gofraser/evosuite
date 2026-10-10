@@ -242,6 +242,14 @@ public class TestUsageChecker {
                         "This is likely due to a missing dependency used as annotation: "
                                 + "https://bugs.java.com/view_bug.do?bug_id=JDK-7183985");
                 return false;
+            } catch (LinkageError e) {
+                // Reading the annotations initialises every enum an annotation member defaults
+                // to, and that static initialiser belongs to the subject under test. When it
+                // throws (ExceptionInInitializerError, then NoClassDefFoundError on every later
+                // read) the class cannot be inspected, so it cannot be used; it must not abort
+                // the whole generation from inside cluster analysis.
+                logger.debug("Cannot read the annotations of {}: {}", c.getName(), e.toString());
+                return false;
             }
         }
 
