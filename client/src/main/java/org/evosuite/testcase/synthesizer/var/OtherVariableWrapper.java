@@ -238,15 +238,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                                             allowNullValue);
                     MethodStatement statement =
                             (MethodStatement) test.getStatement(varRef.getStPosition());
-                    for (int i = 0; i < statement.getParameterReferences().size(); i++) {
-                        VariableReference oldParam = statement.getParameterReferences().get(i);
-                        VariableReference newParam = paramRefMap.get(i);
-                        if (newParam != null) {
-                            statement.replace(oldParam, newParam);
-                            VariableCodeGenerationUtil.replaceMapFromNode2Code(
-                                    map, oldParam, newParam);
-                        }
-                    }
+                    applyGraphArguments(statement, 0, paramRefMap, map);
                     return varRef;
                 } else {
                     Statement stat = test.getStatement(callerObject.getStPosition());
@@ -314,16 +306,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                                                     allowNullValue);
                             MethodStatement statement =
                                     (MethodStatement) test.getStatement(varRef.getStPosition());
-                            for (int i = 0; i < statement.getParameterReferences().size(); i++) {
-                                VariableReference oldParam =
-                                        statement.getParameterReferences().get(i);
-                                VariableReference newParam = paramRefMap.get(i + 1);
-                                if (newParam != null) {
-                                    statement.replace(oldParam, newParam);
-                                    VariableCodeGenerationUtil.replaceMapFromNode2Code(
-                                            map, oldParam, newParam);
-                                }
-                            }
+                            applyGraphArguments(statement, 1, paramRefMap, map);
                             return varRef;
                         }
                     }
@@ -334,6 +317,32 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         }
 
         return null;
+    }
+
+    /**
+     * Passes the variables that the dependency graph found for the arguments of a freshly
+     * generated call. The graph's variable for an argument was found by what the SUT does with
+     * it, not by the call's signature: a {@code Long} that the SUT compares can end up as the
+     * {@code T key} of a {@code binarySearch} whose {@code T} is bound to another class, and the
+     * rendered cast ({@code (Meal) long0}) does not compile. An argument that does not fit its
+     * parameter as instantiated keeps the value that was generated for it.
+     *
+     * @param offset the position in {@code paramRefMap} of the call's first argument (1 when
+     *               position 0 is the receiver)
+     */
+    static void applyGraphArguments(MethodStatement statement, int offset,
+                                    Map<Integer, VariableReference> paramRefMap,
+                                    Map<DepVariableWrapper, VarRelevance> map) {
+        java.lang.reflect.Type[] declared = statement.getMethod().getParameterTypes();
+        for (int i = 0; i < statement.getParameterReferences().size(); i++) {
+            VariableReference oldParam = statement.getParameterReferences().get(i);
+            VariableReference newParam = paramRefMap.get(i + offset);
+            if (newParam == null || (i < declared.length && !newParam.isAssignableTo(declared[i]))) {
+                continue;
+            }
+            statement.replace(oldParam, newParam);
+            VariableCodeGenerationUtil.replaceMapFromNode2Code(map, oldParam, newParam);
+        }
     }
 
     static boolean isPureObservation(Method method) {
