@@ -11,6 +11,7 @@
  */
 package org.evosuite.testcase.factories;
 
+import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.StatementFactory;
@@ -364,7 +365,19 @@ class ObjectRuleEntryBuilder {
             GenericConstructor constructor, Set<String> requiredFieldDescriptors)
             throws Exception {
         List<VariableReference> parameters = new ArrayList<>();
-        Type[] parameterTypes = constructor.getConstructor().getGenericParameterTypes();
+        if (constructor.getOwnerClass().hasWildcardOrTypeVariables()) {
+            // The cluster hands out the constructor of the unbound owner, so a parameter of type T
+            // would be satisfied by a value of type T (a mock of T's bound, a null of T). Such a
+            // variable is "assignable" to whatever T is printed as -- String for a WindowQueue<String>
+            // that gets an Integer or a mock of Comparable -- and the rendered cast
+            // "(String) integer0" does not compile. Bind the owner first, as addConstructor does.
+            try {
+                constructor = constructor.getGenericInstantiation();
+            } catch (ConstructionFailedException e) {
+                logger.trace("Cannot bind owner type variables of {}: {}", constructor, e.toString());
+            }
+        }
+        Type[] parameterTypes = constructor.getParameterTypes();
         Class<?>[] erasedTypes = constructor.getConstructor().getParameterTypes();
         for (int i = 0; i < parameterTypes.length; i++) {
             String descriptor = org.objectweb.asm.Type.getDescriptor(erasedTypes[i]);
