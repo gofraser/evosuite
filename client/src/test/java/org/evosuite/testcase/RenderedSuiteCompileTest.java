@@ -1,0 +1,110 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.testcase;
+
+import org.evosuite.Properties;
+import org.evosuite.testcase.variable.NullReference;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.JavacScratchCompiler;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Drives the real {@link TestCodeVisitor} over hand-built tests and feeds the rendered
+ * statements to javac. Each case is a defect that made a generated suite fail the compile
+ * check on SF110.
+ */
+public class RenderedSuiteCompileTest {
+
+    private String originalTargetClass;
+    private String originalClassPrefix;
+    private String originalSubPrefix;
+    private String originalProjectPrefix;
+
+    @BeforeEach
+    public void setUp() {
+        originalTargetClass = Properties.TARGET_CLASS;
+        originalClassPrefix = Properties.CLASS_PREFIX;
+        originalSubPrefix = Properties.SUB_PREFIX;
+        originalProjectPrefix = Properties.PROJECT_PREFIX;
+
+        Properties.TARGET_CLASS = RenderedSuiteCompileTest.class.getName();
+        Properties.resetTargetClass();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        Properties.TARGET_CLASS = originalTargetClass;
+        Properties.CLASS_PREFIX = originalClassPrefix;
+        Properties.SUB_PREFIX = originalSubPrefix;
+        Properties.PROJECT_PREFIX = originalProjectPrefix;
+        Properties.resetTargetClass();
+    }
+
+    /**
+     * When the functional-mock fallback cannot mock a return type it asks for a null of that
+     * type; for a primitive return type ({@code Map.size()}) that rendered as
+     * {@code int int0 = null;}.
+     */
+    @Test
+    public void nullForAPrimitiveTypeIsAPrimitiveValue() throws Exception {
+        for (Class<?> primitive : new Class<?>[]{int.class, long.class, boolean.class, char.class,
+                double.class, float.class, short.class, byte.class}) {
+            TestCase tc = new DefaultTestCase();
+            VariableReference value = TestFactory.getInstance().createNull(tc, primitive, 0, 0);
+
+            assertFalse(value instanceof NullReference, primitive + " must not be a null reference");
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            assertFalse(visitor.getCode().contains("null"), visitor.getCode());
+            assertCompiles(visitor);
+        }
+    }
+
+    private static void assertCompiles(TestCodeVisitor visitor) {
+        String code = visitor.getCode();
+
+        StringBuilder source = new StringBuilder();
+        source.append("package org.evosuite.testcase;\n");
+        for (Class<?> imported : visitor.getImports()) {
+            String canonical = imported.getCanonicalName();
+            if (canonical != null) {
+                source.append("import ").append(canonical).append(";\n");
+            }
+        }
+        String className = "RenderedSuiteProbe" + System.nanoTime();
+        source.append("public class ").append(className).append(" {\n")
+                .append("    public static void run() throws Throwable {\n");
+        for (String line : code.split("\\R")) {
+            source.append("        ").append(line).append("\n");
+        }
+        source.append("    }\n")
+                .append("}\n");
+
+        JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
+                "evosuite-rendered-suite-compile", className, source.toString());
+
+        assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+    }
+}

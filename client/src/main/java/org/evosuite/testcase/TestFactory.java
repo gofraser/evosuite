@@ -1153,6 +1153,14 @@ public class TestFactory {
                                          GenerationContext context) throws ConstructionFailedException {
         GenericClass<?> genericType = GenericClassFactory.get(type);
 
+        // A primitive has no null: "int int0 = null;" does not compile, and passing the null
+        // through reflection fails. Callers that fall back to null when they cannot build a
+        // value (such as the functional-mock fallback for an unmockable return type) get a
+        // primitive value instead.
+        if (genericType.isPrimitive()) {
+            return createPrimitive(test, genericType, position, context);
+        }
+
         // For example, HashBasedTable.Factory in Guava is private but used as a parameter
         // in a public method. This would lead to compile errors
         if (!TestUsageChecker.canUse(genericType.getRawClass())) {
