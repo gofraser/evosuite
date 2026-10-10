@@ -910,6 +910,69 @@ public class TestUsageChecker {
                 && Arrays.equals(candidate.getParameterTypes(), method.getParameterTypes());
     }
 
+    /** First class-file major version whose source level allows static interface method calls (Java 8). */
+    static final int JAVA_8_CLASS_FILE_MAJOR = 52;
+
+    private static Integer targetMajorVersionOverride;
+    private static String cachedTargetMajorClass;
+    private static int cachedTargetMajor = -1;
+
+    static void setTargetClassFileMajorVersionForTesting(Integer major) {
+        targetMajorVersionOverride = major;
+    }
+
+    /**
+     * Reads the class-file major version of the class under test, or -1 if it cannot be determined.
+     * Suites for projects compiled for an older source level (for example Defects4J builds at
+     * -source 6) are compiled at that level, where a call to a static interface method is an error.
+     */
+    static int targetClassFileMajorVersion() {
+        if (targetMajorVersionOverride != null) {
+            return targetMajorVersionOverride;
+        }
+        String target = Properties.TARGET_CLASS;
+        if (target == null || target.isEmpty()) {
+            return -1;
+        }
+        synchronized (TestUsageChecker.class) {
+            if (target.equals(cachedTargetMajorClass)) {
+                return cachedTargetMajor;
+            }
+            int major = -1;
+            try {
+                major = readClassFileMajorVersion(
+                        org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT(), target);
+            } catch (Throwable t) {
+                logger.debug("Cannot determine class-file version of " + target + ": " + t);
+            }
+            cachedTargetMajorClass = target;
+            cachedTargetMajor = major;
+            return major;
+        }
+    }
+
+    static int readClassFileMajorVersion(ClassLoader loader, String className) throws java.io.IOException {
+        try (InputStream in = loader.getResourceAsStream(className.replace('.', '/') + ".class")) {
+            if (in == null) {
+                return -1;
+            }
+            java.io.DataInputStream data = new java.io.DataInputStream(in);
+            if (data.readInt() != 0xCAFEBABE) {
+                return -1;
+            }
+            data.readUnsignedShort();
+            return data.readUnsignedShort();
+        }
+    }
+
+    private static boolean isStaticInterfaceMethodBeyondTargetLevel(Method m) {
+        if (!m.getDeclaringClass().isInterface() || !Modifier.isStatic(m.getModifiers())) {
+            return false;
+        }
+        int major = targetClassFileMajorVersion();
+        return major > 0 && major < JAVA_8_CLASS_FILE_MAJOR;
+    }
+
     /**
      * Determine if a method can be used for testing.
      *
@@ -948,6 +1011,11 @@ public class TestUsageChecker {
 
         if (isCompilerGeneratedEnumMethod(m)) {
             logger.debug("Excluding compiler-generated enum method: " + m);
+            return false;
+        }
+
+        if (isStaticInterfaceMethodBeyondTargetLevel(m)) {
+            logger.debug("Excluding static interface method, which a pre-Java-8 target cannot call: " + m);
             return false;
         }
 
