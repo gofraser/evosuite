@@ -1900,6 +1900,8 @@ public class TestCodeVisitor extends TestVisitor {
                 name = "null";
             }
             boolean requiresRawClassCast = requiresRawClassCast(declaredParamType, actualParamType);
+            boolean rawClassLiteralArgument = !requiresRawClassCast
+                    && isParameterizedClassTargetForClassLiteral(declaredParamType, parameters.get(i));
             Class<?> rawParamClass = declaredParamType instanceof WildcardType ? Object.class
                     : safeErasure(declaredParamType);
             if (!argumentIsNull && !requiresRawClassCast
@@ -1919,6 +1921,8 @@ public class TestCodeVisitor extends TestVisitor {
             } else if (!argumentIsNull && isInconvertibleArrayArgument(declaredParamType, actualParamType)) {
                 // "(Foo[]) stringArray" is rejected by javac; the argument is passed as it is
                 // and the call result is cast raw (see requiresRawReturnCastForArrayArgument).
+            } else if (rawClassLiteralArgument) {
+                parameterString += "(" + getTypeName(Class.class) + ") ";
             } else if (isGenericMethod && !(declaredParamType instanceof WildcardType)) {
                 if (!declaredParamType.equals(actualParamType) || argumentIsNull
                         || (genericParameterTypes != null && isHiddenConcreteClass(declaredParamType))) {
@@ -2423,6 +2427,28 @@ public class TestCodeVisitor extends TestVisitor {
     private boolean requiresRawClassCast(Type declaredType, Type actualType) {
         return isClassType(declaredType) && isClassType(actualType)
                 && !declaredType.equals(actualType);
+    }
+
+    /**
+     * A class-literal variable is always declared at its own raw parameterisation
+     * ({@code Class<Comparable> c = Comparable.class}), whatever type the test model gives it.
+     * When the target is {@code Class<G<...>>} the model may call the types equal, but the
+     * rendered variable is {@code Class<G>}, which javac does not accept there (and which makes
+     * the inference of a generic callee fail), so the raw {@code (Class)} cast is needed as well.
+     */
+    private boolean isParameterizedClassTargetForClassLiteral(Type targetType, VariableReference source) {
+        if (!(targetType instanceof ParameterizedType) || !isClassType(targetType)
+                || test == null || source == null) {
+            return false;
+        }
+        int position = source.getStPosition();
+        if (position < 0 || position >= test.size()
+                || !(test.getStatement(position) instanceof ClassPrimitiveStatement)
+                || test.getStatement(position).getReturnValue() != source) {
+            return false;
+        }
+        Type[] arguments = ((ParameterizedType) targetType).getActualTypeArguments();
+        return arguments.length == 1 && arguments[0] instanceof ParameterizedType;
     }
 
     private boolean isUnresolvedTypeVariableOrWildcard(Type type) {

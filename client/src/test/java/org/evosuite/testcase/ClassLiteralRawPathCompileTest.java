@@ -26,6 +26,7 @@ import org.evosuite.testcase.statements.ClassPrimitiveStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
@@ -39,7 +40,10 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -189,6 +193,39 @@ public class ClassLiteralRawPathCompileTest {
         MethodStatement methodStatement = new MethodStatement(
                 tc, genericMethod, null, Arrays.asList(classVar));
         tc.addStatement(methodStatement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        assertCompiles(visitor);
+    }
+
+    /**
+     * Scenario (d): a generic factory taking the class literal that fixes its type variable, as in
+     * {@code Matchers.anyCollectionOf(Class<T>)}.
+     */
+    public static <T> Collection<T> collectionOf(Class<T> type) {
+        return null;
+    }
+
+    @Test
+    public void testRawClassLiteralForInstantiatedGenericResultCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference classVar = tc.addStatement(new ClassPrimitiveStatement(tc, Comparable.class));
+        Type comparableOfObject = TypeUtils.parameterize(Comparable.class, Object.class);
+
+        Method method = ClassLiteralRawPathCompileTest.class.getDeclaredMethod("collectionOf", Class.class);
+        GenericMethod genericMethod = new GenericMethod(method, ClassLiteralRawPathCompileTest.class);
+        genericMethod.setTypeParameters(Arrays.<org.evosuite.utils.generic.GenericClass<?>>asList(
+                GenericClassFactory.get(comparableOfObject)));
+        classVar.setType(genericMethod.getParameterTypes()[0]);
+        MethodStatement methodStatement = new MethodStatement(
+                tc, genericMethod, null, Arrays.asList(classVar));
+        VariableReference result = tc.addStatement(methodStatement);
+        result.setType(TypeUtils.parameterize(Collection.class, comparableOfObject));
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(Collection.class.getMethod("size"), Collection.class),
+                result, Arrays.asList()));
 
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
