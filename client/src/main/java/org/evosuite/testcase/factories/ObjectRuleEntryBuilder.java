@@ -18,6 +18,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.VariableResolutionConfig;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
@@ -602,13 +603,14 @@ class ObjectRuleEntryBuilder {
             TestCase prefix = test.clone();
             prefix.chop(receiverPosition + 1);
             ExecutionResult result = TestCaseExecutor.getInstance().execute(prefix);
+            Scope finalScope = result.getFinalScope();
             if (result.hasTimeout() || result.getFirstPositionOfThrownException() != null
-                    || result.getFinalScope() == null) {
+                    || finalScope == null) {
                 return false;
             }
             VariableReference clonedReceiver =
                     prefix.getStatement(receiverPosition).getReturnValue();
-            Object runtimeReceiver = result.getFinalScope().getObject(clonedReceiver);
+            Object runtimeReceiver = finalScope.getObject(clonedReceiver);
             return receiverClass.isInstance(runtimeReceiver);
         } catch (Throwable failure) {
             logger.trace("Runtime validation of entry receiver failed: {}", failure.toString());

@@ -48,6 +48,7 @@ import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testparser.ParseDiagnostic;
@@ -1093,7 +1094,8 @@ public class TestRepairLoop {
      * {@code result}. Returns the number of removed assertions.
      */
     private int removeFailingAssertions(TestCase testCase, ExecutionResult result, int limit) {
-        if (result.getFinalScope() == null) {
+        Scope finalScope = result.getFinalScope();
+        if (finalScope == null) {
             return 0;
         }
         int removed = 0;
@@ -1105,7 +1107,7 @@ public class TestRepairLoop {
             for (Assertion assertion : new ArrayList<>(stmt.getAssertions())) {
                 boolean holds;
                 try {
-                    holds = assertion != null && assertion.evaluate(result.getFinalScope());
+                    holds = assertion != null && assertion.evaluate(finalScope);
                 } catch (Throwable evaluationFailure) {
                     holds = false;
                 }
@@ -1570,7 +1572,8 @@ public class TestRepairLoop {
         if (parseResult == null || parseResult.getTestCase() == null || executionResult == null) {
             return null;
         }
-        if (executionResult.getFinalScope() == null) {
+        Scope finalScope = executionResult.getFinalScope();
+        if (finalScope == null) {
             return null;
         }
         // Statements from the first exception onwards never completed, so their
@@ -1595,7 +1598,7 @@ public class TestRepairLoop {
                 }
                 final boolean holds;
                 try {
-                    holds = assertion.evaluate(executionResult.getFinalScope());
+                    holds = assertion.evaluate(finalScope);
                 } catch (Throwable assertionFailure) {
                     String message = "Execution error in test '" + parseResult.getOriginalMethodName()
                             + "': Assertion evaluation error at statement " + i + " - "

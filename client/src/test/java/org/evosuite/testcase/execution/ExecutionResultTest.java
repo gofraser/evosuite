@@ -24,6 +24,14 @@ import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 public class ExecutionResultTest {
 
     @Test
@@ -141,5 +149,64 @@ public class ExecutionResultTest {
         result.reportNewThrownException(-1, new CodeUnderTestException(new NullPointerException("invalid")));
 
         Assertions.assertFalse(result.hasTestException());
+    }
+
+    @Test
+    public void finalScopeIsAvailableRightAfterTheExecution() {
+        DefaultTestCase testCase = new DefaultTestCase();
+        ExecutionResult result = new ExecutionResult(testCase, null);
+        Scope scope = new Scope();
+
+        result.setFinalScope(scope);
+
+        Assertions.assertSame(scope, result.getFinalScope());
+        result.setFinalScope(null);
+        Assertions.assertNull(result.getFinalScope());
+    }
+
+    /**
+     * The search caches the last result of every chromosome. If each cached result kept the
+     * objects its test created, a constructor allocating memory proportional to an argument
+     * would exhaust the heap through the population before any single test did. The heap is
+     * exhausted in a small child JVM so that no other test shares it.
+     */
+    @Test
+    public void finalScopeDoesNotKeepTheTestObjectsAliveWhenHeapRunsLow() throws Exception {
+        Path output = Files.createTempFile("scope-probe", ".txt");
+        try {
+            Process child = new ProcessBuilder(
+                    new File(System.getProperty("java.home"), "bin/java").getPath(), "-Xmx128m",
+                    "-cp", System.getProperty("java.class.path"), HeapExhaustionProbe.class.getName())
+                    .redirectErrorStream(true).redirectOutput(output.toFile()).start();
+            if (!child.waitFor(60, TimeUnit.SECONDS)) {
+                child.destroyForcibly();
+                Assertions.fail("heap exhaustion probe timed out");
+            }
+            String log = new String(Files.readAllBytes(output), StandardCharsets.UTF_8);
+            Assertions.assertTrue(log.contains("SCOPE_RECLAIMED"), log);
+        } finally {
+            Files.deleteIfExists(output);
+        }
+    }
+
+    /** Fills the heap while an execution result holds a scope, then reports whether it survived. */
+    public static class HeapExhaustionProbe {
+        public static void main(String[] args) {
+            ExecutionResult result = new ExecutionResult(new DefaultTestCase(), null);
+            result.setFinalScope(new Scope());
+            if (result.getFinalScope() == null) {
+                System.out.println("SCOPE_MISSING_BEFORE_EXHAUSTION");
+                return;
+            }
+            List<byte[]> ballast = new ArrayList<>();
+            try {
+                while (true) {
+                    ballast.add(new byte[4 * 1024 * 1024]);
+                }
+            } catch (OutOfMemoryError expected) {
+                ballast.clear();
+            }
+            System.out.println(result.getFinalScope() == null ? "SCOPE_RECLAIMED" : "SCOPE_RETAINED");
+        }
     }
 }

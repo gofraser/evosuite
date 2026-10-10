@@ -90,8 +90,11 @@ final class PostProcessingAssertionValidator {
         if (response.getAssertions().isEmpty()) {
             return ValidatedEditPlan.success(response);
         }
+        Scope originalFinalScope = executionResult == null ? null : executionResult.getFinalScope();
+        Scope stabilityFinalScope = stabilityExecutionResult == null ? null
+                : stabilityExecutionResult.getFinalScope();
         if (validationTest == null || validationTest.size() == 0
-                || executionResult == null || executionResult.getFinalScope() == null
+                || executionResult == null || originalFinalScope == null
                 || executionResult.hasTimeout() || executionResult.hasTestException()
                 || !executionResult.noThrownExceptions()) {
             return ValidatedEditPlan.rejectedAll(response,
@@ -99,7 +102,7 @@ final class PostProcessingAssertionValidator {
                     "Original observed final scope is unavailable");
         }
         if (stabilityTest == null || stabilityTest.size() == 0
-                || stabilityExecutionResult == null || stabilityExecutionResult.getFinalScope() == null
+                || stabilityExecutionResult == null || stabilityFinalScope == null
                 || stabilityExecutionResult.hasTimeout()
                 || stabilityExecutionResult.hasTestException()
                 || !stabilityExecutionResult.noThrownExceptions()) {
@@ -110,8 +113,6 @@ final class PostProcessingAssertionValidator {
 
         LlmPostProcessingReferences validationReferences = LlmPostProcessingReferences.from(validationTest);
         LlmPostProcessingReferences stabilityReferences = LlmPostProcessingReferences.from(stabilityTest);
-        Scope originalFinalScope = executionResult.getFinalScope();
-        Scope stabilityFinalScope = stabilityExecutionResult.getFinalScope();
         LlmPostProcessingResponse filtered = response.withoutAssertions();
         List<LlmPostProcessingParseResult.Diagnostic> diagnostics = new ArrayList<>();
         for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
