@@ -16,6 +16,10 @@ import javax.swing.JMenuBar;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.UIManager;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import java.util.ArrayList;
+import java.util.List;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
@@ -152,5 +156,30 @@ class MockHeadlessSwingTextComponentTest {
         assertSame(JTextArea.class, MockHeadlessSwing.replacement_newJTextArea("x").getClass());
         assertSame(JTextField.class, MockHeadlessSwing.replacement_newJTextField("x").getClass());
         assertSame(JMenuBar.class, MockHeadlessSwing.replacement_newJMenuBar().getClass());
+    }
+
+    @Test
+    void documentListenersOfTheClassUnderTestAreNotified() {
+        JTextField field = MockHeadlessSwing.replacement_newJTextField();
+        final List<String> events = new ArrayList<>();
+        field.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) {
+                events.add("insert@" + e.getOffset() + "+" + e.getLength());
+            }
+
+            public void removeUpdate(DocumentEvent e) {
+                events.add("remove@" + e.getOffset() + "+" + e.getLength());
+            }
+
+            public void changedUpdate(DocumentEvent e) {
+                events.add("changed");
+            }
+        });
+
+        field.setText("abc");
+        field.setText("de");
+
+        assertEquals(java.util.Arrays.asList("insert@0+3", "remove@0+3", "insert@0+2"), events);
+        assertEquals("de", field.getText());
     }
 }

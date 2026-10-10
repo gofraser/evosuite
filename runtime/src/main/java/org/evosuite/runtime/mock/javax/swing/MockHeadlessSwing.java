@@ -39,6 +39,7 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTree;
+import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.UndoableEditListener;
 import javax.swing.plaf.basic.BasicComboBoxEditor;
@@ -97,7 +98,9 @@ import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -2897,6 +2900,7 @@ public final class MockHeadlessSwing {
 
         private final StringBuilder text = new StringBuilder();
         private final Map<Object, Object> properties = new HashMap<>();
+        private final List<DocumentListener> documentListeners = new ArrayList<>();
         private final Element rootElement = new HeadlessSafeElement(this);
 
         @Override
@@ -2906,12 +2910,40 @@ public final class MockHeadlessSwing {
 
         @Override
         public void addDocumentListener(DocumentListener listener) {
-            // no-op
+            if (listener != null) {
+                documentListeners.add(listener);
+            }
         }
 
         @Override
         public void removeDocumentListener(DocumentListener listener) {
-            // no-op
+            documentListeners.remove(listener);
+        }
+
+        /**
+         * Notifies the listeners the class under test registered, as a real
+         * {@code AbstractDocument} does. Swing's own listeners (caret, UI
+         * delegate) are skipped: they expect the element structure of a real
+         * document, which this model does not have, and they never saw events
+         * before.
+         */
+        private void fire(final DocumentEvent.EventType type, final int offset, final int length) {
+            DocumentEvent event = null;
+            for (DocumentListener listener : new ArrayList<>(documentListeners)) {
+                String name = listener.getClass().getName();
+                if (name.startsWith("javax.swing.") || name.startsWith("sun.swing.")
+                        || name.startsWith("com.sun.java.swing.") || name.startsWith("com.apple.laf.")) {
+                    continue;
+                }
+                if (event == null) {
+                    event = new HeadlessSafeDocumentEvent(this, type, offset, length);
+                }
+                if (type == DocumentEvent.EventType.INSERT) {
+                    listener.insertUpdate(event);
+                } else {
+                    listener.removeUpdate(event);
+                }
+            }
         }
 
         @Override
@@ -2940,6 +2972,9 @@ public final class MockHeadlessSwing {
                 throw new BadLocationException("Invalid range", offs);
             }
             text.delete(offs, offs + len);
+            if (len > 0) {
+                fire(DocumentEvent.EventType.REMOVE, offs, len);
+            }
         }
 
         @Override
@@ -2950,6 +2985,9 @@ public final class MockHeadlessSwing {
             }
             if (str != null) {
                 text.insert(offset, str);
+                if (!str.isEmpty()) {
+                    fire(DocumentEvent.EventType.INSERT, offset, str.length());
+                }
             }
         }
 
@@ -3002,6 +3040,46 @@ public final class MockHeadlessSwing {
             if (r != null) {
                 r.run();
             }
+        }
+    }
+
+    private static final class HeadlessSafeDocumentEvent implements DocumentEvent {
+
+        private final Document document;
+        private final EventType type;
+        private final int offset;
+        private final int length;
+
+        private HeadlessSafeDocumentEvent(Document document, EventType type, int offset, int length) {
+            this.document = document;
+            this.type = type;
+            this.offset = offset;
+            this.length = length;
+        }
+
+        @Override
+        public int getOffset() {
+            return offset;
+        }
+
+        @Override
+        public int getLength() {
+            return length;
+        }
+
+        @Override
+        public Document getDocument() {
+            return document;
+        }
+
+        @Override
+        public EventType getType() {
+            return type;
+        }
+
+        @Override
+        public ElementChange getChange(Element elem) {
+            return null;
         }
     }
 
