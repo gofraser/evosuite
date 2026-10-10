@@ -218,8 +218,14 @@ public class ConcreteClassAnalyzer {
                 }
             }
 
-            if (!actualClasses.isEmpty()) {
-                break; // Don't include classes with higher package distance.
+            // Don't include classes with higher package distance, unless the band only produced
+            // abstract classes that are usable through a static generator: java.security.Principal's
+            // nearest band holds the abstract IdentityScope (getSystemScope()), which hid every
+            // real implementation (JMXPrincipal, X500Principal, ...) from the search.
+            if (!actualClasses.isEmpty()
+                    && !(Properties.CONCRETE_CLASS_WIDEN_ABSTRACT_ONLY_BAND
+                    && allAbstract(actualClasses))) {
+                break;
             }
         }
 
@@ -234,6 +240,15 @@ public class ConcreteClassAnalyzer {
         logger.debug("Subclasses of {}: {}", className, actualClasses);
 
         return actualClasses;
+    }
+
+    private static boolean allAbstract(final Set<Class<?>> classes) {
+        for (final Class<?> c : classes) {
+            if (!Modifier.isAbstract(c.getModifiers())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static Class<?> tryReflection(final String className, final InheritanceTree tree) {

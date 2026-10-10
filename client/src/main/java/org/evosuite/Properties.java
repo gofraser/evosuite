@@ -439,6 +439,30 @@ public class Properties {
     @Parameter(key = "headless_mode", group = "Test Generation", description = "Run Java in AWT Headless mode")
     public static boolean HEADLESS_MODE = true;
 
+    @Parameter(key = "headless_filter_jdk_gui_generators", group = "Test Generation",
+            description = "In headless mode, never use constructors/methods declared on JDK java.awt/javax.swing "
+                    + "Component classes (e.g. JTable) to create objects. Typed parameters of such a type are "
+                    + "then served by a mock, which can be stubbed to the state the code under test needs; a "
+                    + "real default component cannot")
+    public static boolean HEADLESS_FILTER_JDK_GUI_GENERATORS = true;
+
+    @Parameter(key = "headless_filter_jdk_gui_cast_generators", group = "Test Generation",
+            description = "Like headless_filter_jdk_gui_generators, but for the random cast class that stands in "
+                    + "for an Object. Turning this off lets a cast of an Object to a Swing type be satisfied "
+                    + "with a real component. Defaults to on only on macOS, where constructing such a component "
+                    + "can load the Aqua look-and-feel and abort the JVM")
+    public static boolean HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS =
+            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+
+    @Parameter(key = "headless_allow_jdk_gui_wrapping_constructors", group = "Test Generation",
+            description = "Exempt from headless_filter_jdk_gui_generators the JDK Swing/AWT constructors that take "
+                    + "an existing Component, such as JScrollPane(Component). They wrap an object rather than stand "
+                    + "in for a typed parameter, and give it a real parent such as a JViewport. Defaults to on "
+                    + "except on macOS, where constructing such a component can load the Aqua look-and-feel and "
+                    + "abort the JVM")
+    public static boolean HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS =
+            !System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+
     @Parameter(key = "headless_filter_cut_calls", group = "Test Generation",
             description = "If true, filter out headless-incompatible constructors/methods of the class under test")
     public static boolean HEADLESS_FILTER_CUT_CALLS = false;
@@ -459,6 +483,12 @@ public class Properties {
                     + "object instances")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double P_FUNCTIONAL_MOCKING = 0.0; // Optimal value: 0.8
+
+    @Parameter(key = "concrete_class_widen_abstract_only_band", group = "Test Creation",
+            description = "When the nearest package-distance band of subclasses of an abstract type holds only "
+                    + "abstract classes with a static generator, keep looking in farther bands for real "
+                    + "concrete classes")
+    public static boolean CONCRETE_CLASS_WIDEN_ABSTRACT_ONLY_BAND = true;
 
     @Parameter(key = "mock_if_no_generator", group = "Test Creation",
             description = "Allow mock objects if there are no generators")

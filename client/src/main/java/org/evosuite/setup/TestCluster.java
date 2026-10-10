@@ -1177,7 +1177,9 @@ public class TestCluster {
 
         List<GenericAccessibleObject<?>> compatible = new ArrayList<>();
         for (GenericAccessibleObject<?> candidate : generators) {
-            if (isHeadlessIncompatibleGenerator(candidate)) {
+            // A random cast class is satisfied by a real Swing component on purpose: nothing
+            // typed as that component competes with a mock here, unlike for a parameter.
+            if (isHeadlessIncompatibleGenerator(candidate, Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS)) {
                 continue;
             }
             GenericAccessibleObject<?> instantiated = instantiateGenerator(candidate, clazz);
@@ -1432,6 +1434,11 @@ public class TestCluster {
     }
 
     private boolean isHeadlessIncompatibleGenerator(GenericAccessibleObject<?> generator) {
+        return isHeadlessIncompatibleGenerator(generator, Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS);
+    }
+
+    private boolean isHeadlessIncompatibleGenerator(GenericAccessibleObject<?> generator,
+                                                    boolean filterJdkGuiComponents) {
         if (!Properties.HEADLESS_MODE) {
             return false;
         }
@@ -1445,7 +1452,9 @@ public class TestCluster {
         // off the main thread.  Mock classes (org.evosuite.runtime.mock.*)
         // live outside java./javax. so are not affected.
         Class<?> declaringClass = generator.getDeclaringClass();
-        if (isJdkGuiComponent(declaringClass)) {
+        if (filterJdkGuiComponents && isJdkGuiComponent(declaringClass)
+                && !(Properties.HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS
+                && isComponentWrappingConstructor(generator))) {
             return true;
         }
 
@@ -1513,6 +1522,23 @@ public class TestCluster {
         return name.equals("java.awt.GraphicsConfiguration")
                 || name.equals("java.awt.GraphicsDevice")
                 || name.equals("java.awt.GraphicsEnvironment");
+    }
+
+    /**
+     * Returns true for a constructor that takes an existing {@link java.awt.Component}, such as
+     * {@code JScrollPane(Component)}: it wraps an object (often the class under test, which then
+     * gets a real parent) rather than standing in for a typed parameter with a default component.
+     */
+    private static boolean isComponentWrappingConstructor(GenericAccessibleObject<?> generator) {
+        if (!generator.isConstructor()) {
+            return false;
+        }
+        for (Class<?> parameterType : ((GenericConstructor) generator).getConstructor().getParameterTypes()) {
+            if (java.awt.Component.class.isAssignableFrom(parameterType)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

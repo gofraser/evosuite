@@ -56,13 +56,99 @@ public class TestClusterHeadlessModeTest {
     private static final boolean DEFAULT_HEADLESS_MODE = Properties.HEADLESS_MODE;
     private static final boolean DEFAULT_HEADLESS_FILTER_CUT_CALLS = Properties.HEADLESS_FILTER_CUT_CALLS;
     private static final boolean DEFAULT_MOCK_GUI = RuntimeSettings.mockGUI;
+    private static final boolean DEFAULT_FILTER_JDK_GUI = Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS;
+    private static final boolean DEFAULT_FILTER_JDK_GUI_CAST = Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS;
+    private static final boolean DEFAULT_ALLOW_JDK_GUI_WRAPPERS =
+            Properties.HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS;
 
     @AfterEach
     public void tearDown() {
         Properties.HEADLESS_MODE = DEFAULT_HEADLESS_MODE;
         Properties.HEADLESS_FILTER_CUT_CALLS = DEFAULT_HEADLESS_FILTER_CUT_CALLS;
         RuntimeSettings.mockGUI = DEFAULT_MOCK_GUI;
+        Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS = DEFAULT_FILTER_JDK_GUI;
+        Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS = DEFAULT_FILTER_JDK_GUI_CAST;
+        Properties.HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS = DEFAULT_ALLOW_JDK_GUI_WRAPPERS;
         TestCluster.reset();
+    }
+
+    @Test
+    public void testSwingGeneratorFilteredForParametersByDefault() throws Exception {
+        Assertions.assertTrue(DEFAULT_FILTER_JDK_GUI,
+                "a JTable parameter must be served by a mock, not by a default real JTable");
+    }
+
+    @Test
+    public void testSwingGeneratorForCastClassFilteredUnlessOptedIn() throws Exception {
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+        GenericClass<?> comboType = GenericClassFactory.get(javax.swing.JComboBox.class);
+        GenericConstructor comboConstructor = new GenericConstructor(
+                javax.swing.JComboBox.class.getConstructor(), javax.swing.JComboBox.class);
+        cluster.addGenerator(comboType, comboConstructor);
+        Properties.HEADLESS_MODE = true;
+        Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS = true;
+
+        Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS = true;
+        Assertions.assertThrows(org.evosuite.ga.ConstructionFailedException.class,
+                () -> cluster.getRandomGenerator(comboType));
+
+        Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS = false;
+        Assertions.assertNotNull(cluster.getRandomGenerator(comboType));
+    }
+
+    @Test
+    public void testLightweightSwingGeneratorFilteredUnlessOptedIn() throws Exception {
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+        GenericClass<?> comboType = GenericClassFactory.get(javax.swing.JComboBox.class);
+        GenericConstructor comboConstructor = new GenericConstructor(
+                javax.swing.JComboBox.class.getConstructor(), javax.swing.JComboBox.class);
+        cluster.addGenerator(comboType, comboConstructor);
+        Properties.HEADLESS_MODE = true;
+
+        Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS = true;
+        Assertions.assertNull(cluster.getRandomGenerator(
+                comboType, Collections.emptySet(), null, 0, null, 0));
+
+        Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS = false;
+        Assertions.assertNotNull(cluster.getRandomGenerator(
+                comboType, Collections.emptySet(), null, 0, null, 0));
+    }
+
+    @Test
+    public void testSwingConstructorWrappingAComponentKeptUnlessOptedOut() throws Exception {
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+        GenericClass<?> componentType = GenericClassFactory.get(java.awt.Component.class);
+        cluster.addGenerator(componentType, new GenericConstructor(
+                javax.swing.JScrollPane.class.getConstructor(java.awt.Component.class),
+                javax.swing.JScrollPane.class));
+        Properties.HEADLESS_MODE = true;
+        Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS = true;
+
+        Properties.HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS = true;
+        Assertions.assertNotNull(cluster.getRandomGenerator(
+                componentType, Collections.emptySet(), null, 0, null, 0));
+
+        Properties.HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS = false;
+        Assertions.assertNull(cluster.getRandomGenerator(
+                componentType, Collections.emptySet(), null, 0, null, 0));
+    }
+
+    @Test
+    public void testSwingConstructorWithoutAComponentStaysFiltered() throws Exception {
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+        GenericClass<?> tableType = GenericClassFactory.get(javax.swing.JTable.class);
+        cluster.addGenerator(tableType, new GenericConstructor(
+                javax.swing.JTable.class.getConstructor(int.class, int.class), javax.swing.JTable.class));
+        Properties.HEADLESS_MODE = true;
+        Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS = true;
+        Properties.HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS = true;
+
+        Assertions.assertNull(cluster.getRandomGenerator(
+                tableType, Collections.emptySet(), null, 0, null, 0));
     }
 
     @Test
