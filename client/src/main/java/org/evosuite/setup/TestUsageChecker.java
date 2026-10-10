@@ -1280,11 +1280,32 @@ public class TestUsageChecker {
     /**
      * Whether javac cannot resolve the method from source: bridges, synthetic members (access$NNN
      * stubs, lambda bodies) and accessor stubs whose modifiers instrumentation may have widened.
-     * Such a method must never be rendered, whatever its visibility.
+     * Such a method must never be rendered, whatever its visibility. So must a method with a
+     * parameter of a source-private type (or an array of one): no argument for it can be written,
+     * because a test can neither name the type nor cast to it.
      */
     public static boolean isNotCallableFromSource(Method m) {
         return m.isSynthetic() || m.isBridge()
-                || COMPILER_ACCESSOR_NAME.matcher(m.getName()).matches();
+                || COMPILER_ACCESSOR_NAME.matcher(m.getName()).matches()
+                || hasSourcePrivateParameterType(m);
+    }
+
+    private static boolean hasSourcePrivateParameterType(Method m) {
+        for (Class<?> parameter : m.getParameterTypes()) {
+            Class<?> element = parameter;
+            while (element.isArray()) {
+                element = element.getComponentType();
+            }
+            for (Class<?> current = element; current != null; current = getDeclaringClassSafely(current)) {
+                if (current == UNRESOLVABLE_OWNER_CLASS) {
+                    break;
+                }
+                if (Modifier.isPrivate(getSourceModifiers(current))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
