@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
+import org.evosuite.runtime.ArrayAllocationBudget;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
@@ -552,6 +553,11 @@ public class TestCaseExecutor implements ThreadFactory {
             } finally {
                 clearMockInvocationsIfNeeded(tc, scope, timedOutExecution,
                         workerThreadStillAliveAfterTimeout);
+                // The cumulative array budget is per test. Left at this test's total, it is
+                // charged by whatever runs class initialisers before the next test starts
+                // (static field re-initialisation below, or the search inspecting a class),
+                // which then fail with a TooManyResourcesException of a test that is over.
+                ArrayAllocationBudget.reset();
             }
             if (timedOutExecution && workerThreadStillAliveAfterTimeout) {
                 rotateExecutorAfterStalledTimeout();

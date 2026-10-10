@@ -47,7 +47,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * rather than racing to overwrite one another.
  *
  * <p>Reset lifecycle: {@link Runtime#resetRuntime()} calls {@link #reset()} once per
- * test, on the thread about to run that test. Unlike {@link LoopCounter}, this class does
+ * test, on the thread about to run that test, and the client's test executor resets it
+ * again once the test is over, so that class initialisers run between tests are not
+ * charged against a finished test's total. Unlike {@link LoopCounter}, this class does
  * not quarantine a leftover SUT thread that keeps running after its own test has been
  * abandoned: such a thread keeps charging whichever total is current, including a later
  * test's. That is deliberate -- the abandoned thread's allocations are still real heap
