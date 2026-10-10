@@ -56,11 +56,22 @@ public class ExecutorRotationAbandonmentFixture {
         blockedWorker = Thread.currentThread();
         entered.countDown();
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (release.getCount() > 0 && System.nanoTime() < deadline) {
+        boolean finished = false;
+        while (!finished) {
+            // Thread.stop() is asynchronous and the executor issues it right after interrupt(),
+            // so it can land anywhere in this method: in await, in the interrupt handler or in
+            // the loop condition. The ThreadDeath handler must therefore enclose the whole loop,
+            // otherwise the "stop-resistant" worker sometimes dies and the executor correctly
+            // sees an idle thread that needs no rotation.
             try {
-                release.await(100, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                ordinaryInterrupts.incrementAndGet();
+                while (release.getCount() > 0 && System.nanoTime() < deadline) {
+                    try {
+                        release.await(100, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException e) {
+                        ordinaryInterrupts.incrementAndGet();
+                    }
+                }
+                finished = true;
             } catch (ThreadDeath ignored) {
                 // Simulates a SUT catch(Throwable) retry loop which defeats forced cleanup.
             }
