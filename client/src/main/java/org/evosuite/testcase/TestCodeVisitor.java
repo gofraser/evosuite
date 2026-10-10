@@ -41,6 +41,7 @@ import org.evosuite.runtime.MockInvocationLimit;
 import org.evosuite.runtime.PrivateAccess;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.ViolatedAssumptionAnswer;
+import org.evosuite.runtime.instrumentation.InstrumentedClass;
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
@@ -5442,6 +5443,11 @@ public class TestCodeVisitor extends TestVisitor {
         }
         while (!interfaceQueue.isEmpty()) {
             Class<?> iface = interfaceQueue.removeFirst();
+            // Instrumentation adds this marker to the classes it loads; javac compiles the test
+            // against the uninstrumented class, which does not implement it.
+            if (iface == InstrumentedClass.class) {
+                continue;
+            }
             if (isTypeAccessibleFromGeneratedTest(iface, testPackageName)) {
                 if (!hasInstanceMethods(iface)) {
                     Class<?> superclass = findAccessibleSuperclass(inaccessibleType, testPackageName);

@@ -20,6 +20,7 @@
 package org.evosuite.testcase;
 
 import org.evosuite.Properties;
+import org.evosuite.testcase.accessfixture.InstrumentedPropertyTable;
 import org.evosuite.testcase.accessfixture.PropertyTable;
 import org.evosuite.testcase.accessfixture.StringTrie;
 import org.evosuite.testcase.accessfixture.TableBase;
@@ -347,13 +348,18 @@ public class InaccessibleMemberCompileTest {
     // -- private inner class of a generic class ----------------------------------------------
 
     private String renderGetProperty(java.lang.reflect.Type tableType) throws Exception {
+        return renderGetProperty(PropertyTable.class, tableType);
+    }
+
+    private String renderGetProperty(Class<?> tableClass, java.lang.reflect.Type tableType)
+            throws Exception {
         TestCase tc = new DefaultTestCase();
         VariableReference table = tc.addStatement(new ConstructorStatement(tc,
-                new GenericConstructor(PropertyTable.class.getConstructor(), tableType),
+                new GenericConstructor(tableClass.getConstructor(), tableType),
                 Collections.emptyList()));
         VariableReference name = tc.addStatement(new StringPrimitiveStatement(tc, "name"));
         VariableReference property = tc.addStatement(new MethodStatement(tc,
-                new GenericMethod(PropertyTable.class.getDeclaredMethod("getProperty", String.class),
+                new GenericMethod(tableClass.getDeclaredMethod("getProperty", String.class),
                         tableType), table, Collections.singletonList(name)));
         call(tc, Object.class, "hashCode", property);
         return render(tc);
@@ -435,6 +441,14 @@ public class InaccessibleMemberCompileTest {
         String code = render(tc);
         assertTrue(code.matches("(?s).*\\bString \\w+ = [^;]*\\.put\\(.*"), code);
         assertFalse(code.contains("(AbstractTrie)"), code);
+        assertCompiles(code);
+    }
+
+    @Test
+    public void privateInnerClassIsNotDeclaredAsTheInstrumentationMarker() throws Exception {
+        String code = renderGetProperty(InstrumentedPropertyTable.class,
+                InstrumentedPropertyTable.class);
+        assertFalse(code.contains("InstrumentedClass"), code);
         assertCompiles(code);
     }
 
