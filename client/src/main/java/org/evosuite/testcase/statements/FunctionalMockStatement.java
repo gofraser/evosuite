@@ -1394,6 +1394,32 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         return false;
     }
 
+    /**
+     * True if the JVM's module system refused the reflective access Mockito needs to create the
+     * mock (java.lang.reflect.InaccessibleObjectException, a RuntimeException since Java 9). The
+     * module setup of the JVM running the search, not EvoSuite's own state, decides this, so it
+     * ends the mock attempt rather than the whole generation. The type is matched by name because
+     * this module is compiled for Java 8.
+     */
+    private static boolean isMockAccessRefusal(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if ("java.lang.reflect.InaccessibleObjectException".equals(current.getClass().getName())) {
+                return true;
+            }
+            Throwable next = current.getCause();
+            if (next == current) {
+                break;
+            }
+            current = next;
+        }
+        return false;
+    }
+
+    static boolean isMockAccessRefusalForTests(Throwable throwable) {
+        return isMockAccessRefusal(throwable);
+    }
+
     private static boolean isCodeUnderTestInitializationFailure(Throwable throwable) {
         return hasCause(throwable, NoClassDefFoundError.class)
                 || hasCause(throwable, ExceptionInInitializerError.class)
@@ -1749,7 +1775,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             } catch (Throwable t) {
                 AtMostOnceLogger.error(logger, "Failed to use Mockito on " + targetClass
                         + ": " + t.getMessage());
-                if (isCodeUnderTestInitializationFailure(t)) {
+                if (isCodeUnderTestInitializationFailure(t) || isMockAccessRefusal(t)) {
                     handleRecoverableMockFailure(targetClass, t);
                 }
                 throw new EvosuiteError(t);
