@@ -492,6 +492,35 @@ public class TestCluster {
         }
     }
 
+    /**
+     * Cheap pre-check for {@link GenericClass#canBeInstantiatedTo(GenericClass)}. For two
+     * ordinary class or parameterized types, being instantiable to the other type implies that
+     * the erasure of the generator's type is a subtype of the erasure of the requested type.
+     * Whether that holds is a single native call, whereas the generic check is expensive, and
+     * the cluster asks it once for every pair of (requested type, generated type), which on a
+     * classpath with many thousands of classes dominates test cluster setup.
+     *
+     * <p>Primitives, arrays, type variables and wildcards are left to the full check, because
+     * boxing, array covariance and bounds relate types that are not erasure subtypes.
+     *
+     * @param generatorClazz the type produced by a generator
+     * @param requested      the type that is needed
+     * @return true if the generic check cannot succeed
+     */
+    static boolean isRawTypeIncompatible(GenericClass<?> generatorClazz, GenericClass<?> requested) {
+        if (!isPlainClassOrParameterizedType(generatorClazz) || !isPlainClassOrParameterizedType(requested)) {
+            return false;
+        }
+        return !requested.getRawClass().isAssignableFrom(generatorClazz.getRawClass());
+    }
+
+    private static boolean isPlainClassOrParameterizedType(GenericClass<?> clazz) {
+        java.lang.reflect.Type type = clazz.getType();
+        Class<?> raw = clazz.getRawClass();
+        return raw != null && !raw.isPrimitive() && !raw.isArray()
+                && (type instanceof Class || type instanceof java.lang.reflect.ParameterizedType);
+    }
+
     private void cacheGeneratorsLocked(GenericClass<?> clazz) throws ConstructionFailedException {
 
         if (generatorCache.containsKey(clazz)) {
@@ -515,7 +544,8 @@ public class TestCluster {
                 // logger.debug("3. Considering original generator: " + generatorClazz + " for " +
                 // clazz);
 
-                if (generatorClazz.canBeInstantiatedTo(clazz)) {
+                if (!isRawTypeIncompatible(generatorClazz, clazz)
+                        && generatorClazz.canBeInstantiatedTo(clazz)) {
 
                     // logger.debug("4. generator " + generatorClazz + " can be instantiated to " +
                     // clazz);
