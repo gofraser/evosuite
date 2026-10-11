@@ -31,10 +31,12 @@ import java.util.List;
 public class MockListTest {
 
     private static final boolean DEFAULT_JVM = RuntimeSettings.mockJVMNonDeterminism;
+    private static final boolean DEFAULT_VFS = RuntimeSettings.useVFS;
 
     @AfterEach
     public void tearDown() {
         RuntimeSettings.mockJVMNonDeterminism = DEFAULT_JVM;
+        RuntimeSettings.useVFS = DEFAULT_VFS;
     }
 
     @Test
@@ -62,5 +64,54 @@ public class MockListTest {
         //then try a static replacement one
         Assertions.assertTrue(new MockRuntime() instanceof StaticReplacementMock);
         Assertions.assertTrue(MockList.shouldBeMocked(java.lang.Runtime.class.getName()));
+    }
+
+    @Test
+    public void testLookupsFollowRuntimeSettings() {
+        RuntimeSettings.mockJVMNonDeterminism = true;
+        RuntimeSettings.useVFS = false;
+        Assertions.assertTrue(MockList.shouldBeMocked(java.lang.Runtime.class.getName()));
+        Assertions.assertTrue(MockList.isAMockClass(MockRuntime.class.getCanonicalName()));
+        Assertions.assertEquals(MockRuntime.class, MockList.getMockClass(java.lang.Runtime.class.getName()));
+        Assertions.assertFalse(MockList.shouldBeMocked(java.io.File.class.getName()));
+
+        // Lookups answered from a cache must not outlive the settings they were computed for
+        RuntimeSettings.mockJVMNonDeterminism = false;
+        Assertions.assertFalse(MockList.shouldBeMocked(java.lang.Runtime.class.getName()));
+        Assertions.assertFalse(MockList.isAMockClass(MockRuntime.class.getCanonicalName()));
+        Assertions.assertNull(MockList.getMockClass(java.lang.Runtime.class.getName()));
+
+        RuntimeSettings.useVFS = true;
+        Assertions.assertTrue(MockList.shouldBeMocked(java.io.File.class.getName()));
+
+        RuntimeSettings.useVFS = false;
+        Assertions.assertFalse(MockList.shouldBeMocked(java.io.File.class.getName()));
+    }
+
+    @Test
+    public void testListIsACopyThatCallersMayModify() {
+        RuntimeSettings.mockJVMNonDeterminism = true;
+        List<Class<? extends EvoSuiteMock>> first = MockList.getList();
+        int size = first.size();
+        Assertions.assertTrue(size > 0);
+        first.clear();
+        Assertions.assertEquals(size, MockList.getList().size());
+        Assertions.assertTrue(MockList.shouldBeMocked(java.lang.Runtime.class.getName()));
+    }
+
+    @Test
+    public void testRepeatedLookupsAreCheap() {
+        // The lookups run for every class and member the test cluster and the
+        // instrumentation inspect; rebuilding the mock list on each call made
+        // test cluster setup on large classpaths exhaust its time budget.
+        RuntimeSettings.mockJVMNonDeterminism = true;
+        MockList.shouldBeMocked(java.lang.Runtime.class.getName());
+        long start = System.nanoTime();
+        for (int i = 0; i < 20_000; i++) {
+            MockList.shouldBeMocked("com.example.NotMocked" + (i % 50));
+            MockList.isAMockClass("com.example.NotMocked" + (i % 50));
+        }
+        long millis = (System.nanoTime() - start) / 1_000_000;
+        Assertions.assertTrue(millis < 1_000, "40000 lookups took " + millis + " ms");
     }
 }

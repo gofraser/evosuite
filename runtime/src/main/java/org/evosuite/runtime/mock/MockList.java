@@ -61,7 +61,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Class used to handle all the mock objects. When a new mock is defined, it has
@@ -85,6 +90,56 @@ public class MockList {
      * @return a list of Class objects.
      */
     public static List<Class<? extends EvoSuiteMock>> getList() {
+        return new ArrayList<>(snapshot().mocks);
+    }
+
+    /**
+     * Everything derived from the mock list for one combination of runtime settings.
+     * Building the list loads and instantiates well over a hundred classes, and the
+     * lookups below are called for every class, method and member the test cluster
+     * and the instrumentation look at, so the result is computed once per settings
+     * combination.
+     */
+    private static final class Snapshot {
+        private final int settings;
+        private final List<Class<? extends EvoSuiteMock>> mocks;
+        private final Map<String, Class<? extends EvoSuiteMock>> mockByMockedClassName = new HashMap<>();
+        private final Set<String> mockCanonicalNames = new HashSet<>();
+
+        private Snapshot(int settings, List<Class<? extends EvoSuiteMock>> mocks) {
+            this.settings = settings;
+            this.mocks = Collections.unmodifiableList(mocks);
+            for (Class<? extends EvoSuiteMock> mock : mocks) {
+                mockCanonicalNames.add(mock.getCanonicalName());
+                String name = mockedClassName(mock);
+                if (name != null) {
+                    // The first mock in list order wins, as in a linear scan
+                    mockByMockedClassName.putIfAbsent(name, mock);
+                }
+            }
+        }
+    }
+
+    private static volatile Snapshot cachedSnapshot;
+
+    private static int currentSettings() {
+        return (RuntimeSettings.useVFS ? 1 : 0)
+                | (RuntimeSettings.mockJVMNonDeterminism ? 2 : 0)
+                | (RuntimeSettings.useVNET ? 4 : 0)
+                | (RuntimeSettings.mockGUI ? 8 : 0);
+    }
+
+    private static Snapshot snapshot() {
+        int settings = currentSettings();
+        Snapshot current = cachedSnapshot;
+        if (current == null || current.settings != settings) {
+            current = new Snapshot(settings, buildList());
+            cachedSnapshot = current;
+        }
+        return current;
+    }
+
+    private static List<Class<? extends EvoSuiteMock>> buildList() {
         List<Class<? extends EvoSuiteMock>> list = new ArrayList<>();
 
         if (RuntimeSettings.useVFS) {
@@ -279,13 +334,7 @@ public class MockList {
             return false;
         }
 
-        for (Class<?> mock : getList()) {
-            if (mock.getCanonicalName().equals(mockClass)) {
-                return true;
-            }
-        }
-
-        return false;
+        return snapshot().mockCanonicalNames.contains(mockClass);
     }
 
     /**
@@ -300,39 +349,35 @@ public class MockList {
             throw new IllegalArgumentException("Empty className");
         }
 
-        for (Class<? extends EvoSuiteMock> mock : getList()) {
+        return snapshot().mockByMockedClassName.get(originalClass);
+    }
 
-            String name = null;
-
-            if (OverrideMock.class.isAssignableFrom(mock)) {
-                Class<?> target = mock.getSuperclass();
-                if (target == null) {
-                    logger.error("Override mock " + mock.getCanonicalName() + " does not have a superclass");
-                    continue;
-                }
-                name = target.getCanonicalName();
-
-            } else if (StaticReplacementMock.class.isAssignableFrom(mock)) {
-                try {
-                    StaticReplacementMock m = (StaticReplacementMock) mock.newInstance();
-                    name = m.getMockedClassName();
-                } catch (Throwable t) {
-                    // Optional mocks for newer JDK APIs can fail to initialize on older runtimes.
-                    // Treat them as unavailable instead of aborting class instrumentation.
-                    logger.debug("Skipping unavailable mock {}", mock.getCanonicalName(), t);
-                    continue;
-                }
-            } else {
-                // should never happen
-                logger.error("Cannot handle " + mock);
-                continue;
+    /**
+     * The name of the class a mock stands in for, or {@code null} if the mock is
+     * unavailable on this runtime.
+     */
+    private static String mockedClassName(Class<? extends EvoSuiteMock> mock) {
+        if (OverrideMock.class.isAssignableFrom(mock)) {
+            Class<?> target = mock.getSuperclass();
+            if (target == null) {
+                logger.error("Override mock " + mock.getCanonicalName() + " does not have a superclass");
+                return null;
             }
-
-            if (originalClass.equals(name)) {
-                return mock;
+            return target.getCanonicalName();
+        } else if (StaticReplacementMock.class.isAssignableFrom(mock)) {
+            try {
+                StaticReplacementMock m = (StaticReplacementMock) mock.newInstance();
+                return m.getMockedClassName();
+            } catch (Throwable t) {
+                // Optional mocks for newer JDK APIs can fail to initialize on older runtimes.
+                // Treat them as unavailable instead of aborting class instrumentation.
+                logger.debug("Skipping unavailable mock {}", mock.getCanonicalName(), t);
+                return null;
             }
+        } else {
+            // should never happen
+            logger.error("Cannot handle " + mock);
+            return null;
         }
-
-        return null;
     }
 }
