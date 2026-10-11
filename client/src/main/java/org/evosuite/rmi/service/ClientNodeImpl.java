@@ -129,6 +129,21 @@ public class ClientNodeImpl<T extends Chromosome<T>>
      */
     static Runnable COVERAGE_ANALYSIS_FOR_TESTING = null;
 
+    /**
+     * Test-only replacement for {@code new TestSuiteGenerator().generateTestSuite()} in {@link
+     * #startNewSearch()}. {@code null} in production. Like {@link #COVERAGE_ANALYSIS_FOR_TESTING}
+     * it is read by the search worker thread, so it works where a static mock would not.
+     */
+    static java.util.function.Supplier<TestGenerationResult> SEARCH_FOR_TESTING = null;
+
+    /**
+     * Written to stderr when the search task could not even report its own failure. Built once,
+     * so that printing it needs no allocation: the failure it reports may well be heap exhaustion.
+     */
+    private static final String SEARCH_TASK_ABORTED_MESSAGE =
+            "EvoSuite client: the search task aborted while handling its own failure; "
+                    + "releasing the client so that it exits instead of waiting for the master's timeout";
+
     //only for testing
     protected ClientNodeImpl() {
     }
@@ -179,6 +194,26 @@ public class ClientNodeImpl<T extends Chromosome<T>>
          * function call until end of the search, even if it is on remote process
          */
         searchExecutor.submit(() -> {
+            try {
+                runSearchTask();
+            } finally {
+                /*
+                 * The executor swallows whatever a task throws, and the main thread of the client
+                 * process sits in waitUntilDone() until this latch opens. The failure handling in
+                 * runSearchTask() allocates (log records, messages), so when the search died of
+                 * heap exhaustion it can die in turn before it reaches the DONE transition, and the
+                 * client would then hang, silently, until the master's timeout. Opening the latch
+                 * here needs no allocation, and lets the process shut down.
+                 */
+                if (doneLatch.getCount() > 0) {
+                    doneLatch.countDown();
+                    safePrintToStderr(SEARCH_TASK_ABORTED_MESSAGE);
+                }
+            }
+        });
+    }
+
+    private void runSearchTask() {
             List<TestGenerationResult> results = null;
             try {
                 changeState(ClientState.STARTED);
@@ -195,8 +230,12 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
                 try {
                     // Starting a new search
-                    TestSuiteGenerator generator = new TestSuiteGenerator();
-                    results.add(generator.generateTestSuite());
+                    if (SEARCH_FOR_TESTING != null) {
+                        results.add(SEARCH_FOR_TESTING.get());
+                    } else {
+                        TestSuiteGenerator generator = new TestSuiteGenerator();
+                        results.add(generator.generateTestSuite());
+                    }
                     // TODO: Why?
                     // GeneticAlgorithm<?> ga = generator.getEmployedGeneticAlgorithm();
                 } catch (Throwable t) {
@@ -214,7 +253,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 try {
                     changeState(ClientState.DONE);
                 } catch (Throwable t) {
-                    java.lang.System.err.println("Failed to change client state to DONE: " + t);
+                    safePrintToStderr("Failed to change client state to DONE: ", t);
                 }
 
                 if (Properties.SANDBOX) {
@@ -224,7 +263,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     try {
                         Sandbox.resetDefaultSecurityManager();
                     } catch (Throwable t) {
-                        java.lang.System.err.println("Failed to reset sandbox security manager: " + t);
+                        safePrintToStderr("Failed to reset sandbox security manager: ", t);
                     }
                 }
             }
@@ -238,7 +277,23 @@ public class ClientNodeImpl<T extends Chromosome<T>>
              *  system test cases after the search
              */
             //org.evosuite.runtime.System.fullReset();
-        });
+    }
+
+    private static void safePrintToStderr(String message) {
+        try {
+            java.lang.System.err.println(message);
+        } catch (Throwable ignored) {
+            // nothing left to report to
+        }
+    }
+
+    private static void safePrintToStderr(String message, Throwable cause) {
+        try {
+            java.lang.System.err.println(message + cause);
+        } catch (Throwable ignored) {
+            // cause.toString() may itself fail; the message alone is still worth printing
+            safePrintToStderr(message);
+        }
     }
 
     private void safeLogSearchFailure(Throwable t) {
@@ -248,10 +303,10 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     + Randomness.getSeed() + ". Configuration id : "
                     + Properties.CONFIGURATION_ID, t);
         } catch (Throwable ignored) {
-            java.lang.System.err.println("Error when generating tests for: "
+            safePrintToStderr("Error when generating tests for: "
                     + Properties.TARGET_CLASS + " with seed "
                     + Randomness.getSeed() + ". Configuration id : "
-                    + Properties.CONFIGURATION_ID + ". Cause: " + t);
+                    + Properties.CONFIGURATION_ID + ". Cause: ", t);
         }
     }
 
@@ -321,22 +376,25 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     @Override
     public void changeState(ClientState state, ClientStateInformation information) {
-        if (this.state != state) {
-            logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client changing state from "
-                    + this.state + " to " + state);
-        }
-
+        ClientState previous = this.state;
         this.state = state;
 
-        TimeController.getInstance().updateState(state);
-
-        if (this.state.equals(ClientState.DONE)) {
+        // Release the waiters first: logging and the phase bookkeeping below can fail, and the
+        // client process waits on these latches to know when it may shut down.
+        if (state.equals(ClientState.DONE)) {
             doneLatch.countDown();
         }
 
-        if (this.state.equals(ClientState.FINISHED)) {
+        if (state.equals(ClientState.FINISHED)) {
             finishedLatch.countDown();
         }
+
+        if (previous != state) {
+            logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client changing state from "
+                    + previous + " to " + state);
+        }
+
+        TimeController.getInstance().updateState(state);
 
         notifyMasterOfStateChangeBestEffort(state, information);
     }
