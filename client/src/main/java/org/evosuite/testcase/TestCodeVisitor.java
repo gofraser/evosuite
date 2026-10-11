@@ -5059,6 +5059,25 @@ public class TestCodeVisitor extends TestVisitor {
         return getSimpleTypeName(type);
     }
 
+    /** True when a later statement of the test assigns to the local variable this one defines. */
+    private boolean isReassignedLocal(Statement definition) {
+        if (test == null) {
+            return false;
+        }
+        VariableReference defined = definition.getReturnValue();
+        for (int i = definition.getPosition() + 1; i < test.size(); i++) {
+            Statement later = test.getStatement(i);
+            if (later instanceof AssignmentStatement) {
+                VariableReference target = later.getReturnValue();
+                if (!(target instanceof FieldReference) && !(target instanceof ArrayIndex)
+                        && target.equals(defined)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /*
      * (non-Javadoc)
      *
@@ -5135,6 +5154,16 @@ public class TestCodeVisitor extends TestVisitor {
         String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
                 ? getDeclarationTypeName(constructorDeclarationType)
                 : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
+        if (!isNonStaticMemberClass && isReassignedLocal(statement)
+                && rawConstructor.getDeclaringClass() != retval.getVariableClass()
+                && retval.getVariableClass().isAssignableFrom(rawConstructor.getDeclaringClass())
+                && isDeclaredTypeNameableInGeneratedTest(retval.getVariableClass())) {
+            // The variable is written again later, with a value of the variable's own type, not
+            // of the constructor's: java.io.File built by the MockFile constructor, then given a
+            // de.schlichtherle.io.File. Declared as the narrower constructor owner it cannot take
+            // that value.
+            constructorTypeName = getDeclarationTypeName(retval.getType());
+        }
 
         // The declaration prefix ("Type ") is prepended at the point where the
         // retval variable is first introduced. In the try-catch path the retval
