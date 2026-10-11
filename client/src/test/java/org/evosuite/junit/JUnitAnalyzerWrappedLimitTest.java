@@ -53,4 +53,33 @@ public class JUnitAnalyzerWrappedLimitTest {
                 new JUnitFailure(null, "java.lang.IllegalStateException", "test0", false, null)));
         assertFalse(JUnitAnalyzer.isWrappedTooManyResourcesFailure(null));
     }
+
+    public static class Probe {
+        @org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit
+        public void marked() {
+        }
+
+        public void unmarked() {
+        }
+    }
+
+    @Test
+    public void aStackOverflowIsAcceptedOnlyForATestMarkedAsEndingOnTheLimit() {
+        Class<?>[] classes = {Probe.class};
+        String cls = Probe.class.getName();
+        String overflow = StackOverflowError.class.getName();
+
+        String wrappedTrace = "java.lang.RuntimeException: x\nCaused by: " + overflow + "\n\tat Foo.bar(Foo.java:1)";
+
+        assertTrue(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+                new JUnitFailure(null, overflow, cls, "marked", false, ""), classes));
+        assertTrue(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+                new JUnitFailure("x", "java.lang.RuntimeException", cls, "marked", false, wrappedTrace), classes));
+        assertFalse(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+                new JUnitFailure(null, overflow, cls, "unmarked", false, ""), classes));
+        assertFalse(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+                new JUnitFailure(null, "java.lang.IllegalStateException", cls, "marked", false, ""), classes));
+        assertFalse(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+                new JUnitFailure(null, overflow, cls, "marked", false, ""), null));
+    }
 }

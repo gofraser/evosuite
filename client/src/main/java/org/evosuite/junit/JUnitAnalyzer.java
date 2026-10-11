@@ -36,6 +36,7 @@ import org.evosuite.runtime.InitializingListenerUtils;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.TooManyResourcesException;
+import org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit;
 import org.evosuite.runtime.classhandling.ClassStateSupport;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.mock.MockFramework;
@@ -481,7 +482,8 @@ public abstract class JUnitAnalyzer {
                 // Treat the test as valid and keep it in the suite.
                 if ("org.evosuite.runtime.TooManyResourcesException".equals(failure.getExceptionClassName())
                         || isMockInvocationLimitFailure(failure)
-                        || isWrappedTooManyResourcesFailure(failure)) {
+                        || isWrappedTooManyResourcesFailure(failure)
+                        || isStackOverflowOfTestEndingOnLimit(failure, testClasses)) {
                     logger.debug("Ignoring expected TooManyResourcesException for test {} "
                             + "(SUT loop terminated by iteration cap, same as during search): {}",
                             testName, failure.getMessage());
@@ -631,6 +633,45 @@ public abstract class JUnitAnalyzer {
         return failure != null
                 && normalizeFailureClassName(failure.getExceptionClassName())
                 .endsWith("org.evosuite.testcase.execution.TestCaseExecutor$TimeoutExceeded");
+    }
+
+    /**
+     * The JUnit check reads the failures itself instead of running the tests through the
+     * non-functional requirement rule, so it applies the rule's allowance here: a stack overflow
+     * is the expected end of a test that carries
+     * {@link EvoSuiteEndsOnResourceLimit}, because unbounded recursion ends on the stack when
+     * that runs out before a resource limit fires (see
+     * {@link TooManyResourcesException#isExpectedLimitFailure(Throwable, boolean)}).
+     */
+    static boolean isStackOverflowOfTestEndingOnLimit(JUnitFailure failure, Class<?>[] testClasses) {
+        if (failure == null || testClasses == null || failure.getDescriptionMethodName() == null) {
+            return false;
+        }
+        String overflow = StackOverflowError.class.getName();
+        String trace = failure.getTrace();
+        boolean isOverflow = overflow.equals(failure.getExceptionClassName())
+                || (trace != null && trace.contains("Caused by: " + overflow));
+        if (!isOverflow) {
+            return false;
+        }
+        for (Class<?> testClass : testClasses) {
+            if (failure.getDescriptionClassName() != null
+                    && !failure.getDescriptionClassName().equals(testClass.getName())) {
+                continue;
+            }
+            for (java.lang.reflect.Method method : testClass.getDeclaredMethods()) {
+                if (!method.getName().equals(failure.getDescriptionMethodName())) {
+                    continue;
+                }
+                // by name: the tests may have been loaded by a loader with its own copy of the runtime
+                for (java.lang.annotation.Annotation annotation : method.getAnnotations()) {
+                    if (annotation.annotationType().getName().equals(EvoSuiteEndsOnResourceLimit.class.getName())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**

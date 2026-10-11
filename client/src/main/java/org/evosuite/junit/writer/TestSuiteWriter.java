@@ -28,6 +28,8 @@ import org.evosuite.junit.naming.methods.NumberedTestNameGenerationStrategy;
 import org.evosuite.junit.naming.methods.TestNameGenerationStrategy;
 import org.evosuite.llm.postprocess.LlmPostProcessingTestNameStrategy;
 import org.evosuite.result.TestGenerationResultBuilder;
+import org.evosuite.runtime.TooManyResourcesException;
+import org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit;
 import org.evosuite.runtime.*;
 import org.evosuite.runtime.testdata.EnvironmentDataList;
 import org.evosuite.testcase.DefaultTestCase;
@@ -835,6 +837,21 @@ public class TestSuiteWriter implements Opcodes {
 
 
     /**
+     * Whether the test ends on one of EvoSuite's resource limits: the exception that ends it
+     * is or wraps a {@link TooManyResourcesException}. Such a test is rendered without a
+     * try/catch around that statement and is marked so that the JUnit rule also accepts the
+     * stack overflow the same unbounded recursion can end on in a cold JVM. JUnit 3 has no rule
+     * to hook into, so its tests are not marked.
+     */
+    static boolean endsOnResourceLimit(ExecutionResult result) {
+        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT3) {
+            return false;
+        }
+        Integer pos = result.getFirstPositionOfThrownException();
+        return pos != null && TooManyResourcesException.isOrWraps(result.getExceptionThrownAtPosition(pos));
+    }
+
+    /**
      * Convert one test case to a Java method.
      *
      * @param number Number of the test case
@@ -865,6 +882,10 @@ public class TestSuiteWriter implements Opcodes {
             methodName = TestSuiteWriterUtils.getNameOfTest(testCases, number);
         }
         methodName = ensureUniqueMethodName(methodName);
+        if (endsOnResourceLimit(result)) {
+            builder.append(METHOD_SPACE).append("@").append(EvoSuiteEndsOnResourceLimit.class.getName())
+                    .append(NEWLINE);
+        }
         builder.append(adapter.getMethodDefinition(methodName));
 
         /*

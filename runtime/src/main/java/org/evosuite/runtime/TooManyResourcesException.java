@@ -105,4 +105,37 @@ public class TooManyResourcesException extends RuntimeException {
         }
         return false;
     }
+
+    /**
+     * Whether the throwable is a {@link StackOverflowError} or has one in its cause chain.
+     * The chain walk is bounded like {@link #isOrWraps(Throwable)}, and a {@code getCause()}
+     * that throws counts as no match.
+     */
+    public static boolean isOrWrapsStackOverflow(Throwable t) {
+        int depth = 0;
+        while (t != null && depth++ < 20) {
+            if (t instanceof StackOverflowError) {
+                return true;
+            }
+            try {
+                t = t.getCause();
+            } catch (Throwable failed) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a test failure is the expected end of a test that hit a resource limit: the
+     * limit itself, or, if the test is marked
+     * {@link org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit}, the stack overflow
+     * that the same unbounded recursion ends on when the stack runs out before the limit fires.
+     *
+     * @param t           the throwable that reached the JUnit runner
+     * @param endsOnLimit whether the test method carries the annotation
+     */
+    public static boolean isExpectedLimitFailure(Throwable t, boolean endsOnLimit) {
+        return isOrWraps(t) || (endsOnLimit && isOrWrapsStackOverflow(t));
+    }
 }

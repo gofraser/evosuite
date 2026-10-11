@@ -20,6 +20,7 @@
 package org.evosuite.runtime.vnet;
 
 import org.evosuite.runtime.TooManyResourcesException;
+import org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 
@@ -31,10 +32,16 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 public class NonFunctionalRequirementExtension implements TestExecutionExceptionHandler {
     @Override
     public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {
-        if (TooManyResourcesException.isOrWraps(throwable)) {
+        if (TooManyResourcesException.isExpectedLimitFailure(throwable, endsOnLimit(context))) {
             // Prevent TMRE to propagate to the JUnit runner
             return;
         }
         throw throwable;
+    }
+
+    private static boolean endsOnLimit(ExtensionContext context) {
+        return context != null
+                && context.getTestMethod().map(m -> m.isAnnotationPresent(EvoSuiteEndsOnResourceLimit.class))
+                .orElse(false);
     }
 }
