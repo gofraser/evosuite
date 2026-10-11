@@ -1947,6 +1947,15 @@ public class TestCodeVisitor extends TestVisitor {
                 }
             } else if (requiresRawClassCast) {
                 parameterString += "(" + getTypeName(Class.class) + ") ";
+            } else if (isOverloaded && !argumentIsNull && parameters.get(i).isPrimitive()
+                    && isBoxedByReferenceParameter(rawParamClass, parameters.get(i).getVariableClass())) {
+                // A primitive handed to a reference parameter is only boxed in javac's second
+                // resolution phase, so a sibling overload taking the primitive wins: with
+                // remove(Object) and remove(int), "list.remove(intValue)" calls remove(int).
+                // The wrapper cast boxes in the first phase, binds the reference overload, and
+                // stays valid for a type variable bound to that wrapper.
+                parameterString += "(" + getClassName(ClassUtils.primitiveToWrapper(
+                        parameters.get(i).getVariableClass())) + ") ";
             } else if (argumentIsNull) {
                 // Casting null to a reference type is only needed to disambiguate
                 // overloaded signatures. Otherwise it can introduce fragile type
@@ -2024,6 +2033,12 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return parameterString;
+    }
+
+    private static boolean isBoxedByReferenceParameter(Class<?> parameterClass, Class<?> primitiveArgument) {
+        return parameterClass != null && primitiveArgument != null && primitiveArgument.isPrimitive()
+                && !parameterClass.isPrimitive()
+                && parameterClass.isAssignableFrom(ClassUtils.primitiveToWrapper(primitiveArgument));
     }
 
     private String getNullCastTypeNameForOverloadedCall(Type declaredParamType, Type ownerType) {
