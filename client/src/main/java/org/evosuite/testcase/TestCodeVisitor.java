@@ -2057,6 +2057,17 @@ public class TestCodeVisitor extends TestVisitor {
             }
             return getTypeName(erasedType);
         }
+        if (declaredParamType instanceof Class<?>) {
+            Class<?> declaredClass = (Class<?>) declaredParamType;
+            if (!declaredClass.isPrimitive() && !declaredClass.isArray()
+                    && !isDeclaredTypeNameableInGeneratedTest(declaredClass)) {
+                // The parameter was bound to a type the test cannot name (the private Count of
+                // a Map<String, Count> field). A cast to a nameable supertype would not convert
+                // back to the parameter, so no cast can be written and the bare null is the
+                // best that compiles.
+                return null;
+            }
+        }
         if (declaredParamType instanceof ParameterizedType
                 && hasRawGenericTypeArgument((ParameterizedType) declaredParamType)) {
             // A raw generic class as a type argument (List<Functor>) is rendered with
