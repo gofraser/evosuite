@@ -504,7 +504,10 @@ public class FieldReference extends VariableReferenceImpl {
     @Override
     public void changeClassLoader(ClassLoader loader) {
         field.changeClassLoader(loader);
-        if (!isStatic()) {
+        // A static field may still be accessed through a source expression
+        // (e.g. a.b.STATIC). That source is not reachable from the statement
+        // otherwise, and copy() copies it, so it has to follow the loader too.
+        if (source != null) {
             source.changeClassLoader(loader);
         }
         super.changeClassLoader(loader);

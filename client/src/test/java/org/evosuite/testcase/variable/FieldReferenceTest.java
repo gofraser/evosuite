@@ -19,21 +19,31 @@
  */
 package org.evosuite.testcase.variable;
 
+import com.examples.with.different.packagename.StaticCounterHolder;
+import com.examples.with.different.packagename.StaticCounterHolderOwner;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericField;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -129,5 +139,69 @@ public class FieldReferenceTest {
 
     private static Type holderOf(Class<?> typeArgument) {
         return new ParameterizedTypeImpl(Holder.class, new Type[]{typeArgument}, null);
+    }
+
+    /**
+     * Defines its own copy of {@link StaticCounterHolderOwner} and {@link StaticCounterHolder}, as the
+     * re-instrumenting loader of assertion generation does for SUT classes.
+     */
+    private static class ReloadingClassLoader extends ClassLoader {
+        ReloadingClassLoader() {
+            super(FieldReferenceTest.class.getClassLoader());
+        }
+
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            if (!name.equals(StaticCounterHolderOwner.class.getName())
+                    && !name.equals(StaticCounterHolder.class.getName())) {
+                return super.loadClass(name, resolve);
+            }
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> loaded = findLoadedClass(name);
+                if (loaded != null) {
+                    return loaded;
+                }
+                String resource = name.replace('.', '/') + ".class";
+                try (InputStream in = getParent().getResourceAsStream(resource)) {
+                    byte[] bytes = in.readAllBytes();
+                    return defineClass(name, bytes, 0, bytes.length);
+                } catch (IOException e) {
+                    throw new ClassNotFoundException(name, e);
+                }
+            }
+        }
+    }
+
+    /**
+     * A static field read through an instance expression ({@code owner.holder.counter})
+     * keeps that expression as its source, and copying the reference copies it. Changing
+     * the class loader must therefore move the source along, or the next clone of the
+     * test pairs a field of the old loader with a variable of the new one.
+     */
+    @Test
+    public void testChangeClassLoaderMovesSourceOfStaticField() throws Exception {
+        DefaultTestCase testCase = new DefaultTestCase();
+        VariableReference owner = testCase.addStatement(
+                new NullStatement(testCase, StaticCounterHolderOwner.class));
+        FieldReference holder = new FieldReference(testCase,
+                new GenericField(StaticCounterHolderOwner.class.getField("holder"),
+                        StaticCounterHolderOwner.class), owner);
+        FieldReference counter = new FieldReference(testCase,
+                new GenericField(StaticCounterHolder.class.getField("counter"),
+                        StaticCounterHolder.class), holder);
+        testCase.addStatement(new MethodStatement(testCase,
+                new GenericMethod(Integer.class.getMethod("valueOf", int.class), Integer.class),
+                null, Collections.singletonList(counter)));
+
+        ClassLoader loader = new ReloadingClassLoader();
+        testCase.changeClassLoader(loader);
+
+        TestCase copy = assertDoesNotThrow(testCase::clone);
+        assertSame(loader, holder.getField().getField().getDeclaringClass().getClassLoader());
+        FieldReference copiedCounter = (FieldReference) copy.getStatement(1)
+                .getVariableReferences().stream()
+                .filter(v -> v instanceof FieldReference)
+                .findFirst().orElseThrow(AssertionError::new);
+        assertSame(loader, copiedCounter.getField().getField().getDeclaringClass().getClassLoader());
     }
 }
