@@ -20,6 +20,7 @@
 package org.evosuite.utils;
 
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.evosuite.setup.GeneratedTestAccess;
 import org.evosuite.testcase.TestCodeVisitor;
 
 /**
@@ -159,7 +160,7 @@ public class NumberFormatter {
             // InspectorAssertion) check referenceability themselves and render a
             // by-name comparison instead, so they never reach this branch for a
             // non-referenceable (e.g. source-private) enum.
-            if (visitor != null && TestCodeVisitor.isEnumConstantNameableInGeneratedTest(enumClass)) {
+            if (visitor != null && GeneratedTestAccess.isEnumConstantNameableInGeneratedTest(enumClass)) {
                 className = visitor.getClassName(enumClass);
                 Class<?> enclosingClass = enumClass.getEnclosingClass();
                 if (enclosingClass != null && className.indexOf('.') < 0) {

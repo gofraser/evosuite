@@ -19,6 +19,7 @@
  */
 package org.evosuite.assertion;
 
+import org.evosuite.setup.GeneratedTestAccess;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.utils.NumberFormatter;
 
@@ -46,7 +47,7 @@ public final class EnumAssertionCodeRenderer {
      * {@code Type.CONSTANT} from the same package -- and there is no reflective
      * escape hatch here (unlike a {@code Class} literal), since the expression
      * must denote the constant's value, not a {@code Class}. When {@link
-     * TestCodeVisitor#isEnumConstantNameableInGeneratedTest} says the declaring
+     * GeneratedTestAccess#isEnumConstantNameableInGeneratedTest} says the declaring
      * class cannot be named, the comparison is rendered by name instead,
      * comparing {@link Enum#name()} strings rather than the constants
      * themselves.
@@ -81,7 +82,7 @@ public final class EnumAssertionCodeRenderer {
      * <p>In the nameable branch, the visitor -- when given -- is threaded into
      * {@link NumberFormatter#getNumberString(Object, TestCodeVisitor)}, which
      * gates its own import-registering, conflict-resolving naming on the same
-     * {@link TestCodeVisitor#isEnumConstantNameableInGeneratedTest} check used
+     * {@link GeneratedTestAccess#isEnumConstantNameableInGeneratedTest} check used
      * above, so it already calls {@link TestCodeVisitor#getClassName(Class)} on
      * {@code enumClass} (and its enclosing class, if nested) whenever this
      * branch is reached. The explicit follow-up call below is therefore a no-op
@@ -95,7 +96,7 @@ public final class EnumAssertionCodeRenderer {
         if (enumClass.isAnonymousClass()) {
             enumClass = enumClass.getEnclosingClass();
         }
-        if (TestCodeVisitor.isEnumConstantNameableInGeneratedTest(enumClass)) {
+        if (GeneratedTestAccess.isEnumConstantNameableInGeneratedTest(enumClass)) {
             String rendered = "assertEquals(" + NumberFormatter.getNumberString(value, visitor) + ", "
                     + actualExpression + ");";
             if (visitor != null) {
