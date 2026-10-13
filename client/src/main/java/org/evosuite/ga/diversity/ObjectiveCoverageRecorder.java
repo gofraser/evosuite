@@ -19,14 +19,10 @@
  */
 package org.evosuite.ga.diversity;
 
-import org.evosuite.Properties;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +34,7 @@ import java.util.List;
  * full description, so the timeline can be rendered as a per-goal or
  * per-method coverage heatmap.
  *
- * <p>Two side-car CSVs are written under {@link Properties#REPORT_DIR}:
+ * <p>Two side-car CSVs are written under {@link org.evosuite.Properties#REPORT_DIR}:
  * <pre>
  *   objective_coverage_timeline_&lt;TARGET_CLASS&gt;.csv : gen,goal_id,best_fitness
  *   objective_index_&lt;TARGET_CLASS&gt;.csv            : goal_id,class_name,method_name,description
@@ -120,22 +116,13 @@ public final class ObjectiveCoverageRecorder {
     }
 
     private void writeTimeline() {
-        File file = new File(timelinePath);
-        File dir = file.getParentFile();
-        if (dir != null && !dir.exists() && !dir.mkdirs()) {
-            logger.warn("Could not create directory {} for {}", dir, file.getName());
-            return;
+        List<String> lines = new ArrayList<>(rows.size());
+        for (Row row : rows) {
+            lines.add(row.gen + "," + row.goalId + "," + Double.toString(row.bestFitness));
         }
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            writer.write(TIMELINE_HEADER);
-            writer.newLine();
-            for (Row row : rows) {
-                writer.write(row.gen + "," + row.goalId + "," + Double.toString(row.bestFitness));
-                writer.newLine();
-            }
+        if (SidecarCsv.write(timelinePath, TIMELINE_HEADER, lines, logger,
+                "objective coverage timeline")) {
             logger.info("Objective coverage timeline: wrote {} rows to {}", rows.size(), timelinePath);
-        } catch (IOException e) {
-            logger.warn("Failed to write objective coverage timeline: {}", e.getMessage());
         }
     }
 
@@ -143,23 +130,13 @@ public final class ObjectiveCoverageRecorder {
         if (classNames == null) {
             return;
         }
-        File file = new File(indexPath);
-        File dir = file.getParentFile();
-        if (dir != null && !dir.exists() && !dir.mkdirs()) {
-            logger.warn("Could not create directory {} for {}", dir, file.getName());
-            return;
+        List<String> lines = new ArrayList<>(classNames.length);
+        for (int i = 0; i < classNames.length; i++) {
+            lines.add(i + "," + csvEscape(classNames[i]) + "," + csvEscape(methodNames[i]) + ","
+                    + csvEscape(descriptions[i]));
         }
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            writer.write(INDEX_HEADER);
-            writer.newLine();
-            for (int i = 0; i < classNames.length; i++) {
-                writer.write(i + "," + csvEscape(classNames[i]) + "," + csvEscape(methodNames[i]) + ","
-                        + csvEscape(descriptions[i]));
-                writer.newLine();
-            }
+        if (SidecarCsv.write(indexPath, INDEX_HEADER, lines, logger, "objective index")) {
             logger.info("Objective index: wrote {} goals to {}", classNames.length, indexPath);
-        } catch (IOException e) {
-            logger.warn("Failed to write objective index: {}", e.getMessage());
         }
     }
 
@@ -174,20 +151,11 @@ public final class ObjectiveCoverageRecorder {
     }
 
     private static String defaultTimelinePath() {
-        return Properties.REPORT_DIR + File.separator + TIMELINE_FILENAME_PREFIX + suffix() + ".csv";
+        return SidecarCsv.path(TIMELINE_FILENAME_PREFIX);
     }
 
     private static String defaultIndexPath() {
-        return Properties.REPORT_DIR + File.separator + INDEX_FILENAME_PREFIX + suffix() + ".csv";
-    }
-
-    private static String suffix() {
-        String tc = Properties.TARGET_CLASS;
-        return (tc == null || tc.isEmpty()) ? "" : "_" + sanitize(tc);
-    }
-
-    private static String sanitize(String s) {
-        return s.replaceAll("[^A-Za-z0-9_.$-]", "_");
+        return SidecarCsv.path(INDEX_FILENAME_PREFIX);
     }
 
     private static final class Row {

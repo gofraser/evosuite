@@ -19,21 +19,17 @@
  */
 package org.evosuite.ga.diversity;
 
-import org.evosuite.Properties;
 import org.evosuite.testcase.InjectionSource;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Records per-generation, per-individual species and rank assignments to a
- * sidecar CSV under {@link Properties#REPORT_DIR}. Mirrors the buffer-then-flush
+ * sidecar CSV under {@link org.evosuite.Properties#REPORT_DIR}. Mirrors the buffer-then-flush
  * pattern used by the disruption recorder.
  *
  * <p>Output schema (one row per generation):
@@ -102,35 +98,18 @@ public final class PopulationSpeciesRecorder {
 
     /** Write all buffered snapshots to disk. Safe to call multiple times. */
     public synchronized void flush() {
-        File file = new File(sidecarPath);
-        File dir = file.getParentFile();
-        if (dir != null && !dir.exists() && !dir.mkdirs()) {
-            logger.warn("Could not create directory {} for {}", dir, FILENAME);
-            return;
+        List<String> lines = new ArrayList<>(snapshots.size());
+        for (GenerationSnapshot snap : snapshots) {
+            lines.add(snap.toCsvRow());
         }
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            writer.write(HEADER);
-            writer.newLine();
-            for (GenerationSnapshot snap : snapshots) {
-                writer.write(snap.toCsvRow());
-                writer.newLine();
-            }
+        if (SidecarCsv.write(sidecarPath, HEADER, lines, logger, "population species timeline")) {
             logger.info("Population species timeline: wrote {} rows to {}",
                     snapshots.size(), sidecarPath);
-        } catch (IOException e) {
-            logger.warn("Failed to write population species timeline: {}", e.getMessage());
         }
     }
 
     private static String defaultPath() {
-        String tc = Properties.TARGET_CLASS;
-        String suffix = (tc == null || tc.isEmpty()) ? "" : "_" + sanitize(tc);
-        return Properties.REPORT_DIR + File.separator
-                + "population_species_timeline" + suffix + ".csv";
-    }
-
-    private static String sanitize(String s) {
-        return s.replaceAll("[^A-Za-z0-9_.$-]", "_");
+        return SidecarCsv.path("population_species_timeline");
     }
 
     /**
