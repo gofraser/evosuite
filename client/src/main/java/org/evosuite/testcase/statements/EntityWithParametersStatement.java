@@ -341,11 +341,16 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         // we consider adding an instance
         if (getNumParametersOfType(parameter.getVariableClass()) + 1 > objects.size()) {
             Statement originalStatement = test.getStatement(parameter.getStPosition());
-            copy = originalStatement.clone(test);
-            if (originalStatement instanceof PrimitiveStatement<?>) {
-                ((PrimitiveStatement<?>) copy).delta();
+            // Only a statement that declares the parameter can be copied in front of this call.
+            // For a field or element read (x.f, a[i]) getStPosition() is the first assignment to
+            // it, which may come after this call: the copy would assign a value defined later.
+            if (originalStatement.getReturnValue() == parameter) {
+                copy = originalStatement.clone(test);
+                if (originalStatement instanceof PrimitiveStatement<?>) {
+                    ((PrimitiveStatement<?>) copy).delta();
+                }
+                objects.add(copy.getReturnValue());
             }
-            objects.add(copy.getReturnValue());
         }
 
         // Guard against false positives in candidate discovery for generics/owner types.
