@@ -1622,8 +1622,6 @@ public class TestCodeVisitor extends TestVisitor {
             visitContainsAssertion((ContainsAssertion) assertion);
         } else if (assertion instanceof TemplateCodeAssertion) {
             testCode.append(((TemplateCodeAssertion) assertion).render(this));
-        } else if (assertion instanceof CodeAssertion) {
-            testCode.append(assertion.getCode());
         } else {
             throw new RuntimeException("Unknown assertion type: " + assertion);
         }

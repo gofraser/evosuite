@@ -26,16 +26,16 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.postprocess.LlmPostProcessingResponse;
 import org.evosuite.llm.prompt.DecompiledContextProvider;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.runtime.FalsePositiveException;
-import org.evosuite.assertion.CodeAssertion;
+import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
@@ -872,12 +872,8 @@ class TestRepairLoopTest {
                 DefaultTestCase testCase = new DefaultTestCase();
                 IntPrimitiveStatement stmt = new IntPrimitiveStatement(testCase, 1);
                 testCase.addStatement(stmt);
-                TestCodeVisitor visitor = new TestCodeVisitor();
-                testCase.accept(visitor);
-                String varName = visitor.getVariableName(stmt.getReturnValue());
                 int expected = parseCalls.getAndIncrement() == 0 ? 2 : 1;
-                CodeAssertion assertion = new CodeAssertion(
-                        "assertEquals(" + expected + ", " + varName + ");");
+                TemplateCodeAssertion assertion = intEqualsAssertion(expected);
                 assertion.setSource(stmt.getReturnValue());
                 stmt.addAssertion(assertion);
                 return Collections.singletonList(new ParseResult(testCase, "test"));
@@ -969,10 +965,7 @@ class TestRepairLoopTest {
                 DefaultTestCase testCase = new DefaultTestCase();
                 IntPrimitiveStatement stmt = new IntPrimitiveStatement(testCase, 1);
                 testCase.addStatement(stmt);
-                TestCodeVisitor visitor = new TestCodeVisitor();
-                testCase.accept(visitor);
-                String varName = visitor.getVariableName(stmt.getReturnValue());
-                CodeAssertion assertion = new CodeAssertion("assertEquals(2, " + varName + ");");
+                TemplateCodeAssertion assertion = intEqualsAssertion(2);
                 assertion.setSource(stmt.getReturnValue());
                 stmt.addAssertion(assertion);
                 return Collections.singletonList(new ParseResult(testCase, "test"));
@@ -4616,4 +4609,12 @@ class TestRepairLoopTest {
         void declaresChecked(String value) throws java.io.IOException;
     }
 
+
+    /**
+     * An end-of-test assertion that the int at statement 0 equals {@code expected}.
+     */
+    private static TemplateCodeAssertion intEqualsAssertion(int expected) {
+        return new TemplateCodeAssertion("a0", LlmPostProcessingResponse.AssertionKind.EQUALS,
+                String.valueOf(expected), "v0", null, Collections.singletonMap("v0", 0), null);
+    }
 }
