@@ -28,7 +28,6 @@ import org.evosuite.rmi.service.MasterNodeRemote;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
-import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.MSecurityManager;
 import org.evosuite.runtime.sandbox.Sandbox;
@@ -179,21 +178,6 @@ public class ClientProcess {
         // the per-test timeout is generous but still bounded.
         org.evosuite.runtime.sandbox.MSecurityManager.setSandboxLockAcquireTimeoutMs(
                 Math.max(60_000L, 8L * Properties.TIMEOUT));
-
-        // Set target class prefix so the instrumentation exclusion list can
-        // skip problematic libraries (e.g., dom4j) that cause classloader
-        // conflicts, while still allowing instrumentation of the CUT itself.
-        if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.isEmpty()) {
-            if (Properties.TARGET_CLASS.contains(".")) {
-                String prefix = Properties.TARGET_CLASS.substring(
-                        0, Properties.TARGET_CLASS.lastIndexOf('.') + 1);
-                RuntimeInstrumentation.setTargetClassPrefix(prefix);
-            } else {
-                // Default package — no library prefix can match, but we still
-                // need a non-null value to activate the exclusion list.
-                RuntimeInstrumentation.setTargetClassPrefix("");
-            }
-        }
 
         MethodCallReplacementCache.resetSingleton();
     }
