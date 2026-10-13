@@ -26,7 +26,6 @@ import org.evosuite.TimeController;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.PrivateAccess;
-import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.seeding.CastClassAnalyzer;
@@ -59,10 +58,6 @@ public class TestClusterGenerator {
     private static final Logger logger = LoggerFactory.getLogger(TestClusterGenerator.class);
 
     private final Set<GenericAccessibleObject<?>> dependencyCache = new LinkedHashSet<>();
-
-    private final Set<GenericClass<?>> genericCastClasses = new LinkedHashSet<>();
-
-    private final Set<Class<?>> concreteCastClasses = new LinkedHashSet<>();
 
     private final Set<Class<?>> containerClasses = new LinkedHashSet<>();
 
@@ -282,8 +277,6 @@ public class TestClusterGenerator {
             }
             // boolean added =
             memberAnalyzer.addDependency(GenericClassFactory.get(clazz), 1);
-            genericCastClasses.add(GenericClassFactory.get(clazz));
-            concreteCastClasses.add(clazz);
 
             blackList.add(className);
             return true;
@@ -316,16 +309,6 @@ public class TestClusterGenerator {
                 continue;
             }
             boolean added = false;
-            /*
-             * if (dependency.getDependencyClass().isParameterizedType()) { for
-             * (List<GenericClass> parameterTypes :
-             * getAssignableTypes(dependency.getDependencyClass())) {
-             * GenericClass copy = new GenericClass(
-             * dependency.getDependencyClass().getType());
-             * copy.setParameterTypes(parameterTypes); boolean success =
-             * addDependencyClass(copy, dependency.getRecursion()); if (success)
-             * added = true; } } else
-             */
             added = addDependencyClass(dependency.getDependencyClass(), dependency.getRecursion());
             if (!added) {
                 blackList.add(className);
@@ -594,82 +577,5 @@ public class TestClusterGenerator {
         logger.debug("Adding dependency class " + clazz.getClassName());
         return memberAnalyzer.analyze(clazz,
                 MemberAnalyzer.AnalysisMode.DEPENDENCY, recursionLevel);
-    }
-
-    // ----------------------
-    // unused old methods
-    // ----------------------
-
-    private static Set<Class<?>> loadClasses(Collection<String> classNames) {
-        Set<Class<?>> loadedClasses = new LinkedHashSet<>();
-        for (String subClass : classNames) {
-            try {
-                Class<?> subClazz = Class.forName(subClass, false,
-                        TestGenerationContext.getInstance().getClassLoaderForSUT());
-                if (!TestUsageChecker.canUse(subClazz)) {
-                    continue;
-                }
-                if (subClazz.isInterface()) {
-                    continue;
-                }
-                if (Modifier.isAbstract(subClazz.getModifiers())) {
-                    if (!TestClusterUtils.hasStaticGenerator(subClazz)) {
-                        continue;
-                    }
-                }
-                Class<?> mock = MockList.getMockClass(subClazz.getCanonicalName());
-                if (mock != null) {
-                    /*
-                     * If we are mocking this class, then such class should not
-                     * be used in the generated JUnit test cases, but rather its
-                     * mock.
-                     */
-                    // logger.debug("Adding mock " + mock + " instead of "
-                    // + clazz);
-                    subClazz = mock;
-                } else {
-
-                    if (!TestClusterUtils.checkIfCanUse(subClazz.getCanonicalName(), subClazz)) {
-                        continue;
-                    }
-                }
-
-                loadedClasses.add(subClazz);
-
-            } catch (ClassNotFoundException e) {
-                logger.error("Problem for " + Properties.TARGET_CLASS + ". Class not found: " + subClass, e);
-                logger.error("Removing class from inheritance tree");
-            }
-        }
-        return loadedClasses;
-    }
-
-    /**
-     * Update the container classes.
-     *
-     * @param clazz the class to add
-     */
-    private void addCastClassForContainer(Class<?> clazz) {
-        if (concreteCastClasses.contains(clazz)) {
-            return;
-        }
-
-        concreteCastClasses.add(clazz);
-        // TODO: What if this is generic again?
-        genericCastClasses.add(GenericClassFactory.get(clazz));
-
-        CastClassManager.getInstance().addCastClass(clazz, 1);
-        TestCluster.getInstance().clearGeneratorCache(GenericClassFactory.get(clazz));
-    }
-
-    private List<GenericClass<?>> getAssignableTypes(java.lang.reflect.Type type) {
-        List<GenericClass<?>> types = new ArrayList<>();
-        for (GenericClass<?> clazz : genericCastClasses) {
-            if (clazz.isAssignableTo(type)) {
-                logger.debug(clazz + " is assignable to " + type);
-                types.add(clazz);
-            }
-        }
-        return types;
     }
 }
