@@ -1552,26 +1552,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return false;
     }
 
-    /**
-     * Checks if this class has the given generic super type.
-     *
-     * @param superType the super type
-     * @return true if it has the super type
-     */
-    public boolean hasGenericSuperType(GenericClass superType) {
-        return GenericTypeReflector.isSuperType(superType.getType(), type);
-    }
-
-    /**
-     * Checks if this class has the given generic super type.
-     *
-     * @param superType the super type
-     * @return true if it has the super type
-     */
-    public boolean hasGenericSuperType(Type superType) {
-        return GenericTypeReflector.isSuperType(superType, type);
-    }
-
     /* (non-Javadoc)
      * @see java.lang.Object#hashCode()
      */

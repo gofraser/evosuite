@@ -44,28 +44,6 @@ public class GenericUtils {
      */
     public static final String NONNULL = "Nonnull";
 
-    /**
-     * Checks if the type is assignable to the type variable.
-     *
-     * @param type         the type
-     * @param typeVariable the type variable
-     * @return true if assignable
-     */
-    public static boolean isAssignable(Type type, TypeVariable<?> typeVariable) {
-        boolean isAssignable = true;
-        for (Type boundType : typeVariable.getBounds()) {
-            // Have to resolve the type because a typevariable may have a reference to itself
-            // in its bounds
-            Type resolvedBoundType = GenericUtils.replaceTypeVariable(boundType,
-                    typeVariable, type);
-            if (!GenericClassUtils.isAssignable(resolvedBoundType, type)) {
-                isAssignable = false;
-                break;
-            }
-        }
-        return isAssignable;
-    }
-
     private static final Logger logger = LoggerFactory.getLogger(GenericUtils.class);
 
     /**
@@ -402,25 +380,6 @@ public class GenericUtils {
             //logger.debug("Unknown type of class " + targetType.getClass() + ": "
             //        + targetType);
             return targetType;
-        }
-    }
-
-    /**
-     * Returns a map of matching type parameters between two generic array types.
-     *
-     * @param p1 the first generic array type
-     * @param p2 the second generic array type
-     * @return the map of matching type parameters
-     */
-    public Map<TypeVariable<?>, Type> getMatchingTypeParameters(GenericArrayType p1,
-                                                                GenericArrayType p2) {
-        if (p1.getGenericComponentType() instanceof ParameterizedType
-                && p2.getGenericComponentType() instanceof ParameterizedType) {
-            return getMatchingTypeParameters((ParameterizedType) p1.getGenericComponentType(),
-                    (ParameterizedType) p2.getGenericComponentType());
-        } else {
-            Map<TypeVariable<?>, Type> map = new HashMap<>();
-            return map;
         }
     }
 

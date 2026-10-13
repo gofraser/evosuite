@@ -335,16 +335,6 @@ public interface GenericClass<T extends GenericClass<T>> extends Serializable {
     GenericClass<?> getWithWildcardTypes();
 
     /**
-     * Checks if another generic type is a super type of this type.
-     *
-     * @param superType the type to be checked.
-     * @return Whether {@param superType} is a supertype of this
-     */
-    boolean hasGenericSuperType(GenericClass<?> superType);
-
-    boolean hasGenericSuperType(Type superType);
-
-    /**
      * Whether the generic class has an owner type, e.g. is an inner class.
      *
      * @return Whether an owner type is present.

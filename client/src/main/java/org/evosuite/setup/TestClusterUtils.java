@@ -25,8 +25,6 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.Reflection;
 import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
 import org.evosuite.runtime.util.ReflectionUtils;
-import org.junit.Test;
-import org.junit.runners.Suite;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,43 +72,6 @@ public class TestClusterUtils {
     private static final Map<Class<?>, Set<Field>> accessibleFieldCache = new LinkedHashMap<>();
     private static final Map<Class<?>, Set<Method>> methodCache = new LinkedHashMap<>();
 
-
-    /**
-     * Determine if this class contains JUnit tests.
-     *
-     * @param className the class name
-     * @return true if the class contains JUnit tests
-     * @deprecated use {@code org.evosuite.junit.CoverageAnalysis.isTest(Class<?> cls)}
-     */
-    @Deprecated
-    public static boolean isTest(String className) {
-        // TODO-JRO Identifying tests should be done differently:
-        // If the class either contains methods
-        // annotated with @Test (> JUnit 4.0)
-        // or contains Test or Suite in it's inheritance structure
-        try {
-            Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
-            Class<?> superClazz = clazz.getSuperclass();
-            while (!superClazz.equals(Object.class)) {
-                if (superClazz.equals(Suite.class)) {
-                    return true;
-                }
-                if (superClazz.equals(Test.class)) {
-                    return true;
-                }
-
-                superClazz = clazz.getSuperclass();
-            }
-            for (Method method : clazz.getMethods()) {
-                if (method.isAnnotationPresent(Test.class)) {
-                    return true;
-                }
-            }
-        } catch (ClassNotFoundException e) {
-            logger.info("Could not load class: {}", className);
-        }
-        return false;
-    }
 
     /**
      * Determine if a class name corresponds to an anonymous class.

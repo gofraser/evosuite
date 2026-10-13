@@ -546,8 +546,6 @@ public class TestGenericClassImpl {
 
         Assertions.assertTrue(listOfWildcard.isGenericSuperTypeOf(listOfInteger));
         Assertions.assertFalse(listOfInteger.isGenericSuperTypeOf(listOfWildcard));
-        Assertions.assertTrue(listOfInteger.hasGenericSuperType(listOfWildcard));
-        Assertions.assertFalse(listOfWildcard.hasGenericSuperType(listOfInteger));
 
         GenericClass<?> mapOfInteger = GenericClassFactory.get(
                 new TypeToken<Map<Integer, String>>() {
@@ -556,8 +554,6 @@ public class TestGenericClassImpl {
         }.getType());
         Assertions.assertTrue(mapOfWildcard.isGenericSuperTypeOf(mapOfInteger));
         Assertions.assertFalse(mapOfInteger.isGenericSuperTypeOf(mapOfWildcard));
-        Assertions.assertTrue(mapOfInteger.hasGenericSuperType(mapOfWildcard));
-        Assertions.assertFalse(mapOfWildcard.hasGenericSuperType(mapOfInteger));
     }
 
     @Test
