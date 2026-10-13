@@ -756,10 +756,8 @@ public class TestCodeVisitor extends TestVisitor {
             }
             return var.getName();
         } else if (var instanceof FieldReference) {
-            FieldReference fieldReference = (FieldReference) var;
-            String access = getFieldReferenceAccess(fieldReference);
-            if (isFieldReadErasedByRawReceiver(fieldReference.getField().getField(),
-                    fieldReference.getSource(), var)) {
+            String access = getFieldReferenceAccess((FieldReference) var);
+            if (isFieldReferenceErasedByRawReceiver(var, var.getVariableClass())) {
                 return "((" + getClassName(var.getVariableClass()) + ") " + access + ")";
             }
             return access;
@@ -1854,7 +1852,8 @@ public class TestCodeVisitor extends TestVisitor {
         VariableReference retval = statement.getReturnValue();
         GenericField field = statement.getField();
         boolean needsCast = !retval.isAssignableFrom(field.getFieldType())
-                || isFieldReadErasedByRawReceiver(field.getField(), statement.getSource(), retval);
+                || isFieldReadErasedByRawReceiver(field.getField(), statement.getSource(),
+                        retval.getVariableClass());
         String castTypeName = getClassName(retval);
         // A Class<?> field read into a Class<Object> variable: the model treats the wildcard
         // as assignable, but javac sees Class<capture> and rejects the assignment. A raw cast
@@ -4359,8 +4358,11 @@ public class TestCodeVisitor extends TestVisitor {
      * parameterized list).
      */
     private Type declaredReceiverType(MethodStatement statement) {
-        VariableReference callee = statement.getCallee();
-        TestCase testCase = statement.getTestCase();
+        return declaredVariableType(statement.getTestCase(), statement.getCallee());
+    }
+
+    /** See {@link #declaredReceiverType}: the type javac sees for a variable. */
+    private Type declaredVariableType(TestCase testCase, VariableReference callee) {
         if (testCase != null && callee.getStPosition() >= 0
                 && callee.getStPosition() < testCase.size()) {
             Statement definition = testCase.getStatement(callee.getStPosition());
@@ -4649,7 +4651,12 @@ public class TestCodeVisitor extends TestVisitor {
         }
         if (receiverClass.getTypeParameters().length > 0) {
             return getClassName(receiver).equals(getClassName(receiverClass))
-                    || isReadThroughRawReflectiveCast(receiver);
+                    || isReadThroughRawReflectiveCast(receiver)
+                    // A constructor's variable is declared with the constructor's owner type,
+                    // which is raw when an argument is outside its bounds.
+                    || (!(receiver instanceof FieldReference) && !(receiver instanceof ArrayIndex)
+                    && declaredVariableType(test != null ? test : receiver.getTestCase(),
+                            normalizeVariableReference(receiver)) instanceof Class<?>);
         }
         if (declaringClass.getTypeParameters().length == 0
                 || !declaringClass.isAssignableFrom(receiverClass)) {
@@ -4662,20 +4669,26 @@ public class TestCodeVisitor extends TestVisitor {
     /**
      * A field whose declared type uses the declaring class's type variables reads as its erasure
      * through a receiver that erases it ({@code pair.key} is a {@code Comparable} for a raw
-     * {@code FlexiblePair}); a variable typed with the resolved type then needs a cast back.
+     * {@code FlexiblePair}); a variable or parameter of the resolved type then needs a cast back.
      */
     private boolean isFieldReadErasedByRawReceiver(Field field, VariableReference source,
-                                                   VariableReference value) {
-        if (field == null || source == null || value == null
+                                                   Class<?> targetClass) {
+        if (field == null || source == null || targetClass == null
                 || Modifier.isStatic(field.getModifiers())
                 || !canUseDirectFieldAccess(field, source)
                 || !dependsOnGenericTypeInformation(field.getGenericType())
                 || !receiverErasesMembersOf(source, field.getDeclaringClass())) {
             return false;
         }
-        Class<?> valueClass = value.getVariableClass();
-        return valueClass != null && !valueClass.isAnonymousClass()
-                && !ClassUtils.isAssignable(field.getType(), valueClass, true);
+        return !targetClass.isAnonymousClass()
+                && !ClassUtils.isAssignable(field.getType(), targetClass, true);
+    }
+
+    /** {@link #isFieldReadErasedByRawReceiver} for a field reference used as a value. */
+    private boolean isFieldReferenceErasedByRawReceiver(VariableReference var, Class<?> targetClass) {
+        return var instanceof FieldReference
+                && isFieldReadErasedByRawReceiver(((FieldReference) var).getField().getField(),
+                        ((FieldReference) var).getSource(), targetClass);
     }
 
     /**

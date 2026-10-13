@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase;
 
+import com.examples.with.different.packagename.generic.BoundedPair;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.testcase.statements.AssignmentStatement;
@@ -199,6 +200,41 @@ public class TestCodeVisitorRawSupertypeTest {
 
         assertTrue(code.contains("IntegerConsumer(((Integer) testCodeVisitorRawSupertypeTest_Pair0.key))"),
                 "A field reference read through a raw receiver must be cast back:\n" + code);
+    }
+
+    public static class RawComparableConsumer {
+        public RawComparableConsumer(BoundedPair.RawComparable value) {
+        }
+    }
+
+    @Test
+    public void fieldReferenceThroughReceiverDeclaredRawByItsConstructorIsCast() throws Exception {
+        // The variable is a Pair<RawComparable>, but RawComparable is outside the bound
+        // Comparable<T>, so the constructor statement declares the variable raw.
+        TestCase tc = new DefaultTestCase();
+        VariableReference value = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(BoundedPair.RawComparable.class.getConstructor(),
+                        BoundedPair.RawComparable.class),
+                Collections.emptyList()));
+        Type pairType = TypeUtils.parameterize(BoundedPair.class, BoundedPair.RawComparable.class);
+        VariableReference pair = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(BoundedPair.class.getConstructor(Comparable.class), pairType),
+                Collections.singletonList(value)));
+        FieldReference keyField = new FieldReference(tc,
+                new GenericField(BoundedPair.class.getField("key"), pairType), pair);
+        tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(RawComparableConsumer.class.getConstructor(BoundedPair.RawComparable.class),
+                        RawComparableConsumer.class),
+                Collections.singletonList(keyField)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("BoundedPair boundedPair0 = new BoundedPair("),
+                "Setup: the constructor must declare the receiver raw:\n" + code);
+        assertTrue(code.contains("RawComparableConsumer(((BoundedPair.RawComparable) boundedPair0.key))"),
+                "A field read through a receiver declared raw must be cast back:\n" + code);
     }
 
     @Test
