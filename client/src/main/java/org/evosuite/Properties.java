@@ -576,8 +576,9 @@ public class Properties {
     public static boolean DMON_PROMOTE_IN_PLACE = true;
 
     @Parameter(key = "dmon_validate_promoted_once", group = "Test Creation",
-            description = "Immediately re-run once with DMoN disabled after promotion")
-    public static boolean DMON_VALIDATE_PROMOTED_ONCE = false;
+            description = "Immediately re-run once with DMoN disabled after promotion, and roll the promotion back "
+                    + "if the null is still hit or the test now throws at an earlier statement")
+    public static boolean DMON_VALIDATE_PROMOTED_ONCE = true;
 
     @Parameter(key = "dmon_max_ephemeral_retries", group = "Test Creation",
             description = "Maximum number of DMoN assist+retry attempts for constructor NPEs within one execution")

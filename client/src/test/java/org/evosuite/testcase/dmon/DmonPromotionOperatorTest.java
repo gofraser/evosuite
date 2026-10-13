@@ -32,7 +32,9 @@ import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.After;
@@ -94,6 +96,21 @@ public class DmonPromotionOperatorTest {
                 throw new NullPointerException("dep");
             }
             throw new IllegalStateException("constructor still fails after setup");
+        }
+    }
+
+    /** Constructs fine until {@code dep} is set; {@code use()} fails on the null {@code dep}. */
+    public static class EarlierFailureTarget {
+        static Runnable dep;
+
+        public EarlierFailureTarget() {
+            if (dep != null) {
+                throw new IllegalStateException("constructor breaks once dep is set");
+            }
+        }
+
+        public void use() {
+            dep.run();
         }
     }
 
@@ -200,10 +217,13 @@ public class DmonPromotionOperatorTest {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // Checks the shape of the promoted test, not its validation.
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -228,6 +248,7 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
         }
     }
 
@@ -236,10 +257,13 @@ public class DmonPromotionOperatorTest {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // Checks the shape of the promoted test, not its validation.
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -264,6 +288,7 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
         }
     }
 
@@ -318,6 +343,61 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
             Properties.TIMEOUT = oldTimeout;
             ValidateTarget.dep = null;
+        }
+    }
+
+    @Test
+    public void promotionThatMakesAnEarlierStatementThrowIsRolledBack() throws Exception {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        int oldTimeout = Properties.TIMEOUT;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // See validatePromotedOnceAcceptsPassingPromotion.
+            Properties.TIMEOUT = 60000;
+
+            EarlierFailureTarget.dep = null;
+
+            TestChromosome chromosome = new TestChromosome();
+            DefaultTestCase tc = new DefaultTestCase();
+            VariableReference target = tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(EarlierFailureTarget.class.getDeclaredConstructor(),
+                            EarlierFailureTarget.class),
+                    Collections.emptyList()));
+            tc.addStatement(new MethodStatement(tc,
+                    new GenericMethod(EarlierFailureTarget.class.getMethod("use"), EarlierFailureTarget.class),
+                    target, Collections.emptyList()));
+            chromosome.setTestCase(tc);
+            chromosome.setChanged(false);
+
+            // The constructor ran, the call after it threw on the null field.
+            ExecutionResult original = new ExecutionResult(chromosome.getTestCase(), null);
+            original.setTrace(new ExecutionTraceImpl());
+            original.reportNewThrownException(1, new NullPointerException("dep"));
+            original.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(EarlierFailureTarget.class.getName(), "use", 0,
+                            DmonFailureSiteKind.METHOD_INVOCATION),
+                    Optional.of("this.dep"),
+                    Optional.of("this"),
+                    Optional.of("dep"),
+                    Optional.of(Runnable.class.getName())));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, original);
+
+            // With the mock injected the constructor throws, so the test would lose the
+            // constructor's coverage that the original execution reached.
+            Assert.assertEquals("Promotion should be rolled back", 2, chromosome.getTestCase().size());
+            Assert.assertTrue(chromosome.getTestCase().getStatement(0) instanceof ConstructorStatement);
+            Assert.assertNull("Rollback should restore static state", EarlierFailureTarget.dep);
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.TIMEOUT = oldTimeout;
+            EarlierFailureTarget.dep = null;
         }
     }
 
@@ -414,10 +494,13 @@ public class DmonPromotionOperatorTest {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // Checks the shape of the promoted test, not its validation.
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -444,6 +527,7 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
         }
     }
 

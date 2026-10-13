@@ -379,7 +379,9 @@ public final class DmonPromotionOperator {
         try {
             Properties.DMON_ENABLED = false;
             validated = TestCaseExecutor.runTest(individual.getTestCase());
-            progressAccepted = isValidationProgressAccepted(validated, plan);
+            progressAccepted = isValidationProgressAccepted(validated, plan)
+                    && !failsEarlierThanOriginal(validated, originalResult,
+                            individual.getTestCase().size() - backup.size());
             if (progressAccepted) {
                 boolean mockMaterialized = materializeFunctionalMockInvocations(individual);
                 individual.setLastExecutionResult(validated);
@@ -417,6 +419,22 @@ public final class DmonPromotionOperator {
         ExecutionResult effective = markContaminatedIfNeeded(restored, !restoreOk);
         return new PromotionAttempt(effective, false,
                 restoreOk ? "VALIDATION_FAILED_ROLLED_BACK" : "VALIDATION_FAILED_AND_RESTORE_WARNING");
+    }
+
+    /**
+     * A promotion that makes the test throw at an earlier statement than before has not
+     * moved past the null: it cut off the part of the test that already ran, and with it the
+     * coverage the original execution had reached. Positions are compared after shifting the
+     * original one by the number of statements the promotion inserted.
+     */
+    private static boolean failsEarlierThanOriginal(ExecutionResult validated, ExecutionResult original,
+                                                    int insertedStatements) {
+        Integer validatedPosition = validated == null ? null : validated.getFirstPositionOfThrownException();
+        Integer originalPosition = original == null ? null : original.getFirstPositionOfThrownException();
+        if (validatedPosition == null || originalPosition == null) {
+            return false;
+        }
+        return validatedPosition < originalPosition + insertedStatements;
     }
 
     private static boolean isValidationProgressAccepted(ExecutionResult validated, DmonPromotionPlan plan) {
