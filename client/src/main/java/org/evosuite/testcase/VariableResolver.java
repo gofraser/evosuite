@@ -392,10 +392,8 @@ public class VariableResolver {
                         ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, usageCount);
                         return test.getStatement(returnPos).getReturnValue();
                     } catch (Exception e) {
-                        // Roll back any partially inserted statements
-                        while (test.size() > originalSize) {
-                            test.remove(test.size() - 1);
-                        }
+                        // Roll back the partially inserted statements, which start at position
+                        rollbackInsertedStatements(test, originalSize, position);
                         logger.trace("Object pool sequence insertion failed, falling through: {}", e.getMessage());
                     }
                 }
