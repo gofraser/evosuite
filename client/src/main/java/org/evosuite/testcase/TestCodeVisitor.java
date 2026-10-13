@@ -1962,7 +1962,8 @@ public class TestCodeVisitor extends TestVisitor {
                 // references that are unnecessary for compilation.
                 if (isOverloaded) {
                     String nullCastTypeName = getNullCastTypeNameForOverloadedCall(
-                            declaredParamType, ownerType);
+                            declaredParamType, ownerType,
+                            genericParameterTypes == null ? null : genericParameterTypes[i]);
                     if (nullCastTypeName != null) {
                         parameterString += "(" + nullCastTypeName + ") ";
                     }
@@ -2041,13 +2042,19 @@ public class TestCodeVisitor extends TestVisitor {
                 && parameterClass.isAssignableFrom(ClassUtils.primitiveToWrapper(primitiveArgument));
     }
 
-    private String getNullCastTypeNameForOverloadedCall(Type declaredParamType, Type ownerType) {
+    private String getNullCastTypeNameForOverloadedCall(Type declaredParamType, Type ownerType,
+                                                        Type genericParameterType) {
         if (declaredParamType == null) {
             return null;
         }
         // For raw method owners on parameterized receivers, an erased (Object)
         // cast can defeat generic method resolution and make valid code fail.
-        if (shouldSkipErasedObjectCast(declaredParamType, null, ownerType)) {
+        // A parameter the method declares as Object is not an erasure, though:
+        // without the cast a null argument is ambiguous between the sibling
+        // overloads (print(char[]) and print(String) next to print(Object)). An
+        // inner class of a non-generic outer is a parameterized owner as well.
+        if (!(genericParameterType instanceof Class<?>)
+                && shouldSkipErasedObjectCast(declaredParamType, null, ownerType)) {
             return null;
         }
         if (isUnresolvedTypeVariableOrWildcard(declaredParamType)) {
