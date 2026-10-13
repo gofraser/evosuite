@@ -1982,10 +1982,14 @@ public class TestCodeVisitor extends TestVisitor {
                             ? null : genericParameterTypes[i];
                     parameterString += "(" + getAccessibleGenericCastTypeName(declaredParamType, actualParamType,
                             argumentIsNull, genericParameterType) + ") ";
-                    if (name.contains("(short")) {
+                    // A reference cast only boxes a short/byte constant that keeps its own
+                    // cast: "(Short) (-1)" is an int, which javac does not box into Short.
+                    Class<?> castClass = safeErasure(declaredParamType);
+                    boolean boxesConstant = castClass != null && !castClass.isPrimitive();
+                    if (name.contains("(short") && !(boxesConstant && castClass.isAssignableFrom(Short.class))) {
                         name = name.replace("(short)", "");
                     }
-                    if (name.contains("(byte")) {
+                    if (name.contains("(byte") && !(boxesConstant && castClass.isAssignableFrom(Byte.class))) {
                         name = name.replace("(byte)", "");
                     }
 
