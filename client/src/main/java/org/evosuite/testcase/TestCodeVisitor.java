@@ -3516,6 +3516,12 @@ public class TestCodeVisitor extends TestVisitor {
                             // but the cast must match the mocked method's return type
                             // (e.g. String, not Object) to produce compilable code.
                             types[i] = returnType.getType();
+                            if (isDefinitelyInconvertibleReferenceCast(types[i], params.get(i).getType())) {
+                                // The search stubbed an erased type variable with a value of
+                                // another type ((String) typeEnum does not compile); doReturn
+                                // takes Object, so pass the value uncast, as it was returned.
+                                types[i] = Object.class;
+                            }
                         }
                     }
 
