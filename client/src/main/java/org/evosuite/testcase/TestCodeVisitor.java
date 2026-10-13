@@ -726,43 +726,13 @@ public class TestCodeVisitor extends TestVisitor {
             }
             return var.getName();
         } else if (var instanceof FieldReference) {
-            VariableReference source = ((FieldReference) var).getSource();
-            GenericField field = ((FieldReference) var).getField();
-            if (!canUseDirectFieldAccess(field.getField(), source)) {
-                return getReflectiveFieldAccess(field.getField(), source);
+            FieldReference fieldReference = (FieldReference) var;
+            String access = getFieldReferenceAccess(fieldReference);
+            if (isFieldReadErasedByRawReceiver(fieldReference.getField().getField(),
+                    fieldReference.getSource(), var)) {
+                return "((" + getClassName(var.getVariableClass()) + ") " + access + ")";
             }
-            if (source != null) {
-                String ret = "";
-                // If the method is not public and this is a subclass in a different package we need to cast
-                if (!field.isPublic() && !field.getDeclaringClass().equals(source.getVariableClass())
-                        && source.isAssignableTo(field.getDeclaringClass())) {
-                    String packageName1 = ClassUtils.getPackageName(field.getDeclaringClass());
-                    String packageName2 = ClassUtils.getPackageName(source.getVariableClass());
-                    if (!packageName1.equals(packageName2)) {
-                        ret += "((" + getClassName(field.getDeclaringClass())
-                                + ")" + getVariableName(source) + ")";
-                    } else {
-                        ret += getVariableName(source);
-                    }
-                } else if (!source.isAssignableTo(field.getField().getDeclaringClass())) {
-                    try {
-                        // If the concrete source class has that field then it's ok
-                        source.getVariableClass().getDeclaredField(field.getName());
-                        ret = getVariableName(source);
-                    } catch (NoSuchFieldException e) {
-                        // If not we need to cast to the subtype
-                        ret = "((" + getTypeName(field.getField().getDeclaringClass()) + ") "
-                                + getVariableName(source) + ")";
-                    }
-                } else {
-                    ret += getVariableName(source);
-                }
-
-                return ret + "." + field.getName();
-            } else {
-                return getClassName(field.getField().getDeclaringClass()) + "."
-                        + field.getName();
-            }
+            return access;
         } else if (var instanceof ArrayIndex) {
             VariableReference array = ((ArrayIndex) var).getArray();
             List<Integer> indices = ((ArrayIndex) var).getArrayIndices();
@@ -787,6 +757,50 @@ public class TestCodeVisitor extends TestVisitor {
                 variableNameStrategy.addVariableInformation(information);
             }
             return variableNameStrategy.getNameForVariable(normalized);
+        }
+    }
+
+    /**
+     * The expression naming a field reference, without the cast {@link #getVariableName} adds
+     * to a read through a raw receiver: an assignment target must stay assignable.
+     */
+    private String getFieldReferenceAccess(FieldReference reference) {
+        VariableReference source = reference.getSource();
+        GenericField field = reference.getField();
+        if (!canUseDirectFieldAccess(field.getField(), source)) {
+            return getReflectiveFieldAccess(field.getField(), source);
+        }
+        if (source != null) {
+            String ret = "";
+            // If the method is not public and this is a subclass in a different package we need to cast
+            if (!field.isPublic() && !field.getDeclaringClass().equals(source.getVariableClass())
+                    && source.isAssignableTo(field.getDeclaringClass())) {
+                String packageName1 = ClassUtils.getPackageName(field.getDeclaringClass());
+                String packageName2 = ClassUtils.getPackageName(source.getVariableClass());
+                if (!packageName1.equals(packageName2)) {
+                    ret += "((" + getClassName(field.getDeclaringClass())
+                            + ")" + getVariableName(source) + ")";
+                } else {
+                    ret += getVariableName(source);
+                }
+            } else if (!source.isAssignableTo(field.getField().getDeclaringClass())) {
+                try {
+                    // If the concrete source class has that field then it's ok
+                    source.getVariableClass().getDeclaredField(field.getName());
+                    ret = getVariableName(source);
+                } catch (NoSuchFieldException e) {
+                    // If not we need to cast to the subtype
+                    ret = "((" + getTypeName(field.getField().getDeclaringClass()) + ") "
+                            + getVariableName(source) + ")";
+                }
+            } else {
+                ret += getVariableName(source);
+            }
+
+            return ret + "." + field.getName();
+        } else {
+            return getClassName(field.getField().getDeclaringClass()) + "."
+                    + field.getName();
         }
     }
 
@@ -1809,7 +1823,8 @@ public class TestCodeVisitor extends TestVisitor {
 
         VariableReference retval = statement.getReturnValue();
         GenericField field = statement.getField();
-        boolean needsCast = !retval.isAssignableFrom(field.getFieldType());
+        boolean needsCast = !retval.isAssignableFrom(field.getFieldType())
+                || isFieldReadErasedByRawReceiver(field.getField(), statement.getSource(), retval);
         String castTypeName = getClassName(retval);
         // A Class<?> field read into a Class<Object> variable: the model treats the wildcard
         // as assignable, but javac sees Class<capture> and rejects the assignment. A raw cast
@@ -4560,12 +4575,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (callee == null) {
             return false;
         }
-        Class<?> rawCalleeClass = callee.getVariableClass();
-        if (rawCalleeClass.getTypeParameters().length == 0) {
-            return false;
-        }
-        if (!getClassName(callee).equals(getClassName(rawCalleeClass))
-                && !isReadThroughRawReflectiveCast(callee)) {
+        if (!receiverErasesMembersOf(callee, method.getMethod().getDeclaringClass())) {
             return false;
         }
         Type declaredGenericReturn = method.getMethod().getGenericReturnType();
@@ -4581,6 +4591,49 @@ public class TestCodeVisitor extends TestVisitor {
         }
         return retval.isAssignableFrom(resolvedReturnType)
                 && !ClassUtils.isAssignable(erasedReturnClass, retvalClass, true);
+    }
+
+    /**
+     * Whether javac sees the members {@code declaringClass} contributes to the receiver erased.
+     * That is the case for a receiver rendered as a raw generic type, and for a receiver class
+     * without type parameters that reaches a generic {@code declaringClass} through a raw
+     * supertype ({@code class ProviderList extends Hashtable}): the type of every member it
+     * inherits from there is erased, so {@code put} returns {@code Object}.
+     */
+    private boolean receiverErasesMembersOf(VariableReference receiver, Class<?> declaringClass) {
+        Class<?> receiverClass = receiver.getVariableClass();
+        if (receiverClass == null || declaringClass == null) {
+            return false;
+        }
+        if (receiverClass.getTypeParameters().length > 0) {
+            return getClassName(receiver).equals(getClassName(receiverClass))
+                    || isReadThroughRawReflectiveCast(receiver);
+        }
+        if (declaringClass.getTypeParameters().length == 0
+                || !declaringClass.isAssignableFrom(receiverClass)) {
+            return false;
+        }
+        return !(GenericTypeReflector.getExactSuperType(receiverClass, declaringClass)
+                instanceof ParameterizedType);
+    }
+
+    /**
+     * A field whose declared type uses the declaring class's type variables reads as its erasure
+     * through a receiver that erases it ({@code pair.key} is a {@code Comparable} for a raw
+     * {@code FlexiblePair}); a variable typed with the resolved type then needs a cast back.
+     */
+    private boolean isFieldReadErasedByRawReceiver(Field field, VariableReference source,
+                                                   VariableReference value) {
+        if (field == null || source == null || value == null
+                || Modifier.isStatic(field.getModifiers())
+                || !canUseDirectFieldAccess(field, source)
+                || !dependsOnGenericTypeInformation(field.getGenericType())
+                || !receiverErasesMembersOf(source, field.getDeclaringClass())) {
+            return false;
+        }
+        Class<?> valueClass = value.getVariableClass();
+        return valueClass != null && !valueClass.isAnonymousClass()
+                && !ClassUtils.isAssignable(field.getType(), valueClass, true);
     }
 
     /**
@@ -6160,6 +6213,8 @@ public class TestCodeVisitor extends TestVisitor {
         if (isLocalTarget) {
             alreadyNamed = declarationVariableNames.containsKey(normalizeVariableReference(retval));
             declarationVarName = getDeclarationVariableName(retval);
+        } else if (retval instanceof FieldReference) {
+            declarationVarName = getFieldReferenceAccess((FieldReference) retval);
         } else {
             declarationVarName = getVariableName(retval);
         }
