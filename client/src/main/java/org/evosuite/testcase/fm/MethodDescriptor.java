@@ -346,6 +346,48 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
     }
 
     /**
+     * The method a synthetic bridge forwards to: the non-bridge method of the bridge's class
+     * with the same name and arity whose parameter and return types are subtypes of the
+     * bridge's. Source code naming the method binds to that method, so matchers have to be
+     * built from its parameter types, not from the bridge's erased ones.
+     *
+     * @param method a method, possibly a bridge
+     * @return the bridged method, or {@code method} if it is no bridge or the target is not unique
+     */
+    public static Method resolveBridgedMethod(Method method) {
+        if (method == null || !method.isBridge()) {
+            return method;
+        }
+        Class<?>[] bridgeParameters = method.getParameterTypes();
+        Method target = null;
+        try {
+            for (Method candidate : method.getDeclaringClass().getDeclaredMethods()) {
+                if (candidate.isBridge() || Modifier.isStatic(candidate.getModifiers())
+                        || !candidate.getName().equals(method.getName())
+                        || candidate.getParameterCount() != bridgeParameters.length
+                        || !method.getReturnType().isAssignableFrom(candidate.getReturnType())) {
+                    continue;
+                }
+                Class<?>[] candidateParameters = candidate.getParameterTypes();
+                boolean narrower = true;
+                for (int i = 0; i < bridgeParameters.length && narrower; i++) {
+                    narrower = bridgeParameters[i].isAssignableFrom(candidateParameters[i]);
+                }
+                if (!narrower) {
+                    continue;
+                }
+                if (target != null) {
+                    return method;
+                }
+                target = candidate;
+            }
+        } catch (LinkageError e) {
+            return method;
+        }
+        return target == null ? method : target;
+    }
+
+    /**
      * Whether a functional mock can usefully stub {@code method} at all: it returns a value, is
      * not one of the identity methods, is not private, and was not final in the original
      * bytecode.

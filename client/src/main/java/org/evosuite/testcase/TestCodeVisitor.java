@@ -3500,6 +3500,12 @@ public class TestCodeVisitor extends TestVisitor {
                     // from the original target interface/class.
                     originalMethod = st.getTargetClass().getMethod(
                             md.getMethodName(), md.getMethod().getParameterTypes());
+                    // The erased signature of a generic interface method (Comparable.compareTo(T))
+                    // finds the bridge compareTo(Object) of a class implementing Comparable<Self>.
+                    // Its Object parameter yields nullable(Object.class), which javac cannot
+                    // infer against the real compareTo(Self).
+                    originalMethod = org.evosuite.testcase.fm.MethodDescriptor
+                            .resolveBridgedMethod(originalMethod);
                 } catch (Exception e) {
                     // Fallback
                 }

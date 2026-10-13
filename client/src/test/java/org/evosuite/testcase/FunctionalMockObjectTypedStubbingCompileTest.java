@@ -25,11 +25,17 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.JavacScratchCompiler;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockMakers;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
 
 /**
  * A functional mock whose variable is typed {@code Object} (a type-variable parameter of a
@@ -164,5 +170,69 @@ public class FunctionalMockObjectTypedStubbingCompileTest {
         JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
                 "evosuite-wildcard-mock", className, source.toString());
         assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+    }
+
+    /**
+     * Observed on twfbplayer's {@code PositionSwitch implements Comparable<PositionSwitch>}: the
+     * SUT calls the mock through the erased Comparable.compareTo(T), and looking that signature up
+     * on the mocked class finds the synthetic bridge compareTo(Object). Its matcher
+     * {@code nullable(Object.class)} does not compile against compareTo(PositionSwitch).
+     */
+    public static class SelfComparable implements Comparable<SelfComparable> {
+        @Override
+        public int compareTo(SelfComparable other) {
+            return 0;
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static int compareThroughErasedInterface(Comparable comparable, Object other) {
+        return comparable.compareTo(other);
+    }
+
+    @Test
+    public void stubbingOfMethodReachedThroughBridgeCompiles() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        FunctionalMockStatement mock = new FunctionalMockStatement(
+                tc, SelfComparable.class, GenericClassFactory.get(SelfComparable.class));
+        tc.addStatement(mock);
+        VariableReference zero = tc.addStatement(
+                new org.evosuite.testcase.statements.numeric.IntPrimitiveStatement(tc, 0));
+        Method compareTo = Comparable.class.getMethod("compareTo", Object.class);
+        MethodDescriptor descriptor =
+                new MethodDescriptor(compareTo, GenericClassFactory.get(SelfComparable.class));
+        descriptor.increaseCounter();
+        mock.addMethodStubbing(descriptor, Collections.singletonList(zero));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        StringBuilder source = new StringBuilder("package org.evosuite.testcase;\n");
+        for (Class<?> imported : visitor.getImports()) {
+            String canonical = imported.getCanonicalName();
+            if (canonical != null) {
+                source.append("import ").append(canonical).append(";\n");
+            }
+        }
+        source.append("import static org.mockito.Mockito.*;\n")
+                .append("import static org.mockito.ArgumentMatchers.*;\n");
+        String className = "BridgeMockProbe" + System.nanoTime();
+        source.append("public class ").append(className).append(" {\n")
+                .append("    public static void run() throws Throwable {\n");
+        for (String line : visitor.getCode().split("\\R")) {
+            source.append("        ").append(line).append("\n");
+        }
+        source.append("    }\n}\n");
+
+        JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
+                "evosuite-bridge-mock", className, source.toString());
+        assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+        assertTrue(source.toString().contains("compareTo(nullable("
+                + SelfComparable.class.getCanonicalName() + ".class))"), source.toString());
+
+        // The stub on the bridged method still answers the SUT's call through the bridge.
+        SelfComparable stubbed = mock(SelfComparable.class, withSettings().mockMaker(MockMakers.SUBCLASS));
+        doReturn(42).when(stubbed).compareTo(nullable(SelfComparable.class));
+        assertEquals(42, compareThroughErasedInterface(stubbed, new SelfComparable()));
+        assertEquals(42, compareThroughErasedInterface(stubbed, null));
     }
 }
