@@ -69,6 +69,7 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.MinimizationResult;
 import org.evosuite.testsuite.MinimizationStopCause;
 import org.evosuite.testsuite.OracleReplayConfiguration;
@@ -641,6 +642,37 @@ public class TestSuiteGenerator {
     }
 
     /**
+     * Tests that use a variable no earlier statement defines cannot be cloned by the
+     * minimizer and cannot be written as compilable code; one of them used to abort the
+     * whole post-processing, so they are dropped first, each with one warning.
+     */
+    void removeTestsWithUnresolvedReferences(TestSuiteChromosome testSuite) {
+        Iterator<TestChromosome> iterator = testSuite.getTestChromosomes().iterator();
+        int index = 0;
+        while (iterator.hasNext()) {
+            TestChromosome test = iterator.next();
+            List<String> problems;
+            try {
+                // The same check the search applies to its offspring, plus assignments whose
+                // value or target is only defined later, which clone() tolerates but any
+                // positional copy, and the written test, do not.
+                problems = TestParser.findOrphanedVariableReferences(test.getTestCase());
+                if (problems.isEmpty()) {
+                    problems = TestParser.findUnsafelyCopyableStatements(test.getTestCase());
+                }
+            } catch (Throwable t) {
+                problems = Collections.singletonList("reference check crashed: " + t);
+            }
+            if (!problems.isEmpty()) {
+                logger.warn("Dropping test {} of the suite (id {}) before post-processing: {}",
+                        index, test.getTestCase().getID(), problems);
+                iterator.remove();
+            }
+            index++;
+        }
+    }
+
+    /**
      * Drops every test that is a prefix of another test in the suite, crediting
      * its covered goals to the test that contains it.
      *
@@ -713,6 +745,8 @@ public class TestSuiteGenerator {
      */
     protected void postProcessTests(TestSuiteChromosome testSuite) {
         logSuiteDiagnostics("postProcess:start", testSuite);
+
+        removeTestsWithUnresolvedReferences(testSuite);
 
         // If overall time is short, the search might not have had enough time
         // to come up with a suite without timeouts. However, they will slow
