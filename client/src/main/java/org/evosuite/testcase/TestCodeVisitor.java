@@ -87,6 +87,10 @@ public class TestCodeVisitor extends TestVisitor {
 
     private static final Logger logger = LoggerFactory.getLogger(TestCodeVisitor.class);
 
+    /** Simple name -> whether java.lang declares a type of that name. */
+    private static final Map<String, Boolean> JAVA_LANG_SIMPLE_NAMES =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     protected StringBuilder testCode = new StringBuilder();
 
     protected static final String NEWLINE = System.getProperty("line.separator");
@@ -640,7 +644,7 @@ public class TestCodeVisitor extends TestVisitor {
         GenericClass<?> c = GenericClassFactory.get(clazz);
         String name = c.getSimpleName();
         boolean useCanonicalName = false;
-        if (hasSimpleNameConflict(clazz, name)) {
+        if (hasSimpleNameConflict(clazz, name) || shadowsJavaLangType(clazz)) {
             name = clazz.getCanonicalName();
             useCanonicalName = true;
         } else {
@@ -691,6 +695,27 @@ public class TestCodeVisitor extends TestVisitor {
         return name;
     }
 
+    /**
+     * Whether importing {@code clazz} would shadow a java.lang type of the same simple name
+     * (org.apache.xpath.operations.String). The test suite refers to such types by their simple
+     * name without registering them here (the {@code String[] EVO_INIT_ORDER} of the scaffolding,
+     * {@code Object} casts, {@code Class} literals), so the import breaks them all.
+     */
+    private static boolean shadowsJavaLangType(Class<?> clazz) {
+        if (clazz.isPrimitive() || clazz.getEnclosingClass() != null
+                || "java.lang".equals(clazz.getPackage() == null ? null : clazz.getPackage().getName())) {
+            return false;
+        }
+        return JAVA_LANG_SIMPLE_NAMES.computeIfAbsent(clazz.getSimpleName(), simpleName -> {
+            try {
+                Class.forName("java.lang." + simpleName, false, null);
+                return true;
+            } catch (ClassNotFoundException | LinkageError e) {
+                return false;
+            }
+        });
+    }
+
     private boolean hasSimpleNameConflict(Class<?> clazz, String simpleName) {
         String canonicalName = clazz.getCanonicalName();
         for (Map.Entry<Class<?>, String> entry : classNames.entrySet()) {
@@ -699,6 +724,11 @@ public class TestCodeVisitor extends TestVisitor {
             }
             Class<?> existingClass = entry.getKey();
             String existingCanonical = existingClass.getCanonicalName();
+            if (existingCanonical != null && existingCanonical.indexOf('.') >= 0
+                    && existingCanonical.equals(entry.getValue())) {
+                // Rendered fully qualified, so never imported: its simple name is still free.
+                continue;
+            }
             if (!Objects.equals(canonicalName, existingCanonical)) {
                 return true;
             }
