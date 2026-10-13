@@ -51,25 +51,6 @@ public abstract class DepVariableWrapper {
             Map<DepVariableWrapper, VarRelevance> map, Branch b, boolean allowNullValue);
 
     /**
-     * Finds the variables in the test that correspond to this dependency variable.
-     *
-     * @param test the test to search
-     * @param isLeaf whether this wrapper is a leaf of the dependency tree
-     * @param callerObject the object on which the dependency is accessed
-     * @param map the relevance information of the wrappers already processed
-     * @return the corresponding variables, empty if none is found
-     */
-    public List<VariableReference> findCorrespondingVariables(TestCase test, boolean isLeaf,
-            VariableReference callerObject, Map<DepVariableWrapper, VarRelevance> map) {
-        List<VariableReference> vars = new ArrayList<>();
-        VariableReference var = find(test, isLeaf, callerObject, map);
-        if (var != null) {
-            vars.add(var);
-        }
-        return vars;
-    }
-
-    /**
      * Finds the variable in the test that corresponds to this dependency variable.
      *
      * @param test the test to search
@@ -244,29 +225,6 @@ public abstract class DepVariableWrapper {
             }
         }
         return null;
-    }
-
-    /**
-     * Follows the first parents upwards until a node that has already been processed is found.
-     *
-     * @return the closest processed ancestor, or null if there is none
-     */
-    public DepVariableWrapper findTaintedParent() {
-
-        DepVariableWrapper firstPar = this.getFirstParent();
-        if (firstPar == null) {
-            return null;
-        }
-
-        while (!firstPar.processed) {
-            firstPar = firstPar.getFirstParent();
-
-            if (firstPar == null) {
-                return null;
-            }
-        }
-
-        return firstPar;
     }
 
 }

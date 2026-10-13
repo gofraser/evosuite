@@ -105,12 +105,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
         FieldInsnNode fieldNode = (FieldInsnNode) this.var.getInstruction().getASMNode();
         String fieldType = fieldNode.desc;
         String fieldOwner = fieldNode.owner.replace("/", ".");
-        String fieldTypeName = fieldType.replace("/", ".");
-        if (fieldTypeName.startsWith("L")) {
-            fieldTypeName = fieldTypeName.substring(1, fieldTypeName.length() - 1);
-        } else if (fieldTypeName.startsWith("[L")) {
-            fieldTypeName = fieldTypeName.substring(2, fieldTypeName.length() - 1);
-        }
         String fieldName = fieldNode.name;
 
         // string value
@@ -457,14 +451,7 @@ public class FieldVariableWrapper extends DepVariableWrapper {
             VariableReference callerObject,
             Map<DepVariableWrapper, VarRelevance> map) {
         FieldInsnNode fieldNode = (FieldInsnNode) this.var.getInstruction().getASMNode();
-        String fieldType = fieldNode.desc;
         String fieldOwner = fieldNode.owner.replace("/", ".");
-        String fieldTypeName = fieldType.replace("/", ".");
-        if (fieldTypeName.startsWith("L")) {
-            fieldTypeName = fieldTypeName.substring(1, fieldTypeName.length() - 1);
-        } else if (fieldTypeName.startsWith("[L")) {
-            fieldTypeName = fieldTypeName.substring(2, fieldTypeName.length() - 1);
-        }
         String fieldName = fieldNode.name;
 
         // string value
