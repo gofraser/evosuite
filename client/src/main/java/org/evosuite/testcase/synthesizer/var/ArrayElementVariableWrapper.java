@@ -26,7 +26,6 @@ import org.evosuite.testcase.statements.numeric.LongPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.ShortPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.ConstructionReferenceUtil;
 import org.evosuite.testcase.synthesizer.VariableInTest;
-import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
@@ -70,8 +69,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
             VariableInTest variable,
             Map<DepVariableWrapper, VarRelevance> map,
             Branch b,
-            boolean allowNullValue,
-            Operation recommendation) {
+            boolean allowNullValue) {
 
         try {
             return generateArrayElementStatement(test, isLeaf, variable, map);

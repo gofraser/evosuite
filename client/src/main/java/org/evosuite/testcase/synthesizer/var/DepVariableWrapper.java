@@ -4,7 +4,6 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.synthesizer.VariableInTest;
-import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
 import org.evosuite.testcase.variable.VariableReference;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -46,11 +45,10 @@ public abstract class DepVariableWrapper {
      * @param map the relevance information of the wrappers already processed
      * @param b the targeted branch
      * @param allowNullValue whether a null value may be used
-     * @param recommendation the recommended operation for the synthesis
      * @return the matched and relevant variables
      */
     public abstract VarRelevance generateOrFindStatement(TestCase test, boolean isLeaf, VariableInTest variable,
-            Map<DepVariableWrapper, VarRelevance> map, Branch b, boolean allowNullValue, Operation recommendation);
+            Map<DepVariableWrapper, VarRelevance> map, Branch b, boolean allowNullValue);
 
     /**
      * Finds the variables in the test that correspond to this dependency variable.

@@ -22,7 +22,6 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
 import org.evosuite.testcase.synthesizer.var.DepVariableWrapper;
 import org.evosuite.testcase.synthesizer.var.VarRelevance;
 import org.evosuite.testcase.variable.VariableReference;
@@ -348,7 +347,7 @@ public class ConstructionPathSynthesizer {
                 Map<DepVariableWrapper, VarRelevance> mapBeforeNode = new HashMap<>(map);
                 boolean processedBeforeNode = node.processed;
                 boolean derived =
-                        deriveCodeForTest(map, test, testVariable, b, allowNullValue, null);
+                        deriveCodeForTest(map, test, testVariable, b, allowNullValue);
 
                 if (test.size() >= maxStatements) {
                     while (test.size() > statementCountBeforeNode) {
@@ -571,8 +570,7 @@ public class ConstructionPathSynthesizer {
             TestCase test,
             VariableInTest testVariable,
             Branch b,
-            boolean allowNullValue,
-            Operation recommendation)
+            boolean allowNullValue)
             throws ClassNotFoundException, ConstructionFailedException {
         DepVariableWrapper node = testVariable.getNode();
         boolean isLeaf = node.children.isEmpty();
@@ -581,7 +579,7 @@ public class ConstructionPathSynthesizer {
         try {
             relevance =
                     node.generateOrFindStatement(
-                            test, isLeaf, testVariable, map, b, allowNullValue, recommendation);
+                            test, isLeaf, testVariable, map, b, allowNullValue);
         } catch (Exception e) {
             logger.debug("Object-rule statement derivation failed for {}", node.getShortName(), e);
         }

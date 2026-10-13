@@ -16,7 +16,6 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.synthesizer.ConstructionReferenceUtil;
 import org.evosuite.testcase.synthesizer.UsedReferenceSearcher;
 import org.evosuite.testcase.synthesizer.VariableInTest;
-import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -62,7 +61,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
      * @param map the relevance information of the wrappers already processed
      * @param b the targeted branch
      * @param allowNullValue whether a null value may be used
-     * @param recommendation the recommended operation for the synthesis
      * @return the matched and relevant variables
      */
     @Override
@@ -72,8 +70,7 @@ public class FieldVariableWrapper extends DepVariableWrapper {
             VariableInTest variable,
             Map<DepVariableWrapper, VarRelevance> map,
             Branch b,
-            boolean allowNullValue,
-            Operation recommendation) {
+            boolean allowNullValue) {
         List<VariableReference> list = new ArrayList<>();
 
         // TODO Darien
