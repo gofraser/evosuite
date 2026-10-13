@@ -746,32 +746,20 @@ public class TestCodeVisitorTest {
     public void testUninterpretedStatementAddsImportForParentPackageSiblingType() {
         TestCodeVisitor visitor = new TestCodeVisitor();
         visitor.getClassName(com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        try {
-            Method resolver = TestCodeVisitor.class.getDeclaredMethod("resolveSimpleClassName", String.class);
-            resolver.setAccessible(true);
-            Class<?> resolved = (Class<?>) resolver.invoke(visitor, "AccessExamples");
-            assertNotNull(resolved, "Expected parent-package sibling type to resolve");
-            assertEquals("com.examples.with.different.packagename.AccessExamples", resolved.getName(),
-                    "Expected parent-package sibling type resolution from known subpackage class");
-        } catch (Exception e) {
-            fail("Could not invoke resolveSimpleClassName via reflection: " + e.getMessage());
-        }
+        Class<?> resolved = visitor.snippetSupport.resolveSimpleClassName("AccessExamples");
+        assertNotNull(resolved, "Expected parent-package sibling type to resolve");
+        assertEquals("com.examples.with.different.packagename.AccessExamples", resolved.getName(),
+                "Expected parent-package sibling type resolution from known subpackage class");
     }
 
     @Test
     public void testUninterpretedStatementAddsImportForParentPackageSiblingTypeInJdkPackage() {
         TestCodeVisitor visitor = new TestCodeVisitor();
         visitor.getClassName(java.awt.event.MouseEvent.class);
-        try {
-            Method resolver = TestCodeVisitor.class.getDeclaredMethod("resolveSimpleClassName", String.class);
-            resolver.setAccessible(true);
-            Class<?> resolved = (Class<?>) resolver.invoke(visitor, "Color");
-            assertNotNull(resolved, "Expected parent-package sibling type to resolve");
-            assertEquals("java.awt.Color", resolved.getName(),
-                    "Expected parent-package sibling type resolution from known JDK subpackage class");
-        } catch (Exception e) {
-            fail("Could not invoke resolveSimpleClassName via reflection: " + e.getMessage());
-        }
+        Class<?> resolved = visitor.snippetSupport.resolveSimpleClassName("Color");
+        assertNotNull(resolved, "Expected parent-package sibling type to resolve");
+        assertEquals("java.awt.Color", resolved.getName(),
+                "Expected parent-package sibling type resolution from known JDK subpackage class");
     }
 
     @Test
