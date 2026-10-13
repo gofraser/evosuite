@@ -22,11 +22,13 @@ package org.evosuite.testcase;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -90,6 +92,26 @@ public class TestCodeVisitorPrimitiveRenderingTest {
                 "A short constant boxed by a reference cast must stay a short:\n" + code);
         assertFalse(code.contains("(Short)  (-1)") || code.contains("(Short) (-1)"),
                 "(Short) (-1) casts an int, which javac rejects:\n" + code);
+    }
+
+    public static boolean ENABLED = true;
+
+    @Test
+    public void primitiveFieldReadInsideTryIsPreDeclaredWithItsDefault() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        FieldStatement read = new FieldStatement(tc,
+                new GenericField(TestCodeVisitorPrimitiveRenderingTest.class.getField("ENABLED"),
+                        TestCodeVisitorPrimitiveRenderingTest.class), null);
+        tc.addStatement(read);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        visitor.setExceptions(Collections.singletonMap(read.getPosition(), new NoClassDefFoundError("x")));
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("boolean boolean0 = false;"),
+                "A primitive must be pre-declared with its default value:\n" + code);
+        assertFalse(code.contains("boolean boolean0 = null;"), "null is not a boolean:\n" + code);
     }
 
     @Test

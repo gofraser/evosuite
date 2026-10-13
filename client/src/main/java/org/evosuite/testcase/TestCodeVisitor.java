@@ -1875,7 +1875,9 @@ public class TestCodeVisitor extends TestVisitor {
             builder.append(getClassName(retval));
             builder.append(" ");
             builder.append(getVariableName(retval));
-            builder.append(" = null;");
+            // A primitive field (boolean flag = PropsValues.FLAG) cannot be pre-declared as null.
+            builder.append(" = ").append(retval.isPrimitive() ? retval.getDefaultValueString() : "null")
+                    .append(";");
             builder.append(NEWLINE);
             builder.append("try {");
             builder.append(NEWLINE);
