@@ -256,8 +256,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     protected transient volatile EvoInvocationListener listener;
 
-    protected transient Method mockCreator;
-
     /**
      * Constructor for FunctionalMockStatement.
      *
@@ -275,7 +273,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         methodParameters = new LinkedHashMap<>();
         checkTarget();
         assert parameters.isEmpty();
-        //setUpMockCreator();
     }
 
     /**
@@ -320,19 +317,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             checkTarget();
         }
         assert parameters.isEmpty();
-        //setUpMockCreator();
-    }
-
-    private void setUpMockCreator() {
-        ClassLoader loader = targetClass.getRawClass().getClassLoader();
-        try {
-            Class<?> mockito = loader.loadClass(Mockito.class.getName());
-            mockCreator = mockito.getDeclaredMethod("mock",
-                    loader.loadClass(Class.class.getName()), loader.loadClass(MockSettings.class.getName()));
-
-        } catch (Exception e) {
-            logger.error("Failed to setup mock creator: " + e.getMessage());
-        }
     }
 
     @Override
@@ -465,12 +449,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
-        // ad-hoc list of classes we should not really mock
-        List<Class<?>> avoid = Arrays.asList(
-        // add here if needed
-        );
-
-        return !avoid.contains(rawClass);
+        return true;
     }
 
     private static boolean isSealed(Class<?> rawClass) {
