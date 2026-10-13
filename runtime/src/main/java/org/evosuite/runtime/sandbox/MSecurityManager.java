@@ -221,6 +221,13 @@ public class MSecurityManager extends SecurityManager {
     private static volatile long sandboxLockAcquireTimeoutMs = TimeUnit.MINUTES.toMillis(5);
 
     /**
+     * See {@link Sandbox#setJvmExitRefused(boolean)}. Kept here rather than in {@link Sandbox}
+     * because it is read during permission checks, which must not load a class whose static
+     * initializer sets the security manager.
+     */
+    private static volatile boolean jvmExitRefused;
+
+    /**
      * Override the default 5-minute timeout used by {@link #goingToExecuteTestCase()}
      * when waiting to acquire the sandbox lock. Callers (e.g. the EvoSuite
      * client side) can tune this based on Properties.TIMEOUT and friends.
@@ -286,7 +293,12 @@ public class MSecurityManager extends SecurityManager {
     public MSecurityManager() {
         privilegedThreads = ConcurrentHashMap.newKeySet();
         privilegedThreads.add(Thread.currentThread());
-        defaultManager = System.getSecurityManager();
+        SecurityManager current = System.getSecurityManager();
+        // A stand-in left while an earlier sandbox was down is not what this one restores: it
+        // restores the manager the stand-in replaced, or a new stand-in for it if exiting the
+        // JVM is still refused then.
+        defaultManager = current instanceof ExitRefusingSecurityManager
+                ? ((ExitRefusingSecurityManager) current).getReplacedManager() : current;
         executingTestCase = false;
         privilegedThreadToIgnore = null;
         privilegedThreadToIgnoreNesting = 0;
@@ -475,7 +487,9 @@ public class MSecurityManager extends SecurityManager {
      */
     public void restoreDefaultManager() throws SecurityException {
         try {
-            System.setSecurityManager(defaultManager);
+            // Handing over to the stand-in directly leaves no moment without a manager.
+            System.setSecurityManager(jvmExitRefused
+                    ? new ExitRefusingSecurityManager(defaultManager) : defaultManager);
         } catch (UnsupportedOperationException e) {
             // Java 24+ no longer supports Security Manager
             evoLogger.warn("* Security Manager is not supported in this JVM (Java 24+), cannot restore");
@@ -920,6 +934,25 @@ public class MSecurityManager extends SecurityManager {
         return;
     }
 
+    static void setJvmExitRefused(boolean refused) {
+        jvmExitRefused = refused;
+    }
+
+    static boolean isJvmExitRefused() {
+        return jvmExitRefused;
+    }
+
+    /**
+     * Whether the permission is the one checked by {@code System.exit}, {@code Runtime.exit}
+     * and {@code Runtime.halt}.
+     *
+     * @param perm the permission
+     * @return true if granting it would let the JVM be terminated
+     */
+    static boolean isExitPermission(Permission perm) {
+        return perm instanceof RuntimePermission && perm.getName().startsWith("exitVM");
+    }
+
     // ------------------------------------------------------------------------------------------
 
     private boolean isAWTThread() {
@@ -954,6 +987,12 @@ public class MSecurityManager extends SecurityManager {
              * allow everything
              */
             return true;
+        }
+
+        // Not even to privileged threads: a sandbox brought up by a generated test makes every
+        // thread alive at that moment privileged, SUT threads left over from earlier tests included.
+        if (jvmExitRefused && isExitPermission(perm)) {
+            return false;
         }
 
         /*

@@ -167,6 +167,40 @@ public class Sandbox {
     }
 
     /**
+     * While set, no thread may exit the JVM, privileged or not, and taking the sandbox down
+     * leaves a manager in place that refuses just that, instead of the manager the sandbox
+     * replaced.
+     *
+     * <p>This is for running generated tests in the process that generated them (the JUnit
+     * check). That takes the sandbox down for the run, and a generated test brings up its own
+     * only between its class set-up and clean-up, which makes every thread alive at that moment
+     * privileged. SUT threads left over from earlier tests keep running all along, and once a
+     * test has turned the mock framework off their {@code System.exit} calls are no longer
+     * replaced: one that came while no manager was installed ended the process, and the suite
+     * it had generated was lost.
+     *
+     * @param refused whether exiting the JVM is refused
+     */
+    public static synchronized void setJvmExitRefused(boolean refused) {
+        MSecurityManager.setJvmExitRefused(refused);
+        if (refused) {
+            return;
+        }
+        SecurityManager current = System.getSecurityManager();
+        if (current instanceof ExitRefusingSecurityManager) {
+            try {
+                System.setSecurityManager(((ExitRefusingSecurityManager) current).getReplacedManager());
+            } catch (SecurityException | UnsupportedOperationException e) {
+                logger.warn("Cannot remove the manager that refused to exit the JVM: {}", e.toString());
+            }
+        }
+    }
+
+    public static boolean isJvmExitRefused() {
+        return MSecurityManager.isJvmExitRefused();
+    }
+
+    /**
      * Create and initialize security manager for SUT.
      */
     public static synchronized void initializeSecurityManagerForSUT(Set<Thread> privileged) {

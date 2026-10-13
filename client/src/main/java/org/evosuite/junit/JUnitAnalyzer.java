@@ -943,6 +943,11 @@ public abstract class JUnitAnalyzer {
             return t;
         });
         JUnitCheckProgress progress = new JUnitCheckProgress();
+        // SUT threads left over from the tests (fixsuite's LibrarySuite starts one from the event
+        // dispatch thread) outlive the generated test that turns the mock framework off, so their
+        // System.exit is the real one. The runner takes the sandbox down for the run, and the JVM
+        // exited whenever such a call came while no manager was installed, losing the suite.
+        Sandbox.setJvmExitRefused(true);
         Future<JUnitResult> future = executor.submit(runnerTask(testClasses, progress));
         boolean firedTimeout = false;
         boolean gaveUp = false;
@@ -992,6 +997,8 @@ public abstract class JUnitAnalyzer {
             // runner that died inside the sandbox without reaching its own release. Without it the
             // dead runner's lock stalls the next test execution for the whole acquisition timeout.
             Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
+            // Not even past a runner that was abandoned: the client has to be able to exit itself.
+            Sandbox.setJvmExitRefused(false);
             if (firedTimeout) {
                 // Clear any signals we raised so subsequent work isn't poisoned.
                 // Note: cannot clear the orphan runner's interrupt — it isn't us.
