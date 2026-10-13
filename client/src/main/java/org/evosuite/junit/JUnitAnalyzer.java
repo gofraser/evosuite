@@ -3195,11 +3195,7 @@ public abstract class JUnitAnalyzer {
             if (wasSandboxOn) {
                 // only activate Sandbox if it was already active before
                 if (!Sandbox.isSecurityManagerInitialized()) {
-                    Sandbox.initializeSecurityManagerForSUT(privileged);
-                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
-                            .registerCompilationThreadAsPrivileged();
-                    org.evosuite.llm.response.TestRepairLoop
-                            .registerParseCompileThreadAsPrivileged();
+                    org.evosuite.testcase.execution.ClientSandbox.activate(privileged);
                 }
             } else if (Sandbox.isSecurityManagerInitialized()) {
                 logger.warn("EvoSuite problem: tests set up a security manager, "

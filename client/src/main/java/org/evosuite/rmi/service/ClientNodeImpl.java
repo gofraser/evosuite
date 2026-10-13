@@ -33,6 +33,7 @@ import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
 import org.evosuite.runtime.sandbox.Sandbox;
+import org.evosuite.testcase.execution.ClientSandbox;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.statistics.RuntimeVariable;
@@ -220,11 +221,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
                 //Before starting search, let's activate the sandbox
                 if (Properties.SANDBOX) {
-                    Sandbox.initializeSecurityManagerForSUT();
-                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
-                            .registerCompilationThreadAsPrivileged();
-                    org.evosuite.llm.response.TestRepairLoop
-                            .registerParseCompileThreadAsPrivileged();
+                    ClientSandbox.activate();
                 }
                 results = new ArrayList<>();
 
@@ -991,11 +988,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 changeState(ClientState.STARTED);
                 //Before starting search, let's activate the sandbox
                 if (Properties.SANDBOX) {
-                    Sandbox.initializeSecurityManagerForSUT();
-                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
-                            .registerCompilationThreadAsPrivileged();
-                    org.evosuite.llm.response.TestRepairLoop
-                            .registerParseCompileThreadAsPrivileged();
+                    ClientSandbox.activate();
                 }
 
                 // Reset before each attempt so a previous call's outcome (measurement finished
@@ -1104,11 +1097,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             public void run() {
                 changeState(ClientState.STARTED);
                 if (Properties.SANDBOX) {
-                    Sandbox.initializeSecurityManagerForSUT();
-                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
-                            .registerCompilationThreadAsPrivileged();
-                    org.evosuite.llm.response.TestRepairLoop
-                            .registerParseCompileThreadAsPrivileged();
+                    ClientSandbox.activate();
                 }
 
                 try {
