@@ -60,6 +60,18 @@ public class HiddenFieldAccessibleFieldsCompileTest {
         Tree tree;
     }
 
+    /**
+     * Shaped like vuze's SkinView: internal state in protected fields that hide nothing.
+     */
+    public static class View {
+        protected Tree skin;
+        Tree soMain;
+        public Tree shown;
+    }
+
+    public static class ActivityView extends View {
+    }
+
     private String originalPrefix;
 
     @BeforeEach
@@ -79,6 +91,18 @@ public class HiddenFieldAccessibleFieldsCompileTest {
         assertEquals(1, fields.length);
         assertEquals(Ret.class, fields[0].getDeclaringClass());
         assertEquals(Tree.class, fields[0].getType());
+    }
+
+    @Test
+    public void testNonPublicFieldThatHidesNothingIsNotOffered() {
+        // The test package can see skin and soMain, but they are the object's internal state:
+        // offered as reusable values they replace mocks and new objects with a field that is
+        // usually still null.
+        for (Class<?> clazz : Arrays.asList(View.class, ActivityView.class)) {
+            Field[] fields = TestClusterUtils.getAccessibleFields(clazz).toArray(new Field[0]);
+            assertEquals(1, fields.length, Arrays.toString(fields));
+            assertEquals("shown", fields[0].getName());
+        }
     }
 
     @Test

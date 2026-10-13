@@ -419,7 +419,17 @@ public class TestClusterUtils {
         // it hides was offered instead: a reference typed Object that javac resolves, in
         // "x.tree = value", to the hiding field of type CommonTree. canUse is asked with clazz
         // as the owner so a field hidden somewhere below its declaring class is rejected.
+        // The names stay those of the public fields, though: a non-public field is offered only
+        // where it hides a public one. Offering every protected and package-private field let
+        // value reuse pick the code under test's own internal state, typically still null, for
+        // any parameter of its type; vuze's SBC_ActivityView then had every SWTSkinObject mock
+        // stub getSkin() with its own null "skin" field instead of a mock, and lost two thirds
+        // of its branch coverage.
+        final Set<String> publicNames = Arrays.stream(Reflection.getFields(clazz))
+                .map(Field::getName)
+                .collect(toCollection(HashSet::new));
         final Set<Field> accessibleFields = getFields(clazz).stream()
+                .filter(f -> publicNames.contains(f.getName()))
                 .filter(f -> TestUsageChecker.canUse(f, clazz) && !isFinalField(f))
                 .sorted(comparing(Field::getName))
                 .collect(toCollection(LinkedHashSet::new));
