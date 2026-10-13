@@ -79,6 +79,50 @@ public class EvoInvocationListenerTest {
     }
 
     @Test
+    public void testRepeatedCallsOfResolvedGenericMethodBuildOneDescriptor() {
+        // The descriptor of genericAsInput is stored under its resolved matcher (String), while
+        // Mockito reports the erased parameter (Object); repeated calls must still hit the cache.
+        ParameterizedTypeImpl type = new ParameterizedTypeImpl(AGenericClass.class, new Type[]{String.class}, null);
+        EvoInvocationListener listener = new EvoInvocationListener(type);
+        AGenericClass<String> aGenericClass = (AGenericClass<String>) mock(AGenericClass.class, withSettings().invocationListeners(listener));
+        listener.activate();
+
+        aGenericClass.genericAsInput("foo");
+        aGenericClass.genericAsInput("bar");
+        aGenericClass.genericAsInput("baz");
+
+        List<MethodDescriptor> list = listener.getCopyOfMethodDescriptors();
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertEquals(3, list.get(0).getCounter());
+        Assertions.assertEquals(1, listener.getDescriptorsBuiltForTests());
+    }
+
+    public abstract static class AnAbstractClass {
+        public abstract int abstractMethod();
+
+        public int concreteMethod() {
+            return 0;
+        }
+    }
+
+    @Test
+    public void testRepeatedCallsOfIgnoredConcreteMethodBuildOneDescriptor() {
+        EvoInvocationListener listener = new EvoAbstractMethodInvocationListener(AnAbstractClass.class);
+        AnAbstractClass mock = mock(AnAbstractClass.class, withSettings().invocationListeners(listener));
+        listener.activate();
+
+        mock.concreteMethod();
+        mock.concreteMethod();
+        mock.abstractMethod();
+        mock.abstractMethod();
+
+        List<MethodDescriptor> list = listener.getCopyOfMethodDescriptors();
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertEquals(2, list.get(0).getCounter());
+        Assertions.assertEquals(2, listener.getDescriptorsBuiltForTests());
+    }
+
+    @Test
     public void testCheckGenericsProperties() throws Exception {
         AGenericClass<String> aGenericClass = (AGenericClass<String>) mock(AGenericClass.class);
 

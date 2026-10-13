@@ -34,9 +34,12 @@ import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -52,6 +55,20 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
     private static final Logger logger = LoggerFactory.getLogger(EvoInvocationListener.class);
 
     private final Map<String, MethodDescriptor> map = new LinkedHashMap<>();
+
+    /**
+     * Descriptors in {@link #map} are keyed by their resolved matchers, which for a generic
+     * method differ from the raw parameter types Mockito reports. This maps the raw key to the
+     * stored descriptor, so repeated calls do not rebuild a descriptor each time. Raw keys of
+     * methods that {@link #onlyMockAbstractMethods()} ignores are remembered in
+     * {@link #skippedRawKeys} for the same reason. Both are guarded by {@link #map} and rebuilt
+     * lazily after deserialization.
+     */
+    private transient Map<String, MethodDescriptor> byRawKey;
+
+    private transient Set<String> skippedRawKeys;
+
+    private transient int descriptorsBuilt = 0;
 
     /**
      * Counts total invocations since last {@link #activate()}.
@@ -164,7 +181,10 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
                 + "#" + buildRawParamKey(method);
 
         synchronized (map) {
-            MethodDescriptor current = map.get(cheapKey);
+            if (skippedRawKeys().contains(cheapKey)) {
+                return;
+            }
+            MethodDescriptor current = byRawKey().get(cheapKey);
             if (current != null) {
                 current.increaseCounter();
                 return;
@@ -175,6 +195,10 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
         MethodDescriptor md = new MethodDescriptor(method, retvalType);
 
         if (onlyMockAbstractMethods() && !md.getGenericMethod().isAbstract()) {
+            synchronized (map) {
+                skippedRawKeys().add(cheapKey);
+                descriptorsBuilt++;
+            }
             return;
         }
 
@@ -185,6 +209,31 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
             }
             current.increaseCounter();
             map.put(md.getID(), current);
+            byRawKey().put(cheapKey, current);
+            descriptorsBuilt++;
+        }
+    }
+
+    private Map<String, MethodDescriptor> byRawKey() {
+        if (byRawKey == null) {
+            byRawKey = new HashMap<>();
+        }
+        return byRawKey;
+    }
+
+    private Set<String> skippedRawKeys() {
+        if (skippedRawKeys == null) {
+            skippedRawKeys = new HashSet<>();
+        }
+        return skippedRawKeys;
+    }
+
+    /**
+     * Number of method descriptors built so far, for tests that check the raw-key cache.
+     */
+    int getDescriptorsBuiltForTests() {
+        synchronized (map) {
+            return descriptorsBuilt;
         }
     }
 
