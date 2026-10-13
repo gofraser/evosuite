@@ -107,7 +107,7 @@ public class VariableResolver {
      * @return the variable reference
      * @throws ConstructionFailedException if construction fails
      */
-    public VariableReference resolveVariableInternal(TestCase test, Type parameterType,
+    private VariableReference resolveVariableInternal(TestCase test, Type parameterType,
                                                       int position, GenerationContext context,
                                                       VariableResolutionConfig config)
             throws ConstructionFailedException {

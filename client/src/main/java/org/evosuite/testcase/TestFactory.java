@@ -623,21 +623,6 @@ public class TestFactory {
     }
 
     /**
-     * Adds the given primitive statement {@code old} at the specified {@code position} to the test
-     * case {@code test}.
-     *
-     * @param test the test case to which to add the statement
-     * @param old the primitive statement to add
-     * @param position the position in {@code test} at which to add the statement
-     * @return a reference to the return value of the added statement
-     */
-    private VariableReference addPrimitive(
-            TestCase test, PrimitiveStatement<?> old, int position, int recursionDepth)
-            throws ConstructionFailedException {
-        return addPrimitive(test, old, position, GenerationContext.fromDepth(recursionDepth));
-    }
-
-    /**
      * Public entry point used by EvoObj template synthesis to insert a primitive statement.
      */
     public VariableReference addPrimitive(TestCase test, PrimitiveStatement<?> old, int position)
@@ -1275,37 +1260,6 @@ public class TestFactory {
         return createOrReuseVariable(test, parameterType, position, context, config);
     }
 
-    private VariableReference createOrReuseVariableInternal(TestCase test, Type parameterType,
-                                                             int position, GenerationContext context,
-                                                             VariableResolutionConfig config)
-            throws ConstructionFailedException {
-        return variableResolver.resolveVariableInternal(test, parameterType, position, context, config);
-    }
-
-    private VariableReference createOrReuseVariableInternal(TestCase test, Type parameterType,
-                                                             int position, GenerationContext context,
-                                                             VariableReference exclude, boolean allowNull,
-                                                             boolean excludeCalleeGenerators, boolean canUseMocks)
-            throws ConstructionFailedException {
-        VariableResolutionConfig config = new VariableResolutionConfig.Builder()
-                .withExcludeVar(exclude)
-                .withAllowNull(allowNull)
-                .withExcludeCalleeGenerators(excludeCalleeGenerators)
-                .withCanUseMocks(canUseMocks)
-                .build();
-        return createOrReuseVariableInternal(test, parameterType, position, context, config);
-    }
-
-    private VariableReference createVariable(TestCase test, Type parameterType,
-                                             int position, int recursionDepth, VariableReference exclude,
-                                             boolean allowNull,
-                                             boolean excludeCalleeGenerators, boolean canUseMocks,
-                                             boolean canReuseExistingVariables)
-            throws ConstructionFailedException {
-        return createVariable(test, parameterType, position, GenerationContext.fromDepth(recursionDepth), exclude,
-                allowNull, excludeCalleeGenerators, canUseMocks, canReuseExistingVariables);
-    }
-
     /**
      * In the given {@code test} case, tries to create a variable of the type represented by {@code
      * parameterType} at the specified {@code position}. Clients can tweak the creation process
@@ -1340,126 +1294,6 @@ public class TestFactory {
             VariableResolutionConfig config)
             throws ConstructionFailedException {
         return variableResolver.createVariable(test, parameterType, position, context, config);
-    }
-
-    private VariableReference createVariable(TestCase test, Type parameterType,
-                                             int position, GenerationContext context, VariableReference exclude,
-                                             boolean allowNull,
-                                             boolean excludeCalleeGenerators, boolean canUseMocks,
-                                             boolean canReuseExistingVariables)
-            throws ConstructionFailedException {
-        VariableResolutionConfig config = new VariableResolutionConfig.Builder()
-                .withExcludeVar(exclude)
-                .withAllowNull(allowNull)
-                .withExcludeCalleeGenerators(excludeCalleeGenerators)
-                .withCanUseMocks(canUseMocks)
-                .withCanReuseExistingVariables(canReuseExistingVariables)
-                .build();
-        return createVariable(test, parameterType, position, context, config);
-    }
-
-    private List<VariableReference> getCandidatesForReuse(TestCase test, Type parameterType, int position,
-                                                          VariableReference exclude,
-                                                          boolean allowNull, boolean canUseMocks) {
-
-        // look at all vars defined before pos
-        List<VariableReference> objects = test.getObjects(parameterType, position);
-
-        // if an exclude var was specified, then remove it
-        if (exclude != null) {
-            objects.remove(exclude);
-            if (exclude.getAdditionalVariableReference() != null) {
-                objects.remove(exclude.getAdditionalVariableReference());
-            }
-
-            objects.removeIf(v -> exclude.equals(v.getAdditionalVariableReference()));
-        }
-
-        List<VariableReference> additionalToRemove = new ArrayList<>();
-
-        // no mock should be used more than once
-        Iterator<VariableReference> iter = objects.iterator();
-        while (iter.hasNext()) {
-            VariableReference ref = iter.next();
-            if (!(test.getStatement(ref.getStPosition()) instanceof FunctionalMockStatement)) {
-                continue;
-            }
-
-            // check if current mock var is used anywhere: if so, then we cannot choose it
-            for (int i = ref.getStPosition() + 1; i < test.size(); i++) {
-                Statement st = test.getStatement(i);
-                if (st.getVariableReferences().contains(ref)) {
-                    iter.remove();
-                    additionalToRemove.add(ref);
-                    break;
-                }
-            }
-        }
-
-        // check for null
-        if (!allowNull) {
-            iter = objects.iterator();
-            while (iter.hasNext()) {
-                VariableReference ref = iter.next();
-
-                if (ConstraintHelper.isNull(ref, test)) {
-                    iter.remove();
-                    additionalToRemove.add(ref);
-                }
-            }
-        }
-
-        // check for mocks
-        if (!canUseMocks) {
-            iter = objects.iterator();
-            while (iter.hasNext()) {
-                VariableReference ref = iter.next();
-
-                if (test.getStatement(ref.getStPosition()) instanceof FunctionalMockStatement) {
-                    iter.remove();
-                    additionalToRemove.add(ref);
-                }
-            }
-        }
-
-        // further remove all other vars that have the deleted ones as additionals
-        iter = objects.iterator();
-        while (iter.hasNext()) {
-            VariableReference ref = iter.next();
-            VariableReference additional = ref.getAdditionalVariableReference();
-            if (additional == null) {
-                continue;
-            }
-            if (additionalToRemove.contains(additional)) {
-                iter.remove();
-            }
-        }
-
-        // avoid using characters as values for numeric types arguments
-        iter = objects.iterator();
-        String parCls = parameterType.getTypeName();
-        if (Integer.TYPE.getTypeName().equals(parCls) || Long.TYPE.getTypeName().equals(parCls)
-                || Float.TYPE.getTypeName().equals(parCls) || Double.TYPE.getTypeName().equals(parCls)) {
-            while (iter.hasNext()) {
-                VariableReference ref = iter.next();
-                String cls = ref.getType().getTypeName();
-                if ((Character.TYPE.getTypeName().equals(cls))) {
-                    iter.remove();
-                }
-            }
-        }
-
-        // final safety filter: ensure type compatibility is consistent
-        iter = objects.iterator();
-        while (iter.hasNext()) {
-            VariableReference ref = iter.next();
-            if (!ref.isAssignableTo(parameterType)) {
-                logger.trace("Removing incompatible reuse candidate {} for type {}", ref, parameterType);
-                iter.remove();
-            }
-        }
-
-        return objects;
     }
 
     /**
@@ -1546,20 +1380,6 @@ public class TestFactory {
         return testMutator.deleteStatementGracefully(test, position);
     }
 
-    /**
-     * Inserts a random reflection call into the test case.
-     *
-     * @param test           the test case
-     * @param position       the position to insert the call
-     * @param recursionDepth current recursion depth
-     * @return true if successful
-     * @throws ConstructionFailedException if construction fails
-     */
-    private boolean insertRandomReflectionCall(TestCase test, int position, int recursionDepth)
-            throws ConstructionFailedException {
-        return insertRandomReflectionCall(test, position, GenerationContext.fromDepth(recursionDepth));
-    }
-
     boolean insertRandomReflectionCall(TestCase test, int position, GenerationContext context)
             throws ConstructionFailedException {
 
@@ -1622,22 +1442,6 @@ public class TestFactory {
 
         test.addStatement(st, position);
         return true;
-    }
-
-    /**
-     * Inserts a random reflection call on a specific object into the test case.
-     *
-     * @param test           the test case
-     * @param callee         the object to call the method on
-     * @param position       the position to insert the call
-     * @param recursionDepth current recursion depth
-     * @return true if successful
-     * @throws ConstructionFailedException if construction fails
-     */
-    private boolean insertRandomReflectionCallOnObject(TestCase test, VariableReference callee,
-                                                       int position, int recursionDepth)
-            throws ConstructionFailedException {
-        return insertRandomReflectionCallOnObject(test, callee, position, GenerationContext.fromDepth(recursionDepth));
     }
 
     boolean insertRandomReflectionCallOnObject(TestCase test, VariableReference callee,
