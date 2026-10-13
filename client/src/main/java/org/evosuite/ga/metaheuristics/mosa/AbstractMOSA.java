@@ -221,16 +221,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final boolean speciationEnabled;
 
     /**
-     * Speciation assigner. Always non-null; uses a no-op implementation when speciation is
-     * disabled. Transient because lambdas/anonymous classes are not serializable and this field is
-     * not needed after RMI transfer.
+     * Speciation assigner. Non-null only when {@link #speciationEnabled}; every use is guarded by
+     * that flag. Transient because this field is not needed after RMI transfer.
      */
     protected final transient SpeciesAssigner speciesAssigner;
 
     /**
-     * Speciation policy. Always non-null; uses a no-op implementation when speciation is disabled.
-     * Transient because anonymous inner classes are not serializable and this field is not needed
-     * after RMI transfer.
+     * Speciation policy. Non-null only when {@link #speciationEnabled}; every use is guarded by
+     * that flag. Transient because this field is not needed after RMI transfer.
      */
     protected final transient SpeciesPolicy speciesPolicy;
 
@@ -453,30 +451,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.speciesTrackingAssigner = this.speciesAssigner;
         } else {
             this.speciationEnabled = false;
-            // No-op implementations: groupBySpecies puts all in one species,
-            // policy methods return input unchanged.
-            SpeciesAssigner singleSpeciesAssigner = population -> {
-                Map<Integer, List<TestChromosome>> single = new HashMap<>();
-                single.put(0, new ArrayList<>(population));
-                return single;
-            };
-            this.speciesAssigner = singleSpeciesAssigner;
-            this.speciesPolicy = new SpeciesPolicy() {
-                @Override
-                public List<TestChromosome> applySurvivalCaps(
-                        List<TestChromosome> rankedSurvivors,
-                        Map<Integer, List<TestChromosome>> speciesMap,
-                        int targetSize, double survivalCap) {
-                    return rankedSurvivors.subList(0, Math.min(targetSize, rankedSurvivors.size()));
-                }
-
-                @Override
-                public List<TestChromosome> balanceParentPool(
-                        List<TestChromosome> pop,
-                        Map<Integer, List<TestChromosome>> speciesMap) {
-                        return pop;
-                }
-            };
+            // Survival never consults the assigner or the policy without speciation.
+            this.speciesAssigner = null;
+            this.speciesPolicy = null;
             // Sidecar implies tracking-only species assignment too, since we need
             // a real species map per generation to plot.
             this.trackSpeciesWhenSpeciationDisabled =
@@ -487,7 +464,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         ? new StableSpeciesAssigner()
                         : new DefaultSpeciesAssigner();
             } else {
-                this.speciesTrackingAssigner = singleSpeciesAssigner;
+                // Tracking is off: a single-species assigner that is never asked to group.
+                this.speciesTrackingAssigner = population -> {
+                    Map<Integer, List<TestChromosome>> single = new HashMap<>();
+                    single.put(0, new ArrayList<>(population));
+                    return single;
+                };
             }
         }
 

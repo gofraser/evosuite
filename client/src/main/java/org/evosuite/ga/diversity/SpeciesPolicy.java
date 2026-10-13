@@ -31,21 +31,30 @@ import java.util.Map;
 public interface SpeciesPolicy {
 
     /**
-     * Apply per-species survival caps to the ranked survivor list.
-     * Individuals beyond the species cap are replaced by the next-best
-     * individuals from underrepresented species.
+     * Applies species-level protection (age-ordered quotas, newborn protection and per-species
+     * caps) to the ranked survivor list.
      *
-     * @param rankedSurvivors the survivor list already ordered by MOSA ranking/crowding
-     * @param speciesMap      species assignment from {@link SpeciesAssigner#groupBySpecies}
-     * @param targetSize      desired population size
-     * @param survivalCap     maximum fraction of survivors any single species may occupy
-     * @return capped survivor list of size min(targetSize, available individuals)
+     * @param rankedSurvivors              the survivor list already ordered by MOSA ranking/crowding
+     * @param speciesMap                   species assignment from {@link SpeciesAssigner#groupBySpecies}
+     * @param targetSize                   desired population size
+     * @param survivalCap                  maximum fraction of survivors any single species may occupy
+     * @param currentGeneration            the current generation
+     * @param minSurvivorsPerSpecies       minimum survivors guaranteed to each species
+     * @param newbornProtectionGenerations age below which a species gets extra protection
+     * @param speciesBirthGeneration       birth generation per species id (may be null)
+     * @param stats                        receives protection counters (may be null)
+     * @return survivor list of size min(targetSize, available individuals)
      */
-    List<TestChromosome> applySurvivalCaps(
+    List<TestChromosome> applyProtectedSurvival(
             List<TestChromosome> rankedSurvivors,
             Map<Integer, List<TestChromosome>> speciesMap,
             int targetSize,
-            double survivalCap);
+            double survivalCap,
+            int currentGeneration,
+            int minSurvivorsPerSpecies,
+            int newbornProtectionGenerations,
+            Map<Integer, Integer> speciesBirthGeneration,
+            SpeciesProtectionStats stats);
 
     /**
      * Optionally balance parent selection pool across species.
@@ -62,57 +71,11 @@ public interface SpeciesPolicy {
      * Adjust crowding-distance-like density scores inside a front to penalize
      * crowded species (fitness sharing). Implementations may leave the front
      * unchanged when sharing is disabled.
-     */
-    default void applyFitnessSharing(
-            List<TestChromosome> front,
-            Map<Integer, List<TestChromosome>> speciesMap) {
-        // no-op
-    }
-
-    /**
-     * Overload that records sharing-related counters.
-     */
-    default void applyFitnessSharing(
-            List<TestChromosome> front,
-            Map<Integer, List<TestChromosome>> speciesMap,
-            SpeciesProtectionStats stats) {
-        applyFitnessSharing(front, speciesMap);
-    }
-
-    /**
-     * Applies species-level protection (quotas + age protection + caps) to the
-     * ranked survivor list.
      *
-     * <p>The default implementation keeps backward compatibility by delegating
-     * to {@link #applySurvivalCaps(List, Map, int, double)}.
+     * @param stats receives sharing counters (may be null)
      */
-    default List<TestChromosome> applyProtectedSurvival(
-            List<TestChromosome> rankedSurvivors,
+    void applyFitnessSharing(
+            List<TestChromosome> front,
             Map<Integer, List<TestChromosome>> speciesMap,
-            int targetSize,
-            double survivalCap,
-            int currentGeneration,
-            int minSurvivorsPerSpecies,
-            int newbornProtectionGenerations,
-            Map<Integer, Integer> speciesBirthGeneration) {
-        return applySurvivalCaps(rankedSurvivors, speciesMap, targetSize, survivalCap);
-    }
-
-    /**
-     * Overload that records protection counters.
-     */
-    default List<TestChromosome> applyProtectedSurvival(
-            List<TestChromosome> rankedSurvivors,
-            Map<Integer, List<TestChromosome>> speciesMap,
-            int targetSize,
-            double survivalCap,
-            int currentGeneration,
-            int minSurvivorsPerSpecies,
-            int newbornProtectionGenerations,
-            Map<Integer, Integer> speciesBirthGeneration,
-            SpeciesProtectionStats stats) {
-        return applyProtectedSurvival(rankedSurvivors, speciesMap, targetSize, survivalCap,
-                currentGeneration, minSurvivorsPerSpecies, newbornProtectionGenerations,
-                speciesBirthGeneration);
-    }
+            SpeciesProtectionStats stats);
 }

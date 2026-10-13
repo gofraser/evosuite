@@ -41,6 +41,14 @@ class DefaultSpeciesPolicyTest {
         policy = new DefaultSpeciesPolicy();
     }
 
+    /** Protected survival with no quota and no newborn protection: per-species caps only. */
+    private List<TestChromosome> capOnly(List<TestChromosome> ranked,
+                                         Map<Integer, List<TestChromosome>> speciesMap,
+                                         int targetSize, double survivalCap) {
+        return policy.applyProtectedSurvival(ranked, speciesMap, targetSize, survivalCap,
+                0, 0, 0, null, null);
+    }
+
     @Test
     void survivalCapNoCapWhenCapIsOne() {
         List<TestChromosome> survivors = makeChromosomes(6);
@@ -48,7 +56,7 @@ class DefaultSpeciesPolicyTest {
         speciesMap.put(0, survivors.subList(0, 4));
         speciesMap.put(1, survivors.subList(4, 6));
 
-        List<TestChromosome> result = policy.applySurvivalCaps(
+        List<TestChromosome> result = capOnly(
                 survivors, speciesMap, 6, 1.0);
 
         assertEquals(6, result.size());
@@ -70,7 +78,7 @@ class DefaultSpeciesPolicyTest {
         speciesMap.put(0, s0);
         speciesMap.put(1, s1);
 
-        List<TestChromosome> result = policy.applySurvivalCaps(all, speciesMap, 6, 0.5);
+        List<TestChromosome> result = capOnly(all, speciesMap, 6, 0.5);
 
         assertEquals(6, result.size());
         // Use identity to count species members
@@ -101,7 +109,7 @@ class DefaultSpeciesPolicyTest {
         speciesMap.put(0, s0);
         speciesMap.put(1, s1);
 
-        List<TestChromosome> result = policy.applySurvivalCaps(all, speciesMap, 6, 0.5);
+        List<TestChromosome> result = capOnly(all, speciesMap, 6, 0.5);
 
         assertEquals(6, result.size());
         // Use identity sets to count
@@ -124,7 +132,7 @@ class DefaultSpeciesPolicyTest {
         Map<Integer, List<TestChromosome>> speciesMap = new LinkedHashMap<>();
         speciesMap.put(0, all);
 
-        List<TestChromosome> result = policy.applySurvivalCaps(all, speciesMap, 5, 1.0);
+        List<TestChromosome> result = capOnly(all, speciesMap, 5, 1.0);
         assertEquals(5, result.size());
     }
 
@@ -133,7 +141,7 @@ class DefaultSpeciesPolicyTest {
         List<TestChromosome> all = makeChromosomes(4);
         Map<Integer, List<TestChromosome>> speciesMap = Collections.emptyMap();
 
-        List<TestChromosome> result = policy.applySurvivalCaps(all, speciesMap, 4, 0.5);
+        List<TestChromosome> result = capOnly(all, speciesMap, 4, 0.5);
         assertEquals(4, result.size());
     }
 
@@ -217,7 +225,7 @@ class DefaultSpeciesPolicyTest {
         speciesMap.put(0, s0);
         speciesMap.put(1, s1);
 
-        List<TestChromosome> result = policy.applySurvivalCaps(all, speciesMap, 8, 0.5);
+        List<TestChromosome> result = capOnly(all, speciesMap, 8, 0.5);
 
         assertEquals(8, result.size());
         // Count species 0 members - should be 4 from first pass + 2 from fallback = 6
@@ -281,7 +289,7 @@ class DefaultSpeciesPolicyTest {
         speciesMap.put(1, rest1);
 
         int remainingSlots = 3;
-        List<TestChromosome> capped = policy.applySurvivalCaps(
+        List<TestChromosome> capped = capOnly(
                 nonFront0, speciesMap, remainingSlots, 0.5);
 
         // Front-0 (3 members) + capped (3 members) = 6 total population
@@ -318,7 +326,7 @@ class DefaultSpeciesPolicyTest {
         birth.put(2, 0);
 
         List<TestChromosome> result = policy.applyProtectedSurvival(
-                ranked, speciesMap, 3, 1.0, 10, 1, 0, birth);
+                ranked, speciesMap, 3, 1.0, 10, 1, 0, birth, null);
 
         assertEquals(3, result.size());
         assertTrue(result.contains(s0.get(0)));
@@ -343,7 +351,7 @@ class DefaultSpeciesPolicyTest {
         birth.put(1, 9);
 
         List<TestChromosome> result = policy.applyProtectedSurvival(
-                ranked, speciesMap, 2, 1.0, 10, 0, 3, birth);
+                ranked, speciesMap, 2, 1.0, 10, 0, 3, birth, null);
 
         assertEquals(2, result.size());
         assertTrue(result.contains(newbornSpecies.get(0)),
