@@ -237,4 +237,28 @@ class StatisticsSenderTest {
         TestChromosome test = makeChromosomeWithoutResult();
         assertSame(test, StatisticsSender.lightweightCopy(test));
     }
+
+    /**
+     * A test case whose clone fails the consistency assertions of a statement copy.
+     */
+    private static class InconsistentTestCase extends DefaultTestCase {
+        @Override
+        public DefaultTestCase clone() {
+            throw new AssertionError("statement copy failed its consistency check");
+        }
+    }
+
+    @Test
+    void sendIndividualToMasterDoesNotLetAFailedCopyEscape() {
+        Properties.NEW_STATISTICS = true;
+        TestChromosome test = new TestChromosome();
+        test.setTestCase(new InconsistentTestCase());
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+
+        // Sending statistics is optional, so a failed copy must not abort the caller,
+        // neither on the first failure (reported) nor on later ones.
+        assertDoesNotThrow(() -> StatisticsSender.sendIndividualToMaster(suite));
+        assertDoesNotThrow(() -> StatisticsSender.sendIndividualToMaster(suite));
+    }
 }

@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Class responsible to send "individuals" from Client to Master process.
@@ -50,6 +51,8 @@ public class StatisticsSender {
 
     private static final Logger logger = LoggerFactory.getLogger(StatisticsSender.class);
 
+    private static final AtomicBoolean copyFailureReported = new AtomicBoolean(false);
+
     /**
      * Send the given individual to the Client, plus any other needed info.
      *
@@ -63,8 +66,24 @@ public class StatisticsSender {
             return;
         }
 
+        T copy;
         try {
-            ClientServices.<T>getInstance().getClientNode().updateStatistics(lightweightCopy(individual));
+            copy = lightweightCopy(individual);
+        } catch (AssertionError e) {
+            // Copying clones every test, and the clone checks the consistency of
+            // each statement. A test that fails that check must not abort the
+            // caller (e.g. post-processing, which would then skip the JUnit
+            // check); the statistics for this individual are simply not sent.
+            if (copyFailureReported.compareAndSet(false, true)) {
+                logger.warn("Could not copy individual for statistics export; not sending it to master: {}",
+                        e.getMessage(), e);
+            } else {
+                logger.debug("Could not copy individual for statistics export", e);
+            }
+            return;
+        }
+        try {
+            ClientServices.<T>getInstance().getClientNode().updateStatistics(copy);
         } catch (RuntimeException t) {
             // Statistics export must never abort test generation. In some environments
             // the master cannot deserialize certain generic members from the client
