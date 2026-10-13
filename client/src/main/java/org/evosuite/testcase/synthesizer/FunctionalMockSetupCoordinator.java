@@ -154,31 +154,13 @@ public final class FunctionalMockSetupCoordinator {
     }
 
     /**
-     * Materializes every currently observed missing stub into an already-cloned candidate. The
-     * clone retains the read-only invocation listener from the preceding execution.
-     */
-    public static RepairToken applyObservedSetup(TestCase candidate) {
-        return applyObservedSetup(candidate, true, null);
-    }
-
-    /**
-     * Materializes observed stubs, optionally seeding boolean returns with the non-default
-     * direction. Functional mocks and Java primitives otherwise overwhelmingly produce false,
-     * making a missing true branch effectively invisible to setup repair.
-     */
-    public static synchronized RepairToken applyObservedSetup(TestCase candidate,
-                                                 boolean preferNonDefaultBooleans) {
-        return applyObservedSetup(candidate, preferNonDefaultBooleans, null);
-    }
-
-    /**
      * Materializes observed stubs with an optional value inferred from the active branch
      * comparison. Without a hint, numeric returns use small deterministic values rather than
      * unrestricted constant-pool values such as {@link Integer#MAX_VALUE}.
      */
-    public static RepairToken applyObservedSetup(TestCase candidate,
-                                                 boolean preferNonDefaultBooleans,
-                                                 Number numericHint) {
+    private static RepairToken applyObservedSetup(TestCase candidate,
+                                                  boolean preferNonDefaultBooleans,
+                                                  Number numericHint) {
         if (!enabled() || candidate == null) {
             return null;
         }
@@ -427,7 +409,7 @@ public final class FunctionalMockSetupCoordinator {
         for (int i = 0; i < returnTypes.size() && i < values.size(); i++) {
             Type type = returnTypes.get(i);
             if (type == boolean.class || type == Boolean.class) {
-                int definition = definitionPosition(test, values.get(i));
+                int definition = test.positionOfReturnValue(values.get(i));
                 if (definition >= 0
                         && test.getStatement(definition) instanceof BooleanPrimitiveStatement) {
                     ((BooleanPrimitiveStatement) test.getStatement(definition))
@@ -569,15 +551,6 @@ public final class FunctionalMockSetupCoordinator {
         }
         return TestFactory.getInstance().createObject(
                 test, type, position, GenerationContext.fromDepth(2), config);
-    }
-
-    private static int definitionPosition(TestCase test, VariableReference reference) {
-        for (int position = 0; position < test.size(); position++) {
-            if (test.getStatement(position).getReturnValue() == reference) {
-                return position;
-            }
-        }
-        return -1;
     }
 
     /**
