@@ -88,10 +88,6 @@ public class ClassStateSupport {
             for (Class<?> clazz : classes) {
 
                 if (clazz.isInterface()) {
-                    /*
-                        FIXME: once we ll start to support Java 8, in which interfaces can have code,
-                        we ll need to instrument them as well
-                     */
                     continue;
                 }
 
@@ -120,8 +116,6 @@ public class ClassStateSupport {
         }
 
         return problem;
-
-        //retransformIfNeeded(classes); // cannot do it, as retransformation does not really work :(
     }
 
     /**
@@ -280,8 +274,6 @@ public class ClassStateSupport {
     }
 
 
-    // deprecated ---------------------------------
-
     /**
      * If any of the loaded class was not instrumented yet, then re-instrument them.
      * Note: re-instrumentation is more limited, as cannot change class signature
@@ -289,7 +281,6 @@ public class ClassStateSupport {
      * @param classLoader the class loader to use
      * @param classNames  the names of the classes to re-transform
      */
-    @Deprecated
     public static void retransformIfNeeded(ClassLoader classLoader, String... classNames) {
         List<Class<?>> classes = new ArrayList<>();
         for (String name : classNames) {
@@ -308,7 +299,6 @@ public class ClassStateSupport {
      *
      * @param classes the list of classes to re-transform
      */
-    @Deprecated
     public static void retransformIfNeeded(List<Class<?>> classes) {
 
         if (classes == null || classes.isEmpty()) {
@@ -316,26 +306,6 @@ public class ClassStateSupport {
         }
 
         List<Class<?>> classToReInstrument = new ArrayList<>();
-
-        /*
-        InstrumentingAgent.activate();
-        for(Class<?> cl : classes){
-
-            try{
-                InstrumentingAgent.getInstumentation().retransformClasses(cl);
-            } catch(UnsupportedOperationException e){
-                / *
-                 * this happens if class was already loaded by JUnit (eg the abstract class problem)
-                 * and re-instrumentation do change the signature
-                 * /
-                classToReInstument.add(cl);
-            } catch(Exception | Error e){
-                //this shouldn't really happen
-                java.lang.System.err.println("Could not instrument "+cl.getName()+". Exception "+e.toString());
-            }
-
-        }
-        */
 
         TransformerForTests transformer;
         try {
