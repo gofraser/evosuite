@@ -241,8 +241,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final boolean trackSpeciesWhenSpeciationDisabled;
 
     /**
-     * Species assigner used only for observability when speciation is disabled. This never feeds
-     * back into survival, ranking, or mating behavior.
+     * Species assigner for timeline tracking and stable-ID bookkeeping. Always non-null: it is
+     * {@link #speciesAssigner} when speciation is enabled; otherwise it is used only for
+     * observability and never feeds back into survival, ranking, or mating behavior.
      */
     protected final transient SpeciesAssigner speciesTrackingAssigner;
 
@@ -1484,8 +1485,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected void recordPopulationSnapshot(
             int coveredGoalCount, int uncoveredGoalCount, double diversity) {
         recordFreshInjectedSurvivorMetrics();
-        SpeciesAssigner trackingAssigner = (speciesTrackingAssigner != null)
-                ? speciesTrackingAssigner : speciesAssigner;
         if (populationSpeciesRecorder != null && lastTrackedSpeciesMap != null
                 && !this.population.isEmpty()) {
             try {
@@ -1737,16 +1736,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
         }
 
-        if (trackingAssigner instanceof StableSpeciesAssigner) {
+        if (speciesTrackingAssigner instanceof StableSpeciesAssigner) {
             try {
-                ((StableSpeciesAssigner) trackingAssigner).advanceGeneration();
-            } catch (Exception e) {
-                logger.debug("StableSpeciesAssigner.advanceGeneration() failed", e);
-            }
-        } else if (speciesAssigner instanceof StableSpeciesAssigner
-                && speciesAssigner != trackingAssigner) {
-            try {
-                ((StableSpeciesAssigner) speciesAssigner).advanceGeneration();
+                ((StableSpeciesAssigner) speciesTrackingAssigner).advanceGeneration();
             } catch (Exception e) {
                 logger.debug("StableSpeciesAssigner.advanceGeneration() failed", e);
             }
