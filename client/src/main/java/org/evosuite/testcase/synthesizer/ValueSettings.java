@@ -32,11 +32,6 @@ public class ValueSettings {
     public Set<Integer> releventPrams = new HashSet<>();
 
     /**
-     * Whether the parameters can influence or directly set the value.
-     */
-    public int dataflowType;
-
-    /**
      * Creates the settings for a value-setting instruction reached through a call chain.
      *
      * @param ins the instruction that sets the value
@@ -49,13 +44,10 @@ public class ValueSettings {
         this.valueSettingInstruction = ins;
         this.callChain = new ArrayList<>(cascadingCallRelations);
 
-        // infer influence/match
         Set<Integer> validParamPos = DataDependencyUtil.checkValidParameterPositions(ins,
                 targetClass, signature, new ArrayList<>(cascadingCallRelations));
 
         this.releventPrams = validParamPos;
-        this.dataflowType = validParamPos.isEmpty() ? DataflowProperty.MATCH : DataflowProperty.INFLUENCE;
-
     }
 
     @Override
