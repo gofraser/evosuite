@@ -2414,7 +2414,12 @@ public abstract class JUnitAnalyzer {
         return Collections.emptyList();
     }
 
-    private static List<String> buildExtensionInitializationOrder(List<String> observedInitializationOrder) {
+    /**
+     * Orders the classes whose static state the JUnit 5 extension re-initializes: the target
+     * class first, then the observed initialization order without blanks or duplicates, capped at
+     * {@link Properties#TEST_EXTENSION_PRELOAD_MAX_CLASSES} (at least one).
+     */
+    public static List<String> buildExtensionInitializationOrder(List<String> observedInitializationOrder) {
         LinkedHashSet<String> ordered = new LinkedHashSet<>();
         if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.trim().isEmpty()) {
             ordered.add(Properties.TARGET_CLASS.trim());

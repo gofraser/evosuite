@@ -1667,8 +1667,7 @@ public class TestSuiteGenerator {
             return Collections.emptyList();
         }
 
-        if (!TimeController.getInstance().hasTimeToExecuteATestCase()
-                || !TimeController.getInstance().isThereStillTimeInThisPhase(delta)) {
+        if (!hasTimeForWholeSuiteCheck(delta)) {
             JUnitAnalyzer.recordCheckIncomplete(
                     "ran out of time before the extension initialization order could be resolved");
             return Collections.emptyList();
@@ -1676,7 +1675,7 @@ public class TestSuiteGenerator {
 
         List<String> observedInitializationOrder = ClassReInitializer.getInstance().getInitializedClasses();
         if (Properties.TEST_EXTENSION_PRELOAD_INITIALIZED_CLASSES) {
-            List<String> preloadOrder = buildExtensionInitializationOrder(observedInitializationOrder);
+            List<String> preloadOrder = JUnitAnalyzer.buildExtensionInitializationOrder(observedInitializationOrder);
             if (!preloadOrder.isEmpty()) {
                 logger.info("Extension preloading enabled. Emitting explicit initialization order with {} classes.",
                         preloadOrder.size());
@@ -1700,7 +1699,7 @@ public class TestSuiteGenerator {
             return Collections.emptyList();
         }
 
-        List<String> explicitOrder = buildExtensionInitializationOrder(observedInitializationOrder);
+        List<String> explicitOrder = JUnitAnalyzer.buildExtensionInitializationOrder(observedInitializationOrder);
         if (explicitOrder.size() < 2) {
             return Collections.emptyList();
         }
@@ -1729,34 +1728,6 @@ public class TestSuiteGenerator {
     static boolean hasTimeForOrderSensitivityAnalysis(long suiteRunMs) {
         return TimeController.getInstance().isThereStillTimeInThisPhase(
                 2L * orderSensitivityAnalysisCostMs(suiteRunMs));
-    }
-
-    private static List<String> buildExtensionInitializationOrder(List<String> observedInitializationOrder) {
-        LinkedHashSet<String> ordered = new LinkedHashSet<>();
-        if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.trim().isEmpty()) {
-            ordered.add(Properties.TARGET_CLASS.trim());
-        }
-        if (observedInitializationOrder != null) {
-            for (String className : observedInitializationOrder) {
-                if (className == null) {
-                    continue;
-                }
-                String trimmed = className.trim();
-                if (!trimmed.isEmpty()) {
-                    ordered.add(trimmed);
-                }
-            }
-        }
-
-        int maxClasses = Math.max(1, Properties.TEST_EXTENSION_PRELOAD_MAX_CLASSES);
-        List<String> limited = new ArrayList<>(Math.min(maxClasses, ordered.size()));
-        for (String className : ordered) {
-            limited.add(className);
-            if (limited.size() >= maxClasses) {
-                break;
-            }
-        }
-        return limited;
     }
 
     /**
