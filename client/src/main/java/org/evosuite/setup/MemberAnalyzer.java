@@ -641,7 +641,7 @@ public class MemberAnalyzer {
             logger.debug("Adding mock {} instead of {}", mock, clazz);
             clazz = GenericClassFactory.get(mock);
         } else {
-            if (!TestClusterUtils.checkIfCanUse(clazz.getClassName())) {
+            if (!TestClusterUtils.checkIfCanUse(clazz.getClassName(), clazz.getRawClass())) {
                 return;
             }
         }

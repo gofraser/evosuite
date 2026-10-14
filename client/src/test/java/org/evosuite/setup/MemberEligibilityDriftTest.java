@@ -22,7 +22,6 @@ package org.evosuite.setup;
 import com.examples.with.different.packagename.PrivateParameterTypeFixture;
 import com.sun.evosuitefixture.LibraryValue;
 import org.evosuite.utils.generic.GenericClassFactory;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
@@ -62,8 +61,6 @@ public class MemberEligibilityDriftTest {
                 "precondition: canUse admits a com.sun class from the classpath");
     }
 
-    @Disabled("D6: addDependency never applies the com.sun library exemption"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void classpathLibraryUnderComSunIsAddedAsADependency() {
         Set<DependencyPair> dependencies = new LinkedHashSet<>();
