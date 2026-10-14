@@ -21,16 +21,18 @@ package org.evosuite.llm;
 
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
+import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,13 +74,23 @@ public class LlmStatisticsNonLlmMetricsTest {
         clientNodeField.set(ClientServices.getInstance(), previousClientNode);
     }
 
-    @Disabled("D11: LLM end-of-run defaults zero Object_Pool_Sequence_Used and LLM_Fallback_*"
-            + " - see CLEANUP-PLAN.md")
+    @AfterEach
+    public void resetCounters() {
+        ObjectPoolManager.getInstance().reset();
+        ExecutableSnippetEngine.INSTANCE.resetMetricsForTesting();
+    }
+
     @Test
-    public void endOfRunDefaultsKeepMetricsTrackedDuringTheRun() {
-        // During the run: one object-pool sequence used (VariableResolver) and one snippet that
-        // failed to compile (ExecutableSnippetEngine).
-        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, 1);
+    public void endOfRunDefaultsKeepMetricsTrackedDuringTheRun() throws Exception {
+        // During the run: one object-pool sequence used (as VariableResolver records it) and one
+        // snippet that failed to compile (ExecutableSnippetEngine's own counter).
+        ObjectPoolManager.getInstance().reset();
+        int used = ObjectPoolManager.getInstance().incrementSequenceUsageCount();
+        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, used);
+        ExecutableSnippetEngine.INSTANCE.resetMetricsForTesting();
+        Field compileFailures = ExecutableSnippetEngine.class.getDeclaredField("compileFailures");
+        compileFailures.setAccessible(true);
+        ((AtomicInteger) compileFailures.get(ExecutableSnippetEngine.INSTANCE)).incrementAndGet();
         ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, 1);
 
         // End of a run with LLM_PROVIDER == NONE (GeneticAlgorithm and TestSuiteGenerator).
@@ -90,5 +102,19 @@ public class LlmStatisticsNonLlmMetricsTest {
                 () -> assertEquals(1,
                         recorder.lastValues.get(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures),
                         "the snippet fallback count was reset to zero by the LLM defaults"));
+    }
+
+    @Test
+    public void endOfRunDefaultsReportZeroForMetricsNeverTracked() {
+        ObjectPoolManager.getInstance().reset();
+        ExecutableSnippetEngine.INSTANCE.resetMetricsForTesting();
+
+        LlmStatistics.initializeRuntimeVariables();
+
+        // The statistics columns stay filled (0, not empty) when nothing happened.
+        assertAll(
+                () -> assertEquals(0, recorder.lastValues.get(RuntimeVariable.Object_Pool_Sequence_Used)),
+                () -> assertEquals(0,
+                        recorder.lastValues.get(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures)));
     }
 }

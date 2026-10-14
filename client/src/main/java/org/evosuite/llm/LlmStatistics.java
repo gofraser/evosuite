@@ -27,7 +27,9 @@ import org.evosuite.llm.search.ExtractorRejectReason;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.rmi.ClientServices;
+import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 
 import java.util.Collection;
 import java.util.EnumMap;
@@ -752,11 +754,17 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, 0);
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, 0);
         ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, 0);
-        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, 0);
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, 0);
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, 0);
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Statement_Execution_Failures, 0);
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures, 0);
+        // Tracked during the run by other components; publish their totals rather than zero,
+        // because the master keeps the last value it receives.
+        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used,
+                ObjectPoolManager.getInstance().getSequenceUsageCount());
+        ExecutableSnippetEngine snippets = ExecutableSnippetEngine.INSTANCE;
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, snippets.getCompileFailures());
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, snippets.getRuntimeFailures());
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Statement_Execution_Failures,
+                snippets.getStatementExecutionFailures());
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures,
+                snippets.getAssertionEvaluationFailures());
         ClientServices.track(RuntimeVariable.LLM_All_Candidates_Dropped_Execution, 0);
         ClientServices.track(RuntimeVariable.LLM_Semantic_Mutations, 0);
         ClientServices.track(RuntimeVariable.LLM_Semantic_Mutation_Fallbacks, 0);
