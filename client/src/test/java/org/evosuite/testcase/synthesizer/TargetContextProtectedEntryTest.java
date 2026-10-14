@@ -23,7 +23,6 @@ import org.evosuite.Properties;
 import org.evosuite.setup.TestUsageChecker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -52,8 +51,6 @@ public class TargetContextProtectedEntryTest {
         Properties.CLASS_PREFIX = classPrefix;
     }
 
-    @Disabled("D6: isDirectlyAccessibleEntry accepts protected methods of any package"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void protectedMethodOfAnotherPackageIsNotADirectEntry() throws Exception {
         Method removeRange = AbstractList.class.getDeclaredMethod("removeRange", int.class, int.class);

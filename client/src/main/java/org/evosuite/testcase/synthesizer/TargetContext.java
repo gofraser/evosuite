@@ -202,7 +202,6 @@ public class TargetContext {
         }
         int modifiers = method.getModifiers();
         return Modifier.isPublic(modifiers)
-                || Modifier.isProtected(modifiers)
                 || TestUsageChecker.canUse(method, owner);
     }
 
