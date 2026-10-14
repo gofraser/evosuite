@@ -117,6 +117,41 @@ public class TestSuiteSerialization {
 
 
     /**
+     * Creates an input stream that resolves classes through the given class loader
+     * before falling back to the default resolution.
+     *
+     * <p>A plain {@link ObjectInputStream} resolves classes through the nearest
+     * user-defined loader on the stack, which is EvoSuite's own class path. A
+     * serialized test refers to classes of the system under test, and when the SUT
+     * ships a library that EvoSuite bundles too (jackson-databind, gson, ...) the
+     * stream would be bound to EvoSuite's copy. The copy generally has a different
+     * {@code serialVersionUID} or field layout, so reading failed with "local class
+     * incompatible" and every test after the first mismatch was silently lost.
+     *
+     * @param input  the stream to read from
+     * @param loader the loader that knows the classes of the SUT
+     * @return the stream
+     * @throws IOException if the stream header cannot be read
+     */
+    static ObjectInputStream createObjectInputStream(InputStream input, ClassLoader loader)
+            throws IOException {
+        return new ObjectInputStream(input) {
+            @Override
+            protected Class<?> resolveClass(ObjectStreamClass desc)
+                    throws IOException, ClassNotFoundException {
+                if (loader != null) {
+                    try {
+                        return Class.forName(desc.getName(), false, loader);
+                    } catch (ClassNotFoundException | LinkageError e) {
+                        // Primitive types, or classes this loader cannot see.
+                    }
+                }
+                return super.resolveClass(desc);
+            }
+        };
+    }
+
+    /**
      * Serializes a list of test suites to a file within the specified folder.
      *
      * @param ts       the list of test suites to save.
@@ -174,7 +209,8 @@ public class TestSuiteSerialization {
 
         List<TestChromosome> list = new ArrayList<>();
 
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(target))) {
+        try (ObjectInputStream in = createObjectInputStream(new FileInputStream(target),
+                TestGenerationContext.getInstance().getClassLoaderForSUT())) {
 
             while (true) {
                 final Object obj;
