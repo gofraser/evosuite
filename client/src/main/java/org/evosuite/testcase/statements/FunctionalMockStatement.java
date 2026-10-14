@@ -1465,6 +1465,13 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     static boolean isFunctionalMockingGloballyDisabledForTests() {
+        return isFunctionalMockingGloballyDisabled();
+    }
+
+    /**
+     * @return true once the GLOBAL mock failover has permanently disabled functional mocking
+     */
+    public static boolean isFunctionalMockingGloballyDisabled() {
         return functionalMockingGloballyDisabled.get();
     }
 

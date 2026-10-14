@@ -456,10 +456,23 @@ public class TestCaseExecutor implements ThreadFactory {
         testsSinceMockingDisabled = 0;
         if (mockingDisabledDueToTimeouts) {
             logger.info("Restoring functional mocking during context reset.");
-            Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
-            Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+            restoreFunctionalMockingUnlessGloballyDisabled();
             mockingDisabledDueToTimeouts = false;
         }
+    }
+
+    /**
+     * Undoes the temporary, timeout-driven disabling of functional mocking. If the permanent
+     * GLOBAL mock failover fired in the meantime it wrote the same properties, and mocking must
+     * stay off: restoring the saved values would generate mocks that the failover then rejects.
+     */
+    private void restoreFunctionalMockingUnlessGloballyDisabled() {
+        if (FunctionalMockStatement.isFunctionalMockingGloballyDisabled()) {
+            logger.info("Not restoring functional mocking: it is disabled globally.");
+            return;
+        }
+        Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
+        Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
     }
 
     /**
@@ -585,8 +598,7 @@ public class TestCaseExecutor implements ThreadFactory {
                     if (testsSinceMockingDisabled >= MOCK_DISABLE_RETRY_INTERVAL) {
                         logger.info("Restoring functional mocking after {} tests without success "
                                 + "— giving mocked tests another chance.", testsSinceMockingDisabled);
-                        Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
-                        Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+                        restoreFunctionalMockingUnlessGloballyDisabled();
                         mockingDisabledDueToTimeouts = false;
                         consecutiveTimeoutCount = 0;
                     }
@@ -596,8 +608,7 @@ public class TestCaseExecutor implements ThreadFactory {
                 // Restore mocking if we previously disabled it and the timeout pattern broke
                 if (mockingDisabledDueToTimeouts) {
                     logger.info("Restoring functional mocking — consecutive timeout streak broken.");
-                    Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
-                    Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+                    restoreFunctionalMockingUnlessGloballyDisabled();
                     mockingDisabledDueToTimeouts = false;
                 }
             }

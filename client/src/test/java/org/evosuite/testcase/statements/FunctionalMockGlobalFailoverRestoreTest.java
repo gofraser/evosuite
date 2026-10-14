@@ -28,7 +28,6 @@ import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -82,8 +81,6 @@ public class FunctionalMockGlobalFailoverRestoreTest {
         Properties.MOCK_IF_NO_GENERATOR = mockIfNoGenerator;
     }
 
-    @Disabled("D13: executor timeout restore re-enables mocking after the GLOBAL failover"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void executorRestoreDoesNotUndoTheGlobalFailover() throws Exception {
         Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE = Properties.FunctionalMockingFailoverMode.GLOBAL;
