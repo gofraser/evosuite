@@ -12,6 +12,7 @@ import org.objectweb.asm.tree.VarInsnNode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Map;
 
 /**
@@ -74,7 +75,30 @@ public abstract class DepVariableWrapper {
 
     @Override
     public int hashCode() {
-        return this.var.getType();
+        // Must agree with equals(), which treats distinct instructions as equal in the cases below
+        if (var.getInstruction() == null) {
+            return var.hashCode();
+        }
+        switch (var.getType()) {
+            case DepVariable.INSTANCE_FIELD:
+            case DepVariable.STATIC_FIELD:
+                FieldInsnNode field = (FieldInsnNode) var.getInstruction().getASMNode();
+                return Objects.hash(var.getType(), field.owner, field.name, field.desc);
+            case DepVariable.PARAMETER:
+                return Objects.hash(var.getType(), var.getInstruction().getClassName(),
+                        var.getInstruction().getMethodName(), var.getParamOrder());
+            case DepVariable.THIS:
+                return Objects.hash(var.getType(), var.getInstruction().getClassName());
+            case DepVariable.OTHER:
+                AbstractInsnNode node = var.getInstruction().getASMNode();
+                if (node.getOpcode() == Opcodes.ALOAD) {
+                    return Objects.hash(var.getType(), var.getInstruction().getClassName(),
+                            var.getInstruction().getMethodName(), ((VarInsnNode) node).var);
+                }
+                return var.hashCode();
+            default:
+                return var.hashCode();
+        }
     }
 
     @Override

@@ -31,7 +31,6 @@ import org.evosuite.testcase.synthesizer.var.DepVariableWrapper;
 import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -63,8 +62,6 @@ public class PartialGraphNodeOrderTest {
         TestGenerationContext.getInstance().resetContext();
     }
 
-    @Disabled("D10: graph node order depends on identity hashes (degenerate wrapper hashCode)"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void nodeOrderDoesNotDependOnWrapperIdentity() throws Exception {
         analyze(ManyFieldsExample.class, "target");

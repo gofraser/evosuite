@@ -23,8 +23,8 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +32,7 @@ import java.util.Set;
 
 public class PartialGraph {
     Map<DepVariableWrapper, DepVariableWrapper> allRelevantNodes =
-            new HashMap<DepVariableWrapper, DepVariableWrapper>();
+            new LinkedHashMap<DepVariableWrapper, DepVariableWrapper>();
 
     /**
      * Provides a defensive copy of references to all the nodes in the graph.
