@@ -32,6 +32,7 @@ import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
@@ -111,6 +112,20 @@ public class DmonPromotionOperatorTest {
 
         public void use() {
             dep.run();
+        }
+    }
+
+    /**
+     * Fails on the null its caller passed in. The static {@code fallback} is reachable by a
+     * promotion but is not where the null comes from, so injecting into it changes nothing.
+     */
+    public static class NullArgumentTarget {
+        static Runnable fallback;
+        private final Runnable dep;
+
+        public NullArgumentTarget(Runnable dep) {
+            this.dep = dep;
+            this.dep.run();
         }
     }
 
@@ -398,6 +413,65 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
             Properties.TIMEOUT = oldTimeout;
             EarlierFailureTarget.dep = null;
+        }
+    }
+
+    @Test
+    public void promotionThatLeavesTheFailureUnchangedIsKept() throws Exception {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        int oldTimeout = Properties.TIMEOUT;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // See validatePromotedOnceAcceptsPassingPromotion.
+            Properties.TIMEOUT = 60000;
+
+            NullArgumentTarget.fallback = null;
+
+            TestChromosome chromosome = new TestChromosome();
+            DefaultTestCase tc = new DefaultTestCase();
+            VariableReference nullArgument = tc.addStatement(new NullStatement(tc, Runnable.class));
+            tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(NullArgumentTarget.class.getDeclaredConstructor(Runnable.class),
+                            NullArgumentTarget.class),
+                    Collections.singletonList(nullArgument)));
+            chromosome.setTestCase(tc);
+            chromosome.setChanged(false);
+
+            ExecutionResult original = new ExecutionResult(chromosome.getTestCase(), null);
+            original.setTrace(new ExecutionTraceImpl());
+            original.reportNewThrownException(1, new NullPointerException("this.dep"));
+            original.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(NullArgumentTarget.class.getName(), "<init>", 0,
+                            DmonFailureSiteKind.CONSTRUCTOR_INIT),
+                    Optional.of("this.dep"),
+                    Optional.of("this"),
+                    Optional.of("dep"),
+                    Optional.of(Runnable.class.getName())));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, original);
+
+            // The re-run fails exactly as before, so rolling back gains nothing; keeping the
+            // promotion keeps a lenient Runnable mock in the test that the search can pass
+            // as the constructor argument the null came from.
+            TestCase promoted = chromosome.getTestCase();
+            Assert.assertEquals("Mock + injection + null + constructor", 4, promoted.size());
+            Assert.assertTrue(promoted.getStatement(0) instanceof FunctionalMockStatement);
+            Assert.assertTrue(((FunctionalMockStatement) promoted.getStatement(0)).isDmonPromotion());
+            Assert.assertTrue("The kept promotion must be re-evaluated", chromosome.isChanged());
+            Assert.assertNull("Validation should restore static state", NullArgumentTarget.fallback);
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.TIMEOUT = oldTimeout;
+            NullArgumentTarget.fallback = null;
         }
     }
 

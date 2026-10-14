@@ -577,7 +577,7 @@ public class Properties {
 
     @Parameter(key = "dmon_validate_promoted_once", group = "Test Creation",
             description = "Immediately re-run once with DMoN disabled after promotion, and roll the promotion back "
-                    + "if the null is still hit or the test now throws at an earlier statement")
+                    + "if the test now throws at an earlier statement, or still hits the null but fails differently")
     public static boolean DMON_VALIDATE_PROMOTED_ONCE = true;
 
     @Parameter(key = "dmon_max_ephemeral_retries", group = "Test Creation",

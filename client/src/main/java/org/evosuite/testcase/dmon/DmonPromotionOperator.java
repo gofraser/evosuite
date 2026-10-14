@@ -376,13 +376,20 @@ public final class DmonPromotionOperator {
         ExecutionResult validated = null;
         boolean validatedSuccess = false;
         boolean progressAccepted = false;
+        boolean keptUnchanged = false;
         try {
             Properties.DMON_ENABLED = false;
             validated = TestCaseExecutor.runTest(individual.getTestCase());
-            progressAccepted = isValidationProgressAccepted(validated, plan)
-                    && !failsEarlierThanOriginal(validated, originalResult,
-                            individual.getTestCase().size() - backup.size());
-            if (progressAccepted) {
+            int insertedStatements = individual.getTestCase().size() - backup.size();
+            boolean progress = isValidationProgressAccepted(validated, plan);
+            progressAccepted = progress
+                    && !failsEarlierThanOriginal(validated, originalResult, insertedStatements);
+            keptUnchanged = !progress
+                    && failsExactlyAsOriginal(validated, originalResult, insertedStatements);
+            if (keptUnchanged) {
+                // as without validation: keep the promotion and let the GA re-evaluate it
+                individual.setChanged(true);
+            } else if (progressAccepted) {
                 boolean mockMaterialized = materializeFunctionalMockInvocations(individual);
                 individual.setLastExecutionResult(validated);
                 individual.setChanged(mockMaterialized);
@@ -398,6 +405,10 @@ public final class DmonPromotionOperator {
                 }
             }
             Properties.DMON_ENABLED = oldDmonEnabled;
+        }
+        if (keptUnchanged) {
+            return new PromotionAttempt(markContaminatedIfNeeded(originalResult, !restoreOk), true,
+                    restoreOk ? "VALIDATION_UNCHANGED_KEPT" : "VALIDATION_UNCHANGED_KEPT_WITH_RESTORE_WARNING");
         }
         if (validatedSuccess) {
             ExecutionResult effective = markContaminatedIfNeeded(validated, !restoreOk);
@@ -435,6 +446,29 @@ public final class DmonPromotionOperator {
             return false;
         }
         return validatedPosition < originalPosition + insertedStatements;
+    }
+
+    /**
+     * A promotion whose re-run still hits the null and throws the same exception at the same
+     * statement as the original execution (after shifting by the inserted statements) changed
+     * nothing up to the failure: the null does not come from state the injection reaches, but
+     * typically from a null argument or a null return of a mocked call. Rolling such a promotion
+     * back gains nothing and discards its lenient mock of the type the null needed, which the
+     * search reuses where the null does come from, for example as the constructor argument.
+     * Such a promotion is kept, as it was before promotions were validated.
+     */
+    private static boolean failsExactlyAsOriginal(ExecutionResult validated, ExecutionResult original,
+                                                  int insertedStatements) {
+        Integer validatedPosition = validated == null ? null : validated.getFirstPositionOfThrownException();
+        Integer originalPosition = original == null ? null : original.getFirstPositionOfThrownException();
+        if (validatedPosition == null || originalPosition == null
+                || validatedPosition != originalPosition + insertedStatements) {
+            return false;
+        }
+        Throwable validatedException = validated.getExceptionThrownAtPosition(validatedPosition);
+        Throwable originalException = original.getExceptionThrownAtPosition(originalPosition);
+        return validatedException != null && originalException != null
+                && validatedException.getClass().equals(originalException.getClass());
     }
 
     private static boolean isValidationProgressAccepted(ExecutionResult validated, DmonPromotionPlan plan) {
