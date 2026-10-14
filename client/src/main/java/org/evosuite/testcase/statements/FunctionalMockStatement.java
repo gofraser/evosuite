@@ -25,7 +25,6 @@ import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.coverage.mutation.MutationObserver;
 import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.runtime.FalsePositiveException;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.UnmockableTypes;
 import org.evosuite.runtime.instrumentation.InstrumentedClass;
@@ -1575,8 +1574,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 if (!useLenientDefaultAnswer) {
 
                     //execute all "when" statements
-                    int index = 0;
-
                     logger.debug("Mockito: going to mock {} different methods", mockedMethods.size());
                     for (MethodDescriptor md : mockedMethods) {
 
@@ -1659,21 +1656,16 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                         //thenReturn(...)
                         Object[] thenReturnInputs = null;
                         try {
-                            int size = Math.min(md.getCounter(),
-                                    Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT);
+                            // the values of this method, as the renderer and the coordinator
+                            // see them: by ID range, not by a running position in the flat list
+                            List<VariableReference> stubValues = getParameters(md.getID());
+                            int size = stubValues == null ? 0 : stubValues.size();
 
                             thenReturnInputs = new Object[size];
 
                             for (int i = 0; i < thenReturnInputs.length; i++) {
 
-                                int k = i + index; //the position in flat parameter list
-                                if (k >= parameters.size()) {
-                                    throw new CodeUnderTestException(new FalsePositiveException(
-                                            "EvoSuite ERROR: index " + k + " out of "
-                                                    + parameters.size()));
-                                }
-
-                                VariableReference parameterVar = parameters.get(i + index);
+                                VariableReference parameterVar = stubValues.get(i);
                                 thenReturnInputs[i] = parameterVar.getObject(scope);
 
                                 CodeUnderTestException codeUnderTestException = null;
@@ -1720,8 +1712,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                                     thenReturnInputs.length);
                             retForThen.thenReturn(thenReturnInputs[0], values);
                         }
-
-                        index += thenReturnInputs == null ? 0 : thenReturnInputs.length;
                     }
 
                 } // end if (!useLenientDefaultAnswer)

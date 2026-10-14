@@ -33,7 +33,6 @@ import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -66,8 +65,6 @@ public class FunctionalMockCachedSetupDuplicateStubTest {
         FunctionalMockSetupCoordinator.reset();
     }
 
-    @Disabled("D2: mock executer indexes stub values by a running counter, renderer by ID range"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void cachedRecipeOverlappingAnExistingStubExecutesCleanly() throws Exception {
         TestCase first = partiallyStubbedTemplate();
