@@ -197,34 +197,48 @@ public class TestSuiteMinimizer {
 
         logger.info("Minimization Strategy: " + strategy + ", " + suite.size() + " tests");
 
-        // Snapshot the input suite so that, if the inner work OOMs or otherwise throws,
-        // we can revert to the pre-minimization suite. The un-minimized suite covers a
-        // strict superset of the minimized one, so this preserves coverage at the cost
-        // of giving up on minimization for this run. The same snapshot backs the
-        // coverage-preservation check below, which reverts when the minimized suite
-        // ends up covering substantially fewer goals than the input did.
-        final List<TestChromosome> snapshot = deepCloneTests(suite.tests);
-        final Set<TestFitnessFunction> coveredGoalsBefore = coveredGoalsExcludingNonDeterministic(suite);
+        // Minimization re-executes every test many times, once per statement it tries to drop and
+        // once per goal it checks. A DMoN promotion attempt on each of those executions inserts
+        // statements into a copy, runs the copy again and, when the re-run does not get further,
+        // rolls it back, so a test whose null cannot be repaired that way repeats the whole
+        // attempt every time and minimization runs out of time. The suite's promotions were
+        // decided during the search; the minimizer must only shrink the tests, not add to them.
+        // Switched off before the coverage baseline, so the baseline and the minimized suite are
+        // measured the same way and the baseline run does not promote into the input suite.
+        final boolean promoteInPlace = Properties.DMON_PROMOTE_IN_PLACE;
+        Properties.DMON_PROMOTE_IN_PLACE = false;
         MinimizationStatus status = MinimizationStatus.COMPLETED;
-
         try {
-            if (minimizePerTest) {
-                status = minimizeTests(suite);
-            } else {
-                status = minimizeSuite(suite);
-            }
-        } catch (Throwable t) {
-            status = MinimizationStatus.FAILED;
-            logger.error("Minimization failed ({}); reverting to pre-minimization snapshot of {} tests.",
-                    t.getClass().getSimpleName(), snapshot.size(), t);
-            suite.tests.clear();
-            suite.tests.addAll(snapshot);
-            System.gc();
-        }
+            // Snapshot the input suite so that, if the inner work OOMs or otherwise throws,
+            // we can revert to the pre-minimization suite. The un-minimized suite covers a
+            // strict superset of the minimized one, so this preserves coverage at the cost
+            // of giving up on minimization for this run. The same snapshot backs the
+            // coverage-preservation check below, which reverts when the minimized suite
+            // ends up covering substantially fewer goals than the input did.
+            final List<TestChromosome> snapshot = deepCloneTests(suite.tests);
+            final Set<TestFitnessFunction> coveredGoalsBefore = coveredGoalsExcludingNonDeterministic(suite);
 
-        if (minimizePerTest && status != MinimizationStatus.FAILED
-                && shouldEnforceCoveragePreservation(coveredGoalsBefore)) {
-            status = reconcileCoverageAfterMinimization(suite, snapshot, coveredGoalsBefore, status);
+            try {
+                if (minimizePerTest) {
+                    status = minimizeTests(suite);
+                } else {
+                    status = minimizeSuite(suite);
+                }
+            } catch (Throwable t) {
+                status = MinimizationStatus.FAILED;
+                logger.error("Minimization failed ({}); reverting to pre-minimization snapshot of {} tests.",
+                        t.getClass().getSimpleName(), snapshot.size(), t);
+                suite.tests.clear();
+                suite.tests.addAll(snapshot);
+                System.gc();
+            }
+
+            if (minimizePerTest && status != MinimizationStatus.FAILED
+                    && shouldEnforceCoveragePreservation(coveredGoalsBefore)) {
+                status = reconcileCoverageAfterMinimization(suite, snapshot, coveredGoalsBefore, status);
+            }
+        } finally {
+            Properties.DMON_PROMOTE_IN_PLACE = promoteInPlace;
         }
 
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Size,

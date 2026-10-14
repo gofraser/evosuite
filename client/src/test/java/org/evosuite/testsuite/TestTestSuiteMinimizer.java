@@ -675,6 +675,36 @@ public class TestTestSuiteMinimizer {
     }
 
     @Test
+    public void minimizationDoesNotPromoteDmonNullsAndRestoresTheSetting() {
+        Properties.DMON_PROMOTE_IN_PLACE = true;
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 1));
+        suite.addTest(test);
+
+        List<Boolean> promotionEnabledDuringMinimization = new ArrayList<>();
+        TestFitnessFactory<TestFitnessFunction> factory = new TestFitnessFactory<TestFitnessFunction>() {
+            @Override
+            public List<TestFitnessFunction> getCoverageGoals() {
+                return Collections.emptyList();
+            }
+
+            @Override
+            public double getFitness(TestSuiteChromosome suite) {
+                promotionEnabledDuringMinimization.add(Properties.DMON_PROMOTE_IN_PLACE);
+                return 0.0;
+            }
+        };
+
+        new TestSuiteMinimizer(factory).minimize(suite, false);
+
+        assertFalse(promotionEnabledDuringMinimization.isEmpty());
+        assertFalse(promotionEnabledDuringMinimization.contains(Boolean.TRUE),
+                "DMoN promotion must be off while the minimizer re-executes tests");
+        assertTrue(Properties.DMON_PROMOTE_IN_PLACE, "the setting must be restored afterwards");
+    }
+
+    @Test
     public void perTestMinimizationReportsReexecutionFailedWhenMostTracesCollapse() {
         TestFitnessFunction searchGoal = neverCoveredGoal();
         TestSuiteChromosome suite = new TestSuiteChromosome();
