@@ -23,11 +23,16 @@ import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeImpl;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.testcase.variable.ArrayIndex;
+import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
@@ -39,6 +44,7 @@ import java.lang.reflect.Field;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A test in the final suite whose assignment uses a value no statement of the test defines
@@ -51,6 +57,7 @@ public class TestSuiteGeneratorUnresolvedReferenceTest {
     @SuppressWarnings("unused")
     public static class Holder {
         public int value;
+        public static int shared;
     }
 
     private ClientNodeImpl<?> previousClientNode;
@@ -104,6 +111,91 @@ public class TestSuiteGeneratorUnresolvedReferenceTest {
         new TestSuiteGenerator().postProcessTests(suite);
 
         assertEquals(0, suite.size());
+    }
+
+    @Test
+    public void testAssigningAnInstanceFieldValueIsKept() throws Exception {
+        DefaultTestCase test = new DefaultTestCase();
+        VariableReference target = newHolder(test);
+        VariableReference other = newHolder(test);
+        test.addStatement(new AssignmentStatement(test, valueField(test, target),
+                valueField(test, other)));
+
+        assertKeptAndCopyable(test);
+    }
+
+    @Test
+    public void testAssigningAStaticFieldValueIsKept() throws Exception {
+        DefaultTestCase test = new DefaultTestCase();
+        VariableReference target = newHolder(test);
+        FieldReference shared = new FieldReference(test,
+                new GenericField(Holder.class.getField("shared"), Holder.class));
+        test.addStatement(new AssignmentStatement(test, valueField(test, target), shared));
+
+        assertKeptAndCopyable(test);
+    }
+
+    @Test
+    public void testAssigningAnArrayElementValueIsKept() throws Exception {
+        DefaultTestCase test = new DefaultTestCase();
+        VariableReference target = newHolder(test);
+        ArrayReference array = (ArrayReference) test.addStatement(
+                new ArrayStatement(test, int[].class, 2));
+        test.addStatement(new AssignmentStatement(test, valueField(test, target),
+                new ArrayIndex(test, array, 1)));
+
+        assertKeptAndCopyable(test);
+    }
+
+    @Test
+    public void testAssigningAFieldOfALaterDefinedObjectIsDropped() throws Exception {
+        DefaultTestCase test = new DefaultTestCase();
+        VariableReference target = newHolder(test);
+        ConstructorStatement later = new ConstructorStatement(test,
+                new GenericConstructor(Holder.class.getConstructor(), Holder.class),
+                Collections.emptyList());
+        test.addStatement(new AssignmentStatement(test, valueField(test, target),
+                valueField(test, later.getReturnValue())));
+        // The source object of the assigned field only exists after the assignment.
+        test.addStatement(later);
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+
+        new TestSuiteGenerator().removeTestsWithUnresolvedReferences(suite);
+
+        assertEquals(0, suite.size());
+    }
+
+    private static VariableReference newHolder(DefaultTestCase test) throws Exception {
+        return test.addStatement(new ConstructorStatement(test,
+                new GenericConstructor(Holder.class.getConstructor(), Holder.class),
+                Collections.emptyList()));
+    }
+
+    private static FieldReference valueField(DefaultTestCase test, VariableReference holder)
+            throws Exception {
+        return new FieldReference(test,
+                new GenericField(Holder.class.getField("value"), Holder.class), holder);
+    }
+
+    /**
+     * The test survives the check, and a statement-by-statement positional copy of it (what
+     * the check guards) really succeeds.
+     */
+    private static void assertKeptAndCopyable(DefaultTestCase test) {
+        assertTrue(TestParser.findUnsafelyCopyableStatements(test).isEmpty(),
+                () -> String.valueOf(TestParser.findUnsafelyCopyableStatements(test)));
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+
+        new TestSuiteGenerator().removeTestsWithUnresolvedReferences(suite);
+
+        assertEquals(1, suite.size());
+        DefaultTestCase copy = new DefaultTestCase();
+        for (Statement statement : test) {
+            copy.addStatement(statement.copy(copy, 0));
+        }
+        assertEquals(test.size(), copy.size());
     }
 
     /**
