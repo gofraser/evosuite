@@ -32,7 +32,6 @@ import org.evosuite.testcase.synthesizer.PartialGraph;
 import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -63,8 +62,6 @@ public class ParameterCastDescriptorTest {
         assertEquals(StringBuilder.class.getName(), castTypeFor("objectOnly", 1, 1));
     }
 
-    @Disabled("D5: extractParameter splits descriptors on ';' and breaks on primitive parameters"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void castTypeIsFoundForAnObjectParameterAfterAPrimitive() throws Exception {
         assertEquals(StringBuilder.class.getName(), castTypeFor("afterPrimitive", 2, 2),

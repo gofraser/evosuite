@@ -23,6 +23,7 @@ import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
@@ -573,10 +574,10 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
     }
 
     private String[] extractParameter(String methodSig) {
-        String parameters = methodSig.substring(methodSig.indexOf("(") + 1, methodSig.indexOf(")"));
-        String[] args = parameters.split(";");
+        Type[] argumentTypes = Type.getArgumentTypes(methodSig.substring(methodSig.indexOf('(')));
+        String[] args = new String[argumentTypes.length];
         for (int i = 0; i < args.length; i++) {
-            args[i] = args[i].replace("/", ".").substring(1, args[i].length());
+            args[i] = argumentTypes[i].getClassName();
         }
         return args;
     }
