@@ -24,7 +24,6 @@ import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -52,8 +51,6 @@ public class FunctionalMockForAbstractClassCopyTest {
         assertFlagsSurviveCopy(test, mock);
     }
 
-    @Disabled("M4: abstract-class mock copy drops populatedFromParser, lenient and DMoN flags"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void abstractClassMockCopyKeepsItsFlags() throws Exception {
         DefaultTestCase test = new DefaultTestCase();

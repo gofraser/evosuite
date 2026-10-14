@@ -78,6 +78,9 @@ public class FunctionalMockForAbstractClassStatement extends FunctionalMockState
         }
 
         copy.listener = this.listener; //no need to clone, as only read, and created new instance at each new execution
+        copy.populatedFromParser = this.populatedFromParser;
+        copy.useLenientDefaultAnswer = this.useLenientDefaultAnswer;
+        copy.isDmonPromotion = this.isDmonPromotion;
 
         for (MethodDescriptor md : this.mockedMethods) {
             copy.mockedMethods.add(md.getCopy());
