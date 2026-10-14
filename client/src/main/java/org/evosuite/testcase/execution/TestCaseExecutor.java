@@ -40,7 +40,6 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -76,8 +75,6 @@ public class TestCaseExecutor implements ThreadFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(TestCaseExecutor.class);
 
-    private static final PrintStream systemOut = System.out;
-    private static final PrintStream systemErr = System.err;
 
     private static TestCaseExecutor instance = null;
 
@@ -727,8 +724,7 @@ public class TestCaseExecutor implements ThreadFactory {
              * evosuite. As exceptions from the tested code are caught before
              * this.
              */
-            System.setOut(systemOut);
-            System.setErr(systemErr);
+            callable.handBackStreams();
 
             logger.error("ExecutionException (this is likely a serious error in the framework)", e1);
             ExecutionResult result = new ExecutionResult(tc, null);
@@ -1078,9 +1074,6 @@ public class TestCaseExecutor implements ThreadFactory {
                 ExecutionTracer.setKillSwitch(false);
                 ExecutionTracer.enable();
             }
-            System.setOut(systemOut);
-            System.setErr(systemErr);
-
             return result;
         } finally {
             if (threadGroup != null) {

@@ -25,7 +25,6 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -71,8 +70,6 @@ public class TestCaseExecutorTimeoutStreamRestoreTest {
         Properties.PRINT_TO_SYSTEM = printToSystem;
     }
 
-    @Disabled("D12: executor timeout path restores System.out from a class-load-time static"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void timeoutKeepsTheStreamsTheRunHandedBack() throws Exception {
         TestCaseExecutor executor = TestCaseExecutor.getInstance(); // captures its static streams
