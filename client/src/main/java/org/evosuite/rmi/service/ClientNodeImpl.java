@@ -891,18 +891,31 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 }
             }
 
-            if (coverage >= 0.0) {
-                masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Coverage, coverage);
+            final double summaryCoverage = coverage;
+            final TestGenerationResult.Status summaryStatus = status;
+            final int summaryCoveredGoals = coveredGoals;
+            final int summaryTotalGoals = totalGoals;
+            // Same bounded path as the full and lightweight exports: a master that stopped
+            // answering must not hang the calling (search) thread here.
+            boolean sent = runRemoteActionBestEffort("collectCoverageSummary", RMI_RESULT_NOTIFY_TIMEOUT_MS, () -> {
+                if (summaryCoverage >= 0.0) {
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Coverage,
+                            summaryCoverage);
+                }
+                if (summaryStatus != null) {
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier,
+                            RuntimeVariable.Test_Generation_Status, summaryStatus.name());
+                }
+                if (summaryCoveredGoals >= 0 && summaryTotalGoals >= 0) {
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Covered_Goals,
+                            summaryCoveredGoals);
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Total_Goals,
+                            summaryTotalGoals);
+                }
+            });
+            if (sent) {
+                logger.warn("Full TestGenerationResult export failed; sent lightweight coverage summary instead");
             }
-            if (status != null) {
-                masterNode.evosuite_collectStatistics(clientRmiIdentifier,
-                        RuntimeVariable.Test_Generation_Status, status.name());
-            }
-            if (coveredGoals >= 0 && totalGoals >= 0) {
-                masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Covered_Goals, coveredGoals);
-                masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Total_Goals, totalGoals);
-            }
-            logger.warn("Full TestGenerationResult export failed; sent lightweight coverage summary instead");
         } catch (Throwable t) {
             logger.warn("Failed to export lightweight coverage summary after result export failure", t);
         }

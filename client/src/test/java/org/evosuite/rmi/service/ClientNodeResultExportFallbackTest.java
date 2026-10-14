@@ -23,7 +23,6 @@ import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestChromosome;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -54,8 +53,6 @@ import static org.mockito.Mockito.when;
  */
 public class ClientNodeResultExportFallbackTest {
 
-    @Disabled("D9: coverage-summary fallback calls the master untimed on the search thread"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void coverageSummaryFallbackIsNotSentFromTheCallingThread() throws Exception {
         Registry registry = mock(Registry.class);
