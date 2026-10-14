@@ -22,7 +22,6 @@ package org.evosuite.runtime.instrumentation;
 import org.evosuite.runtime.RuntimeSettings;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -56,8 +55,6 @@ public class RetransformationSuperclassSwapTest {
         RuntimeSettings.mockJVMNonDeterminism = mockJvmNonDeterminism;
     }
 
-    @Disabled("D3: retransformation still swaps a mocked superclass, which the JVM rejects"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void retransformationKeepsTheSuperclassOfAThreadSubclass() {
         RuntimeInstrumentation instrumentation = new RuntimeInstrumentation();

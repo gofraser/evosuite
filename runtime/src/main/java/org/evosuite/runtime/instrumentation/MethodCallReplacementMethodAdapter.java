@@ -79,6 +79,12 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
 
     private final String superClassName;
 
+    /**
+     * False when retransforming: the superclass cannot change then, so the super constructor
+     * call must keep targeting the original superclass.
+     */
+    private final boolean canChangeSuperclass;
+
     private boolean needToWaitForSuperConstructor = false;
 
     private boolean hasBeenInstrumented = false;
@@ -110,9 +116,16 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
      */
     public MethodCallReplacementMethodAdapter(MethodVisitor mv, String className,
                                               String superClassName, String methodName, int access, String desc) {
+        this(mv, className, superClassName, methodName, access, desc, true);
+    }
+
+    public MethodCallReplacementMethodAdapter(MethodVisitor mv, String className,
+                                              String superClassName, String methodName, int access, String desc,
+                                              boolean canChangeSuperclass) {
         super(Opcodes.ASM9, mv, access, methodName, desc);
         this.className = className;
         this.superClassName = superClassName;
+        this.canChangeSuperclass = canChangeSuperclass;
         if (methodName.equals("<init>")) {
             needToWaitForSuperConstructor = true;
         }
@@ -350,7 +363,10 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         }
 
         // for constructors
-        if (!isReplaced) {
+        boolean keepsOriginalSuperConstructor = !canChangeSuperclass && needToWaitForSuperConstructor
+                && opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)
+                && owner.replace('/', '.').equals(superClassName);
+        if (!isReplaced && !keepsOriginalSuperConstructor) {
             if (MethodCallReplacementCache.getInstance().hasSpecialReplacementCall(owner, name + desc)) {
                 MethodCallReplacement replacement = MethodCallReplacementCache.getInstance()
                         .getSpecialReplacementCall(owner, name + desc);
