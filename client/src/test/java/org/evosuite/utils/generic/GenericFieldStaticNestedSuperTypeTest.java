@@ -19,7 +19,6 @@
  */
 package org.evosuite.utils.generic;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,8 +49,6 @@ public class GenericFieldStaticNestedSuperTypeTest {
         assertEquals(String.class, get.getGeneratedType());
     }
 
-    @Disabled("D7: GenericField bypasses the gentyref static-nested supertype workaround"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void inheritedFieldResolvesTheSuperclassTypeArgument() throws Exception {
         GenericField value = new GenericField(Base.class.getField("value"), Outer.Child.class);

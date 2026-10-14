@@ -155,7 +155,15 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
      */
     public Type getFieldType() {
         try {
-            return GenericTypeReflector.getExactFieldType(field, owner.getType());
+            // Same as GenericTypeReflector.getExactFieldType, but resolving the declaring type
+            // through the workaround for static nested classes of generic outer classes.
+            Type exactDeclaringType = GenericUtils.getExactSuperType(
+                    GenericTypeReflector.capture(owner.getType()), field.getDeclaringClass());
+            if (exactDeclaringType == null) {
+                throw new IllegalArgumentException("The field " + field
+                        + " is not a member of type " + owner.getType());
+            }
+            return mapTypeParameters(field.getGenericType(), exactDeclaringType);
         } catch (IllegalArgumentException e) {
             // Cross-classloader fallback: the reflected Field and owner type may
             // have the same name but come from different classloaders.
