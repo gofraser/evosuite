@@ -32,7 +32,6 @@ import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -68,8 +67,6 @@ public class FunctionalMockBooleanReuseOverwriteTest {
         FunctionalMockSetupCoordinator.reset();
     }
 
-    @Disabled("D8: boolean stub completion overwrites a reused boolean defined elsewhere"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void repairDoesNotChangeABooleanTheTestPassesElsewhere() throws Exception {
         TestCase original = new DefaultTestCase();

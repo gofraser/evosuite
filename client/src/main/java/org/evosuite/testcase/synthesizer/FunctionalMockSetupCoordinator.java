@@ -400,23 +400,18 @@ public final class FunctionalMockSetupCoordinator {
         List<VariableReference> values = new ArrayList<>();
         for (Type returnType : returnTypes) {
             int insertion = boundaryMock == null ? test.size() : boundaryMock.getPosition();
-            VariableReference primitive = createStablePrimitiveReturn(
-                    test, returnType, insertion, numericHint);
+            VariableReference primitive = returnType == boolean.class
+                    || returnType == Boolean.class
+                    ? test.addStatement(
+                            new BooleanPrimitiveStatement(test, preferNonDefaultBooleans), insertion)
+                    : createStablePrimitiveReturn(test, returnType, insertion, numericHint);
             values.add(primitive != null
                     ? primitive
                     : createMockReturnValue(test, returnType, insertion, config));
         }
         for (int i = 0; i < returnTypes.size() && i < values.size(); i++) {
-            Type type = returnTypes.get(i);
-            if (type == boolean.class || type == Boolean.class) {
-                int definition = test.positionOfReturnValue(values.get(i));
-                if (definition >= 0
-                        && test.getStatement(definition) instanceof BooleanPrimitiveStatement) {
-                    ((BooleanPrimitiveStatement) test.getStatement(definition))
-                            .setValue(preferNonDefaultBooleans);
-                }
-            }
-            materializeReturnedContainer(test, values.get(i), type, boundaryMock, config);
+            materializeReturnedContainer(
+                    test, values.get(i), returnTypes.get(i), boundaryMock, config);
         }
         return values;
     }
