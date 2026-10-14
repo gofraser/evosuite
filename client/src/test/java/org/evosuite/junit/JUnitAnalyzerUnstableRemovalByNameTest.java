@@ -26,7 +26,6 @@ import org.evosuite.symbolic.TestCaseBuilder;
 import org.evosuite.testcase.TestCase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -65,8 +64,6 @@ public class JUnitAnalyzerUnstableRemovalByNameTest {
         TimeController.resetSingleton();
     }
 
-    @Disabled("D4: instability check matches positional test names against a list it is shrinking"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void removesExactlyTheTestsThatFailed() throws Exception {
         TestCase first = compilingTestCase();

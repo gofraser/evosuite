@@ -434,15 +434,20 @@ public abstract class JUnitAnalyzer {
 
 
             AtomicBoolean watchdogCulpritSeen = new AtomicBoolean(false);
+            // Test names are positional (and zero-padded by list size), so they are only valid
+            // for the list that was written out. Resolve every failure against this snapshot and
+            // remove from "tests" by identity; re-deriving names from the shrinking list would
+            // point later failures at different tests.
+            final List<TestCase> written = new ArrayList<>(tests);
             failure_loop:
             for (JUnitFailure failure : result.getFailures()) {
                 String testName = failure.getDescriptionMethodName();//TODO check if correct
                 // A test that hung is not one whose failure was expected: a test recorded as
                 // failing during the search may well be the one that was killed there.
                 boolean hung = JUnitCheckProgress.HUNG_TEST_EXCEPTION.equals(failure.getExceptionClassName());
-                for (int i = 0; i < tests.size(); i++) {
-                    if (TestSuiteWriterUtils.getNameOfTest(tests, i).equals(testName)) {
-                        if (tests.get(i).isFailing() && !hung) {
+                for (int i = 0; i < written.size(); i++) {
+                    if (TestSuiteWriterUtils.getNameOfTest(written, i).equals(testName)) {
+                        if (written.get(i).isFailing() && !hung) {
                             logger.info("Failure is expected, continuing...");
                             continue failure_loop;
                         }
@@ -516,13 +521,13 @@ public abstract class JUnitAnalyzer {
                 if (isClassInitializerFailure(failure)) {
                     logger.warn("Removing test {} due deterministic class-initializer failure: {}: {}",
                             testName, failure.getExceptionClassName(), failure.getMessage());
-                    removeTestByName(tests, testName);
+                    removeTestByName(tests, written, testName);
                     continue failure_loop;
                 }
                 if (isDeterministicGuiEnvironmentFailure(failure)) {
                     logger.warn("Removing test {} due deterministic GUI-environment failure: {}: {}",
                             testName, failure.getExceptionClassName(), failure.getMessage());
-                    removeTestByName(tests, testName);
+                    removeTestByName(tests, written, testName);
                     continue failure_loop;
                 }
 
@@ -544,9 +549,10 @@ public abstract class JUnitAnalyzer {
                 }
 
                 boolean toRemove = !(failure.isAssertionError());
-                for (int i = 0; i < tests.size(); i++) {
-                    if (TestSuiteWriterUtils.getNameOfTest(tests, i).equals(testName)) {
-                        logger.warn("Failing test:\n " + tests.get(i).toCode());
+                for (int i = 0; i < written.size(); i++) {
+                    if (TestSuiteWriterUtils.getNameOfTest(written, i).equals(testName)) {
+                        final TestCase failingTest = written.get(i);
+                        logger.warn("Failing test:\n " + failingTest.toCode());
                         numUnstable++;
                         /*
                          * we have a match. should we remove it or mark as unstable?
@@ -559,10 +565,10 @@ public abstract class JUnitAnalyzer {
                          */
                         if (!toRemove) {
                             logger.debug("Going to mark test as unstable: " + testName);
-                            tests.get(i).setUnstable(true);
+                            failingTest.setUnstable(true);
                         } else {
                             logger.debug("Going to remove unstable test: " + testName);
-                            tests.remove(i);
+                            removeByIdentity(tests, failingTest);
                         }
                         break;
                     }
@@ -712,9 +718,18 @@ public abstract class JUnitAnalyzer {
         return "java.lang.ExceptionInInitializerError".equals(cls);
     }
 
-    private static void removeTestByName(List<TestCase> tests, String testName) {
+    private static void removeTestByName(List<TestCase> tests, List<TestCase> written, String testName) {
+        for (int i = 0; i < written.size(); i++) {
+            if (TestSuiteWriterUtils.getNameOfTest(written, i).equals(testName)) {
+                removeByIdentity(tests, written.get(i));
+                return;
+            }
+        }
+    }
+
+    private static void removeByIdentity(List<TestCase> tests, TestCase test) {
         for (int i = 0; i < tests.size(); i++) {
-            if (TestSuiteWriterUtils.getNameOfTest(tests, i).equals(testName)) {
+            if (tests.get(i) == test) {
                 tests.remove(i);
                 return;
             }
