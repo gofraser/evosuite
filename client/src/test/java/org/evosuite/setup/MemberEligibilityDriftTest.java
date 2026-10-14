@@ -47,8 +47,6 @@ public class MemberEligibilityDriftTest {
         assertTrue(TestUsageChecker.isNotCallableFromSource(use));
     }
 
-    @Disabled("D6: public constructors skip the source-private parameter rule"
-            + " - see CLEANUP-PLAN.md")
     @Test
     public void publicConstructorTakingASourcePrivateTypeIsNotUsable() throws Exception {
         Constructor<?> constructor = PrivateParameterTypeFixture.class.getConstructor(

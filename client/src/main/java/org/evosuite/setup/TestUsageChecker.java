@@ -163,6 +163,11 @@ public class TestUsageChecker {
             return false;
         }
 
+        // A public constructor is as unusable as a method when it takes a source-private type
+        if (hasSourcePrivateParameterType(c.getParameterTypes())) {
+            return false;
+        }
+
         if (Modifier.isPublic(c.getModifiers())) {
             TestClusterUtils.makeAccessible(c);
             return true;
@@ -1291,7 +1296,11 @@ public class TestUsageChecker {
     }
 
     private static boolean hasSourcePrivateParameterType(Method m) {
-        for (Class<?> parameter : m.getParameterTypes()) {
+        return hasSourcePrivateParameterType(m.getParameterTypes());
+    }
+
+    private static boolean hasSourcePrivateParameterType(Class<?>[] parameterTypes) {
+        for (Class<?> parameter : parameterTypes) {
             Class<?> element = parameter;
             while (element.isArray()) {
                 element = element.getComponentType();
