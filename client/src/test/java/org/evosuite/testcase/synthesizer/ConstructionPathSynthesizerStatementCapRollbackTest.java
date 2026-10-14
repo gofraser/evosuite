@@ -42,7 +42,6 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -72,8 +71,6 @@ public class ConstructionPathSynthesizerStatementCapRollbackTest {
         TestGenerationContext.getInstance().resetContext();
     }
 
-    @Disabled("D1: synthesis statement-cap rollback truncates from the end and deletes the target"
-            + " call - see CLEANUP-PLAN.md")
     @Test
     public void statementCapRollbackKeepsTheTargetCallAndOriginalStatements() throws Exception {
         Class<?> clazz = PublicInstanceFieldExample.class;

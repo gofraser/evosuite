@@ -296,10 +296,10 @@ public class ConstructionPathSynthesizer {
             partialGraph = constructPartialComputationGraph(b);
         }
 
-        final int initialStatementCount = test.size();
         if (test.size() >= maxStatements) {
             return;
         }
+        final Set<Statement> initialStatements = snapshotStatements(test);
 
         List<DepVariableWrapper> topLayer = partialGraph.getTopLayer();
 
@@ -312,9 +312,7 @@ public class ConstructionPathSynthesizer {
         Map<DepVariableWrapper, VarRelevance> map = new HashMap<>();
         boolean semanticInputHandled = SemanticStringInputSynthesizer.apply(test, partialGraph, b);
         if (test.size() >= maxStatements) {
-            while (test.size() > initialStatementCount) {
-                test.remove(test.size() - 1);
-            }
+            removeStatementsNotIn(test, initialStatements);
             return;
         }
         bindTargetParameterRoots(test, topLayer, map);
@@ -343,16 +341,14 @@ public class ConstructionPathSynthesizer {
             boolean isValid = checkDependency(node, map);
             if (isValid) {
                 VariableInTest testVariable = getCallerObject(map, node);
-                int statementCountBeforeNode = test.size();
+                Set<Statement> statementsBeforeNode = snapshotStatements(test);
                 Map<DepVariableWrapper, VarRelevance> mapBeforeNode = new HashMap<>(map);
                 boolean processedBeforeNode = node.processed;
                 boolean derived =
                         deriveCodeForTest(map, test, testVariable, b, allowNullValue);
 
                 if (test.size() >= maxStatements) {
-                    while (test.size() > statementCountBeforeNode) {
-                        test.remove(test.size() - 1);
-                    }
+                    removeStatementsNotIn(test, statementsBeforeNode);
                     map.clear();
                     map.putAll(mapBeforeNode);
                     node.processed = processedBeforeNode;
@@ -392,6 +388,26 @@ public class ConstructionPathSynthesizer {
         validateRequiredRoots(test, partialGraph);
 
         markObjectRuleSlots(test, map);
+    }
+
+    private static Set<Statement> snapshotStatements(TestCase test) {
+        Set<Statement> statements = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Statement statement : test) {
+            statements.add(statement);
+        }
+        return statements;
+    }
+
+    /**
+     * Removes the statements that synthesis inserted. They are placed before the target call, so
+     * truncating from the end would delete the call and keep the partial expansion.
+     */
+    private static void removeStatementsNotIn(TestCase test, Set<Statement> keep) {
+        for (int i = test.size() - 1; i >= 0; i--) {
+            if (!keep.contains(test.getStatement(i))) {
+                test.remove(i);
+            }
+        }
     }
 
     /**
