@@ -27,8 +27,16 @@ import org.evosuite.eclipse.Activator;
 /**
  * Edits the LLM API key in secure storage. It ignores the page's preference store, so that the
  * key never lands in a preferences file, and masks what is typed.
+ *
+ * <p>It only writes a key the user changed. In particular, a key that secure storage could not
+ * give when the page opened (because the user cancelled the prompt for its password, say) is
+ * never removed: only a new key replaces it. Restore Defaults keeps the stored key, since a key
+ * has no default; clearing the field removes it.
  */
 class ApiKeyFieldEditor extends StringFieldEditor {
+
+    /** The key as stored when the page opened, or {@code null} if it could not be read. */
+    private String stored;
 
     ApiKeyFieldEditor(String label, Composite parent) {
         super("llmApiKey.secure", label, parent);
@@ -37,15 +45,22 @@ class ApiKeyFieldEditor extends StringFieldEditor {
 
     @Override
     protected void doLoad() {
-        getTextControl().setText(LlmApiKey.get());
+        try {
+            stored = LlmApiKey.read();
+        } catch (StorageException e) {
+            Activator.logError("Cannot read the LLM API key from secure storage", e);
+            stored = null;
+            getTextControl().setMessage("The stored key cannot be read; enter a key to replace it");
+        }
+        getTextControl().setText(stored == null ? "" : stored);
     }
 
     @Override
     protected void doLoadDefault() {
-        getTextControl().setText("");
+        getTextControl().setText(stored == null ? "" : stored);
     }
 
-    /** Always stores: the default implementation would reset the page's store instead. */
+    /** Stores what the user changed: the default implementation would reset the page's store instead. */
     @Override
     public void store() {
         doStore();
@@ -53,8 +68,13 @@ class ApiKeyFieldEditor extends StringFieldEditor {
 
     @Override
     protected void doStore() {
+        String key = getStringValue().trim();
+        if (stored == null ? key.isEmpty() : key.equals(stored)) {
+            return;
+        }
         try {
-            LlmApiKey.set(getStringValue());
+            LlmApiKey.set(key);
+            stored = key;
         } catch (StorageException e) {
             Activator.logError("Cannot store the LLM API key in secure storage", e);
         }

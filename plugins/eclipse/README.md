@@ -202,6 +202,10 @@ is stored, an `EVOSUITE_LLM_API_KEY` set in the environment Eclipse starts in st
 Without any key, EvoSuite runs without the LLM, and the console says so. The remaining `llm_*`
 options can go into *Advanced > Additional arguments*.
 
+To remove the key, clear the field; *Restore Defaults* leaves it alone. If secure storage cannot
+be read when the page opens, for example because its password prompt was cancelled, the field
+says so and stays empty, and the stored key is kept unless you enter a new one.
+
 The project directory is EvoSuite's base directory, so an `evosuite-files/evosuite.properties`
 in the project still applies. EvoSuite's statistics go to the plugin's state area, not into the
 project, and each run replaces those of the run before.
