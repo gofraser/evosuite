@@ -99,6 +99,15 @@ final class SettingsDialogs {
         pump();
     }
 
+    /** Presses the page's Restore Defaults button. */
+    static void restoreDefaults(PreferenceDialog dialog) {
+        Button defaults = buttons(dialog.getShell()).stream()
+                .filter(b -> b.getText().replace("&", "").equals("Restore Defaults"))
+                .findFirst().orElseThrow();
+        defaults.notifyListeners(SWT.Selection, new Event());
+        pump();
+    }
+
     /** Saves the dialog as {@code name}.png if screenshots are asked for. */
     static void screenshot(PreferenceDialog dialog, String name) {
         String directory = System.getenv("EVOSUITE_SCREENSHOTS");

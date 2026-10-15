@@ -26,6 +26,7 @@ import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
+import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.GridData;
@@ -149,6 +150,12 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
     }
 
     @Override
+    public void propertyChange(PropertyChangeEvent event) {
+        super.propertyChange(event);
+        updateEnablement();
+    }
+
+    @Override
     public boolean performOk() {
         getPreferenceStore().setValue(EvoSuitePreferences.USE_PROJECT_SETTINGS, projectSettings.isEnabled());
         return super.performOk();
@@ -191,6 +198,6 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
     }
 
     private void updateEnablement() {
-        settings.setEnabled(projectSettings.isEnabled());
+        settings.updateEnablement(projectSettings.isEnabled());
     }
 }

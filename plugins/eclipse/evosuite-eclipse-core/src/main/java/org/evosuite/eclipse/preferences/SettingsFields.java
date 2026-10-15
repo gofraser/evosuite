@@ -22,10 +22,10 @@ package org.evosuite.eclipse.preferences;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 import org.eclipse.jface.preference.BooleanFieldEditor;
-import org.eclipse.jface.preference.ComboFieldEditor;
 import org.eclipse.jface.preference.DirectoryFieldEditor;
 import org.eclipse.jface.preference.FieldEditor;
 import org.eclipse.jface.preference.IntegerFieldEditor;
@@ -70,14 +70,19 @@ final class SettingsFields {
         }
     }
 
-    /** An editor and the composite it lives in, which enabling it requires. */
+    /**
+     * An editor, the composite it lives in, which enabling it requires, and whether the setting
+     * applies, given the values of the others.
+     */
     static final class Field {
         final FieldEditor editor;
         final Composite parent;
+        final BooleanSupplier applies;
 
-        Field(FieldEditor editor, Composite parent) {
+        Field(FieldEditor editor, Composite parent, BooleanSupplier applies) {
             this.editor = editor;
             this.parent = parent;
+            this.applies = applies;
         }
     }
 
@@ -89,6 +94,9 @@ final class SettingsFields {
 
     private final List<Field> fields = new ArrayList<>();
     private final List<Composite> groups = new ArrayList<>();
+    private BooleanFieldEditor assertions;
+    private ChoiceFieldEditor provider;
+    private ChoiceFieldEditor approach;
 
     private SettingsFields() {
     }
@@ -122,11 +130,39 @@ final class SettingsFields {
         return fields;
     }
 
-    /** Enables or disables every editor, as the project pages' switch does. */
-    void setEnabled(boolean enabled) {
+    /**
+     * Enables the editors of the settings that apply, given the values the editors show, and
+     * disables the others, keeping their values. Call it when the page opens, when an editor's
+     * value changes and after the defaults are restored.
+     *
+     * @param pageEnabled whether the page's settings are editable at all, which on a project
+     *                    page the switch for project-specific settings decides
+     */
+    void updateEnablement(boolean pageEnabled) {
         for (Field field : fields) {
-            field.editor.setEnabled(enabled, field.parent);
+            field.editor.setEnabled(pageEnabled && field.applies.getAsBoolean(), field.parent);
         }
+    }
+
+    /** Whether a provider is chosen; the approach applies only then. */
+    private boolean llmConfigured() {
+        return !GenerationOptions.LLM_NONE.equals(provider.getValue());
+    }
+
+    /** Whether the LLM is on; the remaining LLM settings apply only then. */
+    private boolean llmOn() {
+        return llmConfigured() && !GenerationOptions.APPROACH_SEARCH_ONLY.equals(approach.getValue());
+    }
+
+    /** Whether the LLM helps the search, rather than generating tests alone. */
+    private boolean llmAssistsSearch() {
+        return llmOn() && GenerationOptions.APPROACH_SEARCH.equals(approach.getValue());
+    }
+
+    /** Whether the provider takes an API key; a local Ollama does not. */
+    private boolean llmNeedsKey() {
+        return llmOn() && (GenerationOptions.LLM_OPENAI.equals(provider.getValue())
+                || GenerationOptions.LLM_ANTHROPIC.equals(provider.getValue()));
     }
 
     private void general(Composite parent) {
@@ -137,23 +173,24 @@ final class SettingsFields {
         add(budget, search);
         add(new StringFieldEditor(EvoSuitePreferences.CRITERION,
                 "Coverage &criteria (empty for EvoSuite's default):", search), search);
-        add(new BooleanFieldEditor(EvoSuitePreferences.ASSERTIONS, "Generate &assertions", search), search);
-        add(new ComboFieldEditor(EvoSuitePreferences.ASSERTION_STRATEGY, "Assertions &kept:",
+        assertions = new BooleanFieldEditor(EvoSuitePreferences.ASSERTIONS, "Generate &assertions", search);
+        add(assertions, search);
+        add(new ChoiceFieldEditor(EvoSuitePreferences.ASSERTION_STRATEGY, "Assertions &kept:",
                 new String[][]{{"Those that detect faults (fewer)", "MUTATION"},
-                        {"All observed values (more)", "ALL"}}, search), search);
+                        {"All observed values (more)", "ALL"}}, search), search, assertions::getBooleanValue);
         add(new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE, "&Minimize tests", search), search);
 
         Composite output = group(parent, "Generated tests");
-        add(new ComboFieldEditor(EvoSuitePreferences.TEST_FORMAT, "Test &format:",
+        add(new ChoiceFieldEditor(EvoSuitePreferences.TEST_FORMAT, "Test &format:",
                 new String[][]{{"JUnit 5", GenerationOptions.JUNIT5}, {"JUnit 4", GenerationOptions.JUNIT4}},
                 output), output);
         add(new StringFieldEditor(EvoSuitePreferences.TEST_FOLDER,
                 "Test &source folder (project-relative):", output), output);
         add(new StringFieldEditor(EvoSuitePreferences.TEST_SUFFIX, "Test class s&uffix:", output), output);
-        add(new ComboFieldEditor(EvoSuitePreferences.TEST_NAMING, "Test &names:",
+        add(new ChoiceFieldEditor(EvoSuitePreferences.TEST_NAMING, "Test &names:",
                 new String[][]{{"Numbered (test0, test1, ...)", "NUMBERED"},
                         {"Descriptive (from what each test covers)", "COVERAGE"}}, output), output);
-        add(new ComboFieldEditor(EvoSuitePreferences.VARIABLE_NAMING, "&Variable names:",
+        add(new ChoiceFieldEditor(EvoSuitePreferences.VARIABLE_NAMING, "&Variable names:",
                 new String[][]{{"From the type (int0, string0, ...)", "TYPE_BASED"},
                         {"From how values are used", "HEURISTICS_BASED"}}, output), output);
         add(new BooleanFieldEditor(EvoSuitePreferences.TEST_COMMENTS,
@@ -168,40 +205,42 @@ final class SettingsFields {
 
     private void llm(Composite parent, boolean workspace) {
         Composite model = group(parent, "Model");
-        add(new ComboFieldEditor(EvoSuitePreferences.LLM_PROVIDER, "&Provider:",
+        provider = new ChoiceFieldEditor(EvoSuitePreferences.LLM_PROVIDER, "&Provider:",
                 new String[][]{{"None (no LLM)", GenerationOptions.LLM_NONE},
                         {"OpenAI", GenerationOptions.LLM_OPENAI},
                         {"Anthropic", GenerationOptions.LLM_ANTHROPIC},
-                        {"Ollama (local)", GenerationOptions.LLM_OLLAMA}}, model), model);
-        add(new StringFieldEditor(EvoSuitePreferences.LLM_MODEL, "Mo&del:", model), model);
+                        {"Ollama (local)", GenerationOptions.LLM_OLLAMA}}, model);
+        add(provider, model);
+        add(new StringFieldEditor(EvoSuitePreferences.LLM_MODEL, "Mo&del:", model), model, this::llmOn);
         add(new StringFieldEditor(EvoSuitePreferences.LLM_BASE_URL,
-                "Base &URL (empty for the provider's default):", model), model);
+                "Base &URL (empty for the provider's default):", model), model, this::llmOn);
         if (workspace) {
-            add(new ApiKeyFieldEditor("API &key (kept in secure storage):", model), model);
+            add(new ApiKeyFieldEditor("API &key (kept in secure storage):", model), model, this::llmNeedsKey);
         }
 
         Composite use = group(parent, "Test generation");
-        add(new ComboFieldEditor(EvoSuitePreferences.LLM_APPROACH, "Appro&ach:",
+        approach = new ChoiceFieldEditor(EvoSuitePreferences.LLM_APPROACH, "Appro&ach:",
                 new String[][]{{"Search only (LLM off, settings kept)", GenerationOptions.APPROACH_SEARCH_ONLY},
                         {"Search, assisted by the LLM", GenerationOptions.APPROACH_SEARCH},
                         {"LLM only, one prompt", GenerationOptions.APPROACH_LLM_SINGLE_PROMPT},
                         {"LLM only, iterating on uncovered goals", GenerationOptions.APPROACH_LLM_ITERATIVE}},
-                use), use);
-        add(new ComboFieldEditor(EvoSuitePreferences.LLM_SEEDING, "Seed the search with LLM &input:",
+                use);
+        add(approach, use, this::llmConfigured);
+        add(new ChoiceFieldEditor(EvoSuitePreferences.LLM_SEEDING, "Seed the search with LLM &input:",
                 new String[][]{{"Off", "OFF"},
                         {"Minimal: classes to cast to", "MIN"},
                         {"Standard: constants and objects too", "STANDARD"},
-                        {"Full: also initial tests", "FULL"}}, use), use);
+                        {"Full: also initial tests", "FULL"}}, use), use, this::llmAssistsSearch);
         add(new BooleanFieldEditor(EvoSuitePreferences.LLM_ON_STAGNATION,
-                "Ask the LLM for tests when the search s&tagnates", use), use);
+                "Ask the LLM for tests when the search s&tagnates", use), use, this::llmAssistsSearch);
         add(new BooleanFieldEditor(EvoSuitePreferences.LLM_OPERATORS,
-                "Use LLM-based mutation and c&rossover", use), use);
+                "Use LLM-based mutation and c&rossover", use), use, this::llmAssistsSearch);
         add(new BooleanFieldEditor(EvoSuitePreferences.LLM_POSTPROCESSING,
-                "Improve test names, comments and assertions &with the LLM", use), use);
+                "Improve test names, comments and assertions &with the LLM", use), use, this::llmOn);
         IntegerFieldEditor calls = new IntegerFieldEditor(EvoSuitePreferences.LLM_MAX_CALLS,
                 "LLM ca&lls per class (0 for no limit):", use);
         calls.setValidRange(0, 1_000_000);
-        add(calls, use);
+        add(calls, use, this::llmOn);
         note(parent, workspace ? "More llm_* options can go into the additional arguments under Advanced."
                 : "More llm_* options can go into the additional arguments under Advanced. The API key "
                         + "is a workspace setting.");
@@ -228,7 +267,11 @@ final class SettingsFields {
     }
 
     private void add(FieldEditor editor, Composite parent) {
-        fields.add(new Field(editor, parent));
+        add(editor, parent, () -> true);
+    }
+
+    private void add(FieldEditor editor, Composite parent, BooleanSupplier applies) {
+        fields.add(new Field(editor, parent, applies));
     }
 
     private Composite group(Composite parent, String title) {

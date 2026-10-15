@@ -21,6 +21,7 @@ package org.evosuite.eclipse.preferences;
 
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
+import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
 import org.eclipse.ui.preferences.ScopedPreferenceStore;
@@ -33,6 +34,7 @@ import org.evosuite.eclipse.preferences.SettingsFields.Section;
 public class EvoSuitePreferencePage extends FieldEditorPreferencePage implements IWorkbenchPreferencePage {
 
     private final Section section;
+    private SettingsFields settings;
 
     public EvoSuitePreferencePage() {
         this(Section.GENERAL, "Defaults for EvoSuite test generation. Projects can override them under "
@@ -52,6 +54,29 @@ public class EvoSuitePreferencePage extends FieldEditorPreferencePage implements
 
     @Override
     protected void createFieldEditors() {
-        SettingsFields.create(section, getFieldEditorParent(), true, this::addField);
+        settings = SettingsFields.create(section, getFieldEditorParent(), true, this::addField);
+    }
+
+    @Override
+    protected void initialize() {
+        super.initialize();
+        settings.updateEnablement(true);
+    }
+
+    @Override
+    protected void performDefaults() {
+        // Editors need not report the defaults they load, so the enablement is updated here too.
+        super.performDefaults();
+        settings.updateEnablement(true);
+    }
+
+    @Override
+    public void propertyChange(PropertyChangeEvent event) {
+        super.propertyChange(event);
+        settings.updateEnablement(true);
+    }
+
+    SettingsFields settings() {
+        return settings;
     }
 }
