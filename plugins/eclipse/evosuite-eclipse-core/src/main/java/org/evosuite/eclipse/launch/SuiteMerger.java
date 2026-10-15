@@ -91,6 +91,7 @@ public final class SuiteMerger {
     private static final Set<String> CLASS_LISTS = Set.of("initializeClasses", "resetClasses");
     /** The empty test EvoSuite writes into a suite for which it found no tests. */
     static final String PLACEHOLDER_TEST = "notGeneratedAnyTest";
+    private static final String BYTE_ORDER_MARK = "\uFEFF";
 
     private SuiteMerger() {
     }
@@ -157,6 +158,21 @@ public final class SuiteMerger {
      * {@code suiteName} (a simple name).
      */
     public static Result merge(String existingSource, String generatedSource, String suiteName) {
+        // The parser takes a byte order mark for a stray character; the file keeps its own.
+        boolean bom = existingSource.startsWith(BYTE_ORDER_MARK);
+        Result result = mergeSources(withoutByteOrderMark(existingSource), withoutByteOrderMark(generatedSource),
+                suiteName);
+        if (!bom || result.source == null) {
+            return result;
+        }
+        return new Result(null, BYTE_ORDER_MARK + result.source, result.added, result.duplicates);
+    }
+
+    private static String withoutByteOrderMark(String source) {
+        return source.startsWith(BYTE_ORDER_MARK) ? source.substring(BYTE_ORDER_MARK.length()) : source;
+    }
+
+    private static Result mergeSources(String existingSource, String generatedSource, String suiteName) {
         CompilationUnit existingUnit = parse(existingSource);
         CompilationUnit generatedUnit = parse(generatedSource);
         if (hasErrors(existingUnit)) {
@@ -494,7 +510,7 @@ public final class SuiteMerger {
      * the class.
      */
     public static int testCount(String source, String suiteName) {
-        CompilationUnit unit = parse(source);
+        CompilationUnit unit = parse(withoutByteOrderMark(source));
         TypeDeclaration type = hasErrors(unit) ? null : findType(unit, suiteName);
         if (type == null) {
             return -1;

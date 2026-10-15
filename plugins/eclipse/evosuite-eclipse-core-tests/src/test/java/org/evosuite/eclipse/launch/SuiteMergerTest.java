@@ -279,6 +279,20 @@ public class SuiteMergerTest {
         }
     }
 
+    @Test
+    public void keepsTheByteOrderMarkOfTheExistingSuite() throws Exception {
+        IJavaProject project = TestProjects.create("merge-bom", "src", null);
+        IFile file = TestProjects.addSource(project, "src", "demo.Calculator_ESTest", "\uFEFF" + suite("", MAX));
+        file.setCharset("UTF-8", null);
+
+        SuiteMerger.Result result = SuiteMerger.mergeInto(file, suite("", SIGN), "Calculator_ESTest", null);
+
+        assertNull(result.incompatibility);
+        assertEquals(List.of("test1"), result.added);
+        assertEquals("\uFEFF" + suite("", MAX, SIGN), read(file));
+        assertEquals(1, SuiteMerger.testCount("\uFEFF" + suite("", MAX), "Calculator_ESTest"));
+    }
+
     private static String read(IFile file) throws Exception {
         try (var in = file.getContents()) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
