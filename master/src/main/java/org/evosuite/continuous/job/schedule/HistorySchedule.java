@@ -61,14 +61,14 @@ public class HistorySchedule extends OneTimeSchedule {
 
         // a part of the budget is fixed, as each CUT needs a minimum of it
         int minTime = 60 * this.scheduler.getConfiguration().minMinutesPerJob
-                * data.getTotalNumberOfTestableCUTs();
+                * data.getTotalNumberOfCUTsToTest();
 
         // this is what left from the minimum allocation, and that now we can
         // choose how best to allocate
         int extraTime = totalBudget - minTime;
 
         // check how much time we can give extra for each branch in a CUT
-        int numberOfBranches = data.getTotalNumberOfBranches();
+        int numberOfBranches = data.getTotalNumberOfBranchesToTest();
         double timePerBranch =
                 numberOfBranches == 0.0 ? 0.0 : (double) extraTime / (double) numberOfBranches;
 

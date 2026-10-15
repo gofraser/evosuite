@@ -1313,6 +1313,12 @@ public class Properties {
                     + "ctg_memory. If not set, a quarter of the job's memory, but at least 250")
     public static Integer CTG_MASTER_MEMORY = null;
 
+    @Parameter(key = "ctg_incremental", group = "Continuous Test Generation",
+            description = "Only generate tests for classes that changed (in their bytecode, their superclasses' "
+                    + "bytecode, or the EvoSuite version) since their tests were last generated, or that have no "
+                    + "tests yet. Classes selected explicitly with ctg_selected_cuts are always tested")
+    public static boolean CTG_INCREMENTAL = true;
+
     @Parameter(key = "ctg_cores", group = "Continuous Test Generation",
             description = "Number of cores CTG will use")
     public static int CTG_CORES = 1;
@@ -1389,6 +1395,11 @@ public class Properties {
     @Parameter(key = "ctg_selected_cuts", group = "Continuous Test Generation",
             description = "Comma ',' separated list of CUTs to use in CTG. If none specified, then test all classes")
     public static String CTG_SELECTED_CUTS = null;
+
+    @Parameter(key = "ctg_selected_cuts_are_filter", group = "Continuous Test Generation",
+            description = "Whether ctg_selected_cuts (or its file) only restricts which classes of the project are "
+                    + "considered, eg by patterns, rather than naming classes to test regardless of ctg_incremental")
+    public static boolean CTG_SELECTED_CUTS_ARE_FILTER = false;
 
     @Parameter(key = "ctg_selected_cuts_file_location", group = "Continuous Test Generation",
             description = "Absolute path of text file where classes to test are specified. "

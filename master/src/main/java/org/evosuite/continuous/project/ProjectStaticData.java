@@ -68,6 +68,8 @@ public class ProjectStaticData {
 
     private final Set<String> modifiedFiles;
 
+    private boolean historyFileLoaded = false;
+
 
     private Project project = null;
 
@@ -85,7 +87,24 @@ public class ProjectStaticData {
 
 
     /**
-     * Initializes the local history from the history file.
+     * Load the results of previous runs, which tell whether testing a class still improves its coverage.
+     */
+    public void loadPreviousResults() {
+        this.project = StorageManager.getDatabaseProject();
+    }
+
+    /**
+     * Whether a list of changed source files was given with {@link Properties#CTG_HISTORY_FILE}.
+     *
+     * @return true if such a file was loaded
+     */
+    public boolean hasHistoryFile() {
+        return historyFileLoaded;
+    }
+
+    /**
+     * Initializes the local history from the history file, a list of added or modified source files
+     * (one per line, {@code A} or {@code M}, a tab, and the path), eg produced from version control.
      */
     public void initializeLocalHistory() {
         if (Properties.CTG_HISTORY_FILE == null) {
@@ -106,8 +125,8 @@ public class ProjectStaticData {
                     case "A": // 'added' and 'modified' are treated equally
                     case "M":
                         // only consider .java entries
-                        if (split[1].endsWith(".java")) {
-                            this.modifiedFiles.add(split[1].replace(File.separator, "."));
+                        if (split.length > 1 && split[1].endsWith(".java")) {
+                            this.modifiedFiles.add(split[1].replace('\\', '/').replace('/', '.'));
                         }
                         break;
                     case "D":
@@ -119,6 +138,7 @@ public class ProjectStaticData {
                         break;
                 }
             }
+            historyFileLoaded = true;
         } catch (FileNotFoundException e) {
             logger.error("'" + Properties.CTG_HISTORY_FILE + "' file not found");
         } catch (IOException e) {
@@ -133,7 +153,6 @@ public class ProjectStaticData {
             }
         }
 
-        this.project = StorageManager.getDatabaseProject();
     }
 
     /**
@@ -161,6 +180,11 @@ public class ProjectStaticData {
          * in the last N generations.
          */
         private boolean isToTest = true;
+
+        /**
+         * Fingerprint of the class in this run, see {@link org.evosuite.continuous.persistency.ClassFingerprints}.
+         */
+        private String fingerprint = null;
 
         /**
          * time budget in seconds allocated to test this class.
@@ -208,6 +232,23 @@ public class ProjectStaticData {
 
         public boolean isToTest() {
             return this.isToTest;
+        }
+
+        /**
+         * Whether a job should be scheduled for this class in this run.
+         *
+         * @return true if it is testable and selected for testing
+         */
+        public boolean isToSchedule() {
+            return isTestable() && isToTest;
+        }
+
+        public void setFingerprint(String fingerprint) {
+            this.fingerprint = fingerprint;
+        }
+
+        public String getFingerprint() {
+            return fingerprint;
         }
 
         public void setTimeBudgetInSeconds(int timeBudgetInSeconds) {
@@ -284,6 +325,37 @@ public class ProjectStaticData {
     }
 
     /**
+     * The number of classes a job should be scheduled for in this run, which in an incremental run
+     * leaves out the testable classes that have not changed.
+     *
+     * @return number of cuts to test
+     */
+    public int getTotalNumberOfCUTsToTest() {
+        int total = 0;
+        for (ClassInfo info : classes.values()) {
+            if (info.isToSchedule()) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * The number of branches in the classes to test in this run.
+     *
+     * @return number of branches
+     */
+    public int getTotalNumberOfBranchesToTest() {
+        int total = 0;
+        for (ClassInfo info : classes.values()) {
+            if (info.isToSchedule()) {
+                total += info.numberOfBranches;
+            }
+        }
+        return total;
+    }
+
+    /**
      * Returns the total number of branches in the project.
      *
      * @return total number of branches
@@ -316,13 +388,15 @@ public class ProjectStaticData {
     }
 
     /**
-     * Returns true if a class has been changed, false otherwise.
+     * Returns true if the history file lists a source file as changed.
      *
-     * @param javaFileName java file name
+     * @param javaFileName source file relative to its source root, with the package separated by dots,
+     *                     eg {@code a.b.C.java}
      * @return true if changed
      */
     public boolean hasChanged(String javaFileName) {
-        return this.modifiedFiles.parallelStream().anyMatch(m -> m.endsWith(javaFileName));
+        // match whole package segments, so that a change to bar/Foo.java is not one to abar/Foo.java
+        return this.modifiedFiles.stream().anyMatch(m -> m.equals(javaFileName) || m.endsWith("." + javaFileName));
     }
 
     protected void setProject(Project project) {

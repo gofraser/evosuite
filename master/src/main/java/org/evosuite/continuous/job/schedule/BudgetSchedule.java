@@ -43,7 +43,7 @@ public class BudgetSchedule extends OneTimeSchedule {
 
         ProjectStaticData data = scheduler.getProjectData();
 
-        if (data.getTotalNumberOfBranches() == 0) {
+        if (data.getTotalNumberOfBranchesToTest() == 0) {
             return new SimpleSchedule(scheduler).createScheduleOnce();
         }
 
@@ -58,7 +58,7 @@ public class BudgetSchedule extends OneTimeSchedule {
          * a part of the budget is fixed, as each CUT needs a minimum
          * of it.
          */
-        int minTime = 60 * scheduler.getConfiguration().minMinutesPerJob * data.getTotalNumberOfTestableCUTs();
+        int minTime = 60 * scheduler.getConfiguration().minMinutesPerJob * data.getTotalNumberOfCUTsToTest();
 
         /*
          * this is what left from the minimum allocation, and that now we can
@@ -69,14 +69,14 @@ public class BudgetSchedule extends OneTimeSchedule {
         /*
          * check how much time we can give extra for each branch in a CUT
          */
-        double timePerBranch = (double) extraTime / (double) data.getTotalNumberOfBranches();
+        double timePerBranch = (double) extraTime / (double) data.getTotalNumberOfBranchesToTest();
 
         int totalLeftOver = 0;
 
         List<JobDefinition> jobs = new LinkedList<>();
 
         for (ClassInfo info : data.getClassInfos()) {
-            if (!info.isTestable()) {
+            if (!info.isToSchedule()) {
                 continue;
             }
             /*

@@ -404,6 +404,15 @@ public class EvoSuite {
         return null;
     }
 
+    /**
+     * Identify the EvoSuite build: its version and, where known, its commit.
+     *
+     * @return the version identifier
+     */
+    public static String getVersionIdentifier() {
+        return resolveVersion() + "@" + resolveCommit();
+    }
+
     private static String resolveVersion() {
         Package evoSuitePackage = EvoSuite.class.getPackage();
         if (evoSuitePackage != null) {

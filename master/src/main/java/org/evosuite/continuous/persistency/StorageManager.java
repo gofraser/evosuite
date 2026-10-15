@@ -23,8 +23,10 @@ import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
+import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.continuous.project.ProjectStaticData;
+import org.evosuite.continuous.project.ProjectStaticData.ClassInfo;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.FileIOUtils;
 import org.evosuite.utils.LoggingUtils;
@@ -145,6 +147,16 @@ public class StorageManager {
         }
         return new File(base + Properties.CTG_DIR
                 + File.separator + Properties.CTG_BESTS_DIR_NAME);
+    }
+
+    /**
+     * Whether the current best set has a test suite for a class.
+     *
+     * @param className the class under test
+     * @return true if there is a test suite
+     */
+    public static boolean hasBestTestSuite(String className) {
+        return getFileForTargetBestTest(className + Properties.JUNIT_SUFFIX).exists();
     }
 
     public static File getSeedInFolder() {
@@ -290,7 +302,13 @@ public class StorageManager {
         Project db = StorageManager.getDatabaseProject();
         String info = "\n\n=== CTG run results ===\n";
 
-        info += removeNoMoreExistentData(db, current);
+        boolean wholeProject = cuts == null || cuts.length == 0;
+        if (wholeProject) {
+            // a run on selected classes only has not seen the others, which still exist
+            info += removeNoMoreExistentData(db, current);
+        }
+
+        ClassFingerprints fingerprints = ClassFingerprints.load(EvoSuite.getVersionIdentifier());
 
         List<TestsOnDisk> suites = gatherGeneratedTestsOnDisk();
         info += "\nNew test suites: " + suites.size();
@@ -306,13 +324,35 @@ public class StorageManager {
                 continue;
             }
 
+            ClassInfo classInfo = current.getClassInfo(cut);
+            if (!classInfo.isToTest() && Properties.CTG_SCHEDULE != Properties.AvailableSchedule.HISTORY) {
+                // unchanged in an incremental run: no job, and nothing to record
+                continue;
+            }
+
             TestsOnDisk suite = suites.parallelStream().filter(s -> s.cut.equals(cut)).findFirst().orElse(null);
-            if (suite == null && current.getClassInfo(cut).isToTest()) {
+            if (suite == null && classInfo.isToTest()) {
                 missingCUTs.add(cut);
             }
 
             logger.debug("Updating database to " + cut);
             updateDatabase(cut, suite, db, current);
+
+            if (suite != null) {
+                // tests were generated for this version of the class, whether or not they beat the old ones;
+                // a class without tests keeps its old fingerprint, so the next run tries again
+                fingerprints.record(cut, classInfo.getFingerprint());
+            }
+        }
+
+        if (wholeProject) {
+            fingerprints.retainOnly(current.getClassNames());
+        }
+        try {
+            fingerprints.save();
+        } catch (IOException e) {
+            logger.error("Failed to save class fingerprints, the next run will regenerate all tests: "
+                    + e.getMessage(), e);
         }
 
         /*
@@ -950,7 +990,7 @@ public class StorageManager {
         }
     }
 
-    private File getFileForTargetBestTest(String testName) {
+    private static File getFileForTargetBestTest(String testName) {
         String path = testName.replace(".", File.separator);
         path += ".java";
         return new File(getBestTestFolder() + File.separator + path);

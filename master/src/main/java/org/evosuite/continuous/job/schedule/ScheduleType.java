@@ -70,7 +70,7 @@ public abstract class ScheduleType {
         int totalBudget = 60 * scheduler.getConfiguration().timeInMinutes
                 * scheduler.getConfiguration().getNumberOfUsableCores();
         int maximumNumberOfJobs = totalBudget / (60 * scheduler.getConfiguration().minMinutesPerJob);
-        return maximumNumberOfJobs >= scheduler.getProjectData().getTotalNumberOfTestableCUTs();
+        return maximumNumberOfJobs >= scheduler.getProjectData().getTotalNumberOfCUTsToTest();
     }
 
     /**
@@ -118,7 +118,7 @@ public abstract class ScheduleType {
 
         //not enough budget
         for (ClassInfo info : data.getClassInfos()) {
-            if (!info.isTestable()) {
+            if (!info.isToSchedule()) {
                 continue;
             }
             JobDefinition job = new JobDefinition(
