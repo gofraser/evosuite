@@ -29,10 +29,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
@@ -44,7 +46,7 @@ import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.ui.IEditorInput;
+import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.evosuite.eclipse.launch.EvoSuiteCommand;
 import org.evosuite.eclipse.launch.GenerationOptions;
@@ -69,38 +71,53 @@ public class GenerateTestsHandler extends AbstractHandler {
         MessageDialog.openInformation(shell, "EvoSuite", message);
     }
 
+    /** The settings of a project; tests replace it to count how often they are resolved. */
+    static Function<IProject, GenerationOptions> settings = project -> EvoSuitePreferences.resolve(project, null);
+
+    static final String NO_CLASSES = "The selection contains no classes to generate tests for. Select classes, "
+            + "packages, source folders or projects; test source folders, interfaces, annotations and "
+            + "EvoSuite's own suites are skipped.";
+
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
-        Shell shell = HandlerUtil.getActiveShell(event);
-        Map<IJavaProject, Set<IType>> targets;
         try {
-            targets = TargetSelection.collect(selectedElements(event));
+            generate(HandlerUtil.getActiveShell(event), selectedElements(event));
         } catch (JavaModelException e) {
             throw new ExecutionException("Cannot read the selected Java elements", e);
         }
-        if (targets.isEmpty()) {
-            MessageDialog.openInformation(shell, "EvoSuite",
-                    "The selection contains no classes to generate tests for. Select classes, packages, "
-                            + "source folders or projects; test source folders, interfaces and annotations "
-                            + "are skipped.");
-            return null;
-        }
+        return null;
+    }
+
+    /** Generates tests for the classes among {@code selection}. */
+    static void generate(Shell shell, Iterable<?> selection) throws JavaModelException {
+        Map<IJavaProject, Set<IType>> targets = TargetSelection.collect(selection);
+        // Resolved once per project: with a pom, that reads Maven's model.
+        Map<IJavaProject, GenerationOptions> options = new LinkedHashMap<>();
         Map<IJavaProject, List<GenerationTarget>> requests = new LinkedHashMap<>();
         for (Map.Entry<IJavaProject, Set<IType>> entry : targets.entrySet()) {
-            GenerationOptions options = EvoSuitePreferences.resolve(entry.getKey().getProject(), null);
-            try {
-                for (IType type : entry.getValue()) {
-                    if (!isGeneratedTest(type, options)) {
-                        requests.computeIfAbsent(entry.getKey(), p -> new ArrayList<>())
-                                .add(GenerationTarget.wholeClass(type.getFullyQualifiedName()));
-                    }
+            GenerationOptions projectOptions = options(options, entry.getKey());
+            for (IType type : entry.getValue()) {
+                if (!isGeneratedTest(type, projectOptions)) {
+                    requests.computeIfAbsent(entry.getKey(), p -> new ArrayList<>())
+                            .add(GenerationTarget.wholeClass(type.getFullyQualifiedName()));
                 }
-            } catch (JavaModelException e) {
-                throw new ExecutionException("Cannot read the selected Java elements", e);
             }
         }
-        launch(shell, requests, ExistingSuitesQuestion.Scope.CLASSES);
-        return null;
+        if (requests.isEmpty()) {
+            informer.accept(shell, NO_CLASSES);
+            return;
+        }
+        launch(shell, requests, options, ExistingSuitesQuestion.Scope.CLASSES);
+    }
+
+    /** The settings of {@code project}, from {@code resolved} or resolved and added to it. */
+    static GenerationOptions options(Map<IJavaProject, GenerationOptions> resolved, IJavaProject project) {
+        return resolved.computeIfAbsent(project, p -> settings.apply(p.getProject()));
+    }
+
+    static void launch(Shell shell, Map<IJavaProject, List<GenerationTarget>> requests,
+                       ExistingSuitesQuestion.Scope scope) {
+        launch(shell, requests, new LinkedHashMap<>(), scope);
     }
 
     /**
@@ -109,11 +126,12 @@ public class GenerateTestsHandler extends AbstractHandler {
      * not generate, as when the suite suffix and folder are those of the project's own tests, is
      * left out: that file is never replaced or merged into.
      *
-     * @param scope what the targets cover; for part of a class, adding to existing suites is the
-     *              preselected answer
+     * @param resolved the settings of the projects, as far as they have been resolved already
+     * @param scope    what the targets cover; for part of a class, adding to existing suites is
+     *                 the preselected answer
      */
     static void launch(Shell shell, Map<IJavaProject, List<GenerationTarget>> requests,
-                       ExistingSuitesQuestion.Scope scope) {
+                       Map<IJavaProject, GenerationOptions> resolved, ExistingSuitesQuestion.Scope scope) {
         Map<IJavaProject, GenerationOptions> options = new LinkedHashMap<>();
         Map<IJavaProject, List<GenerationTarget>> runs = new LinkedHashMap<>();
         List<String> skipped = new ArrayList<>();
@@ -122,7 +140,7 @@ public class GenerateTestsHandler extends AbstractHandler {
         int classCount = 0;
         for (Map.Entry<IJavaProject, List<GenerationTarget>> entry : requests.entrySet()) {
             IJavaProject project = entry.getKey();
-            GenerationOptions projectOptions = EvoSuitePreferences.resolve(project.getProject(), null);
+            GenerationOptions projectOptions = options(resolved, project);
             File testDir;
             try {
                 testDir = ProjectSetup.testFolder(project.getProject(), projectOptions).getLocation().toFile();
@@ -164,7 +182,11 @@ public class GenerateTestsHandler extends AbstractHandler {
         }
     }
 
-    private static Iterable<?> selectedElements(ExecutionEvent event) {
+    /**
+     * The elements selected in a view, or, with no such selection, the element open in the Java
+     * editor if that is the active part.
+     */
+    static Iterable<?> selectedElements(ExecutionEvent event) {
         ISelection selection = HandlerUtil.getActiveMenuSelection(event);
         if (!(selection instanceof IStructuredSelection)) {
             selection = HandlerUtil.getCurrentSelection(event);
@@ -173,9 +195,17 @@ public class GenerateTestsHandler extends AbstractHandler {
             return ((IStructuredSelection) selection).toList();
         }
         // Invoked from a Java editor, where the selection is text.
-        IEditorInput input = HandlerUtil.getActiveEditorInput(event);
-        IJavaElement element = input == null ? null : JavaUI.getEditorInputJavaElement(input);
+        IEditorPart editor = activeEditor(event);
+        IJavaElement element = editor == null ? null : JavaUI.getEditorInputJavaElement(editor.getEditorInput());
         return element == null ? Collections.emptyList() : List.of(element);
+    }
+
+    /**
+     * The active editor if it is also the active part. With a view active and nothing selected
+     * in it, a key binding must not act on whatever editor was last active.
+     */
+    static IEditorPart activeEditor(ExecutionEvent event) {
+        return HandlerUtil.getActivePart(event) instanceof IEditorPart editor ? editor : null;
     }
 
     /**

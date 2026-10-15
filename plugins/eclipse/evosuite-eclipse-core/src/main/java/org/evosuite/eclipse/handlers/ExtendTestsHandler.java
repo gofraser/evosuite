@@ -20,7 +20,6 @@
 package org.evosuite.eclipse.handlers;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,18 +37,13 @@ import org.eclipse.jdt.core.search.IJavaSearchScope;
 import org.eclipse.jdt.core.search.SearchEngine;
 import org.eclipse.jdt.ui.IJavaElementSearchConstants;
 import org.eclipse.jdt.ui.JavaUI;
-import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.dialogs.SelectionDialog;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.launch.GenerationTarget;
-import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 
 /**
  * Extend Tests with EvoSuite: for the test classes selected in a view, or the one open in the
@@ -72,28 +66,32 @@ public class ExtendTestsHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
-        Shell shell = HandlerUtil.getActiveShell(event);
-        List<String> skipped = new ArrayList<>();
-        Map<IJavaProject, List<GenerationTarget>> requests;
         try {
-            List<IType> tests = TestClassSelection.collect(selectedElements(event));
-            if (tests.isEmpty()) {
-                MessageDialog.openInformation(shell, "EvoSuite", "Select a test class in a test source folder, "
-                        + "such as FooTest or Foo_ESTest, or open one in the Java editor.");
-                return null;
-            }
-            requests = targets(shell, tests, skipped);
+            extend(HandlerUtil.getActiveShell(event), GenerateTestsHandler.selectedElements(event));
         } catch (JavaModelException e) {
             throw new ExecutionException("Cannot read the selected Java elements", e);
         }
+        return null;
+    }
+
+    /** Extends the tests of the test classes among {@code selection}. */
+    static void extend(Shell shell, Iterable<?> selection) throws JavaModelException {
+        List<IType> tests = TestClassSelection.collect(selection);
+        if (tests.isEmpty()) {
+            GenerateTestsHandler.informer.accept(shell, "Select a test class in a test source folder, such as "
+                    + "FooTest or Foo_ESTest, or open one in the Java editor.");
+            return;
+        }
+        List<String> skipped = new ArrayList<>();
+        Map<IJavaProject, GenerationOptions> options = new LinkedHashMap<>();
+        Map<IJavaProject, List<GenerationTarget>> requests = targets(shell, tests, options, skipped);
         if (!skipped.isEmpty()) {
-            MessageDialog.openInformation(shell, "EvoSuite", (requests.isEmpty() ? "" : "Some of the test classes "
+            GenerateTestsHandler.informer.accept(shell, (requests.isEmpty() ? "" : "Some of the test classes "
                     + "are left out:\n\n") + String.join("\n", skipped));
         }
         if (!requests.isEmpty()) {
-            GenerateTestsHandler.launch(shell, requests, ExistingSuitesQuestion.Scope.EXTENSION);
+            GenerateTestsHandler.launch(shell, requests, options, ExistingSuitesQuestion.Scope.EXTENSION);
         }
-        return null;
     }
 
     /**
@@ -104,10 +102,17 @@ public class ExtendTestsHandler extends AbstractHandler {
      */
     static Map<IJavaProject, List<GenerationTarget>> targets(Shell shell, List<IType> tests, List<String> skipped)
             throws JavaModelException {
+        return targets(shell, tests, new LinkedHashMap<>(), skipped);
+    }
+
+    /** @param resolved the settings of the projects, which receives those it resolves */
+    static Map<IJavaProject, List<GenerationTarget>> targets(Shell shell, List<IType> tests,
+                                                             Map<IJavaProject, GenerationOptions> resolved,
+                                                             List<String> skipped) throws JavaModelException {
         Map<IJavaProject, Map<String, List<GenerationTarget.Seed>>> seeds = new LinkedHashMap<>();
         for (IType test : tests) {
             IJavaProject project = test.getJavaProject();
-            GenerationOptions options = EvoSuitePreferences.resolve(project.getProject(), null);
+            GenerationOptions options = GenerateTestsHandler.options(resolved, project);
             TestClassSelection.Inference inference = TestClassSelection.infer(test, options.testSuffix);
             IType classUnderTest = inference.classUnderTest() != null ? inference.classUnderTest()
                     : chooser.choose(shell, test, inference);
@@ -151,19 +156,5 @@ public class ExtendTestsHandler extends AbstractHandler {
             return null;
         }
         return dialog.getResult()[0] instanceof IType type ? type : null;
-    }
-
-    private static Iterable<?> selectedElements(ExecutionEvent event) {
-        ISelection selection = HandlerUtil.getActiveMenuSelection(event);
-        if (!(selection instanceof IStructuredSelection)) {
-            selection = HandlerUtil.getCurrentSelection(event);
-        }
-        if (selection instanceof IStructuredSelection && !selection.isEmpty()) {
-            return ((IStructuredSelection) selection).toList();
-        }
-        // Invoked from a Java editor, where the selection is text.
-        IEditorInput input = HandlerUtil.getActiveEditorInput(event);
-        IJavaElement element = input == null ? null : JavaUI.getEditorInputJavaElement(input);
-        return element == null ? Collections.emptyList() : List.of(element);
     }
 }

@@ -31,7 +31,6 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IMethod;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.swt.widgets.Shell;
@@ -39,7 +38,6 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.launch.GenerationTarget;
-import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 
 /**
  * Generate Tests for Method with EvoSuite: for the methods selected in a view, or the method the
@@ -53,27 +51,31 @@ public class GenerateMethodTestsHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
-        Shell shell = HandlerUtil.getActiveShell(event);
-        List<String> skipped = new ArrayList<>();
-        Map<IJavaProject, List<GenerationTarget>> requests;
         try {
-            requests = targets(selectedMethods(event), skipped);
+            generate(HandlerUtil.getActiveShell(event), selectedMethods(event));
         } catch (JavaModelException e) {
             throw new ExecutionException("Cannot read the selected Java elements", e);
         }
+        return null;
+    }
+
+    /** Generates tests for {@code methods}, grouped by their classes. */
+    static void generate(Shell shell, Map<IType, List<IMethod>> methods) throws JavaModelException {
+        List<String> skipped = new ArrayList<>();
+        Map<IJavaProject, GenerationOptions> options = new LinkedHashMap<>();
+        Map<IJavaProject, List<GenerationTarget>> requests = targets(methods, options, skipped);
         if (requests.isEmpty()) {
-            MessageDialog.openInformation(shell, "EvoSuite", skipped.isEmpty()
+            GenerateTestsHandler.informer.accept(shell, skipped.isEmpty()
                     ? "Select a method in the Package Explorer or the Outline, or place the caret in a method "
                             + "in the Java editor."
                     : "No tests can be generated for the selection:\n\n" + String.join("\n", skipped));
-            return null;
+            return;
         }
         if (!skipped.isEmpty()) {
-            MessageDialog.openInformation(shell, "EvoSuite", "Some of the selected methods are left out:\n\n"
+            GenerateTestsHandler.informer.accept(shell, "Some of the selected methods are left out:\n\n"
                     + String.join("\n", skipped));
         }
-        GenerateTestsHandler.launch(shell, requests, ExistingSuitesQuestion.Scope.METHODS);
-        return null;
+        GenerateTestsHandler.launch(shell, requests, options, ExistingSuitesQuestion.Scope.METHODS);
     }
 
     /**
@@ -83,10 +85,17 @@ public class GenerateMethodTestsHandler extends AbstractHandler {
      */
     static Map<IJavaProject, List<GenerationTarget>> targets(Map<IType, List<IMethod>> methods, List<String> skipped)
             throws JavaModelException {
+        return targets(methods, new LinkedHashMap<>(), skipped);
+    }
+
+    /** @param resolved the settings of the projects, which receives those it resolves */
+    static Map<IJavaProject, List<GenerationTarget>> targets(Map<IType, List<IMethod>> methods,
+                                                             Map<IJavaProject, GenerationOptions> resolved,
+                                                             List<String> skipped) throws JavaModelException {
         Map<IJavaProject, List<GenerationTarget>> requests = new LinkedHashMap<>();
         for (Map.Entry<IType, List<IMethod>> entry : methods.entrySet()) {
             IType type = entry.getKey();
-            GenerationOptions options = EvoSuitePreferences.resolve(type.getJavaProject().getProject(), null);
+            GenerationOptions options = GenerateTestsHandler.options(resolved, type.getJavaProject());
             List<String> names = new ArrayList<>();
             for (IMethod method : entry.getValue()) {
                 String label = type.getElementName() + "." + method.getElementName() + "()";
@@ -112,7 +121,7 @@ public class GenerateMethodTestsHandler extends AbstractHandler {
         return requests;
     }
 
-    private static Map<IType, List<IMethod>> selectedMethods(ExecutionEvent event) throws JavaModelException {
+    static Map<IType, List<IMethod>> selectedMethods(ExecutionEvent event) throws JavaModelException {
         ISelection selection = HandlerUtil.getActiveMenuSelection(event);
         if (!(selection instanceof IStructuredSelection)) {
             selection = HandlerUtil.getCurrentSelection(event);
@@ -121,7 +130,7 @@ public class GenerateMethodTestsHandler extends AbstractHandler {
             return MethodSelection.collect(structured.toList());
         }
         // Invoked from a Java editor, where the selection is text.
-        IEditorPart editor = HandlerUtil.getActiveEditor(event);
+        IEditorPart editor = GenerateTestsHandler.activeEditor(event);
         IMethod method = editor == null ? null : MethodSelection.methodAtCaret(editor);
         return method == null ? Map.of() : MethodSelection.collect(List.of(method));
     }
