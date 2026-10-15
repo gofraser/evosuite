@@ -64,7 +64,9 @@ public class StorageManagerTest {
 
 
     @Test
-    public void extractClassNameTest() {
+    public void extractClassNameTest() throws Exception {
+        // a storage manager creates its folder, so not in the module's own .evosuite
+        Properties.CTG_DIR = Files.createTempDirectory("evosuite-ctg-names-").toString();
         String z = File.separator;
         String base = z + "some" + z + "thing" + z;
         String packageName = "foo";
@@ -128,6 +130,26 @@ public class StorageManagerTest {
 
         storage.clean();
         FileUtils.deleteDirectory(tempCtgRoot.toFile());
+    }
+
+    @Test
+    public void runDataAndLlmTracesAreKeptOutOfVersionControl() throws Exception {
+        Path tempCtgRoot = Files.createTempDirectory("evosuite-ctg-ignore-");
+        Properties.CTG_DIR = tempCtgRoot.resolve(".evosuite").toString();
+        try {
+            new StorageManager();
+            Path ignore = tempCtgRoot.resolve(".evosuite").resolve(".gitignore");
+            List<String> lines = Files.readAllLines(ignore, StandardCharsets.UTF_8);
+            Assertions.assertTrue(lines.contains("tmp_*/"), lines.toString());
+            Assertions.assertTrue(lines.contains("llm-traces/"), lines.toString());
+
+            // a .gitignore the user changed stays as it is
+            Files.write(ignore, java.util.Collections.singletonList("*"));
+            new StorageManager();
+            Assertions.assertEquals(java.util.Collections.singletonList("*"), Files.readAllLines(ignore));
+        } finally {
+            FileUtils.deleteDirectory(tempCtgRoot.toFile());
+        }
     }
 
     @Test

@@ -68,7 +68,8 @@ unchanged project finishes after the analysis. Tests whose class no longer exist
 `src/test/evosuite`. Classes named explicitly with `evosuite.cuts` are always tested.
 
 EvoSuite keeps its own state in `.evosuite/` (the best tests so far, run logs, and the fingerprints used for
-incremental runs). Add it to `.gitignore`, or commit it to share incremental state between machines.
+incremental runs). It writes a `.gitignore` there that leaves out the logs of each run and LLM traces; the
+rest may be committed, to share incremental state between machines, or ignored as a whole.
 
 ### Parameters of `generate`
 

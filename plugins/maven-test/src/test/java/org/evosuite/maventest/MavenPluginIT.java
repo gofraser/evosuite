@@ -77,6 +77,9 @@ public class MavenPluginIT {
             }
             FileUtils.deleteQuietly(standalone.resolve("log.txt").toFile());
         }
+        // its src/test/evosuite is part of the fixture
+        FileUtils.deleteDirectory(noRuntime.resolve("target").toFile());
+        FileUtils.deleteQuietly(noRuntime.resolve("log.txt").toFile());
     }
 
 
@@ -269,6 +272,7 @@ public class MavenPluginIT {
         assertFalse(Files.exists(stale), "the test of a deleted class was not removed");
         verifyESTestsRunFor(verifier, cut);
         verifyAgentConfigured(verifier);
+        assertTrue(Files.exists(getESFolder(simple).resolve(".gitignore")), "run data not kept out of git");
     }
 
     @Test

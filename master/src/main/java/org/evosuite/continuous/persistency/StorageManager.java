@@ -43,6 +43,7 @@ import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import java.io.*;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.*;
@@ -112,6 +113,8 @@ public class StorageManager {
             }
         }
 
+        writeGitIgnoreIfMissing(root);
+
         File testsFolder = getBestTestFolder();
         if (!testsFolder.exists()) {
             if (!testsFolder.mkdirs()) {
@@ -147,6 +150,28 @@ public class StorageManager {
         }
         return new File(base + Properties.CTG_DIR
                 + File.separator + Properties.CTG_BESTS_DIR_NAME);
+    }
+
+    static final String GIT_IGNORE = ".gitignore";
+
+    /**
+     * Keep what should not be committed out of version control, without the user having to know about it:
+     * the folders of each run, which can be large, and LLM traces, which contain the project's code. What
+     * remains (the best tests, the class fingerprints, seeds and object pools) may be committed to share
+     * incremental runs. A .gitignore the user has edited is left alone.
+     */
+    private static void writeGitIgnoreIfMissing(File root) {
+        File ignore = new File(root, GIT_IGNORE);
+        if (ignore.exists()) {
+            return;
+        }
+        try {
+            FileUtils.write(ignore, "# Written by EvoSuite. Remove a line to commit what it names.\n"
+                    + TMP_PREFIX + "*/\n"
+                    + "llm-traces/\n", StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            logger.warn("Cannot write " + ignore + ": " + e.getMessage());
+        }
     }
 
     /**
