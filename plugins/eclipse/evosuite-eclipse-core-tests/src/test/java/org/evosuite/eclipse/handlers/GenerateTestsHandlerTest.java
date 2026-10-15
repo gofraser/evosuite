@@ -74,7 +74,7 @@ public class GenerateTestsHandlerTest {
             return null;
         };
         try {
-            GenerateTestsHandler.launch(null, requests, true);
+            GenerateTestsHandler.launch(null, requests, ExistingSuitesQuestion.Scope.METHODS);
         } finally {
             GenerateTestsHandler.chooser = ExistingSuitesDialog::ask;
         }

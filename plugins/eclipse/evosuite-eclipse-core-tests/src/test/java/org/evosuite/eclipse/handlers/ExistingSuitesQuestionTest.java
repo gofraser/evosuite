@@ -50,7 +50,7 @@ public class ExistingSuitesQuestionTest {
     @Test
     public void asksAboutOneSuiteAndPreselectsReplace() {
         ExistingSuitesQuestion question = ExistingSuitesQuestion.of(List.of("Calculator"), 1, "src/test/evosuite",
-                false);
+                ExistingSuitesQuestion.Scope.CLASSES);
 
         assertEquals("Existing Test Suite", question.title);
         assertTrue(question.message.startsWith("Calculator already has a test suite in src/test/evosuite.\n\n"),
@@ -64,7 +64,7 @@ public class ExistingSuitesQuestionTest {
     @Test
     public void asksOnceForAllClassesAndAbbreviatesLongLists() {
         List<String> classes = List.of("A", "B", "C", "D", "E", "F", "G");
-        ExistingSuitesQuestion question = ExistingSuitesQuestion.of(classes, 9, null, false);
+        ExistingSuitesQuestion question = ExistingSuitesQuestion.of(classes, 9, null, ExistingSuitesQuestion.Scope.CLASSES);
 
         assertEquals("Existing Test Suites", question.title);
         assertTrue(question.message.startsWith("7 of the 9 classes already have test suites: A, B, C, D and 3 more."),
@@ -76,11 +76,21 @@ public class ExistingSuitesQuestionTest {
     @Test
     public void preselectsAddingForMethodsAndSaysWhy() {
         ExistingSuitesQuestion question = ExistingSuitesQuestion.of(List.of("Calculator"), 1, "src/test/evosuite",
-                true);
+                ExistingSuitesQuestion.Scope.METHODS);
 
         assertEquals(SuiteAction.ADD, question.defaultAction);
         assertEquals(1, question.defaultButton());
         assertTrue(question.message.contains("only exercise the selected methods"), question.message);
+    }
+
+    @Test
+    public void preselectsAddingWhenExtendingTestsAndSaysWhy() {
+        ExistingSuitesQuestion question = ExistingSuitesQuestion.of(List.of("Calculator"), 1, "src/test/evosuite",
+                ExistingSuitesQuestion.Scope.EXTENSION);
+
+        assertEquals(SuiteAction.ADD, question.defaultAction);
+        assertTrue(question.message.contains("only cover what the existing tests leave uncovered"), question.message);
+        assertFalse(question.message.contains("selected methods"), question.message);
     }
 
     @Test
@@ -99,7 +109,7 @@ public class ExistingSuitesQuestionTest {
     @Test
     public void dialogOffersTheFourAnswers() throws Exception {
         ExistingSuitesQuestion question = ExistingSuitesQuestion.of(List.of("Calculator", "Parser", "Lexer"), 5,
-                "src/test/evosuite", true);
+                "src/test/evosuite", ExistingSuitesQuestion.Scope.METHODS);
         UiThread.run(() -> {
             ExistingSuitesDialog dialog = new ExistingSuitesDialog(
                     PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), question);

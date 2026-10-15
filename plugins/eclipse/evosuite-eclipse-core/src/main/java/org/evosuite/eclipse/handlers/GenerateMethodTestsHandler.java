@@ -72,7 +72,7 @@ public class GenerateMethodTestsHandler extends AbstractHandler {
             MessageDialog.openInformation(shell, "EvoSuite", "Some of the selected methods are left out:\n\n"
                     + String.join("\n", skipped));
         }
-        GenerateTestsHandler.launch(shell, requests, true);
+        GenerateTestsHandler.launch(shell, requests, ExistingSuitesQuestion.Scope.METHODS);
         return null;
     }
 

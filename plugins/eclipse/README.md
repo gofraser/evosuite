@@ -63,6 +63,48 @@ The command is not offered for private and abstract methods, which tests cannot 
 for constructors of enums and abstract classes, and for methods of nested classes: EvoSuite
 tests top-level classes, so generate tests for the class that contains them instead.
 
+### Extending existing tests
+
+To have EvoSuite build on tests you already have, right-click a test class in a test source
+folder, such as `VaultTest` or an EvoSuite suite `Vault_ESTest`, or right-click in its Java editor,
+and choose **Extend Tests with EvoSuite**. The command is also in the *Source* menu. Select several
+test classes of the same class to use them all in one run.
+
+EvoSuite parses the tests from their source and starts its search from them, so it can reach
+code that needs values only your tests know (`-Dtest_factory=PARSED_JUNIT`, `-Dselected_junit`,
+`-Dseed_test_source_dir`). It then runs the compiled test classes and leaves out the coverage
+goals they already reach (`-Djunit`), so the new tests cover only what yours do not. Your tests
+are never executed to extract code from them (EvoSuite's *carving*), and the run sets
+`-Dcarve_object_pool=false` and `-Dtest_carving=false` after all other arguments.
+
+The class under test follows from the name: `VaultTest`, `VaultTests`, `VaultTestCase`,
+`VaultIT`, `VaultITCase`, `TestVault` and `Vault_ESTest` (with the configured suffix) all test
+`Vault` in the same package, in any main source folder. If the name fits no class, or more than
+one, a dialog asks for the class, with a guess filled in: for `VaultEdgeCasesTest`, `Vault`.
+
+The new tests go into the class's EvoSuite suite, `<test folder>/<package>/Vault_ESTest.java`. If
+there is one, the existing-suites dialog opens with **Add New Tests** preselected; otherwise the
+suite is created, unless EvoSuite found nothing new. The test classes themselves never change:
+if the EvoSuite settings would make the suite file a test class that EvoSuite did not generate
+(for example with the suffix `Test` in `src/test/java`), the command refuses.
+
+The console's summary says how the existing tests were used, for example *EvoSuite started from
+2 tests of VaultTest. Running 2 tests covered 92 of 154 goals, which the new tests leave out.*,
+followed by the number of new tests. If EvoSuite could not parse the tests, or could not run
+them, the job ends with a warning that says why.
+
+What to expect from the parser: statements that depend on setup in `@BeforeEach` methods, fields
+or helper methods are dropped, parameterized tests are skipped, and a test with a syntax error is
+lost. The test classes and the libraries they use are on EvoSuite's classpath for these runs, so
+the project must build.
+
+All other settings apply as for any run, except the coverage criteria: the output-value, input
+and method criteria (`OUTPUT`, `INPUT`, `METHOD`, `METHODNOEXCEPTION`) are left out. EvoSuite
+cannot tell which of their goals the existing tests reach, so each of them would keep a near-copy
+of one of your tests in the new suite. On a class with 17 branches, with EvoSuite's default
+criteria every run produced copies of both hand-written tests; without these four criteria none
+did, and the hand-written and new tests together covered the same branches.
+
 ### Settings
 
 *Window > Preferences > Java > EvoSuite* holds the workspace defaults, on three pages:

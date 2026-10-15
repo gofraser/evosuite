@@ -30,6 +30,28 @@ import org.evosuite.eclipse.launch.SuiteAction;
  */
 public final class ExistingSuitesQuestion {
 
+    /**
+     * What the new suites cover. Suites for part of a class would lose the tests of the rest
+     * when replacing the existing ones, so adding is preselected for them.
+     */
+    public enum Scope {
+        /** Whole classes. */
+        CLASSES(null),
+        /** Selected methods of each class. */
+        METHODS("The new tests only exercise the selected methods, so replacing would also drop the tests of "
+                + "the rest of the class."),
+        /** What existing tests of each class leave uncovered. */
+        EXTENSION("The new tests only cover what the existing tests leave uncovered, so replacing would also "
+                + "drop the suite's other tests.");
+
+        /** Why replacing is a bad idea, or {@code null} if it is not. */
+        final String partialNote;
+
+        Scope(String partialNote) {
+            this.partialNote = partialNote;
+        }
+    }
+
     /** The dialog's buttons; the first three stand for {@link #ACTIONS}, the last cancels. */
     public static final List<String> BUTTONS = List.of("&Replace", "&Add New Tests", "C&ompare", "Cancel");
     private static final List<SuiteAction> ACTIONS = List.of(SuiteAction.REPLACE, SuiteAction.ADD,
@@ -52,11 +74,10 @@ public final class ExistingSuitesQuestion {
      * @param withSuites  the simple names of the classes that have a suite, never empty
      * @param classCount  how many classes the request covers in all
      * @param testFolder  the folder the suites are in, or {@code null} if the projects differ
-     * @param methodLevel whether the tests are for selected methods only; a suite of those would
-     *                    lose the tests of the rest of the class, so adding is preselected
+     * @param scope       what the new suites cover
      */
     public static ExistingSuitesQuestion of(List<String> withSuites, int classCount, String testFolder,
-                                            boolean methodLevel) {
+                                            Scope scope) {
         if (withSuites.isEmpty()) {
             throw new IllegalArgumentException("no existing suites to ask about");
         }
@@ -80,9 +101,8 @@ public final class ExistingSuitesQuestion {
                 .append(" tests and add the new ones that differ from them.\n");
         message.append("Compare: show ").append(one ? "the existing suite and the new one" : "each existing suite "
                 + "and its new one").append(" side by side, to copy over what you want and save.");
-        if (methodLevel) {
-            message.append("\n\nThe new tests only exercise the selected methods, so replacing would also "
-                    + "drop the tests of the rest of the class.");
+        if (scope.partialNote != null) {
+            message.append("\n\n").append(scope.partialNote);
         }
         message.append("\n\nUntil generation has finished, ").append(one ? "the suite stays" : "the suites stay")
                 .append(" as ").append(one ? "it is" : "they are").append('.');
@@ -92,7 +112,7 @@ public final class ExistingSuitesQuestion {
         }
         String title = one ? "Existing Test Suite" : "Existing Test Suites";
         return new ExistingSuitesQuestion(title, message.toString(),
-                methodLevel ? SuiteAction.ADD : SuiteAction.REPLACE);
+                scope.partialNote != null ? SuiteAction.ADD : SuiteAction.REPLACE);
     }
 
     /** The index of the preselected button. */

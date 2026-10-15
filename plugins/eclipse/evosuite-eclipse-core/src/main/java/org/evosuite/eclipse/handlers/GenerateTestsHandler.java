@@ -92,7 +92,7 @@ public class GenerateTestsHandler extends AbstractHandler {
                 throw new ExecutionException("Cannot read the selected Java elements", e);
             }
         }
-        launch(shell, requests, false);
+        launch(shell, requests, ExistingSuitesQuestion.Scope.CLASSES);
         return null;
     }
 
@@ -100,10 +100,11 @@ public class GenerateTestsHandler extends AbstractHandler {
      * Asks once, for all projects, what to do with the suites that exist already, and schedules
      * a generation job per project.
      *
-     * @param methodLevel whether the targets name methods; adding to existing suites is then the
-     *                    preselected answer
+     * @param scope what the targets cover; for part of a class, adding to existing suites is the
+     *              preselected answer
      */
-    static void launch(Shell shell, Map<IJavaProject, List<GenerationTarget>> requests, boolean methodLevel) {
+    static void launch(Shell shell, Map<IJavaProject, List<GenerationTarget>> requests,
+                       ExistingSuitesQuestion.Scope scope) {
         Map<IJavaProject, GenerationOptions> options = new LinkedHashMap<>();
         List<String> withSuites = new ArrayList<>();
         Set<String> testFolders = new HashSet<>();
@@ -130,7 +131,7 @@ public class GenerateTestsHandler extends AbstractHandler {
         SuiteAction action = SuiteAction.REPLACE;
         if (!withSuites.isEmpty()) {
             action = chooser.apply(shell, ExistingSuitesQuestion.of(withSuites, classCount,
-                    testFolders.size() == 1 ? testFolders.iterator().next() : null, methodLevel));
+                    testFolders.size() == 1 ? testFolders.iterator().next() : null, scope));
             if (action == null) {
                 return;
             }

@@ -36,11 +36,18 @@
             description="Generate JUnit tests with EvoSuite for the selected methods, or the method at the caret"
             categoryId="org.eclipse.jdt.ui.category.source">
       </command>
+      <command
+            id="org.evosuite.eclipse.extendTests"
+            name="Extend Tests with EvoSuite"
+            description="Generate tests with EvoSuite that cover what the selected test classes leave uncovered, starting from their tests"
+            categoryId="org.eclipse.jdt.ui.category.source">
+      </command>
    </extension>
 
    <extension point="org.eclipse.ui.commandImages">
       <image commandId="org.evosuite.eclipse.generateTests" icon="icons/evosuite.gif"/>
       <image commandId="org.evosuite.eclipse.generateMethodTests" icon="icons/evosuite.gif"/>
+      <image commandId="org.evosuite.eclipse.extendTests" icon="icons/evosuite.gif"/>
    </extension>
 
    <extension point="org.eclipse.ui.handlers">
@@ -51,6 +58,10 @@
       <handler
             class="org.evosuite.eclipse.handlers.GenerateMethodTestsHandler"
             commandId="org.evosuite.eclipse.generateMethodTests">
+      </handler>
+      <handler
+            class="org.evosuite.eclipse.handlers.ExtendTestsHandler"
+            commandId="org.evosuite.eclipse.extendTests">
       </handler>
    </extension>
 
@@ -86,14 +97,36 @@
                </with>
             </visibleWhen>
          </command>
+         <!-- Test classes in test source folders; see TestClassSelection. -->
+         <command commandId="org.evosuite.eclipse.extendTests" style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="activeMenuSelection">
+                  <iterate ifEmpty="false" operator="and">
+                     <adapt type="org.eclipse.jdt.core.IJavaElement">
+                        <test property="org.evosuite.eclipse.testClass" forcePluginActivation="true"/>
+                     </adapt>
+                  </iterate>
+               </with>
+            </visibleWhen>
+         </command>
       </menuContribution>
-      <!-- The Java editor's context menu; the method command while the caret is in a method. -->
+      <!--
+        The Java editor's context menu; the method command while the caret is in a method, the
+        extend command in the editor of a test class.
+      -->
       <menuContribution locationURI="popup:#CompilationUnitEditorContext?after=additions">
          <command commandId="org.evosuite.eclipse.generateTests" style="push"/>
          <command commandId="org.evosuite.eclipse.generateMethodTests" style="push">
             <visibleWhen checkEnabled="false">
                <with variable="activePart">
                   <test property="org.evosuite.eclipse.caretInTestableMethod" forcePluginActivation="true"/>
+               </with>
+            </visibleWhen>
+         </command>
+         <command commandId="org.evosuite.eclipse.extendTests" style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="activePart">
+                  <test property="org.evosuite.eclipse.editsTestClass" forcePluginActivation="true"/>
                </with>
             </visibleWhen>
          </command>
@@ -120,6 +153,25 @@
                </or>
             </visibleWhen>
          </command>
+         <command commandId="org.evosuite.eclipse.extendTests" style="push">
+            <visibleWhen checkEnabled="false">
+               <or>
+                  <with variable="activePart">
+                     <test property="org.evosuite.eclipse.editsTestClass" forcePluginActivation="true"/>
+                  </with>
+                  <with variable="selection">
+                     <and>
+                        <instanceof value="org.eclipse.jface.viewers.IStructuredSelection"/>
+                        <iterate ifEmpty="false" operator="and">
+                           <adapt type="org.eclipse.jdt.core.IJavaElement">
+                              <test property="org.evosuite.eclipse.testClass" forcePluginActivation="true"/>
+                           </adapt>
+                        </iterate>
+                     </and>
+                  </with>
+               </or>
+            </visibleWhen>
+         </command>
       </menuContribution>
    </extension>
 
@@ -137,6 +189,20 @@
             namespace="org.evosuite.eclipse"
             properties="caretInTestableMethod"
             class="org.evosuite.eclipse.handlers.MethodPropertyTester">
+      </propertyTester>
+      <propertyTester
+            id="org.evosuite.eclipse.testClassTester"
+            type="org.eclipse.jdt.core.IJavaElement"
+            namespace="org.evosuite.eclipse"
+            properties="testClass"
+            class="org.evosuite.eclipse.handlers.TestClassPropertyTester">
+      </propertyTester>
+      <propertyTester
+            id="org.evosuite.eclipse.editorTestClassTester"
+            type="org.eclipse.ui.IWorkbenchPart"
+            namespace="org.evosuite.eclipse"
+            properties="editsTestClass"
+            class="org.evosuite.eclipse.handlers.TestClassPropertyTester">
       </propertyTester>
    </extension>
 

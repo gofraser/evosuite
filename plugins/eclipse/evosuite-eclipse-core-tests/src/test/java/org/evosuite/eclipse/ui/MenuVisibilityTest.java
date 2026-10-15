@@ -45,16 +45,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * When the context menus offer Generate Tests with EvoSuite and Generate Tests for Method with
- * EvoSuite.
+ * When the context menus offer Generate Tests with EvoSuite, Generate Tests for Method with
+ * EvoSuite and Extend Tests with EvoSuite.
  */
 public class MenuVisibilityTest {
 
     private static final String METHOD_COMMAND = "org.evosuite.eclipse.generateMethodTests";
+    private static final String EXTEND_COMMAND = "org.evosuite.eclipse.extendTests";
 
     private Expression visibleWhen;
     private Expression methodVisibleWhen;
     private Expression editorMethodVisibleWhen;
+    private Expression extendVisibleWhen;
+    private Expression editorExtendVisibleWhen;
     private IJavaProject project;
 
     @BeforeEach
@@ -66,14 +69,18 @@ public class MenuVisibilityTest {
                 IConfigurationElement condition = contribution.getChildren("command")[0].getChildren("visibleWhen")[0];
                 visibleWhen = ExpressionConverter.getDefault().perform(condition.getChildren()[0]);
                 methodVisibleWhen = condition(contribution, METHOD_COMMAND);
+                extendVisibleWhen = condition(contribution, EXTEND_COMMAND);
             } else if (Activator.PLUGIN_ID.equals(contribution.getContributor().getName())
                     && contribution.getAttribute("locationURI").startsWith("popup:#CompilationUnitEditorContext")) {
                 editorMethodVisibleWhen = condition(contribution, METHOD_COMMAND);
+                editorExtendVisibleWhen = condition(contribution, EXTEND_COMMAND);
             }
         }
         assertNotNull(visibleWhen, "no explorer menu contribution");
         assertNotNull(methodVisibleWhen, "no explorer menu contribution for methods");
         assertNotNull(editorMethodVisibleWhen, "no editor menu contribution for methods");
+        assertNotNull(extendVisibleWhen, "no explorer menu contribution for extending tests");
+        assertNotNull(editorExtendVisibleWhen, "no editor menu contribution for extending tests");
         project = TestProjects.create("menu", "src", null);
         TestProjects.addSource(project, "src", "m.Plain", "package m; public class Plain { int field; "
                 + "public int twice(int x) { return 2 * x; } private void hidden() {} }");
@@ -158,6 +165,47 @@ public class MenuVisibilityTest {
                 assertEquals(EvaluationResult.FALSE, editorMethodVisibleWhen.evaluate(context), "a private method");
             } finally {
                 PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().closeEditor(editor, false);
+            }
+        });
+    }
+
+    @Test
+    public void offersExtendingTestsForTestClassesOnly() throws Exception {
+        IJavaProject tested = TestProjects.create("menu-tests", "src/main/java", "src/test/java");
+        TestProjects.addSource(tested, "src/main/java", "m.Plain", "package m; public class Plain {}");
+        TestProjects.addSource(tested, "src/test/java", "m.PlainTest", "package m; public class PlainTest {}");
+        TestProjects.addSource(tested, "src/test/java", "m.Plain_ESTest_scaffolding",
+                "package m; public class Plain_ESTest_scaffolding {}");
+        IType test = tested.findType("m.PlainTest");
+        IType plain = tested.findType("m.Plain");
+
+        assertEquals(true, evaluate(extendVisibleWhen, test));
+        assertEquals(true, evaluate(extendVisibleWhen, test.getCompilationUnit()));
+        assertEquals(true, evaluate(extendVisibleWhen, tested.getProject().getFile("src/test/java/m/PlainTest.java")));
+        assertEquals(false, evaluate(extendVisibleWhen, plain), "a main class");
+        assertEquals(false, evaluate(extendVisibleWhen, plain.getCompilationUnit()), "a main class");
+        assertEquals(false, evaluate(extendVisibleWhen, test, plain), "a main class among the tests");
+        assertEquals(false, evaluate(extendVisibleWhen, tested.findType("m.Plain_ESTest_scaffolding")));
+        assertEquals(false, evaluate(extendVisibleWhen, test.getPackageFragment()), "a package");
+        assertEquals(false, evaluate(extendVisibleWhen, tested));
+    }
+
+    @Test
+    public void offersExtendingTestsInTheEditorOfATestClass() throws Exception {
+        IJavaProject tested = TestProjects.create("menu-editor-tests", "src/main/java", "src/test/java");
+        TestProjects.addSource(tested, "src/main/java", "m.Plain", "package m; public class Plain {}");
+        TestProjects.addSource(tested, "src/test/java", "m.PlainTest", "package m; public class PlainTest {}");
+        UiThread.run(() -> {
+            for (String type : List.of("m.PlainTest", "m.Plain")) {
+                IEditorPart editor = JavaUI.openInEditor(tested.findType(type).getCompilationUnit());
+                try {
+                    EvaluationContext context = new EvaluationContext(null, new Object());
+                    context.addVariable("activePart", editor);
+                    assertEquals(type.equals("m.PlainTest") ? EvaluationResult.TRUE : EvaluationResult.FALSE,
+                            editorExtendVisibleWhen.evaluate(context), type);
+                } finally {
+                    PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().closeEditor(editor, false);
+                }
             }
         });
     }
