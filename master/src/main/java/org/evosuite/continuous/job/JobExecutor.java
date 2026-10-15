@@ -113,9 +113,16 @@ public class JobExecutor {
 
     protected long getRemainingTimeInMs() {
         long elapsed = System.currentTimeMillis() - startTimeInMs;
-        long budgetInMs = configuration.timeInMinutes * 60 * 1000;
+        long budgetInMs = configuration.timeInSeconds * 1000L;
         long remaining = budgetInMs - elapsed;
         return remaining;
+    }
+
+    static String formatDuration(long seconds) {
+        if (seconds % 60 == 0) {
+            return (seconds / 60) + " minutes";
+        }
+        return seconds >= 60 ? (seconds / 60) + " minutes " + (seconds % 60) + " seconds" : seconds + " seconds";
     }
 
     /**
@@ -150,9 +157,10 @@ public class JobExecutor {
                 try {
                     LoggingUtils.getEvoLogger().info("Going to execute " + jobs.size() + " jobs");
 
-                    long minutes = configuration.timeInMinutes;
-                    LocalDateTime endBy = LocalDateTime.now().plus(minutes, ChronoUnit.MINUTES);
-                    LoggingUtils.getEvoLogger().info("Estimated completion time: " + minutes + " minutes, by " + endBy);
+                    long seconds = configuration.timeInSeconds;
+                    LocalDateTime endBy = LocalDateTime.now().plus(seconds, ChronoUnit.SECONDS);
+                    LoggingUtils.getEvoLogger().info("Estimated completion time: " + formatDuration(seconds)
+                            + ", by " + endBy);
 
                     longestJob = execute(jobs);
                 } catch (Exception e) {
@@ -344,7 +352,7 @@ public class JobExecutor {
                 latch.await();
             } else {
                 //add one extra minute just to be sure
-                boolean elapsed = !latch.await(configuration.timeInMinutes + 1, TimeUnit.MINUTES);
+                boolean elapsed = !latch.await(configuration.timeInSeconds + 60L, TimeUnit.SECONDS);
                 if (elapsed) {
                     logger.error("The jobs did not finish in time");
                 }

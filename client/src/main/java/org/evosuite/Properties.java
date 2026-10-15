@@ -1333,6 +1333,10 @@ public class Properties {
                     + "debugging purposes.")
     public static Integer CTG_TIME_PER_CLASS = null;
 
+    @Parameter(key = "ctg_seconds_per_class", group = "Continuous Test Generation",
+            description = "Like ctg_time_per_class, in seconds; takes precedence over it")
+    public static Integer CTG_SECONDS_PER_CLASS = null;
+
     @Parameter(key = "ctg_min_time_per_job", group = "Continuous Test Generation",
             description = "How many minutes each class under test should have at least")
     public static int CTG_MIN_TIME_PER_JOB = 1;

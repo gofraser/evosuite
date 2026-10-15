@@ -200,7 +200,9 @@ public class ContinuousTestGeneration {
                 LoggingUtils.getEvoLogger().info("* Generating tests for " + toTest + " out of "
                         + data.getTotalNumberOfTestableCUTs() + " testable classes, the others are unchanged");
             }
-            if (Properties.CTG_TIME_PER_CLASS != null) {
+            if (Properties.CTG_SECONDS_PER_CLASS != null) {
+                configuration = configuration.getWithChangedTimeInSeconds(Properties.CTG_SECONDS_PER_CLASS, toTest);
+            } else if (Properties.CTG_TIME_PER_CLASS != null) {
                 configuration = configuration.getWithChangedTime(Properties.CTG_TIME_PER_CLASS, toTest);
             }
 

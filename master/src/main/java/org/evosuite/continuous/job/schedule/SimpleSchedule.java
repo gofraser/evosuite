@@ -39,7 +39,7 @@ public class SimpleSchedule extends OneTimeSchedule {
         assert enoughBudgetForAll();
 
         ProjectStaticData data = scheduler.getProjectData();
-        int totalBudgetInSeconds = 60 * scheduler.getConfiguration().timeInMinutes
+        int totalBudgetInSeconds = scheduler.getConfiguration().timeInSeconds
                 * scheduler.getConfiguration().getNumberOfUsableCores();
 
         List<JobDefinition> jobs = new LinkedList<>();

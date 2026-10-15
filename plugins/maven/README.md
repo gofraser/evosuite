@@ -75,7 +75,8 @@ incremental runs). Add it to `.gitignore`, or commit it to share incremental sta
 
 | Property | Default | Meaning |
 |---|---|---|
-| `evosuite.timeInMinutesPerClass` | 2 | Search budget per class |
+| `evosuite.timePerClass` | | Budget per class as a duration, eg `90s`, `2m`, `1m30s`; at least `1m` |
+| `evosuite.timeInMinutesPerClass` | 2 | Budget per class in minutes, if `timePerClass` is not set |
 | `evosuite.timeInMinutesPerProject` | 0 | Total budget per module; if set, distributed over the classes |
 | `evosuite.cores` | 1 | Classes tested in parallel |
 | `evosuite.memoryInMB` | 800 | Memory for all parallel jobs together, at least 500 per core |

@@ -32,6 +32,7 @@ import org.evosuite.Properties;
 import org.evosuite.maven.util.EvoSuiteRunner;
 import org.evosuite.maven.util.FileUtils;
 import org.evosuite.maven.util.GeneratedTests;
+import org.evosuite.maven.util.GenerationSettings;
 import org.evosuite.maven.util.JobProperties;
 import org.evosuite.maven.util.SpawnProcessManagerLease;
 
@@ -103,10 +104,17 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
     private List<String> classExcludes;
 
     /**
-     * How many minutes to allocate for each class.
+     * How many minutes to allocate for each class. {@code timePerClass} takes precedence.
      */
     @Parameter(property = "evosuite.timeInMinutesPerClass", defaultValue = "2")
     private int timeInMinutesPerClass;
+
+    /**
+     * How long to generate tests for each class, eg {@code 90s}, {@code 2m} or {@code 1m30s}; at least 1m.
+     * Takes precedence over {@code timeInMinutesPerClass}.
+     */
+    @Parameter(property = "evosuite.timePerClass")
+    private String timePerClass;
 
     /**
      * How many minutes to allocate for each project/module.
@@ -182,6 +190,11 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
     @Component
     private SettingsDecrypter settingsDecrypter;
 
+    /**
+     * {@code timePerClass} in seconds, if given.
+     */
+    private Integer secondsPerClass;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
@@ -192,8 +205,21 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
         applyLegacyProperties();
 
         getLog().info("Going to generate tests with EvoSuite");
+        if (timePerClass != null && !timePerClass.trim().isEmpty()) {
+            try {
+                secondsPerClass = GenerationSettings.parseSeconds(timePerClass);
+            } catch (IllegalArgumentException e) {
+                throw new MojoExecutionException("Invalid timePerClass: " + e.getMessage(), e);
+            }
+            if (secondsPerClass < GenerationSettings.MIN_SECONDS_PER_CLASS) {
+                throw new MojoExecutionException("timePerClass must be at least "
+                        + GenerationSettings.MIN_SECONDS_PER_CLASS + "s, not " + timePerClass);
+            }
+        }
+
         getLog().info("Total memory: " + memoryInMB + "mb");
-        getLog().info("Time per class: " + timeInMinutesPerClass + " minutes");
+        getLog().info("Time per class: " + (secondsPerClass != null ? timePerClass.trim()
+                : timeInMinutesPerClass + " minutes"));
         getLog().info("Number of used cores: " + numberOfCores);
 
         if (cuts != null) {
@@ -353,7 +379,11 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
 
         if (timeInMinutesPerProject != 0) {
             params.add("-Dctg_time=" + timeInMinutesPerProject);
-            params.add("-Dctg_min_time_per_job=" + timeInMinutesPerClass);
+            // the minimum per class is given in whole minutes
+            int minMinutes = secondsPerClass != null ? Math.max(1, (secondsPerClass + 59) / 60) : timeInMinutesPerClass;
+            params.add("-Dctg_min_time_per_job=" + minMinutes);
+        } else if (secondsPerClass != null) {
+            params.add("-Dctg_seconds_per_class=" + secondsPerClass);
         } else {
             // there is no time limit, so test all classes X minutes
             params.add("-Dctg_time_per_class=" + timeInMinutesPerClass);

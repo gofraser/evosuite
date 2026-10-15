@@ -52,16 +52,16 @@ public class CtgConfiguration {
     public final int numberOfCores;
 
     /**
-     * for how long CTG is allowed to run.
+     * for how long CTG is allowed to run, in seconds.
      */
-    public final int timeInMinutes;
+    public final int timeInSeconds;
 
     /**
-     * The minimum amount of minutes a search/job should run.
+     * The minimum amount of seconds a search/job should run.
      * Less than that, and there would be no point to even run
      * the search.
      */
-    public final int minMinutesPerJob;
+    public final int minSecondsPerJob;
 
     /**
      * Should we call home to upload status/usage statistics.
@@ -110,11 +110,21 @@ public class CtgConfiguration {
     public CtgConfiguration(int totalMemoryInMB, int numberOfCores,
                             int timeInMinutes, int minMinutesPerJob, boolean callHome,
                             AvailableSchedule schedule, String extraArgs) {
+        this(totalMemoryInMB, numberOfCores, 60 * timeInMinutes, 60 * minMinutesPerJob, schedule, extraArgs,
+                callHome);
+    }
+
+    /**
+     * Budgets in seconds; the public constructors take minutes. The parameter order differs from theirs
+     * only to tell them apart.
+     */
+    private CtgConfiguration(int totalMemoryInMB, int numberOfCores, int timeInSeconds, int minSecondsPerJob,
+                             AvailableSchedule schedule, String extraArgs, boolean callHome) {
         super();
         this.totalMemoryInMB = totalMemoryInMB;
         this.numberOfCores = numberOfCores;
-        this.timeInMinutes = timeInMinutes;
-        this.minMinutesPerJob = minMinutesPerJob;
+        this.timeInSeconds = timeInSeconds;
+        this.minSecondsPerJob = minSecondsPerJob;
         this.callHome = callHome;
         this.schedule = schedule;
         this.extraArgs = extraArgs;
@@ -172,24 +182,42 @@ public class CtgConfiguration {
      * @throws IllegalArgumentException if arguments are invalid
      */
     public CtgConfiguration getWithChangedTime(int minutesPerClass, int numberOfCUTs) throws IllegalArgumentException {
-
         if (minutesPerClass < 0) {
             throw new IllegalArgumentException("Invalid value for minutesPerClass:" + minutesPerClass);
+        }
+        return getWithChangedTimeInSeconds(60 * minutesPerClass, numberOfCUTs);
+    }
+
+    /**
+     * Get new configuration with budget time proportional to the number of classes (and available cores).
+     * A budget per class below the minimum per job lowers that minimum, as it is what the user asked for.
+     *
+     * @param secondsPerClass seconds per class
+     * @param numberOfCUTs number of CUTs
+     * @return the new configuration
+     * @throws IllegalArgumentException if arguments are invalid
+     */
+    public CtgConfiguration getWithChangedTimeInSeconds(int secondsPerClass, int numberOfCUTs)
+            throws IllegalArgumentException {
+
+        if (secondsPerClass < 0) {
+            throw new IllegalArgumentException("Invalid value for secondsPerClass:" + secondsPerClass);
         }
         if (numberOfCUTs < 0) {
             throw new IllegalArgumentException("Invalid value for numberOfCUTs:" + numberOfCUTs);
         }
 
-        int time = (int) Math.ceil((minutesPerClass * numberOfCUTs) / (double) this.getNumberOfUsableCores());
+        int time = (int) Math.ceil((secondsPerClass * (double) numberOfCUTs) / this.getNumberOfUsableCores());
+        int minimum = secondsPerClass > 0 ? Math.min(this.minSecondsPerJob, secondsPerClass) : this.minSecondsPerJob;
 
         return new CtgConfiguration(
                 this.totalMemoryInMB,
                 this.numberOfCores,
                 time,
-                this.minMinutesPerJob,
-                this.callHome,
+                minimum,
                 this.schedule,
-                this.extraArgs
+                this.extraArgs,
+                this.callHome
         );
     }
 

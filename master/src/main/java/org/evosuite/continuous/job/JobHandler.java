@@ -614,7 +614,7 @@ public class JobHandler extends Thread {
             seconds = remaining;
         }
 
-        int minSecondsPerJob = 60 * executor.configuration.minMinutesPerJob;
+        int minSecondsPerJob = executor.configuration.minSecondsPerJob;
 
         if (seconds < minSecondsPerJob) {
             //even if we do not have enough time, we go for the minimum
