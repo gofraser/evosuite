@@ -63,8 +63,9 @@ public class PomSettingsTest {
         assertEquals(180, options.searchBudget);
         assertEquals("BRANCH", options.criterion);
         assertEquals("src/test/generated", options.testFolder);
-        // The pom's arguments come last, so EvoSuite takes its value where both set one.
-        assertEquals("-Dsandbox=false -Dllm_provider=OLLAMA -Dllm_provider=OPENAI", options.extraArguments);
+        // Kept apart from the IDE's, so that the command line can put them last.
+        assertEquals("-Dsandbox=false -Dllm_provider=OLLAMA", options.extraArguments);
+        assertEquals("-Dllm_provider=OPENAI", options.pomExtraArguments);
         assertEquals(1500, options.clientMemory);
     }
 
@@ -86,7 +87,7 @@ public class PomSettingsTest {
         assertEquals("BRANCH", options.criterion, "a generate execution first");
         assertEquals("plugin-folder", options.testFolder, "then the plug-in, before a setup execution");
         assertEquals(240, options.searchBudget, "then evosuite.* properties");
-        assertEquals("-Dx=1", options.extraArguments, "before the deprecated names");
+        assertEquals("-Dx=1", options.pomExtraArguments, "before the deprecated names");
         assertEquals(1200, options.clientMemory, "which still count when nothing else is set");
     }
 
@@ -97,6 +98,30 @@ public class PomSettingsTest {
         assertEquals("src/test/gen", options.testFolder);
         new PomSettings(Map.of(), Map.of(), Map.of(), Map.of("targetFolder", "legacy")).applyTo(options, BASEDIR);
         assertEquals("legacy", options.testFolder);
+    }
+
+    @Test
+    public void mergesEvosuitePropertiesEntryByEntry() {
+        Map<String, String> plugin = Map.of("evosuiteProperties.llm_provider", "OLLAMA",
+                "evosuiteProperties.llm_model", "qwen3-coder", "llmApiKeyServerId", "plugin-server");
+        Map<String, String> generate = Map.of("evosuiteProperties.llm_model", " big model ",
+                "evosuiteProperties.llm_on_stagnation", "true");
+        GenerationOptions options = new GenerationOptions();
+        List<String> applied = new PomSettings(plugin, generate, Map.of(),
+                Map.of("evosuite.llmApiKeyServerId", "property-server", "llmApiKeyServerId", "not-a-legacy-name"))
+                .applyTo(options, BASEDIR);
+        assertEquals(Map.of("llm_provider", "OLLAMA", "llm_model", "big model", "llm_on_stagnation", "true"),
+                options.pomProperties);
+        assertEquals("plugin-server", options.llmApiKeyServerId);
+        assertTrue(applied.stream().anyMatch(a -> a.endsWith("(evosuiteProperties)")), applied.toString());
+
+        GenerationOptions fromProperty = new GenerationOptions();
+        new PomSettings(Map.of(), Map.of(), Map.of(), Map.of("evosuite.llmApiKeyServerId", "property-server"))
+                .applyTo(fromProperty, BASEDIR);
+        assertEquals("property-server", fromProperty.llmApiKeyServerId);
+        GenerationOptions legacy = new GenerationOptions();
+        new PomSettings(Map.of(), Map.of(), Map.of(), Map.of("llmApiKeyServerId", "x")).applyTo(legacy, BASEDIR);
+        assertEquals("", legacy.llmApiKeyServerId, "the Maven plug-in has no unprefixed property for it");
     }
 
     @Test

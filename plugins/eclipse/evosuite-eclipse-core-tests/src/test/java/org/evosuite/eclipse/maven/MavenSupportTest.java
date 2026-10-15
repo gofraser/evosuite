@@ -39,6 +39,7 @@ import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Settings come from the effective model that m2e builds: plugin management in a parent,
@@ -67,9 +68,13 @@ public class MavenSupportTest {
             + "  <build><plugins><plugin>\n"
             + "    <groupId>org.evosuite.plugins</groupId><artifactId>evosuite-maven-plugin</artifactId>\n"
             + "    <configuration><criterion>BRANCH</criterion>"
-            + "<testFolder>${generated.tests}</testFolder></configuration>\n"
+            + "<testFolder>${generated.tests}</testFolder>"
+            + "<evosuiteProperties><llm_provider>OLLAMA</llm_provider><llm_model>qwen3</llm_model>"
+            + "</evosuiteProperties><llmApiKeyServerId>llm</llmApiKeyServerId></configuration>\n"
             + "    <executions><execution><id>gen</id><goals><goal>generate</goal></goals>\n"
-            + "      <configuration><extraArgs>-Dminimize=false</extraArgs></configuration>\n"
+            + "      <configuration><extraArgs>-Dminimize=false</extraArgs>"
+            + "<evosuiteProperties><llm_model>a model with spaces</llm_model></evosuiteProperties>"
+            + "</configuration>\n"
             + "    </execution></executions>\n"
             + "  </plugin></plugins></build>\n"
             + "</project>\n";
@@ -128,7 +133,10 @@ public class MavenSupportTest {
         assertEquals(180, options.searchBudget, "plugin management in the parent");
         assertEquals("BRANCH", options.criterion, "the child overrides the parent");
         assertEquals("src/test/generated", options.testFolder, "a property");
-        assertEquals("-Dminimize=false", options.extraArguments, "the generate execution");
+        assertEquals("-Dminimize=false", options.pomExtraArguments, "the generate execution");
+        assertEquals(java.util.Map.of("llm_provider", "OLLAMA", "llm_model", "a model with spaces"),
+                options.pomProperties, "maps merge entry by entry");
+        assertEquals("llm", options.llmApiKeyServerId);
         assertTrue(options.fromPom.contains("search budget 180 s (timeInMinutesPerClass)"), options.fromPom.toString());
     }
 
@@ -138,6 +146,23 @@ public class MavenSupportTest {
         assertEquals(240, options.searchBudget);
         assertEquals(1000, options.clientMemory);
         assertEquals("src/test/generated", options.testFolder);
+    }
+
+    @Test
+    public void readsServerPasswordsFromMavensSettings(@TempDir java.nio.file.Path dir) throws Exception {
+        java.nio.file.Path settings = dir.resolve("settings.xml");
+        java.nio.file.Files.writeString(settings, "<settings><servers>"
+                + "<server><id>llm</id><password>sk-test</password></server>"
+                + "<server><id>empty</id></server></servers></settings>");
+        String previous = MavenPlugin.getMavenConfiguration().getUserSettingsFile();
+        MavenPlugin.getMavenConfiguration().setUserSettingsFile(settings.toString());
+        try {
+            assertEquals("sk-test", MavenSupport.serverPassword("llm"));
+            assertEquals(null, MavenSupport.serverPassword("empty"));
+            assertEquals(null, MavenSupport.serverPassword("missing"));
+        } finally {
+            MavenPlugin.getMavenConfiguration().setUserSettingsFile(previous);
+        }
     }
 
     @Test

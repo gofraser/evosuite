@@ -23,6 +23,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -57,6 +58,12 @@ public final class PomSettings {
     private static final Map<String, String> LEGACY_PROPERTIES = Map.of(
             "memoryInMB", "memoryInMB", "cores", "cores", "timeInMinutesPerClass", "timeInMinutesPerClass",
             "criterion", "criterion", "extraArgs", "extraArgs", "testFolder", "targetFolder");
+
+    /**
+     * How entries of the {@code evosuiteProperties} map appear among the configuration values:
+     * {@code evosuiteProperties.llm_provider} for {@code <evosuiteProperties><llm_provider>}.
+     */
+    public static final String PROPERTY_PREFIX = "evosuiteProperties.";
 
     private final Map<String, String> plugin;
     private final Map<String, String> generate;
@@ -111,11 +118,23 @@ public final class PomSettings {
         options.testFolder = relativeFolder(value("testFolder", DEFAULT_TEST_FOLDER), basedir);
         applied.add("test folder " + options.testFolder + " (testFolder)");
 
+        Map<String, String> evosuiteProperties = evosuiteProperties();
+        if (!evosuiteProperties.isEmpty()) {
+            options.pomProperties = evosuiteProperties;
+            applied.add("properties " + String.join(", ", evosuiteProperties.keySet()) + " (evosuiteProperties)");
+        }
+
         String extraArgs = value("extraArgs", "");
         if (!extraArgs.isEmpty()) {
             // After the IDE's own arguments, so that the pom's win where both set a property.
-            options.extraArguments = (options.extraArguments + " " + extraArgs).trim();
+            options.pomExtraArguments = extraArgs;
             applied.add("arguments " + extraArgs + " (extraArgs)");
+        }
+
+        String serverId = value("llmApiKeyServerId", "");
+        if (!serverId.isEmpty()) {
+            options.llmApiKeyServerId = serverId;
+            applied.add("LLM API key of server " + serverId + " in Maven's settings.xml (llmApiKeyServerId)");
         }
 
         // Only when the pom sets it: the Maven plug-in's default of 800 MB is the budget of a
@@ -128,6 +147,23 @@ public final class PomSettings {
             applied.add("client heap " + options.clientMemory + " MB (memoryInMB / cores)");
         }
         return applied;
+    }
+
+    /**
+     * The {@code evosuiteProperties} map. Maven merges a map parameter entry by entry, so a
+     * {@code generate} execution's entries override the plug-in's and add to them. Values are
+     * not trimmed apart from their ends, since they may contain spaces.
+     */
+    private Map<String, String> evosuiteProperties() {
+        Map<String, String> merged = new LinkedHashMap<>();
+        for (Map<String, String> source : List.of(plugin, generate)) {
+            source.forEach((key, value) -> {
+                if (key.startsWith(PROPERTY_PREFIX) && key.length() > PROPERTY_PREFIX.length()) {
+                    merged.put(key.substring(PROPERTY_PREFIX.length()), value == null ? "" : value.trim());
+                }
+            });
+        }
+        return merged;
     }
 
     private String value(String name, String fallback) {
@@ -144,7 +180,10 @@ public final class PomSettings {
             candidates.add(setup.get(name));
         }
         candidates.add(properties.get("evosuite." + name));
-        candidates.add(properties.get(LEGACY_PROPERTIES.get(name)));
+        String legacy = LEGACY_PROPERTIES.get(name);
+        if (legacy != null) {
+            candidates.add(properties.get(legacy));
+        }
         for (String candidate : candidates) {
             if (candidate != null && !candidate.isBlank()) {
                 return candidate;

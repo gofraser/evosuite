@@ -85,8 +85,14 @@ That way a class gets the same tests in Eclipse as with `mvn evosuite:generate`:
 | `timeInMinutesPerClass` | search budget | 2 minutes, the Maven plugin's default |
 | `criterion` | coverage criteria | the Maven plugin's default set |
 | `testFolder` | test source folder | `src/test/evosuite` |
-| `extraArgs` | appended to the additional arguments, so the pom wins | |
+| `evosuiteProperties` | `-D` arguments after the Eclipse ones (values may contain spaces) | |
+| `extraArgs` | arguments after those, so they win, as with Maven | |
+| `llmApiKeyServerId` | the LLM API key: the password of that `<server>` in Maven's `settings.xml`, decrypted if need be | the key in the Eclipse preferences |
 | `memoryInMB` / `numberOfCores` (or `cores`) | client heap | the Eclipse setting; the Maven default of 800 MB is a whole-module budget |
+
+If the pom switches the LLM on through `evosuiteProperties` or `extraArgs`, the Eclipse plugin
+supplies the API key and checks the model just as for its own LLM settings. Wherever an API key
+does end up on a command line, the console masks it.
 
 The values come from m2e's effective model, so parent poms, `pluginManagement` and `${...}`
 properties count. Each parameter is resolved as Maven resolves it for the `generate` goal. The

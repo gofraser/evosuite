@@ -95,9 +95,15 @@ public final class EvoSuiteCommand {
         args.add("-Djunit_suffix=" + options.testSuffix);
         // The progress bar is how the plug-in follows the search; see ProgressParser.
         args.add("-Dshow_progress=true");
+        // EvoSuite's default is evosuite-report/llm-traces in the project, where the traces, which
+        // contain prompts built from the project's code, could end up committed.
+        args.add("-Dllm_trace_dir=" + new File(reportDir, "llm-traces").getAbsolutePath());
         addLlmArguments(args);
-        // Last, so that the user's own arguments win over everything above.
+        // Last, so that the user's own arguments win over everything above; among them, the pom's
+        // win over the IDE's, and its extraArgs over its evosuiteProperties, as with Maven.
         args.addAll(splitArguments(options.extraArguments));
+        options.pomProperties.forEach((name, value) -> args.add("-D" + name + "=" + value));
+        args.addAll(splitArguments(options.pomExtraArguments));
         return args;
     }
 
@@ -182,6 +188,16 @@ public final class EvoSuiteCommand {
         } catch (IllegalArgumentException e) {
             return Charset.defaultCharset();
         }
+    }
+
+    /**
+     * {@code arguments} joined for display, with any API key masked: keys belong in the
+     * environment, but a user may still have put one into the additional arguments or the pom.
+     */
+    public static String forDisplay(List<String> arguments) {
+        return arguments.stream()
+                .map(a -> a.startsWith("-Dllm_api_key=") ? "-Dllm_api_key=****" : a)
+                .collect(Collectors.joining(" "));
     }
 
     /** The file EvoSuite writes the test suite for {@code targetClass} to. */

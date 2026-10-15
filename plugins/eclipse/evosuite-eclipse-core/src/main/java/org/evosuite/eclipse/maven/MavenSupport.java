@@ -35,6 +35,22 @@ public final class MavenSupport {
     }
 
     /**
+     * The password of a server in Maven's settings.xml, decrypted if need be, as the EvoSuite Maven
+     * plug-in reads the LLM API key; {@code null} if there is no such server or m2e.
+     */
+    public static String serverPassword(String serverId) {
+        try {
+            if (Platform.getBundle(M2E_BUNDLE) == null) {
+                return null;
+            }
+            return M2eReader.serverPassword(serverId);
+        } catch (CoreException | RuntimeException | LinkageError e) {
+            Activator.logError("Cannot read server " + serverId + " from Maven's settings.xml", e);
+            return null;
+        }
+    }
+
+    /**
      * The EvoSuite Maven plug-in's configuration in {@code project}'s pom, or {@code null} if the
      * project is not a Maven project, does not use the plug-in, or m2e is not installed.
      */

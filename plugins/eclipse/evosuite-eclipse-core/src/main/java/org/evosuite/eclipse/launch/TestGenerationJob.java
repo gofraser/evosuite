@@ -55,6 +55,7 @@ import org.eclipse.ui.ide.IDE;
 import org.evosuite.eclipse.Activator;
 import org.evosuite.eclipse.EvoSuiteJars;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
+import org.evosuite.eclipse.maven.MavenSupport;
 import org.evosuite.eclipse.preferences.LlmApiKey;
 import org.evosuite.eclipse.ui.EvoSuiteConsole;
 
@@ -235,7 +236,7 @@ public class TestGenerationJob extends Job {
         List<String> arguments = command.toArguments();
         console.println("");
         console.println("=== " + className);
-        console.println(String.join(" ", arguments));
+        console.println(EvoSuiteCommand.forDisplay(arguments));
 
         AtomicInteger percent = new AtomicInteger();
         AtomicReference<String> phase = new AtomicReference<>("Starting EvoSuite");
@@ -310,18 +311,30 @@ public class TestGenerationJob extends Job {
      * command line it would be visible to other users and echoed to the console.
      */
     private Map<String, String> llmEnvironment(EvoSuiteConsole console) throws CoreException {
-        if (!options.usesLlm()) {
+        // Decided on what EvoSuite will see, since the pom or the arguments can switch the LLM on.
+        String provider = options.effectiveLlmProvider();
+        if (provider.isEmpty() || GenerationOptions.LLM_NONE.equals(provider)) {
             return Map.of();
         }
-        if (options.llmModel.isEmpty() && !GenerationOptions.LLM_OPENAI.equals(options.llmProvider)) {
-            throw new CoreException(Activator.error("The LLM provider " + options.llmProvider + " needs a model. "
+        if (options.effectiveLlmModel().isEmpty() && !GenerationOptions.LLM_OPENAI.equals(provider)) {
+            throw new CoreException(Activator.error("The LLM provider " + provider + " needs a model. "
                     + "Set one in the EvoSuite settings, under Large language model."));
+        }
+        if (!options.llmApiKeyServerId.isEmpty()) {
+            // As mvn evosuite:generate does: the password of a server in Maven's settings.xml.
+            String key = MavenSupport.serverPassword(options.llmApiKeyServerId);
+            if (key != null) {
+                return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, key);
+            }
+            console.println("The pom names the server " + options.llmApiKeyServerId + " for the LLM API key, "
+                    + "but Maven's settings.xml has no such server with a password; using the key from the "
+                    + "EvoSuite preferences instead.");
         }
         String key = apiKeySource.get();
         if (!key.isEmpty()) {
             return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, key);
         }
-        if (!GenerationOptions.LLM_OLLAMA.equals(options.llmProvider)
+        if (!GenerationOptions.LLM_OLLAMA.equals(provider)
                 && System.getenv(EvoSuiteCommand.API_KEY_VARIABLE) == null) {
             console.println("No LLM API key is set. Enter one under Preferences > Java > EvoSuite, or set "
                     + EvoSuiteCommand.API_KEY_VARIABLE + " in the environment Eclipse starts in.");

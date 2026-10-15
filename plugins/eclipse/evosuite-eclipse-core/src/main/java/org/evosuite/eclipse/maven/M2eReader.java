@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.settings.Server;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
@@ -75,6 +76,15 @@ final class M2eReader {
         return new PomSettings(pluginConfiguration, generate, setup, properties);
     }
 
+    static String serverPassword(String serverId) throws CoreException {
+        Server server = MavenPlugin.getMaven().getSettings().getServer(serverId);
+        if (server == null) {
+            return null;
+        }
+        String password = MavenPlugin.getMaven().decryptPassword(server).getPassword();
+        return password == null || password.isBlank() ? null : password;
+    }
+
     private static void collect(Object configuration, Map<String, String> values) {
         if (!(configuration instanceof Xpp3Dom)) {
             return;
@@ -82,6 +92,11 @@ final class M2eReader {
         for (Xpp3Dom child : ((Xpp3Dom) configuration).getChildren()) {
             if (child.getChildCount() == 0 && child.getValue() != null) {
                 values.put(child.getName(), child.getValue());
+            } else if ("evosuiteProperties".equals(child.getName())) {
+                for (Xpp3Dom entry : child.getChildren()) {
+                    values.put(PomSettings.PROPERTY_PREFIX + entry.getName(),
+                            entry.getValue() == null ? "" : entry.getValue());
+                }
             }
         }
     }

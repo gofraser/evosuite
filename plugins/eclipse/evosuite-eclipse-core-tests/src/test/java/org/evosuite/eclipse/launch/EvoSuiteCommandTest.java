@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -113,7 +114,10 @@ public class EvoSuiteCommandTest {
         GenerationOptions options = new GenerationOptions();
         options.llmModel = "m";
         options.llmOnStagnation = true;
-        assertFalse(arguments(options).stream().anyMatch(a -> a.contains("llm") || a.contains("strategy")));
+        // Only the trace folder, which keeps traces out of the project should the LLM be switched
+        // on some other way.
+        assertFalse(arguments(options).stream().anyMatch(a -> (a.contains("llm") && !a.startsWith("-Dllm_trace_dir="))
+                || a.contains("strategy")));
     }
 
     @Test
@@ -152,6 +156,38 @@ public class EvoSuiteCommandTest {
         assertTrue(args.containsAll(List.of("-Dstrategy=LLMSTRATEGY", "-Dllm_strategy_mode=ITERATIVE_BUDGETED")));
         options.llmApproach = GenerationOptions.APPROACH_LLM_SINGLE_PROMPT;
         assertTrue(arguments(options).contains("-Dllm_strategy_mode=SINGLE_PROMPT"));
+    }
+
+    @Test
+    public void thePomsArgumentsComeLastAndExtraArgsWinOverItsProperties() {
+        GenerationOptions options = new GenerationOptions();
+        options.extraArguments = "-Dllm_model=ide";
+        options.pomProperties = new java.util.LinkedHashMap<>(Map.of("llm_model", "pom property"));
+        options.pomExtraArguments = "-Dllm_model=pom-args";
+        List<String> args = arguments(options);
+        assertEquals(List.of("-Dllm_model=ide", "-Dllm_model=pom property", "-Dllm_model=pom-args"),
+                args.subList(args.size() - 3, args.size()));
+        assertEquals("pom-args", options.effectiveLlmModel());
+    }
+
+    @Test
+    public void thePomCanSwitchTheLlmOn() {
+        GenerationOptions options = new GenerationOptions();
+        assertEquals("NONE", options.effectiveLlmProvider());
+        options.pomProperties = Map.of("llm_provider", "ollama");
+        assertEquals("OLLAMA", options.effectiveLlmProvider());
+    }
+
+    @Test
+    public void tracesStayOutOfTheProject() {
+        assertTrue(arguments(new GenerationOptions()).contains(
+                "-Dllm_trace_dir=" + new File(new File("/state/reports"), "llm-traces").getAbsolutePath()));
+    }
+
+    @Test
+    public void masksApiKeysForDisplay() {
+        assertEquals("java -Dllm_api_key=**** -Dx=1",
+                EvoSuiteCommand.forDisplay(List.of("java", "-Dllm_api_key=sk-secret", "-Dx=1")));
     }
 
     @Test

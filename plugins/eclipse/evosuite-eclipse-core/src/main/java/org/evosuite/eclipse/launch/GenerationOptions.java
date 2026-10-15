@@ -20,6 +20,7 @@
 package org.evosuite.eclipse.launch;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * The settings of one generation request, resolved from the project's or the workspace's
@@ -69,6 +70,15 @@ public final class GenerationOptions {
     public boolean usePomSettings = true;
     /** Not a setting: which values came from the pom, one line each, for the user. */
     public List<String> fromPom = List.of();
+    /** From the pom's {@code evosuiteProperties}: EvoSuite properties, values may contain spaces. */
+    public Map<String, String> pomProperties = Map.of();
+    /** From the pom's {@code extraArgs}; they win over everything else, as with Maven. */
+    public String pomExtraArguments = "";
+    /**
+     * From the pom's {@code llmApiKeyServerId}: the server in Maven's settings.xml whose password
+     * is the LLM API key. Only the id is kept here; the key is looked up when a run starts.
+     */
+    public String llmApiKeyServerId = "";
 
     // LLM support. The API key is not a setting: it lives in secure storage (see LlmApiKey).
 
@@ -91,7 +101,41 @@ public final class GenerationOptions {
     /** LLM calls per class; 0 means unlimited. */
     public int llmMaxCalls = 0;
 
+    /** Whether the LLM settings of the IDE switch it on; see {@link #effectiveLlmProvider}. */
     public boolean usesLlm() {
         return !LLM_NONE.equals(llmProvider);
+    }
+
+    /**
+     * The LLM provider EvoSuite will use: arguments and pom properties can set {@code llm_provider}
+     * too, and the last one on the command line wins.
+     */
+    public String effectiveLlmProvider() {
+        return effective("llm_provider", llmProvider).toUpperCase(java.util.Locale.ROOT);
+    }
+
+    /** The model EvoSuite will use, decided like {@link #effectiveLlmProvider}. */
+    public String effectiveLlmModel() {
+        return effective("llm_model", llmModel);
+    }
+
+    /** The value EvoSuite ends up with for {@code property}, in command-line order. */
+    private String effective(String property, String fromSettings) {
+        String value = fromSettings;
+        String prefix = "-D" + property + "=";
+        for (String argument : EvoSuiteCommand.splitArguments(extraArguments)) {
+            if (argument.startsWith(prefix)) {
+                value = argument.substring(prefix.length());
+            }
+        }
+        if (pomProperties.containsKey(property)) {
+            value = pomProperties.get(property);
+        }
+        for (String argument : EvoSuiteCommand.splitArguments(pomExtraArguments)) {
+            if (argument.startsWith(prefix)) {
+                value = argument.substring(prefix.length());
+            }
+        }
+        return value.trim();
     }
 }
