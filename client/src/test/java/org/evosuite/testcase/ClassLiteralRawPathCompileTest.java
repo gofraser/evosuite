@@ -41,9 +41,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.LinkedList;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

@@ -76,8 +76,6 @@ final class SemanticStringInputSynthesizer {
             StringPrimitiveStatement input = new StringPrimitiveStatement(test, value);
             VariableReference reference = test.addStatement(input, targetPosition++);
             target.replaceParameterReference(reference, argument);
-            int nodeId = root.var.getInstruction() == null ? -1
-                    : root.var.getInstruction().getInstructionId();
             changed = true;
         }
         return changed;

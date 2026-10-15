@@ -22,7 +22,6 @@ package org.evosuite.testcase.statements;
 import com.examples.with.different.packagename.StaticFinalFieldHolder;
 import org.evosuite.Properties;
 import org.evosuite.testcase.DefaultTestCase;
-import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
