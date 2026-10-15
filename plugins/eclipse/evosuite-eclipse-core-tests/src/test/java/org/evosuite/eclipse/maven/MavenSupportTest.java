@@ -267,6 +267,7 @@ public class MavenSupportTest {
             assertNull(MavenSupport.pomSettings(child, null));
             assertEquals(new GenerationOptions().criterion, EvoSuitePreferences.resolve(child, null).criterion);
             assertNull(MavenSupport.serverPassword("llm"));
+            assertEquals(ServerPassword.Outcome.NO_M2E, MavenSupport.findServerPassword("llm").outcome());
         } finally {
             MavenSupport.m2eInstalled = () -> Platform.getBundle(MavenSupport.M2E_BUNDLE) != null;
             MavenPlugin.getMavenConfiguration().setUserSettingsFile(previous);
@@ -295,14 +296,28 @@ public class MavenSupportTest {
     public void readsServerPasswordsFromMavensSettings(@TempDir java.nio.file.Path dir) throws Exception {
         java.nio.file.Path settings = dir.resolve("settings.xml");
         java.nio.file.Files.writeString(settings, "<settings><servers>"
-                + "<server><id>llm</id><password>sk-test</password></server>"
-                + "<server><id>empty</id></server></servers></settings>");
+                + "<server><id>llm</id><password> sk-test </password></server>"
+                + "<server><id>empty</id></server>"
+                + "<server><id>encrypted</id><password>{AAAAAAAAAAA=}</password></server></servers></settings>");
         String previous = MavenPlugin.getMavenConfiguration().getUserSettingsFile();
         MavenPlugin.getMavenConfiguration().setUserSettingsFile(settings.toString());
         try {
             assertEquals("sk-test", MavenSupport.serverPassword("llm"));
             assertEquals(null, MavenSupport.serverPassword("empty"));
             assertEquals(null, MavenSupport.serverPassword("missing"));
+            // Not the encrypted text, which the Maven plug-in would not send either.
+            assertEquals(null, MavenSupport.serverPassword("encrypted"));
+
+            assertEquals(ServerPassword.Outcome.FOUND, MavenSupport.findServerPassword("llm").outcome());
+            assertEquals("The server empty in Maven's settings.xml has no password.",
+                    MavenSupport.findServerPassword("empty").problem());
+            assertEquals("Maven's settings.xml has no server missing.",
+                    MavenSupport.findServerPassword("missing").problem());
+            ServerPassword encrypted = MavenSupport.findServerPassword("encrypted");
+            assertEquals(ServerPassword.Outcome.NOT_DECRYPTED, encrypted.outcome(), encrypted.toString());
+            assertTrue(encrypted.problem().startsWith(
+                    "The password of the server encrypted in Maven's settings.xml cannot be decrypted"),
+                    encrypted.problem());
         } finally {
             MavenPlugin.getMavenConfiguration().setUserSettingsFile(previous);
         }

@@ -27,12 +27,16 @@ import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Server;
+import org.apache.maven.settings.crypto.DefaultSettingsDecryptionRequest;
+import org.apache.maven.settings.crypto.SettingsDecrypter;
+import org.apache.maven.settings.crypto.SettingsDecryptionResult;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.m2e.core.MavenPlugin;
+import org.eclipse.m2e.core.embedder.IMaven;
 import org.eclipse.m2e.core.project.IMavenProjectFacade;
 import org.eclipse.swt.widgets.Display;
 
@@ -126,13 +130,24 @@ final class M2eReader {
         return plugin;
     }
 
-    static String serverPassword(String serverId) throws CoreException {
-        Server server = MavenPlugin.getMaven().getSettings().getServer(serverId);
+    /** As the Maven plug-in reads it: decrypted, trimmed, and only if decryption succeeds. */
+    static ServerPassword serverPassword(String serverId) throws CoreException {
+        IMaven maven = MavenPlugin.getMaven();
+        Server server = maven.getSettings().getServer(serverId);
         if (server == null) {
-            return null;
+            return ServerPassword.missing(ServerPassword.Outcome.NO_SERVER, serverId, null);
         }
-        String password = MavenPlugin.getMaven().decryptPassword(server).getPassword();
-        return password == null || password.isBlank() ? null : password;
+        // Not IMaven.decryptPassword, which logs a failure and returns the password still encrypted.
+        SettingsDecryptionResult result = maven.lookup(SettingsDecrypter.class)
+                .decrypt(new DefaultSettingsDecryptionRequest(server));
+        if (!result.getProblems().isEmpty()) {
+            return ServerPassword.missing(ServerPassword.Outcome.NOT_DECRYPTED, serverId,
+                    result.getProblems().get(0).getMessage());
+        }
+        String password = result.getServer().getPassword();
+        return password == null || password.isBlank()
+                ? ServerPassword.missing(ServerPassword.Outcome.NO_PASSWORD, serverId, null)
+                : ServerPassword.found(serverId, password.trim());
     }
 
     private static void collect(Object configuration, Map<String, String> values) {

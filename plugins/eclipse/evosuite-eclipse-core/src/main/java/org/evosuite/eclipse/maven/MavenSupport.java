@@ -41,17 +41,25 @@ public final class MavenSupport {
 
     /**
      * The password of a server in Maven's settings.xml, decrypted if need be, as the EvoSuite Maven
-     * plug-in reads the LLM API key; {@code null} if there is no such server or m2e.
+     * plug-in reads the LLM API key; {@code null} if there is none, for whatever reason.
      */
     public static String serverPassword(String serverId) {
+        return findServerPassword(serverId).password();
+    }
+
+    /**
+     * The password of a server in Maven's settings.xml, decrypted if need be, as the EvoSuite Maven
+     * plug-in reads the LLM API key, or why there is none.
+     */
+    public static ServerPassword findServerPassword(String serverId) {
         try {
             if (!m2eInstalled.getAsBoolean()) {
-                return null;
+                return ServerPassword.missing(ServerPassword.Outcome.NO_M2E, serverId, null);
             }
             return M2eReader.serverPassword(serverId);
         } catch (CoreException | RuntimeException | LinkageError e) {
             Activator.logError("Cannot read server " + serverId + " from Maven's settings.xml", e);
-            return null;
+            return ServerPassword.missing(ServerPassword.Outcome.SETTINGS_UNREADABLE, serverId, e.getMessage());
         }
     }
 
