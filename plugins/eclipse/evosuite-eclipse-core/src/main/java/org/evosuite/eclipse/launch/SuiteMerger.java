@@ -83,7 +83,8 @@ import org.evosuite.eclipse.Activator;
  * <li>adds the imports the new tests need, and other members of the new suite, such as fields,
  * that the existing one has no member of that name for;</li>
  * <li>adds the classes the new suite initialises and resets between tests, in a JUnit 4 suite's
- * {@code initializeClasses()} and {@code resetClasses()}, to those of the existing one.</li>
+ * {@code initializeClasses()} and {@code resetClasses()}, to those of the existing one, filling
+ * in these methods where EvoSuite left them empty.</li>
  * </ul>
  */
 public final class SuiteMerger {
@@ -246,7 +247,7 @@ public final class SuiteMerger {
         String delimiter = TextUtilities.getDefaultLineDelimiter(document);
         try {
             String importClash = addImportsAndClasses(existingUnit, existingType, generatedUnit, generatedType,
-                    document);
+                    generatedSource, document, delimiter);
             if (importClash != null) {
                 return Result.incompatible(importClash);
             }
@@ -357,7 +358,8 @@ public final class SuiteMerger {
      */
     private static String addImportsAndClasses(CompilationUnit existingUnit, TypeDeclaration existingType,
                                                CompilationUnit generatedUnit, TypeDeclaration generatedType,
-                                               IDocument document) throws BadLocationException {
+                                               String generatedSource, IDocument document, String delimiter)
+            throws BadLocationException {
         AST ast = existingUnit.getAST();
         ASTRewrite rewrite = ASTRewrite.create(ast);
         Map<String, String> singleImports = new LinkedHashMap<>();
@@ -389,6 +391,15 @@ public final class SuiteMerger {
         for (Map.Entry<String, MethodInvocation> entry : classLists(generatedType).entrySet()) {
             MethodInvocation existing = existingLists.get(entry.getKey());
             if (existing == null) {
+                // EvoSuite leaves the method empty when there is nothing to list.
+                MethodDeclaration emptyMethod = emptyMethod(existingType, entry.getKey());
+                MethodDeclaration generatedMethod = enclosingMethod(entry.getValue());
+                if (emptyMethod == null || generatedMethod == null) {
+                    return "it has no " + entry.getKey() + "() to add the new suite's classes to";
+                }
+                String body = source(generatedSource, generatedMethod.getBody())
+                        .replaceAll("\\r\\n|\\r|\\n", Matcher.quoteReplacement(delimiter));
+                rewrite.replace(emptyMethod.getBody(), rewrite.createStringPlaceholder(body, ASTNode.BLOCK), null);
                 continue;
             }
             Set<String> listed = new HashSet<>();
@@ -424,6 +435,25 @@ public final class SuiteMerger {
     private static String simpleName(ImportDeclaration declaration) {
         String name = declaration.getName().getFullyQualifiedName();
         return name.substring(name.lastIndexOf('.') + 1);
+    }
+
+    /** The method {@code name()} of {@code type} if its body is empty, otherwise {@code null}. */
+    private static MethodDeclaration emptyMethod(TypeDeclaration type, String name) {
+        for (MethodDeclaration method : type.getMethods()) {
+            if (method.getName().getIdentifier().equals(name) && method.parameters().isEmpty()
+                    && method.getBody() != null && method.getBody().statements().isEmpty()) {
+                return method;
+            }
+        }
+        return null;
+    }
+
+    private static MethodDeclaration enclosingMethod(ASTNode node) {
+        ASTNode parent = node.getParent();
+        while (parent != null && !(parent instanceof MethodDeclaration)) {
+            parent = parent.getParent();
+        }
+        return (MethodDeclaration) parent;
     }
 
     /** The calls that list the classes to initialise and reset, by the name of the call. */
