@@ -119,16 +119,19 @@ public class MockGregorianCalendar extends GregorianCalendar implements Override
         this.setTimeInMillis(org.evosuite.runtime.System.currentTimeMillis());
     }
 
-    // TODO: This code in Calendar seems to cause access to time
-    //       but I don't understand how.
-    //    public long getTimeInMillis() {
-    //        if (!isTimeSet) {
-    //            updateTime();
-    //        }
-    //        return time;
-    //    }
+    /**
+     * Same as {@link java.util.Calendar#getTimeInMillis()}: a field set since the time was last
+     * computed makes the stored time stale, so it has to be recomputed from the fields. Returning
+     * the stored time unconditionally made {@code set(...)} followed by {@code getTimeInMillis()}
+     * return the time before the {@code set}, which differs from the real JVM.
+     * {@code Calendar#updateTime()} is private, so this repeats its two statements.
+     */
     @Override
     public long getTimeInMillis() {
+        if (!isTimeSet) {
+            computeTime();
+            isTimeSet = true;
+        }
         return time;
     }
 
