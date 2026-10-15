@@ -52,6 +52,11 @@ holds for Replace. With `-Dtest_scaffolding=true`, Replace replaces the scaffold
 new tests that come with a scaffolding file that differs from the existing one open in the
 comparison, with both scaffolding files, since the plugin cannot merge them.
 
+A suite file that EvoSuite did not generate, one without `@EvoRunnerParameters`, is never
+replaced or added to. That happens when the test folder and suffix are those of the project's own
+tests, for example `src/test/java` and `Test`, where the suite of `Foo` would be the hand-written
+`FooTest`. All three commands leave such a class out and say so; choose another suffix or folder.
+
 The choice applies to the suites that existed when you started the run. Runs wait for each other,
 and a suite that appears meanwhile, for example written by the run before and edited since, is
 never replaced: tests for single methods or extending existing tests are added to it, and a suite
@@ -95,7 +100,8 @@ The new tests go into the class's EvoSuite suite, `<test folder>/<package>/Vault
 there is one, the existing-suites dialog opens with **Add New Tests** preselected; otherwise the
 suite is created, unless EvoSuite found nothing new. The test classes themselves never change:
 if the EvoSuite settings would make the suite file a test class that EvoSuite did not generate
-(for example with the suffix `Test` in `src/test/java`), the command refuses.
+(for example with the suffix `Test` in `src/test/java`), the class is left out, as for the other
+commands.
 
 The console's summary says how the existing tests were used, for example *EvoSuite started from
 2 tests of VaultTest. Running 2 tests covered 92 of 154 goals, which the new tests leave out.*,

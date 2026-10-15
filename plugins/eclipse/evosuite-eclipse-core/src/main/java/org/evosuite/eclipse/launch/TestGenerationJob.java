@@ -303,6 +303,12 @@ public class TestGenerationJob extends Job {
                     break;
                 }
                 String className = target.className();
+                File existingSuite = EvoSuiteCommand.suiteFile(testFolder.getLocation().toFile(), className,
+                        options.testSuffix);
+                if (existingSuite.isFile() && !EvoSuiteCommand.isEvoSuiteSuite(existingSuite)) {
+                    result.add(Activator.warning(EvoSuiteCommand.notAnEvoSuiteSuite(className, existingSuite)));
+                    continue;
+                }
                 String label = targets.size() == 1 ? target.label()
                         : target.label() + " (" + index + "/" + targets.size() + ")";
                 EvoSuiteCommand command = new EvoSuiteCommand(java.executable.getAbsolutePath(),
@@ -540,6 +546,11 @@ public class TestGenerationJob extends Job {
         IPath relative = IPath.fromOSString(className.replace('.', '/') + options.testSuffix + ".java");
         IFile existing = testFolder.getFile(relative);
         existing.refreshLocal(IResource.DEPTH_ZERO, null);
+        if (existing.exists() && !EvoSuiteCommand.isEvoSuiteSuite(existing.getLocation().toFile())) {
+            // Written while EvoSuite ran: it is never replaced or merged into.
+            throw new CoreException(Activator.warning(EvoSuiteCommand.notAnEvoSuiteSuite(className,
+                    existing.getLocation().toFile())));
+        }
         String charset = existing.exists() ? existing.getCharset() : testFolder.getDefaultCharset();
         String source = read(staged, charset);
         int tests = SuiteMerger.testCount(source, suiteName);

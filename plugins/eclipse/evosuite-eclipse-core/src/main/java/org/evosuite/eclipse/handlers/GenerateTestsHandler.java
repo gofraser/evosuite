@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
 import org.eclipse.core.commands.AbstractHandler;
@@ -61,6 +62,12 @@ public class GenerateTestsHandler extends AbstractHandler {
 
     /** Asks what to do with existing suites; tests replace it to answer without a dialog. */
     static BiFunction<Shell, ExistingSuitesQuestion, SuiteAction> chooser = ExistingSuitesDialog::ask;
+    /** Shows a message; tests replace it to read the message without a dialog. */
+    static BiConsumer<Shell, String> informer = GenerateTestsHandler::showInformation;
+
+    static void showInformation(Shell shell, String message) {
+        MessageDialog.openInformation(shell, "EvoSuite", message);
+    }
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
@@ -98,7 +105,9 @@ public class GenerateTestsHandler extends AbstractHandler {
 
     /**
      * Asks once, for all projects, what to do with the suites that exist already, and schedules
-     * a generation job per project.
+     * a generation job per project. A class whose suite file is a test class that EvoSuite did
+     * not generate, as when the suite suffix and folder are those of the project's own tests, is
+     * left out: that file is never replaced or merged into.
      *
      * @param scope what the targets cover; for part of a class, adding to existing suites is the
      *              preselected answer
@@ -106,6 +115,8 @@ public class GenerateTestsHandler extends AbstractHandler {
     static void launch(Shell shell, Map<IJavaProject, List<GenerationTarget>> requests,
                        ExistingSuitesQuestion.Scope scope) {
         Map<IJavaProject, GenerationOptions> options = new LinkedHashMap<>();
+        Map<IJavaProject, List<GenerationTarget>> runs = new LinkedHashMap<>();
+        List<String> skipped = new ArrayList<>();
         List<String> withSuites = new ArrayList<>();
         Set<String> testFolders = new HashSet<>();
         int classCount = 0;
@@ -119,14 +130,26 @@ public class GenerateTestsHandler extends AbstractHandler {
                 MessageDialog.openError(shell, "EvoSuite", e.getStatus().getMessage());
                 continue;
             }
-            options.put(project, projectOptions);
-            testFolders.add(projectOptions.testFolder);
             for (GenerationTarget target : entry.getValue()) {
+                File suite = EvoSuiteCommand.suiteFile(testDir, target.className(), projectOptions.testSuffix);
+                if (suite.isFile() && !EvoSuiteCommand.isEvoSuiteSuite(suite)) {
+                    skipped.add(EvoSuiteCommand.notAnEvoSuiteSuite(target.className(), suite));
+                    continue;
+                }
                 classCount++;
-                if (EvoSuiteCommand.suiteFile(testDir, target.className(), projectOptions.testSuffix).exists()) {
+                runs.computeIfAbsent(project, p -> new ArrayList<>()).add(target);
+                if (suite.isFile()) {
                     withSuites.add(target.className().substring(target.className().lastIndexOf('.') + 1));
                 }
             }
+            if (runs.containsKey(project)) {
+                options.put(project, projectOptions);
+                testFolders.add(projectOptions.testFolder);
+            }
+        }
+        if (!skipped.isEmpty()) {
+            informer.accept(shell, (runs.isEmpty() ? "No tests are generated:" : "Some of the classes are left out:")
+                    + "\n\n" + String.join("\n", skipped));
         }
         SuiteAction action = SuiteAction.REPLACE;
         if (!withSuites.isEmpty()) {
@@ -137,7 +160,7 @@ public class GenerateTestsHandler extends AbstractHandler {
             }
         }
         for (Map.Entry<IJavaProject, GenerationOptions> entry : options.entrySet()) {
-            new TestGenerationJob(entry.getKey(), requests.get(entry.getKey()), entry.getValue(), action).schedule();
+            new TestGenerationJob(entry.getKey(), runs.get(entry.getKey()), entry.getValue(), action).schedule();
         }
     }
 
