@@ -24,18 +24,32 @@ Classes in test source folders, interfaces, annotations and EvoSuite's own outpu
 Before overwriting an existing suite, the plugin asks for confirmation.
 
 EvoSuite runs on the project's JRE, so it can always read the project's class files. To use a
-different JDK, set *Java home* in the settings.
+different JDK, set *Java home* on the *Advanced* settings page.
 
 ### Settings
 
-*Window > Preferences > Java > EvoSuite* holds the workspace defaults. *Project > Properties >
-EvoSuite* can override them per project. Project settings are stored in
+*Window > Preferences > Java > EvoSuite* holds the workspace defaults, on three pages:
+
+- **EvoSuite**: the search (budget, coverage criteria, assertions, minimization) and the
+  generated tests (format, folder, names, comments, time limit, opening them in an editor).
+- **Large Language Model**: EvoSuite's LLM support, see below.
+- **Advanced**: the JVM that runs EvoSuite, additional arguments, taking settings from
+  `pom.xml`, and adding the test folder and libraries to the build path.
+
+*Project > Properties > EvoSuite* has the same pages and can override the workspace defaults per
+project. *Enable project-specific settings* switches all three pages at once, and *Configure
+Workspace Settings...* opens the workspace pages. Project settings are stored in
 `.settings/org.evosuite.plugins.eclipse.core.prefs`, so a team can commit and share them.
+Settings a project leaves unchanged take EvoSuite's defaults, not the workspace's.
+
+An empty field shows what it stands for, usually EvoSuite's default. Settings that have no
+effect given the others, such as which assertions to keep when no assertions are generated, are
+disabled but keep their values.
 
 | Setting | Default | |
 |---|---|---|
 | Search budget per class | 60 s | `-Dsearch_budget` |
-| Coverage criteria | EvoSuite's default | `-criterion`, e.g. `LINE:BRANCH` |
+| Coverage criteria | EvoSuite's default: all eight boxes ticked | `-criterion`, e.g. `LINE:BRANCH`; criteria without a box that were entered before, such as `STRONGMUTATION`, are kept |
 | Generate assertions / minimize tests | on | `-Dassertions`, `-Dminimize` |
 | Assertions kept | those that detect faults | `-Dassertion_strategy` (MUTATION, or ALL observed values) |
 | Test format | JUnit 5 | `-Dtest_format` |
@@ -44,30 +58,32 @@ EvoSuite* can override them per project. Project settings are stored in
 | Test names | numbered (`test0`, ...) | `-Dtest_naming_strategy` (COVERAGE: descriptive, from what each test covers) |
 | Variable names | from the type (`int0`, ...) | `-Dvariable_naming_strategy` (HEURISTICS_BASED: from how values are used) |
 | Comment tests with the goals they cover | off | `-Dtest_comments` |
-| Time limit per test | 3000 ms | `-Dtimeout` |
-| Configure the build path | on | adds the folder, JUnit and the runtime when missing |
+| Time limit per test | empty: EvoSuite's 3000 ms | `-Dtimeout` |
 | Open generated tests | on | |
-| Client heap | EvoSuite's default | `-mem` |
-| Java home | the project's JRE | |
-| Additional arguments | | passed last, so they override everything above |
+| Java home (*Advanced*) | empty: the project's JRE | |
+| Client heap (*Advanced*) | empty: EvoSuite's default | `-mem` |
+| Additional arguments (*Advanced*) | | passed last, so they override everything else |
+| Take settings from pom.xml (*Advanced*) | on | see *Maven and Gradle projects* below |
+| Add to the build path (*Advanced*) | on | adds the folder, JUnit and the runtime when missing |
 
 ### LLM support
 
-The *Large language model* group configures EvoSuite's LLM integration. Choosing a provider
-switches it on:
+The *Large Language Model* page configures EvoSuite's LLM integration. Choosing a provider
+switches it on. Without a provider, or with *Search only*, the other LLM settings are disabled,
+and the LLM-only approaches disable the settings that only apply to the search:
 
 | Setting | |
 |---|---|
 | Provider | None, OpenAI (or any OpenAI-compatible server, via the base URL), Anthropic, Ollama |
-| Model | required except for OpenAI, whose default EvoSuite knows |
+| Model | required except for OpenAI, whose default EvoSuite knows; the hint suggests one for the provider |
 | Base URL | empty for the provider's endpoint; Ollama defaults to `http://localhost:11434` |
-| API key | workspace preferences only, kept in Eclipse's secure storage |
+| API key | OpenAI and Anthropic; workspace preferences only, kept in Eclipse's secure storage |
 | Approach | search only (the LLM is off, the settings are kept), search assisted by the LLM, or LLM-only generation with one prompt or iterating on uncovered goals (`-Dstrategy=LLMSTRATEGY`) |
-| Seed the search | `llm_seeding_profile`: off, minimal, standard or full |
-| When the search stagnates | `llm_on_stagnation` |
-| Mutation and crossover | `llm_operator_enabled` |
+| Seed the search | `llm_seeding_profile`: off, minimal, standard or full; search approach only |
+| When the search stagnates | `llm_on_stagnation`; search approach only |
+| Mutation and crossover | `llm_operator_enabled`; search approach only |
 | Improve names, comments and assertions | `llm_postprocessing_enabled` |
-| LLM calls per class | `llm_max_calls` |
+| LLM calls per class | `llm_max_calls`; empty for no limit |
 
 *Search only* is absolute: it also overrides an LLM that the pom or the additional arguments
 switch on, so it can be relied on to keep the project's code from being sent to a model.
@@ -76,7 +92,7 @@ The API key never goes into the project's `.settings` file, onto the command lin
 the console. EvoSuite receives it as the `EVOSUITE_LLM_API_KEY` environment variable. If no key
 is stored, an `EVOSUITE_LLM_API_KEY` set in the environment Eclipse starts in still works.
 Without any key, EvoSuite runs without the LLM, and the console says so. The remaining `llm_*`
-options can go into *Additional arguments*.
+options can go into *Advanced > Additional arguments*.
 
 The project directory is EvoSuite's base directory, so an `evosuite-files/evosuite.properties`
 in the project still applies. EvoSuite's statistics go to the plugin's state area, not into the
@@ -109,8 +125,8 @@ order is a `generate` execution's configuration, the plugin's configuration, a p
 `setup` execution, which registers the folder for Maven builds. The project's EvoSuite
 page lists what the pom overrides, and so does the console at each run. Parameters for
 whole-module runs (`timeInMinutesPerProject`, `schedule`, `cuts`, class filters) do not apply to
-single classes. To use the Eclipse settings anyway, clear *In Maven projects, take ... from the
-EvoSuite plugin in pom.xml*. Without m2e installed, the plugin works as for any other project.
+single classes. To use the Eclipse settings anyway, clear *Advanced > Take settings from the
+EvoSuite Maven plugin in pom.xml*. Without m2e installed, the plugin works as for any other project.
 
 m2e and Buildship regenerate the build path from the build file and drop entries that the plugin
 adds. To keep the generated tests compiling, declare the dependencies in the build file:
@@ -168,6 +184,9 @@ unless you name another JDK. To skip it, pass `-Devosuite.it.skip=true`:
 ```sh
 ./mvnw verify -Devosuite.it.javaHome=/path/to/jdk-17
 ```
+
+The settings tests open the pages in the workbench's dialogs. To look at them, name a directory
+in `EVOSUITE_SCREENSHOTS`, and each page they open is saved there as a PNG.
 
 `MavenPluginLifecycleMappingTest` checks that m2e runs the EvoSuite Maven plugin's `setup` goal
 and keeps the generated-tests folder as a test source folder. It needs the Maven plugin
