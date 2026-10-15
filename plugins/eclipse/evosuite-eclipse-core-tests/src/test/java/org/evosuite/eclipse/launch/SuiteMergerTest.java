@@ -246,6 +246,39 @@ public class SuiteMergerTest {
     }
 
     @Test
+    public void refusesImportsThatChangeWhatANameMeansInTheExistingTests() {
+        // Node is demo.Node in the existing suite, which needs no import for it.
+        String existing = suite("", test("test0", "Node node0 = new Node();", "assertNotNull(node0);"));
+        String generated = suite("import org.w3c.dom.Node;\n",
+                test("test1", "Node node0 = null;", "assertEquals(0, new Calculator().sum(0));"));
+
+        assertEquals("the new suite's import of org.w3c.dom.Node would change what Node means in its tests",
+                SuiteMerger.merge(existing, generated, "Calculator_ESTest").incompatibility);
+    }
+
+    @Test
+    public void refusesImportsThatChangeWhatANameMeansInTheNewTests() {
+        String existing = suite("import org.w3c.dom.Node;\n", test("test0", "Node node0 = null;", "assertNull(node0);"));
+        String generated = suite("", test("test1", "Node node0 = new Node();", "assertNotNull(node0);"));
+
+        assertEquals("its import of org.w3c.dom.Node would change what Node means in the new tests",
+                SuiteMerger.merge(existing, generated, "Calculator_ESTest").incompatibility);
+    }
+
+    @Test
+    public void addsImportsOfNamesThatTheExistingTestsOnlyUseQualifiedOrFromTheSamePackage() {
+        String existing = suite("", test("test0", "java.util.List<String> list0 = java.util.List.of();",
+                "Helper helper0 = new Helper();", "assertTrue(list0.isEmpty());"));
+        String generated = suite("import demo.Helper;\nimport java.util.List;\n",
+                test("test1", "List<String> list0 = List.of(new Helper().name());", "assertEquals(1, list0.size());"));
+
+        SuiteMerger.Result result = SuiteMerger.merge(existing, generated, "Calculator_ESTest");
+
+        assertNull(result.incompatibility);
+        assertEquals(List.of("test1"), result.added);
+    }
+
+    @Test
     public void addsTheClassesThatJUnit4SuitesInitialiseAndReset() {
         String existing = junit4Suite(List.of("demo.Calculator"), MAX.replace("@Timeout(value = 3000 , unit = "
                 + "java.util.concurrent.TimeUnit.MILLISECONDS)\n  ", ""));

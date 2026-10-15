@@ -46,11 +46,13 @@ EvoSuite writes into the plugin's state area, so the existing suites stay as the
 class is done; then the plugin carries out the choice for it. Classes without a suite get the new
 one. Adding needs two suites that EvoSuite generated the same way: both with
 `@EvoRunnerParameters`, for the same version of JUnit, and with the same runner settings and
-superclass. Otherwise, for example for a suite with unsaved changes in an editor, or one the
-plugin cannot write, the plugin opens the comparison instead and the console says why. The same
-holds for Replace. With `-Dtest_scaffolding=true`, Replace replaces the scaffolding file too;
-new tests that come with a scaffolding file that differs from the existing one open in the
-comparison, with both scaffolding files, since the plugin cannot merge them.
+superclass. Neither suite's imports may change what a name means in the other's tests, as an
+added `import org.w3c.dom.Node` would for tests that use a `Node` of their own package.
+Otherwise, for example for a suite with unsaved changes in an editor, or one the plugin cannot
+write, the plugin opens the comparison instead and the console says why. The same holds for
+Replace. With `-Dtest_scaffolding=true`, Replace replaces the scaffolding file too; new tests that
+come with a scaffolding file that differs from the existing one open in the comparison, with both
+scaffolding files, since the plugin cannot merge them.
 
 A suite file that EvoSuite did not generate, one without `@EvoRunnerParameters`, is never
 replaced or added to. That happens when the test folder and suffix are those of the project's own

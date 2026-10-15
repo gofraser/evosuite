@@ -51,11 +51,19 @@ import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
 import org.eclipse.jdt.core.dom.Annotation;
 import org.eclipse.jdt.core.dom.BodyDeclaration;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.FieldAccess;
 import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.ImportDeclaration;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.MemberValuePair;
 import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.QualifiedName;
+import org.eclipse.jdt.core.dom.QualifiedType;
+import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.StringLiteral;
+import org.eclipse.jdt.core.dom.StructuralPropertyDescriptor;
+import org.eclipse.jdt.core.dom.SuperFieldAccess;
+import org.eclipse.jdt.core.dom.SuperMethodInvocation;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
@@ -81,7 +89,8 @@ import org.evosuite.eclipse.Activator;
  * <li>continues the numbering, padded as in the existing suite, when the numbers of numbered
  * tests ({@code test0}, ...) clash with existing ones, and appends {@code _1}, {@code _2}, ...
  * to other names that clash;</li>
- * <li>adds the imports the new tests need, and other members of the new suite, such as fields,
+ * <li>adds the imports the new tests need, unless an import of one suite would change what a
+ * name means in the tests of the other, and other members of the new suite, such as fields,
  * that the existing one has no member of that name for;</li>
  * <li>adds the classes the new suite initialises and resets between tests, in a JUnit 4 suite's
  * {@code initializeClasses()} and {@code resetClasses()}, to those of the existing one, filling
@@ -385,6 +394,25 @@ public final class SuiteMerger {
                 singleImports.put(simpleName(existing), existing.getName().getFullyQualifiedName());
             }
         }
+        // A single-type import takes precedence over the classes of the suite's package and over
+        // imports on demand, so it must not change what a name means in the other suite's tests.
+        String suitePackage = packageName(existingUnit);
+        Set<String> generatedSingleImports = new HashSet<>();
+        for (Object declaration : generatedUnit.imports()) {
+            ImportDeclaration generated = (ImportDeclaration) declaration;
+            if (!generated.isOnDemand() && !generated.isStatic()) {
+                generatedSingleImports.add(simpleName(generated));
+            }
+        }
+        Set<String> namesInGenerated = unqualifiedNames(generatedUnit);
+        for (Map.Entry<String, String> existing : singleImports.entrySet()) {
+            if (!generatedSingleImports.contains(existing.getKey()) && namesInGenerated.contains(existing.getKey())
+                    && !packageOf(existing.getValue()).equals(suitePackage)) {
+                return "its import of " + existing.getValue() + " would change what " + existing.getKey()
+                        + " means in the new tests";
+            }
+        }
+        Set<String> namesInExisting = unqualifiedNames(existingUnit);
         ListRewrite importList = rewrite.getListRewrite(existingUnit, CompilationUnit.IMPORTS_PROPERTY);
         for (Object declaration : generatedUnit.imports()) {
             ImportDeclaration generated = (ImportDeclaration) declaration;
@@ -392,10 +420,14 @@ public final class SuiteMerger {
                 continue;
             }
             if (!generated.isOnDemand() && !generated.isStatic()) {
+                String name = generated.getName().getFullyQualifiedName();
                 String clash = singleImports.get(simpleName(generated));
                 if (clash != null) {
-                    return "its import of " + clash + " clashes with the new suite's import of "
-                            + generated.getName().getFullyQualifiedName();
+                    return "its import of " + clash + " clashes with the new suite's import of " + name;
+                }
+                if (namesInExisting.contains(simpleName(generated)) && !packageOf(name).equals(suitePackage)) {
+                    return "the new suite's import of " + name + " would change what " + simpleName(generated)
+                            + " means in its tests";
                 }
             }
             importList.insertLast(ASTNode.copySubtree(ast, generated), null);
@@ -439,6 +471,41 @@ public final class SuiteMerger {
         }
         rewrite.rewriteAST(document, JavaCore.getOptions()).apply(document);
         return null;
+    }
+
+    /**
+     * The simple names that the classes of {@code unit} use unqualified and that may name a type:
+     * the first part of every name, apart from declarations and the names of members.
+     */
+    private static Set<String> unqualifiedNames(CompilationUnit unit) {
+        Set<String> names = new HashSet<>();
+        ASTVisitor visitor = new ASTVisitor() {
+            @Override
+            public boolean visit(SimpleName name) {
+                StructuralPropertyDescriptor location = name.getLocationInParent();
+                if (!name.isDeclaration() && location != QualifiedName.NAME_PROPERTY
+                        && location != MethodInvocation.NAME_PROPERTY && location != FieldAccess.NAME_PROPERTY
+                        && location != SuperMethodInvocation.NAME_PROPERTY
+                        && location != SuperFieldAccess.NAME_PROPERTY && location != MemberValuePair.NAME_PROPERTY
+                        && location != QualifiedType.NAME_PROPERTY) {
+                    names.add(name.getIdentifier());
+                }
+                return false;
+            }
+        };
+        for (Object type : unit.types()) {
+            ((ASTNode) type).accept(visitor);
+        }
+        return names;
+    }
+
+    private static String packageName(CompilationUnit unit) {
+        return unit.getPackage() == null ? "" : unit.getPackage().getName().getFullyQualifiedName();
+    }
+
+    private static String packageOf(String qualifiedName) {
+        int dot = qualifiedName.lastIndexOf('.');
+        return dot < 0 ? "" : qualifiedName.substring(0, dot);
     }
 
     private static String importKey(ImportDeclaration declaration) {
