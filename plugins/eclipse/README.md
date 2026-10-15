@@ -232,7 +232,10 @@ does end up on a command line, the console masks it.
 The values come from m2e's effective model, so parent poms, `pluginManagement` and `${...}`
 properties count. Each parameter is resolved as Maven resolves it for `mvn evosuite:generate`.
 The order is the configuration of an execution with the id `default-cli`, the plugin's
-configuration, then a pom property `evosuite.<name>`. Other executions of the `generate` goal
+configuration, then a pom property `evosuite.<name>`. As in Maven, a deprecated unprefixed
+property (`criterion`, `extraArgs`, `cores`, `memoryInMB`, `timeInMinutesPerClass`, and
+`targetFolder` for `testFolder`) overrides all of these, unless the pom also sets
+`evosuite.<name>`. Other executions of the `generate` goal
 do not count, because Maven does not use them for a goal run from the command line. Where
 `generate` would use its default `testFolder`, the folder of a `setup` execution is taken
 instead, since that execution registers the folder for Maven builds. The project's EvoSuite

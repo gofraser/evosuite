@@ -92,6 +92,27 @@ public class PomSettingsTest {
     }
 
     @Test
+    public void deprecatedPropertiesOverrideTheConfigurationUnlessTheNewNameIsSet() {
+        Map<String, String> plugin = Map.of("criterion", "LINE", "extraArgs", "-Dconfigured=1",
+                "testFolder", "configured", "timeInMinutesPerClass", "3");
+        GenerationOptions options = new GenerationOptions();
+        new PomSettings(plugin, Map.of(), Map.of(), Map.of("criterion", "BRANCH", "extraArgs", "-Dold=1",
+                "targetFolder", "old-folder", "timeInMinutesPerClass", "5")).applyTo(options, BASEDIR);
+        assertEquals("BRANCH", options.criterion, "the Maven plug-in applies them after the configuration");
+        assertEquals("-Dold=1", options.pomExtraArguments);
+        assertEquals("old-folder", options.testFolder);
+        assertEquals(300, options.searchBudget);
+
+        // The new name, even if it repeats the configured value, leaves the configuration alone.
+        GenerationOptions withNewNames = new GenerationOptions();
+        new PomSettings(plugin, Map.of(), Map.of(), Map.of("criterion", "BRANCH", "evosuite.criterion", "LINE",
+                "targetFolder", "old-folder", "evosuite.testFolder", "property-folder"))
+                .applyTo(withNewNames, BASEDIR);
+        assertEquals("LINE", withNewNames.criterion);
+        assertEquals("configured", withNewNames.testFolder);
+    }
+
+    @Test
     public void aTestFolderSetOnlyForSetupIsUsed() {
         GenerationOptions options = new GenerationOptions();
         new PomSettings(Map.of(), Map.of(), Map.of("testFolder", "src/test/gen"), Map.of()).applyTo(options, BASEDIR);

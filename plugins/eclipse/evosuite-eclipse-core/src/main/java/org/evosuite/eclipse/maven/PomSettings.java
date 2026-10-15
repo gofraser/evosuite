@@ -40,7 +40,10 @@ import org.evosuite.eclipse.launch.GenerationOptions;
  *
  * <p>Each parameter is resolved as Maven resolves it for {@code mvn evosuite:generate}: the
  * configuration of the execution {@code default-cli}, then the plug-in's own configuration, then
- * the pom property {@code evosuite.<name>}, then the Maven plug-in's default. Other executions of
+ * the pom property {@code evosuite.<name>}, then the Maven plug-in's default. A deprecated
+ * unprefixed property that the Maven plug-in still reads overrides all of these unless the pom
+ * also sets {@code evosuite.<name>}, as the plug-in applies it after Maven has configured the
+ * goal. Other executions of
  * the {@code generate} goal do not apply to a goal invoked by name. Where the goal would use its
  * default test folder, the folder of a {@code setup} execution is taken instead, since that is
  * the folder the build registers as a test source root.
@@ -237,13 +240,15 @@ public final class PomSettings {
     /** The parameter's value, or {@code null} if nothing sets it. */
     private String lookup(String name) {
         List<String> candidates = new ArrayList<>();
+        // As the Maven plug-in's legacyProperty: the old name counts unless the new one is set,
+        // whatever its value, and then replaces what Maven injected from the configuration.
+        String legacy = LEGACY_PROPERTIES.get(name);
+        if (legacy != null && !properties.containsKey("evosuite." + name)) {
+            candidates.add(properties.get(legacy));
+        }
         candidates.add(generate.get(name));
         candidates.add(plugin.get(name));
         candidates.add(properties.get("evosuite." + name));
-        String legacy = LEGACY_PROPERTIES.get(name);
-        if (legacy != null) {
-            candidates.add(properties.get(legacy));
-        }
         if ("testFolder".equals(name)) {
             candidates.add(setup.get(name));
         }
