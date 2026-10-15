@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -41,6 +42,7 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.core.IJavaProject;
@@ -180,6 +182,43 @@ public class TestGenerationJobTest {
         assertTrue(TestProjects.hasEntry(project, EvoSuiteClasspathContainer.PATH), "EvoSuite runtime not added");
         // EvoSuite wrote its statistics to the plug-in's state area, not into the project.
         assertFalse(project.getProject().getFolder("evosuite-report").exists(), "report folder in the project");
+    }
+
+    /**
+     * Two runs for the same class, started before either has written a suite: the second waits
+     * for the first, and does not overwrite the suite the first wrote, which the user has edited
+     * meanwhile. Its new suite opens in a comparison instead.
+     */
+    @Test
+    public void aQueuedRunDoesNotOverwriteTheSuiteOfTheRunBeforeIt() throws Exception {
+        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+        preferences.putBoolean(EvoSuitePreferences.OPEN_GENERATED_TESTS, false);
+        IJavaProject project = TestProjects.create("queued", "src/main/java", null);
+        TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
+        TestProjects.build(project);
+        IFile suite = project.getProject().getFile("src/test/evosuite/demo/Calculator_ESTest.java");
+
+        TestGenerationJob first = new TestGenerationJob(project, List.of("demo.Calculator"));
+        TestGenerationJob second = new TestGenerationJob(project, List.of("demo.Calculator"));
+        first.schedule();
+        // Started once the first has taken its place, so that it queues behind it.
+        while (first.getState() != Job.RUNNING && first.getResult() == null) {
+            Thread.sleep(50);
+        }
+        Thread.sleep(1000);
+        second.schedule();
+        assertTrue(first.join(TimeUnit.MINUTES.toMillis(5), null), "the first run did not finish in time");
+        assertEquals(IStatus.OK, first.getResult().getSeverity(), first.getResult()::toString);
+        // While the second run searches.
+        String edited = read(suite).replace("public class Calculator_ESTest", "// edited by hand\npublic class "
+                + "Calculator_ESTest");
+        suite.setContents(new ByteArrayInputStream(edited.getBytes(StandardCharsets.UTF_8)), true, true, null);
+        assertTrue(second.join(TimeUnit.MINUTES.toMillis(5), null), "the second run did not finish in time");
+
+        assertEquals(IStatus.OK, second.getResult().getSeverity(), second.getResult()::toString);
+        assertEquals(edited, read(suite));
+        assertEquals(List.of(suite), second.getComparisons().stream().map(p -> p.existing()).toList());
+        assertEquals(List.of(), second.getGeneratedSuites());
     }
 
     /**

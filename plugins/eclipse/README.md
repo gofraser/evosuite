@@ -30,7 +30,8 @@ different JDK, set *Java home* on the *Advanced* settings page.
 If some of the classes already have a suite, the plugin asks once, before generating, what to do
 with all of them:
 
-- **Replace** overwrites the existing suites, as EvoSuite does on the command line.
+- **Replace** overwrites the existing suites. The previous version stays in the file's local
+  history.
 - **Add New Tests** keeps the existing tests and adds the new ones after them. A new test whose
   body equals that of an existing test is left out. Clashing names are renamed: numbered tests
   continue the existing numbering (`test0` becomes `test5` if the suite ends at `test4`), other
@@ -41,12 +42,20 @@ with all of them:
   editable, the new suite is read-only. Copy over what you want and save. Several classes share
   one compare editor, which lists them.
 
-With Add New Tests and Compare, EvoSuite writes into the plugin's state area, so the existing
-suites stay as they are until generation has finished. Classes without a suite get the new one.
-Adding needs two suites that EvoSuite generated the same way: both with `@EvoRunnerParameters`,
-for the same version of JUnit, and with the same runner settings and superclass. Otherwise, for
-example for a hand-written suite or one with unsaved changes in an editor, the plugin opens the
-comparison instead and the console says why.
+EvoSuite writes into the plugin's state area, so the existing suites stay as they are until a
+class is done; then the plugin carries out the choice for it. Classes without a suite get the new
+one. Adding needs two suites that EvoSuite generated the same way: both with
+`@EvoRunnerParameters`, for the same version of JUnit, and with the same runner settings and
+superclass. Otherwise, for example for a suite with unsaved changes in an editor, or one the
+plugin cannot write, the plugin opens the comparison instead and the console says why. The same
+holds for Replace. With `-Dtest_scaffolding=true`, Replace replaces the scaffolding file too;
+new tests that come with a scaffolding file that differs from the existing one open in the
+comparison, with both scaffolding files, since the plugin cannot merge them.
+
+The choice applies to the suites that existed when you started the run. Runs wait for each other,
+and a suite that appears meanwhile, for example written by the run before and edited since, is
+never replaced: tests for single methods or extending existing tests are added to it, and a suite
+for the whole class opens next to it in a compare editor.
 
 ### Tests for single methods
 
