@@ -43,7 +43,9 @@
     <!-- Loggers  -->
 
 
-    <logger name="evo_logger" level="${log.level:-WARN}" additivity="false">
+    <!-- what CTG reports to the user (the run summary, the classes it skipped or failed on, the
+         output of the info goal); internal logging below stays at WARN -->
+    <logger name="evo_logger" level="${log.level:-INFO}" additivity="false">
         <appender-ref ref="EVO_LOGGER" />
     </logger>
 

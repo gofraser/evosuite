@@ -311,7 +311,7 @@ public class StorageManager {
                 missingCUTs.add(cut);
             }
 
-            LoggingUtils.getEvoLogger().info("* Updating database to " + cut);
+            logger.debug("Updating database to " + cut);
             updateDatabase(cut, suite, db, current);
         }
 
