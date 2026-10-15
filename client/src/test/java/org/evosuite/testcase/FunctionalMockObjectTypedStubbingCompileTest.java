@@ -83,7 +83,7 @@ public class FunctionalMockObjectTypedStubbingCompileTest {
     }
 
     /**
-     * Observed on summa's {@code WindowQueue<T extends Comparable>}: the mock stands for a value of
+     * For a {@code WindowQueue<T extends Comparable>}: the mock stands for a value of
      * the type variable, whose erasure is {@code Comparable} but which is declared {@code Object}.
      */
     public static class Bound<T extends Comparable> {
@@ -128,7 +128,7 @@ public class FunctionalMockObjectTypedStubbingCompileTest {
     }
 
     /**
-     * Defects4J Math-75: {@code Comparable<?> c} stubbed with {@code compareTo(nullable(Object.class))}
+     * {@code Comparable<?> c} stubbed with {@code compareTo(nullable(Object.class))}
      * fails because the wildcard capture clashes with the matcher's {@code Class<T>} argument.
      */
     @Test
@@ -173,7 +173,7 @@ public class FunctionalMockObjectTypedStubbingCompileTest {
     }
 
     /**
-     * Observed on twfbplayer's {@code PositionSwitch implements Comparable<PositionSwitch>}: the
+     * A class {@code PositionSwitch implements Comparable<PositionSwitch>}: the
      * SUT calls the mock through the erased Comparable.compareTo(T), and looking that signature up
      * on the mocked class finds the synthetic bridge compareTo(Object). Its matcher
      * {@code nullable(Object.class)} does not compile against compareTo(PositionSwitch).

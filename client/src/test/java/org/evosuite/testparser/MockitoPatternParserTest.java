@@ -82,7 +82,7 @@ class MockitoPatternParserTest {
 
     @Test
     void typedFallbackForUnhoistableStubbingValueIsDefinedBeforeTheMock() {
-        // The shape of an LLM test from SF110 freemind: stubbing controller.iterator() with view
+        // A shape seen in LLM tests: stubbing controller.iterator() with view
         // moves the controller mock after view, so view can no longer move after nodeView, and
         // the alias nodeView cannot be hoisted either -- the parser substitutes a typed default.
         String body = "List controller = mock(List.class);\n"

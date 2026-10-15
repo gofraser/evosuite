@@ -36,7 +36,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on liferay's {@code FileImpl}: a variable declared as {@code MockFile} (the mock that
+ * A variable declared as {@code MockFile} (the mock that
  * stands for {@code java.io.File}) was later assigned a {@code de.schlichtherle.io.File}, a
  * sibling of MockFile below java.io.File, without a cast.
  */

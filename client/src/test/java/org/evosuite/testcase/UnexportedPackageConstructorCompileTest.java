@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * Observed on corina, whose tests construct {@code org.jcp.xml.dsig.internal.dom.XMLDSigRI}: a
+ * For {@code org.jcp.xml.dsig.internal.dom.XMLDSigRI}: a
  * public JDK class in a package its module does not export. The constructor goes through
  * reflection, but the variable was still declared with and cast to the unnameable type.
  */

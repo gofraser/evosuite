@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Reproduces the {@code SetUniqueList.setUniqueList(List)} bug (Defects4J Collections-21f):
+ * Reproduces the {@code SetUniqueList.setUniqueList(List)} bug:
  * a static factory method whose return type is the declaring (generic) class parameterized
  * by the method's <em>own</em> type variable -- e.g. {@code static <E> Box<E> of(List<E> list)}
  * on {@code class Box<E>} -- was always printed with a raw declaration
@@ -86,7 +86,7 @@ public class TestCodeVisitorGenericStaticFactoryTest {
         VariableReference boxVar = test.addStatement(factoryCall);
 
         // A subsequent call whose return type is inferred from boxVar's resolved type, just
-        // like SetUniqueList0.set(0, ...) in the D4J reproduction.
+        // like SetUniqueList0.set(0, ...).
         Method get = Box.class.getMethod("get", int.class);
         GenericMethod getMethod = new GenericMethod(get, boxVar.getGenericClass());
         VariableReference zero = test.addStatement(new IntPrimitiveStatement(test, 0));

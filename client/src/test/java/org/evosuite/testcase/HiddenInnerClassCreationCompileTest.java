@@ -33,7 +33,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on weka: {@code CoverTree.MyHeap} hides the inherited {@code NearestNeighbourSearch.MyHeap}.
+ * {@code CoverTree.MyHeap} hides the inherited {@code NearestNeighbourSearch.MyHeap}.
  * Creating the inherited one on a {@code CoverTree} instance as {@code coverTree0.new MyHeap(1)} makes
  * javac pick the subclass's member, so the result cannot be assigned to the inherited type.
  */

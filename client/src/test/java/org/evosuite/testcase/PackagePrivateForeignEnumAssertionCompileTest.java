@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on liferay: an assertion on {@code com.caucho.network.listen.SocketLinkState.REQUEST_ACTIVE_KA},
+ * An assertion on {@code com.caucho.network.listen.SocketLinkState.REQUEST_ACTIVE_KA},
  * a package-private enum of another package, which javac rejects with 'is not public in ...'.
  * Such a constant has to be compared by name.
  */

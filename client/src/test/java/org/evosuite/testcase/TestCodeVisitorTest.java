@@ -2027,7 +2027,7 @@ public class TestCodeVisitorTest {
 
     @Test
     public void testFieldDeclaredInPrivateSuperclassReadUsesClassForNameNotClassLiteral() throws Exception {
-        // Defects4J Jsoup-90 regression: PrivateAccess.getVariable(HttpConnection.Base.class, ...)
+        // Regression: PrivateAccess.getVariable(HttpConnection.Base.class, ...)
         // does not compile because Base is a private nested class. The field itself
         // (headers/method) is only package-private, so the fix must key off of the
         // declaring class's accessibility rather than the field's own modifiers.
@@ -2622,7 +2622,7 @@ public class TestCodeVisitorTest {
     }
 
     /**
-     * Pins the regression reported against FIX 1: a public nested class with a
+     * Pins that a public nested class with a
      * non-public constructor (a common factory-method-only idiom) must keep its own
      * declared/cast type -- NOT fall back to {@code Object} -- even though the
      * constructor itself is not source-accessible and must go through the
@@ -2693,7 +2693,7 @@ public class TestCodeVisitorTest {
      * statement.getPosition() check) that can disagree with what actually got
      * written to that registry. The following tests pin both failure directions:
      * too few declarations (an identifier used but never declared, the original
-     * SF110 bug) and too many (a duplicate declaration, the residual risk of the
+     * bug) and too many (a duplicate declaration, the residual risk of the
      * fix itself).
      */
 
@@ -2701,7 +2701,7 @@ public class TestCodeVisitorTest {
      * Scans generated code for a plain, untyped assignment line ({@code name =
      * value;}) whose target identifier was never introduced with a type on an
      * earlier line (nor on that same line). This is the strongest form of the
-     * regression guard for the SF110 bug: it does not merely check one specific
+     * regression guard for that bug: it does not merely check one specific
      * rendering, it checks that nothing anywhere in the generated method is used
      * as an assignment target without first being declared.
      */
@@ -2837,15 +2837,15 @@ public class TestCodeVisitorTest {
     }
 
     /**
-     * Reproduces the SF110 {@code RegistryAwareMBeanServer} bug: an assignment
+     * Reproduces the {@code RegistryAwareMBeanServer} bug: an assignment
      * target whose own cached {@link VariableReference#getStPosition()} disagrees
      * with where it is actually used when rendering this test case (simulated here
      * with a VariableReference minted against a different, throwaway TestCase,
      * standing in for a stale/cloned reference), alongside two other statements
      * (a real object and a functional mock) of the same type so that a
-     * position-based recovery of the identity would be ambiguous. Old code decided
-     * "needs a type" from the stale position and got it wrong, printing a freshly
-     * minted name with no declaration anywhere. The fix decides from the same
+     * position-based recovery of the identity would be ambiguous. Deciding
+     * "needs a type" from the stale position gets it wrong, printing a freshly
+     * minted name with no declaration anywhere. The rendering decides from the same
      * declarationVariableNames registry that minted the name, so the two can never
      * disagree.
      */

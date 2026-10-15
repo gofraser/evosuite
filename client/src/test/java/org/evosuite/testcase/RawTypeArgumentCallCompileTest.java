@@ -37,7 +37,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on geo-google's {@code FunctionChain(List<Functor>)}, where {@code Functor} is a
+ * For {@code FunctionChain(List<Functor>)}, where {@code Functor} is a
  * generic class used raw: the null argument of an overloaded constructor call was cast to
  * {@code (List<Functor<?, ?, ?>>) null}, a different type from the declared {@code List<Functor>}
  * that no constructor accepts.

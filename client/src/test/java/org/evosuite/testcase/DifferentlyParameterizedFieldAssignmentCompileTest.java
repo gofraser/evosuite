@@ -39,7 +39,7 @@ import java.util.Vector;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on jgaap's {@code Document.procText}, a {@code Vector<Character>} field, written with a
+ * A {@code Vector<Character>} field written with a
  * {@code Vector<Object>} variable: same raw class, so no cast was rendered, and javac rejects the
  * assignment.
  */

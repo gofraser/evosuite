@@ -52,9 +52,7 @@ public final class ObjectRuleRuntime {
      * methods sharing one caller do not suppress each other's analysis (see the cache-key comment
      * there). But that means every branch of the *same* expensive private method independently pays
      * the full {@link org.evosuite.Properties#OBJECT_RULE_ANALYSIS_TIMEOUT} budget with no memory of
-     * previous timeouts — measured as 154 repeated timeouts analyzing {@code
-     * JVCParserTokenManager.jjMoveNfa_2} and 132 analyzing {@code LovinsStemmer.removeEnding} on the
-     * release corpus, enough on its own to starve those classes' searches. This set lets later
+     * previous timeouts, enough on its own to starve a class's search. This set lets later
      * branches of a method already known to be too expensive skip straight to the conservative "no
      * graph" outcome.
      */

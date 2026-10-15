@@ -39,7 +39,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on corina, whose class under test builds an xerces {@code PSVIErrorList}: a
+ * An xerces {@code PSVIErrorList} built by the class under test: a
  * package-private class of another package with a public constructor. The reflective-constructor
  * fallback declared the variable, and cast the result, with the class's own name, which javac
  * rejects with 'is not public in org.apache.xerces.impl.xs; cannot be accessed from outside

@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on summa's {@code StringTracker extends ResourceTrackerImpl<String>}: the search calls the
+ * The class {@code StringTracker extends ResourceTrackerImpl<String>}: the search calls the
  * synthetic bridge {@code calculateBytes(Object)} with an argument that is not a String, to provoke
  * a ClassCastException. Source code that says {@code tracker.calculateBytes(x)} binds to the
  * {@code calculateBytes(String)} override instead and does not compile.

@@ -38,7 +38,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on Jillion's {@code DefaultContig.Builder} (a static nested class of the generic
+ * A {@code DefaultContig.Builder} (a static nested class of the generic
  * {@code DefaultContig}): the non-generic builder inherits
  * {@code addAllReads(Iterable<P>)} from {@code AbstractContigBuilder<AssembledRead, ...>}, and
  * an {@code ArrayList<AceAssembledReadAdapter>} was passed to it. The call is checked against

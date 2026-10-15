@@ -37,7 +37,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on caloriecount's {@code NotifyingListAdaptor<Integer>}: {@code remove(intArray0[0])}
+ * On a {@code NotifyingListAdaptor<Integer>}: {@code remove(intArray0[0])}
  * was meant to call {@code remove(Object)} but, with a primitive int argument, javac picks
  * {@code remove(int)}, whose element result cannot be assigned to the boolean the test declared.
  */

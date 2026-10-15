@@ -49,7 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code GenericClassUtils} deliberately treats a {@code Class<Raw>} class-literal
  * variable (eg {@code Class<LinkedList> class0 = LinkedList.class;}) as satisfying a
  * parameterised {@code Class<...>} target, even though javac rejects that assignment
- * directly (see {@code 90e6a0906} and {@code ClassLiteralVarianceTest}). At a method
+ * directly (see {@code ClassLiteralVarianceTest}). At a method
  * call argument, {@code TestCodeVisitor.getParameterString}'s {@code requiresRawClassCast}
  * compensates with a structural raw {@code (Class)} cast -- see
  * {@code testClassLiteralParameterCastUsesRawClass} above. This class checks whether the

@@ -439,7 +439,7 @@ public class MockRenderingCharacterisationTest {
         assertEquals(first, second);
     }
 
-    /** Rendering today completes the pending stubs of the mock it renders (review R2). */
+    /** Rendering today completes the pending stubs of the mock it renders. */
     @Test
     @Disabled("package 1: rendering still mutates")
     public void renderingAnUnrepairedTestLeavesTheMockUntouched() throws Exception {

@@ -35,7 +35,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on Jackson Databind: {@code MapperConfig<MapperConfig<SerializationConfig>>} and
+ * {@code MapperConfig<MapperConfig<SerializationConfig>>} and
  * {@code TypeResolverBuilder<DefaultTypeResolverBuilder>} were declared although the type
  * argument is not within the recursive bound {@code T extends Foo<T>} ("type argument ... is
  * not within bounds of type-variable T").

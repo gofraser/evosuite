@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Regression coverage for the JacksonDatabind-96 Defects4J symptom: EvoSuite generated
+ * Regression coverage for a final-field symptom: EvoSuite generated
  * {@code BasicDeserializerFactory._collectionFallbacks = hashMap0;} against a
  * package-private {@code static final} field, which javac rejects
  * ("cannot assign a value to final variable"). Visibility permitted the write (same
@@ -202,7 +202,7 @@ public class FinalFieldAssignmentGuardTest {
     @Test
     public void testRendererDropsAssignmentToFinalField() throws Exception {
         // Same package as the fixture, so canUseDirectFieldAccess's visibility check
-        // alone would have allowed a direct write - exactly the JacksonDatabind-96
+        // alone would have allowed a direct write - exactly the
         // scenario, where only finality (not visibility) made the statement illegal.
         Properties.CLASS_PREFIX = "com.examples.with.different.packagename";
 

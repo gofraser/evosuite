@@ -39,7 +39,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on schemaspy: {@code Arrays.asList(T...)} was bound to T = DefaultSqlFormatter while the
+ * {@code Arrays.asList(T...)} was bound to T = DefaultSqlFormatter while the
  * argument was a String[], and the rendered {@code (DefaultSqlFormatter[]) stringArray0} cast is
  * rejected by javac as an inconvertible array cast.
  */

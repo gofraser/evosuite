@@ -455,23 +455,19 @@ public class VariableResolver {
         // tempting to, because "mock_if_no_generator" reads like a promise to mock only
         // when there is nothing else to call, and gating it does help the case where a
         // usable concrete implementation is being passed over in favour of a mock
-        // (102_squirrel-sql's Scanner, whose abstract Buffer parameter has working
-        // package-private FBuffer/SBuffer implementations, gains ~0.36 branch coverage).
+        // (an abstract parameter with working package-private implementations).
         // But P_FUNCTIONAL_MOCKING is 0.0 by default, so the boost below is the only thing
         // that ever makes a deep interface/abstract dependency mockable at all: gating it
         // does not reduce mocking for these types, it switches mocking off entirely and
         // leaves the search with whatever concrete generator happens to exist, however
-        // badly it works. Plenty of them work badly - SharedORB.getInstance() throws
-        // ExportException outside an RMI call, so 66_openjms's JmsAdminConnectionImpl
-        // cannot be constructed at all without a mock ORB. Measured over SF110 (23,267
-        // classes, matched seeds, 120s budget), gating cost >0.20 branch coverage on 1213
-        // classes and gained it on at most 73, for -0.026 mean.
+        // badly it works. Plenty of them work badly (a singleton accessor that throws outside its
+        // intended environment cannot be constructed at all without a mock). Measured over a large
+        // corpus with matched seeds, gating cost many more classes a substantial amount of branch coverage
+        // than it helped, for a net loss in mean coverage.
         //
         // The 0.5 boost is tossed independently at every depth, though, and that is its own
-        // problem for a class like 104_vuze's GenericMessageDecoder: reaching its decode
-        // branches requires Transport.read() to actually deliver bytes, which only happens
-        // along a concrete five-link chain (TCPTransportHelper -> TransportHelperFilter... ->
-        // LightweightTCPTransport). Each interface/abstract link on that chain independently
+        // problem for a class whose branches are only reachable through a concrete chain of several
+        // interface/abstract links that must each be built as a real object. Each interface/abstract link on that chain independently
         // survives the coin toss with probability 0.5, so the whole chain survives with
         // probability ~0.5^k and almost never assembles. Once the search has committed to
         // building a given deep interface/abstract dependency concretely (the coin came up
@@ -479,11 +475,9 @@ public class VariableResolver {
         // chosen generator too: GenerationContext.concreteChain records that commitment and,
         // below, lowers the boost to CHAIN_MOCK_BOOST for the rest of the chain instead of
         // re-rolling 0.5 at every level. It is lowered, not removed: with 0 inside a chain
-        // GenericMessageDecoder went from 0.63 to 1.0 but freemind's ServerCommunication
-        // dropped from 0.86-0.91 to 0.64-0.68 on the same seeds, because a concrete link
-        // then drags every dependency below it into real construction, hopeless ones
-        // included; at 0.25 GenericMessageDecoder still reaches 1.0 on three seeds and
-        // ServerCommunication stays at 0.73-0.86. A "mock" outcome is unaffected: mocking a
+        // the chain then assembles, but a concrete link drags every dependency below it into real
+        // construction, hopeless ones included, so a small residual boost is kept. A "mock" outcome
+        // is unaffected: mocking a
         // link still stops the chain there, exactly as before. Functional interfaces keep their 1.0 boost even inside a
         // concrete chain (isDeepPlainInterfaceOrAbstract excludes them below) because they are
         // almost never independently constructible (Comparator, Runnable, ...) - collapsing that
@@ -501,8 +495,8 @@ public class VariableResolver {
         //
         // And only for the project's own types. A library type whose methods are all void is
         // still best served by a mock: it is a null-safe stand-in the SUT can paint on or
-        // notify. weka.gui.beans.BeanVisual passes Graphics2D around, and preferring the
-        // concrete PostscriptGraphics over a mock took it from 0.98 to 0.57 branch coverage.
+        // notify (for example a Graphics2D); preferring the concrete implementation over a mock
+        // can cost a large share of the branch coverage.
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
         boolean bypassTimeGate = false;
         if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {

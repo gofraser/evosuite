@@ -42,7 +42,7 @@ import java.util.Optional;
 /**
  * A SUT class whose members mention a type missing from the classpath makes reflection over it
  * throw NoClassDefFoundError. The DMoN promotion must treat that as "cannot promote", not let it
- * escape and end the client run (seen with SapNWPlugin and FrameStats in the SF110 corpus).
+ * escape and end the client run.
  */
 public class DmonLinkageErrorTest {
 

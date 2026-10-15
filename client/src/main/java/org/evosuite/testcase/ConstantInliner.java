@@ -80,8 +80,8 @@ public class ConstantInliner extends ExecutionObserver {
      */
     public void inline(TestSuiteChromosome suite) {
         // Inlining re-executes every test, and this phase has no timeout of its
-        // own: on jackson-databind TokenBuffer a 958-test archive suite took 70 s
-        // here after a 60 s search, and whatever it spends beyond the slack in
+        // own: a large archive suite can take as long as the search itself, and whatever it
+        // spends beyond the slack in
         // the overall budget pushes minimization and writing past the deadline
         // at which the master kills the client. Tests left un-inlined are merely
         // less readable, so stop once the overall budget leaves no room for a test.
