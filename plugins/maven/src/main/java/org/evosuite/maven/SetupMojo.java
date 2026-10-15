@@ -22,6 +22,7 @@ package org.evosuite.maven;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -82,6 +83,9 @@ public class SetupMojo extends AbstractMojo {
     @Parameter(property = "evosuite.skip", defaultValue = "false")
     private boolean skip;
 
+    @Parameter(defaultValue = "${plugin}", readonly = true)
+    private PluginDescriptor plugin;
+
     @Override
     public void execute() throws MojoExecutionException {
         if (skip) {
@@ -102,6 +106,12 @@ public class SetupMojo extends AbstractMojo {
 
         Optional<Artifact> runtime = findRuntime();
         checkDependencies(needed, runtime.isPresent());
+        if (runtime.isPresent() && plugin != null) {
+            String mismatch = versionMismatch(plugin.getVersion(), runtime.get());
+            if (mismatch != null) {
+                throw new MojoExecutionException(mismatch);
+            }
+        }
 
         if (agent && runtime.isPresent()) {
             String value = GeneratedTests.appendAgent(project.getProperties().getProperty(argLinePropertyName),
@@ -109,6 +119,24 @@ public class SetupMojo extends AbstractMojo {
             project.getProperties().setProperty(argLinePropertyName, value);
             getLog().info(argLinePropertyName + " set to " + value);
         }
+    }
+
+    /**
+     * Generated tests call the API of the runtime of the EvoSuite version that generated them, so the
+     * runtime dependency has to be the plugin's version.
+     *
+     * @param pluginVersion the version of this plugin
+     * @param runtime       the runtime dependency
+     * @return what is wrong, or {@code null} if the versions match
+     */
+    static String versionMismatch(String pluginVersion, Artifact runtime) {
+        String runtimeVersion = runtime.getBaseVersion();
+        if (pluginVersion == null || pluginVersion.equals(runtimeVersion)) {
+            return null;
+        }
+        return "The test dependency " + runtime.getArtifactId() + " has version " + runtimeVersion
+                + ", but the EvoSuite plugin is version " + pluginVersion
+                + ". Use the same version for both, eg with a property like ${evosuite.version}.";
     }
 
     private Optional<Artifact> findRuntime() {

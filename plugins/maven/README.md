@@ -8,7 +8,7 @@ Requires Maven 3.9 or later.
 
 ## Setup
 
-Add the plugin with its `setup` goal, and the EvoSuite runtime as a test dependency:
+Add the plugin with its `setup` goal, and the EvoSuite runtime, in the same version, as a test dependency:
 
 ```xml
 <build>
@@ -49,7 +49,7 @@ yourself, set `test_format` (`JUNIT4` or `JUNIT5`) in `evosuiteProperties`.
   the test JVM. If your Surefire configuration sets `<argLine>` explicitly, include `@{argLine}` in it, as for
   JaCoCo;
 - fails the build, naming the dependency to add, if the generated tests cannot compile because the runtime
-  or their JUnit version is missing.
+  or their JUnit version is missing, and if the runtime's version is not the plugin's.
 
 ## Generating tests
 
