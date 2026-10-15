@@ -155,6 +155,17 @@ unless you name another JDK. To skip it, pass `-Devosuite.it.skip=true`:
 ./mvnw verify -Devosuite.it.javaHome=/path/to/jdk-17
 ```
 
+`MavenPluginLifecycleMappingTest` checks that m2e runs the EvoSuite Maven plugin's `setup` goal
+and keeps the generated-tests folder as a test source folder. It needs the Maven plugin
+(1.2.1-SNAPSHOT) in a local repository that m2e can use offline, named by a settings file. Keep
+that repository separate, so that installing a work-in-progress Maven plugin does not replace the
+snapshot in `~/.m2`, for example as an APFS clone (`cp -cR ~/.m2/repository /tmp/m2`):
+
+```sh
+mvn -o -Dmaven.repo.local=/tmp/m2 -pl plugins/maven -am install -DskipTests   # repository root, JDK 17
+./mvnw verify -Devosuite.it.mavenSettings=/tmp/m2-settings.xml                # <localRepository>/tmp/m2</localRepository><offline>true</offline>
+```
+
 ### Layout
 
 | Module | |

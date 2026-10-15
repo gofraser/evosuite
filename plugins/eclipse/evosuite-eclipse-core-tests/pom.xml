@@ -20,6 +20,11 @@
     <evosuite.it.javaHome></evosuite.it.javaHome>
     <!-- Skip the end-to-end test, which takes about a minute, with -Devosuite.it.skip=true. -->
     <evosuite.it.skip>false</evosuite.it.skip>
+    <!--
+      Maven settings whose local repository holds the EvoSuite Maven plugin, for the m2e
+      lifecycle-mapping test; it is skipped without them. See MavenPluginLifecycleMappingTest.
+    -->
+    <evosuite.it.mavenSettings></evosuite.it.mavenSettings>
   </properties>
 
   <build>
@@ -42,6 +47,12 @@
                 <id>org.eclipse.jdt</id>
                 <versionRange>0.0.0</versionRange>
               </requirement>
+              <!-- m2e with its JDT configurator, which turns test source roots into folders. -->
+              <requirement>
+                <type>eclipse-feature</type>
+                <id>org.eclipse.m2e.feature</id>
+                <versionRange>0.0.0</versionRange>
+              </requirement>
             </extraRequirements>
           </dependency-resolution>
         </configuration>
@@ -59,6 +70,7 @@
           <systemProperties>
             <evosuite.it.javaHome>${evosuite.it.javaHome}</evosuite.it.javaHome>
             <evosuite.it.skip>${evosuite.it.skip}</evosuite.it.skip>
+            <evosuite.it.mavenSettings>${evosuite.it.mavenSettings}</evosuite.it.mavenSettings>
           </systemProperties>
         </configuration>
       </plugin>
