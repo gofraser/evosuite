@@ -89,8 +89,13 @@ public class Runtime {
             javax.swing.DebugGraphics.setFlashCount(0);
         }
 
+        /*
+         * Reset even when this test does not use the VFS: mocked File classes consult the VFS whenever
+         * the mock framework is enabled, so files an earlier test (class) created there would otherwise
+         * still "exist", eg when PIT runs generated and hand-written tests in one JVM.
+         */
+        VirtualFileSystem.getInstance().resetSingleton();
         if (RuntimeSettings.useVFS) {
-            VirtualFileSystem.getInstance().resetSingleton();
             VirtualFileSystem.getInstance().init();
         }
 
