@@ -24,8 +24,10 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -52,6 +54,9 @@ public final class EvoSuiteCommand {
      */
     static final Set<String> NOT_CREDITED_TO_EXISTING_TESTS = Set.of("OUTPUT", "INPUT", "METHOD",
             "METHODNOEXCEPTION");
+
+    /** The properties of {@link #outputLocations()}. */
+    static final List<String> OUTPUT_PROPERTIES = List.of("test_dir", "junit_suffix", "report_dir", "llm_trace_dir");
 
     private final String javaExecutable;
     private final String evosuiteJar;
@@ -129,8 +134,6 @@ public final class EvoSuiteCommand {
             args.add("-mem");
             args.add(Integer.toString(options.clientMemory));
         }
-        args.add("-Dtest_dir=" + testDir.getAbsolutePath());
-        args.add("-Dreport_dir=" + reportDir.getAbsolutePath());
         args.add("-Dsearch_budget=" + options.searchBudget);
         args.add("-Dassertions=" + options.assertions);
         args.add("-Dminimize=" + options.minimize);
@@ -151,12 +154,8 @@ public final class EvoSuiteCommand {
             args.add("-Dtimeout=" + options.testTimeout);
         }
         args.add("-Dtest_format=" + options.testFormat);
-        args.add("-Djunit_suffix=" + options.testSuffix);
         // The progress bar is how the plug-in follows the search; see ProgressParser.
         args.add("-Dshow_progress=true");
-        // EvoSuite's default is evosuite-report/llm-traces in the project, where the traces, which
-        // contain prompts built from the project's code, could end up committed.
-        args.add("-Dllm_trace_dir=" + new File(reportDir, "llm-traces").getAbsolutePath());
         addLlmArguments(args);
         if (!targetMethods.isEmpty()) {
             // Restricts the coverage goals and the calls in the tests to these methods, while
@@ -168,6 +167,10 @@ public final class EvoSuiteCommand {
         args.addAll(splitArguments(options.extraArguments));
         options.pomProperties.forEach((name, value) -> args.add("-D" + name + "=" + value));
         args.addAll(splitArguments(options.pomExtraArguments));
+        // After the user's arguments, since EvoSuite takes the last value of a property: the
+        // plug-in reads the suite from where it told EvoSuite to write it, under the name it
+        // told it to use, and finds nothing if another value wins.
+        outputLocations().forEach((name, value) -> args.add("-D" + name + "=" + value));
         if (options.llmSwitchedOff()) {
             // After everything else: search only overrides an LLM the pom or arguments switch on.
             args.add("-Dllm_provider=" + GenerationOptions.LLM_NONE);
@@ -185,6 +188,36 @@ public final class EvoSuiteCommand {
             args.add("-Dtest_carving=false");
         }
         return args;
+    }
+
+    /**
+     * The properties that say where EvoSuite writes, in the order they are passed. The test
+     * folder is often the plug-in's temporary folder, and the report folder is in its state area;
+     * EvoSuite's default for the LLM traces is {@code evosuite-report/llm-traces} in the project,
+     * where the traces, which contain prompts built from the project's code, could end up
+     * committed.
+     */
+    private Map<String, String> outputLocations() {
+        Map<String, String> locations = new LinkedHashMap<>();
+        // In the order of OUTPUT_PROPERTIES.
+        locations.put("test_dir", testDir.getAbsolutePath());
+        locations.put("junit_suffix", options.testSuffix);
+        locations.put("report_dir", reportDir.getAbsolutePath());
+        locations.put("llm_trace_dir", new File(reportDir, "llm-traces").getAbsolutePath());
+        return locations;
+    }
+
+    /**
+     * The {@linkplain #outputLocations() output locations} that the additional arguments or the
+     * pom try to set, such as {@code test_dir}: the plug-in's own values override them.
+     */
+    public static List<String> overriddenUserProperties(GenerationOptions options) {
+        List<String> user = new ArrayList<>(splitArguments(options.extraArguments));
+        options.pomProperties.forEach((name, value) -> user.add("-D" + name + "=" + value));
+        user.addAll(splitArguments(options.pomExtraArguments));
+        return OUTPUT_PROPERTIES.stream()
+                .filter(name -> user.stream().anyMatch(a -> a.startsWith("-D" + name + "=")))
+                .collect(Collectors.toList());
     }
 
     /**

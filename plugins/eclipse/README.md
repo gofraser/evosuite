@@ -141,9 +141,15 @@ disabled but keep their values.
 | Open generated tests | on | |
 | Java home (*Advanced*) | empty: the project's JRE | |
 | Client heap (*Advanced*) | empty: EvoSuite's default | `-mem` |
-| Additional arguments (*Advanced*) | | passed last, so they override everything else |
+| Additional arguments (*Advanced*) | | passed after the settings above, so they override them; see below |
 | Take settings from pom.xml (*Advanced*) | on | see *Maven and Gradle projects* below |
 | Add to the build path (*Advanced*) | on | adds the folder, JUnit and the runtime when missing |
+
+The additional arguments cannot change where EvoSuite writes: the plugin passes the test folder,
+the suffix, the report folder and the LLM trace folder (`test_dir`, `junit_suffix`, `report_dir`,
+`llm_trace_dir`) after them and after the pom's arguments, because it reads the new suites from
+where it told EvoSuite to write them. The console says when it ignores such an argument. Set the
+test folder and suffix on the *EvoSuite* page instead.
 
 ### LLM support
 
@@ -190,7 +196,7 @@ That way a class gets the same tests in Eclipse as with `mvn evosuite:generate`:
 | `criterion` | coverage criteria | the Maven plugin's default set |
 | `testFolder` | test source folder | `src/test/evosuite` |
 | `evosuiteProperties` | `-D` arguments after the Eclipse ones (values may contain spaces) | |
-| `extraArgs` | arguments after those, so they win, as with Maven | |
+| `extraArgs` | arguments after those, so they win, as with Maven, except over where EvoSuite writes (see *Settings*) | |
 | `llmApiKeyServerId` | the LLM API key: the password of that `<server>` in Maven's `settings.xml`, decrypted if need be | the key in the Eclipse preferences |
 | `memoryInMB` / `numberOfCores` (or `cores`) | client heap | the Eclipse setting; the Maven default of 800 MB is a whole-module budget |
 

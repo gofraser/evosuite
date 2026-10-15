@@ -169,7 +169,7 @@ public class EvoSuiteCommandTest {
     public void extraArgumentsComeLastSoTheyWin() {
         GenerationOptions options = new GenerationOptions();
         options.extraArguments = "-Dsearch_budget=5 -Dsandbox=false";
-        List<String> args = arguments(options);
+        List<String> args = userArguments(arguments(options));
         assertEquals(List.of("-Dsearch_budget=5", "-Dsandbox=false"), args.subList(args.size() - 2, args.size()));
     }
 
@@ -265,7 +265,7 @@ public class EvoSuiteCommandTest {
         options.extraArguments = "-Dllm_model=ide";
         options.pomProperties = new java.util.LinkedHashMap<>(Map.of("llm_model", "pom property"));
         options.pomExtraArguments = "-Dllm_model=pom-args";
-        List<String> args = arguments(options);
+        List<String> args = userArguments(arguments(options));
         assertEquals(List.of("-Dllm_model=ide", "-Dllm_model=pom property", "-Dllm_model=pom-args"),
                 args.subList(args.size() - 3, args.size()));
         assertEquals("pom-args", options.effectiveLlmModel());
@@ -277,6 +277,42 @@ public class EvoSuiteCommandTest {
         assertEquals("NONE", options.effectiveLlmProvider());
         options.pomProperties = Map.of("llm_provider", "ollama");
         assertEquals("OLLAMA", options.effectiveLlmProvider());
+    }
+
+    /**
+     * EvoSuite takes the last value of a property, and the plug-in reads the suite from where it
+     * told EvoSuite to write it: a test folder or suffix in the user's arguments must not win.
+     */
+    @Test
+    public void theUsersArgumentsCannotMoveTheOutput() {
+        GenerationOptions options = new GenerationOptions();
+        options.extraArguments = "-Dtest_dir=/elsewhere -Dsearch_budget=5";
+        options.pomProperties = Map.of("junit_suffix", "Test", "report_dir", "/pom/reports");
+        options.pomExtraArguments = "-Dllm_trace_dir=/pom/traces";
+        List<String> args = arguments(options);
+
+        assertEquals("-Dtest_dir=" + new File("/p/src/test/evosuite").getAbsolutePath(), last(args, "-Dtest_dir="));
+        assertEquals("-Djunit_suffix=_ESTest", last(args, "-Djunit_suffix="));
+        assertEquals("-Dreport_dir=" + new File("/state/reports").getAbsolutePath(), last(args, "-Dreport_dir="));
+        assertEquals("-Dllm_trace_dir=" + new File(new File("/state/reports"), "llm-traces").getAbsolutePath(),
+                last(args, "-Dllm_trace_dir="));
+        assertEquals("-Dsearch_budget=5", last(args, "-Dsearch_budget="));
+        assertEquals(List.of("test_dir", "junit_suffix", "report_dir", "llm_trace_dir"),
+                EvoSuiteCommand.overriddenUserProperties(options));
+        assertEquals(List.of(), EvoSuiteCommand.overriddenUserProperties(new GenerationOptions()));
+    }
+
+    /** The arguments up to the output locations, which only follow the user's arguments. */
+    private static List<String> userArguments(List<String> args) {
+        int outputLocations = args.lastIndexOf(last(args, "-Dtest_dir="));
+        assertEquals(List.of("-Dtest_dir=", "-Djunit_suffix=", "-Dreport_dir=", "-Dllm_trace_dir="),
+                args.subList(outputLocations, outputLocations + 4).stream()
+                        .map(a -> a.substring(0, a.indexOf('=') + 1)).toList());
+        return args.subList(0, outputLocations);
+    }
+
+    private static String last(List<String> args, String prefix) {
+        return args.stream().filter(a -> a.startsWith(prefix)).reduce((a, b) -> b).orElse(null);
     }
 
     @Test

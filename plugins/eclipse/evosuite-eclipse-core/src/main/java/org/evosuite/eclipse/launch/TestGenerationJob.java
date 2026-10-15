@@ -193,6 +193,13 @@ public class TestGenerationJob extends Job {
             console.println("Using the EvoSuite configuration in " + project.getElementName() + "'s pom.xml: "
                     + String.join("; ", options.fromPom));
         }
+        List<String> overridden = EvoSuiteCommand.overriddenUserProperties(options);
+        if (!overridden.isEmpty()) {
+            console.println("Ignoring " + overridden.stream().map(p -> "-D" + p).collect(Collectors.joining(", "))
+                    + " from the additional arguments or the pom: the plug-in tells EvoSuite where to write the "
+                    + "tests and reports, and reads them from there. Set the test folder and suffix in the "
+                    + "EvoSuite settings instead.");
+        }
 
         IFolder testFolder = ProjectSetup.prepareTestFolder(project, options, progress.split(2));
         if (options.configureBuildPath && !ProjectSetup.separatesTestCode(project)) {
