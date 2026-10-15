@@ -84,7 +84,7 @@ public class PomSettingsTest {
                 "evosuite.extraArgs", "-Dx=1", "extraArgs", "-Dold=1", "memoryInMB", "1200");
         GenerationOptions options = new GenerationOptions();
         new PomSettings(plugin, generate, setup, properties).applyTo(options, BASEDIR);
-        assertEquals("BRANCH", options.criterion, "a generate execution first");
+        assertEquals("BRANCH", options.criterion, "the default-cli execution first");
         assertEquals("plugin-folder", options.testFolder, "then the plug-in, before a setup execution");
         assertEquals(240, options.searchBudget, "then evosuite.* properties");
         assertEquals("-Dx=1", options.pomExtraArguments, "before the deprecated names");
@@ -98,6 +98,10 @@ public class PomSettingsTest {
         assertEquals("src/test/gen", options.testFolder);
         new PomSettings(Map.of(), Map.of(), Map.of(), Map.of("targetFolder", "legacy")).applyTo(options, BASEDIR);
         assertEquals("legacy", options.testFolder);
+        // Only where the generate goal would take its default: it does not read the setup execution.
+        new PomSettings(Map.of(), Map.of(), Map.of("testFolder", "src/test/gen"),
+                Map.of("evosuite.testFolder", "src/test/property")).applyTo(options, BASEDIR);
+        assertEquals("src/test/property", options.testFolder);
     }
 
     @Test

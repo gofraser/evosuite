@@ -42,6 +42,9 @@ import org.eclipse.m2e.core.project.IMavenProjectFacade;
  */
 final class M2eReader {
 
+    /** The id of the execution that runs a goal invoked from the command line. */
+    static final String DEFAULT_CLI = "default-cli";
+
     private M2eReader() {
     }
 
@@ -56,7 +59,7 @@ final class M2eReader {
         if (model == null) {
             return null;
         }
-        Plugin plugin = model.getPlugin(PomSettings.GROUP_ID + ":" + PomSettings.ARTIFACT_ID);
+        Plugin plugin = plugin(model);
         if (plugin == null) {
             return null;
         }
@@ -65,7 +68,10 @@ final class M2eReader {
         Map<String, String> setup = new LinkedHashMap<>();
         collect(plugin.getConfiguration(), pluginConfiguration);
         for (PluginExecution execution : plugin.getExecutions()) {
-            if (execution.getGoals().contains("generate")) {
+            // mvn evosuite:generate runs as the execution default-cli, which gets the plug-in's
+            // configuration and that of an execution with this id, but not that of other
+            // executions of the goal: those only run if the pom binds them to a phase.
+            if (DEFAULT_CLI.equals(execution.getId())) {
                 collect(execution.getConfiguration(), generate);
             }
             if (execution.getGoals().contains("setup")) {
@@ -84,6 +90,21 @@ final class M2eReader {
                     && "junit-jupiter-api".equals(artifact.getArtifactId());
         }
         return new PomSettings(pluginConfiguration, generate, setup, properties, junit4 && !jupiter);
+    }
+
+    /**
+     * The plug-in as {@code mvn evosuite:generate} finds it: among the build plug-ins, else in
+     * the plug-in management, whose configuration Maven also applies to a goal invoked by name.
+     * A pom that only sets {@code evosuite.*} properties does not count: such properties, like
+     * {@code evosuite.version}, are as likely to serve other purposes.
+     */
+    private static Plugin plugin(MavenProject model) {
+        String key = PomSettings.GROUP_ID + ":" + PomSettings.ARTIFACT_ID;
+        Plugin plugin = model.getPlugin(key);
+        if (plugin == null && model.getPluginManagement() != null) {
+            plugin = model.getPluginManagement().getPluginsAsMap().get(key);
+        }
+        return plugin;
     }
 
     static String serverPassword(String serverId) throws CoreException {

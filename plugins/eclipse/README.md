@@ -209,7 +209,9 @@ project, and each run replaces those of the run before.
 ### Maven and Gradle projects
 
 If a Maven project configures the EvoSuite Maven plugin
-(`org.evosuite.plugins:evosuite-maven-plugin`), the plugin takes these settings from the pom.
+(`org.evosuite.plugins:evosuite-maven-plugin`), among its build plugins or only in
+`pluginManagement`, the plugin takes these settings from the pom. Properties such as
+`evosuite.version` alone do not count.
 That way a class gets the same tests in Eclipse as with `mvn evosuite:generate`:
 
 | pom parameter | becomes | if unset |
@@ -228,10 +230,12 @@ supplies the API key and checks the model just as for its own LLM settings. Wher
 does end up on a command line, the console masks it.
 
 The values come from m2e's effective model, so parent poms, `pluginManagement` and `${...}`
-properties count. Each parameter is resolved as Maven resolves it for the `generate` goal. The
-order is a `generate` execution's configuration, the plugin's configuration, a pom property
-`evosuite.<name>`, then the deprecated unprefixed property. `testFolder` also comes from a
-`setup` execution, which registers the folder for Maven builds. The project's EvoSuite
+properties count. Each parameter is resolved as Maven resolves it for `mvn evosuite:generate`.
+The order is the configuration of an execution with the id `default-cli`, the plugin's
+configuration, then a pom property `evosuite.<name>`. Other executions of the `generate` goal
+do not count, because Maven does not use them for a goal run from the command line. Where
+`generate` would use its default `testFolder`, the folder of a `setup` execution is taken
+instead, since that execution registers the folder for Maven builds. The project's EvoSuite
 page lists what the pom overrides, and so does the console at each run. Parameters for
 whole-module runs (`timeInMinutesPerProject`, `schedule`, `cuts`, class filters) do not apply to
 single classes. To use the Eclipse settings anyway, clear *Advanced > Take settings from the

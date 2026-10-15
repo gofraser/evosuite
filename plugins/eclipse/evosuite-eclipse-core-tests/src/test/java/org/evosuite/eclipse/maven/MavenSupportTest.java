@@ -71,12 +71,31 @@ public class MavenSupportTest {
             + "<testFolder>${generated.tests}</testFolder>"
             + "<evosuiteProperties><llm_provider>OLLAMA</llm_provider><llm_model>qwen3</llm_model>"
             + "</evosuiteProperties><llmApiKeyServerId>llm</llmApiKeyServerId></configuration>\n"
-            + "    <executions><execution><id>gen</id><goals><goal>generate</goal></goals>\n"
+            + "    <executions><execution><id>default-cli</id>\n"
             + "      <configuration><extraArgs>-Dminimize=false</extraArgs>"
             + "<evosuiteProperties><llm_model>a model with spaces</llm_model></evosuiteProperties>"
             + "</configuration>\n"
+            + "    </execution><execution><id>gen</id><goals><goal>generate</goal></goals>\n"
+            + "      <configuration><criterion>EXECUTION</criterion><extraArgs>-Dother=true</extraArgs>"
+            + "</configuration>\n"
             + "    </execution></executions>\n"
             + "  </plugin></plugins></build>\n"
+            + "</project>\n";
+
+    /** Uses the parent's plugin management without declaring the plug-in. */
+    private static final String MANAGED = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n"
+            + "  <modelVersion>4.0.0</modelVersion>\n"
+            + "  <parent><groupId>t</groupId><artifactId>parent</artifactId><version>1</version>"
+            + "<relativePath>../maven-parent/pom.xml</relativePath></parent>\n"
+            + "  <artifactId>managed</artifactId><packaging>pom</packaging>\n"
+            + "</project>\n";
+
+    /** Sets EvoSuite properties, such as the version of its runtime, without using the plug-in. */
+    private static final String ONLY_PROPERTIES = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n"
+            + "  <modelVersion>4.0.0</modelVersion>\n"
+            + "  <groupId>t</groupId><artifactId>only-props</artifactId><version>1</version><packaging>pom</packaging>\n"
+            + "  <properties><evosuite.version>1.2.1-SNAPSHOT</evosuite.version>"
+            + "<evosuite.timeInMinutesPerClass>4</evosuite.timeInMinutesPerClass></properties>\n"
             + "</project>\n";
 
     private static final String PLAIN = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n"
@@ -143,13 +162,29 @@ public class MavenSupportTest {
 
         GenerationOptions options = EvoSuitePreferences.resolve(child, null);
         assertEquals(180, options.searchBudget, "plugin management in the parent");
-        assertEquals("BRANCH", options.criterion, "the child overrides the parent");
+        assertEquals("BRANCH", options.criterion, "the child overrides the parent, not the gen execution");
         assertEquals("src/test/generated", options.testFolder, "a property");
-        assertEquals("-Dminimize=false", options.pomExtraArguments, "the generate execution");
+        assertEquals("-Dminimize=false", options.pomExtraArguments, "the execution mvn evosuite:generate runs");
         assertEquals(java.util.Map.of("llm_provider", "OLLAMA", "llm_model", "a model with spaces"),
                 options.pomProperties, "maps merge entry by entry");
         assertEquals("llm", options.llmApiKeyServerId);
         assertTrue(options.fromPom.contains("search budget 180 s (timeInMinutesPerClass)"), options.fromPom.toString());
+    }
+
+    @Test
+    public void readsPluginManagementWithoutAPluginDeclaration() throws Exception {
+        mavenProject("maven-parent", PARENT);
+        GenerationOptions options = EvoSuitePreferences.resolve(mavenProject("maven-managed", MANAGED), null);
+        assertEquals(180, options.searchBudget, options.fromPom.toString());
+        assertEquals("LINE", options.criterion);
+    }
+
+    @Test
+    public void evosuitePropertiesAloneDoNotMeanThePluginIsUsed() throws Exception {
+        GenerationOptions options = EvoSuitePreferences.resolve(mavenProject("maven-only-props", ONLY_PROPERTIES),
+                null);
+        assertEquals(new GenerationOptions().searchBudget, options.searchBudget);
+        assertEquals(List.of(), options.fromPom);
     }
 
     @Test

@@ -38,11 +38,12 @@ import org.evosuite.eclipse.launch.GenerationOptions;
  * same budget, criteria, arguments and test folder as with {@code mvn evosuite:generate}. Unset
  * parameters take the Maven plug-in's defaults for the same reason.
  *
- * <p>Each parameter is resolved as Maven resolves it for the {@code generate} goal: the
- * configuration of a {@code generate} execution, then the plug-in's own configuration, then the
- * pom property {@code evosuite.<name>}, then the deprecated unprefixed property the Maven plug-in
- * still reads, then the Maven plug-in's default. The test folder also looks at a {@code setup}
- * execution, which is where the folder is registered as a test source root.
+ * <p>Each parameter is resolved as Maven resolves it for {@code mvn evosuite:generate}: the
+ * configuration of the execution {@code default-cli}, then the plug-in's own configuration, then
+ * the pom property {@code evosuite.<name>}, then the Maven plug-in's default. Other executions of
+ * the {@code generate} goal do not apply to a goal invoked by name. Where the goal would use its
+ * default test folder, the folder of a {@code setup} execution is taken instead, since that is
+ * the folder the build registers as a test source root.
  *
  * <p>Parameters about whole-module runs (cores apart from dividing memory, the project budget,
  * the schedule, class selection) have no counterpart for a single class and are not used.
@@ -76,7 +77,8 @@ public final class PomSettings {
 
     /**
      * @param plugin     the plug-in's own configuration parameters, by element name
-     * @param generate   the configuration of executions of the {@code generate} goal
+     * @param generate   the configuration of the execution {@code default-cli}, which
+     *                   {@code mvn evosuite:generate} runs
      * @param setup      the configuration of executions of the {@code setup} goal
      * @param properties the pom's properties
      * @param junit4Only whether the project depends on junit:junit but not on junit-jupiter-api,
@@ -212,7 +214,7 @@ public final class PomSettings {
 
     /**
      * The {@code evosuiteProperties} map. Maven merges a map parameter entry by entry, so a
-     * {@code generate} execution's entries override the plug-in's and add to them. Values are
+     * {@code default-cli} execution's entries override the plug-in's and add to them. Values are
      * not trimmed apart from their ends, since they may contain spaces.
      */
     private Map<String, String> evosuiteProperties() {
@@ -237,13 +239,13 @@ public final class PomSettings {
         List<String> candidates = new ArrayList<>();
         candidates.add(generate.get(name));
         candidates.add(plugin.get(name));
-        if ("testFolder".equals(name)) {
-            candidates.add(setup.get(name));
-        }
         candidates.add(properties.get("evosuite." + name));
         String legacy = LEGACY_PROPERTIES.get(name);
         if (legacy != null) {
             candidates.add(properties.get(legacy));
+        }
+        if ("testFolder".equals(name)) {
+            candidates.add(setup.get(name));
         }
         for (String candidate : candidates) {
             if (candidate != null && !candidate.isBlank()) {
