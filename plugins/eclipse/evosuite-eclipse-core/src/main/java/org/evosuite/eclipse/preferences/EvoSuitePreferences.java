@@ -21,11 +21,8 @@ package org.evosuite.eclipse.preferences;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ProjectScope;
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.preferences.DefaultScope;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
-import org.eclipse.core.runtime.preferences.IPreferencesService;
-import org.eclipse.core.runtime.preferences.IScopeContext;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.evosuite.eclipse.Activator;
 import org.evosuite.eclipse.launch.GenerationOptions;
@@ -54,6 +51,15 @@ public final class EvoSuitePreferences {
     public static final String JAVA_HOME = "javaHome";
     public static final String OPEN_GENERATED_TESTS = "openGeneratedTests";
     public static final String CONFIGURE_BUILD_PATH = "configureBuildPath";
+    public static final String LLM_PROVIDER = "llmProvider";
+    public static final String LLM_MODEL = "llmModel";
+    public static final String LLM_BASE_URL = "llmBaseUrl";
+    public static final String LLM_APPROACH = "llmApproach";
+    public static final String LLM_SEEDING = "llmSeeding";
+    public static final String LLM_ON_STAGNATION = "llmOnStagnation";
+    public static final String LLM_OPERATORS = "llmOperators";
+    public static final String LLM_POSTPROCESSING = "llmPostprocessing";
+    public static final String LLM_MAX_CALLS = "llmMaxCalls";
 
     private EvoSuitePreferences() {
     }
@@ -75,10 +81,50 @@ public final class EvoSuitePreferences {
         node.put(JAVA_HOME, d.javaHome);
         node.putBoolean(OPEN_GENERATED_TESTS, d.openGeneratedTests);
         node.putBoolean(CONFIGURE_BUILD_PATH, d.configureBuildPath);
+        node.put(LLM_PROVIDER, d.llmProvider);
+        node.put(LLM_MODEL, d.llmModel);
+        node.put(LLM_BASE_URL, d.llmBaseUrl);
+        node.put(LLM_APPROACH, d.llmApproach);
+        node.put(LLM_SEEDING, d.llmSeeding);
+        node.putBoolean(LLM_ON_STAGNATION, d.llmOnStagnation);
+        node.putBoolean(LLM_OPERATORS, d.llmOperators);
+        node.putBoolean(LLM_POSTPROCESSING, d.llmPostprocessing);
+        node.putInt(LLM_MAX_CALLS, d.llmMaxCalls);
     }
 
     public static boolean usesProjectSettings(IProject project) {
         return new ProjectScope(project).getNode(QUALIFIER).getBoolean(USE_PROJECT_SETTINGS, false);
+    }
+
+    /** The first of a list of preference nodes that has a value for a key. */
+    private static final class Lookup {
+        private final IEclipsePreferences[] nodes;
+
+        Lookup(IEclipsePreferences... nodes) {
+            this.nodes = nodes;
+        }
+
+        String getString(String key, String fallback) {
+            for (IEclipsePreferences node : nodes) {
+                String value = node.get(key, null);
+                if (value != null) {
+                    return value;
+                }
+            }
+            return fallback;
+        }
+
+        int getInt(String key, int fallback) {
+            try {
+                return Integer.parseInt(getString(key, Integer.toString(fallback)).trim());
+            } catch (NumberFormatException e) {
+                return fallback;
+            }
+        }
+
+        boolean getBoolean(String key, boolean fallback) {
+            return Boolean.parseBoolean(getString(key, Boolean.toString(fallback)).trim());
+        }
     }
 
     /**
@@ -88,24 +134,34 @@ public final class EvoSuitePreferences {
      * up a different workspace value instead.
      */
     public static GenerationOptions load(IProject project) {
-        IScopeContext[] contexts = usesProjectSettings(project)
-                ? new IScopeContext[]{new ProjectScope(project), DefaultScope.INSTANCE}
-                : new IScopeContext[]{InstanceScope.INSTANCE, DefaultScope.INSTANCE};
-        IPreferencesService prefs = Platform.getPreferencesService();
+        // Explicit nodes rather than IPreferencesService, which goes on to the remaining scopes
+        // of its default order, the workspace among them, after the contexts it is given.
+        Lookup prefs = usesProjectSettings(project)
+                ? new Lookup(new ProjectScope(project).getNode(QUALIFIER), DefaultScope.INSTANCE.getNode(QUALIFIER))
+                : new Lookup(InstanceScope.INSTANCE.getNode(QUALIFIER), DefaultScope.INSTANCE.getNode(QUALIFIER));
         GenerationOptions d = new GenerationOptions();
         GenerationOptions o = new GenerationOptions();
-        o.searchBudget = prefs.getInt(QUALIFIER, SEARCH_BUDGET, d.searchBudget, contexts);
-        o.criterion = prefs.getString(QUALIFIER, CRITERION, d.criterion, contexts);
-        o.assertions = prefs.getBoolean(QUALIFIER, ASSERTIONS, d.assertions, contexts);
-        o.minimize = prefs.getBoolean(QUALIFIER, MINIMIZE, d.minimize, contexts);
-        o.testFormat = prefs.getString(QUALIFIER, TEST_FORMAT, d.testFormat, contexts);
-        o.testSuffix = prefs.getString(QUALIFIER, TEST_SUFFIX, d.testSuffix, contexts);
-        o.testFolder = prefs.getString(QUALIFIER, TEST_FOLDER, d.testFolder, contexts);
-        o.clientMemory = prefs.getInt(QUALIFIER, CLIENT_MEMORY, d.clientMemory, contexts);
-        o.extraArguments = prefs.getString(QUALIFIER, EXTRA_ARGUMENTS, d.extraArguments, contexts);
-        o.javaHome = prefs.getString(QUALIFIER, JAVA_HOME, d.javaHome, contexts);
-        o.openGeneratedTests = prefs.getBoolean(QUALIFIER, OPEN_GENERATED_TESTS, d.openGeneratedTests, contexts);
-        o.configureBuildPath = prefs.getBoolean(QUALIFIER, CONFIGURE_BUILD_PATH, d.configureBuildPath, contexts);
+        o.searchBudget = prefs.getInt(SEARCH_BUDGET, d.searchBudget);
+        o.criterion = prefs.getString(CRITERION, d.criterion);
+        o.assertions = prefs.getBoolean(ASSERTIONS, d.assertions);
+        o.minimize = prefs.getBoolean(MINIMIZE, d.minimize);
+        o.testFormat = prefs.getString(TEST_FORMAT, d.testFormat);
+        o.testSuffix = prefs.getString(TEST_SUFFIX, d.testSuffix);
+        o.testFolder = prefs.getString(TEST_FOLDER, d.testFolder);
+        o.clientMemory = prefs.getInt(CLIENT_MEMORY, d.clientMemory);
+        o.extraArguments = prefs.getString(EXTRA_ARGUMENTS, d.extraArguments);
+        o.javaHome = prefs.getString(JAVA_HOME, d.javaHome);
+        o.openGeneratedTests = prefs.getBoolean(OPEN_GENERATED_TESTS, d.openGeneratedTests);
+        o.configureBuildPath = prefs.getBoolean(CONFIGURE_BUILD_PATH, d.configureBuildPath);
+        o.llmProvider = prefs.getString(LLM_PROVIDER, d.llmProvider);
+        o.llmModel = prefs.getString(LLM_MODEL, d.llmModel).trim();
+        o.llmBaseUrl = prefs.getString(LLM_BASE_URL, d.llmBaseUrl).trim();
+        o.llmApproach = prefs.getString(LLM_APPROACH, d.llmApproach);
+        o.llmSeeding = prefs.getString(LLM_SEEDING, d.llmSeeding);
+        o.llmOnStagnation = prefs.getBoolean(LLM_ON_STAGNATION, d.llmOnStagnation);
+        o.llmOperators = prefs.getBoolean(LLM_OPERATORS, d.llmOperators);
+        o.llmPostprocessing = prefs.getBoolean(LLM_POSTPROCESSING, d.llmPostprocessing);
+        o.llmMaxCalls = prefs.getInt(LLM_MAX_CALLS, d.llmMaxCalls);
         // Trimmed once here, so that every user of a setting sees the same value.
         o.criterion = o.criterion.trim();
         o.testSuffix = o.testSuffix.isBlank() ? d.testSuffix : o.testSuffix.trim();

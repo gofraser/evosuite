@@ -26,6 +26,7 @@ import java.io.Reader;
 import java.nio.CharBuffer;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -47,10 +48,18 @@ public final class EvoSuiteProcess {
 
     public static int run(List<String> command, File workingDirectory, ProgressParser.Listener listener,
                           BooleanSupplier cancelled) throws IOException, InterruptedException {
-        Process process = new ProcessBuilder(command)
+        return run(command, workingDirectory, Map.of(), listener, cancelled);
+    }
+
+    /** @param environment variables to set on top of the IDE's own environment */
+    public static int run(List<String> command, File workingDirectory, Map<String, String> environment,
+                          ProgressParser.Listener listener, BooleanSupplier cancelled)
+            throws IOException, InterruptedException {
+        ProcessBuilder builder = new ProcessBuilder(command)
                 .directory(workingDirectory)
-                .redirectErrorStream(true)
-                .start();
+                .redirectErrorStream(true);
+        builder.environment().putAll(environment);
+        Process process = builder.start();
         process.getOutputStream().close();
         Thread pump = new Thread(() -> pump(process, listener), "EvoSuite output");
         pump.setDaemon(true);

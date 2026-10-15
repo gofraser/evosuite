@@ -22,11 +22,13 @@ package org.evosuite.eclipse.launch;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IBuildConfiguration;
@@ -53,6 +55,7 @@ import org.eclipse.ui.ide.IDE;
 import org.evosuite.eclipse.Activator;
 import org.evosuite.eclipse.EvoSuiteJars;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
+import org.evosuite.eclipse.preferences.LlmApiKey;
 import org.evosuite.eclipse.ui.EvoSuiteConsole;
 
 /**
@@ -67,6 +70,9 @@ public class TestGenerationJob extends Job {
     public static final Object FAMILY = TestGenerationJob.class;
 
     private static final Semaphore ONE_RUN_AT_A_TIME = new Semaphore(1);
+
+    /** Where the LLM API key comes from; tests replace it to stay clear of secure storage. */
+    static Supplier<String> apiKeySource = LlmApiKey::get;
     private static final int MAX_EDITORS = 3;
 
     private final IJavaProject project;
@@ -161,6 +167,7 @@ public class TestGenerationJob extends Job {
         waitForBuild(progress.split(10));
 
         List<String> classpath = ProjectSetup.runtimeClasspath(project);
+        Map<String, String> environment = llmEnvironment(console);
         ProjectSetup.JavaInstallation java = ProjectSetup.javaInstallation(project, options);
         if (!java.hasCompiler) {
             console.println(java.executable.getParentFile().getParent() + " is a JRE without javac. EvoSuite "
@@ -189,7 +196,8 @@ public class TestGenerationJob extends Job {
             File suite = EvoSuiteCommand.suiteFile(testDir, className, options.testSuffix);
             // newChild, not split: split throws once cancelled, which would skip the refresh below
             // and leave the suites of the classes already done out of sync with the workspace.
-            IStatus status = generateOne(command, java, className, label, suite, console, progress.newChild(100));
+            IStatus status = generateOne(command, java, environment, className, label, suite, console,
+                    progress.newChild(100));
             if (status.getSeverity() == IStatus.CANCEL) {
                 console.println("Cancelled.");
                 break;
@@ -210,8 +218,9 @@ public class TestGenerationJob extends Job {
         return result.isOK() ? Status.OK_STATUS : result;
     }
 
-    private IStatus generateOne(EvoSuiteCommand command, ProjectSetup.JavaInstallation java, String className,
-                                String label, File suite, EvoSuiteConsole console, SubMonitor monitor) {
+    private IStatus generateOne(EvoSuiteCommand command, ProjectSetup.JavaInstallation java,
+                                Map<String, String> environment, String className, String label, File suite,
+                                EvoSuiteConsole console, SubMonitor monitor) {
         // Compared with the timestamp afterwards rather than with the clock, which a file system
         // with coarse timestamps (FAT: 2 s) could place before the start of a successful run.
         long before = suite.isFile() ? suite.lastModified() : Long.MIN_VALUE;
@@ -247,7 +256,7 @@ public class TestGenerationJob extends Job {
             // Windows, and the console shows the reason.
             List<String> commandLine = EvoSuiteCommand.fitCommandLine(arguments, argumentFile,
                     java.readsArgumentFiles() ? EvoSuiteCommand.MAX_INLINE_LENGTH : Integer.MAX_VALUE);
-            exitCode = EvoSuiteProcess.run(commandLine, command.getWorkingDirectory(), listener, () -> {
+            exitCode = EvoSuiteProcess.run(commandLine, command.getWorkingDirectory(), environment, listener, () -> {
                 // Polled from this job's thread, so the monitor is only ever touched here.
                 int now = percent.get();
                 if (now > reported[0]) {
@@ -286,6 +295,30 @@ public class TestGenerationJob extends Job {
         }
         return Activator.error("No tests were generated for " + className + " (EvoSuite exit code " + exitCode
                 + "); the EvoSuite console shows why.");
+    }
+
+    /**
+     * Checks the LLM settings, and returns the environment that carries the API key: on the
+     * command line it would be visible to other users and echoed to the console.
+     */
+    private Map<String, String> llmEnvironment(EvoSuiteConsole console) throws CoreException {
+        if (!options.usesLlm()) {
+            return Map.of();
+        }
+        if (options.llmModel.isEmpty() && !GenerationOptions.LLM_OPENAI.equals(options.llmProvider)) {
+            throw new CoreException(Activator.error("The LLM provider " + options.llmProvider + " needs a model. "
+                    + "Set one in the EvoSuite settings, under Large language model."));
+        }
+        String key = apiKeySource.get();
+        if (!key.isEmpty()) {
+            return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, key);
+        }
+        if (!GenerationOptions.LLM_OLLAMA.equals(options.llmProvider)
+                && System.getenv(EvoSuiteCommand.API_KEY_VARIABLE) == null) {
+            console.println("No LLM API key is set. Enter one under Preferences > Java > EvoSuite, or set "
+                    + EvoSuiteCommand.API_KEY_VARIABLE + " in the environment Eclipse starts in.");
+        }
+        return Map.of();
     }
 
     private void waitForBuild(SubMonitor monitor) throws CoreException {

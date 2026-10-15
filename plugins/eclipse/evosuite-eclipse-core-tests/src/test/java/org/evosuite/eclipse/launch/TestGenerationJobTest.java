@@ -20,11 +20,18 @@
 package org.evosuite.eclipse.launch;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+
+import com.sun.net.httpserver.HttpServer;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
@@ -36,6 +43,7 @@ import org.eclipse.jdt.junit.JUnitCore;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.classpath.EvoSuiteClasspathContainer;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
+import org.evosuite.eclipse.preferences.LlmApiKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -100,7 +108,60 @@ public class TestGenerationJobTest {
         assertTrue(TestProjects.hasEntry(project, JUnitCore.JUNIT5_CONTAINER_PATH), "JUnit 5 not added");
         assertTrue(TestProjects.hasEntry(project, EvoSuiteClasspathContainer.PATH), "EvoSuite runtime not added");
         // EvoSuite wrote its statistics to the plug-in's state area, not into the project.
-        assertTrue(!project.getProject().getFolder("evosuite-report").exists(), "report folder in the project");
+        assertFalse(project.getProject().getFolder("evosuite-report").exists(), "report folder in the project");
+    }
+
+    /**
+     * The LLM settings reach EvoSuite, and the API key arrives through the environment, at an
+     * OpenAI-compatible stand-in that answers every request with the same small test.
+     */
+    @Test
+    public void llmSettingsReachEvoSuiteWithTheKeyInTheEnvironment() throws Exception {
+        List<String> requests = new CopyOnWriteArrayList<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/", exchange -> {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            requests.add(exchange.getRequestURI().getPath() + " | "
+                    + exchange.getRequestHeaders().getFirst("Authorization") + " | " + body);
+            byte[] response = ("{\"id\":\"fake\",\"object\":\"chat.completion\",\"created\":0,"
+                    + "\"model\":\"fake-model\",\"choices\":[{\"index\":0,\"finish_reason\":\"stop\","
+                    + "\"message\":{\"role\":\"assistant\",\"content\":\"```java\\n@Test\\n"
+                    + "public void test0() {\\n  Calculator c = new Calculator();\\n  c.max(1, 2);\\n}\\n```\"}}],"
+                    + "\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}")
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
+            exchange.close();
+        });
+        server.start();
+        try {
+            preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+            preferences.put(EvoSuitePreferences.LLM_PROVIDER, GenerationOptions.LLM_OPENAI);
+            preferences.put(EvoSuitePreferences.LLM_MODEL, "fake-model");
+            preferences.put(EvoSuitePreferences.LLM_BASE_URL,
+                    "http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
+            preferences.put(EvoSuitePreferences.LLM_SEEDING, "FULL");
+            TestGenerationJob.apiKeySource = () -> "test-key";
+            IJavaProject project = TestProjects.create("llm", "src/main/java", null);
+            TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
+            TestProjects.build(project);
+
+            TestGenerationJob job = new TestGenerationJob(project, List.of("demo.Calculator"));
+            job.schedule();
+            assertTrue(job.join(TimeUnit.MINUTES.toMillis(5), null), "generation did not finish in time");
+
+            assertEquals(IStatus.OK, job.getResult().getSeverity(), job.getResult()::toString);
+            assertTrue(project.getProject().getFile("src/test/evosuite/demo/Calculator_ESTest.java").exists());
+            assertFalse(requests.isEmpty(), "EvoSuite never called the LLM");
+            for (String request : requests) {
+                assertTrue(request.contains("chat/completions | Bearer test-key | "), request);
+                assertTrue(request.contains("fake-model"), request);
+            }
+        } finally {
+            server.stop(0);
+            TestGenerationJob.apiKeySource = LlmApiKey::get;
+        }
     }
 
     @Test

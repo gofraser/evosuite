@@ -28,6 +28,7 @@ import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.jface.preference.BooleanFieldEditor;
 import org.eclipse.jface.preference.FieldEditor;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
+import org.eclipse.jface.preference.StringFieldEditor;
 import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.ui.IWorkbenchPropertyPage;
 import org.eclipse.ui.preferences.ScopedPreferenceStore;
@@ -40,10 +41,10 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
 
     private IAdaptable element;
     private BooleanFieldEditor useProjectSettings;
-    private List<FieldEditor> settings = List.of();
+    private List<SettingsFields.Field> settings = List.of();
 
     public EvoSuitePropertyPage() {
-        super(GRID);
+        super(FLAT);
     }
 
     @Override
@@ -63,7 +64,7 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
         useProjectSettings = new BooleanFieldEditor(EvoSuitePreferences.USE_PROJECT_SETTINGS,
                 "Enable pro&ject-specific settings", getFieldEditorParent());
         addField(useProjectSettings);
-        settings = SettingsFields.create(getFieldEditorParent(), this::addField);
+        settings = SettingsFields.create(getFieldEditorParent(), false, this::addField);
     }
 
     @Override
@@ -87,9 +88,20 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
         }
     }
 
+    /** What ticking or clearing the checkbox does; for tests. */
+    void setUseProjectSettings(boolean use) {
+        propertyChange(new PropertyChangeEvent(useProjectSettings, FieldEditor.VALUE, !use, use));
+    }
+
+    /** Whether the settings below the checkbox are editable; for tests. */
+    boolean settingsEnabled() {
+        SettingsFields.Field first = settings.get(0);
+        return ((StringFieldEditor) first.editor).getTextControl(first.parent).isEnabled();
+    }
+
     private void updateEnablement(boolean enabled) {
-        for (FieldEditor editor : settings) {
-            editor.setEnabled(enabled, getFieldEditorParent());
+        for (SettingsFields.Field field : settings) {
+            field.editor.setEnabled(enabled, field.parent);
         }
     }
 }

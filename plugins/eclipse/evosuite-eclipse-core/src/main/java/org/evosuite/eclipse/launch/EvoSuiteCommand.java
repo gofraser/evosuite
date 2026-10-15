@@ -38,6 +38,9 @@ import java.util.stream.Collectors;
  */
 public final class EvoSuiteCommand {
 
+    /** The environment variable EvoSuite reads the LLM API key from when none is configured. */
+    public static final String API_KEY_VARIABLE = "EVOSUITE_LLM_API_KEY";
+
     private final String javaExecutable;
     private final String evosuiteJar;
     private final String targetClass;
@@ -92,9 +95,54 @@ public final class EvoSuiteCommand {
         args.add("-Djunit_suffix=" + options.testSuffix);
         // The progress bar is how the plug-in follows the search; see ProgressParser.
         args.add("-Dshow_progress=true");
+        addLlmArguments(args);
         // Last, so that the user's own arguments win over everything above.
         args.addAll(splitArguments(options.extraArguments));
         return args;
+    }
+
+    /**
+     * The LLM settings, if a provider is set. The API key is deliberately not among them: the
+     * command line is visible to other users of the machine and is echoed to the console, so the
+     * key travels in the {@code EVOSUITE_LLM_API_KEY} environment variable instead.
+     */
+    private void addLlmArguments(List<String> args) {
+        if (!options.usesLlm()) {
+            return;
+        }
+        args.add("-Dllm_provider=" + options.llmProvider);
+        if (!options.llmModel.isEmpty()) {
+            args.add("-Dllm_model=" + options.llmModel);
+        }
+        String baseUrl = options.llmBaseUrl;
+        if (baseUrl.isEmpty() && GenerationOptions.LLM_OLLAMA.equals(options.llmProvider)) {
+            baseUrl = GenerationOptions.OLLAMA_DEFAULT_URL;
+        }
+        if (!baseUrl.isEmpty()) {
+            args.add("-Dllm_base_url=" + baseUrl);
+        }
+        if (GenerationOptions.APPROACH_LLM_SINGLE_PROMPT.equals(options.llmApproach)) {
+            args.add("-Dstrategy=LLMSTRATEGY");
+            args.add("-Dllm_strategy_mode=SINGLE_PROMPT");
+        } else if (GenerationOptions.APPROACH_LLM_ITERATIVE.equals(options.llmApproach)) {
+            args.add("-Dstrategy=LLMSTRATEGY");
+            args.add("-Dllm_strategy_mode=ITERATIVE_BUDGETED");
+        }
+        if (!"OFF".equals(options.llmSeeding)) {
+            args.add("-Dllm_seeding_profile=" + options.llmSeeding);
+        }
+        if (options.llmOnStagnation) {
+            args.add("-Dllm_on_stagnation=true");
+        }
+        if (options.llmOperators) {
+            args.add("-Dllm_operator_enabled=true");
+        }
+        if (options.llmPostprocessing) {
+            args.add("-Dllm_postprocessing_enabled=true");
+        }
+        if (options.llmMaxCalls > 0) {
+            args.add("-Dllm_max_calls=" + options.llmMaxCalls);
+        }
     }
 
     /**

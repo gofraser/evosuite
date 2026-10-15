@@ -29,6 +29,20 @@ public final class GenerationOptions {
     public static final String JUNIT5 = "JUNIT5";
     public static final String JUNIT4 = "JUNIT4";
 
+    /** {@link #llmProvider} values, as EvoSuite's {@code llm_provider} names them. */
+    public static final String LLM_NONE = "NONE";
+    public static final String LLM_OPENAI = "OPENAI";
+    public static final String LLM_ANTHROPIC = "ANTHROPIC";
+    public static final String LLM_OLLAMA = "OLLAMA";
+
+    /** {@link #llmApproach} values. */
+    public static final String APPROACH_SEARCH = "SEARCH";
+    public static final String APPROACH_LLM_SINGLE_PROMPT = "LLM_SINGLE_PROMPT";
+    public static final String APPROACH_LLM_ITERATIVE = "LLM_ITERATIVE";
+
+    /** Where a local Ollama server listens unless told otherwise. */
+    public static final String OLLAMA_DEFAULT_URL = "http://localhost:11434";
+
     /** Seconds of search per class. */
     public int searchBudget = 60;
     /** Colon-separated coverage criteria; empty means EvoSuite's default set. */
@@ -49,4 +63,29 @@ public final class GenerationOptions {
     public boolean openGeneratedTests = true;
     /** Add the test folder, JUnit and the EvoSuite runtime to the build path when missing. */
     public boolean configureBuildPath = true;
+
+    // LLM support. The API key is not a setting: it lives in secure storage (see LlmApiKey).
+
+    /** {@link #LLM_NONE} turns every LLM feature off, whatever the settings below say. */
+    public String llmProvider = LLM_NONE;
+    /** Empty means EvoSuite's default model, which only suits OpenAI. */
+    public String llmModel = "";
+    /** Empty means the provider's public endpoint, or {@link #OLLAMA_DEFAULT_URL} for Ollama. */
+    public String llmBaseUrl = "";
+    /** Search with LLM assistance, or generate with the LLM alone. */
+    public String llmApproach = APPROACH_SEARCH;
+    /** EvoSuite's {@code llm_seeding_profile}: OFF, MIN, STANDARD or FULL. */
+    public String llmSeeding = "OFF";
+    /** Ask the LLM for tests when the search stops improving. */
+    public boolean llmOnStagnation = false;
+    /** LLM-based mutation and crossover in the many-objective search. */
+    public boolean llmOperators = false;
+    /** Let the LLM improve names, comments and assertions of the final tests. */
+    public boolean llmPostprocessing = false;
+    /** LLM calls per class; 0 means unlimited. */
+    public int llmMaxCalls = 0;
+
+    public boolean usesLlm() {
+        return !LLM_NONE.equals(llmProvider);
+    }
 }

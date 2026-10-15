@@ -109,6 +109,52 @@ public class EvoSuiteCommandTest {
     }
 
     @Test
+    public void noLlmArgumentsWithoutAProvider() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmModel = "m";
+        options.llmOnStagnation = true;
+        assertFalse(arguments(options).stream().anyMatch(a -> a.contains("llm") || a.contains("strategy")));
+    }
+
+    @Test
+    public void passesTheLlmSettingsButNeverTheKey() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_ANTHROPIC;
+        options.llmModel = "claude-sonnet-5-5";
+        options.llmSeeding = "STANDARD";
+        options.llmOnStagnation = true;
+        options.llmOperators = true;
+        options.llmPostprocessing = true;
+        options.llmMaxCalls = 25;
+        List<String> args = arguments(options);
+        assertTrue(args.containsAll(List.of("-Dllm_provider=ANTHROPIC", "-Dllm_model=claude-sonnet-5-5",
+                "-Dllm_seeding_profile=STANDARD", "-Dllm_on_stagnation=true", "-Dllm_operator_enabled=true",
+                "-Dllm_postprocessing_enabled=true", "-Dllm_max_calls=25")), args.toString());
+        assertFalse(args.stream().anyMatch(a -> a.contains("llm_base_url") || a.contains("strategy")
+                || a.contains("api_key")), args.toString());
+    }
+
+    @Test
+    public void ollamaGetsTheLocalServerByDefault() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_OLLAMA;
+        assertTrue(arguments(options).contains("-Dllm_base_url=http://localhost:11434"));
+        options.llmBaseUrl = "http://gpu-box:11434";
+        assertTrue(arguments(options).contains("-Dllm_base_url=http://gpu-box:11434"));
+    }
+
+    @Test
+    public void llmOnlyApproachesSwitchTheStrategy() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_OPENAI;
+        options.llmApproach = GenerationOptions.APPROACH_LLM_ITERATIVE;
+        List<String> args = arguments(options);
+        assertTrue(args.containsAll(List.of("-Dstrategy=LLMSTRATEGY", "-Dllm_strategy_mode=ITERATIVE_BUDGETED")));
+        options.llmApproach = GenerationOptions.APPROACH_LLM_SINGLE_PROMPT;
+        assertTrue(arguments(options).contains("-Dllm_strategy_mode=SINGLE_PROMPT"));
+    }
+
+    @Test
     public void shortCommandLinesStayInline() throws Exception {
         List<String> args = List.of("java", "-jar", "evosuite.jar");
         assertEquals(args, EvoSuiteCommand.fitCommandLine(args, new File("unused"), 100));

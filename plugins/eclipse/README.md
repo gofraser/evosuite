@@ -46,6 +46,30 @@ EvoSuite* can override them per project. Project settings are stored in
 | Java home | the project's JRE | |
 | Additional arguments | | passed last, so they override everything above |
 
+### LLM support
+
+The *Large language model* group configures EvoSuite's LLM integration. Choosing a provider
+switches it on:
+
+| Setting | |
+|---|---|
+| Provider | None, OpenAI (or any OpenAI-compatible server, via the base URL), Anthropic, Ollama |
+| Model | required except for OpenAI, whose default EvoSuite knows |
+| Base URL | empty for the provider's endpoint; Ollama defaults to `http://localhost:11434` |
+| API key | workspace preferences only, kept in Eclipse's secure storage |
+| Approach | search assisted by the LLM, or LLM-only generation with one prompt or iterating on uncovered goals (`-Dstrategy=LLMSTRATEGY`) |
+| Seed the search | `llm_seeding_profile`: off, minimal, standard or full |
+| When the search stagnates | `llm_on_stagnation` |
+| Mutation and crossover | `llm_operator_enabled` |
+| Improve names, comments and assertions | `llm_postprocessing_enabled` |
+| LLM calls per class | `llm_max_calls` |
+
+The API key never goes into the project's `.settings` file, onto the command line, or into
+the console. EvoSuite receives it as the `EVOSUITE_LLM_API_KEY` environment variable. If no key
+is stored, an `EVOSUITE_LLM_API_KEY` set in the environment Eclipse starts in still works.
+Without any key, EvoSuite runs without the LLM, and the console says so. The remaining `llm_*`
+options can go into *Additional arguments*.
+
 The project directory is EvoSuite's base directory, so an `evosuite-files/evosuite.properties`
 in the project still applies. EvoSuite's statistics go to the plugin's state area, not into the
 project.
