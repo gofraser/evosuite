@@ -26,74 +26,82 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.core.resources.IProject;
 import org.eclipse.jface.preference.IPreferencePage;
 import org.eclipse.jface.preference.PreferenceDialog;
-import org.eclipse.jface.preference.PreferenceManager;
-import org.eclipse.jface.preference.PreferenceNode;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.evosuite.eclipse.TestProjects;
+import org.evosuite.eclipse.preferences.SettingsFields.Section;
 import org.junit.jupiter.api.Test;
 
 /**
- * The settings pages lay their editors out where a user can see them. A unit test of the
- * editors alone missed that the groups holding them had no size, which left both pages empty.
+ * The settings pages are registered where a user looks for them and lay their editors out where
+ * a user can see them. A unit test of the editors alone missed that the groups holding them had
+ * no size, which left the pages empty, so these tests open the pages in the workbench's dialogs.
  */
 public class SettingsPagesLayoutTest {
 
+    /** Taller pages would not fit on a laptop screen with the dialog's tree and buttons. */
+    private static final int MAX_PAGE_HEIGHT = 700;
+
     @Test
-    public void bothPagesShowEveryEditor() throws Exception {
-        IJavaProject project = TestProjects.create("layout", "src", null);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        Display.getDefault().syncExec(() -> {
-            try {
-                EvoSuitePreferencePage preferences = new EvoSuitePreferencePage();
-                preferences.init(null);
-                // Search budget, criteria, test folder, suffix, test time limit, model, base URL,
-                // API key, calls, heap, Java home, arguments; the property page has no API key.
-                assertVisible(preferences, 12);
-                EvoSuitePropertyPage properties = new EvoSuitePropertyPage();
-                properties.setElement(project.getProject());
-                assertVisible(properties, 11);
-            } catch (Throwable t) {
-                failure.set(t);
-            }
+    public void everyWorkspacePageShowsEveryEditor() throws Exception {
+        onUiThread(() -> {
+            // Budget, criteria, test folder, suffix and time limit.
+            assertPage(SettingsDialogs.preferences(Section.GENERAL), EvoSuitePreferencePage.class, 5, "general");
+            // Model, base URL, API key and calls.
+            assertPage(SettingsDialogs.preferences(Section.LLM), LlmPreferencePage.class, 4, "llm");
+            // Java home, heap and arguments.
+            assertPage(SettingsDialogs.preferences(Section.ADVANCED), AdvancedPreferencePage.class, 3, "advanced");
         });
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
     }
 
-    private static void assertVisible(IPreferencePage page, int textFields) {
-        PreferenceManager manager = new PreferenceManager();
-        manager.addToRoot(new PreferenceNode("page", page));
-        PreferenceDialog dialog = new PreferenceDialog(null, manager);
-        dialog.setBlockOnOpen(false);
-        dialog.open();
+    @Test
+    public void everyProjectPageShowsEveryEditor() throws Exception {
+        IProject project = TestProjects.create("layout", "src", null).getProject();
+        onUiThread(() -> {
+            assertPage(SettingsDialogs.properties(project, Section.GENERAL), EvoSuitePropertyPage.class, 5,
+                    "project-general");
+            // The project pages leave out the API key, which belongs to the workspace.
+            assertPage(SettingsDialogs.properties(project, Section.LLM), LlmPropertyPage.class, 3, "project-llm");
+            assertPage(SettingsDialogs.properties(project, Section.ADVANCED), AdvancedPropertyPage.class, 3,
+                    "project-advanced");
+        });
+    }
+
+    private static void assertPage(PreferenceDialog dialog, Class<?> type, int textFields, String screenshot) {
         try {
-            Display display = dialog.getShell().getDisplay();
-            while (display.readAndDispatch()) {
-                // let the dialog lay itself out
-            }
+            IPreferencePage page = (IPreferencePage) dialog.getSelectedPage();
+            assertEquals(type, page.getClass());
+            SettingsDialogs.screenshot(dialog, screenshot);
             List<Control> inputs = new ArrayList<>();
             collectInputs((Composite) page.getControl(), inputs);
             List<String> invisible = new ArrayList<>();
+            // The page is as wide as it wants to be; the dialog cuts off what does not fit.
+            Shell shell = dialog.getShell();
+            Rectangle visible = shell.getClientArea();
             for (Control input : inputs) {
                 Point size = input.getSize();
-                if (size.x <= 0 || size.y <= 0 || !input.isVisible()) {
+                Rectangle bounds = shell.getDisplay().map(input.getParent(), shell, input.getBounds());
+                if (size.x <= 0 || size.y <= 0 || !input.isVisible() || !visible.contains(bounds.x + bounds.width - 1,
+                        bounds.y + bounds.height - 1)) {
                     invisible.add(input.getClass().getSimpleName() + " " + input.getBounds());
                 }
             }
-            assertEquals(List.of(), invisible, "editors without room on " + page.getClass().getSimpleName());
-            assertEquals(textFields, inputs.stream().filter(c -> c instanceof Text).count(),
-                    "text fields on " + page.getClass().getSimpleName());
-            assertTrue(inputs.stream().anyMatch(c -> c instanceof Combo), "no combo boxes");
+            String name = type.getSimpleName();
+            assertEquals(List.of(), invisible, "editors without room on, or sticking out of, " + name);
+            assertEquals(textFields, inputs.stream().filter(c -> c instanceof Text).count(), "text fields on " + name);
+            int height = page.getControl().computeSize(page.getControl().getSize().x, SWT.DEFAULT).y;
+            assertTrue(height < MAX_PAGE_HEIGHT, name + " is " + height + " px high");
         } finally {
             dialog.close();
         }
@@ -107,6 +115,20 @@ public class SettingsPagesLayoutTest {
             } else if (child instanceof Composite composite) {
                 collectInputs(composite, inputs);
             }
+        }
+    }
+
+    static void onUiThread(Runnable test) {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Display.getDefault().syncExec(() -> {
+            try {
+                test.run();
+            } catch (Throwable t) {
+                failure.set(t);
+            }
+        });
+        if (failure.get() != null) {
+            throw new AssertionError(failure.get());
         }
     }
 }

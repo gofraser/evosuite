@@ -85,13 +85,48 @@
             name="EvoSuite"
             class="org.evosuite.eclipse.preferences.EvoSuitePreferencePage">
       </page>
+      <page
+            id="org.evosuite.eclipse.preferences.LlmPreferencePage"
+            category="org.evosuite.eclipse.preferences.EvoSuitePreferencePage"
+            name="Large Language Model"
+            class="org.evosuite.eclipse.preferences.LlmPreferencePage">
+      </page>
+      <page
+            id="org.evosuite.eclipse.preferences.AdvancedPreferencePage"
+            category="org.evosuite.eclipse.preferences.EvoSuitePreferencePage"
+            name="Advanced"
+            class="org.evosuite.eclipse.preferences.AdvancedPreferencePage">
+      </page>
    </extension>
 
+   <!-- The same tree for projects. Each page has the switch for project-specific settings. -->
    <extension point="org.eclipse.ui.propertyPages">
       <page
             id="org.evosuite.eclipse.preferences.EvoSuitePropertyPage"
             name="EvoSuite"
             class="org.evosuite.eclipse.preferences.EvoSuitePropertyPage">
+         <enabledWhen>
+            <adapt type="org.eclipse.core.resources.IProject">
+               <test property="org.eclipse.core.resources.projectNature" value="org.eclipse.jdt.core.javanature"/>
+            </adapt>
+         </enabledWhen>
+      </page>
+      <page
+            id="org.evosuite.eclipse.preferences.LlmPropertyPage"
+            category="org.evosuite.eclipse.preferences.EvoSuitePropertyPage"
+            name="Large Language Model"
+            class="org.evosuite.eclipse.preferences.LlmPropertyPage">
+         <enabledWhen>
+            <adapt type="org.eclipse.core.resources.IProject">
+               <test property="org.eclipse.core.resources.projectNature" value="org.eclipse.jdt.core.javanature"/>
+            </adapt>
+         </enabledWhen>
+      </page>
+      <page
+            id="org.evosuite.eclipse.preferences.AdvancedPropertyPage"
+            category="org.evosuite.eclipse.preferences.EvoSuitePropertyPage"
+            name="Advanced"
+            class="org.evosuite.eclipse.preferences.AdvancedPropertyPage">
          <enabledWhen>
             <adapt type="org.eclipse.core.resources.IProject">
                <test property="org.eclipse.core.resources.projectNature" value="org.eclipse.jdt.core.javanature"/>

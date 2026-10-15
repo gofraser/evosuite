@@ -24,14 +24,25 @@ import org.eclipse.jface.preference.FieldEditorPreferencePage;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
 import org.eclipse.ui.preferences.ScopedPreferenceStore;
+import org.evosuite.eclipse.preferences.SettingsFields.Section;
 
-/** Workspace-wide defaults, used by every project without project-specific settings. */
+/**
+ * Workspace-wide defaults, used by every project without project-specific settings. This page
+ * holds the general settings; its sub-pages hold the others.
+ */
 public class EvoSuitePreferencePage extends FieldEditorPreferencePage implements IWorkbenchPreferencePage {
 
+    private final Section section;
+
     public EvoSuitePreferencePage() {
-        super(GRID);
-        setDescription("Defaults for EvoSuite test generation. Projects can override them under "
+        this(Section.GENERAL, "Defaults for EvoSuite test generation. Projects can override them under "
                 + "Project > Properties > EvoSuite.");
+    }
+
+    EvoSuitePreferencePage(Section section, String description) {
+        super(GRID);
+        this.section = section;
+        setDescription(description);
     }
 
     @Override
@@ -41,6 +52,6 @@ public class EvoSuitePreferencePage extends FieldEditorPreferencePage implements
 
     @Override
     protected void createFieldEditors() {
-        SettingsFields.create(getFieldEditorParent(), true, this::addField);
+        SettingsFields.create(section, getFieldEditorParent(), true, this::addField);
     }
 }
