@@ -156,8 +156,9 @@ EvoSuite has a Maven Plugin that can be used to generate new test cases as part 
 2. Generated tests can be put directly on the classpath of the system based on the pom.xml files
 3. No need to install EvoSuite on local machine (Maven will take care of it automatically)
 
-For more details, check the
-[documentation](http://www.evosuite.org/documentation/maven-plugin/)
+Generated tests are written to `src/test/evosuite`, which the plugin adds to the build, and later runs only
+regenerate tests for classes that changed. See [plugins/maven/README.md](plugins/maven/README.md) for setup
+and options.
 
 ### EvoSuite plugin for IntelliJ
 

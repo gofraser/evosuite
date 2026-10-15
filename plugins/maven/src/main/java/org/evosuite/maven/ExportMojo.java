@@ -19,13 +19,12 @@
  */
 package org.evosuite.maven;
 
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.project.MavenProject;
 import org.evosuite.continuous.ContinuousTestGeneration;
+import org.evosuite.maven.util.GeneratedTests;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,32 +36,34 @@ import java.io.IOException;
  * </p>
  *
  * <p>
- * So, with "export" we can copy all generated tests to a specific folder, which
- * by default points to where Maven searches for tests.
- * If another folder is rather used (or if we want to run with Maven the tests in the default EvoSuite folder),
- * then Maven plugins like build-helper-maven-plugin are needed
+ * With "export" we copy all generated tests to the folder of generated tests, {@code src/test/evosuite} by
+ * default, which the {@code setup} goal adds to the build. {@code generate} already does this at the end of
+ * each run, so this goal is only needed to restore that folder from EvoSuite's own copy.
  * </p>
  */
-@Mojo(name = "export")
-public class ExportMojo extends AbstractMojo {
+@Mojo(name = "export", threadSafe = true)
+public class ExportMojo extends AbstractEvoSuiteMojo {
 
-
-    @Parameter(property = "targetFolder", defaultValue = "src/test/java")
-    private String targetFolder;
-
-    @Parameter(defaultValue = "${project}", required = true, readonly = true)
-    private MavenProject project;
-
+    /**
+     * Folder to copy the generated tests to, relative to the module's base directory.
+     */
+    @Parameter(property = "evosuite.testFolder", defaultValue = GeneratedTests.DEFAULT_FOLDER)
+    private String testFolder;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
+
+        String legacy = legacyProperty("evosuite.testFolder", "targetFolder");
+        if (legacy != null) {
+            testFolder = legacy;
+        }
 
         getLog().info("Exporting tests");
 
         File basedir = project.getBasedir();
 
         try {
-            boolean exported = ContinuousTestGeneration.exportToFolder(basedir.getAbsolutePath(), targetFolder);
+            boolean exported = ContinuousTestGeneration.exportToFolder(basedir.getAbsolutePath(), testFolder);
             if (!exported) {
                 getLog().info("Nothing to export");
                 return;
@@ -73,7 +74,7 @@ public class ExportMojo extends AbstractMojo {
             throw new MojoFailureException(msg);
         }
 
-        File target = ContinuousTestGeneration.resolveExportFolder(basedir.getAbsolutePath(), targetFolder);
+        File target = ContinuousTestGeneration.resolveExportFolder(basedir.getAbsolutePath(), testFolder);
         getLog().info("Exported tests to " + target);
     }
 

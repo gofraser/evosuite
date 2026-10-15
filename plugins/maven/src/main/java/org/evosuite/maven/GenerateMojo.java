@@ -19,53 +19,55 @@
  */
 package org.evosuite.maven;
 
-import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
-import org.apache.maven.project.MavenProject;
-import org.apache.maven.project.ProjectBuilder;
-import org.eclipse.aether.RepositorySystemSession;
-import org.evosuite.Properties;
 import org.evosuite.maven.util.EvoSuiteRunner;
 import org.evosuite.maven.util.FileUtils;
-import org.evosuite.maven.util.HistoryChanges;
-import org.evosuite.utils.SpawnProcessKeepAliveChecker;
+import org.evosuite.maven.util.GeneratedTests;
+import org.evosuite.maven.util.SpawnProcessManagerLease;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
  * Generate JUnit tests.
+ *
+ * <p>The generated tests are written to {@code src/test/evosuite} (see {@code testFolder}), which the
+ * {@code setup} goal adds to the build. Tests for classes that no longer exist are removed from there.</p>
  */
 @Mojo(name = "generate", requiresDependencyResolution = ResolutionScope.TEST,
-        requiresDependencyCollection = ResolutionScope.TEST)
+        requiresDependencyCollection = ResolutionScope.TEST, threadSafe = true)
 @Execute(phase = LifecyclePhase.COMPILE)
-public class GenerateMojo extends AbstractMojo {
+public class GenerateMojo extends AbstractEvoSuiteMojo {
 
     /**
      * Total Memory (in MB) that CTG will use.
      */
-    @Parameter(property = "memoryInMB", defaultValue = "800")
+    @Parameter(property = "evosuite.memoryInMB", defaultValue = "800")
     private int memoryInMB;
 
     /**
-     * Number of cores CTG will use.
+     * Number of cores CTG will use. In the POM configuration as {@code <cores>} or {@code <numberOfCores>}.
      */
-    @Parameter(property = "cores", defaultValue = "1")
+    @Parameter(property = "evosuite.cores", alias = "cores", defaultValue = "1")
     private int numberOfCores;
 
     /**
      * Comma ',' separated list of CUTs to use in CTG. If none specified, then test all classes.
      */
-    @Parameter(property = "cuts")
+    @Parameter(property = "evosuite.cuts")
     private String cuts;
 
     /**
@@ -73,13 +75,28 @@ public class GenerateMojo extends AbstractMojo {
      * systems like Windows that have constraints on the size of input parameters and so could
      * not use "cuts" parameter instead if too many CUTs are specified.
      */
-    @Parameter(property = "cutsFile")
+    @Parameter(property = "evosuite.cutsFile")
     private String cutsFile;
+
+    /**
+     * Patterns of class files to generate tests for, relative to the compiled classes, eg
+     * {@code com/example/service/**}. All classes by default. Ignored if {@code cuts} or {@code cutsFile}
+     * is given.
+     */
+    @Parameter
+    private List<String> classIncludes;
+
+    /**
+     * Patterns of class files not to generate tests for, eg {@code **}{@code /generated/**}.
+     * Ignored if {@code cuts} or {@code cutsFile} is given.
+     */
+    @Parameter
+    private List<String> classExcludes;
 
     /**
      * How many minutes to allocate for each class.
      */
-    @Parameter(property = "timeInMinutesPerClass", defaultValue = "2")
+    @Parameter(property = "evosuite.timeInMinutesPerClass", defaultValue = "2")
     private int timeInMinutesPerClass;
 
     /**
@@ -87,53 +104,60 @@ public class GenerateMojo extends AbstractMojo {
      * If this parameter is not set, then the total time will be
      * timeInMinutesPerClass x number_of_classes.
      */
-    @Parameter(property = "timeInMinutesPerProject", defaultValue = "0")
+    @Parameter(property = "evosuite.timeInMinutesPerProject", defaultValue = "0")
     private int timeInMinutesPerProject;
 
     /**
      * Coverage criterion. Can define more than one criterion by using a ':' separated list.
      */
     // FIXME would be nice to have the value of Properties.CRITERION but seems to be not possible
-    @Parameter(property = "criterion",
+    @Parameter(property = "evosuite.criterion",
             defaultValue = "LINE:BRANCH:EXCEPTION:WEAKMUTATION:OUTPUT:METHOD:METHODNOEXCEPTION:CBRANCH")
     private String criterion;
 
-    @Parameter(property = "spawnManagerPort", defaultValue = "")
+    /**
+     * Port of a spawn process manager run by the caller (eg the IntelliJ plugin), which EvoSuite stops
+     * for if the caller goes away.
+     */
+    @Parameter(property = "evosuite.spawnManagerPort")
     private Integer spawnManagerPort;
 
-    @Parameter(property = "extraArgs", defaultValue = "")
+    /**
+     * Further EvoSuite properties, as a space separated list of {@code -Dkey=value}.
+     */
+    @Parameter(property = "evosuite.extraArgs", defaultValue = "")
     private String extraArgs;
 
     /**
      * Schedule used to run CTG (SIMPLE, BUDGET, SEEDING, BUDGET_AND_SEEDING, HISTORY).
      */
-    @Parameter(property = "schedule", defaultValue = "BUDGET")
+    @Parameter(property = "evosuite.schedule", defaultValue = "BUDGET")
     private String schedule;
 
-    @Parameter(defaultValue = "${project}", required = true, readonly = true)
-    private MavenProject project;
-
-    @Parameter(defaultValue = "${plugin.artifacts}", required = true, readonly = true)
-    private List<Artifact> artifacts;
-
-    @Component
-    private ProjectBuilder projectBuilder;
-
-    @Parameter(defaultValue = "${repositorySystemSession}", required = true, readonly = true)
-    private RepositorySystemSession repoSession;
+    /**
+     * Folder the generated tests are written to, relative to the module's base directory.
+     * Tests are also kept in EvoSuite's own {@code .evosuite} folder between runs.
+     */
+    @Parameter(property = "evosuite.testFolder", defaultValue = GeneratedTests.DEFAULT_FOLDER)
+    private String testFolder;
 
     /**
-     * Defines files in the source directories to include (all .java files by default).
+     * Whether to delete generated tests from {@code testFolder} whose class under test no longer exists.
      */
-    private final String[] includes = {"**/*.java"};
+    @Parameter(property = "evosuite.deleteStaleTests", defaultValue = "true")
+    private boolean deleteStaleTests;
 
-    /**
-     * Defines which of the included files in the source directories to exclude (non by default).
-     */
-    private String[] excludes;
+    @Parameter(property = "evosuite.skip", defaultValue = "false")
+    private boolean skip;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
+
+        if (skip) {
+            getLog().info("Skipping EvoSuite test generation");
+            return;
+        }
+        applyLegacyProperties();
 
         getLog().info("Going to generate tests with EvoSuite");
         getLog().info("Total memory: " + memoryInMB + "mb");
@@ -198,8 +222,7 @@ public class GenerateMojo extends AbstractMojo {
             }
 
         } catch (DependencyResolutionRequiredException e) {
-            getLog().error("Error: " + e.getMessage(), e);
-            return;
+            throw new MojoExecutionException("Failed to resolve the project classpath: " + e.getMessage(), e);
         }
 
         File basedir = project.getBasedir();
@@ -214,6 +237,50 @@ public class GenerateMojo extends AbstractMojo {
 
         runEvoSuiteOnSeparatedProcess(target, cp, basedir.getAbsolutePath());
 
+    }
+
+    /**
+     * Old, unprefixed property names, still sent by released versions of the IntelliJ plugin.
+     */
+    private void applyLegacyProperties() throws MojoExecutionException {
+        String value;
+        try {
+            if ((value = legacyProperty("evosuite.memoryInMB", "memoryInMB")) != null) {
+                memoryInMB = Integer.parseInt(value);
+            }
+            if ((value = legacyProperty("evosuite.cores", "cores")) != null) {
+                numberOfCores = Integer.parseInt(value);
+            }
+            if ((value = legacyProperty("evosuite.timeInMinutesPerClass", "timeInMinutesPerClass")) != null) {
+                timeInMinutesPerClass = Integer.parseInt(value);
+            }
+            if ((value = legacyProperty("evosuite.timeInMinutesPerProject", "timeInMinutesPerProject")) != null) {
+                timeInMinutesPerProject = Integer.parseInt(value);
+            }
+            if ((value = legacyProperty("evosuite.spawnManagerPort", "spawnManagerPort")) != null) {
+                spawnManagerPort = Integer.valueOf(value);
+            }
+        } catch (NumberFormatException e) {
+            throw new MojoExecutionException("Invalid number: " + e.getMessage(), e);
+        }
+        if ((value = legacyProperty("evosuite.cuts", "cuts")) != null) {
+            cuts = value;
+        }
+        if ((value = legacyProperty("evosuite.cutsFile", "cutsFile")) != null) {
+            cutsFile = value;
+        }
+        if ((value = legacyProperty("evosuite.criterion", "criterion")) != null) {
+            criterion = value;
+        }
+        if ((value = legacyProperty("evosuite.extraArgs", "extraArgs")) != null) {
+            extraArgs = value;
+        }
+        if ((value = legacyProperty("evosuite.schedule", "schedule")) != null) {
+            schedule = value;
+        }
+        if ((value = legacyProperty("evosuite.testFolder", "targetFolder")) != null) {
+            testFolder = value;
+        }
     }
 
     private String addPathIfExists(String cp, String element, Set<String> alreadyExist) {
@@ -239,7 +306,8 @@ public class GenerateMojo extends AbstractMojo {
         return cp;
     }
 
-    private void runEvoSuiteOnSeparatedProcess(String target, String cp, String dir) throws MojoFailureException {
+    private void runEvoSuiteOnSeparatedProcess(String target, String cp, String dir)
+            throws MojoExecutionException, MojoFailureException {
 
         List<String> params = new ArrayList<>();
         params.add("-continuous");
@@ -248,29 +316,8 @@ public class GenerateMojo extends AbstractMojo {
         params.add(target);
         params.add("-Dcriterion=" + criterion);
         params.add("-Dctg_schedule=" + schedule);
-        if (schedule.toUpperCase().equals(Properties.AvailableSchedule.HISTORY.toString())) {
-            try {
-                List<File> files = FileUtils.scan(this.project.getCompileSourceRoots(), this.includes, this.excludes);
-                HistoryChanges.keepTrack(dir, files);
-            } catch (Exception e) {
-                throw new MojoFailureException("", e);
-            }
-
-            params.add("-Dctg_history_file=" + dir + File.separator + Properties.CTG_DIR
-                    + File.separator + "history_file");
-        }
         params.add("-Dctg_memory=" + memoryInMB);
         params.add("-Dctg_cores=" + numberOfCores);
-
-        int port;
-        if (spawnManagerPort != null) {
-            SpawnProcessKeepAliveChecker.getInstance().registerToRemoteServerAndDieIfFails(spawnManagerPort);
-            port = spawnManagerPort;
-        } else {
-            port = SpawnProcessKeepAliveChecker.getInstance().startServer();
-        }
-        params.add("-Dspawn_process_manager_port=" + port);
-
 
         if (timeInMinutesPerProject != 0) {
             params.add("-Dctg_time=" + timeInMinutesPerProject);
@@ -285,6 +332,19 @@ public class GenerateMojo extends AbstractMojo {
         if (cutsFile != null) {
             params.add("-Dctg_selected_cuts_file_location=" + cutsFile);
         }
+        if (cuts == null && cutsFile == null && hasClassFilter()) {
+            String selected = writeFilteredClassesToFile();
+            if (selected == null) {
+                getLog().info("No class matches classIncludes/classExcludes, nothing to test");
+                return;
+            }
+            params.add("-Dctg_selected_cuts_file_location=" + selected);
+            // a filter, not a request to test these classes again: unchanged ones are still skipped
+            params.add("-Dctg_selected_cuts_are_filter=true");
+        }
+
+        File exportFolder = GeneratedTests.resolveFolder(project.getBasedir(), testFolder);
+        params.add("-Dctg_export_folder=" + exportFolder.getAbsolutePath());
 
         if (extraArgs != null && !extraArgs.isEmpty()) {
 
@@ -311,19 +371,82 @@ public class GenerateMojo extends AbstractMojo {
         params.add("-DCP_file_path=" + path);
         //params.add("-DCP=" + cp); //this did not work properly on Windows
 
-        EvoSuiteRunner runner = new EvoSuiteRunner(getLog(), artifacts, projectBuilder, repoSession);
-        runner.registerShutDownHook();
-        boolean ok = runner.runEvoSuite(dir, params);
-
-        if (spawnManagerPort != null) {
-            SpawnProcessKeepAliveChecker.getInstance().unRegister();
-        } else {
-            SpawnProcessKeepAliveChecker.getInstance().stopServer();
+        EvoSuiteRunner runner = createRunner();
+        boolean ok;
+        try (SpawnProcessManagerLease lease = SpawnProcessManagerLease.acquire(spawnManagerPort)) {
+            params.add("-Dspawn_process_manager_port=" + lease.getPort());
+            ok = runner.runEvoSuite(dir, params);
+        } catch (IllegalStateException e) {
+            throw new MojoExecutionException(e.getMessage(), e);
         }
 
         if (!ok) {
             throw new MojoFailureException("Failed to correctly execute EvoSuite");
         }
+        getLog().info("Generated tests are in " + exportFolder);
+
+        if (deleteStaleTests) {
+            removeStaleTests(exportFolder);
+        }
+    }
+
+    private void removeStaleTests(File folder) throws MojoExecutionException {
+        try {
+            for (Path stale : GeneratedTests.findStaleTests(folder,
+                    new File(project.getBuild().getOutputDirectory()))) {
+                Files.delete(stale);
+                getLog().info("Deleted test for a class that no longer exists: " + stale);
+            }
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to delete outdated generated tests: " + e.getMessage(), e);
+        }
+    }
+
+    private boolean hasClassFilter() {
+        return (classIncludes != null && !classIncludes.isEmpty())
+                || (classExcludes != null && !classExcludes.isEmpty());
+    }
+
+    /**
+     * The classes to test, as selected by {@code classIncludes} and {@code classExcludes}, written to a
+     * file as CTG reads them.
+     *
+     * @return the file, or {@code null} if no class is selected
+     */
+    private String writeFilteredClassesToFile() throws MojoExecutionException {
+        File classes = new File(project.getBuild().getOutputDirectory());
+        String[] include = classIncludes == null || classIncludes.isEmpty()
+                ? new String[]{"**/*.class"} : toClassPatterns(classIncludes);
+        String[] exclude = classExcludes == null ? null : toClassPatterns(classExcludes);
+        List<String> names = new ArrayList<>();
+        for (File file : FileUtils.scan(classes, include, exclude)) {
+            String relative = classes.toPath().relativize(file.toPath()).toString();
+            if (relative.endsWith(".class")) {
+                names.add(relative.substring(0, relative.length() - ".class".length())
+                        .replace(File.separatorChar, '.'));
+            }
+        }
+        getLog().info("Selected " + names.size() + " classes with classIncludes/classExcludes");
+        if (names.isEmpty()) {
+            return null;
+        }
+        try {
+            File file = File.createTempFile("EvoSuite_cuts", ".txt");
+            file.deleteOnExit();
+            Files.write(file.toPath(), Collections.singletonList(String.join(",", names)), StandardCharsets.UTF_8);
+            return file.getAbsolutePath();
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to write the selected classes: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * A pattern given for a package or for a class without extension should still match the class files.
+     */
+    private static String[] toClassPatterns(List<String> patterns) {
+        return patterns.stream()
+                .map(p -> p.endsWith("/**") || p.endsWith(".class") || p.endsWith("*") ? p : p + ".class")
+                .toArray(String[]::new);
     }
 
     private String writeClasspathToFile(String classpath) {

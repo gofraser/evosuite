@@ -19,17 +19,11 @@
  */
 package org.evosuite.maven;
 
-import org.apache.maven.artifact.Artifact;
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
-import org.apache.maven.project.MavenProject;
-import org.apache.maven.project.ProjectBuilder;
-import org.eclipse.aether.RepositorySystemSession;
 import org.evosuite.maven.util.EvoSuiteRunner;
 import org.evosuite.maven.util.ProjectUtils;
 
@@ -45,20 +39,8 @@ import java.util.Set;
  * @author José Campos
  */
 @Mojo(name = "coverage", requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST,
-        requiresDependencyCollection = ResolutionScope.TEST)
-public class CoverageMojo extends AbstractMojo {
-
-    @Parameter(defaultValue = "${project}", required = true, readonly = true)
-    private MavenProject project;
-
-    @Parameter(defaultValue = "${plugin.artifacts}", required = true, readonly = true)
-    private List<Artifact> artifacts;
-
-    @Component
-    private ProjectBuilder projectBuilder;
-
-    @Parameter(defaultValue = "${repositorySystemSession}", required = true, readonly = true)
-    private RepositorySystemSession repoSession;
+        requiresDependencyCollection = ResolutionScope.TEST, threadSafe = true)
+public class CoverageMojo extends AbstractEvoSuiteMojo {
 
     /**
      * Coverage criterion. Can define more than one criterion by using a ':' separated list.
@@ -67,17 +49,16 @@ public class CoverageMojo extends AbstractMojo {
     // FIXME OUTPUT:METHOD:METHODNOEXCEPTION relies on Observers, to have coverage of these criteria
     // JUnit test cases have to be converted to some format that EvoSuite can understand
     // and there is no point of using EXCEPTION if we don't know how many exceptions we could have
-    @Parameter(property = "criterion", defaultValue = "LINE:BRANCH:CBRANCH:WEAKMUTATION:METHODTRACE")
+    @Parameter(property = "evosuite.criterion", defaultValue = "LINE:BRANCH:CBRANCH:WEAKMUTATION:METHODTRACE")
     private String criterion;
 
     /**
      * Maximum seconds allowed.
      */
-    @Parameter(property = "global_timeout", defaultValue = "120")
+    @Parameter(property = "evosuite.globalTimeout", defaultValue = "120")
     private int globalTimeout;
 
-
-    @Parameter(property = "output_variables", defaultValue = "TARGET_CLASS,criterion,Coverage,Total_Goals,Covered_Goals"
+    @Parameter(property = "evosuite.outputVariables", defaultValue = "TARGET_CLASS,criterion,Coverage,Total_Goals,Covered_Goals"
             + ",LineCoverage,LineCoverageBitString"
             + ",BranchCoverage,BranchCoverageBitString"
             + ",CBranchCoverage,CBranchCoverageBitString"
@@ -89,12 +70,33 @@ public class CoverageMojo extends AbstractMojo {
      * A colon(:) separated list of JUnit suites to execute. Can be a prefix (i.e., package name),
      * a directory, a jar file, or the full name of a JUnit suite.
      */
-    @Parameter(property = "junit")
+    @Parameter(property = "evosuite.junit")
     private String junit;
+
+    private void applyLegacyProperties() throws MojoExecutionException {
+        String value;
+        if ((value = legacyProperty("evosuite.criterion", "criterion")) != null) {
+            criterion = value;
+        }
+        if ((value = legacyProperty("evosuite.globalTimeout", "global_timeout")) != null) {
+            try {
+                globalTimeout = Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                throw new MojoExecutionException("Invalid number: " + value, e);
+            }
+        }
+        if ((value = legacyProperty("evosuite.outputVariables", "output_variables")) != null) {
+            outputVariables = value;
+        }
+        if ((value = legacyProperty("evosuite.junit", "junit")) != null) {
+            junit = value;
+        }
+    }
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
+        applyLegacyProperties();
         getLog().info("Going to measure the coverage of manually written test cases with EvoSuite");
 
         Set<String> cp = new LinkedHashSet<>();
@@ -141,8 +143,7 @@ public class CoverageMojo extends AbstractMojo {
             getLog().info("  " + s);
         }
 
-        EvoSuiteRunner runner = new EvoSuiteRunner(getLog(), this.artifacts, this.projectBuilder, this.repoSession);
-        runner.registerShutDownHook();
+        EvoSuiteRunner runner = createRunner();
         boolean ok = runner.runEvoSuite(this.project.getBasedir().toString(), params);
 
         if (!ok) {

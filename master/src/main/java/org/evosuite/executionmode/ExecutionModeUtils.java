@@ -281,7 +281,18 @@ public final class ExecutionModeUtils {
      * @param cmdLine The list of command line arguments to modify.
      */
     public static void addCommonModuleOpens(List<String> cmdLine) {
-        if (getJavaMajorVersion() < 9) {
+        addCommonModuleOpens(cmdLine, getJavaMajorVersion());
+    }
+
+    /**
+     * Adds module opens and JDK-compatibility arguments for a JVM other than the running one,
+     * eg one selected by a build tool's toolchain.
+     *
+     * @param cmdLine          The list of command line arguments to modify.
+     * @param javaMajorVersion The major Java version of the JVM that will be launched.
+     */
+    public static void addCommonModuleOpens(List<String> cmdLine, int javaMajorVersion) {
+        if (javaMajorVersion < 9) {
             return;
         }
         // Module access flags needed for Java 9+ to allow reflective access
@@ -462,7 +473,17 @@ public final class ExecutionModeUtils {
      * @return The major Java version number (e.g., 8, 9, 11).
      */
     private static int getJavaMajorVersion() {
-        String version = SystemUtils.JAVA_VERSION;
+        return parseJavaMajorVersion(SystemUtils.JAVA_VERSION);
+    }
+
+    /**
+     * Determines the major version from a Java version string, such as the value of the
+     * {@code java.version} or {@code java.specification.version} property.
+     *
+     * @param version The version string (e.g., "1.8.0_352", "17.0.5", "21").
+     * @return The major Java version number, or 8 if it cannot be determined.
+     */
+    public static int parseJavaMajorVersion(String version) {
         if (version == null || version.isEmpty()) {
             return 8;
         }
