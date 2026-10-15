@@ -123,11 +123,34 @@ public final class EvoSuitePreferences {
         if (options.usePomSettings) {
             PomSettings pom = MavenSupport.pomSettings(project, monitor);
             if (pom != null) {
-                options.fromPom = List.copyOf(pom.applyTo(options, project.getLocation() == null ? null
-                        : project.getLocation().toFile()));
+                applyPom(pom, options, project);
             }
         }
         return options;
+    }
+
+    private static void applyPom(PomSettings pom, GenerationOptions options, IProject project) {
+        options.fromPom = List.copyOf(pom.applyTo(options, project.getLocation() == null ? null
+                : project.getLocation().toFile()));
+    }
+
+    /**
+     * What the project's settings page says about the pom, or {@code null} if it does not bear
+     * on the settings. Called on the UI thread, so it only knows a pom that m2e has loaded.
+     */
+    static String pomNote(IProject project) {
+        GenerationOptions options = load(project);
+        PomSettings pom = options.usePomSettings ? MavenSupport.pomSettings(project, null) : null;
+        if (pom == null) {
+            return null;
+        }
+        if (!pom.isLoaded()) {
+            return "m2e has not loaded pom.xml yet, so this page cannot show which settings of the EvoSuite "
+                    + "Maven plugin take precedence over those below.";
+        }
+        applyPom(pom, options, project);
+        return options.fromPom.isEmpty() ? null : "pom.xml configures the EvoSuite Maven plugin, and these take "
+                + "precedence over the settings below: " + String.join("; ", options.fromPom) + ".";
     }
 
     /** The first of a list of preference nodes that has a value for a key. */

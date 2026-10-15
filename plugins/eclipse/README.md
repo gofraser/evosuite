@@ -239,7 +239,9 @@ property (`criterion`, `extraArgs`, `cores`, `memoryInMB`, `timeInMinutesPerClas
 do not count, because Maven does not use them for a goal run from the command line. Where
 `generate` would use its default `testFolder`, the folder of a `setup` execution is taken
 instead, since that execution registers the folder for Maven builds. The project's EvoSuite
-page lists what the pom overrides, and so does the console at each run. Parameters for
+page lists what the pom overrides, and so does the console at each run. The page does not make
+m2e load a pom, which can mean resolving dependencies over the network; if m2e has not loaded it
+yet, the page says so instead. Parameters for
 whole-module runs (`timeInMinutesPerProject`, `schedule`, `cuts`, class filters) do not apply to
 single classes. To use the Eclipse settings anyway, clear *Advanced > Take settings from the
 EvoSuite Maven plugin in pom.xml*. Without m2e installed, the plugin works as for any other project.

@@ -38,7 +38,6 @@ import org.eclipse.swt.widgets.Link;
 import org.eclipse.ui.IWorkbenchPropertyPage;
 import org.eclipse.ui.dialogs.PreferencesUtil;
 import org.eclipse.ui.preferences.ScopedPreferenceStore;
-import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.preferences.SettingsFields.Section;
 
 /**
@@ -84,11 +83,10 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
     protected void createFieldEditors() {
         Composite parent = getFieldEditorParent();
         if (section == Section.GENERAL) {
-            GenerationOptions resolved = EvoSuitePreferences.resolve(project, null);
-            if (!resolved.fromPom.isEmpty()) {
+            String note = EvoSuitePreferences.pomNote(project);
+            if (note != null) {
                 Label pom = new Label(parent, SWT.WRAP);
-                pom.setText("pom.xml configures the EvoSuite Maven plugin, and these take precedence over the "
-                        + "settings below: " + String.join("; ", resolved.fromPom) + ".");
+                pom.setText(note);
                 GridData layout = new GridData(SWT.FILL, SWT.TOP, true, false, 3, 1);
                 layout.widthHint = 500;
                 pom.setLayoutData(layout);

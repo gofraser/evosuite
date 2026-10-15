@@ -52,7 +52,9 @@ public final class MavenSupport {
 
     /**
      * The EvoSuite Maven plug-in's configuration in {@code project}'s pom, or {@code null} if the
-     * project is not a Maven project, does not use the plug-in, or m2e is not installed.
+     * project is not a Maven project, does not use the plug-in, or m2e is not installed. On the UI
+     * thread it only uses the model m2e has loaded already, and is {@link PomSettings#NOT_LOADED}
+     * without one; elsewhere it loads the model if need be.
      */
     public static PomSettings pomSettings(IProject project, IProgressMonitor monitor) {
         try {

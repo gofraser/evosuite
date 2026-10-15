@@ -77,6 +77,14 @@ public final class PomSettings {
     private final Map<String, String> setup;
     private final Map<String, String> properties;
     private final boolean junit4Only;
+    private final boolean loaded;
+
+    /**
+     * Stands for a pom that m2e has not loaded yet, when loading it would block the UI thread.
+     * Whether it configures the plug-in is unknown; it changes no settings.
+     */
+    public static final PomSettings NOT_LOADED = new PomSettings(Map.of(), Map.of(), Map.of(), Map.of(), false,
+            false);
 
     /**
      * @param plugin     the plug-in's own configuration parameters, by element name
@@ -89,6 +97,12 @@ public final class PomSettings {
      */
     public PomSettings(Map<String, String> plugin, Map<String, String> generate, Map<String, String> setup,
                        Map<String, String> properties, boolean junit4Only) {
+        this(plugin, generate, setup, properties, junit4Only, true);
+    }
+
+    private PomSettings(Map<String, String> plugin, Map<String, String> generate, Map<String, String> setup,
+                        Map<String, String> properties, boolean junit4Only, boolean loaded) {
+        this.loaded = loaded;
         this.plugin = canonical(plugin);
         this.generate = canonical(generate);
         this.setup = canonical(setup);
@@ -104,6 +118,11 @@ public final class PomSettings {
     /** Only configured in the plug-in itself, with no executions or properties. */
     public PomSettings(Map<String, String> plugin) {
         this(plugin, Map.of(), Map.of(), Map.of());
+    }
+
+    /** Whether the pom was read; {@code false} only for {@link #NOT_LOADED}. */
+    public boolean isLoaded() {
+        return loaded;
     }
 
     /** The Maven plug-in's shortest time per class, from its GenerationSettings. */
@@ -152,6 +171,9 @@ public final class PomSettings {
      */
     public List<String> applyTo(GenerationOptions options, File basedir) {
         List<String> applied = new ArrayList<>();
+        if (!loaded) {
+            return applied;
+        }
 
         // timePerClass takes precedence; the Maven plug-in fails the build on a bad value, which
         // the IDE cannot usefully do, so it says so and falls back to timeInMinutesPerClass.

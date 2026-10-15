@@ -34,6 +34,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.m2e.core.MavenPlugin;
 import org.eclipse.m2e.core.project.IMavenProjectFacade;
+import org.eclipse.swt.widgets.Display;
 
 /**
  * Reads the EvoSuite Maven plug-in's configuration through m2e, which provides the effective
@@ -48,17 +49,35 @@ final class M2eReader {
     private M2eReader() {
     }
 
-    /** The plug-in's configuration, or {@code null} if the project does not use the plug-in. */
+    /**
+     * The plug-in's configuration, {@code null} if the project does not use the plug-in, or
+     * {@link PomSettings#NOT_LOADED} on the UI thread if m2e has not loaded the pom yet.
+     */
     static PomSettings read(IProject project, IProgressMonitor monitor) throws CoreException {
         IMavenProjectFacade facade = MavenPlugin.getMavenProjectRegistry().getProject(project);
-        if (facade == null) {
-            return null;
+        return facade == null ? null : read(facade, monitor);
+    }
+
+    static PomSettings read(IMavenProjectFacade facade, IProgressMonitor monitor) throws CoreException {
+        MavenProject model;
+        if (Display.getCurrent() != null) {
+            // Loading the model can read poms and resolve dependencies over the network, which
+            // must not block the UI, so the UI thread only takes what m2e has loaded already.
+            model = facade.getMavenProject();
+            if (model == null) {
+                return PomSettings.NOT_LOADED;
+            }
+        } else {
+            // m2e, unlike most of Eclipse, does not accept a null monitor.
+            model = facade.getMavenProject(monitor == null ? new NullProgressMonitor() : monitor);
         }
-        // m2e, unlike most of Eclipse, does not accept a null monitor.
-        MavenProject model = facade.getMavenProject(monitor == null ? new NullProgressMonitor() : monitor);
         if (model == null) {
             return null;
         }
+        return read(model);
+    }
+
+    private static PomSettings read(MavenProject model) {
         Plugin plugin = plugin(model);
         if (plugin == null) {
             return null;

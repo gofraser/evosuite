@@ -21,20 +21,30 @@ package org.evosuite.eclipse.maven;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
+import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.apache.maven.project.MavenProject;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.m2e.core.MavenPlugin;
+import org.eclipse.m2e.core.project.IMavenProjectFacade;
 import org.eclipse.m2e.core.project.ResolverConfiguration;
+import org.eclipse.swt.widgets.Display;
 import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.junit.jupiter.api.AfterEach;
@@ -193,6 +203,51 @@ public class MavenSupportTest {
         assertEquals(240, options.searchBudget);
         assertEquals(1000, options.clientMemory);
         assertEquals("src/test/generated", options.testFolder);
+    }
+
+    /** A facade whose model m2e has not loaded, recording whether something makes it load it. */
+    private static IMavenProjectFacade notLoaded(List<String> calls) {
+        return (IMavenProjectFacade) Proxy.newProxyInstance(MavenSupportTest.class.getClassLoader(),
+                new Class<?>[]{IMavenProjectFacade.class}, (proxy, method, args) -> {
+                    if (method.getName().equals("getMavenProject")) {
+                        calls.add(args == null ? "cached" : "load");
+                        return args == null ? null : new MavenProject();
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    @Test
+    public void theUiThreadDoesNotMakeM2eLoadThePom() throws Exception {
+        List<String> calls = new ArrayList<>();
+        AtomicReference<PomSettings> onUiThread = new AtomicReference<>();
+        Display.getDefault().syncExec(() -> {
+            try {
+                onUiThread.set(M2eReader.read(notLoaded(calls), null));
+            } catch (CoreException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+        assertSame(PomSettings.NOT_LOADED, onUiThread.get());
+        assertEquals(List.of("cached"), calls);
+        GenerationOptions options = new GenerationOptions();
+        assertEquals(List.of(), PomSettings.NOT_LOADED.applyTo(options, null));
+        assertEquals(new GenerationOptions().searchBudget, options.searchBudget);
+
+        // Elsewhere it loads the model; this one does not use the plug-in.
+        calls.clear();
+        assertNull(M2eReader.read(notLoaded(calls), null));
+        assertEquals(List.of("load"), calls);
+    }
+
+    @Test
+    public void theUiThreadUsesTheModelM2eHasLoaded() throws Exception {
+        mavenProject("maven-parent", PARENT);
+        IProject child = mavenProject("maven-child", CHILD);
+        EvoSuitePreferences.resolve(child, null);
+        AtomicReference<GenerationOptions> options = new AtomicReference<>();
+        Display.getDefault().syncExec(() -> options.set(EvoSuitePreferences.resolve(child, null)));
+        assertEquals("BRANCH", options.get().criterion, options.get().fromPom.toString());
     }
 
     @Test
