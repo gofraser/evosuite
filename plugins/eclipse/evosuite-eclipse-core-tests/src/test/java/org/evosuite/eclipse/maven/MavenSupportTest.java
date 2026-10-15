@@ -39,15 +39,18 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.m2e.core.MavenPlugin;
+import org.eclipse.osgi.util.ManifestElement;
 import org.eclipse.m2e.core.project.IMavenProjectFacade;
 import org.eclipse.m2e.core.project.ResolverConfiguration;
 import org.eclipse.swt.widgets.Display;
 import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.junit.jupiter.api.AfterEach;
+import org.osgi.framework.Constants;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -248,6 +251,44 @@ public class MavenSupportTest {
         AtomicReference<GenerationOptions> options = new AtomicReference<>();
         Display.getDefault().syncExec(() -> options.set(EvoSuitePreferences.resolve(child, null)));
         assertEquals("BRANCH", options.get().criterion, options.get().fromPom.toString());
+    }
+
+    @Test
+    public void withoutM2eTheSettingsAreTheIdesOwn(@TempDir java.nio.file.Path dir) throws Exception {
+        mavenProject("maven-parent", PARENT);
+        IProject child = mavenProject("maven-child", CHILD);
+        java.nio.file.Path settings = dir.resolve("settings.xml");
+        java.nio.file.Files.writeString(settings,
+                "<settings><servers><server><id>llm</id><password>sk-test</password></server></servers></settings>");
+        String previous = MavenPlugin.getMavenConfiguration().getUserSettingsFile();
+        MavenPlugin.getMavenConfiguration().setUserSettingsFile(settings.toString());
+        MavenSupport.m2eInstalled = () -> false;
+        try {
+            assertNull(MavenSupport.pomSettings(child, null));
+            assertEquals(new GenerationOptions().criterion, EvoSuitePreferences.resolve(child, null).criterion);
+            assertNull(MavenSupport.serverPassword("llm"));
+        } finally {
+            MavenSupport.m2eInstalled = () -> Platform.getBundle(MavenSupport.M2E_BUNDLE) != null;
+            MavenPlugin.getMavenConfiguration().setUserSettingsFile(previous);
+        }
+        assertEquals("BRANCH", EvoSuitePreferences.resolve(child, null).criterion, "with m2e");
+    }
+
+    /** Only optional dependencies on m2e let the plug-in install, and run, without it. */
+    @Test
+    public void thePluginDependsOnM2eOptionally() throws Exception {
+        String required = Platform.getBundle("org.evosuite.plugins.eclipse.core").getHeaders()
+                .get(Constants.REQUIRE_BUNDLE);
+        ManifestElement[] bundles = ManifestElement.parseHeader(Constants.REQUIRE_BUNDLE, required);
+        List<String> m2e = new ArrayList<>();
+        for (ManifestElement bundle : bundles) {
+            if (bundle.getValue().startsWith("org.eclipse.m2e.")) {
+                m2e.add(bundle.getValue());
+                assertEquals(Constants.RESOLUTION_OPTIONAL, bundle.getDirective(Constants.RESOLUTION_DIRECTIVE),
+                        bundle.getValue());
+            }
+        }
+        assertEquals(List.of("org.eclipse.m2e.core", "org.eclipse.m2e.maven.runtime"), m2e);
     }
 
     @Test

@@ -19,6 +19,8 @@
  */
 package org.evosuite.eclipse.maven;
 
+import java.util.function.BooleanSupplier;
+
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -31,6 +33,9 @@ public final class MavenSupport {
     static final String M2E_BUNDLE = "org.eclipse.m2e.core";
     static final String MAVEN_NATURE = "org.eclipse.m2e.core.maven2Nature";
 
+    /** Whether m2e is installed; tests replace it to see the plug-in work without m2e. */
+    static BooleanSupplier m2eInstalled = () -> Platform.getBundle(M2E_BUNDLE) != null;
+
     private MavenSupport() {
     }
 
@@ -40,7 +45,7 @@ public final class MavenSupport {
      */
     public static String serverPassword(String serverId) {
         try {
-            if (Platform.getBundle(M2E_BUNDLE) == null) {
+            if (!m2eInstalled.getAsBoolean()) {
                 return null;
             }
             return M2eReader.serverPassword(serverId);
@@ -58,7 +63,7 @@ public final class MavenSupport {
      */
     public static PomSettings pomSettings(IProject project, IProgressMonitor monitor) {
         try {
-            if (Platform.getBundle(M2E_BUNDLE) == null || !project.hasNature(MAVEN_NATURE)) {
+            if (!m2eInstalled.getAsBoolean() || !project.hasNature(MAVEN_NATURE)) {
                 return null;
             }
             // M2eReader links against m2e, so it must not be touched before the check above.
