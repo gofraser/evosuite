@@ -76,7 +76,8 @@ import org.evosuite.eclipse.Activator;
  * <ul>
  * <li>keeps the existing file as it is and appends the new tests at the end of the class;</li>
  * <li>skips new tests whose body equals that of an existing test, and the empty
- * {@code notGeneratedAnyTest} that EvoSuite writes when it found no tests;</li>
+ * {@code notGeneratedAnyTest} that EvoSuite writes when it found no tests, and removes that
+ * placeholder from the existing suite when tests are added to it;</li>
  * <li>continues the numbering when numbered tests ({@code test0}, ...) clash with existing ones,
  * and appends {@code _1}, {@code _2}, ... to other names that clash;</li>
  * <li>adds the imports the new tests need, and other members of the new suite, such as fields,
@@ -349,7 +350,8 @@ public final class SuiteMerger {
 
     /**
      * Adds the new suite's imports that the existing one lacks, and the classes its
-     * {@code initializeClasses()} and {@code resetClasses()} name, to {@code document}.
+     * {@code initializeClasses()} and {@code resetClasses()} name, to {@code document}, and
+     * removes the placeholder of an existing suite without tests.
      *
      * @return why the imports cannot be combined, or {@code null}
      */
@@ -402,6 +404,12 @@ public final class SuiteMerger {
                     copy.setLiteralValue(literal.getLiteralValue());
                     arguments.insertLast(copy, null);
                 }
+            }
+        }
+        ListRewrite members = rewrite.getListRewrite(existingType, TypeDeclaration.BODY_DECLARATIONS_PROPERTY);
+        for (MethodDeclaration method : existingType.getMethods()) {
+            if (isTest(method) && isPlaceholder(method)) {
+                members.remove(method, null);
             }
         }
         rewrite.rewriteAST(document, JavaCore.getOptions()).apply(document);

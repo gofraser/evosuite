@@ -81,6 +81,10 @@ public class SuiteMergerTest {
     private static final String SIGN = test("test1", "Calculator calculator0 = new Calculator();",
             "String string0 = calculator0.sign(0);", "assertEquals(\"zero\", string0);");
 
+    /** What EvoSuite writes into a suite for which it found no tests. */
+    private static final String PLACEHOLDER = "\n  @Test\n  public void notGeneratedAnyTest() {\n"
+            + "      // EvoSuite did not generate any tests\n  }\n";
+
     @Test
     public void addsNewTestsAfterTheExistingOnesAndContinuesTheNumbering() {
         String existing = suite("", MAX, SIGN);
@@ -106,10 +110,8 @@ public class SuiteMergerTest {
 
     @Test
     public void leavesOutThePlaceholderOfASuiteWithoutTests() {
-        String placeholder = "\n  @Test\n  public void notGeneratedAnyTest() {\n"
-                + "      // EvoSuite did not generate any tests\n  }\n";
         String existing = suite("", MAX, SIGN);
-        String empty = suite("", placeholder);
+        String empty = suite("", PLACEHOLDER);
 
         SuiteMerger.Result result = SuiteMerger.merge(existing, empty, "Calculator_ESTest");
 
@@ -119,6 +121,17 @@ public class SuiteMergerTest {
         assertEquals(0, SuiteMerger.testCount(empty, "Calculator_ESTest"));
         assertEquals(2, SuiteMerger.testCount(existing, "Calculator_ESTest"));
         assertEquals(-1, SuiteMerger.testCount(existing, "Other_ESTest"));
+    }
+
+    @Test
+    public void removesThePlaceholderOfTheExistingSuiteWhenAddingTests() {
+        String existing = suite("", PLACEHOLDER);
+
+        SuiteMerger.Result result = SuiteMerger.merge(existing, suite("", MAX, SIGN), "Calculator_ESTest");
+
+        assertTrue(result.isMerged(), result.incompatibility);
+        assertEquals(List.of("test0", "test1"), result.added);
+        assertEquals(suite("", MAX, SIGN), result.source);
     }
 
     @Test
