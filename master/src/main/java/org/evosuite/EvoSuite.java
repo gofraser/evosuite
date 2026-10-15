@@ -24,6 +24,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.continuous.CtgException;
 import org.evosuite.executionmode.*;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.rmi.EvoSuiteRMIClassLoaderSpi;
@@ -122,6 +123,8 @@ public class EvoSuite {
         try {
             EvoSuite evosuite = new EvoSuite();
             evosuite.parseCommandLine(args);
+        } catch (CtgException e) {
+            exitAfterCtgError(e, message -> LoggingUtils.getEvoLogger().error("* " + message), System::exit);
         } catch (Throwable t) {
             exitAfterFatalCrash(t, EvoSuite::logFatalCrash, System::exit);
         }
@@ -144,6 +147,19 @@ public class EvoSuite {
      * from here would end only the main thread. The RMI and logging threads that are still
      * running would then keep the JVM alive with nothing left to stop it.
      */
+    /**
+     * Continuous test generation failed for a reason it explains: report that, and not a crash report about a
+     * class under test and a seed, which mean nothing here, and exit with an error for the caller.
+     */
+    static void exitAfterCtgError(CtgException error, Consumer<String> report, IntConsumer exit) {
+        try {
+            report.accept(error.getMessage());
+        } catch (Throwable reportFailure) {
+            System.err.println(error.getMessage());
+        }
+        exit.accept(1);
+    }
+
     static void exitAfterFatalCrash(Throwable crash, Consumer<Throwable> report, IntConsumer exit) {
         try {
             report.accept(crash);

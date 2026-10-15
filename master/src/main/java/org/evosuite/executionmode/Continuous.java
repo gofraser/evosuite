@@ -26,6 +26,7 @@ import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.continuous.ContinuousTestGeneration;
+import org.evosuite.continuous.CtgException;
 import org.evosuite.continuous.CtgConfiguration;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.SpawnProcessKeepAliveChecker;
@@ -157,11 +158,10 @@ public class Continuous {
             }
         } else if (command.equals(Command.CLEAN)) {
             boolean cleaned = ctg.clean();
-            if (cleaned) {
-                LoggingUtils.getEvoLogger().info("Cleaned all project data");
-            } else {
-                LoggingUtils.getEvoLogger().info("Failed to clean project");
+            if (!cleaned) {
+                throw new CtgException("Failed to clean project data in " + Properties.CTG_DIR);
             }
+            LoggingUtils.getEvoLogger().info("Cleaned all project data");
         } else { //INFO
             String info = ctg.info();
             LoggingUtils.getEvoLogger().info(info);

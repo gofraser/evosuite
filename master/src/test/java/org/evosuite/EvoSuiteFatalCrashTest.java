@@ -19,6 +19,7 @@
  */
 package org.evosuite;
 
+import org.evosuite.continuous.CtgException;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -54,5 +55,19 @@ class EvoSuiteFatalCrashTest {
 
         assertEquals(1, exits.size());
         assertEquals(-1, (int) exits.get(0));
+    }
+
+    @Test
+    void ctgErrorsReportTheirMessageAndExitWithFailure() {
+        List<Integer> exits = new ArrayList<>();
+        List<String> reported = new ArrayList<>();
+
+        EvoSuite.exitAfterCtgError(new CtgException("Failed to create tmp folders in /x"), reported::add,
+                exits::add);
+
+        assertEquals(1, reported.size());
+        assertEquals("Failed to create tmp folders in /x", reported.get(0));
+        assertEquals(1, exits.size());
+        assertEquals(1, (int) exits.get(0));
     }
 }

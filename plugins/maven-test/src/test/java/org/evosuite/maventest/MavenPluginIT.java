@@ -337,6 +337,32 @@ public class MavenPluginIT {
     @Test
     @Tag("smoke")
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testGenerationFailureFailsTheBuild() throws Exception {
+        // EvoSuite cannot keep its data in a folder it may not write to
+        Path blocked = getESFolder(simple);
+        FileUtils.deleteDirectory(blocked.toFile());
+        Files.createDirectories(blocked);
+        Assumptions.assumeTrue(blocked.toFile().setWritable(false) && !Files.isWritable(blocked),
+                "cannot make a folder read-only here, eg when running as root");
+        try {
+            Verifier verifier = getVerifier(simple);
+            verifier.addCliOption("evosuite:generate");
+            verifier.addCliOption("-Devosuite.cuts=org.maven_test_project.sm.SimpleClass");
+            try {
+                verifier.executeGoal("compile");
+                fail("the build passed although EvoSuite could not run");
+            } catch (VerificationException e) {
+                // expected
+            }
+            verifier.verifyTextInLog("Failed to initialize local storage system");
+        } finally {
+            blocked.toFile().setWritable(true);
+        }
+    }
+
+    @Test
+    @Tag("smoke")
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testParallelReactorBuildGeneratesForEachModule() throws Exception {
         String a = "org.maven_test_project.sm.SimpleClass";
         String b = "org.maven_test_project.mwod.OneDependencyClass";

@@ -148,16 +148,22 @@ public class ContinuousTestGeneration {
      * Apply CTG, and return a string with some summary.
      *
      * @return a summary string
+     * @throws CtgException if the run could not be completed; classes without tests are only reported
      */
-    public String execute() {
+    public String execute() throws CtgException {
 
-        // fail before any job starts, not in each of them
-        JobHandler.readExtraProperties(Properties.CTG_EXTRA_PROPERTIES_FILE);
+        try {
+            // fail before any job starts, not in each of them
+            JobHandler.readExtraProperties(Properties.CTG_EXTRA_PROPERTIES_FILE);
+        } catch (IllegalArgumentException e) {
+            throw new CtgException(e.getMessage(), e);
+        }
 
         //init the local storage manager
         StorageManager storage = new StorageManager();
         if (!storage.isStorageOk()) {
-            return "Failed to initialize local storage system";
+            throw new CtgException("Failed to initialize local storage system in "
+                    + new File(Properties.CTG_DIR).getAbsolutePath());
         }
 
         if (Properties.CTG_DELETE_OLD_TMP_FOLDERS) {
@@ -165,7 +171,8 @@ public class ContinuousTestGeneration {
         }
 
         if (!storage.createNewTmpFolders()) {
-            return "Failed to create tmp folders";
+            throw new CtgException("Failed to create tmp folders in "
+                    + new File(Properties.CTG_DIR).getAbsolutePath());
         }
 
         //check project
@@ -214,7 +221,7 @@ public class ContinuousTestGeneration {
             try {
                 exportToFolder(".", exportFolder);
             } catch (IOException e) {
-                return "Failed to export tests: " + e.getMessage();
+                throw new CtgException("Failed to export tests to " + exportFolder + ": " + e.getMessage(), e);
             }
         }
 
