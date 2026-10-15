@@ -117,7 +117,7 @@ public final class TargetSelection {
         return current;
     }
 
-    private static boolean isMainSource(IPackageFragmentRoot root) throws JavaModelException {
+    static boolean isMainSource(IPackageFragmentRoot root) throws JavaModelException {
         if (root.getKind() != IPackageFragmentRoot.K_SOURCE) {
             return false;
         }

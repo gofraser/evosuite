@@ -30,16 +30,27 @@
             description="Generate a JUnit test suite with EvoSuite for the selected classes"
             categoryId="org.eclipse.jdt.ui.category.source">
       </command>
+      <command
+            id="org.evosuite.eclipse.generateMethodTests"
+            name="Generate Tests for Method with EvoSuite"
+            description="Generate JUnit tests with EvoSuite for the selected methods, or the method at the caret"
+            categoryId="org.eclipse.jdt.ui.category.source">
+      </command>
    </extension>
 
    <extension point="org.eclipse.ui.commandImages">
       <image commandId="org.evosuite.eclipse.generateTests" icon="icons/evosuite.gif"/>
+      <image commandId="org.evosuite.eclipse.generateMethodTests" icon="icons/evosuite.gif"/>
    </extension>
 
    <extension point="org.eclipse.ui.handlers">
       <handler
             class="org.evosuite.eclipse.handlers.GenerateTestsHandler"
             commandId="org.evosuite.eclipse.generateTests">
+      </handler>
+      <handler
+            class="org.evosuite.eclipse.handlers.GenerateMethodTestsHandler"
+            commandId="org.evosuite.eclipse.generateMethodTests">
       </handler>
    </extension>
 
@@ -63,15 +74,70 @@
                </with>
             </visibleWhen>
          </command>
+         <!-- Methods that tests can be generated for; see MethodSelection. -->
+         <command commandId="org.evosuite.eclipse.generateMethodTests" style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="activeMenuSelection">
+                  <iterate ifEmpty="false" operator="and">
+                     <adapt type="org.eclipse.jdt.core.IMethod">
+                        <test property="org.evosuite.eclipse.testableMethod" forcePluginActivation="true"/>
+                     </adapt>
+                  </iterate>
+               </with>
+            </visibleWhen>
+         </command>
       </menuContribution>
-      <!-- The Java editor's context menu. -->
+      <!-- The Java editor's context menu; the method command while the caret is in a method. -->
       <menuContribution locationURI="popup:#CompilationUnitEditorContext?after=additions">
          <command commandId="org.evosuite.eclipse.generateTests" style="push"/>
+         <command commandId="org.evosuite.eclipse.generateMethodTests" style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="activePart">
+                  <test property="org.evosuite.eclipse.caretInTestableMethod" forcePluginActivation="true"/>
+               </with>
+            </visibleWhen>
+         </command>
       </menuContribution>
       <!-- The main Source menu, for keyboard users. -->
       <menuContribution locationURI="menu:org.eclipse.jdt.ui.source.menu?after=generateGroup">
          <command commandId="org.evosuite.eclipse.generateTests" style="push"/>
+         <command commandId="org.evosuite.eclipse.generateMethodTests" style="push">
+            <visibleWhen checkEnabled="false">
+               <or>
+                  <with variable="activePart">
+                     <test property="org.evosuite.eclipse.caretInTestableMethod" forcePluginActivation="true"/>
+                  </with>
+                  <with variable="selection">
+                     <and>
+                        <instanceof value="org.eclipse.jface.viewers.IStructuredSelection"/>
+                        <iterate ifEmpty="false" operator="and">
+                           <adapt type="org.eclipse.jdt.core.IMethod">
+                              <test property="org.evosuite.eclipse.testableMethod" forcePluginActivation="true"/>
+                           </adapt>
+                        </iterate>
+                     </and>
+                  </with>
+               </or>
+            </visibleWhen>
+         </command>
       </menuContribution>
+   </extension>
+
+   <extension point="org.eclipse.core.expressions.propertyTesters">
+      <propertyTester
+            id="org.evosuite.eclipse.methodTester"
+            type="org.eclipse.jdt.core.IMethod"
+            namespace="org.evosuite.eclipse"
+            properties="testableMethod"
+            class="org.evosuite.eclipse.handlers.MethodPropertyTester">
+      </propertyTester>
+      <propertyTester
+            id="org.evosuite.eclipse.editorMethodTester"
+            type="org.eclipse.ui.IWorkbenchPart"
+            namespace="org.evosuite.eclipse"
+            properties="caretInTestableMethod"
+            class="org.evosuite.eclipse.handlers.MethodPropertyTester">
+      </propertyTester>
    </extension>
 
    <extension point="org.eclipse.core.runtime.preferences">

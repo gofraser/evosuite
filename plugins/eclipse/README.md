@@ -48,6 +48,21 @@ for the same version of JUnit, and with the same runner settings and superclass.
 example for a hand-written suite or one with unsaved changes in an editor, the plugin opens the
 comparison instead and the console says why.
 
+### Tests for single methods
+
+To test one method, right-click it in the Package Explorer or the Outline, or right-click in the
+Java editor while the caret is in it, and choose **Generate Tests for Method with EvoSuite**. The
+command is also in the *Source* menu. Select several methods to test them together; the methods
+of one class share one EvoSuite run.
+
+The tests call only the selected methods, plus constructors to create objects
+(`-Dtarget_method_list`, with each method given by name and JVM descriptor, as in
+`sign(I)Ljava/lang/String;`). Because such a suite covers only part of the class, **Add New
+Tests** is preselected when the class already has a suite. Constructors can be selected as well.
+The command is not offered for private and abstract methods, which tests cannot call directly,
+for constructors of enums and abstract classes, and for methods of nested classes: EvoSuite
+tests top-level classes, so generate tests for the class that contains them instead.
+
 ### Settings
 
 *Window > Preferences > Java > EvoSuite* holds the workspace defaults, on three pages:
@@ -198,10 +213,10 @@ or newer.
 
 ### Tests
 
-`evosuite-eclipse-core-tests` runs in a workbench (Tycho's UI harness). It includes an end-to-end
-test that generates tests for a small class with the bundled EvoSuite and checks that the project
-compiles them. That test takes about a minute. It runs EvoSuite on the JVM that runs the build
-unless you name another JDK. To skip it, pass `-Devosuite.it.skip=true`:
+`evosuite-eclipse-core-tests` runs in a workbench (Tycho's UI harness). It includes end-to-end
+tests that generate tests for a small class with the bundled EvoSuite and check that the project
+compiles them. They take about two minutes, and run EvoSuite on the JVM that runs the build
+unless you name another JDK. To skip them, pass `-Devosuite.it.skip=true`:
 
 ```sh
 ./mvnw verify -Devosuite.it.javaHome=/path/to/jdk-17

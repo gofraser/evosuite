@@ -51,6 +51,19 @@ public class EvoSuiteCommandTest {
     }
 
     @Test
+    public void restrictsTheRunToTheTargetMethodsBeforeTheUsersArguments() {
+        GenerationOptions options = new GenerationOptions();
+        options.extraArguments = "-Dtarget_method_list=other()V";
+        List<String> args = new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Calculator",
+                List.of("/p/bin"), new File("/p"), new File("/out"), new File("/state/reports"), options,
+                List.of("sign(I)Ljava/lang/String;", "<init>(I)V")).toArguments();
+        int methods = args.indexOf("-Dtarget_method_list=sign(I)Ljava/lang/String;:<init>(I)V");
+        assertTrue(methods > 0, args.toString());
+        assertTrue(methods < args.indexOf("-Dtarget_method_list=other()V"), args.toString());
+        assertFalse(arguments(options).stream().anyMatch(a -> a.startsWith("-Dtarget_method_list=sign")));
+    }
+
+    @Test
     public void passesTheSettings() {
         GenerationOptions options = new GenerationOptions();
         options.searchBudget = 15;

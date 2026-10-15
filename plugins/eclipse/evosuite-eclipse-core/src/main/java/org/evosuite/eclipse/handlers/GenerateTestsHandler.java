@@ -47,6 +47,7 @@ import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.evosuite.eclipse.launch.EvoSuiteCommand;
 import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.eclipse.launch.GenerationTarget;
 import org.evosuite.eclipse.launch.ProjectSetup;
 import org.evosuite.eclipse.launch.SuiteAction;
 import org.evosuite.eclipse.launch.TestGenerationJob;
@@ -77,34 +78,37 @@ public class GenerateTestsHandler extends AbstractHandler {
                             + "are skipped.");
             return null;
         }
-        Map<IJavaProject, List<String>> requests = new LinkedHashMap<>();
+        Map<IJavaProject, List<GenerationTarget>> requests = new LinkedHashMap<>();
         for (Map.Entry<IJavaProject, Set<IType>> entry : targets.entrySet()) {
             GenerationOptions options = EvoSuitePreferences.resolve(entry.getKey().getProject(), null);
             try {
                 for (IType type : entry.getValue()) {
                     if (!isGeneratedTest(type, options)) {
                         requests.computeIfAbsent(entry.getKey(), p -> new ArrayList<>())
-                                .add(type.getFullyQualifiedName());
+                                .add(GenerationTarget.wholeClass(type.getFullyQualifiedName()));
                     }
                 }
             } catch (JavaModelException e) {
                 throw new ExecutionException("Cannot read the selected Java elements", e);
             }
         }
-        launch(shell, requests);
+        launch(shell, requests, false);
         return null;
     }
 
     /**
      * Asks once, for all projects, what to do with the suites that exist already, and schedules
      * a generation job per project.
+     *
+     * @param methodLevel whether the targets name methods; adding to existing suites is then the
+     *                    preselected answer
      */
-    static void launch(Shell shell, Map<IJavaProject, List<String>> requests) {
+    static void launch(Shell shell, Map<IJavaProject, List<GenerationTarget>> requests, boolean methodLevel) {
         Map<IJavaProject, GenerationOptions> options = new LinkedHashMap<>();
         List<String> withSuites = new ArrayList<>();
         Set<String> testFolders = new HashSet<>();
         int classCount = 0;
-        for (Map.Entry<IJavaProject, List<String>> entry : requests.entrySet()) {
+        for (Map.Entry<IJavaProject, List<GenerationTarget>> entry : requests.entrySet()) {
             IJavaProject project = entry.getKey();
             GenerationOptions projectOptions = EvoSuitePreferences.resolve(project.getProject(), null);
             File testDir;
@@ -116,17 +120,17 @@ public class GenerateTestsHandler extends AbstractHandler {
             }
             options.put(project, projectOptions);
             testFolders.add(projectOptions.testFolder);
-            for (String className : entry.getValue()) {
+            for (GenerationTarget target : entry.getValue()) {
                 classCount++;
-                if (EvoSuiteCommand.suiteFile(testDir, className, projectOptions.testSuffix).exists()) {
-                    withSuites.add(className.substring(className.lastIndexOf('.') + 1));
+                if (EvoSuiteCommand.suiteFile(testDir, target.className(), projectOptions.testSuffix).exists()) {
+                    withSuites.add(target.className().substring(target.className().lastIndexOf('.') + 1));
                 }
             }
         }
         SuiteAction action = SuiteAction.REPLACE;
         if (!withSuites.isEmpty()) {
             action = chooser.apply(shell, ExistingSuitesQuestion.of(withSuites, classCount,
-                    testFolders.size() == 1 ? testFolders.iterator().next() : null));
+                    testFolders.size() == 1 ? testFolders.iterator().next() : null, methodLevel));
             if (action == null) {
                 return;
             }

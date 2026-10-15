@@ -49,10 +49,23 @@ public final class EvoSuiteCommand {
     private final File testDir;
     private final File reportDir;
     private final GenerationOptions options;
+    private final List<String> targetMethods;
 
     public EvoSuiteCommand(String javaExecutable, String evosuiteJar, String targetClass,
                            List<String> projectClasspath, File projectDir, File testDir,
                            File reportDir, GenerationOptions options) {
+        this(javaExecutable, evosuiteJar, targetClass, projectClasspath, projectDir, testDir, reportDir, options,
+                List.of());
+    }
+
+    /**
+     * @param targetMethods the methods to restrict the tests to, as {@link GenerationTarget#methods()}
+     *                      names them; empty for the whole class
+     */
+    public EvoSuiteCommand(String javaExecutable, String evosuiteJar, String targetClass,
+                           List<String> projectClasspath, File projectDir, File testDir,
+                           File reportDir, GenerationOptions options, List<String> targetMethods) {
+        this.targetMethods = List.copyOf(targetMethods);
         this.javaExecutable = javaExecutable;
         this.evosuiteJar = evosuiteJar;
         this.targetClass = targetClass;
@@ -115,6 +128,11 @@ public final class EvoSuiteCommand {
         // contain prompts built from the project's code, could end up committed.
         args.add("-Dllm_trace_dir=" + new File(reportDir, "llm-traces").getAbsolutePath());
         addLlmArguments(args);
+        if (!targetMethods.isEmpty()) {
+            // Restricts the coverage goals and the calls in the tests to these methods, while
+            // constructors stay available to create the object under test.
+            args.add("-Dtarget_method_list=" + String.join(":", targetMethods));
+        }
         // Last, so that the user's own arguments win over everything above; among them, the pom's
         // win over the IDE's, and its extraArgs over its evosuiteProperties, as with Maven.
         args.addAll(splitArguments(options.extraArguments));

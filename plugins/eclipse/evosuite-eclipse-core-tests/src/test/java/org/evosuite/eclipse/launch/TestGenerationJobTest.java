@@ -24,12 +24,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.sun.net.httpserver.HttpServer;
 
@@ -41,6 +45,7 @@ import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.junit.JUnitCore;
+import org.evosuite.eclipse.Activator;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.classpath.EvoSuiteClasspathContainer;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
@@ -113,6 +118,68 @@ public class TestGenerationJobTest {
         assertTrue(TestProjects.hasEntry(project, EvoSuiteClasspathContainer.PATH), "EvoSuite runtime not added");
         // EvoSuite wrote its statistics to the plug-in's state area, not into the project.
         assertFalse(project.getProject().getFolder("evosuite-report").exists(), "report folder in the project");
+    }
+
+    /**
+     * Tests for one method call only that method, and a second run for another method adds its
+     * tests to the suite without touching the first run's tests.
+     */
+    @Test
+    public void methodLevelRunsTargetTheirMethodAndAddToTheSuite() throws Exception {
+        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+        IJavaProject project = TestProjects.create("methods", "src/main/java", null);
+        TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
+        TestProjects.build(project);
+        GenerationOptions options = EvoSuitePreferences.resolve(project.getProject(), null);
+        IFile suite = project.getProject().getFile("src/test/evosuite/demo/Calculator_ESTest.java");
+
+        TestGenerationJob signOnly = new TestGenerationJob(project,
+                List.of(new GenerationTarget("demo.Calculator", List.of("sign(I)Ljava/lang/String;"))), options,
+                SuiteAction.ADD);
+        IStatus result = signOnly.run(new NullProgressMonitor());
+
+        assertEquals(IStatus.OK, result.getSeverity(), result::toString);
+        assertEquals(List.of(suite), signOnly.getGeneratedSuites());
+        String first = read(suite);
+        assertTrue(first.contains(".sign("), first);
+        assertFalse(first.contains(".max("), "a test calls max:\n" + first);
+        List<String> firstTests = tests(first);
+        assertFalse(firstTests.isEmpty(), first);
+
+        TestGenerationJob maxOnly = new TestGenerationJob(project,
+                List.of(new GenerationTarget("demo.Calculator", List.of("max(II)I"))), options, SuiteAction.ADD);
+        result = maxOnly.run(new NullProgressMonitor());
+
+        assertEquals(IStatus.OK, result.getSeverity(), result::toString);
+        assertEquals(List.of(suite), maxOnly.getGeneratedSuites());
+        assertEquals(List.of(), maxOnly.getComparisons());
+        String merged = read(suite);
+        for (String test : firstTests) {
+            assertTrue(merged.contains(test), "lost or changed:\n" + test + "\nin\n" + merged);
+        }
+        assertTrue(merged.contains(".max("), merged);
+        assertTrue(tests(merged).size() > firstTests.size(), merged);
+        TestProjects.build(project);
+        assertEquals(List.of(), TestProjects.compileErrors(project));
+        // The new suites went through the plug-in's state area, which keeps nothing of them.
+        String[] left = Activator.getDefault().getStateLocation().append("generated").toFile().list();
+        assertTrue(left == null || left.length == 0, "temporary output left behind");
+    }
+
+    private static String read(IFile file) throws Exception {
+        try (InputStream in = file.getContents()) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    /** The test methods of a suite, each from its {@code @Test} to its closing brace. */
+    private static List<String> tests(String suite) {
+        List<String> tests = new ArrayList<>();
+        Matcher matcher = Pattern.compile("(?s)  @Test.*?\n  }\n").matcher(suite);
+        while (matcher.find()) {
+            tests.add(matcher.group());
+        }
+        return tests;
     }
 
     /**

@@ -91,7 +91,7 @@ public class TestGenerationJob extends Job {
     private static final int MAX_EDITORS = 3;
 
     private final IJavaProject project;
-    private final List<String> classes;
+    private final List<GenerationTarget> targets;
     private final GenerationOptions options;
     private final SuiteAction action;
     private final List<IFile> generated = new CopyOnWriteArrayList<>();
@@ -110,19 +110,19 @@ public class TestGenerationJob extends Job {
      *                time, and must not pick up a test folder or suffix changed meanwhile
      */
     public TestGenerationJob(IJavaProject project, List<String> classes, GenerationOptions options) {
-        this(project, classes, options, SuiteAction.REPLACE);
+        this(project, GenerationTarget.wholeClasses(classes), options, SuiteAction.REPLACE);
     }
 
     /**
-     * @param action what to do with the suites that already exist for some of the classes
+     * @param action what to do with the suites that already exist for some of the targets
      */
-    public TestGenerationJob(IJavaProject project, List<String> classes, GenerationOptions options,
+    public TestGenerationJob(IJavaProject project, List<GenerationTarget> targets, GenerationOptions options,
                              SuiteAction action) {
-        super(classes.size() == 1
-                ? "Generating tests for " + simpleName(classes.get(0))
-                : "Generating tests for " + classes.size() + " classes in " + project.getElementName());
+        super(targets.size() == 1
+                ? "Generating tests for " + targets.get(0).label()
+                : "Generating tests for " + targets.size() + " classes in " + project.getElementName());
         this.project = project;
-        this.classes = List.copyOf(classes);
+        this.targets = List.copyOf(targets);
         this.options = options;
         this.action = action;
         setUser(true);
@@ -149,7 +149,7 @@ public class TestGenerationJob extends Job {
 
     @Override
     protected IStatus run(IProgressMonitor monitor) {
-        SubMonitor progress = SubMonitor.convert(monitor, getName(), 20 + 100 * classes.size());
+        SubMonitor progress = SubMonitor.convert(monitor, getName(), 20 + 100 * targets.size());
         try {
             progress.subTask("Waiting for other EvoSuite runs to finish");
             while (!ONE_RUN_AT_A_TIME.tryAcquire(250, TimeUnit.MILLISECONDS)) {
@@ -233,17 +233,18 @@ public class TestGenerationJob extends Job {
                 "EvoSuite reported problems; the EvoSuite console has the details.", null);
         try {
             int index = 0;
-            for (String className : classes) {
+            for (GenerationTarget target : targets) {
                 index++;
                 if (progress.isCanceled()) {
                     console.println("Cancelled.");
                     break;
                 }
-                String label = classes.size() == 1 ? simpleName(className)
-                        : simpleName(className) + " (" + index + "/" + classes.size() + ")";
+                String className = target.className();
+                String label = targets.size() == 1 ? target.label()
+                        : target.label() + " (" + index + "/" + targets.size() + ")";
                 EvoSuiteCommand command = new EvoSuiteCommand(java.executable.getAbsolutePath(),
                         evosuiteJar.getAbsolutePath(), className, classpath, projectDir, outputDir, reportDir,
-                        options);
+                        options, target.methods());
                 File suite = EvoSuiteCommand.suiteFile(outputDir, className, options.testSuffix);
                 // Compared with the timestamp afterwards rather than with the clock, which a file system
                 // with coarse timestamps (FAT: 2 s) could place before the start of a successful run.
@@ -497,8 +498,8 @@ public class TestGenerationJob extends Job {
 
     private void summarise(EvoSuiteConsole console, MultiStatus failures) {
         console.println("");
-        console.println("EvoSuite generated " + produced + " of " + classes.size() + " test suite"
-                + (classes.size() == 1 ? "" : "s") + ".");
+        console.println("EvoSuite generated " + produced + " of " + targets.size() + " test suite"
+                + (targets.size() == 1 ? "" : "s") + ".");
         for (String outcome : outcomes) {
             console.println("  " + outcome);
         }

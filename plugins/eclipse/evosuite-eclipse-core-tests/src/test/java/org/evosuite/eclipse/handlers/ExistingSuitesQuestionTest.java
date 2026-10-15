@@ -49,7 +49,8 @@ public class ExistingSuitesQuestionTest {
 
     @Test
     public void asksAboutOneSuiteAndPreselectsReplace() {
-        ExistingSuitesQuestion question = ExistingSuitesQuestion.of(List.of("Calculator"), 1, "src/test/evosuite");
+        ExistingSuitesQuestion question = ExistingSuitesQuestion.of(List.of("Calculator"), 1, "src/test/evosuite",
+                false);
 
         assertEquals("Existing Test Suite", question.title);
         assertTrue(question.message.startsWith("Calculator already has a test suite in src/test/evosuite.\n\n"),
@@ -63,13 +64,23 @@ public class ExistingSuitesQuestionTest {
     @Test
     public void asksOnceForAllClassesAndAbbreviatesLongLists() {
         List<String> classes = List.of("A", "B", "C", "D", "E", "F", "G");
-        ExistingSuitesQuestion question = ExistingSuitesQuestion.of(classes, 9, null);
+        ExistingSuitesQuestion question = ExistingSuitesQuestion.of(classes, 9, null, false);
 
         assertEquals("Existing Test Suites", question.title);
         assertTrue(question.message.startsWith("7 of the 9 classes already have test suites: A, B, C, D and 3 more."),
                 question.message);
         assertTrue(question.message.endsWith("The choice applies to all 7; the other classes get new suites."),
                 question.message);
+    }
+
+    @Test
+    public void preselectsAddingForMethodsAndSaysWhy() {
+        ExistingSuitesQuestion question = ExistingSuitesQuestion.of(List.of("Calculator"), 1, "src/test/evosuite",
+                true);
+
+        assertEquals(SuiteAction.ADD, question.defaultAction);
+        assertEquals(1, question.defaultButton());
+        assertTrue(question.message.contains("only exercise the selected methods"), question.message);
     }
 
     @Test
@@ -88,7 +99,7 @@ public class ExistingSuitesQuestionTest {
     @Test
     public void dialogOffersTheFourAnswers() throws Exception {
         ExistingSuitesQuestion question = ExistingSuitesQuestion.of(List.of("Calculator", "Parser", "Lexer"), 5,
-                "src/test/evosuite");
+                "src/test/evosuite", true);
         UiThread.run(() -> {
             ExistingSuitesDialog dialog = new ExistingSuitesDialog(
                     PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), question);
@@ -102,7 +113,7 @@ public class ExistingSuitesQuestionTest {
                 // In any order: on macOS the default button moves to the right.
                 assertEquals(Set.of("&Replace", "&Add New Tests", "C&ompare", "Cancel"), Set.copyOf(labels));
                 assertEquals(4, labels.size());
-                assertEquals("&Replace", shell.getDefaultButton().getText());
+                assertEquals("&Add New Tests", shell.getDefaultButton().getText());
                 String folder = System.getenv("EVOSUITE_SCREENSHOTS");
                 if (folder != null && !folder.isEmpty()) {
                     UiThread.drain(1000);

@@ -52,8 +52,11 @@ public final class ExistingSuitesQuestion {
      * @param withSuites  the simple names of the classes that have a suite, never empty
      * @param classCount  how many classes the request covers in all
      * @param testFolder  the folder the suites are in, or {@code null} if the projects differ
+     * @param methodLevel whether the tests are for selected methods only; a suite of those would
+     *                    lose the tests of the rest of the class, so adding is preselected
      */
-    public static ExistingSuitesQuestion of(List<String> withSuites, int classCount, String testFolder) {
+    public static ExistingSuitesQuestion of(List<String> withSuites, int classCount, String testFolder,
+                                            boolean methodLevel) {
         if (withSuites.isEmpty()) {
             throw new IllegalArgumentException("no existing suites to ask about");
         }
@@ -77,6 +80,10 @@ public final class ExistingSuitesQuestion {
                 .append(" tests and add the new ones that differ from them.\n");
         message.append("Compare: show ").append(one ? "the existing suite and the new one" : "each existing suite "
                 + "and its new one").append(" side by side, to copy over what you want and save.");
+        if (methodLevel) {
+            message.append("\n\nThe new tests only exercise the selected methods, so replacing would also "
+                    + "drop the tests of the rest of the class.");
+        }
         message.append("\n\nUntil generation has finished, ").append(one ? "the suite stays" : "the suites stay")
                 .append(" as ").append(one ? "it is" : "they are").append('.');
         if (!one || classCount > 1) {
@@ -84,7 +91,8 @@ public final class ExistingSuitesQuestion {
             message.append(classCount > withSuites.size() ? "; the other classes get new suites." : ".");
         }
         String title = one ? "Existing Test Suite" : "Existing Test Suites";
-        return new ExistingSuitesQuestion(title, message.toString(), SuiteAction.REPLACE);
+        return new ExistingSuitesQuestion(title, message.toString(),
+                methodLevel ? SuiteAction.ADD : SuiteAction.REPLACE);
     }
 
     /** The index of the preselected button. */
