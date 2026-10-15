@@ -53,6 +53,7 @@ public class MavenPluginIT {
     private final Path extension = projects.resolve("ExtensionModeModule");
     private final Path noRuntime = Paths.get("standalone-projects").resolve("NoRuntimeModule");
     private final Path llm = Paths.get("standalone-projects").resolve("LlmModule");
+    private final Path junit4 = Paths.get("standalone-projects").resolve("JUnit4Module");
 
     private final String srcEvo = "src/evo";
 
@@ -70,10 +71,12 @@ public class MavenPluginIT {
             FileUtils.deleteQuietly(p.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
             FileUtils.deleteQuietly(p.resolve("coverage.check.failed").toFile());
         }
-        for (String generated : Arrays.asList(".evosuite", "src/test/evosuite", "evosuite-report", "target")) {
-            FileUtils.deleteDirectory(llm.resolve(generated).toFile());
+        for (Path standalone : Arrays.asList(llm, junit4)) {
+            for (String generated : Arrays.asList(".evosuite", "src/test/evosuite", "evosuite-report", "target")) {
+                FileUtils.deleteDirectory(standalone.resolve(generated).toFile());
+            }
+            FileUtils.deleteQuietly(standalone.resolve("log.txt").toFile());
         }
-        FileUtils.deleteQuietly(llm.resolve("log.txt").toFile());
     }
 
 
@@ -264,6 +267,27 @@ public class MavenPluginIT {
         // generate wrote the tests to the folder setup added, without export or build-helper
         assertTrue(Files.exists(simple.resolve(srcEvo).resolve("org/maven_test_project/sm/SimpleClass_ESTest.java")));
         assertFalse(Files.exists(stale), "the test of a deleted class was not removed");
+        verifyESTestsRunFor(verifier, cut);
+        verifyAgentConfigured(verifier);
+    }
+
+    @Test
+    @Tag("smoke")
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testJUnit4ProjectGetsJUnit4Tests() throws Exception {
+        String cut = "org.maven_test_project.j4.Range";
+
+        Verifier verifier = getVerifier(junit4);
+        verifier.addCliOption("evosuite:generate");
+        verifier.addCliOption("-Devosuite.timePerClass=1m15s");
+        verifier.executeGoal("test");
+
+        verifier.verifyTextInLog("Generating JUnit 4 tests");
+        verifier.verifyTextInLog("Time per class: 1m15s");
+        Path generated = junit4.resolve("src/test/evosuite/org/maven_test_project/j4/Range_ESTest.java");
+        String code = new String(Files.readAllBytes(generated), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(code.contains("import org.junit.Test;"), "not a JUnit 4 test");
+        assertFalse(code.contains("org.junit.jupiter"), "not a JUnit 4 test");
         verifyESTestsRunFor(verifier, cut);
         verifyAgentConfigured(verifier);
     }

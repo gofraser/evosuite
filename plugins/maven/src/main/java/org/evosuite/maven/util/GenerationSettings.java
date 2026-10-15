@@ -19,6 +19,9 @@
  */
 package org.evosuite.maven.util;
 
+import org.apache.maven.artifact.Artifact;
+
+import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -84,4 +87,21 @@ public final class GenerationSettings {
         return (int) seconds;
     }
 
+    /**
+     * The test format that fits the project's test dependencies: JUnit 4 if it has JUnit 4 but not
+     * JUnit 5, which EvoSuite generates otherwise.
+     *
+     * @param testArtifacts the project's resolved test dependencies
+     * @return {@code JUNIT4}, or {@code null} to keep EvoSuite's default
+     */
+    public static String testFormatFor(Collection<Artifact> testArtifacts) {
+        boolean jupiter = false;
+        boolean junit4 = false;
+        for (Artifact artifact : testArtifacts) {
+            jupiter |= "org.junit.jupiter".equals(artifact.getGroupId())
+                    && "junit-jupiter-api".equals(artifact.getArtifactId());
+            junit4 |= "junit".equals(artifact.getGroupId()) && "junit".equals(artifact.getArtifactId());
+        }
+        return junit4 && !jupiter ? "JUNIT4" : null;
+    }
 }

@@ -35,14 +35,12 @@ Add the plugin with its `setup` goal, and the EvoSuite runtime as a test depende
     <version>${evosuite.version}</version>
     <scope>test</scope>
   </dependency>
-  <dependency>
-    <groupId>org.junit.jupiter</groupId>
-    <artifactId>junit-jupiter</artifactId>
-    <version>5.14.3</version>
-    <scope>test</scope>
-  </dependency>
 </dependencies>
 ```
+
+EvoSuite generates tests for the JUnit version the project already uses: JUnit 5 if `junit-jupiter-api` is a
+test dependency, otherwise JUnit 4 if `junit` is. A project with neither needs `junit-jupiter`. To choose
+yourself, set `test_format` (`JUNIT4` or `JUNIT5`) in `evosuiteProperties`.
 
 `setup` runs in the `generate-test-sources` phase and:
 

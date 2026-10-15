@@ -19,11 +19,16 @@
  */
 package org.evosuite.maven.util;
 
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.DefaultArtifact;
+import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class GenerationSettingsTest {
@@ -45,5 +50,20 @@ public class GenerationSettingsTest {
         for (String invalid : Arrays.asList("90", "", "1.5m", "m", "30 s")) {
             assertThrows(IllegalArgumentException.class, () -> GenerationSettings.parseSeconds(invalid), invalid);
         }
+    }
+
+    @Test
+    public void projectsWithOnlyJUnit4GetJUnit4Tests() {
+        Artifact junit4 = artifact("junit", "junit");
+        Artifact jupiter = artifact("org.junit.jupiter", "junit-jupiter-api");
+
+        assertEquals("JUNIT4", GenerationSettings.testFormatFor(Collections.singletonList(junit4)));
+        assertNull(GenerationSettings.testFormatFor(Arrays.asList(junit4, jupiter)), "JUnit 5 wins when both");
+        assertNull(GenerationSettings.testFormatFor(Collections.singletonList(jupiter)));
+        assertNull(GenerationSettings.testFormatFor(Collections.emptyList()));
+    }
+
+    private static Artifact artifact(String groupId, String artifactId) {
+        return new DefaultArtifact(groupId, artifactId, "1.0", "test", "jar", null, new DefaultArtifactHandler("jar"));
     }
 }

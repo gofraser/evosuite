@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -423,7 +424,7 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
         }
         try {
             File properties = JobProperties.write(JobProperties.forJobs(
-                    new File(dir, Properties.CTG_DIR), evosuiteProperties));
+                    new File(dir, Properties.CTG_DIR), withDetectedTestFormat(evosuiteProperties)));
             params.add("-Dctg_extra_properties_file=" + properties.getAbsolutePath());
         } catch (IOException e) {
             throw new MojoExecutionException("Failed to write the EvoSuite properties: " + e.getMessage(), e);
@@ -517,6 +518,24 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
                     + "' in settings.xml has no <password> holding the LLM API key");
         }
         return key.trim();
+    }
+
+    /**
+     * EvoSuite writes JUnit 5 tests unless told otherwise. A project that only has JUnit 4 gets JUnit 4 tests,
+     * unless the configuration names a test format itself.
+     */
+    private Map<String, String> withDetectedTestFormat(Map<String, String> configured) {
+        Map<String, String> properties = new LinkedHashMap<>();
+        String format = GenerationSettings.testFormatFor(project.getArtifacts());
+        if (format != null && (configured == null || !configured.containsKey("test_format"))) {
+            getLog().info("Generating JUnit 4 tests, as the project has JUnit 4 but no junit-jupiter-api"
+                    + " test dependency");
+            properties.put("test_format", format);
+        }
+        if (configured != null) {
+            properties.putAll(configured);
+        }
+        return properties;
     }
 
     private boolean hasClassFilter() {
