@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 /**
  * Job executor will run EvoSuite on separate processes.
@@ -78,6 +79,11 @@ public class JobExecutor {
      * no more than one job should exist for the same CUT.
      */
     private Map<String, JobDefinition> finishedJobs;
+
+    /**
+     * The classes with a job in the current execution.
+     */
+    private volatile Set<String> scheduledCuts = Collections.emptySet();
 
     protected final CtgConfiguration configuration;
 
@@ -196,6 +202,17 @@ public class JobExecutor {
          */
         jobQueue = new ArrayBlockingQueue<>(1);
         finishedJobs = new ConcurrentHashMap<>();
+        scheduledCuts = jobs.stream().map(job -> job.cut).collect(Collectors.toSet());
+    }
+
+    /**
+     * Whether a class has a job in the current execution.
+     *
+     * @param cut the class
+     * @return true if it is scheduled, whether or not its job has run yet
+     */
+    public boolean isScheduled(String cut) {
+        return scheduledCuts.contains(cut);
     }
 
     protected long execute(List<JobDefinition> jobs) {

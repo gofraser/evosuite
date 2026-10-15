@@ -449,26 +449,45 @@ public class JobHandler extends Thread {
 
         if (job.inputClasses != null && job.inputClasses.size() > 0) {
 
-            String[] dep = job.inputClasses.toArray(new String[0]);
-
-            double poolP = 0.5;
-            if (Properties.P_OBJECT_POOL > 0) { //TODO need refactoring, ie a Double initialized with null
-                poolP = Properties.P_OBJECT_POOL;
+            List<String> pools = new ArrayList<>();
+            for (String dep : job.inputClasses) {
+                File pool = findPool(poolFolder, StorageManager.getPoolInFolder(), dep + extension,
+                        executor.isScheduled(dep));
+                if (pool != null) {
+                    pools.add(pool.getAbsolutePath());
+                }
             }
 
-            commands.add("-Dp_object_pool=" + poolP);
-            String cmd = "-Dobject_pools=";
+            if (!pools.isEmpty()) {
+                double poolP = 0.5;
+                if (Properties.P_OBJECT_POOL > 0) { //TODO need refactoring, ie a Double initialized with null
+                    poolP = Properties.P_OBJECT_POOL;
+                }
 
-            cmd += poolFolder.getAbsolutePath() + File.separator + dep[0] + extension;
-
-            for (int i = 1; i < dep.length; i++) {
-                cmd += File.pathSeparator + poolFolder.getAbsolutePath() + File.separator
-                        + dep[i] + extension;
+                commands.add("-Dp_object_pool=" + poolP);
+                commands.add("-Dobject_pools=" + String.join(File.pathSeparator, pools));
             }
-            commands.add(cmd);
         }
 
         return commands;
+    }
+
+    /**
+     * The pool a dependency wrote in this run or, if the dependency is not tested in this run (it did not
+     * change), the one kept from an earlier run. A dependency that is tested in this run but still running,
+     * or that failed, has no usable pool: the kept one was built from its old version. Passing a missing
+     * file would only produce errors in the job.
+     */
+    static File findPool(File currentRunPools, File keptPools, String fileName, boolean testedInThisRun) {
+        File current = new File(currentRunPools, fileName);
+        if (current.isFile()) {
+            return current;
+        }
+        if (testedInThisRun) {
+            return null;
+        }
+        File kept = new File(keptPools, fileName);
+        return kept.isFile() ? kept : null;
     }
 
     private List<String> getOutputVariables() {

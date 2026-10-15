@@ -159,6 +159,15 @@ public class StorageManager {
         return getFileForTargetBestTest(className + Properties.JUNIT_SUFFIX).exists();
     }
 
+    /**
+     * Where the object pools written by accepted jobs are kept between runs.
+     *
+     * @return the folder
+     */
+    public static File getPoolInFolder() {
+        return new File(new File(Properties.CTG_DIR), "evosuite-" + Properties.CTG_TMP_POOLS_DIR_NAME);
+    }
+
     public static File getSeedInFolder() {
         return new File(new File(Properties.CTG_DIR), "evosuite-" + Properties.CTG_SEEDS_DIR_NAME);
     }
@@ -349,6 +358,7 @@ public class StorageManager {
                 // tests were generated for this version of the class, whether or not they beat the old ones;
                 // a class without tests keeps its old fingerprint, so the next run tries again
                 fingerprints.record(cut, classInfo.getFingerprint());
+                keepObjectPool(cut);
             }
         }
 
@@ -674,6 +684,22 @@ public class StorageManager {
             } catch (IOException e) {
                 logger.error("Failed to copy over a new generated serialized test suite: " + e.getMessage(), e);
             }
+        }
+    }
+
+    /**
+     * Keep the object pool of a class for later runs, in which the class may not be tested again
+     * but still be the input of classes that are.
+     */
+    private void keepObjectPool(String cut) {
+        File pool = new File(tmpPools, cut + ".pool");
+        if (!pool.isFile()) {
+            return;
+        }
+        try {
+            FileUtils.copyFile(pool, new File(getPoolInFolder(), pool.getName()));
+        } catch (IOException e) {
+            logger.warn("Failed to keep the object pool of " + cut + ": " + e.getMessage());
         }
     }
 
