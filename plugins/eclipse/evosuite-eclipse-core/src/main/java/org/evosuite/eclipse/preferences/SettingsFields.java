@@ -109,7 +109,8 @@ final class SettingsFields {
                     "API &key (kept in secure storage):", llm), llm));
         }
         fields.add(new Field(new ComboFieldEditor(EvoSuitePreferences.LLM_APPROACH, "Appro&ach:",
-                new String[][]{{"Search, assisted by the LLM", GenerationOptions.APPROACH_SEARCH},
+                new String[][]{{"Search only (LLM off, settings kept)", GenerationOptions.APPROACH_SEARCH_ONLY},
+                        {"Search, assisted by the LLM", GenerationOptions.APPROACH_SEARCH},
                         {"LLM only, one prompt", GenerationOptions.APPROACH_LLM_SINGLE_PROMPT},
                         {"LLM only, iterating on uncovered goals", GenerationOptions.APPROACH_LLM_ITERATIVE}},
                 llm), llm));

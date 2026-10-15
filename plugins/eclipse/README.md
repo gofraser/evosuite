@@ -57,12 +57,15 @@ switches it on:
 | Model | required except for OpenAI, whose default EvoSuite knows |
 | Base URL | empty for the provider's endpoint; Ollama defaults to `http://localhost:11434` |
 | API key | workspace preferences only, kept in Eclipse's secure storage |
-| Approach | search assisted by the LLM, or LLM-only generation with one prompt or iterating on uncovered goals (`-Dstrategy=LLMSTRATEGY`) |
+| Approach | search only (the LLM is off, the settings are kept), search assisted by the LLM, or LLM-only generation with one prompt or iterating on uncovered goals (`-Dstrategy=LLMSTRATEGY`) |
 | Seed the search | `llm_seeding_profile`: off, minimal, standard or full |
 | When the search stagnates | `llm_on_stagnation` |
 | Mutation and crossover | `llm_operator_enabled` |
 | Improve names, comments and assertions | `llm_postprocessing_enabled` |
 | LLM calls per class | `llm_max_calls` |
+
+*Search only* is absolute: it also overrides an LLM that the pom or the additional arguments
+switch on, so it can be relied on to keep the project's code from being sent to a model.
 
 The API key never goes into the project's `.settings` file, onto the command line, or into
 the console. EvoSuite receives it as the `EVOSUITE_LLM_API_KEY` environment variable. If no key

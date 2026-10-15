@@ -39,6 +39,7 @@ public final class GenerationOptions {
     public static final String LLM_OLLAMA = "OLLAMA";
 
     /** {@link #llmApproach} values. */
+    public static final String APPROACH_SEARCH_ONLY = "SEARCH_ONLY";
     public static final String APPROACH_SEARCH = "SEARCH";
     public static final String APPROACH_LLM_SINGLE_PROMPT = "LLM_SINGLE_PROMPT";
     public static final String APPROACH_LLM_ITERATIVE = "LLM_ITERATIVE";
@@ -103,7 +104,16 @@ public final class GenerationOptions {
 
     /** Whether the LLM settings of the IDE switch it on; see {@link #effectiveLlmProvider}. */
     public boolean usesLlm() {
-        return !LLM_NONE.equals(llmProvider);
+        return !LLM_NONE.equals(llmProvider) && !llmSwitchedOff();
+    }
+
+    /**
+     * Whether the approach is search only: the LLM stays off whatever else is configured, the
+     * pom and the additional arguments included, so that the switch can be relied on to keep
+     * the project's code from being sent to a model. The LLM settings themselves are kept.
+     */
+    public boolean llmSwitchedOff() {
+        return APPROACH_SEARCH_ONLY.equals(llmApproach);
     }
 
     /**
@@ -111,6 +121,9 @@ public final class GenerationOptions {
      * too, and the last one on the command line wins.
      */
     public String effectiveLlmProvider() {
+        if (llmSwitchedOff()) {
+            return LLM_NONE;
+        }
         return effective("llm_provider", llmProvider).toUpperCase(java.util.Locale.ROOT);
     }
 

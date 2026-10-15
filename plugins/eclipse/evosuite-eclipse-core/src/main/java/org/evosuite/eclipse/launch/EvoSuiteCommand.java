@@ -104,6 +104,10 @@ public final class EvoSuiteCommand {
         args.addAll(splitArguments(options.extraArguments));
         options.pomProperties.forEach((name, value) -> args.add("-D" + name + "=" + value));
         args.addAll(splitArguments(options.pomExtraArguments));
+        if (options.llmSwitchedOff()) {
+            // After everything else: search only overrides an LLM the pom or arguments switch on.
+            args.add("-Dllm_provider=" + GenerationOptions.LLM_NONE);
+        }
         return args;
     }
 

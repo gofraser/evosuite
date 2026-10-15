@@ -148,6 +148,25 @@ public class EvoSuiteCommandTest {
     }
 
     @Test
+    public void searchOnlyKeepsTheLlmOffWhateverElseIsConfigured() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_ANTHROPIC;
+        options.llmModel = "claude-sonnet-5-5";
+        options.llmOnStagnation = true;
+        options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
+        options.extraArguments = "-Dllm_provider=OPENAI";
+        options.pomProperties = Map.of("llm_provider", "OLLAMA");
+        options.pomExtraArguments = "-Dllm_provider=OPENAI";
+        List<String> args = arguments(options);
+        assertFalse(options.usesLlm());
+        assertEquals("NONE", options.effectiveLlmProvider());
+        assertFalse(args.contains("-Dllm_provider=ANTHROPIC") || args.contains("-Dllm_on_stagnation=true"));
+        assertEquals("-Dllm_provider=NONE", args.get(args.size() - 1), "the last word on the provider");
+        // The settings themselves are untouched, ready for when the LLM is switched back on.
+        assertEquals("claude-sonnet-5-5", options.llmModel);
+    }
+
+    @Test
     public void llmOnlyApproachesSwitchTheStrategy() {
         GenerationOptions options = new GenerationOptions();
         options.llmProvider = GenerationOptions.LLM_OPENAI;
