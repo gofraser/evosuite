@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Tells m2e (Eclipse's Maven integration) what to do with this plugin's goals when they are bound to a
+  lifecycle phase. setup runs when Eclipse configures the project, so that the folder of generated tests,
+  which setup adds as a test source root, becomes a test source folder in Eclipse too. Generating tests
+  takes minutes and the other goals change files, so none of them runs during workspace builds.
+-->
+<lifecycleMappingMetadata>
+  <pluginExecutions>
+    <pluginExecution>
+      <pluginExecutionFilter>
+        <goals>
+          <goal>setup</goal>
+        </goals>
+      </pluginExecutionFilter>
+      <action>
+        <execute>
+          <runOnConfiguration>true</runOnConfiguration>
+          <runOnIncremental>false</runOnIncremental>
+        </execute>
+      </action>
+    </pluginExecution>
+    <pluginExecution>
+      <pluginExecutionFilter>
+        <goals>
+          <goal>generate</goal>
+          <goal>export</goal>
+          <goal>coverage</goal>
+          <goal>clean</goal>
+          <goal>info</goal>
+          <goal>prepare</goal>
+        </goals>
+      </pluginExecutionFilter>
+      <action>
+        <ignore/>
+      </action>
+    </pluginExecution>
+  </pluginExecutions>
+</lifecycleMappingMetadata>
