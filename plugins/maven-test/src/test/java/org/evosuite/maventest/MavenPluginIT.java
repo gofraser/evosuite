@@ -26,6 +26,7 @@ import org.evosuite.runtime.InitializingListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -50,6 +51,7 @@ public class MavenPluginIT {
     private final Path env = projects.resolve("EnvModule");
     private final Path coverage = projects.resolve("CoverageModule");
     private final Path extension = projects.resolve("ExtensionModeModule");
+    private final Path noRuntime = Paths.get("standalone-projects").resolve("NoRuntimeModule");
 
     private final String srcEvo = "src/evo";
 
@@ -186,7 +188,7 @@ public class MavenPluginIT {
         String cut = "org.maven_test_project.mwod.OneDependencyClass";
         verifyLogFilesExist(dependency,cut);
         verifyESTestsRunFor(verifier,cut);
-        verifyInitializationArtifacts(dependency);
+        verifyAgentConfigured(verifier);
     }
 
     @Test
@@ -203,7 +205,6 @@ public class MavenPluginIT {
         String cut = "org.maven_test_project.mwod.OneDependencyClass";
         verifyLogFilesExist(dependency,cut);
         verifyESTestsRunFor(verifier,cut);
-        verifyInitializationArtifacts(dependency);
     }
 
     @Test
@@ -221,13 +222,111 @@ public class MavenPluginIT {
     }
 
     @Test
+    @Tag("smoke")
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
-    public void testPrepareWithExtensionModeFixture() throws Exception {
+    public void testSetupWithExtensionModeFixture() throws Exception {
         Verifier verifier = getVerifier(extension);
         verifier.executeGoal("test");
 
         verifier.verifyTextInLog("Running org.maven_test_project.xm.ExtensionTarget_ESTest");
-        verifyInitializationArtifacts(extension);
+        verifyAgentConfigured(verifier);
+    }
+
+    //--- the generate/setup workflow ---------------------------------------
+
+    @Test
+    @Tag("smoke")
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testGenerateWritesTestsThatSetupRuns() throws Exception {
+        String cut = "org.maven_test_project.sm.SimpleClass";
+        // a test left over from a class that was deleted
+        Path stale = simple.resolve(srcEvo).resolve("org/maven_test_project/sm/Deleted_ESTest.java");
+        Files.createDirectories(stale.getParent());
+        Files.write(stale, Arrays.asList("package org.maven_test_project.sm;",
+                "public class Deleted_ESTest { does not compile }"));
+
+        Verifier verifier = getVerifier(simple);
+        verifier.addCliOption("evosuite:generate");
+        verifier.addCliOption("-Devosuite.timeInMinutesPerClass=1");
+        verifier.addCliOption("-Devosuite.cuts=" + cut);
+        verifier.executeGoal("test");
+
+        // generate wrote the tests to the folder setup added, without export or build-helper
+        assertTrue(Files.exists(simple.resolve(srcEvo).resolve("org/maven_test_project/sm/SimpleClass_ESTest.java")));
+        assertFalse(Files.exists(stale), "the test of a deleted class was not removed");
+        verifyESTestsRunFor(verifier, cut);
+        verifyAgentConfigured(verifier);
+    }
+
+    @Test
+    @Timeout(value = 2 * timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testSecondRunOnlyTestsChangedClasses() throws Exception {
+        Verifier first = getVerifier(simple);
+        first.addCliOption("evosuite:generate");
+        first.addCliOption("-Devosuite.timeInMinutesPerClass=1");
+        first.addCliOption("-Devosuite.cores=2");
+        first.addCliOption("-Devosuite.memoryInMB=1200");
+        first.executeGoal("compile");
+        verifyLogFilesExist(simple, "org.maven_test_project.sm.SimpleClass");
+
+        Verifier second = getVerifier(simple);
+        second.addCliOption("evosuite:generate");
+        second.addCliOption("-Devosuite.timeInMinutesPerClass=1");
+        second.executeGoal("compile");
+        second.verifyTextInLog("testable classes are unchanged since their tests were generated");
+    }
+
+    @Test
+    @Tag("smoke")
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testSetupNamesTheMissingRuntimeDependency() throws Exception {
+        Verifier verifier = getVerifier(noRuntime);
+        try {
+            verifier.executeGoal("test-compile");
+            fail("the generated test cannot compile without the EvoSuite runtime");
+        } catch (VerificationException e) {
+            // expected
+        }
+        verifier.verifyTextInLog("The EvoSuite tests in src/test/evosuite cannot compile: add these test dependencies to the pom of NoRuntimeModule");
+        verifier.verifyTextInLog("<artifactId>evosuite-standalone-runtime</artifactId>");
+    }
+
+    @Test
+    @Tag("smoke")
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testParallelReactorBuildGeneratesForEachModule() throws Exception {
+        String a = "org.maven_test_project.sm.SimpleClass";
+        String b = "org.maven_test_project.mwod.OneDependencyClass";
+
+        Verifier verifier = getVerifier(projects);
+        verifier.addCliOption("-T");
+        verifier.addCliOption("2");
+        verifier.addCliOption("-pl");
+        verifier.addCliOption("SimpleModule,ModuleWithOneDependency");
+        verifier.addCliOption("evosuite:generate");
+        verifier.addCliOption("-Devosuite.timeInMinutesPerClass=1");
+        verifier.addCliOption("-Devosuite.cuts=" + a + "," + b);
+        verifier.executeGoal("compile");
+
+        verifyLogFilesExist(simple, a);
+        verifyLogFilesExist(dependency, b);
+    }
+
+    @Test
+    @Tag("smoke")
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testLegacyPropertyNamesStillWork() throws Exception {
+        String cut = "org.maven_test_project.sm.SimpleClass";
+
+        Verifier verifier = getVerifier(simple);
+        verifier.addCliOption("evosuite:generate");
+        verifier.addCliOption("-DtimeInMinutesPerClass=1");
+        verifier.addCliOption("-Dcuts=" + cut);
+        verifier.executeGoal("compile");
+
+        verifier.verifyTextInLog("Property 'cuts' is deprecated, use 'evosuite.cuts' instead");
+        verifier.verifyTextInLog("Time per class: 1 minutes");
+        verifyLogFilesExist(simple, cut);
     }
 
     @Test
@@ -658,11 +757,17 @@ public class MavenPluginIT {
         assertTrue(Files.exists(logs.resolve("std_err_MASTER.log")));
         assertTrue(Files.exists(logs.resolve("std_out_CLIENT.log")));
         assertTrue(Files.exists(logs.resolve("std_out_MASTER.log")));
+
+        // a job that failed writes its logs as well, so also check that it produced tests
+        Path suite = dir.resolve("best-tests").resolve(className.replace('.', '/') + "_ESTest.java");
+        assertTrue(Files.exists(suite), "no tests were generated for " + className
+                + ", see " + logs.resolve("std_err_MASTER.log"));
     }
 
-    private void verifyInitializationArtifacts(Path targetProject) {
-        Path scaffoldingList = targetProject.resolve(InitializingListener.getScaffoldingListFilePath());
-        assertTrue(Files.exists(scaffoldingList));
+    private void verifyAgentConfigured(Verifier verifier) throws VerificationException {
+        // logged by the setup goal; Surefire then passes the agent to the test JVM
+        verifier.verifyTextInLog("argLine set to");
+        verifier.verifyTextInLog("-javaagent:");
     }
 
     private void verifyGeneratedExtensionTestExists(Path targetProject, String generatedSimpleName) throws IOException {
