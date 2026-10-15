@@ -22,248 +22,97 @@
 -->
 <?eclipse version="3.4"?>
 <plugin>
-<!--
-   <extension
-         point="org.eclipse.ui.popupMenus">
-      <objectContribution
-            objectClass="org.eclipse.jdt.core.IJavaElement"
-            id="org.evosuite.contribution">
-         <menu
-               label="EvoSuite"
-               path="additions"
-               icon="icons/evosuite.gif"
-               id="org.evosuite.menu">
-            <separator
-                  name="group1">
-            </separator>
-         </menu> -->
-         <!-- action commented out in White's version -->
-         <!-- 
-         <action
-               label="Extend JUnit Test Suite"
-               class="org.evosuite.eclipse.popup.actions.ExtendSuiteAction"
-               menubarPath="org.evosuite.menu/group1"
-               state="true"
-               style="push"
-               tooltip="Generate further tests for existing JUnit test class"
-               enablesFor="1"
-               id="org.evosuite.EvoSuiteExtendAction">
-               <visibility>
-               <with variable="selection">
-                  <count value="1"/>
-                  <iterate> 
-                     <adapt type="org.eclipse.jdt.core.IJavaElement"> 
-                        <test property="org.eclipse.jdt.core.isInJavaProject"/>
-                        <test property="org.eclipse.jdt.core.hasTypeOnClasspath" value="junit.framework.Test"/>
-                        <test property="org.eclipse.jdt.junit.canLaunchAsJUnit" forcePluginActivation="true"/>
-                      </adapt>
+
+   <extension point="org.eclipse.ui.commands">
+      <command
+            id="org.evosuite.eclipse.generateTests"
+            name="Generate Tests with EvoSuite"
+            description="Generate a JUnit test suite with EvoSuite for the selected classes"
+            categoryId="org.eclipse.jdt.ui.category.source">
+      </command>
+   </extension>
+
+   <extension point="org.eclipse.ui.commandImages">
+      <image commandId="org.evosuite.eclipse.generateTests" icon="icons/evosuite.gif"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.handlers">
+      <handler
+            class="org.evosuite.eclipse.handlers.GenerateTestsHandler"
+            commandId="org.evosuite.eclipse.generateTests">
+      </handler>
+   </extension>
+
+   <extension point="org.eclipse.ui.menus">
+      <!-- Package Explorer, Project Explorer and outline: classes, packages, source folders, projects. -->
+      <menuContribution locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+         <command commandId="org.evosuite.eclipse.generateTests" style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="activeMenuSelection">
+                  <iterate ifEmpty="false" operator="or">
+                     <adapt type="org.eclipse.jdt.core.IJavaElement">
+                        <or>
+                           <instanceof value="org.eclipse.jdt.core.ICompilationUnit"/>
+                           <instanceof value="org.eclipse.jdt.core.IType"/>
+                           <instanceof value="org.eclipse.jdt.core.IPackageFragment"/>
+                           <instanceof value="org.eclipse.jdt.core.IPackageFragmentRoot"/>
+                           <instanceof value="org.eclipse.jdt.core.IJavaProject"/>
+                        </or>
+                     </adapt>
                   </iterate>
                </with>
-            </visibility>
-         </action>
-         <action
-               label="Generate JUnit Test Suite"
-               class="org.evosuite.eclipse.popup.actions.GenerateTestsAction"
-               menubarPath="org.evosuite.menu/group1"
-               state="true"
-               style="push"
-               tooltip="Make EvoSuite generate JUnit test classes"
-               enablesFor="1"
-               id="org.evosuite.EvoSuiteAction">
-         </action> -->
-         <!--
-         <action
-               label="Clear EvoSuite Markers"
-               class="org.evosuite.eclipse.popup.actions.ClearMarkersAction"
-               menubarPath="org.evosuite.menu/group1"
-               state="true"
-               style="push"
-               tooltip="Clear EvoSuite markers"
-               enablesFor="1"
-               id="org.evosuite.ClearEvoSuiteMarkers">
-         </action>
-         --><!--
-      </objectContribution>
-            <objectContribution
-            id="org.evosuite.EditorContribution"
-            objectClass="org.eclipse.ui.IEditorInput"
-            nameFilter="*.java">
-            <menu
-                label="EvoSuite"
-                path="additions"
-                id="org.evosuite.EditorMenu"
-                icon="icons/evosuite.gif">
-                <separator
-                    name="group">
-                </separator>
-            </menu> -->
-            <!-- action commented out in White's version --> <!--
-            <action
-                label="Extend JUnit Test Suite"
-                class="org.evosuite.eclipse.popup.actions.ExtendSuiteEditorAction"
-                menubarPath="org.evosuite.EditorMenu/group"
-                enablesFor="1"
-                id="org.evosuite.EvoSuiteExtendAction2">
-            </action>
-            <action
-                label="Generate JUnit Test Suite"
-                class="org.evosuite.eclipse.popup.actions.GenerateTestsEditorAction"
-                menubarPath="org.evosuite.EditorMenu/group"
-                enablesFor="1"
-                id="org.evosuite.EvoSuiteAction2">
-            </action>
-            
-        </objectContribution>
-      -->
-      <!--
-      <objectContribution
-            id="org.evosuite.EditorContribution"
-            objectClass="org.eclipse.ui.IEditorInput"
-            nameFilter="*.java">
-            <menu
-                label="EvoSuite"
-                path="additions"
-                id="org.evosuite.EditorMenu"
-                icon="icons/evosuite.gif">
-                <separator
-                    name="group">
-                </separator>
-            </menu>
-            <action
-                label="Replace Test"
-                class="org.evosuite.eclipse.popup.actions.ReplaceTestAction"
-                menubarPath="org.evosuite.EditorMenu/group"
-                enablesFor="1"
-                id="org.evosuite.ReplaceTestAction">
-            </action>
-        </objectContribution>
-        --> 
-        <!--
-   </extension> -->
-   <extension point="org.eclipse.ui.propertyPages">
+            </visibleWhen>
+         </command>
+      </menuContribution>
+      <!-- The Java editor's context menu. -->
+      <menuContribution locationURI="popup:#CompilationUnitEditorContext?after=additions">
+         <command commandId="org.evosuite.eclipse.generateTests" style="push"/>
+      </menuContribution>
+      <!-- The main Source menu, for keyboard users. -->
+      <menuContribution locationURI="menu:org.eclipse.jdt.ui.source.menu?after=generateGroup">
+         <command commandId="org.evosuite.eclipse.generateTests" style="push"/>
+      </menuContribution>
+   </extension>
+
+   <extension point="org.eclipse.core.runtime.preferences">
+      <initializer class="org.evosuite.eclipse.preferences.PreferenceInitializer"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.preferencePages">
       <page
-            adaptable="true"
-            class="org.evosuite.eclipse.properties.EvoSuitePropertyPage"
-            id="org.evosuite.eclipse.properties.EvoSuitePropertyPage"
+            id="org.evosuite.eclipse.preferences.EvoSuitePreferencePage"
+            category="org.eclipse.jdt.ui.preferences.JavaBasePreferencePage"
             name="EvoSuite"
-            nameFilter="*"
-            objectClass="org.eclipse.jdt.core.IJavaProject">
+            class="org.evosuite.eclipse.preferences.EvoSuitePreferencePage">
       </page>
    </extension>
+
+   <extension point="org.eclipse.ui.propertyPages">
+      <page
+            id="org.evosuite.eclipse.preferences.EvoSuitePropertyPage"
+            name="EvoSuite"
+            class="org.evosuite.eclipse.preferences.EvoSuitePropertyPage">
+         <enabledWhen>
+            <adapt type="org.eclipse.core.resources.IProject">
+               <test property="org.eclipse.core.resources.projectNature" value="org.eclipse.jdt.core.javanature"/>
+            </adapt>
+         </enabledWhen>
+      </page>
+   </extension>
+
    <extension point="org.eclipse.jdt.core.classpathContainerInitializer">
       <classpathContainerInitializer
-            class="org.evosuite.eclipse.properties.EvoSuiteClasspathContainerInitializer"
-            id="org.evosuite.eclipse.classpathContainerInitializer">
+            id="org.evosuite.eclipse.classpathContainerInitializer"
+            class="org.evosuite.eclipse.classpath.EvoSuiteClasspathContainerInitializer">
       </classpathContainerInitializer>
    </extension>
+
    <extension point="org.eclipse.jdt.ui.classpathContainerPage">
       <classpathContainerPage
-            id="org.evosuite.eclipse.classpathContainerPage"
-            class="org.evosuite.eclipse.properties.EvoSuiteClasspathContainerPage"
-            name="EvoSuite runtime library">
+            id="org.evosuite.eclipse.classpathContainerInitializer"
+            name="EvoSuite Runtime"
+            class="org.evosuite.eclipse.classpath.EvoSuiteClasspathContainerPage">
       </classpathContainerPage>
    </extension>
-
-   <extension
-         id="id1"
-         point="org.eclipse.core.resources.builders">
-      <builder></builder>
-   </extension>
-   <extension
-         point="org.eclipse.ui.startup">
-      <startup
-            class="org.evosuite.eclipse.Activator"></startup>
-   </extension>
-   	
-	<extension point="org.eclipse.ui.preferencePages">
-		<page 
-			id="org.evosuite.eclipse.properties.EvoSuitePreferencePage" 
-			name="EvoSuite" 
-			class="org.evosuite.eclipse.properties.EvoSuitePreferencePage" >
-		</page>
-	</extension>
-	
- <extension point="org.eclipse.ui.commands">
- 	<command
-      description="Generate JUnit test suite with EvoSuite"
-      id="org.evosuite.EvoSuiteAction"
-      name="Generate tests with EvoSuite">
-  	</command>
- 	<command
-      description="Extend JUnit test suite with EvoSuite"
-      id="org.evosuite.EvoSuiteExtendAction"
-      name="Extend test suite with EvoSuite">
-  	</command>
- </extension>
- <extension
-    point="org.eclipse.ui.commandImages">
-  <image
-      commandId="org.evosuite.EvoSuiteAction"
-      icon="icons/evosuite.gif">
-  </image>
-  <image
-      commandId="org.evosuite.EvoSuiteExtendAction"
-      icon="icons/evosuite.gif">
-  </image>
-</extension>
-<extension
-    point="org.eclipse.ui.handlers">
-  <handler
-      class="org.evosuite.eclipse.popup.actions.GenerateTestsEditorAction"
-      commandId="org.evosuite.EvoSuiteAction">    
-  </handler>
-  <handler
-      class="org.evosuite.eclipse.popup.actions.ExtendSuiteEditorAction"
-      commandId="org.evosuite.EvoSuiteExtendAction">    
-  </handler>
-</extension>
-
-<extension point="org.eclipse.ui.menus">
-  	<menuContribution locationURI="popup:org.eclipse.ui.popup.any">
-    	<command commandId="org.evosuite.EvoSuiteAction">
-		    <visibleWhen>
-      			<with variable="activeMenuSelection">
-      			  <and>
-      				<count value="1"></count>
-        			<iterate ifEmpty="false" operator="and">
-						<and>
-							<instanceof value="org.eclipse.jdt.core.IJavaElement"/>
-       						<adapt type="org.eclipse.core.resources.IResource">
-          						<test property="org.eclipse.core.resources.name" 
-                					value="*.java"/>
-       						</adapt>
-							<not>
-								<test property="org.eclipse.jdt.junit.isTest"/>
-							</not>
-						</and>
-        			</iterate>
-        		  </and>
-      			</with>
-    		</visibleWhen>
-		</command>
-	</menuContribution>
-  	<menuContribution locationURI="popup:org.eclipse.ui.popup.any">
-    	<command commandId="org.evosuite.EvoSuiteExtendAction">
-		    <visibleWhen>
-      			<with variable="activeMenuSelection">
-      			  <and>
-      				<count value="1"></count>
-        			<iterate ifEmpty="false" operator="and">
-						<and>
-							<instanceof value="org.eclipse.jdt.core.IJavaElement"/>
-       						<adapt type="org.eclipse.core.resources.IResource">
-          						<test property="org.eclipse.core.resources.name" 
-                					value="*.java"/>
-       						</adapt>
-							<test property="org.eclipse.jdt.junit.isTest"/>
-						</and>
-        			</iterate>
-        		  </and>
-      			</with>
-    		</visibleWhen>
-		</command>
-	</menuContribution>
-	
-</extension>
 
 </plugin>

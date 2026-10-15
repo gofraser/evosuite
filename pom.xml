@@ -632,7 +632,8 @@
                         <exclude>LICENSE.txt</exclude>
                         <exclude>IMPORTANT_README_FOR_DEVELOPERS.txt</exclude>
                         <exclude>removed/readme.txt</exclude>
-                        <exclude>plugins/eclipse/README.txt</exclude>
+                        <exclude>plugins/eclipse/README.md</exclude>
+                        <exclude>plugins/eclipse/mvnw*</exclude>
                         <exclude>**/*.properties</exclude>
                         <exclude>**/.idea/**</exclude>
                         <exclude>**/*.js</exclude>

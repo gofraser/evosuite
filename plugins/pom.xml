@@ -15,7 +15,7 @@
 	<modules>
 		<module>maven</module>
 		<module>build-support-test</module>
-		<!-- <module>eclipse</module> -->
+		<!-- eclipse/ is a separate Tycho build that needs Java 21; see eclipse/README.md -->
 	</modules>
 
 	<profiles>

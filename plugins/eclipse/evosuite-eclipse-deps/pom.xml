@@ -7,76 +7,44 @@
     <groupId>org.evosuite.plugins</groupId>
     <artifactId>evosuite-eclipse-plugin</artifactId>
     <version>1.2.1-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>org.evosuite.plugins.eclipse.deps</artifactId>
   <packaging>eclipse-plugin</packaging>
 
+  <!--
+    A data bundle: it carries the runnable EvoSuite jar, which the core plugin starts in a separate
+    JVM, and the standalone runtime that generated tests need on their classpath. Nothing is loaded
+    from either jar inside Eclipse, so the bundle exports no packages.
+  -->
   <build>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.0.2</version>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
         <executions>
           <execution>
-            <id>copy</id>
-            <phase>process-sources</phase>
+            <id>copy-evosuite-jars</id>
+            <phase>generate-resources</phase>
             <goals>
-              <goal>copy</goal>
+              <goal>run</goal>
             </goals>
             <configuration>
-              <artifactItems>
-                <artifactItem>
-                  <groupId>org.evosuite</groupId>
-                  <artifactId>evosuite-master</artifactId>
-                  <version>1.2.1-SNAPSHOT</version>
-                  <type>jar</type>
-                  <overWrite>true</overWrite>
-                  <outputDirectory>${project.basedir}/lib</outputDirectory>
-                  <destFileName>evosuite.jar</destFileName>
-                </artifactItem>
-              </artifactItems>
+              <target>
+                <fail message="EvoSuite jar not found: ${evosuite.master.jar}. Build it first (see ../pom.xml).">
+                  <condition><not><available file="${evosuite.master.jar}"/></not></condition>
+                </fail>
+                <fail message="EvoSuite runtime jar not found: ${evosuite.runtime.jar}. Build it first (see ../pom.xml).">
+                  <condition><not><available file="${evosuite.runtime.jar}"/></not></condition>
+                </fail>
+                <copy file="${evosuite.master.jar}" tofile="${project.basedir}/lib/evosuite.jar" overwrite="true"/>
+                <copy file="${evosuite.runtime.jar}" tofile="${project.basedir}/lib/evosuite-standalone-runtime.jar" overwrite="true"/>
+              </target>
             </configuration>
           </execution>
         </executions>
       </plugin>
     </plugins>
-
-    <pluginManagement>
-      <plugins>
-        <!--
-            m2e does not support 'copy' goal of maven-dependency-plugin.
-            so, we just ignore it when using Eclipse. It has no influence
-            on the Maven build itself.
-        -->
-        <plugin>
-          <groupId>org.eclipse.m2e</groupId>
-          <artifactId>lifecycle-mapping</artifactId>
-          <version>1.0.0</version>
-          <configuration>
-            <lifecycleMappingMetadata>
-              <pluginExecutions>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                  <groupId>org.apache.maven.plugins</groupId>
-                  <artifactId>maven-dependency-plugin</artifactId>
-                  <versionRange>[2.10,)</versionRange>
-                  <goals>
-                    <goal>copy</goal>
-                  </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore></ignore>
-                  </action>
-                </pluginExecution>
-              </pluginExecutions>
-            </lifecycleMappingMetadata>
-          </configuration>
-        </plugin>
-      </plugins>
-    </pluginManagement>
   </build>
-
 </project>

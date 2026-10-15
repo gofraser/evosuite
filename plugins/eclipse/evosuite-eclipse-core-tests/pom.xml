@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.evosuite.plugins</groupId>
+    <artifactId>evosuite-eclipse-plugin</artifactId>
+    <version>1.2.1-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>org.evosuite.plugins.eclipse.core.tests</artifactId>
+  <packaging>eclipse-test-plugin</packaging>
+
+  <properties>
+    <!--
+      JDK that the end-to-end test runs EvoSuite on. Empty means the test workspace's default JRE,
+      which is the JVM running the build; set it when that JVM is newer than EvoSuite supports.
+    -->
+    <evosuite.it.javaHome></evosuite.it.javaHome>
+    <!-- Skip the end-to-end test, which takes about a minute, with -Devosuite.it.skip=true. -->
+    <evosuite.it.skip>false</evosuite.it.skip>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId>
+        <artifactId>target-platform-configuration</artifactId>
+        <version>${tycho-version}</version>
+        <configuration>
+          <dependency-resolution>
+            <extraRequirements>
+              <!-- A workbench to run the UI harness in, and JDT's JUnit containers. -->
+              <requirement>
+                <type>eclipse-plugin</type>
+                <id>org.eclipse.ui.ide.application</id>
+                <versionRange>0.0.0</versionRange>
+              </requirement>
+              <requirement>
+                <type>eclipse-feature</type>
+                <id>org.eclipse.jdt</id>
+                <versionRange>0.0.0</versionRange>
+              </requirement>
+            </extraRequirements>
+          </dependency-resolution>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId>
+        <artifactId>tycho-surefire-plugin</artifactId>
+        <version>${tycho-version}</version>
+        <configuration>
+          <!-- JDT puts JUnit 4 on the test runtime too, which would otherwise win. -->
+          <providerHint>junit5</providerHint>
+          <useUIHarness>true</useUIHarness>
+          <useUIThread>false</useUIThread>
+          <application>org.eclipse.ui.ide.workbench</application>
+          <systemProperties>
+            <evosuite.it.javaHome>${evosuite.it.javaHome}</evosuite.it.javaHome>
+            <evosuite.it.skip>${evosuite.it.skip}</evosuite.it.skip>
+          </systemProperties>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>macos</id>
+      <activation>
+        <os><family>mac</family></os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.eclipse.tycho</groupId>
+            <artifactId>tycho-surefire-plugin</artifactId>
+            <version>${tycho-version}</version>
+            <configuration>
+              <argLine>-XstartOnFirstThread</argLine>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

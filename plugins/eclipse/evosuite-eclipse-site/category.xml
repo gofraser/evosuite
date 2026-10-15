@@ -21,10 +21,10 @@
 
 -->
 <site>
-  <description name="EvoSuite Eclipse Plugin" url="http://www.evosuite.org/">
-    This is an experimental Eclipse plugin for the EvoSuite JUnit Test Generation tool
+  <description name="EvoSuite Eclipse Plugin" url="https://www.evosuite.org/">
+    Eclipse plugin for the EvoSuite JUnit test generation tool
   </description>
-  <feature id="org.evosuite.plugins.eclipse.feature" version="1.2.1.qualifier">
+  <feature id="org.evosuite.plugins.eclipse.feature">
     <category name="EvoSuite_Category"/>
   </feature>
   <category-def name="EvoSuite_Category" label="JUnit Test Generation"/>
