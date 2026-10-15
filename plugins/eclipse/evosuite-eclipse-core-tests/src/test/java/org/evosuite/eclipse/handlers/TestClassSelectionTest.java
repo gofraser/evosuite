@@ -132,4 +132,22 @@ public class TestClassSelectionTest {
         assertEquals(List.of("a.VaultTest", "a.VaultIT"), tests.stream().map(IType::getFullyQualifiedName)
                 .collect(Collectors.toList()));
     }
+
+    /** A helper class next to a test class in its file is not a test class of its own. */
+    @Test
+    public void onlyThePrimaryClassOfAFileIsATestClass() throws Exception {
+        TestProjects.addSource(project, "src/test/java", "a.RepoTest",
+                "package a; public class RepoTest {}\nclass FakeRepo {}\n");
+        TestProjects.addSource(project, "src/test/java", "a.Fakes", "package a; class FakeClock {}\n");
+        var unit = type("a.RepoTest").getCompilationUnit();
+        var fakes = type("a.RepoTest").getPackageFragment().getCompilationUnit("Fakes.java");
+
+        assertFalse(TestClassSelection.isTestClass(unit.getType("FakeRepo")));
+        assertFalse(TestClassSelection.isTestClass(fakes.getType("FakeClock")));
+        assertEquals(List.of("a.RepoTest"), TestClassSelection.collect(List.of(unit)).stream()
+                .map(IType::getFullyQualifiedName).collect(Collectors.toList()));
+        assertTrue(TestClassSelection.containsTestClass(unit));
+        assertFalse(TestClassSelection.containsTestClass(fakes));
+        assertEquals(List.of(), TestClassSelection.collect(List.of(fakes)));
+    }
 }

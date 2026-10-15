@@ -38,7 +38,8 @@ import org.eclipse.jdt.core.JavaModelException;
 /**
  * The test classes that Extend Tests with EvoSuite applies to, and the class each one tests.
  *
- * <p>A test class qualifies if it is a top-level, non-abstract class in a test source folder:
+ * <p>A test class qualifies if it is the primary, non-abstract class of a file in a test source
+ * folder:
  * a hand-written test such as {@code FooTest} or an EvoSuite suite such as {@code Foo_ESTest}.
  * Its class under test follows from the naming conventions, {@code FooTest}, {@code FooTests},
  * {@code FooTestCase}, {@code FooIT}, {@code FooITCase}, {@code TestFoo} and the configured
@@ -77,10 +78,9 @@ public final class TestClassSelection {
                 continue;
             }
             if (element instanceof ICompilationUnit unit) {
-                for (IType type : unit.getTypes()) {
-                    if (isTestClass(type)) {
-                        tests.add(type);
-                    }
+                IType type = unit.findPrimaryType();
+                if (type != null && isTestClass(type)) {
+                    tests.add(type);
                 }
             } else if (element instanceof IType type && isTestClass(type)) {
                 tests.add(type);
@@ -92,21 +92,21 @@ public final class TestClassSelection {
     /** Whether {@code element}, a compilation unit or a type, is or contains a test class. */
     public static boolean containsTestClass(IJavaElement element) throws JavaModelException {
         if (element instanceof ICompilationUnit unit && unit.exists()) {
-            for (IType type : unit.getTypes()) {
-                if (isTestClass(type)) {
-                    return true;
-                }
-            }
+            IType type = unit.findPrimaryType();
+            return type != null && isTestClass(type);
         }
         return element instanceof IType type && isTestClass(type);
     }
 
     /**
-     * Whether Extend Tests applies to {@code type}: a top-level, non-abstract source class in a
-     * test source folder, other than EvoSuite's scaffolding.
+     * Whether Extend Tests applies to {@code type}: the primary, non-abstract source class of a
+     * compilation unit in a test source folder, other than EvoSuite's scaffolding. Other top-level
+     * classes in the file, such as a helper {@code FakeRepo} in {@code FooTest.java}, are not
+     * test classes: EvoSuite reads a test class from the file named after it.
      */
     public static boolean isTestClass(IType type) throws JavaModelException {
         if (!type.exists() || type.isBinary() || type.getDeclaringType() != null || !type.isClass()
+                || !type.equals(type.getCompilationUnit().findPrimaryType())
                 || Flags.isAbstract(type.getFlags()) || type.getElementName().endsWith("_scaffolding")) {
             return false;
         }
