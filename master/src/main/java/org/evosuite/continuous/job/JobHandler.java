@@ -36,11 +36,17 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * The class that actually execute the job as a separated process.
@@ -543,6 +549,9 @@ public class JobHandler extends Thread {
         commands.add("-Dctg_schedule=" + Properties.CTG_SCHEDULE);
         commands.add("-Dctg_min_time_per_job=" + Properties.CTG_MIN_TIME_PER_JOB);
 
+        // before ctg_extra_args, so that a property given there takes precedence
+        commands.addAll(readExtraProperties(Properties.CTG_EXTRA_PROPERTIES_FILE));
+
         if (Properties.CTG_EXTRA_ARGS != null && !Properties.CTG_EXTRA_ARGS.isEmpty()) {
 
             String extraArgs = Properties.CTG_EXTRA_ARGS;
@@ -565,6 +574,35 @@ public class JobHandler extends Thread {
         }
 
         return commands;
+    }
+
+    /**
+     * The properties in {@link Properties#CTG_EXTRA_PROPERTIES_FILE}, as arguments for a test generation process.
+     *
+     * @param file the file, or {@code null} for none
+     * @return one {@code -Dkey=value} argument per property, in key order
+     * @throws IllegalArgumentException if the file cannot be read or names a property EvoSuite does not have
+     */
+    public static List<String> readExtraProperties(String file) throws IllegalArgumentException {
+        List<String> arguments = new ArrayList<>();
+        if (file == null || file.trim().isEmpty()) {
+            return arguments;
+        }
+        java.util.Properties extra = new java.util.Properties();
+        try (Reader in = Files.newBufferedReader(Paths.get(file), StandardCharsets.UTF_8)) {
+            extra.load(in);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Cannot read EvoSuite properties from " + file + ": "
+                    + e.getMessage(), e);
+        }
+        Set<String> known = Properties.getParameters();
+        for (String key : new TreeSet<>(extra.stringPropertyNames())) {
+            if (!known.contains(key)) {
+                throw new IllegalArgumentException("Unknown EvoSuite property '" + key + "' in " + file);
+            }
+            arguments.add("-D" + key + "=" + extra.getProperty(key));
+        }
+        return arguments;
     }
 
     private List<String> timeSetUp(int seconds) {

@@ -23,6 +23,7 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.continuous.job.JobDefinition;
 import org.evosuite.continuous.job.JobExecutor;
+import org.evosuite.continuous.job.JobHandler;
 import org.evosuite.continuous.job.JobScheduler;
 import org.evosuite.continuous.persistency.ClassFingerprints;
 import org.evosuite.continuous.persistency.StorageManager;
@@ -149,6 +150,9 @@ public class ContinuousTestGeneration {
      * @return a summary string
      */
     public String execute() {
+
+        // fail before any job starts, not in each of them
+        JobHandler.readExtraProperties(Properties.CTG_EXTRA_PROPERTIES_FILE);
 
         //init the local storage manager
         StorageManager storage = new StorageManager();

@@ -34,7 +34,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -100,9 +102,23 @@ public class EvoSuiteRunner {
      * @return True if successful.
      */
     public boolean runEvoSuite(String dir, List<String> params) {
+        return runEvoSuite(dir, params, Collections.emptyMap());
+    }
+
+    /**
+     * Run EvoSuite in a separate process, with further environment variables. The processes EvoSuite
+     * spawns inherit them, which makes the environment the way to hand them secrets such as API keys:
+     * unlike arguments, it is not visible in process listings or logged.
+     *
+     * @param dir         The directory to run in.
+     * @param params      Parameters to pass to EvoSuite.
+     * @param environment Variables to add to the environment of the process.
+     * @return True if successful.
+     */
+    public boolean runEvoSuite(String dir, List<String> params, Map<String, String> environment) {
         List<String> cmd = getCommandToRunEvoSuite();
         cmd.addAll(params);
-        return runProcess(dir, cmd);
+        return runProcess(dir, cmd, environment);
     }
 
     /**
@@ -226,7 +242,7 @@ public class EvoSuiteRunner {
         return null;
     }
 
-    private boolean runProcess(String baseDir, List<String> cmd) {
+    private boolean runProcess(String baseDir, List<String> cmd, Map<String, String> environment) {
 
         if (baseDir == null) {
             baseDir = System.getProperty("user.dir");
@@ -240,6 +256,7 @@ public class EvoSuiteRunner {
         ProcessBuilder builder = new ProcessBuilder(cmd);
         builder.directory(new File(baseDir));
         builder.redirectErrorStream(true);
+        builder.environment().putAll(environment);
         String toolchainHome = getToolchainJavaHome();
         if (toolchainHome != null) {
             // the jobs EvoSuite spawns take their java executable from JAVA_HOME first

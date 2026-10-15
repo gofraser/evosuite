@@ -23,9 +23,16 @@ import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
+import org.apache.maven.settings.Server;
+import org.apache.maven.settings.Settings;
+import org.apache.maven.settings.crypto.DefaultSettingsDecryptionRequest;
+import org.apache.maven.settings.crypto.SettingsDecrypter;
+import org.apache.maven.settings.crypto.SettingsDecryptionResult;
+import org.evosuite.Properties;
 import org.evosuite.maven.util.EvoSuiteRunner;
 import org.evosuite.maven.util.FileUtils;
 import org.evosuite.maven.util.GeneratedTests;
+import org.evosuite.maven.util.JobProperties;
 import org.evosuite.maven.util.SpawnProcessManagerLease;
 
 import java.io.BufferedWriter;
@@ -37,8 +44,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -149,6 +158,29 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
 
     @Parameter(property = "evosuite.skip", defaultValue = "false")
     private boolean skip;
+
+    /**
+     * Further EvoSuite properties for test generation, eg the {@code llm_*} ones:
+     * {@code <evosuiteProperties><llm_provider>OLLAMA</llm_provider></evosuiteProperties>}.
+     * Values may contain spaces. Names are checked against EvoSuite's properties before any test is generated.
+     * {@code extraArgs} take precedence. Do not put API keys here, see {@code llmApiKeyServerId}.
+     */
+    @Parameter
+    private Map<String, String> evosuiteProperties;
+
+    /**
+     * Id of a {@code <server>} in the Maven {@code settings.xml} whose password is the API key of the LLM
+     * provider. The password may be encrypted with {@code mvn --encrypt-password}. EvoSuite gets the key
+     * through its environment, so it appears neither in the pom nor on any command line.
+     */
+    @Parameter(property = "evosuite.llmApiKeyServerId")
+    private String llmApiKeyServerId;
+
+    @Parameter(defaultValue = "${settings}", readonly = true)
+    private Settings settings;
+
+    @Component
+    private SettingsDecrypter settingsDecrypter;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -346,6 +378,30 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
         File exportFolder = GeneratedTests.resolveFolder(project.getBasedir(), testFolder);
         params.add("-Dctg_export_folder=" + exportFolder.getAbsolutePath());
 
+        List<String> unknown = JobProperties.unknownNames(evosuiteProperties);
+        if (!unknown.isEmpty()) {
+            throw new MojoExecutionException("evosuiteProperties contains properties EvoSuite does not have: "
+                    + String.join(", ", unknown));
+        }
+        if (evosuiteProperties != null && evosuiteProperties.containsKey(JobProperties.LLM_API_KEY)) {
+            getLog().warn("evosuiteProperties contains " + JobProperties.LLM_API_KEY
+                    + ", which ends up on the command line of every test generation process;"
+                    + " use llmApiKeyServerId or the " + JobProperties.LLM_API_KEY_VARIABLE
+                    + " environment variable instead");
+        }
+        try {
+            File properties = JobProperties.write(JobProperties.forJobs(
+                    new File(dir, Properties.CTG_DIR), evosuiteProperties));
+            params.add("-Dctg_extra_properties_file=" + properties.getAbsolutePath());
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to write the EvoSuite properties: " + e.getMessage(), e);
+        }
+        Map<String, String> environment = new HashMap<>();
+        String apiKey = resolveLlmApiKey(settings, settingsDecrypter, llmApiKeyServerId);
+        if (apiKey != null) {
+            environment.put(JobProperties.LLM_API_KEY_VARIABLE, apiKey);
+        }
+
         if (extraArgs != null && !extraArgs.isEmpty()) {
 
             String args = "";
@@ -375,7 +431,7 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
         boolean ok;
         try (SpawnProcessManagerLease lease = SpawnProcessManagerLease.acquire(spawnManagerPort)) {
             params.add("-Dspawn_process_manager_port=" + lease.getPort());
-            ok = runner.runEvoSuite(dir, params);
+            ok = runner.runEvoSuite(dir, params, environment);
         } catch (IllegalStateException e) {
             throw new MojoExecutionException(e.getMessage(), e);
         }
@@ -400,6 +456,35 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
         } catch (IOException e) {
             throw new MojoExecutionException("Failed to delete outdated generated tests: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * The LLM API key stored as the password of the server {@code llmApiKeyServerId} in settings.xml.
+     *
+     * @return the key, or {@code null} if no server is configured
+     */
+    static String resolveLlmApiKey(Settings settings, SettingsDecrypter settingsDecrypter, String llmApiKeyServerId)
+            throws MojoExecutionException {
+        if (llmApiKeyServerId == null || llmApiKeyServerId.trim().isEmpty()) {
+            return null;
+        }
+        Server server = settings == null ? null : settings.getServer(llmApiKeyServerId.trim());
+        if (server == null) {
+            throw new MojoExecutionException("llmApiKeyServerId is '" + llmApiKeyServerId
+                    + "', but settings.xml has no <server> with that <id>");
+        }
+        SettingsDecryptionResult result =
+                settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
+        if (!result.getProblems().isEmpty()) {
+            throw new MojoExecutionException("Cannot decrypt the password of server '" + llmApiKeyServerId
+                    + "' in settings.xml: " + result.getProblems().get(0).getMessage());
+        }
+        String key = result.getServer().getPassword();
+        if (key == null || key.trim().isEmpty()) {
+            throw new MojoExecutionException("Server '" + llmApiKeyServerId
+                    + "' in settings.xml has no <password> holding the LLM API key");
+        }
+        return key.trim();
     }
 
     private boolean hasClassFilter() {

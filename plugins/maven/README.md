@@ -85,11 +85,60 @@ incremental runs). Add it to `.gitignore`, or commit it to share incremental sta
 | `evosuite.schedule` | `BUDGET` | How the budget is spread over classes, see below |
 | `evosuite.testFolder` | `src/test/evosuite` | Where the tests are written |
 | `evosuite.deleteStaleTests` | true | Delete tests of classes that no longer exist |
-| `evosuite.extraArgs` | | Further EvoSuite properties, eg `-Dctg_incremental=false -Dsearch_budget=30` |
+| `evosuite.extraArgs` | | Further EvoSuite properties on the command line, eg `-Dctg_incremental=false`; no spaces in values |
+| `evosuite.llmApiKeyServerId` | | `settings.xml` server holding the LLM API key, see below |
 | `evosuite.skip` | false | Skip the goal |
 
 `classIncludes` and `classExcludes` (POM configuration only) select classes by patterns of their class files,
 eg `com/example/service/**` or `**/generated/**`. Unchanged classes among them are still skipped.
+
+`evosuiteProperties` (POM configuration only) passes any further EvoSuite property to test generation. Values
+may contain spaces, and names are checked before generation starts, so a typo fails the build:
+
+```xml
+<configuration>
+  <evosuiteProperties>
+    <search_budget>30</search_budget>
+    <assertion_strategy>MUTATION</assertion_strategy>
+  </evosuiteProperties>
+</configuration>
+```
+
+### LLM support
+
+EvoSuite can use a large language model, eg to seed the search or to improve the generated tests. Its `llm_*`
+properties go into `evosuiteProperties`:
+
+```xml
+<configuration>
+  <evosuiteProperties>
+    <llm_provider>ANTHROPIC</llm_provider>          <!-- or OPENAI, OLLAMA -->
+    <llm_model>claude-sonnet-5-5</llm_model>
+    <llm_seed_initial_population>true</llm_seed_initial_population>
+  </evosuiteProperties>
+  <llmApiKeyServerId>evosuite-llm</llmApiKeyServerId>
+</configuration>
+```
+
+The API key does not belong in the pom or on the command line, where every process listing shows it. Put it in
+`~/.m2/settings.xml` as the password of a server, encrypted with `mvn --encrypt-password` if you like, and name
+that server in `llmApiKeyServerId`:
+
+```xml
+<servers>
+  <server>
+    <id>evosuite-llm</id>
+    <password>{encrypted key}</password>
+  </server>
+</servers>
+```
+
+EvoSuite then receives the key through its environment. Without `llmApiKeyServerId`, it reads the
+`EVOSUITE_LLM_API_KEY` environment variable. For a local Ollama, set `llm_base_url` instead
+(`http://localhost:11434`); no key is needed.
+
+LLM calls are made per class, so incremental runs also save cost. With `llm_trace_enabled`, the prompts and
+responses, which include code of the project, are written to `.evosuite/llm-traces` rather than into the module.
 
 ### Schedules
 

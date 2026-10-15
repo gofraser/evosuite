@@ -52,6 +52,7 @@ public class MavenPluginIT {
     private final Path coverage = projects.resolve("CoverageModule");
     private final Path extension = projects.resolve("ExtensionModeModule");
     private final Path noRuntime = Paths.get("standalone-projects").resolve("NoRuntimeModule");
+    private final Path llm = Paths.get("standalone-projects").resolve("LlmModule");
 
     private final String srcEvo = "src/evo";
 
@@ -69,6 +70,10 @@ public class MavenPluginIT {
             FileUtils.deleteQuietly(p.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
             FileUtils.deleteQuietly(p.resolve("coverage.check.failed").toFile());
         }
+        for (String generated : Arrays.asList(".evosuite", "src/test/evosuite", "evosuite-report", "target")) {
+            FileUtils.deleteDirectory(llm.resolve(generated).toFile());
+        }
+        FileUtils.deleteQuietly(llm.resolve("log.txt").toFile());
     }
 
 
@@ -289,6 +294,44 @@ public class MavenPluginIT {
         }
         verifier.verifyTextInLog("The EvoSuite tests in src/test/evosuite cannot compile: add these test dependencies to the pom of NoRuntimeModule");
         verifier.verifyTextInLog("<artifactId>evosuite-standalone-runtime</artifactId>");
+    }
+
+    @Test
+    @Tag("smoke")
+    @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
+    public void testLlmSettingsAndKeyReachTheGenerationJob() throws Exception {
+        String cut = "org.maven_test_project.llm.Sign";
+        String key = "sk-maven-plugin-it"; // the password of the server in the fixture's settings.xml
+
+        Verifier verifier = getVerifier(llm);
+        verifier.addCliOption("-s");
+        verifier.addCliOption(llm.resolve("settings.xml").toAbsolutePath().toString());
+        verifier.addCliOption("evosuite:generate");
+        verifier.addCliOption("-Devosuite.timeInMinutesPerClass=1");
+        verifier.executeGoal("compile");
+
+        // the provider is unreachable, so the job generates tests without LLM help
+        verifyLogFilesExist(llm, cut);
+
+        Path dir = getESFolder(llm);
+        Path tmp = Files.find(dir, 1, (p, a) -> p.getFileName().toString().startsWith("tmp_")).findFirst().get();
+        StringBuilder jobLogs = new StringBuilder();
+        try (java.util.stream.Stream<Path> logs = Files.list(tmp.resolve("logs").resolve(cut))) {
+            for (Path log : (Iterable<Path>) logs::iterator) {
+                jobLogs.append(new String(Files.readAllBytes(log), java.nio.charset.StandardCharsets.UTF_8));
+            }
+        }
+        String job = jobLogs.toString();
+        assertTrue(job.contains("model=model with spaces"), "evosuiteProperties did not reach the job intact");
+        assertFalse(job.contains("API key must be configured"), "the key from settings.xml did not reach the job");
+        assertTrue(job.contains("127.0.0.1:9"), "the job did not try the configured provider");
+
+        String maven = new String(Files.readAllBytes(llm.resolve("log.txt")), java.nio.charset.StandardCharsets.UTF_8);
+        assertFalse(maven.contains(key), "the API key was printed");
+        assertFalse(job.contains(key), "the API key was printed");
+
+        assertTrue(Files.exists(dir.resolve("llm-traces")), "LLM traces not under .evosuite");
+        assertFalse(Files.exists(llm.resolve("evosuite-report").resolve("llm-traces")));
     }
 
     @Test

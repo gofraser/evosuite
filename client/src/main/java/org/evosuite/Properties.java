@@ -1435,6 +1435,11 @@ public class Properties {
             description = "Extra '-D' arguments to pass to EvoSuite test generation processes")
     public static String CTG_EXTRA_ARGS = null;
 
+    @Parameter(key = "ctg_extra_properties_file", group = "Continuous Test Generation",
+            description = "File of further EvoSuite properties (key=value, as java.util.Properties) to pass to the "
+                    + "test generation processes; unlike ctg_extra_args, values may contain spaces")
+    public static String CTG_EXTRA_PROPERTIES_FILE = null;
+
     // ---------------------------------------------------------------
     // Single branch mode
     @Parameter(key = "random_tests", group = "Single Branch Mode",

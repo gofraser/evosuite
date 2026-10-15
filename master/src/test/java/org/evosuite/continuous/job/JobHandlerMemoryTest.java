@@ -79,4 +79,15 @@ public class JobHandlerMemoryTest {
         assertEquals(new File(current, "B.pool"), JobHandler.findPool(current, kept, "B.pool", true));
         assertNull(JobHandler.findPool(current, kept, "C.pool", false));
     }
+
+    @Test
+    public void extraPropertiesWithUnknownNamesAreRejected(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("extra.properties");
+        Files.write(file, java.util.Arrays.asList("search_budget=30", "llm_modle=typo"));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> JobHandler.readExtraProperties(file.toString()));
+        org.junit.jupiter.api.Assertions.assertTrue(e.getMessage().contains("llm_modle"), e.getMessage());
+        org.junit.jupiter.api.Assertions.assertTrue(JobHandler.readExtraProperties(null).isEmpty());
+    }
 }
