@@ -21,7 +21,7 @@ package org.evosuite.junit.writer.collision;
 
 /**
  * Fixture standing in for a class under test whose simple name collides with
- * {@code java.util.concurrent.TimeUnit} (eg Liferay's own scheduler TimeUnit).
+ * {@code java.util.concurrent.TimeUnit} (eg a project's own scheduler TimeUnit).
  */
 public enum TimeUnit {
     DAY

@@ -127,10 +127,7 @@ public class TestCaseExecutor implements ThreadFactory {
      * then abandoned. A static initializer that did not finish within
      * {@code clinit_grace_timeout} once will not finish any faster the next time a test
      * touches the same class, so waiting again just donates another
-     * {@code clinit_grace_timeout} of the search budget for the same answer. 108_liferay
-     * is the case that made this visible: its service layer pulls in easyconf/XStream
-     * configuration loading almost everywhere, and a single 60s run could pay the grace
-     * period twice before the search had covered anything.
+     * {@code clinit_grace_timeout} of the search budget for the same answer.
      */
     private final Set<String> abandonedClinitClasses = new HashSet<>();
 
@@ -194,9 +191,8 @@ public class TestCaseExecutor implements ThreadFactory {
      * anyway: somewhere on its call stack is a {@code catch} block (commonly
      * {@code catch (Throwable)}, but any sufficiently broad catch works) that swallowed
      * it. That is conclusive regardless of how many times it happened, so the threshold is
-     * deliberately tiny rather than "a handful of times looks like a loop": measured
-     * against 104_vuze's accept_loop() (background: catch Throwable, log via an expensive
-     * VFS-backed diagnostics call, {@code Thread.sleep(500)}, retry), a single such cycle
+     * deliberately tiny rather than "a handful of times looks like a loop": for a background
+     * loop that catches Throwable, logs via an expensive diagnostics call and sleeps, a single such cycle
      * can easily take longer than one grace wait, so a threshold in the hundreds or
      * thousands would rarely fire in practice and defeats the purpose of escalating
      * quickly.
@@ -872,13 +868,10 @@ public class TestCaseExecutor implements ThreadFactory {
                     // regard for whether the target is inside a <clinit> frame, and any
                     // exception escaping <clinit> makes the JVM mark that class — and anything
                     // whose own <clinit> reads from it — erroneous for the rest of the process.
-                    // 2e066406d already taught LoopCounter's own interrupt-driven throw to
-                    // respect this, but that only protects one of the throw sites; the
-                    // Thread.stop() fallback a few steps below has no such awareness and is
-                    // what was actually poisoning classes in practice (see the WARN pair in
-                    // the 108_liferay ClassNameLocalServiceBaseImpl logs: "Force-stopping
-                    // stuck thread" immediately followed by "NoClassDefFoundError ...
-                    // __STATIC_RESET()" on every later test).
+                    // LoopCounter's own interrupt-driven throw already respects this, but that only
+                    // protects one of the throw sites; the Thread.stop() fallback a few steps below has no
+                    // such awareness and would poison classes ("Force-stopping stuck thread" followed by
+                    // NoClassDefFoundError ... __STATIC_RESET() on every later test).
                     //
                     // Abandon the thread instead, the same way this method already abandons
                     // an unkillable thread elsewhere: leave it running at background priority

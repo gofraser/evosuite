@@ -1831,7 +1831,7 @@ public abstract class JUnitAnalyzer {
                 // Warnings/notes never kept the file from compiling - the compiler task's own
                 // boolean result above is what judged that. Logged separately and at a lower
                 // level so they cannot be mistaken for the reason compilation failed, which
-                // previously led to counting warning-only output as a compile failure.
+                // would count warning-only output as a compile failure.
                 for (Diagnostic<?> diagnostic : diagnostics.getOtherDiagnostics()) {
                     logger.warn("Diagnostic ({}): {}: {}", diagnostic.getKind(),
                             diagnostic.getMessage(null), diagnostic.getLineNumber());

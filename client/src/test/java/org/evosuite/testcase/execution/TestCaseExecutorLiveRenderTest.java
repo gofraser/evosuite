@@ -35,8 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Cancelling a test that outlives its timeout must not render the test while the executor
  * thread is still running it: a functional mock holds null placeholders for the calls it is
- * observing, rendering one threw a NullPointerException, and the error ended the search
- * (liferay ListTree).
+ * observing, rendering one threw a NullPointerException, and the error ended the search.
  */
 public class TestCaseExecutorLiveRenderTest {
 

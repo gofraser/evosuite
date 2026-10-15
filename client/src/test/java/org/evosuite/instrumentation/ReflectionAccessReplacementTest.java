@@ -36,12 +36,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 /**
- * End-to-end check for the Defects4J {@code com.fasterxml.jackson.databind.util.ClassUtil}
+ * End-to-end check for the {@code com.fasterxml.jackson.databind.util.ClassUtil}
  * bug: the EvoSuite client JVM is started with {@code --add-opens java.base/java.net=
  * ALL-UNNAMED} (see {@code ExecutionModeUtils}), so an instrumented SUT calling {@code
  * Field#setAccessible(true)} on a JDK member that a stock JVM would deny used to see it
  * silently succeed during the search, and the generated test carried no try/catch for
- * the {@link InaccessibleObjectException} a Defects4J stock test JVM then throws.
+ * the {@link InaccessibleObjectException} a stock test JVM then throws.
  *
  * <p>This loads {@link SetAccessibleUser} through {@link InstrumentingClassLoader} --
  * the same loader used during the search -- with the method call replacements enabled,

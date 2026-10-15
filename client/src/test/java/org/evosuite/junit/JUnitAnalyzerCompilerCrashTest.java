@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * javac catches OutOfMemoryError itself and prints "An exception has occurred in the compiler"
  * instead of judging the test. Treating that as "the test does not compile" deleted good tests:
- * 43_lilith's LoggingProto, whose tests pull in a 32 KB protobuf builder, lost tests that way.
+ * A class whose tests pull in a 32 KB protobuf builder lost tests that way.
  */
 public class JUnitAnalyzerCompilerCrashTest {
 

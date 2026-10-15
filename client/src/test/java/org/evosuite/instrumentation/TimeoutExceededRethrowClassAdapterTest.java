@@ -118,7 +118,7 @@ public class TimeoutExceededRethrowClassAdapterTest {
 
     /**
      * javac up to Java 8 emitted {@code [handler, handler+1) -> handler} for finally blocks
-     * (most of SF110 is compiled that way); javac 17 no longer does, so the shape is built
+     * (older bytecode is compiled that way); javac 17 no longer does, so the shape is built
      * with ASM: {@code static void run(Callable) { try { body.call(); } finally { } }}.
      */
     @Test
@@ -173,7 +173,7 @@ public class TimeoutExceededRethrowClassAdapterTest {
      * whose first instruction javac 8 protects with the handler itself. A probe inside that
      * range, throwing while the kill switch is on, is caught by the handler it just left and
      * runs again for as long as the switch stays on: a SUT thread in such a finally block
-     * (104_vuze's EventWaiter.waitForEvent) never ended and every test joined it for the
+     * never ended and every test joined it for the
      * whole timeout. Here the probe is placed with the real adapter chain's shape.
      */
     @Test
@@ -244,8 +244,8 @@ public class TimeoutExceededRethrowClassAdapterTest {
      * the catch handler and ends after the finally handler's first instruction:
      * {@code try { call } catch (Throwable e) { throw e; } finally { }}. The kill-switch
      * probe at the start of the finally handler sits inside that range, throws while the
-     * switch is on, and the exception comes straight back to the handler (104_vuze's
-     * AESemaphore.reserve, so every test joined its SUT thread for the whole timeout).
+     * switch is on, and the exception comes straight back to the handler,
+     * so every test joined its SUT thread for the whole timeout.
      */
     @Test
     @org.junit.jupiter.api.Timeout(10)

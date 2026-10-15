@@ -166,7 +166,7 @@ public class Scope {
      * supertype of the method's declaring class is an admissible receiver (the call downcasts it
      * and fails at runtime if the object is of another subclass), but narrowing it to that other,
      * sibling subclass would leave a statement that no longer passes the receiver check when the
-     * test is copied -- which aborted a search on SF110's OAIVerb hierarchy.
+     * test is copied.
      */
     private void retypeIfCalleesAllow(VariableReference reference, Class<?> newType) {
         TestCase test = reference.getTestCase();

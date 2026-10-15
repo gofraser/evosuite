@@ -49,8 +49,6 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
      * library code sizes its own buffers from its own constants -- {@code jxl} allocates a
      * 5 MB workbook buffer from {@code WorkbookSettings.initialFileSize}, five times the default
      * limit -- and rejecting that is a false positive that kills every call into the library.
-     * EvoSuite 1.2.0 chained this adapter from {@code ExecutionPathClassAdapter} only, i.e. it
-     * had exactly this scope; it was later also chained from {@code NonTargetClassAdapter}.
      *
      * <p>The cumulative budget deliberately does <em>not</em> share this scope: see
      * {@link #emitCumulativeBudgetCheck(int)}.

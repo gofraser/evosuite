@@ -75,7 +75,7 @@ public class StringTransformationConsumerTest {
         // decides whether StringTransformation is applied) are needed.
         Properties.TARGET_CLASS = VICTIM;
         Properties.PROJECT_PREFIX = "com.examples.with.different.packagename";
-        // Match what the SF110 and Defects4J runs use. The default criterion set includes
+        // Match the criterion set used in experiments. The default criterion set includes
         // WEAKMUTATION, whose ReplaceComparisonOperator instrumentation rewrites the branch around
         // the comparison and masks the defect for some shapes.
         Properties.CRITERION = new Properties.Criterion[]{
@@ -106,7 +106,7 @@ public class StringTransformationConsumerTest {
     }
 
     /**
-     * The concrete case from the Defects4J Codec-1 run: {@code Metaphone.regionMatch} compares a
+     * The concrete case from Apache Commons Codec: {@code Metaphone.regionMatch} compares a
      * substring against a literal, and the corrupted answer made the SUT take the {@code SH}
      * branch for the text {@code SW}, so the generated assertions recorded {@code X} where the
      * real algorithm produces {@code S}.
