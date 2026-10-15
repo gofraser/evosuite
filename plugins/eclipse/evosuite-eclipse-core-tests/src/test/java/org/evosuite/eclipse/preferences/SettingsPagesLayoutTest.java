@@ -60,8 +60,8 @@ public class SettingsPagesLayoutTest {
     @Test
     public void everyWorkspacePageShowsEveryEditor() throws Exception {
         onUiThread(() -> {
-            // Budget, criteria, test folder, suffix and time limit.
-            assertPage(SettingsDialogs.preferences(Section.GENERAL), EvoSuitePreferencePage.class, 5, "general");
+            // Budget, test folder, suffix and time limit.
+            assertPage(SettingsDialogs.preferences(Section.GENERAL), EvoSuitePreferencePage.class, 4, "general");
             // Model, base URL, API key and calls.
             assertPage(SettingsDialogs.preferences(Section.LLM), LlmPreferencePage.class, 4, "llm");
             // Java home, heap and arguments.
@@ -73,7 +73,7 @@ public class SettingsPagesLayoutTest {
     public void everyProjectPageShowsEveryEditor() throws Exception {
         IProject project = TestProjects.create("layout", "src", null).getProject();
         onUiThread(() -> {
-            assertPage(SettingsDialogs.properties(project, Section.GENERAL), EvoSuitePropertyPage.class, 5,
+            assertPage(SettingsDialogs.properties(project, Section.GENERAL), EvoSuitePropertyPage.class, 4,
                     "project-general");
             // The project pages leave out the API key, which belongs to the workspace.
             assertPage(SettingsDialogs.properties(project, Section.LLM), LlmPropertyPage.class, 3, "project-llm");

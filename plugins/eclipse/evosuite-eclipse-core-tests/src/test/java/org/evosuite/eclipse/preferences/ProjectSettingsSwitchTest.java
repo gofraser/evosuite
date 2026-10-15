@@ -39,25 +39,33 @@ public class ProjectSettingsSwitchTest {
         IProject project = TestProjects.create("switch", "src", null).getProject();
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.properties(project, Section.GENERAL);
-            List<EvoSuitePropertyPage> pages = allPages(dialog);
-            pages.forEach(page -> assertFalse(page.usesProjectSettings() || page.settingsEnabled()));
+            try {
+                List<EvoSuitePropertyPage> pages = allPages(dialog);
+                pages.forEach(page -> assertFalse(page.usesProjectSettings() || page.settingsEnabled()));
 
-            // Ticked on a sub-page, while the first page, which the dialog stores first, is open too.
-            pages.get(1).setUseProjectSettings(true);
-            pages.forEach(page -> assertTrue(page.usesProjectSettings() && page.settingsEnabled(),
-                    page.getClass().getSimpleName()));
-            SettingsDialogs.ok(dialog);
+                // Ticked on a sub-page, while the first page, which the dialog stores first, is open too.
+                pages.get(1).setUseProjectSettings(true);
+                pages.forEach(page -> assertTrue(page.usesProjectSettings() && page.settingsEnabled(),
+                        page.getClass().getSimpleName()));
+                SettingsDialogs.ok(dialog);
+            } finally {
+                dialog.close();
+            }
         });
         assertTrue(EvoSuitePreferences.usesProjectSettings(project));
 
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.properties(project, Section.ADVANCED);
-            List<EvoSuitePropertyPage> pages = allPages(dialog);
-            pages.forEach(page -> assertTrue(page.usesProjectSettings() && page.settingsEnabled()));
-            pages.get(2).setUseProjectSettings(false);
-            pages.forEach(page -> assertFalse(page.usesProjectSettings() || page.settingsEnabled(),
-                    page.getClass().getSimpleName()));
-            SettingsDialogs.ok(dialog);
+            try {
+                List<EvoSuitePropertyPage> pages = allPages(dialog);
+                pages.forEach(page -> assertTrue(page.usesProjectSettings() && page.settingsEnabled()));
+                pages.get(2).setUseProjectSettings(false);
+                pages.forEach(page -> assertFalse(page.usesProjectSettings() || page.settingsEnabled(),
+                        page.getClass().getSimpleName()));
+                SettingsDialogs.ok(dialog);
+            } finally {
+                dialog.close();
+            }
         });
         assertFalse(EvoSuitePreferences.usesProjectSettings(project));
     }

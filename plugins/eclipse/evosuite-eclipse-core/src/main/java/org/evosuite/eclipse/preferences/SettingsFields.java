@@ -185,8 +185,7 @@ final class SettingsFields {
                 "Search &budget per class (seconds):", search);
         budget.setValidRange(1, 24 * 60 * 60);
         add(budget, search);
-        add(new StringFieldEditor(EvoSuitePreferences.CRITERION,
-                "Coverage &criteria (empty for EvoSuite's default):", search), search);
+        add(new CriteriaFieldEditor(EvoSuitePreferences.CRITERION, "Coverage &criteria:", search), search);
         assertions = new BooleanFieldEditor(EvoSuitePreferences.ASSERTIONS, "Generate &assertions", search);
         add(assertions, search);
         add(new ChoiceFieldEditor(EvoSuitePreferences.ASSERTION_STRATEGY, "Assertions &kept:",

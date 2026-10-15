@@ -41,6 +41,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Text;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.launch.GenerationOptions;
@@ -262,7 +263,7 @@ public class SettingsEnablementTest {
         SettingsDialogs.pump();
     }
 
-    /** The checkbox whose text starts with {@code label}, or the control after such a label. */
+    /** The checkbox or link whose text starts with {@code label}, or the control after such a label. */
     static Control control(Composite page, String label) {
         Control found = find(page, label);
         if (found == null) {
@@ -277,6 +278,9 @@ public class SettingsEnablementTest {
             Control child = children[i];
             if (child instanceof Button button && button.getText().replace("&", "").startsWith(label)) {
                 return button;
+            }
+            if (child instanceof Link link && link.getText().replaceAll("<[^>]*>", "").startsWith(label)) {
+                return link;
             }
             if (child instanceof Label text && text.getText().replace("&", "").startsWith(label)
                     && i + 1 < children.length) {
