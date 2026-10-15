@@ -131,6 +131,21 @@ public class StorageManagerTest {
     }
 
     @Test
+    public void runsStartingWithinTheSameSecondGetTheirOwnTmpFolders() throws Exception {
+        Path tempCtgRoot = Files.createTempDirectory("evosuite-ctg-tmp-");
+        Properties.CTG_DIR = tempCtgRoot.toString();
+        try {
+            StorageManager first = new StorageManager();
+            StorageManager second = new StorageManager();
+            Assertions.assertTrue(first.createNewTmpFolders());
+            Assertions.assertTrue(second.createNewTmpFolders());
+            Assertions.assertNotEquals(first.getTmpTests(), second.getTmpTests());
+        } finally {
+            FileUtils.deleteDirectory(tempCtgRoot.toFile());
+        }
+    }
+
+    @Test
     public void aRunOnSelectedClassesKeepsTheTestsOfTheOthers() throws Exception {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Path tempCtgRoot = Files.createTempDirectory("evosuite-ctg-selected-");

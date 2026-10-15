@@ -175,13 +175,20 @@ public class StorageManager {
         }
 
         String time = DateFormatUtils.format(new Date(), "yyyy_MM_dd_HH_mm_ss", Locale.getDefault());
-        File tmp = null;
+        String name;
 
         if (Properties.CTG_GENERATION_DIR_PREFIX == null) {
-            tmp = new File(Properties.CTG_DIR + File.separator + TMP_PREFIX + time);
+            name = Properties.CTG_DIR + File.separator + TMP_PREFIX + time;
         } else {
-            tmp = new File(Properties.CTG_DIR + File.separator + TMP_PREFIX
-                    + Properties.CTG_GENERATION_DIR_PREFIX + "_" + time);
+            name = Properties.CTG_DIR + File.separator + TMP_PREFIX
+                    + Properties.CTG_GENERATION_DIR_PREFIX + "_" + time;
+        }
+
+        // an incremental run with nothing to do can finish within a second, so the next
+        // run may start within the same second
+        File tmp = new File(name);
+        for (int i = 1; tmp.exists(); i++) {
+            tmp = new File(name + "_" + i);
         }
 
         if (!tmp.mkdirs()) {
