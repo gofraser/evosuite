@@ -39,6 +39,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Text;
+import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.preferences.SettingsFields.Section;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -114,6 +115,7 @@ public class SettingsEditorsTest {
     @Test
     public void allDefaultCriteriaAreEvoSuitesDefaultAndOtherEntriesSurvive() {
         Set<String> all = CriteriaFieldEditor.DEFAULTS.keySet();
+        assertEquals(GenerationOptions.DEFAULT_CRITERIA, List.copyOf(all));
         assertEquals(List.of(), CriteriaFieldEditor.parse(""));
         assertEquals("", CriteriaFieldEditor.format(List.of(), all, List.of()));
         assertEquals("", CriteriaFieldEditor.format(CriteriaFieldEditor.parse(String.join(":", all)), all,

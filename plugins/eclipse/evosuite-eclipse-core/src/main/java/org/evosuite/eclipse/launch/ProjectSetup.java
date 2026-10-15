@@ -65,13 +65,26 @@ public final class ProjectSetup {
      * the search.
      */
     public static List<String> runtimeClasspath(IJavaProject project) throws CoreException {
+        return runtimeClasspath(project, false);
+    }
+
+    /**
+     * The project's runtime classpath without the JRE, and with its test code if
+     * {@code withTestCode} is set: the test output folders and the test-only libraries, which a
+     * run that extends existing tests needs to run them. The JUnit and EvoSuite Runtime
+     * containers stay out either way: EvoSuite runs the tests with the JUnit and runtime it
+     * bundles, whatever the classpath holds, so the project's copies would only add to the
+     * classes it analyses.
+     */
+    public static List<String> runtimeClasspath(IJavaProject project, boolean withTestCode) throws CoreException {
         Set<String> testLibraries = testLibraryLocations(project);
         Set<String> locations = new LinkedHashSet<>();
-        for (IRuntimeClasspathEntry entry : JavaRuntime.computeUnresolvedRuntimeClasspath(project, true)) {
+        for (IRuntimeClasspathEntry entry : JavaRuntime.computeUnresolvedRuntimeClasspath(project, !withTestCode)) {
             if (isJre(entry)) {
                 continue;
             }
-            for (IRuntimeClasspathEntry resolved : JavaRuntime.resolveRuntimeClasspathEntry(entry, project, true)) {
+            for (IRuntimeClasspathEntry resolved : JavaRuntime.resolveRuntimeClasspathEntry(entry, project,
+                    !withTestCode)) {
                 if (resolved.getClasspathProperty() == IRuntimeClasspathEntry.BOOTSTRAP_CLASSES
                         || resolved.getClasspathProperty() == IRuntimeClasspathEntry.STANDARD_CLASSES) {
                     continue;

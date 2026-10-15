@@ -25,6 +25,8 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -41,6 +43,16 @@ public final class EvoSuiteCommand {
     /** The environment variable EvoSuite reads the LLM API key from when none is configured. */
     public static final String API_KEY_VARIABLE = "EVOSUITE_LLM_API_KEY";
 
+    /**
+     * Criteria whose goals EvoSuite does not credit to the existing tests it runs for
+     * {@code -Djunit}: it records the lines, branches and mutants those tests reach, but not the
+     * methods they call or the values they pass and return. On a class whose tests the search
+     * started from, each such goal that the existing tests cover is still open at the end, and
+     * the minimised suite keeps a near-copy of an existing test for it.
+     */
+    static final Set<String> NOT_CREDITED_TO_EXISTING_TESTS = Set.of("OUTPUT", "INPUT", "METHOD",
+            "METHODNOEXCEPTION");
+
     private final String javaExecutable;
     private final String evosuiteJar;
     private final String targetClass;
@@ -50,6 +62,8 @@ public final class EvoSuiteCommand {
     private final File reportDir;
     private final GenerationOptions options;
     private final List<String> targetMethods;
+    private List<String> seedTests = List.of();
+    private File seedSourceDir;
 
     public EvoSuiteCommand(String javaExecutable, String evosuiteJar, String targetClass,
                            List<String> projectClasspath, File projectDir, File testDir,
@@ -76,6 +90,21 @@ public final class EvoSuiteCommand {
         this.options = options;
     }
 
+    /**
+     * Extends existing tests: EvoSuite parses {@code testClasses} from their sources to start the
+     * search from their tests, never carving them from an execution, and then runs them compiled,
+     * so that the new suite only covers what they leave uncovered. The project classpath must
+     * contain the compiled test classes.
+     *
+     * @param sourceDir the source folder that contains all of {@code testClasses}
+     * @return this command
+     */
+    public EvoSuiteCommand seededBy(List<String> testClasses, File sourceDir) {
+        this.seedTests = List.copyOf(testClasses);
+        this.seedSourceDir = sourceDir;
+        return this;
+    }
+
     public File getWorkingDirectory() {
         return projectDir;
     }
@@ -91,9 +120,10 @@ public final class EvoSuiteCommand {
         args.add(String.join(File.pathSeparator, projectClasspath));
         args.add("-base_dir");
         args.add(projectDir.getAbsolutePath());
-        if (!options.criterion.isEmpty()) {
+        String criterion = seedTests.isEmpty() ? options.criterion : extensionCriteria(options.criterion);
+        if (!criterion.isEmpty()) {
             args.add("-criterion");
-            args.add(options.criterion);
+            args.add(criterion);
         }
         if (options.clientMemory > 0) {
             args.add("-mem");
@@ -142,7 +172,34 @@ public final class EvoSuiteCommand {
             // After everything else: search only overrides an LLM the pom or arguments switch on.
             args.add("-Dllm_provider=" + GenerationOptions.LLM_NONE);
         }
+        if (!seedTests.isEmpty()) {
+            // After the user's arguments too, since the run is pointless without them: the tests
+            // are parsed from source, and the carver, which would execute them to extract
+            // statements instead, stays off whatever else is configured.
+            String testClasses = String.join(":", seedTests);
+            args.add("-Dtest_factory=PARSED_JUNIT");
+            args.add("-Dselected_junit=" + testClasses);
+            args.add("-Dseed_test_source_dir=" + seedSourceDir.getAbsolutePath());
+            args.add("-Djunit=" + testClasses);
+            args.add("-Dcarve_object_pool=false");
+            args.add("-Dtest_carving=false");
+        }
         return args;
+    }
+
+    /**
+     * The criteria for a run that extends existing tests: {@code criterion}, or EvoSuite's
+     * default set if it is empty, without the {@linkplain #NOT_CREDITED_TO_EXISTING_TESTS
+     * criteria} whose goals would keep copies of the existing tests. Unchanged if nothing else
+     * would remain.
+     */
+    static String extensionCriteria(String criterion) {
+        List<String> criteria = criterion.isBlank() ? GenerationOptions.DEFAULT_CRITERIA
+                : List.of(criterion.trim().split("\\s*:\\s*"));
+        List<String> credited = criteria.stream()
+                .filter(c -> !NOT_CREDITED_TO_EXISTING_TESTS.contains(c.toUpperCase(Locale.ROOT)))
+                .collect(Collectors.toList());
+        return credited.isEmpty() ? criterion : String.join(":", credited);
     }
 
     /**

@@ -76,6 +76,68 @@ public class TestGenerationJobTest {
             + "    }\n"
             + "}\n";
 
+    /** A class with branches that only the right magic values reach, which its tests below know. */
+    private static final String VAULT = "package demo;\n"
+            + "public class Vault {\n"
+            + "    private boolean open;\n"
+            + "    private int attempts;\n"
+            + "    public String unlock(String code, int pin) {\n"
+            + "        attempts++;\n"
+            + "        if (code == null) {\n"
+            + "            return \"null\";\n"
+            + "        }\n"
+            + "        if (code.hashCode() == 1544637504 && code.length() == 14) {\n"
+            + "            if (pin * 31 + 7 == 28466470) {\n"
+            + "                open = true;\n"
+            + "                return \"open\";\n"
+            + "            }\n"
+            + "            return \"pin\";\n"
+            + "        }\n"
+            + "        if (code.length() > 20) {\n"
+            + "            return \"long\";\n"
+            + "        }\n"
+            + "        return \"closed\";\n"
+            + "    }\n"
+            + "    public int magic(long x) {\n"
+            + "        if (x * 3 == 22093554879L) {\n"
+            + "            return 1;\n"
+            + "        }\n"
+            + "        if (x < 0) {\n"
+            + "            return -1;\n"
+            + "        }\n"
+            + "        return 0;\n"
+            + "    }\n"
+            + "    public boolean isOpen() {\n"
+            + "        return open;\n"
+            + "    }\n"
+            + "    public int getAttempts() {\n"
+            + "        return attempts;\n"
+            + "    }\n"
+            + "}\n";
+
+    /** Hand-written tests of {@link #VAULT}, in a test source folder. */
+    private static final String VAULT_TEST = "package demo;\n"
+            + "import org.junit.jupiter.api.Test;\n"
+            + "import static org.junit.jupiter.api.Assertions.*;\n"
+            + "public class VaultJ5Test {\n"
+            + "    @Test\n"
+            + "    public void unlocksWithMagic() {\n"
+            + "        Vault v = new Vault();\n"
+            + "        String r = v.unlock(\"XYZZY-42-plugh\", 918273);\n"
+            + "        assertEquals(\"open\", r);\n"
+            + "        assertTrue(v.isOpen());\n"
+            + "    }\n"
+            + "    @Test\n"
+            + "    void magicNumber() {\n"
+            + "        Vault v = new Vault();\n"
+            + "        assertEquals(1, v.magic(7364518293L));\n"
+            + "    }\n"
+            + "}\n";
+
+    /** The calls each test of {@link #VAULT_TEST} makes, outside its assertions; see {@link #calls}. */
+    private static final List<List<String>> VAULT_TEST_CALLS = List.of(
+            List.of("unlock(\"XYZZY-42-plugh\", 918273)", "isOpen()"), List.of("magic(7364518293L)"));
+
     private final IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(EvoSuitePreferences.QUALIFIER);
 
     @BeforeEach
@@ -164,6 +226,132 @@ public class TestGenerationJobTest {
         // The new suites went through the plug-in's state area, which keeps nothing of them.
         String[] left = Activator.getDefault().getStateLocation().append("generated").toFile().list();
         assertTrue(left == null || left.length == 0, "temporary output left behind");
+    }
+
+    /**
+     * Extending hand-written tests: EvoSuite parses them, never carves them, starts its search
+     * from them and leaves out what running them covers. The new suite compiles, uses the values
+     * only the hand-written tests know, and repeats none of them.
+     */
+    @Test
+    public void extendsHandWrittenTestsWithoutRepeatingThem() throws Exception {
+        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+        IJavaProject project = vaultProject("extension");
+        IFile suite = project.getProject().getFile("src/test/evosuite/demo/Vault_ESTest.java");
+
+        List<String> log = new CopyOnWriteArrayList<>();
+        TestGenerationJob job = extend(project, SuiteAction.REPLACE, log);
+
+        assertEquals(IStatus.OK, job.getResult().getSeverity(), job.getResult()::toString);
+        assertTrue(job.getResult().getMessage().startsWith("Extended VaultJ5Test for Vault: "),
+                job.getResult().getMessage());
+        assertSeededByParsingAndRanTheTests(log);
+        assertEquals(List.of(suite), job.getGeneratedSuites());
+        String source = read(suite);
+        List<String> tests = tests(source);
+        assertFalse(tests.isEmpty(), source);
+        // Only the hand-written tests know this code; the search on its own never finds it.
+        assertTrue(source.contains("\"XYZZY-42-plugh\""), "the search did not start from the tests:\n" + source);
+        for (String test : tests) {
+            assertFalse(VAULT_TEST_CALLS.contains(calls(test)), "repeats a hand-written test:\n" + test);
+        }
+        assertEquals(VAULT_TEST, read(project.getProject().getFile("src/test/java/demo/VaultJ5Test.java")));
+        TestProjects.build(project);
+        assertEquals(List.of(), TestProjects.compileErrors(project));
+    }
+
+    /**
+     * Extending tests of a class that has an EvoSuite suite already: with Add New Tests, the new
+     * tests go after the suite's own, which stay as they are.
+     */
+    @Test
+    public void extendingAddsTheNewTestsToTheExistingSuite() throws Exception {
+        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+        IJavaProject project = vaultProject("extension-add");
+        IFile suite = project.getProject().getFile("src/test/evosuite/demo/Vault_ESTest.java");
+        TestGenerationJob plain = new TestGenerationJob(project, List.of("demo.Vault"));
+        IStatus result = plain.run(new NullProgressMonitor());
+        assertEquals(IStatus.OK, result.getSeverity(), result::toString);
+        String before = read(suite);
+        List<String> existingTests = tests(before);
+        assertFalse(before.contains("XYZZY-42-plugh"), "the plain search found the magic code:\n" + before);
+
+        List<String> log = new CopyOnWriteArrayList<>();
+        TestGenerationJob job = extend(project, SuiteAction.ADD, log);
+
+        assertEquals(IStatus.OK, job.getResult().getSeverity(), job.getResult()::toString);
+        assertSeededByParsingAndRanTheTests(log);
+        assertEquals(List.of(suite), job.getGeneratedSuites());
+        assertEquals(List.of(), job.getComparisons());
+        String merged = read(suite);
+        List<String> mergedTests = tests(merged);
+        assertTrue(mergedTests.size() > existingTests.size(), merged);
+        assertEquals(existingTests, mergedTests.subList(0, existingTests.size()), "existing tests changed");
+        assertTrue(merged.contains("\"XYZZY-42-plugh\""), merged);
+        for (String test : mergedTests.subList(existingTests.size(), mergedTests.size())) {
+            assertFalse(VAULT_TEST_CALLS.contains(calls(test)), "repeats a hand-written test:\n" + test);
+        }
+        assertTrue(job.getResult().getMessage().contains("added to Vault_ESTest.java"), job.getResult().getMessage());
+        TestProjects.build(project);
+        assertEquals(List.of(), TestProjects.compileErrors(project));
+    }
+
+    /** A project with {@link #VAULT} and, in a test source folder, {@link #VAULT_TEST}, built. */
+    private static IJavaProject vaultProject(String name) throws Exception {
+        IJavaProject project = TestProjects.create(name, "src/main/java", "src/test/java");
+        TestProjects.addTestContainer(project, JUnitCore.JUNIT5_CONTAINER_PATH);
+        TestProjects.addSource(project, "src/main/java", "demo.Vault", VAULT);
+        TestProjects.addSource(project, "src/test/java", "demo.VaultJ5Test", VAULT_TEST);
+        TestProjects.build(project);
+        assertEquals(List.of(), TestProjects.compileErrors(project));
+        return project;
+    }
+
+    /** Runs a job that extends VaultJ5Test, in this thread, with EvoSuite's output in {@code log}. */
+    private static TestGenerationJob extend(IJavaProject project, SuiteAction action, List<String> log) {
+        GenerationTarget target = GenerationTarget.extending("demo.Vault", List.of(new GenerationTarget.Seed(
+                "demo.VaultJ5Test", project.getProject().getFolder("src/test/java").getLocation().toFile())));
+        TestGenerationJob job = new TestGenerationJob(project, List.of(target),
+                EvoSuitePreferences.resolve(project.getProject(), null), action);
+        TestGenerationJob.outputListener = log::add;
+        try {
+            job.schedule();
+            assertTrue(job.join(TimeUnit.MINUTES.toMillis(5), null), "generation did not finish in time");
+        } catch (InterruptedException e) {
+            throw new AssertionError(e);
+        } finally {
+            TestGenerationJob.outputListener = line -> {
+            };
+        }
+        return job;
+    }
+
+    private static void assertSeededByParsingAndRanTheTests(List<String> log) {
+        String output = String.join("\n", log);
+        List<String> lines = log.stream().map(String::strip).toList();
+        assertTrue(lines.contains("* Using 2 parsed tests from JUnit source for seeding"), output);
+        assertTrue(lines.contains("* Executed 2 unit test(s)"), output);
+        assertTrue(lines.stream().anyMatch(l -> l.matches("\\* Removing [1-9]\\d* goals already covered by JUnit .*")),
+                output);
+        assertFalse(Pattern.compile("(?i)carv").matcher(output).find(), output);
+    }
+
+    /**
+     * The calls a test makes outside its assertions, such as {@code magic(7364518293L)}: equal
+     * for a hand-written test and a generated one that does the same.
+     */
+    private static List<String> calls(String test) {
+        List<String> calls = new ArrayList<>();
+        for (String line : test.split("\n")) {
+            if (line.trim().startsWith("assert")) {
+                continue;
+            }
+            Matcher call = Pattern.compile("\\.(\\w+)\\((.*)\\);").matcher(line);
+            if (call.find()) {
+                calls.add(call.group(1) + "(" + call.group(2) + ")");
+            }
+        }
+        return calls;
     }
 
     private static String read(IFile file) throws Exception {

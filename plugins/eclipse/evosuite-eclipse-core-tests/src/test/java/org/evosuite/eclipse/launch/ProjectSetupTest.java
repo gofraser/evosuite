@@ -32,6 +32,7 @@ import java.util.List;
 
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
+import org.eclipse.jdt.core.IClasspathAttribute;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
@@ -243,5 +244,28 @@ public class ProjectSetupTest {
         String bin = project.getProject().getFolder("bin").getLocation().toOSString();
         assertEquals(List.of(bin, jar.getAbsolutePath()), classpath);
         assertFalse(classpath.stream().anyMatch(p -> p.contains("evosuite-standalone-runtime")));
+    }
+
+    /**
+     * Runs that extend existing tests run them, so their classpath has the test output and the
+     * test-only libraries as well, but still not the JUnit and EvoSuite Runtime containers.
+     */
+    @Test
+    public void theClasspathWithTestCodeHasTheTestOutputAndTestLibraries() throws Exception {
+        IJavaProject project = TestProjects.create("setup-test-classpath", "src/main/java", "src/test/java");
+        File jar = File.createTempFile("test-library", ".jar");
+        jar.deleteOnExit();
+        java.util.List<IClasspathEntry> entries = new java.util.ArrayList<>(List.of(project.getRawClasspath()));
+        entries.add(JavaCore.newLibraryEntry(IPath.fromFile(jar), null, null, null,
+                new IClasspathAttribute[]{JavaCore.newClasspathAttribute(IClasspathAttribute.TEST, "true")}, false));
+        project.setRawClasspath(entries.toArray(IClasspathEntry[]::new), null);
+        ProjectSetup.addMissingLibraries(project, new GenerationOptions(), null);
+        TestProjects.build(project);
+
+        String bin = project.getProject().getFolder("bin").getLocation().toOSString();
+        String testBin = project.getProject().getFolder("bin-test").getLocation().toOSString();
+        assertEquals(List.of(bin), ProjectSetup.runtimeClasspath(project, false));
+        List<String> classpath = ProjectSetup.runtimeClasspath(project, true);
+        assertEquals(List.of(testBin, bin, jar.getAbsolutePath()), classpath);
     }
 }

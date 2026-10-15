@@ -47,6 +47,10 @@ public final class GenerationOptions {
     /** Where a local Ollama server listens unless told otherwise. */
     public static final String OLLAMA_DEFAULT_URL = "http://localhost:11434";
 
+    /** EvoSuite's default coverage criteria, which an empty {@link #criterion} stands for. */
+    public static final List<String> DEFAULT_CRITERIA = List.of("LINE", "BRANCH", "EXCEPTION", "WEAKMUTATION",
+            "OUTPUT", "METHOD", "METHODNOEXCEPTION", "CBRANCH");
+
     /** Seconds of search per class. */
     public int searchBudget = 60;
     /** Colon-separated coverage criteria; empty means EvoSuite's default set. */

@@ -79,6 +79,14 @@ public final class TestProjects {
         return javaProject;
     }
 
+    /** Adds a classpath container, such as JUnit's, as a test-only library. */
+    public static void addTestContainer(IJavaProject project, IPath path) throws CoreException {
+        List<IClasspathEntry> entries = new ArrayList<>(Arrays.asList(project.getRawClasspath()));
+        entries.add(JavaCore.newContainerEntry(path, null,
+                new IClasspathAttribute[]{JavaCore.newClasspathAttribute(IClasspathAttribute.TEST, "true")}, false));
+        project.setRawClasspath(entries.toArray(IClasspathEntry[]::new), null);
+    }
+
     public static IFolder folder(IProject project, String path) throws CoreException {
         IFolder folder = project.getFolder(path);
         create(folder);

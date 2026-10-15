@@ -63,6 +63,60 @@ public class EvoSuiteCommandTest {
         assertFalse(arguments(options).stream().anyMatch(a -> a.startsWith("-Dtarget_method_list=sign")));
     }
 
+    private static List<String> extending(GenerationOptions options) {
+        return new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Vault",
+                List.of("/p/bin", "/p/bin-test"), new File("/p"), new File("/out"), new File("/state/reports"),
+                options).seededBy(List.of("demo.VaultTest", "demo.VaultIT"), new File("/p/src/test/java"))
+                .toArguments();
+    }
+
+    /**
+     * A run that extends tests parses them from source, runs the compiled ones to leave out what
+     * they cover, and never carves them, whatever the user's arguments say.
+     */
+    @Test
+    public void extendingParsesTheTestsAndRunsThemButNeverCarves() {
+        GenerationOptions options = new GenerationOptions();
+        options.extraArguments = "-Dtest_factory=JUNIT -Dcarve_object_pool=true -Dtest_carving=true";
+        List<String> args = extending(options);
+
+        String tests = "demo.VaultTest:demo.VaultIT";
+        List<String> seeding = List.of("-Dtest_factory=PARSED_JUNIT", "-Dselected_junit=" + tests,
+                "-Dseed_test_source_dir=" + new File("/p/src/test/java").getAbsolutePath(), "-Djunit=" + tests,
+                "-Dcarve_object_pool=false", "-Dtest_carving=false");
+        assertEquals(seeding, args.subList(args.size() - seeding.size(), args.size()));
+        assertTrue(args.indexOf("-Dtest_factory=JUNIT") < args.indexOf("-Dtest_factory=PARSED_JUNIT"));
+        assertEquals("/p/bin" + File.pathSeparator + "/p/bin-test", args.get(args.indexOf("-projectCP") + 1));
+        // Nothing else that would start the carver: the old factory, measuring coverage, carving.
+        assertFalse(args.contains("-measureCoverage"));
+        assertFalse(arguments(new GenerationOptions()).stream().anyMatch(a -> a.startsWith("-Djunit=")
+                || a.contains("test_factory") || a.contains("selected_junit") || a.contains("carv")),
+                "an ordinary run has seeding arguments");
+    }
+
+    /**
+     * The criteria whose goals EvoSuite does not credit to the existing tests are left out, as
+     * they would keep copies of those tests; other criteria, including unknown ones, stay.
+     */
+    @Test
+    public void extendingLeavesOutTheCriteriaThatWouldRepeatTheTests() {
+        GenerationOptions options = new GenerationOptions();
+        List<String> args = extending(options);
+        assertEquals("LINE:BRANCH:EXCEPTION:WEAKMUTATION:CBRANCH", args.get(args.indexOf("-criterion") + 1));
+
+        options.criterion = "branch:Output:STRONGMUTATION:method";
+        args = extending(options);
+        assertEquals("branch:STRONGMUTATION", args.get(args.indexOf("-criterion") + 1));
+
+        // Nothing left: the user's choice stands.
+        options.criterion = "OUTPUT";
+        args = extending(options);
+        assertEquals("OUTPUT", args.get(args.indexOf("-criterion") + 1));
+
+        // Ordinary runs keep EvoSuite's default.
+        assertFalse(arguments(new GenerationOptions()).contains("-criterion"));
+    }
+
     @Test
     public void passesTheSettings() {
         GenerationOptions options = new GenerationOptions();
