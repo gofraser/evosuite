@@ -20,6 +20,10 @@
 package org.evosuite.eclipse.handlers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.charset.StandardCharsets;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,10 +33,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.expressions.EvaluationContext;
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IMethod;
 import org.eclipse.jdt.core.IType;
+import org.eclipse.jface.text.IDocument;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.ISources;
 import org.eclipse.ui.IWorkbenchPage;
@@ -47,7 +53,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** What the three commands act on, and what they say when that is nothing. */
+/**
+ * What the three commands act on, what they say when that is nothing, and that they act on
+ * saved sources.
+ */
 public class HandlerSelectionTest {
 
     private static final String FOO = "package a;\npublic class Foo {\n    public void run() {\n    }\n}\n";
@@ -78,6 +87,7 @@ public class HandlerSelectionTest {
         GenerateTestsHandler.informer = GenerateTestsHandler::showInformation;
         GenerateTestsHandler.chooser = ExistingSuitesDialog::ask;
         GenerateTestsHandler.settings = p -> EvoSuitePreferences.resolve(p, null);
+        GenerateTestsHandler.editorSaver = resources -> IDE.saveAllEditors(resources, true);
     }
 
     private IType type(String name) throws Exception {
@@ -148,6 +158,46 @@ public class HandlerSelectionTest {
                         GenerateTestsHandler.selectedElements(editorActive));
                 IMethod run = type("Foo").getMethod("run", new String[0]);
                 assertEquals(Map.of(type("Foo"), List.of(run)), GenerateMethodTestsHandler.selectedMethods(editorActive));
+            } finally {
+                page.closeEditor(editor, false);
+            }
+        });
+    }
+
+    /**
+     * Method descriptors and seed tests come from the saved sources, and EvoSuite runs the
+     * classes compiled from them: a command first has the user save the editors of those files,
+     * and starts nothing if they cancel.
+     */
+    @Test
+    public void savesTheEditorsOfTheFilesARunReadsOrStartsNothing() throws Exception {
+        List<List<IResource>> offered = new ArrayList<>();
+        UiThread.run(() -> {
+            IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+            IFile foo = project.getProject().getFile("src/main/java/a/Foo.java");
+            IFile fooTest = project.getProject().getFile("src/test/java/a/FooTest.java");
+            ITextEditor editor = (ITextEditor) IDE.openEditor(page, foo, true);
+            try {
+                IDocument document = editor.getDocumentProvider().getDocument(editor.getEditorInput());
+                document.replace(FOO.lastIndexOf('}'), 0, "    public void stop() {\n    }\n");
+                assertTrue(editor.isDirty());
+                IMethod stop = type("Foo").getMethod("stop", new String[0]);
+
+                GenerateTestsHandler.editorSaver = resources -> offered.add(List.of(resources)) && false;
+                GenerateMethodTestsHandler.generate(null, Map.of(type("Foo"), List.of(stop)));
+                assertEquals(List.of(List.of(foo)), offered);
+                assertEquals(List.of(), questions, "started with unsaved changes");
+
+                ExtendTestsHandler.extend(null, List.of(type("FooTest")));
+                assertEquals(List.of(fooTest, foo), offered.get(1));
+                assertEquals(List.of(), questions, "started with unsaved changes");
+
+                GenerateTestsHandler.editorSaver = resources -> IDE.saveAllEditors(resources, false);
+                GenerateMethodTestsHandler.generate(null, Map.of(type("Foo"), List.of(stop)));
+                assertFalse(editor.isDirty());
+                assertEquals(document.get(), new String(foo.getContents().readAllBytes(), StandardCharsets.UTF_8));
+                assertEquals(1, questions.size());
+                assertEquals(List.of(), messages);
             } finally {
                 page.closeEditor(editor, false);
             }

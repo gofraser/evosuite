@@ -21,12 +21,15 @@ package org.evosuite.eclipse.handlers;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IMethod;
 import org.eclipse.jdt.core.IType;
@@ -61,6 +64,16 @@ public class GenerateMethodTestsHandler extends AbstractHandler {
 
     /** Generates tests for {@code methods}, grouped by their classes. */
     static void generate(Shell shell, Map<IType, List<IMethod>> methods) throws JavaModelException {
+        // The descriptors come from the saved source, the run from the classes compiled from it.
+        Set<IResource> files = new LinkedHashSet<>();
+        for (IType type : methods.keySet()) {
+            if (type.getResource() != null) {
+                files.add(type.getResource());
+            }
+        }
+        if (!GenerateTestsHandler.saveEditors(files)) {
+            return;
+        }
         List<String> skipped = new ArrayList<>();
         Map<IJavaProject, GenerationOptions> options = new LinkedHashMap<>();
         Map<IJavaProject, List<GenerationTarget>> requests = targets(methods, options, skipped);

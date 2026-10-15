@@ -22,11 +22,17 @@ package org.evosuite.eclipse.handlers;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IWorkspaceRoot;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
@@ -89,9 +95,34 @@ public class ExtendTestsHandler extends AbstractHandler {
             GenerateTestsHandler.informer.accept(shell, (requests.isEmpty() ? "" : "Some of the test classes "
                     + "are left out:\n\n") + String.join("\n", skipped));
         }
-        if (!requests.isEmpty()) {
+        if (!requests.isEmpty() && GenerateTestsHandler.saveEditors(files(requests))) {
             GenerateTestsHandler.launch(shell, requests, options, ExistingSuitesQuestion.Scope.EXTENSION);
         }
+    }
+
+    /**
+     * The files a run reads: EvoSuite parses the test classes from their saved sources, runs
+     * them compiled and generates tests for the compiled class under test.
+     */
+    private static Set<IResource> files(Map<IJavaProject, List<GenerationTarget>> requests)
+            throws JavaModelException {
+        Set<IResource> files = new LinkedHashSet<>();
+        IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
+        for (Map.Entry<IJavaProject, List<GenerationTarget>> entry : requests.entrySet()) {
+            for (GenerationTarget target : entry.getValue()) {
+                for (GenerationTarget.Seed seed : target.seeds()) {
+                    IFile file = root.getFileForLocation(IPath.fromFile(seed.sourceFile()));
+                    if (file != null) {
+                        files.add(file);
+                    }
+                }
+                IType classUnderTest = entry.getKey().findType(target.className());
+                if (classUnderTest != null && classUnderTest.getResource() != null) {
+                    files.add(classUnderTest.getResource());
+                }
+            }
+        }
+        return files;
     }
 
     /**

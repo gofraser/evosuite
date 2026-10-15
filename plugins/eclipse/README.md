@@ -73,6 +73,8 @@ The tests call only the selected methods, plus constructors to create objects
 (`-Dtarget_method_list`, with each method given by name and JVM descriptor, as in
 `sign(I)Ljava/lang/String;`). Because such a suite covers only part of the class, **Add New
 Tests** is preselected when the class already has a suite. Constructors can be selected as well.
+The methods are named after the saved source, and EvoSuite runs the compiled class, so if the
+class has unsaved changes in an editor, the command first asks to save them.
 The command is not offered for private and abstract methods, which tests cannot call directly,
 for constructors of enums and abstract classes, and for methods of nested classes: EvoSuite
 tests top-level classes, so generate tests for the class that contains them instead.
@@ -111,7 +113,8 @@ them, the job ends with a warning that says why.
 What to expect from the parser: statements that depend on setup in `@BeforeEach` methods, fields
 or helper methods are dropped, parameterized tests are skipped, and a test with a syntax error is
 lost. The test classes and the libraries they use are on EvoSuite's classpath for these runs, so
-the project must build.
+the project must build. If the test classes or the class under test have unsaved changes in an
+editor, the command first asks to save them.
 
 All other settings apply as for any run, except the coverage criteria: the output-value, input
 and method criteria (`OUTPUT`, `INPUT`, `METHOD`, `METHODNOEXCEPTION`) are left out. EvoSuite

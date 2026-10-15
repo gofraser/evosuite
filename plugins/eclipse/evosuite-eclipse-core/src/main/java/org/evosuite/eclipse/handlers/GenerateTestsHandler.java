@@ -21,6 +21,7 @@ package org.evosuite.eclipse.handlers;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -30,11 +31,13 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
@@ -48,6 +51,7 @@ import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.handlers.HandlerUtil;
+import org.eclipse.ui.ide.IDE;
 import org.evosuite.eclipse.launch.EvoSuiteCommand;
 import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.launch.GenerationTarget;
@@ -69,6 +73,23 @@ public class GenerateTestsHandler extends AbstractHandler {
 
     static void showInformation(Shell shell, String message) {
         MessageDialog.openInformation(shell, "EvoSuite", message);
+    }
+
+    /**
+     * Saves the editors with unsaved changes to some of the files, after asking which; false if
+     * the user cancelled. Tests replace it to answer without a dialog.
+     */
+    static Predicate<IResource[]> editorSaver = resources -> IDE.saveAllEditors(resources, true);
+
+    /**
+     * Has the user save the editors of {@code files} that have unsaved changes: a run reads the
+     * saved sources and the classes compiled from them, and with an editor's changes left out it
+     * would test something other than what the user sees.
+     *
+     * @return false if the user cancelled, and nothing must be started
+     */
+    static boolean saveEditors(Collection<? extends IResource> files) {
+        return files.isEmpty() || editorSaver.test(files.toArray(IResource[]::new));
     }
 
     /** The settings of a project; tests replace it to count how often they are resolved. */
