@@ -78,8 +78,9 @@ import org.evosuite.eclipse.Activator;
  * <li>skips new tests whose body equals that of an existing test, and the empty
  * {@code notGeneratedAnyTest} that EvoSuite writes when it found no tests, and removes that
  * placeholder from the existing suite when tests are added to it;</li>
- * <li>continues the numbering when numbered tests ({@code test0}, ...) clash with existing ones,
- * and appends {@code _1}, {@code _2}, ... to other names that clash;</li>
+ * <li>continues the numbering, padded as in the existing suite, when the numbers of numbered
+ * tests ({@code test0}, ...) clash with existing ones, and appends {@code _1}, {@code _2}, ...
+ * to other names that clash;</li>
  * <li>adds the imports the new tests need, and other members of the new suite, such as fields,
  * that the existing one has no member of that name for;</li>
  * <li>adds the classes the new suite initialises and resets between tests, in a JUnit 4 suite's
@@ -200,13 +201,19 @@ public final class SuiteMerger {
         // Which tests are new, and under what names.
         Set<String> existingBodies = new HashSet<>();
         Set<String> taken = new HashSet<>();
-        int highestNumber = -1;
+        Set<Integer> numbers = new HashSet<>();
+        // EvoSuite pads the numbers to the width of the highest one: test00 ... test16.
+        int width = 0;
         for (MethodDeclaration method : existingType.getMethods()) {
             String name = method.getName().getIdentifier();
             taken.add(name);
-            Matcher numbered = NUMBERED.matcher(name);
-            if (numbered.matches() && numbered.group(1).length() < 9) {
-                highestNumber = Math.max(highestNumber, Integer.parseInt(numbered.group(1)));
+            Integer number = number(name);
+            if (number != null) {
+                numbers.add(number);
+                String digits = name.substring("test".length());
+                if (digits.length() > 1 && digits.startsWith("0")) {
+                    width = Math.max(width, digits.length());
+                }
             }
             if (isTest(method) && method.getBody() != null) {
                 existingBodies.add(normalise(source(existingSource, method.getBody())));
@@ -224,7 +231,7 @@ public final class SuiteMerger {
                 fresh.add(method);
             }
         }
-        Map<MethodDeclaration, String> names = rename(fresh, taken, highestNumber);
+        Map<MethodDeclaration, String> names = rename(fresh, taken, numbers, width);
 
         // Members other than tests that the existing suite lacks, such as fields.
         Set<String> existingMembers = memberNames(existingType);
@@ -316,26 +323,27 @@ public final class SuiteMerger {
 
     /**
      * Gives the new tests names that are free in the existing suite. Numbered tests, as EvoSuite
-     * names them by default, continue the existing numbering as soon as one of them clashes, so
-     * that they stay in order; other names get a suffix.
+     * names them by default, continue the existing numbering as soon as the number of one of them
+     * is taken, so that they stay in order, and are padded as the existing ones are; other names
+     * get a suffix.
      */
     private static Map<MethodDeclaration, String> rename(List<MethodDeclaration> fresh, Set<String> taken,
-                                                         int highestNumber) {
+                                                         Set<Integer> numbers, int width) {
         Map<MethodDeclaration, String> names = new LinkedHashMap<>();
-        boolean renumber = fresh.stream().map(m -> m.getName().getIdentifier())
-                .anyMatch(name -> NUMBERED.matcher(name).matches() && taken.contains(name));
+        boolean renumber = fresh.stream().map(m -> number(m.getName().getIdentifier()))
+                .anyMatch(number -> number != null && numbers.contains(number));
         Set<String> used = new HashSet<>(taken);
         Set<String> pending = fresh.stream().map(m -> m.getName().getIdentifier()).collect(Collectors.toSet());
-        int next = highestNumber + 1;
+        int next = numbers.stream().max(Integer::compare).orElse(-1) + 1;
         for (MethodDeclaration method : fresh) {
             String name = method.getName().getIdentifier();
             pending.remove(name);
             String chosen = name;
-            if (renumber && NUMBERED.matcher(name).matches()) {
-                while (used.contains("test" + next)) {
+            if (renumber && number(name) != null) {
+                do {
+                    chosen = width == 0 ? "test" + next : String.format("test%0" + width + "d", next);
                     next++;
-                }
-                chosen = "test" + next++;
+                } while (used.contains(chosen));
             } else if (used.contains(name)) {
                 int suffix = 1;
                 while (used.contains(name + "_" + suffix) || pending.contains(name + "_" + suffix)) {
@@ -347,6 +355,12 @@ public final class SuiteMerger {
             names.put(method, chosen);
         }
         return names;
+    }
+
+    /** The number of a test named {@code testN}, or {@code null}. */
+    private static Integer number(String name) {
+        Matcher numbered = NUMBERED.matcher(name);
+        return numbered.matches() && numbered.group(1).length() < 9 ? Integer.valueOf(numbered.group(1)) : null;
     }
 
     /**

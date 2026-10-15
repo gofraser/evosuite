@@ -180,6 +180,24 @@ public class SuiteMergerTest {
     }
 
     @Test
+    public void continuesPaddedNumbersInTheirStyle() {
+        String existing = suite("", MAX.replace("test0", "test00"), SIGN.replace("test1", "test01"));
+        String generated = suite("", test("test0", "assertEquals(9, new Calculator().max(9, 2));"),
+                test("test1", "assertEquals(\"one\", new Calculator().sign(1));"));
+
+        assertEquals(List.of("test02", "test03"), SuiteMerger.merge(existing, generated, "Calculator_ESTest").added);
+    }
+
+    @Test
+    public void continuesTheNumberingWhenOnlyThePaddingDiffers() {
+        String existing = suite("", MAX, SIGN);
+        String generated = suite("", test("test00", "assertEquals(9, new Calculator().max(9, 2));"),
+                test("test01", "assertEquals(\"one\", new Calculator().sign(1));"));
+
+        assertEquals(List.of("test2", "test3"), SuiteMerger.merge(existing, generated, "Calculator_ESTest").added);
+    }
+
+    @Test
     public void keepsNumbersThatDoNotClash() {
         String existing = suite("", MAX);
         String generated = suite("", test("test7", "assertEquals(9, new Calculator().max(9, 2));"));

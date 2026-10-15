@@ -34,8 +34,8 @@ with all of them:
   history.
 - **Add New Tests** keeps the existing tests and adds the new ones after them. A new test whose
   body equals that of an existing test is left out. Clashing names are renamed: numbered tests
-  continue the existing numbering (`test0` becomes `test5` if the suite ends at `test4`), other
-  names get a suffix (`_1`). The imports the new tests need are added, and for JUnit 4 suites the
+  continue the existing numbering (`test0` becomes `test5` if the suite ends at `test4`, and
+  `test05` if it ends at `test04`), other names get a suffix (`_1`). The imports the new tests need are added, and for JUnit 4 suites the
   classes they initialise and reset are too. The previous version stays in the file's local
   history.
 - **Compare** opens the existing suite and the new one in a compare editor: the existing file is
