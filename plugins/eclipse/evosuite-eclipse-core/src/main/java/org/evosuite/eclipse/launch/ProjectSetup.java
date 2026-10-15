@@ -236,6 +236,11 @@ public final class ProjectSetup {
         return folder;
     }
 
+    /** Creates {@code container} and its missing parents, if it is a folder. */
+    static void createFolders(IContainer container) throws CoreException {
+        create(container, null);
+    }
+
     private static void create(IContainer container, IProgressMonitor monitor) throws CoreException {
         if (container.exists() || !(container instanceof IFolder)) {
             return;

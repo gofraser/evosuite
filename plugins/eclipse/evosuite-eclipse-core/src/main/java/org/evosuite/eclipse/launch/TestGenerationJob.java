@@ -21,6 +21,12 @@ package org.evosuite.eclipse.launch;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
@@ -29,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IBuildConfiguration;
@@ -58,9 +65,16 @@ import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.evosuite.eclipse.maven.MavenSupport;
 import org.evosuite.eclipse.preferences.LlmApiKey;
 import org.evosuite.eclipse.ui.EvoSuiteConsole;
+import org.evosuite.eclipse.ui.SuiteComparison;
 
 /**
  * Generates tests for a list of classes of one project, one EvoSuite process per class.
+ *
+ * <p>What happens to a suite that already exists depends on the {@link SuiteAction}. With
+ * {@link SuiteAction#REPLACE}, EvoSuite writes into the test folder itself. Otherwise it writes
+ * into a temporary folder in the plug-in's state area, and the job then adds the new tests to the
+ * existing suite or shows both in a compare editor; classes without a suite get the new one.
+ * Either way the existing file stays untouched until the user has decided.
  *
  * <p>The job holds no scheduling rule: a run takes minutes, and a workspace rule would block
  * builds and edits for all of that time. Runs are serialised by a semaphore instead, because
@@ -79,7 +93,12 @@ public class TestGenerationJob extends Job {
     private final IJavaProject project;
     private final List<String> classes;
     private final GenerationOptions options;
+    private final SuiteAction action;
     private final List<IFile> generated = new CopyOnWriteArrayList<>();
+    private final List<SuiteComparison.Pair> comparisons = new CopyOnWriteArrayList<>();
+    /** How each class's new suite was used, one line each, for the summary. */
+    private final List<String> outcomes = new ArrayList<>();
+    private int produced;
 
     /** With the project's settings as they are now, not when the job eventually runs. */
     public TestGenerationJob(IJavaProject project, List<String> classes) {
@@ -91,12 +110,21 @@ public class TestGenerationJob extends Job {
      *                time, and must not pick up a test folder or suffix changed meanwhile
      */
     public TestGenerationJob(IJavaProject project, List<String> classes, GenerationOptions options) {
+        this(project, classes, options, SuiteAction.REPLACE);
+    }
+
+    /**
+     * @param action what to do with the suites that already exist for some of the classes
+     */
+    public TestGenerationJob(IJavaProject project, List<String> classes, GenerationOptions options,
+                             SuiteAction action) {
         super(classes.size() == 1
                 ? "Generating tests for " + simpleName(classes.get(0))
                 : "Generating tests for " + classes.size() + " classes in " + project.getElementName());
         this.project = project;
         this.classes = List.copyOf(classes);
         this.options = options;
+        this.action = action;
         setUser(true);
         setPriority(LONG);
     }
@@ -106,9 +134,17 @@ public class TestGenerationJob extends Job {
         return family == FAMILY;
     }
 
-    /** The test suites written by this job; complete once the job has finished. */
+    /**
+     * The test suites written by this job, new ones and existing ones that it added tests to;
+     * complete once the job has finished.
+     */
     public List<IFile> getGeneratedSuites() {
         return List.copyOf(generated);
+    }
+
+    /** The existing suites the job opened a comparison for; complete once the job has finished. */
+    public List<SuiteComparison.Pair> getComparisons() {
+        return List.copyOf(comparisons);
     }
 
     @Override
@@ -188,31 +224,61 @@ public class TestGenerationJob extends Job {
         File testDir = testFolder.getLocation().toFile();
         File reportDir = Activator.getDefault().getStateLocation()
                 .append("reports").append(project.getElementName()).toFile();
+        // Kept apart from the test folder until the user's choice has been carried out.
+        File outputDir = action == SuiteAction.REPLACE ? testDir
+                : Activator.getDefault().getStateLocation().append("generated")
+                        .append(project.getElementName() + "-" + System.nanoTime()).toFile();
 
         MultiStatus result = new MultiStatus(Activator.PLUGIN_ID, IStatus.OK,
                 "EvoSuite reported problems; the EvoSuite console has the details.", null);
-        int index = 0;
-        for (String className : classes) {
-            index++;
-            if (progress.isCanceled()) {
-                console.println("Cancelled.");
-                break;
+        try {
+            int index = 0;
+            for (String className : classes) {
+                index++;
+                if (progress.isCanceled()) {
+                    console.println("Cancelled.");
+                    break;
+                }
+                String label = classes.size() == 1 ? simpleName(className)
+                        : simpleName(className) + " (" + index + "/" + classes.size() + ")";
+                EvoSuiteCommand command = new EvoSuiteCommand(java.executable.getAbsolutePath(),
+                        evosuiteJar.getAbsolutePath(), className, classpath, projectDir, outputDir, reportDir,
+                        options);
+                File suite = EvoSuiteCommand.suiteFile(outputDir, className, options.testSuffix);
+                // Compared with the timestamp afterwards rather than with the clock, which a file system
+                // with coarse timestamps (FAT: 2 s) could place before the start of a successful run.
+                long before = suite.isFile() ? suite.lastModified() : Long.MIN_VALUE;
+                // newChild, not split: split throws once cancelled, which would skip the refresh below
+                // and leave the suites of the classes already done out of sync with the workspace.
+                IStatus status = generateOne(command, java, environment, className, label, suite, before,
+                        console, progress.newChild(100));
+                if (status.getSeverity() == IStatus.CANCEL) {
+                    console.println("Cancelled.");
+                    break;
+                }
+                if (suite.isFile() && suite.lastModified() != before) {
+                    produced++;
+                    if (action == SuiteAction.REPLACE) {
+                        IFile file = ResourcesPlugin.getWorkspace().getRoot()
+                                .getFileForLocation(IPath.fromFile(suite));
+                        if (file != null) {
+                            generated.add(file);
+                        }
+                    } else {
+                        try {
+                            place(className, suite, testFolder);
+                        } catch (CoreException e) {
+                            result.add(e.getStatus());
+                        }
+                    }
+                }
+                if (!status.isOK()) {
+                    result.add(status);
+                }
             }
-            String label = classes.size() == 1 ? simpleName(className)
-                    : simpleName(className) + " (" + index + "/" + classes.size() + ")";
-            EvoSuiteCommand command = new EvoSuiteCommand(java.executable.getAbsolutePath(), evosuiteJar.getAbsolutePath(),
-                    className, classpath, projectDir, testDir, reportDir, options);
-            File suite = EvoSuiteCommand.suiteFile(testDir, className, options.testSuffix);
-            // newChild, not split: split throws once cancelled, which would skip the refresh below
-            // and leave the suites of the classes already done out of sync with the workspace.
-            IStatus status = generateOne(command, java, environment, className, label, suite, console,
-                    progress.newChild(100));
-            if (status.getSeverity() == IStatus.CANCEL) {
-                console.println("Cancelled.");
-                break;
-            }
-            if (!status.isOK()) {
-                result.add(status);
+        } finally {
+            if (action != SuiteAction.REPLACE) {
+                deleteRecursively(outputDir);
             }
         }
 
@@ -220,6 +286,9 @@ public class TestGenerationJob extends Job {
         summarise(console, result);
         if (options.openGeneratedTests && !generated.isEmpty() && generated.size() <= MAX_EDITORS) {
             openEditors(List.copyOf(generated));
+        }
+        if (!comparisons.isEmpty()) {
+            openComparison(List.copyOf(comparisons));
         }
         if (progress.isCanceled()) {
             return Status.CANCEL_STATUS;
@@ -229,13 +298,10 @@ public class TestGenerationJob extends Job {
 
     private IStatus generateOne(EvoSuiteCommand command, ProjectSetup.JavaInstallation java,
                                 Map<String, String> environment, String className, String label, File suite,
-                                EvoSuiteConsole console, SubMonitor classShare) {
+                                long before, EvoSuiteConsole console, SubMonitor classShare) {
         // A child monitor ignores worked() until it knows how much work it stands for: without
         // this, the search's percentages never reached the progress view or the status bar.
         SubMonitor monitor = SubMonitor.convert(classShare, 100);
-        // Compared with the timestamp afterwards rather than with the clock, which a file system
-        // with coarse timestamps (FAT: 2 s) could place before the start of a successful run.
-        long before = suite.isFile() ? suite.lastModified() : Long.MIN_VALUE;
         List<String> arguments = command.toArguments();
         console.println("");
         console.println("=== " + className);
@@ -295,10 +361,6 @@ public class TestGenerationJob extends Job {
         }
         // EvoSuite rewrites the suite on success, so an unchanged file means this run wrote nothing.
         if (suite.isFile() && suite.lastModified() != before) {
-            IFile file = ResourcesPlugin.getWorkspace().getRoot().getFileForLocation(IPath.fromFile(suite));
-            if (file != null) {
-                generated.add(file);
-            }
             if (exitCode != 0) {
                 return Activator.warning("EvoSuite wrote tests for " + className + " but then exited with code "
                         + exitCode + "; the suite may be incomplete.");
@@ -361,12 +423,100 @@ public class TestGenerationJob extends Job {
         }
     }
 
+    /**
+     * Carries out the user's choice for a suite generated into the temporary folder: a class
+     * without a suite gets the new one, otherwise the new tests are added to the existing suite
+     * or a comparison is queued.
+     */
+    private void place(String className, File staged, IFolder testFolder) throws CoreException {
+        String suiteName = simpleName(className) + options.testSuffix;
+        IPath relative = IPath.fromOSString(className.replace('.', '/') + options.testSuffix + ".java");
+        IFile existing = testFolder.getFile(relative);
+        existing.refreshLocal(IResource.DEPTH_ZERO, null);
+        // The scaffolding that -Dtest_scaffolding=true writes; one that exists is kept.
+        File stagedScaffolding = new File(staged.getParentFile(), suiteName + "_scaffolding.java");
+        IFile scaffolding = existing.getParent().getFile(IPath.fromOSString(stagedScaffolding.getName()));
+        scaffolding.refreshLocal(IResource.DEPTH_ZERO, null);
+        if (stagedScaffolding.isFile() && !scaffolding.exists()) {
+            copyIntoWorkspace(stagedScaffolding, scaffolding);
+        }
+        if (!existing.exists()) {
+            copyIntoWorkspace(staged, existing);
+            generated.add(existing);
+            return;
+        }
+        String source = read(staged, existing.getCharset());
+        if (action == SuiteAction.ADD) {
+            SuiteMerger.Result merge = SuiteMerger.mergeInto(existing, source, suiteName, null);
+            if (merge.isMerged()) {
+                String skipped = merge.duplicates == 0 ? ""
+                        : "; left out " + merge.duplicates + " that the suite already has";
+                if (merge.added.isEmpty()) {
+                    outcomes.add("No new tests for " + existing.getName() + skipped + ".");
+                } else {
+                    generated.add(existing);
+                    outcomes.add("Added " + merge.added.size() + " test" + (merge.added.size() == 1 ? "" : "s")
+                            + " to " + existing.getName() + " (" + String.join(", ", merge.added) + ")" + skipped
+                            + ".");
+                }
+                return;
+            }
+            outcomes.add("Cannot add the new tests to " + existing.getName() + ": " + merge.incompatibility
+                    + ". The new suite opens next to it in a compare editor instead.");
+        }
+        comparisons.add(new SuiteComparison.Pair(existing, source));
+    }
+
+    private static void copyIntoWorkspace(File source, IFile target) throws CoreException {
+        ProjectSetup.createFolders(target.getParent());
+        try (InputStream in = Files.newInputStream(source.toPath())) {
+            target.create(in, IResource.FORCE, null);
+        } catch (IOException e) {
+            throw new CoreException(Activator.error("Cannot copy " + source + " to " + target.getFullPath(), e));
+        }
+    }
+
+    private static String read(File file, String charset) throws CoreException {
+        try {
+            return new String(Files.readAllBytes(file.toPath()), Charset.forName(charset));
+        } catch (IOException e) {
+            throw new CoreException(Activator.error("Cannot read " + file, e));
+        }
+    }
+
+    private static void deleteRecursively(File directory) {
+        if (!directory.exists()) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(directory.toPath())) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> path.toFile().delete());
+        } catch (IOException e) {
+            Activator.logError("Cannot delete " + directory, e);
+        }
+    }
+
     private void summarise(EvoSuiteConsole console, MultiStatus failures) {
         console.println("");
-        console.println("EvoSuite generated " + generated.size() + " of " + classes.size() + " test suite"
+        console.println("EvoSuite generated " + produced + " of " + classes.size() + " test suite"
                 + (classes.size() == 1 ? "" : "s") + ".");
+        for (String outcome : outcomes) {
+            console.println("  " + outcome);
+        }
+        if (!comparisons.isEmpty()) {
+            console.println("  " + (comparisons.size() == 1 ? "The new suite for " + comparisons.get(0).existing().getName()
+                    + " opens" : comparisons.size() + " new suites open") + " next to the existing "
+                    + (comparisons.size() == 1 ? "one" : "ones") + " in a compare editor; copy over the tests "
+                    + "you want and save.");
+        }
         for (IStatus failure : failures.getChildren()) {
             console.println("  " + failure.getMessage());
+        }
+    }
+
+    private static void openComparison(List<SuiteComparison.Pair> pairs) {
+        Display display = PlatformUI.isWorkbenchRunning() ? PlatformUI.getWorkbench().getDisplay() : null;
+        if (display != null) {
+            display.asyncExec(() -> SuiteComparison.open(pairs));
         }
     }
 

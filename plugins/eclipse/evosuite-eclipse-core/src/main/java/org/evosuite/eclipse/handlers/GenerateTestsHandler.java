@@ -22,9 +22,12 @@ package org.evosuite.eclipse.handlers;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
@@ -45,6 +48,7 @@ import org.eclipse.ui.handlers.HandlerUtil;
 import org.evosuite.eclipse.launch.EvoSuiteCommand;
 import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.launch.ProjectSetup;
+import org.evosuite.eclipse.launch.SuiteAction;
 import org.evosuite.eclipse.launch.TestGenerationJob;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 
@@ -53,6 +57,9 @@ import org.evosuite.eclipse.preferences.EvoSuitePreferences;
  * active Java editor.
  */
 public class GenerateTestsHandler extends AbstractHandler {
+
+    /** Asks what to do with existing suites; tests replace it to answer without a dialog. */
+    static BiFunction<Shell, ExistingSuitesQuestion, SuiteAction> chooser = ExistingSuitesDialog::ask;
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
@@ -70,25 +77,63 @@ public class GenerateTestsHandler extends AbstractHandler {
                             + "are skipped.");
             return null;
         }
+        Map<IJavaProject, List<String>> requests = new LinkedHashMap<>();
         for (Map.Entry<IJavaProject, Set<IType>> entry : targets.entrySet()) {
-            IJavaProject project = entry.getKey();
-            GenerationOptions options = EvoSuitePreferences.resolve(project.getProject(), null);
-            List<String> classes = new ArrayList<>();
+            GenerationOptions options = EvoSuitePreferences.resolve(entry.getKey().getProject(), null);
             try {
                 for (IType type : entry.getValue()) {
                     if (!isGeneratedTest(type, options)) {
-                        classes.add(type.getFullyQualifiedName());
+                        requests.computeIfAbsent(entry.getKey(), p -> new ArrayList<>())
+                                .add(type.getFullyQualifiedName());
                     }
                 }
             } catch (JavaModelException e) {
                 throw new ExecutionException("Cannot read the selected Java elements", e);
             }
-            if (classes.isEmpty() || !confirmOverwrite(shell, project, classes, options)) {
+        }
+        launch(shell, requests);
+        return null;
+    }
+
+    /**
+     * Asks once, for all projects, what to do with the suites that exist already, and schedules
+     * a generation job per project.
+     */
+    static void launch(Shell shell, Map<IJavaProject, List<String>> requests) {
+        Map<IJavaProject, GenerationOptions> options = new LinkedHashMap<>();
+        List<String> withSuites = new ArrayList<>();
+        Set<String> testFolders = new HashSet<>();
+        int classCount = 0;
+        for (Map.Entry<IJavaProject, List<String>> entry : requests.entrySet()) {
+            IJavaProject project = entry.getKey();
+            GenerationOptions projectOptions = EvoSuitePreferences.resolve(project.getProject(), null);
+            File testDir;
+            try {
+                testDir = ProjectSetup.testFolder(project.getProject(), projectOptions).getLocation().toFile();
+            } catch (CoreException e) {
+                MessageDialog.openError(shell, "EvoSuite", e.getStatus().getMessage());
                 continue;
             }
-            new TestGenerationJob(project, classes, options).schedule();
+            options.put(project, projectOptions);
+            testFolders.add(projectOptions.testFolder);
+            for (String className : entry.getValue()) {
+                classCount++;
+                if (EvoSuiteCommand.suiteFile(testDir, className, projectOptions.testSuffix).exists()) {
+                    withSuites.add(className.substring(className.lastIndexOf('.') + 1));
+                }
+            }
         }
-        return null;
+        SuiteAction action = SuiteAction.REPLACE;
+        if (!withSuites.isEmpty()) {
+            action = chooser.apply(shell, ExistingSuitesQuestion.of(withSuites, classCount,
+                    testFolders.size() == 1 ? testFolders.iterator().next() : null));
+            if (action == null) {
+                return;
+            }
+        }
+        for (Map.Entry<IJavaProject, GenerationOptions> entry : options.entrySet()) {
+            new TestGenerationJob(entry.getKey(), requests.get(entry.getKey()), entry.getValue(), action).schedule();
+        }
     }
 
     private static Iterable<?> selectedElements(ExecutionEvent event) {
@@ -121,31 +166,5 @@ public class GenerateTestsHandler extends AbstractHandler {
         return suite != null && suite.endsWith(options.testSuffix)
                 && type.getCompilationUnit().getParent() instanceof IPackageFragment pkg
                 && pkg.getCompilationUnit(suite + ".java").exists();
-    }
-
-    private static boolean confirmOverwrite(Shell shell, IJavaProject project, List<String> classes,
-                                            GenerationOptions options) {
-        File testDir;
-        try {
-            testDir = ProjectSetup.testFolder(project.getProject(), options).getLocation().toFile();
-        } catch (CoreException e) {
-            MessageDialog.openError(shell, "EvoSuite", e.getStatus().getMessage());
-            return false;
-        }
-        List<String> existing = new ArrayList<>();
-        for (String className : classes) {
-            if (EvoSuiteCommand.suiteFile(testDir, className, options.testSuffix).exists()) {
-                existing.add(className);
-            }
-        }
-        if (existing.isEmpty()) {
-            return true;
-        }
-        String which = existing.size() == 1
-                ? "A test suite for " + existing.get(0) + " already exists"
-                : existing.size() + " of the selected classes already have test suites";
-        return MessageDialog.openConfirm(shell, "EvoSuite",
-                which + " in " + options.testFolder + ". Generating tests replaces "
-                        + (existing.size() == 1 ? "it" : "them") + ". Continue?");
     }
 }

@@ -21,10 +21,32 @@ What happens next:
    up to three classes, their suites open in editors.
 
 Classes in test source folders, interfaces, annotations and EvoSuite's own output are skipped.
-Before overwriting an existing suite, the plugin asks for confirmation.
 
 EvoSuite runs on the project's JRE, so it can always read the project's class files. To use a
 different JDK, set *Java home* on the *Advanced* settings page.
+
+### Existing test suites
+
+If some of the classes already have a suite, the plugin asks once, before generating, what to do
+with all of them:
+
+- **Replace** overwrites the existing suites, as EvoSuite does on the command line.
+- **Add New Tests** keeps the existing tests and adds the new ones after them. A new test whose
+  body equals that of an existing test is left out. Clashing names are renamed: numbered tests
+  continue the existing numbering (`test0` becomes `test5` if the suite ends at `test4`), other
+  names get a suffix (`_1`). The imports the new tests need are added, and for JUnit 4 suites the
+  classes they initialise and reset are too. The previous version stays in the file's local
+  history.
+- **Compare** opens the existing suite and the new one in a compare editor: the existing file is
+  editable, the new suite is read-only. Copy over what you want and save. Several classes share
+  one compare editor, which lists them.
+
+With Add New Tests and Compare, EvoSuite writes into the plugin's state area, so the existing
+suites stay as they are until generation has finished. Classes without a suite get the new one.
+Adding needs two suites that EvoSuite generated the same way: both with `@EvoRunnerParameters`,
+for the same version of JUnit, and with the same runner settings and superclass. Otherwise, for
+example for a hand-written suite or one with unsaved changes in an editor, the plugin opens the
+comparison instead and the console says why.
 
 ### Settings
 
@@ -185,8 +207,9 @@ unless you name another JDK. To skip it, pass `-Devosuite.it.skip=true`:
 ./mvnw verify -Devosuite.it.javaHome=/path/to/jdk-17
 ```
 
-The settings tests open the pages in the workbench's dialogs. To look at them, name a directory
-in `EVOSUITE_SCREENSHOTS`, and each page they open is saved there as a PNG.
+The settings tests open the pages in the workbench's dialogs, and the tests of the existing-suites
+dialog and the compare editor open those. To look at them, name a directory in
+`EVOSUITE_SCREENSHOTS`, and each page or dialog they open is saved there as a PNG.
 
 `MavenPluginLifecycleMappingTest` checks that m2e runs the EvoSuite Maven plugin's `setup` goal
 and keeps the generated-tests folder as a test source folder. It needs the Maven plugin

@@ -19,12 +19,20 @@
  */
 package org.evosuite.eclipse.handlers;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jdt.core.IJavaProject;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.eclipse.launch.TestGenerationJob;
 import org.junit.jupiter.api.Test;
 
 public class GenerateTestsHandlerTest {
@@ -48,5 +56,30 @@ public class GenerateTestsHandlerTest {
 
         options.testSuffix = "Test";
         assertFalse(GenerateTestsHandler.isGeneratedTest(project.findType("g.ServiceTest"), options));
+    }
+
+    @Test
+    public void asksOnceForAllProjectsAndStartsNothingWhenCancelled() throws Exception {
+        Map<IJavaProject, List<String>> requests = new LinkedHashMap<>();
+        for (String name : List.of("ask-a", "ask-b")) {
+            IJavaProject project = TestProjects.create(name, "src", null);
+            TestProjects.addSource(project, "src/test/evosuite", "demo.Calculator_ESTest", "class Calculator_ESTest {}");
+            requests.put(project, List.of("demo.Calculator", "demo.Other"));
+        }
+        List<ExistingSuitesQuestion> asked = new ArrayList<>();
+        GenerateTestsHandler.chooser = (shell, question) -> {
+            asked.add(question);
+            return null;
+        };
+        try {
+            GenerateTestsHandler.launch(null, requests);
+        } finally {
+            GenerateTestsHandler.chooser = ExistingSuitesDialog::ask;
+        }
+
+        assertEquals(1, asked.size());
+        assertTrue(asked.get(0).message.startsWith("2 of the 4 classes already have test suites in "
+                + "src/test/evosuite: Calculator, Calculator."), asked.get(0).message);
+        assertEquals(0, Job.getJobManager().find(TestGenerationJob.FAMILY).length, "generation started anyway");
     }
 }
