@@ -105,6 +105,23 @@ public class SuiteMergerTest {
     }
 
     @Test
+    public void leavesOutThePlaceholderOfASuiteWithoutTests() {
+        String placeholder = "\n  @Test\n  public void notGeneratedAnyTest() {\n"
+                + "      // EvoSuite did not generate any tests\n  }\n";
+        String existing = suite("", MAX, SIGN);
+        String empty = suite("", placeholder);
+
+        SuiteMerger.Result result = SuiteMerger.merge(existing, empty, "Calculator_ESTest");
+
+        assertTrue(result.isMerged(), result.incompatibility);
+        assertEquals(List.of(), result.added);
+        assertEquals(existing, result.source);
+        assertEquals(0, SuiteMerger.testCount(empty, "Calculator_ESTest"));
+        assertEquals(2, SuiteMerger.testCount(existing, "Calculator_ESTest"));
+        assertEquals(-1, SuiteMerger.testCount(existing, "Other_ESTest"));
+    }
+
+    @Test
     public void leavesOutTestsThatTheSuiteAlreadyHas() {
         String existing = suite("", MAX, SIGN);
         // Same body as test1, other name and formatting.

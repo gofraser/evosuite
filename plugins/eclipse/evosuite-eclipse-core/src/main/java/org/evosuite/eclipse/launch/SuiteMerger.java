@@ -75,7 +75,8 @@ import org.evosuite.eclipse.Activator;
  * for. Within those, the merge
  * <ul>
  * <li>keeps the existing file as it is and appends the new tests at the end of the class;</li>
- * <li>skips new tests whose body equals that of an existing test;</li>
+ * <li>skips new tests whose body equals that of an existing test, and the empty
+ * {@code notGeneratedAnyTest} that EvoSuite writes when it found no tests;</li>
  * <li>continues the numbering when numbered tests ({@code test0}, ...) clash with existing ones,
  * and appends {@code _1}, {@code _2}, ... to other names that clash;</li>
  * <li>adds the imports the new tests need, and other members of the new suite, such as fields,
@@ -88,6 +89,8 @@ public final class SuiteMerger {
 
     private static final Pattern NUMBERED = Pattern.compile("test(\\d+)");
     private static final Set<String> CLASS_LISTS = Set.of("initializeClasses", "resetClasses");
+    /** The empty test EvoSuite writes into a suite for which it found no tests. */
+    static final String PLACEHOLDER_TEST = "notGeneratedAnyTest";
 
     private SuiteMerger() {
     }
@@ -194,7 +197,7 @@ public final class SuiteMerger {
         List<MethodDeclaration> fresh = new ArrayList<>();
         int duplicates = 0;
         for (MethodDeclaration method : generatedType.getMethods()) {
-            if (!isTest(method)) {
+            if (!isTest(method) || isPlaceholder(method)) {
                 continue;
             }
             if (method.getBody() != null && existingBodies.contains(normalise(source(generatedSource, method.getBody())))) {
@@ -210,7 +213,7 @@ public final class SuiteMerger {
         List<BodyDeclaration> otherMembers = new ArrayList<>();
         for (Object declaration : generatedType.bodyDeclarations()) {
             BodyDeclaration member = (BodyDeclaration) declaration;
-            if (member instanceof MethodDeclaration method && isTest(method)) {
+            if (member instanceof MethodDeclaration method && (isTest(method) || isPlaceholder(method))) {
                 continue;
             }
             Set<String> memberNames = memberNames(member);
@@ -479,6 +482,24 @@ public final class SuiteMerger {
 
     private static boolean isTest(MethodDeclaration method) {
         return hasAnnotation(method, "Test");
+    }
+
+    private static boolean isPlaceholder(MethodDeclaration method) {
+        return PLACEHOLDER_TEST.equals(method.getName().getIdentifier());
+    }
+
+    /**
+     * How many tests the class {@code suiteName} in {@code source} has, not counting the
+     * placeholder EvoSuite writes when it found none; -1 if the source does not parse or lacks
+     * the class.
+     */
+    public static int testCount(String source, String suiteName) {
+        CompilationUnit unit = parse(source);
+        TypeDeclaration type = hasErrors(unit) ? null : findType(unit, suiteName);
+        if (type == null) {
+            return -1;
+        }
+        return (int) Arrays.stream(type.getMethods()).filter(m -> isTest(m) && !isPlaceholder(m)).count();
     }
 
     private static boolean hasAnnotation(BodyDeclaration declaration, String simpleName) {
