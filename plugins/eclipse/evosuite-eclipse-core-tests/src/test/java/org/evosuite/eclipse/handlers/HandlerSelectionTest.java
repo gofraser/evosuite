@@ -46,6 +46,7 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.evosuite.eclipse.TestProjects;
+import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.UiThread;
 import org.evosuite.eclipse.launch.TestGenerationJob;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
@@ -202,5 +203,28 @@ public class HandlerSelectionTest {
                 page.closeEditor(editor, false);
             }
         });
+    }
+
+    /**
+     * On the UI thread m2e only offers a pom it has loaded already, so the commands resolve their
+     * settings in a background thread, where it loads the pom if need be.
+     */
+    @Test
+    public void resolvesTheSettingsAwayFromTheUiThread() throws Exception {
+        IJavaProject project = TestProjects.create("resolve-thread", "src", null);
+        java.util.function.Function<org.eclipse.core.resources.IProject, GenerationOptions> original =
+                GenerateTestsHandler.resolver;
+        java.util.List<Boolean> onUiThread = new java.util.ArrayList<>();
+        GenerateTestsHandler.resolver = p -> {
+            onUiThread.add(org.eclipse.swt.widgets.Display.getCurrent() != null);
+            return new GenerationOptions();
+        };
+        try {
+            org.eclipse.swt.widgets.Display.getDefault().syncExec(
+                    () -> GenerateTestsHandler.resolveAwayFromUiThread(project.getProject()));
+            assertEquals(java.util.List.of(false), onUiThread);
+        } finally {
+            GenerateTestsHandler.resolver = original;
+        }
     }
 }

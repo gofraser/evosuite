@@ -72,6 +72,7 @@ import org.evosuite.eclipse.Activator;
 import org.evosuite.eclipse.EvoSuiteJars;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.evosuite.eclipse.maven.MavenSupport;
+import org.evosuite.eclipse.maven.ServerPassword;
 import org.evosuite.eclipse.preferences.LlmApiKey;
 import org.evosuite.eclipse.ui.EvoSuiteConsole;
 import org.evosuite.eclipse.ui.SuiteComparison;
@@ -527,13 +528,12 @@ public class TestGenerationJob extends Job {
         }
         if (!options.llmApiKeyServerId.isEmpty()) {
             // As mvn evosuite:generate does: the password of a server in Maven's settings.xml.
-            String key = MavenSupport.serverPassword(options.llmApiKeyServerId);
-            if (key != null) {
-                return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, key);
+            ServerPassword password = MavenSupport.findServerPassword(options.llmApiKeyServerId);
+            if (password.isFound()) {
+                return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, password.password());
             }
-            console.println("The pom names the server " + options.llmApiKeyServerId + " for the LLM API key, "
-                    + "but Maven's settings.xml has no such server with a password; using the key from the "
-                    + "EvoSuite preferences instead.");
+            console.println(password.problem() + " The pom names this server for the LLM API key; using the key "
+                    + "from the EvoSuite preferences instead.");
         }
         String key = apiKeySource.get();
         if (!key.isEmpty()) {

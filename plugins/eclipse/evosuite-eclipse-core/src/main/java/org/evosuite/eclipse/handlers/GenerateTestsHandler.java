@@ -20,6 +20,7 @@
 package org.evosuite.eclipse.handlers;
 
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -48,10 +50,13 @@ import org.eclipse.jdt.ui.JavaUI;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.ide.IDE;
+import org.evosuite.eclipse.Activator;
 import org.evosuite.eclipse.launch.EvoSuiteCommand;
 import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.launch.GenerationTarget;
@@ -93,7 +98,31 @@ public class GenerateTestsHandler extends AbstractHandler {
     }
 
     /** The settings of a project; tests replace it to count how often they are resolved. */
-    static Function<IProject, GenerationOptions> settings = project -> EvoSuitePreferences.resolve(project, null);
+    static Function<IProject, GenerationOptions> settings = GenerateTestsHandler::resolveAwayFromUiThread;
+
+    /**
+     * Resolves a project's settings under a busy cursor in a background thread. On the UI thread
+     * m2e only offers a pom it has already loaded, and a run must not start without the settings
+     * of the EvoSuite Maven plug-in just because m2e had not loaded the pom yet.
+     */
+    static GenerationOptions resolveAwayFromUiThread(IProject project) {
+        if (Display.getCurrent() == null || !PlatformUI.isWorkbenchRunning()) {
+            return resolver.apply(project);
+        }
+        AtomicReference<GenerationOptions> resolved = new AtomicReference<>();
+        try {
+            PlatformUI.getWorkbench().getProgressService().busyCursorWhile(
+                    monitor -> resolved.set(resolver.apply(project)));
+        } catch (InvocationTargetException e) {
+            Activator.logError("Cannot read the EvoSuite settings of " + project.getName(), e.getCause());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return resolved.get() != null ? resolved.get() : resolver.apply(project);
+    }
+
+    /** Resolves a project's settings in the calling thread; tests replace it to see which thread. */
+    static Function<IProject, GenerationOptions> resolver = project -> EvoSuitePreferences.resolve(project, null);
 
     static final String NO_CLASSES = "The selection contains no classes to generate tests for. Select classes, "
             + "packages, source folders or projects; test source folders, interfaces, annotations and "
