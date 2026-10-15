@@ -51,6 +51,8 @@ public class JobHandler extends Thread {
 
     private static final Logger logger = LoggerFactory.getLogger(JobHandler.class);
 
+    private static final int MIN_MASTER_MEMORY_MB = 250;
+
     private final JobExecutor executor;
 
     private Process latestProcess;
@@ -238,6 +240,21 @@ public class JobHandler extends Thread {
     }
 
 
+    /**
+     * The master's heap is taken out of the job's memory, and the rest goes to the client.
+     * The master holds the statistics and the generated suites of the job, which for large
+     * classes needs far more than a fixed small heap.
+     *
+     * @param jobMemoryInMB memory of the whole job
+     * @return heap of the master process
+     */
+    static int getMasterMemoryInMB(int jobMemoryInMB) {
+        if (Properties.CTG_MASTER_MEMORY != null) {
+            return Properties.CTG_MASTER_MEMORY;
+        }
+        return Math.max(MIN_MASTER_MEMORY_MB, jobMemoryInMB / 4);
+    }
+
     private List<String> getCommandString(JobDefinition job) {
 
         List<String> commands = new ArrayList<>();
@@ -272,10 +289,7 @@ public class JobHandler extends Thread {
             commands.add("-Dlog.level=" + Properties.LOG_LEVEL);
         }
 
-        /*
-         * TODO: this will likely need better handling
-         */
-        int masterMB = 250;
+        int masterMB = getMasterMemoryInMB(job.memoryInMB);
         int clientMB = job.memoryInMB - masterMB;
 
         commands.add("-Xmx" + masterMB + "m");

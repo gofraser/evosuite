@@ -1308,6 +1308,11 @@ public class Properties {
             description = "Total Memory (in MB) that CTG will use")
     public static int CTG_MEMORY = 1000;
 
+    @Parameter(key = "ctg_master_memory", group = "Continuous Test Generation",
+            description = "Heap (in MB) of the master process of each CTG job, taken out of the job's share of "
+                    + "ctg_memory. If not set, a quarter of the job's memory, but at least 250")
+    public static Integer CTG_MASTER_MEMORY = null;
+
     @Parameter(key = "ctg_cores", group = "Continuous Test Generation",
             description = "Number of cores CTG will use")
     public static int CTG_CORES = 1;

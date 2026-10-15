@@ -38,6 +38,8 @@ public class CtgConfiguration {
      */
     protected final int minimumMemoryPerJobMB = 500;
 
+    protected final int minimumClientMemoryMB = 250;
+
     /**
      * How much max memory should be used at the same time
      * among all the parallel CTG runs.
@@ -135,6 +137,12 @@ public class CtgConfiguration {
             );
         }
 
+        Integer masterMemory = Properties.CTG_MASTER_MEMORY;
+        int memoryPerJob = totalMemoryInMB / numberOfCores;
+        if (masterMemory != null && memoryPerJob - masterMemory < minimumClientMemoryMB) {
+            throw new IllegalArgumentException("ctg_master_memory=" + masterMemory + "MB leaves less than "
+                    + minimumClientMemoryMB + "MB for the client out of the " + memoryPerJob + "MB of each job");
+        }
     }
 
     /**
