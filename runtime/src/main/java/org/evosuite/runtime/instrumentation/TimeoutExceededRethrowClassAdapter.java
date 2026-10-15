@@ -29,8 +29,8 @@ import org.objectweb.asm.Opcodes;
  * <p>Non-target classes get it through {@link NonTargetClassAdapter}, but a loop that
  * swallows {@code Throwable} inside the class under test itself used to keep a SUT thread
  * alive past the kill switch: {@code TimeoutExceeded} thrown by a probe in a callee was
- * caught and the loop went round again (vuze's {@code TRTrackerServerImpl} timer loop
- * survived from test to test this way, holding a monitor the next test thread needed).
+ * caught and the loop went round again, so the thread survived from test to test
+ * this way, holding a monitor the next test thread needed.
  * Like in the non-target chain, this must sit right above the {@code ClassWriter}, below
  * the adapters that buffer the method as a {@code MethodNode}.</p>
  */

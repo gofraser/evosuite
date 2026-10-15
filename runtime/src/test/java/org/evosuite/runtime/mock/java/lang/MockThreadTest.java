@@ -114,7 +114,7 @@ public class MockThreadTest {
     /**
      * The test's own thread only yields in a mocked sleep(). 200 ms of real sleeping per test
      * (the first calls) made every evaluation of a test with a polling loop last that long
-     * (27_gangup's Kernel.run()), and the search saw a handful of generations.
+     * and the search saw a handful of generations.
      */
     @Test
     public void testTestThreadSleepDoesNotPause() throws InterruptedException {

@@ -39,11 +39,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 58_fps370's {@code teder.TederData}/{@code teder.TederPanel} constructors do
- * {@code Toolkit.getImage(name)} followed by {@code new MediaTracker(this).waitForID(0)}. On the
- * SF110 cluster that wait genuinely never returns inside the search budget, and the class reaches
- * only 2-16 generations in 120s instead of the ~1,500-2,300 a normal class gets: the entire budget
- * is spent blocked in AWT's image-loading machinery, which has nothing to do with progress of the
+ * A constructor that does {@code Toolkit.getImage(name)} followed by
+ * {@code new MediaTracker(this).waitForID(0)} can wait genuinely forever inside the search budget,
+ * so the entire budget is spent blocked in AWT's image-loading machinery, which has nothing to do
+ * with progress of the
  * search. {@code Toolkit.getImage} itself never blocks - it hands back an {@code Image} immediately
  * and starts the fetch on a background thread - so the fix lives entirely in {@link MediaTracker}.
  */
@@ -53,7 +52,7 @@ class MockHeadlessSwingMediaTrackerTest {
     void forceHeadlessMocking() {
         // GraphicsEnvironment.isHeadless() caches its decision on first read, which on a normal
         // dev/CI machine with a display resolves to false long before this test runs. GuiSupport's
-        // reflective flip is what production uses to force the JVM into the SF110-cluster-like
+        // reflective flip is what production uses to force the JVM into the
         // headless state instrumentation actually targets, independent of that cache.
         GuiSupport.setHeadless();
         MockFramework.enable();
@@ -67,8 +66,8 @@ class MockHeadlessSwingMediaTrackerTest {
 
     /**
      * An {@link ImageProducer} that never calls back into any {@link ImageConsumer}: no pixels, no
-     * {@code imageComplete}, ever. This is what a real MediaTracker sees for as long as the SF110
-     * cluster's fetch is still in flight, and a real {@code waitForID} on it blocks forever - there
+     * {@code imageComplete}, ever. This is what a real MediaTracker sees for as long as the
+     * fetch is still in flight, and a real {@code waitForID} on it blocks forever - there
      * is nothing that will ever notify it. Using a synthetic producer instead of a real file/URL
      * keeps the test deterministic and independent of the filesystem-probe short-circuit noted
      * below.
@@ -102,8 +101,7 @@ class MockHeadlessSwingMediaTrackerTest {
      * FAILS without the fix: on the production code as checked in, this deadlocks instead of
      * finishing, because {@code MediaTracker.waitForID} is not in the replacement cache and the
      * real JDK method runs, blocking forever on an image that never completes. See the class
-     * comment for why this exact wait is what starves 58_fps370's TederData/TederPanel on the
-     * cluster.
+     * comment for why this exact wait starves such classes.
      */
     @Test
     @Timeout(value = 10, unit = TimeUnit.SECONDS)

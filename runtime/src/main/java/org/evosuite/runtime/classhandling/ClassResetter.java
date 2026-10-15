@@ -247,9 +247,9 @@ public class ClassResetter {
             } else {
                 // Summarise at WARN and keep the stack trace for DEBUG. A replayed <clinit>
                 // failing is routine on subjects whose static state needs an environment the
-                // tests do not provide - 108_liferay alone hits this for over a hundred
-                // distinct classes in a single run, and a stack trace apiece dominated the
-                // run log without telling us anything the class name and cause do not.
+                // tests do not provide - a single run can hit this for over a hundred
+                // distinct classes, and a stack trace apiece dominated the run log
+                // without telling us anything the class name and cause do not.
                 logWarn(classNameWithDots, e + ", caused by: " + cause);
                 if (logger.isDebugEnabled()) {
                     StringWriter errors = new StringWriter();
@@ -292,10 +292,8 @@ public class ClassResetter {
                 // Here it would be wrong: a package-wide bypass would
                 // silently re-enable replay for every fragile sibling class
                 // in the skip-listed library whenever the CUT happens to
-                // live in the same package - e.g. com.liferay.portal.kernel.
-                // util. holds both ordinary target classes (like
-                // RandomAccessInputStream) and fragile singletons (like
-                // SystemProperties) side by side.
+                // live in the same package, which holds both ordinary target classes and
+                // fragile singletons side by side.
                 if (classNameWithDots.equals(RuntimeSettings.className)) {
                     return false;
                 }

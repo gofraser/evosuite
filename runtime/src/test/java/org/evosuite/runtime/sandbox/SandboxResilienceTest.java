@@ -101,7 +101,7 @@ public class SandboxResilienceTest {
     }
 
     /**
-     * SUT code that clears the thread locals of all threads (Liferay's ClearThreadLocalUtil)
+     * SUT code that clears the thread locals of all threads (through reflection)
      * must not leave the privileged thread that ran it stripped of its privilege, or the
      * generated tests can no longer be written.
      */

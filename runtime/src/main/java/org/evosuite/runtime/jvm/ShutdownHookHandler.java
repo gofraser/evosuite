@@ -193,7 +193,7 @@ public class ShutdownHookHandler {
          * that was abandoned (and had its lock reclaimed) goes on to run its
          * scaffolding teardown, which resets and re-initializes the sandbox and
          * clears the flag while the next test execution is already under way
-         * (SF110 vuze SESecurityManagerImpl, apbsmem Main). Asserting here turned
+         * Asserting here turned
          * that into a framework error that failed the whole class. It is harmless
          * to carry on: the hooks run on this thread, which is checked by the
          * security manager like any other thread, because permission checks of
@@ -222,8 +222,7 @@ public class ShutdownHookHandler {
                     // SUT: if one of them leaves that count unbalanced, the state we
                     // are trying to restore is already gone. Nothing useful is left
                     // to do about it here, and letting it out would replace the test
-                    // result with a framework error -- which is how apbsmem's
-                    // JmolPanel lost its whole generated suite to a Jmol hook.
+                    // result with a framework error and the whole generated suite.
                     logger.debug("Sandbox state was already reset while running "
                             + "shutdown hooks: " + e);
                 }

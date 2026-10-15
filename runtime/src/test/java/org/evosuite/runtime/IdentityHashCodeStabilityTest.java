@@ -11,8 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
  * The mocked identity hash must behave like the real one for as long as an object lives:
- * a SUT registry keyed by objects without {@code hashCode()} (110_firebird's
- * {@code GDSFactory.typeToPluginMap} keyed by {@code GDSType}) is built once in static
+ * a SUT registry keyed by objects without {@code hashCode()} (for example a map
+ * keyed by such a type) is built once in static
  * state and looked up from every later test, and a key whose hash changed after the
  * {@code put()} is searched for in the wrong bucket.
  */

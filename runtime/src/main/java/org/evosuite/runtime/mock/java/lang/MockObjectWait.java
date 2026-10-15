@@ -152,7 +152,7 @@ public class MockObjectWait {
      * for ever, so the waiting loop would run into the budget instead of seeing the
      * notification. A wait loop that nothing ever notifies (it makes about 200 calls)
      * must not pay for real waits, nor let the threads the SUT started run on, which
-     * costs the search a lot (78_caloriecount's NewScheduler).
+     * costs the search a lot.
      * Finding out is not free (listing the threads on every wait halved the search's
      * generations), so it is done on every {@link #REAL_WAIT_STRIDE}th wait only; a thread
      * that is blocked stays so until the monitor is given up.
@@ -203,23 +203,17 @@ public class MockObjectWait {
 
         long cumulative = cumulativeWaitRequested.addAndGet(effectiveMillis);
 
-        // Unlike the old implementation, do perform a real (but tiny, bounded)
-        // timed wait: obj.wait(millis) releases obj's monitor for the duration
-        // and re-acquires it before returning, exactly like a real wait()
-        // would. Skipping this entirely left the calling thread holding obj's
-        // *intrinsic* lock for the whole (virtual) wait — fine for a single
-        // isolated call, but code such as 104_vuze's AEMonitor.enter() calls
-        // wait() from inside its own synchronized(this) block in a retry loop;
-        // with no real wait, that thread held the AEMonitor's lock for its
-        // entire spin, permanently starving any other thread also trying to
-        // enter() the same AEMonitor. Bounding it at REAL_WAIT_MILLIS keeps
-        // it cheap while restoring the "wait() releases the monitor"
-        // contract the SUT relies on.
+        // Perform a real (but tiny, bounded) timed wait: obj.wait(millis) releases obj's monitor
+        // for the duration and re-acquires it before returning, exactly like a real wait() would.
+        // Skipping this entirely would leave the calling thread holding obj's *intrinsic* lock for
+        // the whole (virtual) wait, which starves other threads in code that calls wait() from
+        // inside its own synchronized block in a retry loop. Bounding it at REAL_WAIT_MILLIS keeps
+        // it cheap while restoring the "wait() releases the monitor" contract the SUT relies on.
         // A SUT thread can afford the full capped wait: it runs alongside the test,
         // and releasing the monitor for longer is what lets the test thread in (see
         // MockThread.sleep). The test's own thread waits for real only for its first
         // few waits of a test, enough to let a thread the SUT started take the monitor
-        // and act: a wait loop that never ends (78_caloriecount's NewScheduler) would
+        // and act: a wait loop that never ends would
         // otherwise pay ~200 real milliseconds on every evaluation, and the search
         // saw a handful of generations.
         if (Thread.currentThread() instanceof MockThread) {

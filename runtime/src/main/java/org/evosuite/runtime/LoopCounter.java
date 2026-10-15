@@ -263,7 +263,7 @@ public class LoopCounter {
      *
      * <p>When a loop hits the limit a second time, the code under test caught the first
      * exception and went on running, inside that loop or back into it: a while (true) whose
-     * body catches Throwable around it (vuze's GlobalManagerImpl.Checker) would otherwise go
+     * body catches Throwable around it would otherwise go
      * round a full limit after every trip, until the test times out. The exception of such a
      * second trip is flagged, and the instrumented catch handlers let it through, see
      * {@link Runtime#rethrowIfTimeout(Throwable)}.
