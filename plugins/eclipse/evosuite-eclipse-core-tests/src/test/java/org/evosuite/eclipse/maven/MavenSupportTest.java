@@ -98,6 +98,18 @@ public class MavenSupportTest {
             + "  </plugin></plugins></build>\n"
             + "</project>\n";
 
+    private static final String JUNIT4_ONLY = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n"
+            + "  <modelVersion>4.0.0</modelVersion>\n"
+            + "  <groupId>t</groupId><artifactId>junit4only</artifactId><version>1</version><packaging>pom</packaging>\n"
+            + "  <dependencies><dependency><groupId>junit</groupId><artifactId>junit</artifactId>"
+            + "<version>4.13.2</version><scope>test</scope></dependency></dependencies>\n"
+            + "  <build><plugins><plugin>\n"
+            + "    <groupId>org.evosuite.plugins</groupId><artifactId>evosuite-maven-plugin</artifactId>\n"
+            + "    <version>1.2.1-SNAPSHOT</version>\n"
+            + "    <configuration><timePerClass>90s</timePerClass></configuration>\n"
+            + "  </plugin></plugins></build>\n"
+            + "</project>\n";
+
     private final IEclipsePreferences workspace = InstanceScope.INSTANCE.getNode(EvoSuitePreferences.QUALIFIER);
 
     @AfterEach
@@ -163,6 +175,13 @@ public class MavenSupportTest {
         } finally {
             MavenPlugin.getMavenConfiguration().setUserSettingsFile(previous);
         }
+    }
+
+    @Test
+    public void followsTheMavenPluginOnTimeAndJUnitVersion() throws Exception {
+        GenerationOptions options = EvoSuitePreferences.resolve(mavenProject("maven-junit4", JUNIT4_ONLY), null);
+        assertEquals(90, options.searchBudget);
+        assertEquals(GenerationOptions.JUNIT4, options.testFormat, options.fromPom.toString());
     }
 
     @Test

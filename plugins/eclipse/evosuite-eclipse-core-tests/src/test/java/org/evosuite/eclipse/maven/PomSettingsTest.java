@@ -125,6 +125,51 @@ public class PomSettingsTest {
     }
 
     @Test
+    public void timePerClassTakesPrecedence() {
+        assertEquals(90, apply(Map.of("timePerClass", "90s", "timeInMinutesPerClass", "5"),
+                new GenerationOptions()).searchBudget);
+        assertEquals(150, apply(Map.of("timePerClass", "2m30s"), new GenerationOptions()).searchBudget);
+        assertEquals(3600, apply(Map.of("timePerClass", "1H"), new GenerationOptions()).searchBudget);
+        assertEquals(90, PomSettings.parseSeconds("1m30s"));
+        assertEquals(-1, PomSettings.parseSeconds("90"));
+        assertEquals(-1, PomSettings.parseSeconds("1.5m"));
+    }
+
+    @Test
+    public void aTimePerClassMavenWouldRejectFallsBack() {
+        for (String bad : List.of("30s", "soon")) {
+            GenerationOptions options = new GenerationOptions();
+            List<String> applied = new PomSettings(Map.of("timePerClass", bad, "timeInMinutesPerClass", "3"))
+                    .applyTo(options, BASEDIR);
+            assertEquals(180, options.searchBudget, bad);
+            assertTrue(applied.stream().anyMatch(a -> a.startsWith("ignored timePerClass=" + bad)), applied.toString());
+        }
+    }
+
+    @Test
+    public void projectsWithOnlyJUnit4GetJUnit4Tests() {
+        GenerationOptions options = new GenerationOptions();
+        List<String> applied = new PomSettings(Map.of(), Map.of(), Map.of(), Map.of(), true).applyTo(options, BASEDIR);
+        assertEquals(GenerationOptions.JUNIT4, options.testFormat);
+        assertTrue(applied.stream().anyMatch(a -> a.startsWith("JUnit 4 tests")), applied.toString());
+
+        GenerationOptions withJupiter = new GenerationOptions();
+        new PomSettings(Map.of(), Map.of(), Map.of(), Map.of(), false).applyTo(withJupiter, BASEDIR);
+        assertEquals(GenerationOptions.JUNIT5, withJupiter.testFormat);
+    }
+
+    @Test
+    public void anExplicitTestFormatInTheEvosuitePropertiesDecides() {
+        GenerationOptions options = new GenerationOptions();
+        new PomSettings(Map.of("evosuiteProperties.test_format", "junit5"), Map.of(), Map.of(), Map.of(), true)
+                .applyTo(options, BASEDIR);
+        assertEquals(GenerationOptions.JUNIT5, options.testFormat);
+        GenerationOptions junit4 = new GenerationOptions();
+        new PomSettings(Map.of("evosuiteProperties.test_format", "JUNIT4")).applyTo(junit4, BASEDIR);
+        assertEquals(GenerationOptions.JUNIT4, junit4.testFormat);
+    }
+
+    @Test
     public void reportsWhatItTook() {
         List<String> applied = new PomSettings(Map.of("timeInMinutesPerClass", "soon", "extraArgs", "-Dx=1"))
                 .applyTo(new GenerationOptions(), BASEDIR);

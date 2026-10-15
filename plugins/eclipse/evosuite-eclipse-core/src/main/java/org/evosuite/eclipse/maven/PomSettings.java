@@ -25,7 +25,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.evosuite.eclipse.launch.GenerationOptions;
 
@@ -69,24 +72,61 @@ public final class PomSettings {
     private final Map<String, String> generate;
     private final Map<String, String> setup;
     private final Map<String, String> properties;
+    private final boolean junit4Only;
 
     /**
      * @param plugin     the plug-in's own configuration parameters, by element name
      * @param generate   the configuration of executions of the {@code generate} goal
      * @param setup      the configuration of executions of the {@code setup} goal
      * @param properties the pom's properties
+     * @param junit4Only whether the project depends on junit:junit but not on junit-jupiter-api,
+     *                   for which the Maven plug-in generates JUnit 4 tests
      */
     public PomSettings(Map<String, String> plugin, Map<String, String> generate, Map<String, String> setup,
-                       Map<String, String> properties) {
+                       Map<String, String> properties, boolean junit4Only) {
         this.plugin = canonical(plugin);
         this.generate = canonical(generate);
         this.setup = canonical(setup);
         this.properties = Map.copyOf(properties);
+        this.junit4Only = junit4Only;
+    }
+
+    public PomSettings(Map<String, String> plugin, Map<String, String> generate, Map<String, String> setup,
+                       Map<String, String> properties) {
+        this(plugin, generate, setup, properties, false);
     }
 
     /** Only configured in the plug-in itself, with no executions or properties. */
     public PomSettings(Map<String, String> plugin) {
         this(plugin, Map.of(), Map.of(), Map.of());
+    }
+
+    /** The Maven plug-in's shortest time per class, from its GenerationSettings. */
+    static final int MIN_SECONDS_PER_CLASS = 60;
+
+    private static final Pattern DURATION = Pattern.compile("(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+)s)?");
+
+    /**
+     * A duration as the Maven plug-in's {@code timePerClass} takes it, eg {@code 90s}, {@code 2m},
+     * {@code 1m30s} or {@code 1h}, in seconds; -1 if it is not one.
+     */
+    static int parseSeconds(String duration) {
+        String value = duration == null ? "" : duration.trim().toLowerCase(Locale.ROOT);
+        Matcher m = DURATION.matcher(value);
+        if (value.isEmpty() || !m.matches()) {
+            return -1;
+        }
+        long seconds = 0;
+        if (m.group(1) != null) {
+            seconds += 3600L * Long.parseLong(m.group(1));
+        }
+        if (m.group(2) != null) {
+            seconds += 60L * Long.parseLong(m.group(2));
+        }
+        if (m.group(3) != null) {
+            seconds += Long.parseLong(m.group(3));
+        }
+        return seconds > Integer.MAX_VALUE ? -1 : (int) seconds;
     }
 
     /** The cores parameter is named numberOfCores in the Maven plug-in, with cores as an alias. */
@@ -108,9 +148,22 @@ public final class PomSettings {
     public List<String> applyTo(GenerationOptions options, File basedir) {
         List<String> applied = new ArrayList<>();
 
-        Integer minutes = integer("timeInMinutesPerClass", applied);
-        options.searchBudget = 60 * (minutes == null || minutes < 1 ? DEFAULT_MINUTES_PER_CLASS : minutes);
-        applied.add("search budget " + options.searchBudget + " s (timeInMinutesPerClass)");
+        // timePerClass takes precedence; the Maven plug-in fails the build on a bad value, which
+        // the IDE cannot usefully do, so it says so and falls back to timeInMinutesPerClass.
+        String timePerClass = value("timePerClass", "");
+        int seconds = timePerClass.isEmpty() ? -1 : parseSeconds(timePerClass);
+        if (seconds >= MIN_SECONDS_PER_CLASS) {
+            options.searchBudget = seconds;
+            applied.add("search budget " + seconds + " s (timePerClass)");
+        } else {
+            if (!timePerClass.isEmpty()) {
+                applied.add("ignored timePerClass=" + timePerClass + ", which is not a duration of at least "
+                        + MIN_SECONDS_PER_CLASS + "s such as 90s, 2m or 1m30s");
+            }
+            Integer minutes = integer("timeInMinutesPerClass", applied);
+            options.searchBudget = 60 * (minutes == null || minutes < 1 ? DEFAULT_MINUTES_PER_CLASS : minutes);
+            applied.add("search budget " + options.searchBudget + " s (timeInMinutesPerClass)");
+        }
 
         options.criterion = value("criterion", DEFAULT_CRITERION);
         applied.add("criteria " + options.criterion + " (criterion)");
@@ -122,6 +175,14 @@ public final class PomSettings {
         if (!evosuiteProperties.isEmpty()) {
             options.pomProperties = evosuiteProperties;
             applied.add("properties " + String.join(", ", evosuiteProperties.keySet()) + " (evosuiteProperties)");
+        }
+        // The format decides which JUnit library the IDE adds, so it must follow the pom too.
+        String format = evosuiteProperties.get("test_format");
+        if (format != null && !format.isBlank()) {
+            options.testFormat = format.trim().toUpperCase(Locale.ROOT);
+        } else if (junit4Only) {
+            options.testFormat = GenerationOptions.JUNIT4;
+            applied.add("JUnit 4 tests, as the project has JUnit 4 but no junit-jupiter-api");
         }
 
         String extraArgs = value("extraArgs", "");

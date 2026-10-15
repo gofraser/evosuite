@@ -143,7 +143,8 @@ That way a class gets the same tests in Eclipse as with `mvn evosuite:generate`:
 
 | pom parameter | becomes | if unset |
 |---|---|---|
-| `timeInMinutesPerClass` | search budget | 2 minutes, the Maven plugin's default |
+| `timePerClass` (e.g. `90s`, `2m`, `1m30s`), else `timeInMinutesPerClass` | search budget | 2 minutes, the Maven plugin's default |
+| JUnit dependencies | JUnit 4 tests if the project has `junit:junit` but not `junit-jupiter-api`, unless `evosuiteProperties` sets `test_format` | the Eclipse setting |
 | `criterion` | coverage criteria | the Maven plugin's default set |
 | `testFolder` | test source folder | `src/test/evosuite` |
 | `evosuiteProperties` | `-D` arguments after the Eclipse ones (values may contain spaces) | |

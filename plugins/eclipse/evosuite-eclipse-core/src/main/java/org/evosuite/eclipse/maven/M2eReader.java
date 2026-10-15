@@ -22,6 +22,7 @@ package org.evosuite.eclipse.maven;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.project.MavenProject;
@@ -73,7 +74,16 @@ final class M2eReader {
         }
         Map<String, String> properties = new LinkedHashMap<>();
         model.getProperties().forEach((key, value) -> properties.put(String.valueOf(key), String.valueOf(value)));
-        return new PomSettings(pluginConfiguration, generate, setup, properties);
+        // As the Maven plug-in decides the test format: JUnit 4 if the project has junit:junit
+        // among its dependencies but not junit-jupiter-api.
+        boolean junit4 = false;
+        boolean jupiter = false;
+        for (Artifact artifact : model.getArtifacts()) {
+            junit4 |= "junit".equals(artifact.getGroupId()) && "junit".equals(artifact.getArtifactId());
+            jupiter |= "org.junit.jupiter".equals(artifact.getGroupId())
+                    && "junit-jupiter-api".equals(artifact.getArtifactId());
+        }
+        return new PomSettings(pluginConfiguration, generate, setup, properties, junit4 && !jupiter);
     }
 
     static String serverPassword(String serverId) throws CoreException {
