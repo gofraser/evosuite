@@ -138,7 +138,7 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
     @Override
     protected void initialize() {
         super.initialize();
-        updateEnablement();
+        refresh();
     }
 
     @Override
@@ -146,13 +146,13 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
         super.performDefaults();
         // As on JDT's pages, restoring the defaults also switches project-specific settings off.
         projectSettings.setEnabled(false);
-        updateEnablement();
+        refresh();
     }
 
     @Override
     public void propertyChange(PropertyChangeEvent event) {
         super.propertyChange(event);
-        updateEnablement();
+        refresh();
     }
 
     @Override
@@ -172,7 +172,7 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
     private void projectSettingsSwitched(boolean enabled) {
         if (!useProjectSettings.isDisposed()) {
             useProjectSettings.setSelection(enabled);
-            updateEnablement();
+            refresh();
         }
     }
 
@@ -197,7 +197,7 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
         return settings;
     }
 
-    private void updateEnablement() {
-        settings.updateEnablement(projectSettings.isEnabled());
+    private void refresh() {
+        settings.refresh(projectSettings.isEnabled());
     }
 }

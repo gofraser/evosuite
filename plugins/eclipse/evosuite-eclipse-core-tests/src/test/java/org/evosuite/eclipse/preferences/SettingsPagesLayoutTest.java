@@ -50,8 +50,12 @@ import org.junit.jupiter.api.Test;
  */
 public class SettingsPagesLayoutTest {
 
-    /** Taller pages would not fit on a laptop screen with the dialog's tree and buttons. */
-    private static final int MAX_PAGE_HEIGHT = 700;
+    /**
+     * Larger pages would not fit on a laptop screen with the dialog's tree and buttons. The
+     * height leaves room for the dialog's title, description and buttons below 800 pixels.
+     */
+    private static final int MAX_PAGE_WIDTH = 700;
+    private static final int MAX_PAGE_HEIGHT = 650;
 
     @Test
     public void everyWorkspacePageShowsEveryEditor() throws Exception {
@@ -82,11 +86,18 @@ public class SettingsPagesLayoutTest {
         try {
             IPreferencePage page = (IPreferencePage) dialog.getSelectedPage();
             assertEquals(type, page.getClass());
+            String name = type.getSimpleName();
+            Point preferred = page.getControl().computeSize(SWT.DEFAULT, SWT.DEFAULT);
+            assertTrue(preferred.x < MAX_PAGE_WIDTH && preferred.y < MAX_PAGE_HEIGHT, name + " is " + preferred);
+
+            // The dialog remembers its size from the last time it was open, so it gets the size
+            // it would like before the editors are checked.
+            SettingsDialogs.fit(dialog);
             SettingsDialogs.screenshot(dialog, screenshot);
             List<Control> inputs = new ArrayList<>();
             collectInputs((Composite) page.getControl(), inputs);
             List<String> invisible = new ArrayList<>();
-            // The page is as wide as it wants to be; the dialog cuts off what does not fit.
+            // The page is as large as it wants to be; the dialog cuts off what does not fit.
             Shell shell = dialog.getShell();
             Rectangle visible = shell.getClientArea();
             for (Control input : inputs) {
@@ -97,11 +108,8 @@ public class SettingsPagesLayoutTest {
                     invisible.add(input.getClass().getSimpleName() + " " + input.getBounds());
                 }
             }
-            String name = type.getSimpleName();
             assertEquals(List.of(), invisible, "editors without room on, or sticking out of, " + name);
             assertEquals(textFields, inputs.stream().filter(c -> c instanceof Text).count(), "text fields on " + name);
-            int height = page.getControl().computeSize(page.getControl().getSize().x, SWT.DEFAULT).y;
-            assertTrue(height < MAX_PAGE_HEIGHT, name + " is " + height + " px high");
         } finally {
             dialog.close();
         }

@@ -60,20 +60,20 @@ public class EvoSuitePreferencePage extends FieldEditorPreferencePage implements
     @Override
     protected void initialize() {
         super.initialize();
-        settings.updateEnablement(true);
+        settings.refresh(true);
     }
 
     @Override
     protected void performDefaults() {
         // Editors need not report the defaults they load, so the enablement is updated here too.
         super.performDefaults();
-        settings.updateEnablement(true);
+        settings.refresh(true);
     }
 
     @Override
     public void propertyChange(PropertyChangeEvent event) {
         super.propertyChange(event);
-        settings.updateEnablement(true);
+        settings.refresh(true);
     }
 
     SettingsFields settings() {

@@ -226,7 +226,7 @@ public class SettingsEnablementTest {
         });
     }
 
-    private static Composite page(PreferenceDialog dialog) {
+    static Composite page(PreferenceDialog dialog) {
         return (Composite) ((IPreferencePage) dialog.getSelectedPage()).getControl();
     }
 
@@ -246,7 +246,7 @@ public class SettingsEnablementTest {
     }
 
     /** Selects an entry in a combo box as a user does. */
-    private static void select(Composite page, String label, String entry) {
+    static void select(Composite page, String label, String entry) {
         Combo combo = (Combo) control(page, label);
         int index = combo.indexOf(entry);
         assertTrue(index >= 0, entry);

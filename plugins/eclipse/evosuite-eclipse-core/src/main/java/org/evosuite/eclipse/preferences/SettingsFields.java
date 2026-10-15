@@ -36,6 +36,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Text;
 import org.evosuite.eclipse.launch.GenerationOptions;
 
 /**
@@ -97,6 +98,8 @@ final class SettingsFields {
     private BooleanFieldEditor assertions;
     private ChoiceFieldEditor provider;
     private ChoiceFieldEditor approach;
+    private Text modelName;
+    private Text baseUrl;
 
     private SettingsFields() {
     }
@@ -131,16 +134,27 @@ final class SettingsFields {
     }
 
     /**
-     * Enables the editors of the settings that apply, given the values the editors show, and
-     * disables the others, keeping their values. Call it when the page opens, when an editor's
-     * value changes and after the defaults are restored.
+     * Updates what depends on the values the editors show. It enables the editors of the
+     * settings that apply and disables the others, keeping their values, and shows the hints
+     * for the provider chosen. Call it when the page opens, when an editor's value changes and
+     * after the defaults are restored.
      *
      * @param pageEnabled whether the page's settings are editable at all, which on a project
      *                    page the switch for project-specific settings decides
      */
-    void updateEnablement(boolean pageEnabled) {
+    void refresh(boolean pageEnabled) {
         for (Field field : fields) {
             field.editor.setEnabled(pageEnabled && field.applies.getAsBoolean(), field.parent);
+        }
+        if (provider != null) {
+            modelName.setMessage(switch (provider.getValue()) {
+                case GenerationOptions.LLM_OPENAI -> "gpt-4o (EvoSuite default)";
+                case GenerationOptions.LLM_ANTHROPIC -> "e.g. claude-sonnet-5-5";
+                case GenerationOptions.LLM_OLLAMA -> "e.g. qwen3-coder";
+                default -> "";
+            });
+            baseUrl.setMessage(GenerationOptions.LLM_OLLAMA.equals(provider.getValue())
+                    ? GenerationOptions.OLLAMA_DEFAULT_URL : "Provider default");
         }
     }
 
@@ -194,11 +208,9 @@ final class SettingsFields {
                 new String[][]{{"From the type (int0, string0, ...)", "TYPE_BASED"},
                         {"From how values are used", "HEURISTICS_BASED"}}, output), output);
         add(new BooleanFieldEditor(EvoSuitePreferences.TEST_COMMENTS,
-                "Comment each test with the &goals it covers", output), output);
-        IntegerFieldEditor timeout = new IntegerFieldEditor(EvoSuitePreferences.TEST_TIMEOUT,
-                "Time limit per test in ms (0 for EvoSuite's 3000):", output);
-        timeout.setValidRange(0, 24 * 60 * 60 * 1000);
-        add(timeout, output);
+                "Comment tests with the &goals they cover", output), output);
+        add(new OptionalIntegerFieldEditor(EvoSuitePreferences.TEST_TIMEOUT, "&Time limit per test (ms):",
+                output, 24 * 60 * 60 * 1000, "EvoSuite default (3000)"), output);
         add(new BooleanFieldEditor(EvoSuitePreferences.OPEN_GENERATED_TESTS,
                 "&Open generated tests in an editor", output), output);
     }
@@ -211,11 +223,16 @@ final class SettingsFields {
                         {"Anthropic", GenerationOptions.LLM_ANTHROPIC},
                         {"Ollama (local)", GenerationOptions.LLM_OLLAMA}}, model);
         add(provider, model);
-        add(new StringFieldEditor(EvoSuitePreferences.LLM_MODEL, "Mo&del:", model), model, this::llmOn);
-        add(new StringFieldEditor(EvoSuitePreferences.LLM_BASE_URL,
-                "Base &URL (empty for the provider's default):", model), model, this::llmOn);
+        StringFieldEditor modelEditor = new StringFieldEditor(EvoSuitePreferences.LLM_MODEL, "Mo&del:", model);
+        modelName = modelEditor.getTextControl(model);
+        add(modelEditor, model, this::llmOn);
+        StringFieldEditor baseUrlEditor = new StringFieldEditor(EvoSuitePreferences.LLM_BASE_URL, "Base &URL:", model);
+        baseUrl = baseUrlEditor.getTextControl(model);
+        add(baseUrlEditor, model, this::llmOn);
         if (workspace) {
-            add(new ApiKeyFieldEditor("API &key (kept in secure storage):", model), model, this::llmNeedsKey);
+            ApiKeyFieldEditor key = new ApiKeyFieldEditor("API &key:", model);
+            key.getTextControl(model).setMessage("Kept in secure storage");
+            add(key, model, this::llmNeedsKey);
         }
 
         Composite use = group(parent, "Test generation");
@@ -237,10 +254,8 @@ final class SettingsFields {
                 "Use LLM-based mutation and c&rossover", use), use, this::llmAssistsSearch);
         add(new BooleanFieldEditor(EvoSuitePreferences.LLM_POSTPROCESSING,
                 "Improve test names, comments and assertions &with the LLM", use), use, this::llmOn);
-        IntegerFieldEditor calls = new IntegerFieldEditor(EvoSuitePreferences.LLM_MAX_CALLS,
-                "LLM ca&lls per class (0 for no limit):", use);
-        calls.setValidRange(0, 1_000_000);
-        add(calls, use, this::llmOn);
+        add(new OptionalIntegerFieldEditor(EvoSuitePreferences.LLM_MAX_CALLS, "LLM ca&lls per class:", use,
+                1_000_000, "EvoSuite default (no limit)"), use, this::llmOn);
         note(parent, workspace ? "More llm_* options can go into the additional arguments under Advanced."
                 : "More llm_* options can go into the additional arguments under Advanced. The API key "
                         + "is a workspace setting.");
@@ -248,16 +263,17 @@ final class SettingsFields {
 
     private void advanced(Composite parent) {
         Composite runtime = group(parent, "Running EvoSuite");
-        DirectoryFieldEditor javaHome = new DirectoryFieldEditor(EvoSuitePreferences.JAVA_HOME,
-                "&Java home (empty for the project's JRE):", runtime);
+        DirectoryFieldEditor javaHome = new DirectoryFieldEditor(EvoSuitePreferences.JAVA_HOME, "&Java home:",
+                runtime);
         javaHome.setEmptyStringAllowed(true);
+        javaHome.getTextControl(runtime).setMessage("The project's JRE");
         add(javaHome, runtime);
-        IntegerFieldEditor memory = new IntegerFieldEditor(EvoSuitePreferences.CLIENT_MEMORY,
-                "Client &heap in MB (0 for EvoSuite's default):", runtime);
-        memory.setValidRange(0, 1024 * 1024);
-        add(memory, runtime);
-        add(new StringFieldEditor(EvoSuitePreferences.EXTRA_ARGUMENTS,
-                "Additional &EvoSuite arguments:", runtime), runtime);
+        add(new OptionalIntegerFieldEditor(EvoSuitePreferences.CLIENT_MEMORY, "Client &heap (MB):", runtime,
+                1024 * 1024, "EvoSuite default"), runtime);
+        StringFieldEditor arguments = new StringFieldEditor(EvoSuitePreferences.EXTRA_ARGUMENTS,
+                "Additional &arguments:", runtime);
+        arguments.getTextControl(runtime).setMessage("Passed last, e.g. -Dllm_temperature=0.2");
+        add(arguments, runtime);
 
         Composite project = group(parent, "Project setup");
         add(new BooleanFieldEditor(EvoSuitePreferences.USE_POM_SETTINGS,

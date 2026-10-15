@@ -99,6 +99,14 @@ final class SettingsDialogs {
         pump();
     }
 
+    /** Gives the dialog the size it would like, as when it first opens. */
+    static void fit(PreferenceDialog dialog) {
+        Shell shell = dialog.getShell();
+        shell.setSize(shell.computeSize(SWT.DEFAULT, SWT.DEFAULT, true));
+        shell.layout(true, true);
+        pump();
+    }
+
     /** Presses the page's Restore Defaults button. */
     static void restoreDefaults(PreferenceDialog dialog) {
         Button defaults = buttons(dialog.getShell()).stream()
