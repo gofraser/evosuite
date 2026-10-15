@@ -40,7 +40,10 @@ with all of them:
   history.
 - **Compare** opens the existing suite and the new one in a compare editor: the existing file is
   editable, the new suite is read-only. Copy over what you want and save. Several classes share
-  one compare editor, which lists them.
+  one compare editor, which lists them. When you switch between them, the editor asks whether to
+  keep your edits; kept edits are written when you save. The existing file shares its contents
+  with a Java editor open on it, and saving asks before it overwrites changes made to the file
+  since the comparison opened.
 
 EvoSuite writes into the plugin's state area, so the existing suites stay as they are until a
 class is done; then the plugin carries out the choice for it. Classes without a suite get the new

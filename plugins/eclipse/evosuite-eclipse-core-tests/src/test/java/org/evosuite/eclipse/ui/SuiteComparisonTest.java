@@ -146,6 +146,7 @@ public class SuiteComparisonTest {
                 UiThread.drain();
                 assertFalse(editor.isDirty());
                 assertEquals("// edited\nclass A {}\n", read(first));
+                assertEquals(1, first.getHistory(null).length, "the previous content is not in the local history");
                 assertEquals("class B {}\n", read(second));
             } finally {
                 page.closeEditor(editor, false);
