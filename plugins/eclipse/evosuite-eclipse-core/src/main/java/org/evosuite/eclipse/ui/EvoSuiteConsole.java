@@ -33,6 +33,12 @@ import org.evosuite.eclipse.Activator;
 public final class EvoSuiteConsole {
 
     private static final String NAME = "EvoSuite";
+    /**
+     * The console keeps the last 80,000 to 100,000 characters: a run prints its command line and
+     * all of EvoSuite's output, and a day of runs would otherwise fill the IDE's memory.
+     */
+    static final int LOW_WATER_MARK = 80_000;
+    static final int HIGH_WATER_MARK = 100_000;
 
     private static EvoSuiteConsole instance;
 
@@ -50,6 +56,7 @@ public final class EvoSuiteConsole {
         if (instance == null || !Arrays.asList(manager.getConsoles()).contains(instance.console)) {
             MessageConsole console = new MessageConsole(NAME,
                     ResourceLocator.imageDescriptorFromBundle(Activator.PLUGIN_ID, "icons/evosuite.gif").orElse(null));
+            console.setWaterMarks(LOW_WATER_MARK, HIGH_WATER_MARK);
             manager.addConsoles(new IConsole[]{console});
             instance = new EvoSuiteConsole(console);
         }
