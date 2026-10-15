@@ -49,7 +49,8 @@ yourself, set `test_format` (`JUNIT4` or `JUNIT5`) in `evosuiteProperties`.
   the test JVM. If your Surefire configuration sets `<argLine>` explicitly, include `@{argLine}` in it, as for
   JaCoCo;
 - fails the build, naming the dependency to add, if the generated tests cannot compile because the runtime
-  or their JUnit version is missing, and if the runtime's version is not the plugin's.
+  or their JUnit version is missing, and if the runtime's version is not the plugin's;
+- warns if Surefire or Failsafe is configured with an `<argLine>` that leaves out `@{argLine}`.
 
 ## Generating tests
 

@@ -20,6 +20,8 @@
 package org.evosuite.maven;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.descriptor.PluginDescriptor;
@@ -28,10 +30,14 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.evosuite.maven.util.GeneratedTests;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -58,6 +64,8 @@ public class SetupMojo extends AbstractMojo {
     static final String STANDALONE_RUNTIME = "evosuite-standalone-runtime";
 
     static final String RUNTIME = "evosuite-runtime";
+
+    private static final List<String> TEST_PLUGINS = Arrays.asList("maven-surefire-plugin", "maven-failsafe-plugin");
 
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
@@ -118,6 +126,12 @@ public class SetupMojo extends AbstractMojo {
                     runtime.get().getFile());
             project.getProperties().setProperty(argLinePropertyName, value);
             getLog().info(argLinePropertyName + " set to " + value);
+            for (String testPlugin : pluginsIgnoringArgLine(project.getBuildPlugins(), argLinePropertyName)) {
+                getLog().warn("The <argLine> of " + testPlugin + " does not include @{" + argLinePropertyName
+                        + "}, so the EvoSuite runtime is not passed to its tests as a java agent; they will attach"
+                        + " it themselves, which newer JDKs warn about. Add @{" + argLinePropertyName
+                        + "} to that <argLine>.");
+            }
         }
     }
 
@@ -137,6 +151,41 @@ public class SetupMojo extends AbstractMojo {
         return "The test dependency " + runtime.getArtifactId() + " has version " + runtimeVersion
                 + ", but the EvoSuite plugin is version " + pluginVersion
                 + ". Use the same version for both, eg with a property like ${evosuite.version}.";
+    }
+
+    /**
+     * The test plugins (Surefire, Failsafe) configured with an {@code <argLine>} that leaves out the property
+     * the agent is added to, eg because it was written before the agent was there.
+     *
+     * @param buildPlugins the module's build plugins
+     * @param propertyName the property the agent is added to
+     * @return the artifact ids of those plugins
+     */
+    static List<String> pluginsIgnoringArgLine(List<Plugin> buildPlugins, String propertyName) {
+        List<String> ignoring = new ArrayList<>();
+        for (Plugin buildPlugin : buildPlugins) {
+            if (!TEST_PLUGINS.contains(buildPlugin.getArtifactId())) {
+                continue;
+            }
+            List<Object> configurations = new ArrayList<>();
+            configurations.add(buildPlugin.getConfiguration());
+            for (PluginExecution execution : buildPlugin.getExecutions()) {
+                configurations.add(execution.getConfiguration());
+            }
+            for (Object configuration : configurations) {
+                if (!(configuration instanceof Xpp3Dom)) {
+                    continue;
+                }
+                Xpp3Dom argLine = ((Xpp3Dom) configuration).getChild("argLine");
+                String value = argLine == null ? null : argLine.getValue();
+                if (value != null && !value.contains("@{" + propertyName + "}")
+                        && !value.contains("${" + propertyName + "}")) {
+                    ignoring.add(buildPlugin.getArtifactId());
+                    break;
+                }
+            }
+        }
+        return ignoring;
     }
 
     private Optional<Artifact> findRuntime() {
