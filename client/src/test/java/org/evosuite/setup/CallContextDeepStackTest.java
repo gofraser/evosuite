@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Every method entry builds a context from the tracer's call stack. Reading a LinkedList by
- * index is linear, so a deeply recursive method (78_caloriecount's IntComparator calls itself
+ * index is linear, so a deeply recursive method (one that calls itself
  * until the stack overflows) cost cubic time in the depth, and every test that called it ran
  * into the timeout.
  */

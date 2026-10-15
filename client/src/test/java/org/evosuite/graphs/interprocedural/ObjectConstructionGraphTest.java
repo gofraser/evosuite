@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Milestone M2 verification for the object construction graph (OCG) analysis. Each test runs the
+ * Verification of the object construction graph (OCG) analysis. Each test runs the
  * full {@link DependencyAnalysis#analyzeClass} pipeline (with {@code apply_object_rule=true}) on a
  * fixture and asserts the structure of the run-scoped object-rule graph cache:
  * which state variables each branch of the target method depends on, and that they trace back to a

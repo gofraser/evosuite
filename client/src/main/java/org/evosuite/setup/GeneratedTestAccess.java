@@ -45,7 +45,7 @@ import java.util.Set;
  * is written to ({@code Properties.CLASS_PREFIX}).
  *
  * <p>The predicates differ on purpose; each answers the question of one rendering slot,
- * and reusing one for another has regressed generated output before (see the javadoc of
+ * and reusing one for another changes generated output (see the javadoc of
  * each). They must not be merged.</p>
  */
 public final class GeneratedTestAccess {
@@ -175,7 +175,7 @@ public final class GeneratedTestAccess {
      * because the enum case targets real CUT classes, where that chain is
      * meaningful.
      * </ul>
-     * Reusing either of those here regressed real, previously-passing output: a
+     * Reusing either of those here would break valid output: a
      * {@code public static} nested class with an implicit public constructor,
      * declared inside a package-private outer class, with no
      * {@code Properties.CLASS_PREFIX} configured (exactly the shape of several
@@ -332,7 +332,7 @@ public final class GeneratedTestAccess {
      * <p>{@link Class#getEnclosingClass()}, {@link Class#getModifiers()} and
      * {@link Class#getCanonicalName()} all derive nesting from the {@code
      * InnerClasses} attribute, which EvoSuite's instrumenting class loader can
-     * strip (observed on {@code org.jsoup.helper.HttpConnection$Base}, whose
+     * strip (for example a nested class whose
      * {@code getEnclosingClass()} returns {@code null} once instrumented). We
      * therefore fall back to the binary name: a nested class is {@code Outer$Inner}
      * where {@code Outer} is itself a loadable class. A top-level identifier that

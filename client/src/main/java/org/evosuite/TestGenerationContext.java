@@ -129,8 +129,7 @@ public class TestGenerationContext {
      * This is pretty important if the SUT use classloader of the running thread. If we do not set
      * this up, we will end up with cast exceptions.
      *
-     * <p>Note, an example in which this happens is in org.dom4j.bean.BeanAttribute in SF100 project
-     * 62_dom4j.
+     * <p>Note, an example in which this happens is org.dom4j.bean.BeanAttribute.
      */
     public void goingToExecuteSUTCode() {
 

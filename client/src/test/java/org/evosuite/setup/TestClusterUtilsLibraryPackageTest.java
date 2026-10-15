@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * com.sun is the JDK's package as much as rome's (com.sun.syndication), JavaMail's or
  * Mojarra's. Excluding the prefix outright removed every method that mentions such a type -
- * 108_liferay's RSSUtil returns ObjectValuePair&lt;String, SyndFeed&gt; and lost its only
+ * a class returning ObjectValuePair&lt;String, SyndFeed&gt; lost its only
  * method, so it could reach 0.5 branch coverage at best.
  */
 public class TestClusterUtilsLibraryPackageTest {

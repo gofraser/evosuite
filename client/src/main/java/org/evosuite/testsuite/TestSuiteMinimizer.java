@@ -109,11 +109,9 @@ public class TestSuiteMinimizer {
      * <p>A single ratio over all criteria at once does not work.  The pool is
      * dominated by whichever criterion has the most goals - usually weak
      * mutation and context branch - so a loss concentrated in the criteria the
-     * experiment actually reports disappears into it.  Measured on 96_heal
-     * EditCopyrightHolderAction: minimization lost 4 of 51 pooled goals, which
-     * is 92% retention and passes any pooled threshold worth setting, yet those
-     * four were 2 of 10 branch goals and 3 of 18 line goals, and the run
-     * reported 0.80 branch instead of 1.00.</p>
+     * experiment actually reports disappears into it.  For example, losing 4 of 51 pooled goals
+     * is 92% retention and passes any pooled threshold worth setting, yet those four can be
+     * 2 of 10 branch goals and 3 of 18 line goals.</p>
      *
      * <p>But refusing a loss does not mean discarding the whole minimization
      * over it. A goal that stops being covered means the tests that used to
@@ -131,15 +129,13 @@ public class TestSuiteMinimizer {
      * only the specific pre-minimization tests that covered what was lost -
      * rather than discarding the whole minimized suite.
      *
-     * <p>SF110 release data: minimization loses at least one goal on a large
+     * <p>Minimization loses at least one goal on a large
      * fraction of classes, and in the overwhelming majority of those the loss
-     * is a handful of goals out of hundreds, costing nothing once repaired -
-     * e.g. one class shipped 502 tests instead of 8 at identical branch
-     * coverage because a single lost goal triggered a full revert. The
-     * genuinely poisoned case looks nothing like that: the observed
-     * {@code __STATIC_RESET()} poisoning on 108_liferay
-     * LockListenerRegistryImpl (see {@link #MIN_REEXECUTION_SURVIVAL_RATIO})
-     * lost 86% of covered goals (36 down to 5). Reusing that same one-half
+     * is a handful of goals out of hundreds, costing nothing once repaired. A
+     * single lost goal must not trigger a full revert. The
+     * genuinely poisoned case looks nothing like that: a poisoned
+     * {@code __STATIC_RESET()} (see {@link #MIN_REEXECUTION_SURVIVAL_RATIO})
+     * loses most of the covered goals. Reusing that same one-half
      * boundary keeps the two related checks consistent: below it, the
      * pre-minimization snapshot is no longer just missing a few goals but has
      * itself stopped being trustworthy, so repairing from it goal-by-goal is
@@ -335,9 +331,8 @@ public class TestSuiteMinimizer {
      *
      * <p>Whether a call throws can depend on timing, the environment or leftover state,
      * so an exception goal can disappear on re-execution without anything being wrong.
-     * Enforcing it cost 108_liferay Element its minimization entirely - one exception
-     * goal out of 25 went missing and the suite stayed at 332 tests instead of tens,
-     * with identical line and branch coverage either way.
+     * Enforcing it can cost a class its minimization entirely: one exception goal out of 25
+     * going missing leaves the suite unminimized, with identical line and branch coverage either way.
      *
      * @param suite the suite to measure
      * @return covered goals, excluding exception coverage
@@ -745,8 +740,7 @@ public class TestSuiteMinimizer {
             // their search-phase goals back: the scan above cleared them, and
             // without them the coverage reconciliation in minimize() saw every
             // unreached goal as lost and restored the very same tests a second
-            // time - on jackson-databind TokenBuffer a 927-test suite left
-            // minimization with 1174 tests, of which 247 were duplicates.
+            // time, leaving duplicate tests in the minimized suite.
             int droppedOriginals = 0;
             for (TestChromosome test : originalTestChromosomes) {
                 Set<TestFitnessFunction> goalsBefore = goalsBeforeReset.getOrDefault(test,

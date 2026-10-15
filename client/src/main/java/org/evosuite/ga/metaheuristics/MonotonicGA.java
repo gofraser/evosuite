@@ -301,7 +301,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     /**
      * EvoObj helper: a branch goal is covered iff <em>any</em> execution result has branch distance
      * 0 for it. Returns every goal (with a non-null branch) that no result covers. Deciding
-     * membership per result — as an earlier version did — makes a goal's status depend only on the
+     * membership per result makes a goal's status depend only on the
      * last result, so a branch covered by an early test but not the last one is misreported as
      * uncovered. Package-visible and static so it can be unit-tested with mocked traces.
      */

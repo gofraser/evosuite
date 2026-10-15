@@ -19,7 +19,7 @@ import org.evosuite.testcase.execution.ExecutionTrace;
 import org.junit.jupiter.api.Test;
 
 /**
- * EvoObj T1 regression: {@link MonotonicGA#computeUncoveredBranches} must treat a branch as
+ * Regression test: {@link MonotonicGA#computeUncoveredBranches} must treat a branch as
  * covered if <em>any</em> execution result reaches distance 0 for it — not just the last result.
  */
 public class MonotonicGAUncoveredBranchesTest {

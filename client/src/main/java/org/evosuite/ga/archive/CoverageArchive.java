@@ -172,7 +172,7 @@ public class CoverageArchive extends Archive {
             // The archive keeps a result only for the goals it covers, which the
             // aggregated maps answer. The per-call records exist to compute approach
             // levels for goals the population has *not* reached, and on call-heavy
-            // targets (jackson's TokenBuffer: thousands of calls per test) they are
+            // targets (thousands of calls per test) they are
             // the bulk of the heap -- the clone above shares them until the
             // population member is replaced, then holds them alone.
             clone.discardMethodCallTraces();

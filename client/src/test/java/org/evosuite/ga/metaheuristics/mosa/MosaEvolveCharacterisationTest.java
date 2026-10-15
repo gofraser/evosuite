@@ -396,9 +396,8 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
      * computed until {@code POPULATION} individuals are ranked), not because the target came
      * down.
      *
-     * <p>Whether the ratchet is intended is an open owner decision (CLEANUP-PLAN, owner
-     * decisions, "MOSA population ratchet"; recommendation: re-anchor like DynaMOSA). If that
-     * decision changes the MOSA sequence below, update this test together with it.
+     * <p>Whether the ratchet is intended is an open question. If a decision changes the MOSA
+     * sequence below, update this test together with it.
      */
     @Test
     void speciationRatchetsMosaButNotDynaMosa() {
