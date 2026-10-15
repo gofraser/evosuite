@@ -351,8 +351,8 @@ public final class ExecutionModeUtils {
         // package opened above. ReflectionAccess hides those from the SUT's setAccessible
         // calls, but only those: whatever module access the user gave EvoSuite's own JVM
         // (on its command line or through JDK_JAVA_OPTIONS) is meant for the SUT, is
-        // forwarded to the client and stays visible. Liferay's XStream needs
-        // java.base/java.util on JDK 17 in production too; a user who runs EvoSuite with
+        // forwarded to the client and stays visible. A SUT that needs java.base/java.util
+        // on JDK 17 in production needs it here too; a user who runs EvoSuite with
         // that --add-opens gets the same behaviour in the search and in the generated tests.
         List<String> userArgs = userModuleAccessArguments();
         Set<String> userGranted = userGrantedModuleAccess(userArgs);

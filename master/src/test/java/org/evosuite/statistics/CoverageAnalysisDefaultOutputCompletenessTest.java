@@ -290,7 +290,7 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
     }
 
     /**
-     * Rereview7 finding 1: a custom {@code -Doutput_variables} selection that omits both goal
+     * A custom {@code -Doutput_variables} selection that omits both goal
      * counters must still get the same column count on every row, whatever the completeness of
      * each sweep. {@code TARGET_CLASS,Coverage} selects neither {@link RuntimeVariable#Total_Goals}
      * nor {@link RuntimeVariable#Covered_Goals}, so {@code withholdAggregatesForIncompleteCoverageAnalysis}
@@ -415,7 +415,7 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
     }
 
     /**
-     * Rereview8 finding 1: with a single {@code BRANCH} criterion, {@link
+     * With a single {@code BRANCH} criterion, {@link
      * SearchStatistics#writeStatisticsForAnalysis()} inserts {@link
      * RuntimeVariable#BranchCoverage} only on the complete-sweep path ({@code
      * normalizeCriterionCoverage}), never on the incomplete one, so the two outcomes produce
@@ -586,7 +586,7 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
     }
 
     /**
-     * Rereview9 finding 1: an incomplete single-{@code BRANCH} sweep must not retain an
+     * An incomplete single-{@code BRANCH} sweep must not retain an
      * already-selected, already-published numeric {@link RuntimeVariable#BranchCoverage} just
      * because {@code -Doutput_variables} did not also select {@code criterion}. {@link
      * org.evosuite.coverage.CoverageCriteriaAnalyzer} tracks a conservative partial score for the
@@ -794,7 +794,7 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
     }
 
     /**
-     * Rereview9 "preserve measured per-criterion values" requirement: when more than one criterion
+     * Measured per-criterion values are preserved: when more than one criterion
      * is configured, an incomplete overall sweep must not imply that every individual criterion
      * failed. With two configured criteria, a selected {@link RuntimeVariable#BranchCoverage} that
      * was already measured must survive an aggregate-incomplete sweep -- the configured-criterion
@@ -882,7 +882,7 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
      * org.evosuite.coverage.CoverageCriteriaAnalyzer} makes with its conservative partial score
      * for the criterion it was analyzing -- independent of the overall completeness marker --
      * when the time budget runs out mid-criterion. {@link #runSweep(boolean)} never seeds this
-     * raw value, which is exactly why it cannot catch rereview9 finding 1.
+     * raw value, which is exactly why it cannot catch that case.
      */
     private void runSweepWithRawBranchCoverage(boolean incomplete, double rawBranchCoverage) throws Exception {
         SearchStatistics.clearAllInstances();
