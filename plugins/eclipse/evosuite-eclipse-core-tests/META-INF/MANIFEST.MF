@@ -10,4 +10,6 @@ Import-Package: com.sun.net.httpserver,
  org.junit.jupiter.api;version="[5.9.0,6.0.0)",
  org.junit.jupiter.api.function;version="[5.9.0,6.0.0)",
  org.junit.jupiter.api.io;version="[5.9.0,6.0.0)"
-Require-Bundle: org.eclipse.core.expressions
+Require-Bundle: org.eclipse.core.expressions,
+ org.eclipse.m2e.core,
+ org.eclipse.m2e.maven.runtime

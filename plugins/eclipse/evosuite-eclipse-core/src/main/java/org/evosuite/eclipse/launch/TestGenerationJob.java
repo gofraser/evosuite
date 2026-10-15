@@ -82,7 +82,7 @@ public class TestGenerationJob extends Job {
 
     /** With the project's settings as they are now, not when the job eventually runs. */
     public TestGenerationJob(IJavaProject project, List<String> classes) {
-        this(project, classes, EvoSuitePreferences.load(project.getProject()));
+        this(project, classes, EvoSuitePreferences.resolve(project.getProject(), null));
     }
 
     /**
@@ -138,6 +138,10 @@ public class TestGenerationJob extends Job {
     private IStatus generate(SubMonitor progress) throws CoreException {
         EvoSuiteConsole console = EvoSuiteConsole.get();
         console.show();
+        if (!options.fromPom.isEmpty()) {
+            console.println("Using the EvoSuite configuration in " + project.getElementName() + "'s pom.xml: "
+                    + String.join("; ", options.fromPom));
+        }
 
         IFolder testFolder = ProjectSetup.prepareTestFolder(project, options, progress.split(2));
         if (options.configureBuildPath && !ProjectSetup.separatesTestCode(project)) {
@@ -151,7 +155,11 @@ public class TestGenerationJob extends Job {
             if (!added.isEmpty()) {
                 console.println("Added to the build path of " + project.getElementName() + ": "
                         + String.join(", ", added));
-                if (ProjectSetup.isManagedByBuildTool(project.getProject())) {
+                if (!options.fromPom.isEmpty()) {
+                    console.println("Maven will drop these entries the next time it updates the project. "
+                            + "Declare test dependencies on JUnit and org.evosuite:evosuite-standalone-runtime; "
+                            + "the EvoSuite plugin's setup goal adds " + options.testFolder + " to Maven builds.");
+                } else if (ProjectSetup.isManagedByBuildTool(project.getProject())) {
                     console.println("This project is built by Maven or Gradle, which will drop these entries "
                             + "the next time it updates the project. Declare test dependencies on JUnit and "
                             + "org.evosuite:evosuite-standalone-runtime, and add " + options.testFolder

@@ -76,6 +76,9 @@ final class SettingsFields {
                 "Generate &assertions", search), search));
         fields.add(new Field(new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE,
                 "&Minimize tests", search), search));
+        fields.add(new Field(new BooleanFieldEditor(EvoSuitePreferences.USE_POM_SETTINGS,
+                "In Maven projects, take the budget, criteria, test folder and arguments from the "
+                        + "EvoSuite plugin in pom.&xml", search), search));
 
         Composite output = group(parent, "Generated tests");
         fields.add(new Field(new ComboFieldEditor(EvoSuitePreferences.TEST_FORMAT, "Test &format:",

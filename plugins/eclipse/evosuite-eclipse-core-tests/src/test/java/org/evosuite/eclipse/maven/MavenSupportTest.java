@@ -1,0 +1,161 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.eclipse.maven;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.preferences.IEclipsePreferences;
+import org.eclipse.core.runtime.preferences.InstanceScope;
+import org.eclipse.m2e.core.MavenPlugin;
+import org.eclipse.m2e.core.project.ResolverConfiguration;
+import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.eclipse.preferences.EvoSuitePreferences;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Settings come from the effective model that m2e builds: plugin management in a parent,
+ * execution configuration, and properties.
+ */
+public class MavenSupportTest {
+
+    private static final String PARENT = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n"
+            + "  <modelVersion>4.0.0</modelVersion>\n"
+            + "  <groupId>t</groupId><artifactId>parent</artifactId><version>1</version>\n"
+            + "  <packaging>pom</packaging>\n"
+            + "  <build><pluginManagement><plugins><plugin>\n"
+            + "    <groupId>org.evosuite.plugins</groupId><artifactId>evosuite-maven-plugin</artifactId>\n"
+            + "    <version>1.2.1-SNAPSHOT</version>\n"
+            + "    <configuration><timeInMinutesPerClass>3</timeInMinutesPerClass>"
+            + "<criterion>LINE</criterion></configuration>\n"
+            + "  </plugin></plugins></pluginManagement></build>\n"
+            + "</project>\n";
+
+    private static final String CHILD = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n"
+            + "  <modelVersion>4.0.0</modelVersion>\n"
+            + "  <parent><groupId>t</groupId><artifactId>parent</artifactId><version>1</version>"
+            + "<relativePath>../maven-parent/pom.xml</relativePath></parent>\n"
+            + "  <artifactId>child</artifactId><packaging>pom</packaging>\n"
+            + "  <properties><generated.tests>src/test/generated</generated.tests></properties>\n"
+            + "  <build><plugins><plugin>\n"
+            + "    <groupId>org.evosuite.plugins</groupId><artifactId>evosuite-maven-plugin</artifactId>\n"
+            + "    <configuration><criterion>BRANCH</criterion>"
+            + "<testFolder>${generated.tests}</testFolder></configuration>\n"
+            + "    <executions><execution><id>gen</id><goals><goal>generate</goal></goals>\n"
+            + "      <configuration><extraArgs>-Dminimize=false</extraArgs></configuration>\n"
+            + "    </execution></executions>\n"
+            + "  </plugin></plugins></build>\n"
+            + "</project>\n";
+
+    private static final String PLAIN = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n"
+            + "  <modelVersion>4.0.0</modelVersion>\n"
+            + "  <groupId>t</groupId><artifactId>plain</artifactId><version>1</version><packaging>pom</packaging>\n"
+            + "</project>\n";
+
+    private static final String BY_PROPERTIES = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n"
+            + "  <modelVersion>4.0.0</modelVersion>\n"
+            + "  <groupId>t</groupId><artifactId>props</artifactId><version>1</version><packaging>pom</packaging>\n"
+            + "  <properties><evosuite.timeInMinutesPerClass>4</evosuite.timeInMinutesPerClass></properties>\n"
+            + "  <build><plugins><plugin>\n"
+            + "    <groupId>org.evosuite.plugins</groupId><artifactId>evosuite-maven-plugin</artifactId>\n"
+            + "    <version>1.2.1-SNAPSHOT</version>\n"
+            + "    <configuration><memoryInMB>2000</memoryInMB><numberOfCores>2</numberOfCores></configuration>\n"
+            + "    <executions><execution><id>wire</id><goals><goal>setup</goal></goals>\n"
+            + "      <configuration><testFolder>src/test/generated</testFolder></configuration>\n"
+            + "    </execution></executions>\n"
+            + "  </plugin></plugins></build>\n"
+            + "</project>\n";
+
+    private final IEclipsePreferences workspace = InstanceScope.INSTANCE.getNode(EvoSuitePreferences.QUALIFIER);
+
+    @AfterEach
+    public void clear() throws Exception {
+        workspace.clear();
+    }
+
+    private static IProject mavenProject(String name, String pom) throws Exception {
+        IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(name);
+        if (project.exists()) {
+            project.delete(true, true, null);
+        }
+        project.create(null);
+        project.open(null);
+        project.getFile("pom.xml").create(new ByteArrayInputStream(pom.getBytes(StandardCharsets.UTF_8)), true, null);
+        MavenPlugin.getProjectConfigurationManager().enableMavenNature(project, new ResolverConfiguration(),
+                new NullProgressMonitor());
+        long deadline = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1);
+        while (MavenPlugin.getMavenProjectRegistry().getProject(project) == null
+                && System.currentTimeMillis() < deadline) {
+            Thread.sleep(100);
+        }
+        assertNotNull(MavenPlugin.getMavenProjectRegistry().getProject(project), "m2e did not load " + name);
+        return project;
+    }
+
+    @Test
+    public void readsTheEffectiveConfiguration() throws Exception {
+        mavenProject("maven-parent", PARENT);
+        IProject child = mavenProject("maven-child", CHILD);
+
+        GenerationOptions options = EvoSuitePreferences.resolve(child, null);
+        assertEquals(180, options.searchBudget, "plugin management in the parent");
+        assertEquals("BRANCH", options.criterion, "the child overrides the parent");
+        assertEquals("src/test/generated", options.testFolder, "a property");
+        assertEquals("-Dminimize=false", options.extraArguments, "the generate execution");
+        assertTrue(options.fromPom.contains("search budget 180 s (timeInMinutesPerClass)"), options.fromPom.toString());
+    }
+
+    @Test
+    public void readsPropertiesCoresAndTheSetupExecution() throws Exception {
+        GenerationOptions options = EvoSuitePreferences.resolve(mavenProject("maven-props", BY_PROPERTIES), null);
+        assertEquals(240, options.searchBudget);
+        assertEquals(1000, options.clientMemory);
+        assertEquals("src/test/generated", options.testFolder);
+    }
+
+    @Test
+    public void canBeSwitchedOff() throws Exception {
+        mavenProject("maven-parent", PARENT);
+        IProject child = mavenProject("maven-child", CHILD);
+        workspace.putBoolean(EvoSuitePreferences.USE_POM_SETTINGS, false);
+
+        GenerationOptions options = EvoSuitePreferences.resolve(child, null);
+        assertEquals(new GenerationOptions().searchBudget, options.searchBudget);
+        assertEquals(List.of(), options.fromPom);
+    }
+
+    @Test
+    public void projectsWithoutThePluginKeepTheirSettings() throws Exception {
+        IProject plain = mavenProject("maven-plain", PLAIN);
+        GenerationOptions options = EvoSuitePreferences.resolve(plain, null);
+        assertEquals(new GenerationOptions().searchBudget, options.searchBudget);
+        assertEquals(List.of(), options.fromPom);
+    }
+}

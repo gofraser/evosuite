@@ -19,13 +19,18 @@
  */
 package org.evosuite.eclipse.preferences;
 
+import java.util.List;
+
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ProjectScope;
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.preferences.DefaultScope;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.evosuite.eclipse.Activator;
 import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.eclipse.maven.MavenSupport;
+import org.evosuite.eclipse.maven.PomSettings;
 
 /**
  * Preference keys, and how a project's settings are resolved.
@@ -51,6 +56,7 @@ public final class EvoSuitePreferences {
     public static final String JAVA_HOME = "javaHome";
     public static final String OPEN_GENERATED_TESTS = "openGeneratedTests";
     public static final String CONFIGURE_BUILD_PATH = "configureBuildPath";
+    public static final String USE_POM_SETTINGS = "usePomSettings";
     public static final String LLM_PROVIDER = "llmProvider";
     public static final String LLM_MODEL = "llmModel";
     public static final String LLM_BASE_URL = "llmBaseUrl";
@@ -81,6 +87,7 @@ public final class EvoSuitePreferences {
         node.put(JAVA_HOME, d.javaHome);
         node.putBoolean(OPEN_GENERATED_TESTS, d.openGeneratedTests);
         node.putBoolean(CONFIGURE_BUILD_PATH, d.configureBuildPath);
+        node.putBoolean(USE_POM_SETTINGS, d.usePomSettings);
         node.put(LLM_PROVIDER, d.llmProvider);
         node.put(LLM_MODEL, d.llmModel);
         node.put(LLM_BASE_URL, d.llmBaseUrl);
@@ -94,6 +101,23 @@ public final class EvoSuitePreferences {
 
     public static boolean usesProjectSettings(IProject project) {
         return new ProjectScope(project).getNode(QUALIFIER).getBoolean(USE_PROJECT_SETTINGS, false);
+    }
+
+    /**
+     * The settings for a generation request in {@code project}: its preferences, overridden by
+     * the EvoSuite Maven plug-in's configuration if the project has one and the settings allow
+     * it, so that the IDE and {@code mvn evosuite:generate} produce the same tests.
+     */
+    public static GenerationOptions resolve(IProject project, IProgressMonitor monitor) {
+        GenerationOptions options = load(project);
+        if (options.usePomSettings) {
+            PomSettings pom = MavenSupport.pomSettings(project, monitor);
+            if (pom != null) {
+                options.fromPom = List.copyOf(pom.applyTo(options, project.getLocation() == null ? null
+                        : project.getLocation().toFile()));
+            }
+        }
+        return options;
     }
 
     /** The first of a list of preference nodes that has a value for a key. */
@@ -153,6 +177,7 @@ public final class EvoSuitePreferences {
         o.javaHome = prefs.getString(JAVA_HOME, d.javaHome);
         o.openGeneratedTests = prefs.getBoolean(OPEN_GENERATED_TESTS, d.openGeneratedTests);
         o.configureBuildPath = prefs.getBoolean(CONFIGURE_BUILD_PATH, d.configureBuildPath);
+        o.usePomSettings = prefs.getBoolean(USE_POM_SETTINGS, d.usePomSettings);
         o.llmProvider = prefs.getString(LLM_PROVIDER, d.llmProvider);
         o.llmModel = prefs.getString(LLM_MODEL, d.llmModel).trim();
         o.llmBaseUrl = prefs.getString(LLM_BASE_URL, d.llmBaseUrl).trim();

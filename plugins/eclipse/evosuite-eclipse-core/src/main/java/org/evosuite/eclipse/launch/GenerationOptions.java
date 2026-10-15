@@ -19,6 +19,8 @@
  */
 package org.evosuite.eclipse.launch;
 
+import java.util.List;
+
 /**
  * The settings of one generation request, resolved from the project's or the workspace's
  * preferences. Plain data with no Eclipse types, so that building the command line can be tested
@@ -63,6 +65,10 @@ public final class GenerationOptions {
     public boolean openGeneratedTests = true;
     /** Add the test folder, JUnit and the EvoSuite runtime to the build path when missing. */
     public boolean configureBuildPath = true;
+    /** Let the EvoSuite Maven plug-in's configuration in the pom override these settings. */
+    public boolean usePomSettings = true;
+    /** Not a setting: which values came from the pom, one line each, for the user. */
+    public List<String> fromPom = List.of();
 
     // LLM support. The API key is not a setting: it lives in secure storage (see LlmApiKey).
 

@@ -72,7 +72,7 @@ public class GenerateTestsHandler extends AbstractHandler {
         }
         for (Map.Entry<IJavaProject, Set<IType>> entry : targets.entrySet()) {
             IJavaProject project = entry.getKey();
-            GenerationOptions options = EvoSuitePreferences.load(project.getProject());
+            GenerationOptions options = EvoSuitePreferences.resolve(project.getProject(), null);
             List<String> classes = new ArrayList<>();
             try {
                 for (IType type : entry.getValue()) {

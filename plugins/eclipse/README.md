@@ -76,6 +76,28 @@ project.
 
 ### Maven and Gradle projects
 
+If a Maven project configures the EvoSuite Maven plugin
+(`org.evosuite.plugins:evosuite-maven-plugin`), the plugin takes these settings from the pom.
+That way a class gets the same tests in Eclipse as with `mvn evosuite:generate`:
+
+| pom parameter | becomes | if unset |
+|---|---|---|
+| `timeInMinutesPerClass` | search budget | 2 minutes, the Maven plugin's default |
+| `criterion` | coverage criteria | the Maven plugin's default set |
+| `testFolder` | test source folder | `src/test/evosuite` |
+| `extraArgs` | appended to the additional arguments, so the pom wins | |
+| `memoryInMB` / `numberOfCores` (or `cores`) | client heap | the Eclipse setting; the Maven default of 800 MB is a whole-module budget |
+
+The values come from m2e's effective model, so parent poms, `pluginManagement` and `${...}`
+properties count. Each parameter is resolved as Maven resolves it for the `generate` goal. The
+order is a `generate` execution's configuration, the plugin's configuration, a pom property
+`evosuite.<name>`, then the deprecated unprefixed property. `testFolder` also comes from a
+`setup` execution, which registers the folder for Maven builds. The project's EvoSuite
+page lists what the pom overrides, and so does the console at each run. Parameters for
+whole-module runs (`timeInMinutesPerProject`, `schedule`, `cuts`, class filters) do not apply to
+single classes. To use the Eclipse settings anyway, clear *In Maven projects, take ... from the
+EvoSuite plugin in pom.xml*. Without m2e installed, the plugin works as for any other project.
+
 m2e and Buildship regenerate the build path from the build file and drop entries that the plugin
 adds. To keep the generated tests compiling, declare the dependencies in the build file:
 

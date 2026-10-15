@@ -30,8 +30,12 @@ import org.eclipse.jface.preference.FieldEditor;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
 import org.eclipse.jface.preference.StringFieldEditor;
 import org.eclipse.jface.util.PropertyChangeEvent;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.ui.IWorkbenchPropertyPage;
 import org.eclipse.ui.preferences.ScopedPreferenceStore;
+import org.evosuite.eclipse.launch.GenerationOptions;
 
 /**
  * Project-specific settings, stored in the project's {@code .settings} folder. When enabled they
@@ -61,6 +65,16 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
 
     @Override
     protected void createFieldEditors() {
+        IProject project = Adapters.adapt(element, IProject.class);
+        GenerationOptions resolved = EvoSuitePreferences.resolve(project, null);
+        if (!resolved.fromPom.isEmpty()) {
+            Label pom = new Label(getFieldEditorParent(), SWT.WRAP);
+            pom.setText("pom.xml configures the EvoSuite Maven plugin, and these take precedence over the "
+                    + "settings below: " + String.join("; ", resolved.fromPom) + ".");
+            GridData layout = new GridData(SWT.FILL, SWT.TOP, true, false, 3, 1);
+            layout.widthHint = 500;
+            pom.setLayoutData(layout);
+        }
         useProjectSettings = new BooleanFieldEditor(EvoSuitePreferences.USE_PROJECT_SETTINGS,
                 "Enable pro&ject-specific settings", getFieldEditorParent());
         addField(useProjectSettings);
