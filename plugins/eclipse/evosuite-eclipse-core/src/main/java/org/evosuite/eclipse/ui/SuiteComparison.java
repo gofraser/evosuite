@@ -31,14 +31,31 @@ import org.eclipse.compare.CompareEditorInput;
 import org.eclipse.compare.CompareUI;
 import org.eclipse.compare.IEditableContent;
 import org.eclipse.compare.IEncodedStreamContentAccessor;
+import org.eclipse.compare.IResourceProvider;
+import org.eclipse.compare.ISharedDocumentAdapter;
 import org.eclipse.compare.ITypedElement;
+import org.eclipse.compare.SharedDocumentAdapter;
 import org.eclipse.compare.structuremergeviewer.DiffNode;
 import org.eclipse.compare.structuremergeviewer.Differencer;
+import org.eclipse.core.filebuffers.FileBuffers;
+import org.eclipse.core.filebuffers.ITextFileBuffer;
+import org.eclipse.core.filebuffers.LocationKind;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.ListenerList;
+import org.eclipse.core.runtime.OperationCanceledException;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.util.IPropertyChangeListener;
+import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IEditorInput;
+import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.evosuite.eclipse.Activator;
 
 /**
@@ -47,6 +64,11 @@ import org.evosuite.eclipse.Activator;
  * user copies over what they want; saving writes the workspace files, which keep their previous
  * contents in the local history. One suite shows directly, several as a list to pick from, so
  * that a run over many classes opens one editor rather than one per class.
+ *
+ * <p>The existing suite shares its document with a Java editor open on the same file. Edits that
+ * a viewer has handed over, for example when the user switches to another suite, keep the editor
+ * dirty until they are saved. Saving asks before it overwrites a file that has changed since the
+ * comparison read it.
  */
 public class SuiteComparison extends CompareEditorInput {
 
@@ -56,6 +78,7 @@ public class SuiteComparison extends CompareEditorInput {
 
     private final List<Pair> pairs;
     private final List<WorkspaceSide> sides = new ArrayList<>();
+    private final ListenerList<IPropertyChangeListener> listeners = new ListenerList<>();
 
     public SuiteComparison(List<Pair> pairs) {
         super(configuration());
@@ -108,15 +131,79 @@ public class SuiteComparison extends CompareEditorInput {
         }
     }
 
+    @Override
+    protected void handleDispose() {
+        super.handleDispose();
+        for (WorkspaceSide side : sides) {
+            side.dispose();
+        }
+    }
+
+    /**
+     * Also true while a side holds edits that a viewer has handed over but that are not saved:
+     * the viewer counts itself clean once it has handed them over.
+     */
+    @Override
+    public boolean isSaveNeeded() {
+        return super.isSaveNeeded() || sides.stream().anyMatch(WorkspaceSide::needsSave);
+    }
+
+    @Override
+    public void addPropertyChangeListener(IPropertyChangeListener listener) {
+        super.addPropertyChangeListener(listener);
+        if (listener != null) {
+            listeners.add(listener);
+        }
+    }
+
+    @Override
+    public void removePropertyChangeListener(IPropertyChangeListener listener) {
+        super.removePropertyChangeListener(listener);
+        if (listener != null) {
+            listeners.remove(listener);
+        }
+    }
+
+    /** Tells the editor if a side's edits changed whether the comparison needs saving. */
+    private void sideChanged(boolean saveNeededBefore) {
+        boolean saveNeeded = isSaveNeeded();
+        if (saveNeeded != saveNeededBefore) {
+            PropertyChangeEvent event = new PropertyChangeEvent(this, DIRTY_STATE, saveNeededBefore, saveNeeded);
+            for (IPropertyChangeListener listener : listeners) {
+                listener.propertyChange(event);
+            }
+        }
+    }
+
+    /**
+     * Whether to write the edits over {@code file}, which has changed since the comparison read
+     * it. Asks the user; called in the UI thread.
+     */
+    protected boolean confirmOverwrite(IFile file) {
+        return MessageDialog.openQuestion(Display.getDefault().getActiveShell(), "File Changed",
+                file.getName() + " has changed since the comparison opened. Overwrite those changes "
+                        + "with the ones made here?");
+    }
+
     /** The existing suites, in the order the comparison lists them. */
     public List<IFile> getExistingSuites() {
         return pairs.stream().map(Pair::existing).toList();
     }
 
-    /** The workspace file: editable, written on save. */
-    static final class WorkspaceSide implements ITypedElement, IEncodedStreamContentAccessor, IEditableContent {
+    /**
+     * The workspace file: editable, written on save. The viewer edits the file's shared document,
+     * the one a Java editor on the file edits too, and hands it over on switching suites and on
+     * saving; it is written when the comparison is saved. A viewer that cannot share the document
+     * hands over the edited bytes instead.
+     */
+    final class WorkspaceSide implements ITypedElement, IEncodedStreamContentAccessor, IEditableContent,
+            IResourceProvider, IAdaptable {
         private final IFile file;
+        private final SharedDocument shared = new SharedDocument();
         private byte[] content;
+        /** The file's modification stamp when {@link #content} was read. */
+        private long stamp;
+        /** Whether {@link #content} holds edits that are not written. */
         private boolean changed;
 
         WorkspaceSide(IFile file) {
@@ -139,8 +226,30 @@ public class SuiteComparison extends CompareEditorInput {
         }
 
         @Override
+        public IResource getResource() {
+            return file;
+        }
+
+        @Override
+        public <T> T getAdapter(Class<T> adapter) {
+            if (adapter == ISharedDocumentAdapter.class && file.exists()) {
+                return adapter.cast(shared);
+            }
+            return Platform.getAdapterManager().getAdapter(this, adapter);
+        }
+
+        boolean needsSave() {
+            return changed || shared.isBuffered();
+        }
+
+        @Override
         public InputStream getContents() throws CoreException {
+            if (shared.isBuffered()) {
+                String text = shared.get().get();
+                return new ByteArrayInputStream(text.getBytes(Charset.forName(getCharsetOrDefault())));
+            }
             if (content == null) {
+                stamp = file.getModificationStamp();
                 try (InputStream in = file.getContents(true)) {
                     content = in.readAllBytes();
                 } catch (IOException e) {
@@ -159,6 +268,11 @@ public class SuiteComparison extends CompareEditorInput {
             }
         }
 
+        private String getCharsetOrDefault() {
+            String charset = getCharset();
+            return charset == null ? Charset.defaultCharset().name() : charset;
+        }
+
         @Override
         public boolean isEditable() {
             return true;
@@ -171,14 +285,95 @@ public class SuiteComparison extends CompareEditorInput {
 
         @Override
         public void setContent(byte[] newContent) {
+            boolean saveNeededBefore = isSaveNeeded();
             content = newContent;
             changed = true;
+            sideChanged(saveNeededBefore);
         }
 
+        /**
+         * Writes the edits to the file. A file that has changed since it was read is only
+         * overwritten if the user agrees; one with unsaved changes in an editor is left alone
+         * unless the edits went into the document that editor shares.
+         */
         void commit(IProgressMonitor monitor) throws CoreException {
-            if (changed) {
-                file.setContents(new ByteArrayInputStream(content), IResource.KEEP_HISTORY, monitor);
-                changed = false;
+            if (shared.isBuffered()) {
+                boolean saveNeededBefore = isSaveNeeded();
+                shared.save(monitor);
+                sideChanged(saveNeededBefore);
+            }
+            if (!changed) {
+                return;
+            }
+            ITextFileBuffer buffer = FileBuffers.getTextFileBufferManager()
+                    .getTextFileBuffer(file.getFullPath(), LocationKind.IFILE);
+            if (buffer != null && buffer.isDirty()) {
+                throw new CoreException(Activator.error(file.getName() + " has unsaved changes in an editor; "
+                        + "save or revert them first"));
+            }
+            file.refreshLocal(IResource.DEPTH_ZERO, monitor);
+            if (file.getModificationStamp() != stamp && !confirmOverwrite(file)) {
+                throw new OperationCanceledException();
+            }
+            boolean saveNeededBefore = isSaveNeeded();
+            file.setContents(new ByteArrayInputStream(content), IResource.KEEP_HISTORY, monitor);
+            stamp = file.getModificationStamp();
+            changed = false;
+            sideChanged(saveNeededBefore);
+        }
+
+        void dispose() {
+            shared.release();
+        }
+
+        /**
+         * Connects the viewer to the file's shared document. What the viewer hands over stays
+         * in that document, which this side keeps connected until it is saved.
+         */
+        private final class SharedDocument extends SharedDocumentAdapter {
+            private IEditorInput key;
+
+            boolean isBuffered() {
+                return key != null;
+            }
+
+            IDocument get() {
+                return getDocumentProvider(key).getDocument(key);
+            }
+
+            @Override
+            public void flushDocument(IDocumentProvider provider, IEditorInput documentKey, IDocument flushed,
+                                      boolean overwrite) throws CoreException {
+                if (key == null) {
+                    boolean saveNeededBefore = isSaveNeeded();
+                    provider.connect(documentKey);
+                    key = documentKey;
+                    sideChanged(saveNeededBefore);
+                }
+            }
+
+            void save(IProgressMonitor monitor) throws CoreException {
+                IDocumentProvider provider = getDocumentProvider(key);
+                if (provider.canSaveDocument(key)) {
+                    boolean overwrite = false;
+                    ITextFileBuffer buffer = FileBuffers.getTextFileBufferManager()
+                            .getTextFileBuffer(file.getFullPath(), LocationKind.IFILE);
+                    if (buffer != null && !buffer.isSynchronized()) {
+                        if (!confirmOverwrite(file)) {
+                            throw new OperationCanceledException();
+                        }
+                        overwrite = true;
+                    }
+                    saveDocument(provider, key, provider.getDocument(key), overwrite, monitor);
+                }
+                release();
+            }
+
+            void release() {
+                if (key != null) {
+                    getDocumentProvider(key).disconnect(key);
+                    key = null;
+                }
             }
         }
     }
