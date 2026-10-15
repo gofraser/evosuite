@@ -131,20 +131,25 @@ public class MavenPluginIT {
         String a = "org.maven_test_project.sm.SimpleClass";
         String b = "org.maven_test_project.sm.ThrowException";
 
+        Verifier tooLittle = getVerifier(simple);
+        tooLittle.addCliOption("evosuite:generate");
+        tooLittle.addCliOption("-DtimeInMinutesPerClass=1");
+        tooLittle.addCliOption("-Dcores=2");
+        tooLittle.addCliOption("-DmemoryInMB=600");
+        try {
+            tooLittle.executeGoal("compile");
+            fail();
+        } catch (VerificationException e){
+            //expected, because CTG needs 500 MB per core
+        }
+
+        // without memory configured, it follows the number of cores
         Verifier verifier  = getVerifier(simple);
         verifier.addCliOption("evosuite:generate");
         verifier.addCliOption("-DtimeInMinutesPerClass=1");
         verifier.addCliOption("-Dcores=2");
-
-        try {
-            verifier.executeGoal("compile");
-            fail();
-        } catch (VerificationException e){
-            //expected, because not enough memory
-        }
-
-        verifier.addCliOption("-DmemoryInMB=1000");
         verifier.executeGoal("compile");
+        verifier.verifyTextInLog("Total memory: 2000mb");
 
         verifyLogFilesExist(simple, a);
         verifyLogFilesExist(simple, b);

@@ -29,6 +29,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class GenerationSettingsTest {
 
     @Test
+    public void memoryFollowsTheCoresUnlessConfigured() {
+        // two cores used to fail with the fixed default of 800 MB, as CTG needs 500 per core
+        assertEquals(2000, GenerationSettings.memoryInMB(null, 2));
+        assertEquals(1000, GenerationSettings.memoryInMB(null, 1));
+        assertEquals(1500, GenerationSettings.memoryInMB(1500, 2));
+    }
+
+    @Test
     public void durationsNeedUnits() {
         assertEquals(30, GenerationSettings.parseSeconds("30s"));
         assertEquals(120, GenerationSettings.parseSeconds("2m"));

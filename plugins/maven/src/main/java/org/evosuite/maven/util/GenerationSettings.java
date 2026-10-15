@@ -28,6 +28,11 @@ import java.util.regex.Pattern;
 public final class GenerationSettings {
 
     /**
+     * Memory per core when none is configured. CTG needs at least 500 MB per job.
+     */
+    public static final int DEFAULT_MEMORY_PER_CORE_MB = 1000;
+
+    /**
      * The smallest budget per class. A job splits half of its budget evenly between minimisation, assertion
      * generation, the check that the tests pass, and other phases; below a minute these get too little time,
      * and the tests can come out without assertions, and even failing on the code they were generated for.
@@ -37,6 +42,17 @@ public final class GenerationSettings {
     private static final Pattern DURATION = Pattern.compile("(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+)s)?");
 
     private GenerationSettings() {
+    }
+
+    /**
+     * The memory for all parallel jobs together.
+     *
+     * @param configured the configured memory, or {@code null}
+     * @param cores      the number of parallel jobs
+     * @return the configured memory, or the default per core times the cores
+     */
+    public static int memoryInMB(Integer configured, int cores) {
+        return configured != null ? configured : DEFAULT_MEMORY_PER_CORE_MB * Math.max(1, cores);
     }
 
     /**

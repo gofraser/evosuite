@@ -79,7 +79,7 @@ incremental runs). Add it to `.gitignore`, or commit it to share incremental sta
 | `evosuite.timeInMinutesPerClass` | 2 | Budget per class in minutes, if `timePerClass` is not set |
 | `evosuite.timeInMinutesPerProject` | 0 | Total budget per module; if set, distributed over the classes |
 | `evosuite.cores` | 1 | Classes tested in parallel |
-| `evosuite.memoryInMB` | 800 | Memory for all parallel jobs together, at least 500 per core |
+| `evosuite.memoryInMB` | 1000 per core | Memory for all parallel jobs together, at least 500 per core |
 | `evosuite.cuts` | | Comma separated classes to test (always tested, even if unchanged) |
 | `evosuite.cutsFile` | | File with such a list, for long lists |
 | `evosuite.criterion` | `LINE:BRANCH:EXCEPTION:WEAKMUTATION:OUTPUT:METHOD:METHODNOEXCEPTION:CBRANCH` | Coverage criteria |

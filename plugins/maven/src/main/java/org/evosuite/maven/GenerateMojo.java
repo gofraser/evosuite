@@ -63,10 +63,11 @@ import java.util.Set;
 public class GenerateMojo extends AbstractEvoSuiteMojo {
 
     /**
-     * Total Memory (in MB) that CTG will use.
+     * Total Memory (in MB) for all classes tested in parallel, at least 500 per core.
+     * If not set, 1000 per core.
      */
-    @Parameter(property = "evosuite.memoryInMB", defaultValue = "800")
-    private int memoryInMB;
+    @Parameter(property = "evosuite.memoryInMB")
+    private Integer memoryInMB;
 
     /**
      * Number of cores CTG will use. In the POM configuration as {@code <cores>} or {@code <numberOfCores>}.
@@ -205,6 +206,7 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
         applyLegacyProperties();
 
         getLog().info("Going to generate tests with EvoSuite");
+        memoryInMB = GenerationSettings.memoryInMB(memoryInMB, numberOfCores);
         if (timePerClass != null && !timePerClass.trim().isEmpty()) {
             try {
                 secondsPerClass = GenerationSettings.parseSeconds(timePerClass);
