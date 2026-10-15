@@ -36,6 +36,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.core.IJavaProject;
@@ -92,12 +93,15 @@ public class TestGenerationJobTest {
         TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
         TestProjects.build(project);
 
+        // Run in this thread, so that the test sees the progress the workbench would show.
         TestGenerationJob job = new TestGenerationJob(project, List.of("demo.Calculator"));
-        job.schedule();
-        assertTrue(job.join(TimeUnit.MINUTES.toMillis(5), null), "generation did not finish in time");
+        RecordingMonitor monitor = new RecordingMonitor();
+        IStatus result = job.run(monitor);
 
-        IStatus result = job.getResult();
         assertEquals(IStatus.OK, result.getSeverity(), result::toString);
+        // The search's own progress moved the bar, not just the steps around it: before
+        // the search was given its share, the status bar stopped at 14 of 120 units, 11%.
+        assertTrue(monitor.fractionBeforeDone() > 0.9, "progress reached only " + monitor.fractionBeforeDone());
         IFile suite = project.getProject().getFile("src/test/evosuite/demo/Calculator_ESTest.java");
         assertTrue(suite.exists(), "no test suite in the workspace");
         assertEquals(List.of(suite), job.getGeneratedSuites());
@@ -161,6 +165,39 @@ public class TestGenerationJobTest {
         } finally {
             server.stop(0);
             TestGenerationJob.apiKeySource = LlmApiKey::get;
+        }
+    }
+
+    /** Records the work reported to it, as the progress view and status bar receive it. */
+    private static final class RecordingMonitor extends NullProgressMonitor {
+        private double total;
+        private double worked;
+        private double workedBeforeDone = -1;
+
+        @Override
+        public void beginTask(String name, int totalWork) {
+            total = totalWork;
+        }
+
+        @Override
+        public void worked(int work) {
+            internalWorked(work);
+        }
+
+        @Override
+        public void internalWorked(double work) {
+            worked += work;
+        }
+
+        @Override
+        public void done() {
+            if (workedBeforeDone < 0) {
+                workedBeforeDone = worked;
+            }
+        }
+
+        double fractionBeforeDone() {
+            return total == 0 ? 0 : (workedBeforeDone < 0 ? worked : workedBeforeDone) / total;
         }
     }
 

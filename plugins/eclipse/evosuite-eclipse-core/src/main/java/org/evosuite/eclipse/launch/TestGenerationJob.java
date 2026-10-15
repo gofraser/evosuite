@@ -229,7 +229,10 @@ public class TestGenerationJob extends Job {
 
     private IStatus generateOne(EvoSuiteCommand command, ProjectSetup.JavaInstallation java,
                                 Map<String, String> environment, String className, String label, File suite,
-                                EvoSuiteConsole console, SubMonitor monitor) {
+                                EvoSuiteConsole console, SubMonitor classShare) {
+        // A child monitor ignores worked() until it knows how much work it stands for: without
+        // this, the search's percentages never reached the progress view or the status bar.
+        SubMonitor monitor = SubMonitor.convert(classShare, 100);
         // Compared with the timestamp afterwards rather than with the clock, which a file system
         // with coarse timestamps (FAT: 2 s) could place before the start of a successful run.
         long before = suite.isFile() ? suite.lastModified() : Long.MIN_VALUE;
