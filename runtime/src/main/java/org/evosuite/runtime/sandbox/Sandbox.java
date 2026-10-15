@@ -38,34 +38,107 @@ public class Sandbox {
     private static final Logger evoLogger = LoggerFactory.getLogger("evo_logger");
 
     /**
-     * Flag indicating whether Security Manager is supported in this JVM.
-     * Java 17+ deprecated Security Manager, and Java 24+ completely removed support
-     * for System.setSecurityManager() - it throws UnsupportedOperationException.
+     * Whether this JVM lets EvoSuite install its security manager. Java 18 to 23 allow it only
+     * when started with {@code -Djava.security.manager=allow}, and Java 24 removed it.
      */
     private static final boolean SECURITY_MANAGER_SUPPORTED;
 
+    /** Returned by {@link #securityManagerUnavailable} when the Java version cannot be parsed. */
+    static final String UNKNOWN_VERSION = "unknown Java version";
+
     static {
-        boolean supported = true;
-        try {
-            // Check if setSecurityManager is supported by attempting to get/set null
-            // This will throw UnsupportedOperationException on Java 24+
-            SecurityManager current = System.getSecurityManager();
-            System.setSecurityManager(current);
-        } catch (UnsupportedOperationException e) {
-            supported = false;
-            evoLogger.warn("* Security Manager is not supported in this JVM (Java 24+). "
-                    + "Sandbox functionality will be disabled.");
-        } catch (SecurityException e) {
-            // Security Manager is supported but we don't have permission to change it
-            // This is fine - we'll handle it when we actually try to apply our manager
+        String unavailable = securityManagerUnavailable(System.getProperty("java.specification.version"),
+                System.getProperty("java.security.manager"), System.getSecurityManager() != null);
+        if (UNKNOWN_VERSION.equals(unavailable)) {
+            unavailable = probeSecurityManager();
         }
-        SECURITY_MANAGER_SUPPORTED = supported;
+        SECURITY_MANAGER_SUPPORTED = unavailable == null;
+        if (unavailable != null) {
+            evoLogger.warn("* The sandbox is off: " + unavailable);
+        }
+    }
+
+    /**
+     * Why this JVM refuses {@code System.setSecurityManager}, decided the way the JDK decides it.
+     * Asking the JVM instead is unreliable and noisy: a JVM that disallows security managers, as
+     * Java 18 to 23 do by default, still accepts {@code setSecurityManager(null)}, so a check that
+     * passes the current, null manager calls the sandbox supported until installing it throws;
+     * and on Java 17 every successful call makes the JDK print a deprecation warning attributed
+     * to this class, whether or not a sandbox is ever installed.
+     *
+     * @param specificationVersion the {@code java.specification.version} property, eg 1.8 or 17
+     * @param property             the {@code java.security.manager} property, or null
+     * @param installed            whether a security manager is already installed
+     * @return null if a security manager can be installed, otherwise the reason, for the log;
+     *     {@link #UNKNOWN_VERSION} if the version cannot be parsed
+     */
+    static String securityManagerUnavailable(String specificationVersion, String property, boolean installed) {
+        int feature = featureVersion(specificationVersion);
+        if (feature <= 0) {
+            return UNKNOWN_VERSION;
+        }
+        if (feature >= 24) {
+            return "Java " + feature + " no longer supports a security manager.";
+        }
+        if (installed) {
+            // The JVM was started with one, so it may be replaced, subject to its permissions.
+            return null;
+        }
+        if (feature >= 12 && "disallow".equals(property)) {
+            return "the JVM was started with -Djava.security.manager=disallow.";
+        }
+        if (feature >= 18 && !"allow".equals(property)) {
+            return "Java " + feature + " allows a security manager only when started with "
+                    + "-Djava.security.manager=allow.";
+        }
+        return null;
+    }
+
+    /** 8 for "1.8", 17 for "17"; 0 if the version cannot be parsed. */
+    static int featureVersion(String specificationVersion) {
+        if (specificationVersion == null) {
+            return 0;
+        }
+        String[] parts = specificationVersion.trim().split("\\.");
+        try {
+            int first = Integer.parseInt(parts[0]);
+            return first == 1 && parts.length > 1 ? Integer.parseInt(parts[1]) : first;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Asks the JVM, for JVMs whose version cannot be parsed. It takes a real manager to find out,
+     * since a null one is accepted even where managers are disallowed; the one installed here
+     * allows everything, so that it can be removed again.
+     */
+    private static String probeSecurityManager() {
+        if (System.getSecurityManager() != null) {
+            return null;
+        }
+        try {
+            System.setSecurityManager(new SecurityManager() {
+                @Override
+                public void checkPermission(java.security.Permission perm) {
+                    // allow everything, including removing this manager
+                }
+            });
+            System.setSecurityManager(null);
+            return null;
+        } catch (UnsupportedOperationException e) {
+            return "this JVM does not support a security manager.";
+        } catch (SecurityException e) {
+            // Supported, but changing it needs a permission; dealt with when the sandbox is applied.
+            return null;
+        }
     }
 
     /**
      * Returns whether Security Manager is supported in this JVM.
      *
-     * @return true if Security Manager can be used, false otherwise (Java 24+)
+     * @return true if Security Manager can be used, false otherwise (Java 24+, or Java 18 to 23
+     *     without {@code -Djava.security.manager=allow})
      */
     public static boolean isSecurityManagerSupported() {
         return SECURITY_MANAGER_SUPPORTED;
@@ -208,7 +281,7 @@ public class Sandbox {
             return;
         }
         if (!SECURITY_MANAGER_SUPPORTED) {
-            // On Java 24+, Security Manager is not supported.
+            // The JVM does not allow a security manager (see securityManagerUnavailable).
             // We still increment counter to maintain symmetry with resetDefaultSecurityManager()
             counter++;
             return;
