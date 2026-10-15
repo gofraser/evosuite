@@ -75,6 +75,9 @@ final class SettingsFields {
                 "Coverage &criteria (empty for EvoSuite's default):", search), search));
         fields.add(new Field(new BooleanFieldEditor(EvoSuitePreferences.ASSERTIONS,
                 "Generate &assertions", search), search));
+        fields.add(new Field(new ComboFieldEditor(EvoSuitePreferences.ASSERTION_STRATEGY, "Assertions &kept:",
+                new String[][]{{"Those that detect faults (fewer)", "MUTATION"},
+                        {"All observed values (more)", "ALL"}}, search), search));
         fields.add(new Field(new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE,
                 "&Minimize tests", search), search));
         fields.add(new Field(new BooleanFieldEditor(EvoSuitePreferences.USE_POM_SETTINGS,
@@ -89,6 +92,18 @@ final class SettingsFields {
                 "Test &source folder (project-relative):", output), output));
         fields.add(new Field(new StringFieldEditor(EvoSuitePreferences.TEST_SUFFIX,
                 "Test class &suffix:", output), output));
+        fields.add(new Field(new ComboFieldEditor(EvoSuitePreferences.TEST_NAMING, "Test &names:",
+                new String[][]{{"Numbered (test0, test1, ...)", "NUMBERED"},
+                        {"Descriptive (from what each test covers)", "COVERAGE"}}, output), output));
+        fields.add(new Field(new ComboFieldEditor(EvoSuitePreferences.VARIABLE_NAMING, "&Variable names:",
+                new String[][]{{"From the type (int0, string0, ...)", "TYPE_BASED"},
+                        {"From how values are used", "HEURISTICS_BASED"}}, output), output));
+        fields.add(new Field(new BooleanFieldEditor(EvoSuitePreferences.TEST_COMMENTS,
+                "Comment each test with the &goals it covers", output), output));
+        IntegerFieldEditor timeout = new IntegerFieldEditor(EvoSuitePreferences.TEST_TIMEOUT,
+                "Time limit per test in ms (0 for EvoSuite's 3000):", output);
+        timeout.setValidRange(0, 24 * 60 * 60 * 1000);
+        fields.add(new Field(timeout, output));
         fields.add(new Field(new BooleanFieldEditor(EvoSuitePreferences.CONFIGURE_BUILD_PATH,
                 "Add the test folder, JUnit and the EvoSuite runtime to the build &path", output), output));
         fields.add(new Field(new BooleanFieldEditor(EvoSuitePreferences.OPEN_GENERATED_TESTS,

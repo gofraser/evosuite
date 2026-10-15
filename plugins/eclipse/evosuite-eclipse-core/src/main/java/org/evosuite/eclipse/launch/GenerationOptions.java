@@ -53,6 +53,16 @@ public final class GenerationOptions {
     public String criterion = "";
     public boolean assertions = true;
     public boolean minimize = true;
+    /** EvoSuite's {@code assertion_strategy}: MUTATION keeps those that detect faults, ALL keeps all. */
+    public String assertionStrategy = "MUTATION";
+    /** EvoSuite's {@code test_naming_strategy}: NUMBERED (test0, ...) or COVERAGE (from what a test covers). */
+    public String testNaming = "NUMBERED";
+    /** EvoSuite's {@code variable_naming_strategy}: TYPE_BASED (int0, ...) or HEURISTICS_BASED. */
+    public String variableNaming = "TYPE_BASED";
+    /** Comment each test with the coverage goals it covers. */
+    public boolean testComments = false;
+    /** Milliseconds a generated test may run; 0 leaves EvoSuite's default of 3000. */
+    public int testTimeout = 0;
     /** {@link #JUNIT5} or {@link #JUNIT4}. */
     public String testFormat = JUNIT5;
     public String testSuffix = "_ESTest";

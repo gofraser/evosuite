@@ -55,12 +55,12 @@ public class SettingsPagesLayoutTest {
             try {
                 EvoSuitePreferencePage preferences = new EvoSuitePreferencePage();
                 preferences.init(null);
-                // Search budget, criteria, test folder, suffix, model, base URL, API key, calls,
-                // heap, Java home, arguments; the property page has no API key.
-                assertVisible(preferences, 11);
+                // Search budget, criteria, test folder, suffix, test time limit, model, base URL,
+                // API key, calls, heap, Java home, arguments; the property page has no API key.
+                assertVisible(preferences, 12);
                 EvoSuitePropertyPage properties = new EvoSuitePropertyPage();
                 properties.setElement(project.getProject());
-                assertVisible(properties, 10);
+                assertVisible(properties, 11);
             } catch (Throwable t) {
                 failure.set(t);
             }

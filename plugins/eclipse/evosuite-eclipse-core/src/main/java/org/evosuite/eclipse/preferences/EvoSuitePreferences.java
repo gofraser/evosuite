@@ -48,6 +48,11 @@ public final class EvoSuitePreferences {
     public static final String CRITERION = "criterion";
     public static final String ASSERTIONS = "assertions";
     public static final String MINIMIZE = "minimize";
+    public static final String ASSERTION_STRATEGY = "assertionStrategy";
+    public static final String TEST_NAMING = "testNaming";
+    public static final String VARIABLE_NAMING = "variableNaming";
+    public static final String TEST_COMMENTS = "testComments";
+    public static final String TEST_TIMEOUT = "testTimeout";
     public static final String TEST_FORMAT = "testFormat";
     public static final String TEST_SUFFIX = "testSuffix";
     public static final String TEST_FOLDER = "testFolder";
@@ -79,6 +84,11 @@ public final class EvoSuitePreferences {
         node.put(CRITERION, d.criterion);
         node.putBoolean(ASSERTIONS, d.assertions);
         node.putBoolean(MINIMIZE, d.minimize);
+        node.put(ASSERTION_STRATEGY, d.assertionStrategy);
+        node.put(TEST_NAMING, d.testNaming);
+        node.put(VARIABLE_NAMING, d.variableNaming);
+        node.putBoolean(TEST_COMMENTS, d.testComments);
+        node.putInt(TEST_TIMEOUT, d.testTimeout);
         node.put(TEST_FORMAT, d.testFormat);
         node.put(TEST_SUFFIX, d.testSuffix);
         node.put(TEST_FOLDER, d.testFolder);
@@ -169,6 +179,11 @@ public final class EvoSuitePreferences {
         o.criterion = prefs.getString(CRITERION, d.criterion);
         o.assertions = prefs.getBoolean(ASSERTIONS, d.assertions);
         o.minimize = prefs.getBoolean(MINIMIZE, d.minimize);
+        o.assertionStrategy = prefs.getString(ASSERTION_STRATEGY, d.assertionStrategy);
+        o.testNaming = prefs.getString(TEST_NAMING, d.testNaming);
+        o.variableNaming = prefs.getString(VARIABLE_NAMING, d.variableNaming);
+        o.testComments = prefs.getBoolean(TEST_COMMENTS, d.testComments);
+        o.testTimeout = prefs.getInt(TEST_TIMEOUT, d.testTimeout);
         o.testFormat = prefs.getString(TEST_FORMAT, d.testFormat);
         o.testSuffix = prefs.getString(TEST_SUFFIX, d.testSuffix);
         o.testFolder = prefs.getString(TEST_FOLDER, d.testFolder);

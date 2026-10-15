@@ -37,9 +37,14 @@ EvoSuite* can override them per project. Project settings are stored in
 | Search budget per class | 60 s | `-Dsearch_budget` |
 | Coverage criteria | EvoSuite's default | `-criterion`, e.g. `LINE:BRANCH` |
 | Generate assertions / minimize tests | on | `-Dassertions`, `-Dminimize` |
+| Assertions kept | those that detect faults | `-Dassertion_strategy` (MUTATION, or ALL observed values) |
 | Test format | JUnit 5 | `-Dtest_format` |
 | Test source folder | `src/test/evosuite` | `-Dtest_dir` |
 | Test class suffix | `_ESTest` | `-Djunit_suffix` |
+| Test names | numbered (`test0`, ...) | `-Dtest_naming_strategy` (COVERAGE: descriptive, from what each test covers) |
+| Variable names | from the type (`int0`, ...) | `-Dvariable_naming_strategy` (HEURISTICS_BASED: from how values are used) |
+| Comment tests with the goals they cover | off | `-Dtest_comments` |
+| Time limit per test | 3000 ms | `-Dtimeout` |
 | Configure the build path | on | adds the folder, JUnit and the runtime when missing |
 | Open generated tests | on | |
 | Client heap | EvoSuite's default | `-mem` |

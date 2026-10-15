@@ -91,6 +91,22 @@ public final class EvoSuiteCommand {
         args.add("-Dsearch_budget=" + options.searchBudget);
         args.add("-Dassertions=" + options.assertions);
         args.add("-Dminimize=" + options.minimize);
+        // Only where they differ from EvoSuite's defaults, to keep the command line readable.
+        if (!"MUTATION".equals(options.assertionStrategy)) {
+            args.add("-Dassertion_strategy=" + options.assertionStrategy);
+        }
+        if (!"NUMBERED".equals(options.testNaming)) {
+            args.add("-Dtest_naming_strategy=" + options.testNaming);
+        }
+        if (!"TYPE_BASED".equals(options.variableNaming)) {
+            args.add("-Dvariable_naming_strategy=" + options.variableNaming);
+        }
+        if (options.testComments) {
+            args.add("-Dtest_comments=true");
+        }
+        if (options.testTimeout > 0) {
+            args.add("-Dtimeout=" + options.testTimeout);
+        }
         args.add("-Dtest_format=" + options.testFormat);
         args.add("-Djunit_suffix=" + options.testSuffix);
         // The progress bar is how the plug-in follows the search; see ProgressParser.

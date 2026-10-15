@@ -71,6 +71,21 @@ public class EvoSuiteCommandTest {
         List<String> args = arguments(new GenerationOptions());
         assertFalse(args.contains("-criterion"));
         assertFalse(args.contains("-mem"));
+        assertFalse(args.stream().anyMatch(a -> a.startsWith("-Dassertion_strategy=") || a.startsWith("-Dtimeout=")
+                || a.contains("naming_strategy") || a.startsWith("-Dtest_comments=")), args.toString());
+    }
+
+    @Test
+    public void passesTheTestShapeSettings() {
+        GenerationOptions options = new GenerationOptions();
+        options.assertionStrategy = "ALL";
+        options.testNaming = "COVERAGE";
+        options.variableNaming = "HEURISTICS_BASED";
+        options.testComments = true;
+        options.testTimeout = 1000;
+        assertTrue(arguments(options).containsAll(List.of("-Dassertion_strategy=ALL",
+                "-Dtest_naming_strategy=COVERAGE", "-Dvariable_naming_strategy=HEURISTICS_BASED",
+                "-Dtest_comments=true", "-Dtimeout=1000")));
     }
 
     @Test
