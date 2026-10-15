@@ -82,6 +82,7 @@ import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
+import org.evosuite.testcase.factories.SerializedSeedTestFactory;
 import org.evosuite.testcase.localsearch.BranchCoverageMap;
 import org.evosuite.testsuite.RelativeSuiteLengthBloatControl;
 import org.evosuite.testsuite.StatementsPopulationLimit;
@@ -138,15 +139,17 @@ public class PropertiesSuiteGAFactory
                                 + Properties.TEST_FACTORY);
                 }
             case MOSUITE:
-                // The many-objective algorithms honour only parsed-source seeding. Every other
-                // TEST_FACTORY value, including the default ARCHIVE, keeps the random-length
-                // factory so that the default search is unchanged.
+                // Tests continuous test generation kept from an earlier run, if any, seed the search.
+                // Beyond that, the many-objective algorithms honour only parsed-source seeding:
+                // every other TEST_FACTORY value, including the default ARCHIVE, keeps the
+                // random-length factory so that the default search is unchanged.
+                ChromosomeFactory<TestChromosome> moFactory =
+                        SerializedSeedTestFactory.withCtgSeeds(new RandomLengthTestFactory());
                 if (Properties.TEST_FACTORY == Properties.TestFactory.PARSED_JUNIT) {
                     logger.info("Using parsed JUnit seeding chromosome factory");
-                    return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(
-                            new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory())));
+                    moFactory = new JUnitTestParsedChromosomeFactory(moFactory);
                 }
-                return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new RandomLengthTestFactory()));
+                return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(moFactory));
             default:
                 throw new RuntimeException("Unsupported test factory: "
                         + Properties.TEST_FACTORY);
