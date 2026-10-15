@@ -29,7 +29,7 @@ import org.eclipse.ui.preferences.ScopedPreferenceStore;
 public class EvoSuitePreferencePage extends FieldEditorPreferencePage implements IWorkbenchPreferencePage {
 
     public EvoSuitePreferencePage() {
-        super(FLAT);
+        super(GRID);
         setDescription("Defaults for EvoSuite test generation. Projects can override them under "
                 + "Project > Properties > EvoSuite.");
     }

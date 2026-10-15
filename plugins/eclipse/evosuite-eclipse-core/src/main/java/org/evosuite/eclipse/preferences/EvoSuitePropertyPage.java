@@ -48,7 +48,7 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
     private List<SettingsFields.Field> settings = List.of();
 
     public EvoSuitePropertyPage() {
-        super(FLAT);
+        super(GRID);
     }
 
     @Override

@@ -39,8 +39,9 @@ import org.evosuite.eclipse.launch.GenerationOptions;
 
 /**
  * The settings editors, shared by the workspace preference page and the project property page
- * so that the two cannot drift apart. They are laid out in groups, each a three-column grid so
- * that the page's own column adjustment lines them up.
+ * so that the two cannot drift apart. They are laid out in groups inside the page's single
+ * field-editor parent, which is why the pages use the GRID style: in FLAT style every call to
+ * getFieldEditorParent() makes a new composite without a layout, and groups in it get no size.
  */
 final class SettingsFields {
 
@@ -141,21 +142,33 @@ final class SettingsFields {
         fields.add(new Field(new StringFieldEditor(EvoSuitePreferences.EXTRA_ARGUMENTS,
                 "Additional &EvoSuite arguments:", runtime), runtime));
 
+        // Every field editor sets a new layout on its parent with its own number of columns,
+        // so the groups get theirs back once all editors exist. The page then spans each
+        // editor's last control over the columns it does not use.
+        for (Composite group : List.of(search, output, llm, runtime)) {
+            GridLayout layout = (GridLayout) group.getLayout();
+            layout.numColumns = COLUMNS;
+        }
         fields.forEach(f -> add.accept(f.editor));
         return fields;
     }
 
+    /** The most controls any editor here has: label, text and button of the Java home. */
+    private static final int COLUMNS = 3;
+
     private static Composite group(Composite parent, String title) {
         Group group = new Group(parent, SWT.NONE);
+        group.setFont(parent.getFont());
         group.setText(title);
-        group.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, 3, 1));
-        group.setLayout(new GridLayout(3, false));
+        group.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, COLUMNS, 1));
+        group.setLayout(new GridLayout(COLUMNS, false));
         return group;
     }
 
     private static void note(Composite parent, String text) {
         Label label = new Label(parent, SWT.WRAP);
+        label.setFont(parent.getFont());
         label.setText(text);
-        label.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, 3, 1));
+        label.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, COLUMNS, 1));
     }
 }
