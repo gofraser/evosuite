@@ -138,6 +138,14 @@ public class PropertiesSuiteGAFactory
                                 + Properties.TEST_FACTORY);
                 }
             case MOSUITE:
+                // The many-objective algorithms honour only parsed-source seeding. Every other
+                // TEST_FACTORY value, including the default ARCHIVE, keeps the random-length
+                // factory so that the default search is unchanged.
+                if (Properties.TEST_FACTORY == Properties.TestFactory.PARSED_JUNIT) {
+                    logger.info("Using parsed JUnit seeding chromosome factory");
+                    return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(
+                            new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory())));
+                }
                 return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new RandomLengthTestFactory()));
             default:
                 throw new RuntimeException("Unsupported test factory: "
