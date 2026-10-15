@@ -19,31 +19,63 @@
  */
 package org.evosuite.testcase.factories;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.Properties;
+import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.LoggingUtils;
+import org.evosuite.utils.generic.GenericConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class JUnitTestParsedChromosomeFactoryTest {
 
+    /** A class under test whose binary name differs from its canonical name. */
+    public static class NestedCut {
+        public NestedCut() {
+        }
+    }
+
     private ChromosomeFactory<TestChromosome> defaultFactory;
     private double originalSeedClone;
     private int originalSeedMutations;
+    private String originalSelectedJUnit;
+    private String originalSeedTestSourceDir;
+
+    private Logger evoLogger;
+    private Level originalEvoLevel;
+    private ListAppender<ILoggingEvent> evoAppender;
 
     @BeforeEach
     void setUp() {
         originalSeedClone = Properties.SEED_CLONE;
         originalSeedMutations = Properties.SEED_MUTATIONS;
+        originalSelectedJUnit = Properties.SELECTED_JUNIT;
+        originalSeedTestSourceDir = Properties.SEED_TEST_SOURCE_DIR;
+
+        evoLogger = (Logger) LoggerFactory.getLogger(LoggingUtils.getEvoLogger().getName());
+        originalEvoLevel = evoLogger.getLevel();
+        evoLogger.setLevel(Level.INFO);
+        evoAppender = new ListAppender<>();
+        evoAppender.start();
+        evoLogger.addAppender(evoAppender);
 
         // Default factory that produces empty chromosomes
         defaultFactory = () -> {
@@ -57,6 +89,32 @@ class JUnitTestParsedChromosomeFactoryTest {
     void tearDown() {
         Properties.SEED_CLONE = originalSeedClone;
         Properties.SEED_MUTATIONS = originalSeedMutations;
+        Properties.SELECTED_JUNIT = originalSelectedJUnit;
+        Properties.SEED_TEST_SOURCE_DIR = originalSeedTestSourceDir;
+
+        evoLogger.detachAppender(evoAppender);
+        evoLogger.setLevel(originalEvoLevel);
+    }
+
+    private List<String> evoWarnings() {
+        return evoAppender.list.stream()
+                .filter(e -> e.getLevel() == Level.WARN)
+                .map(ILoggingEvent::getFormattedMessage)
+                .collect(Collectors.toList());
+    }
+
+    /** new NestedCut(); int x = 42; assertEquals(42, x); */
+    private TestCase createSeedWithAssertion() throws NoSuchMethodException {
+        DefaultTestCase tc = new DefaultTestCase();
+        tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(NestedCut.class.getConstructor(), NestedCut.class),
+                Collections.emptyList()));
+        VariableReference x = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        assertion.setSource(x);
+        assertion.setValue(42);
+        tc.getStatement(x.getStPosition()).addAssertion(assertion);
+        return tc;
     }
 
     private TestCase createSimpleTestCase() {
@@ -143,5 +201,104 @@ class JUnitTestParsedChromosomeFactoryTest {
         // Should be a different object (clone, not reference)
         assertNotSame(original, cloned);
         assertEquals(original.size(), cloned.size());
+    }
+
+    @Test
+    void clonedSeedCarriesNoParsedAssertions() throws Exception {
+        TestCase seed = createSeedWithAssertion();
+        assertTrue(seed.hasAssertions());
+
+        Properties.SEED_CLONE = 1.0;
+        Properties.SEED_MUTATIONS = 0;
+
+        JUnitTestParsedChromosomeFactory factory =
+                new JUnitTestParsedChromosomeFactory(defaultFactory, Collections.singletonList(seed));
+
+        TestCase cloned = factory.getChromosome().getTestCase();
+        assertEquals(seed.size(), cloned.size(), "statements are kept");
+        assertFalse(cloned.hasAssertions(), "parsed assertions must not reach the search");
+        assertTrue(seed.hasAssertions(), "the stored seed itself is left untouched");
+    }
+
+    @Test
+    void mutatedSeedCarriesNoParsedAssertions() throws Exception {
+        TestCase seed = createSeedWithAssertion();
+
+        Properties.SEED_CLONE = 1.0;
+        Properties.SEED_MUTATIONS = 5;
+
+        JUnitTestParsedChromosomeFactory factory =
+                new JUnitTestParsedChromosomeFactory(defaultFactory, Collections.singletonList(seed));
+
+        for (int i = 0; i < 20; i++) {
+            assertFalse(factory.getChromosome().getTestCase().hasAssertions());
+        }
+    }
+
+    @Test
+    void nestedTargetClassMatchesByBinaryName() throws Exception {
+        JUnitTestParsedChromosomeFactory factory = new JUnitTestParsedChromosomeFactory(
+                defaultFactory, Collections.singletonList(createSeedWithAssertion()));
+
+        factory.retainTestsReferencingTarget(NestedCut.class.getName());
+
+        assertEquals(1, factory.getNumParsedTestCases());
+        assertTrue(evoWarnings().isEmpty(), evoWarnings().toString());
+    }
+
+    @Test
+    void targetFilterStillAcceptsCanonicalName() throws Exception {
+        JUnitTestParsedChromosomeFactory factory = new JUnitTestParsedChromosomeFactory(
+                defaultFactory, Collections.singletonList(createSeedWithAssertion()));
+
+        factory.retainTestsReferencingTarget(NestedCut.class.getCanonicalName());
+
+        assertEquals(1, factory.getNumParsedTestCases());
+    }
+
+    @Test
+    void warnsWhenNoParsedTestReferencesTarget() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(createSeedWithAssertion());
+        tests.add(createSimpleTestCase());
+        JUnitTestParsedChromosomeFactory factory = new JUnitTestParsedChromosomeFactory(defaultFactory, tests);
+
+        factory.retainTestsReferencingTarget("com.example.Unrelated");
+
+        assertFalse(factory.hasParsedTestCases());
+        List<String> warnings = evoWarnings();
+        assertEquals(1, warnings.size(), warnings.toString());
+        assertTrue(warnings.get(0).contains("None of the 2 parsed tests reference the target class"
+                + " com.example.Unrelated"), warnings.get(0));
+    }
+
+    @Test
+    void reportsDroppedTestsWhenSomeReferenceTarget() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(createSeedWithAssertion());
+        tests.add(createSimpleTestCase());
+        JUnitTestParsedChromosomeFactory factory = new JUnitTestParsedChromosomeFactory(defaultFactory, tests);
+
+        factory.retainTestsReferencingTarget(NestedCut.class.getName());
+
+        assertEquals(1, factory.getNumParsedTestCases());
+        assertTrue(evoWarnings().isEmpty(), evoWarnings().toString());
+        assertTrue(evoAppender.list.stream().map(ILoggingEvent::getFormattedMessage)
+                        .anyMatch(m -> m.contains("Dropped 1 of 2 parsed tests that do not reference")),
+                "dropped seeds are reported");
+    }
+
+    @Test
+    void warnsWhenSelectedTestSourceCannotBeParsed() {
+        Properties.SELECTED_JUNIT = "com.example.DoesNotExistTest";
+        Properties.SEED_TEST_SOURCE_DIR = "/nonexistent-seed-dir";
+
+        JUnitTestParsedChromosomeFactory factory = new JUnitTestParsedChromosomeFactory(defaultFactory);
+
+        assertFalse(factory.hasParsedTestCases());
+        List<String> warnings = evoWarnings();
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("No test cases could be parsed from"
+                        + " com.example.DoesNotExistTest") && w.contains("seeding has no effect")),
+                warnings.toString());
     }
 }
