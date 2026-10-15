@@ -56,6 +56,9 @@ public final class EvoSuiteCommand {
     static final Set<String> NOT_CREDITED_TO_EXISTING_TESTS = Set.of("OUTPUT", "INPUT", "METHOD",
             "METHODNOEXCEPTION");
 
+    /** The folder in the report folder that EvoSuite writes the LLM traces to. */
+    public static final String LLM_TRACES = "llm-traces";
+
     /** The properties of {@link #outputLocations()}. */
     static final List<String> OUTPUT_PROPERTIES = List.of("test_dir", "junit_suffix", "report_dir", "llm_trace_dir");
 
@@ -204,7 +207,7 @@ public final class EvoSuiteCommand {
         locations.put("test_dir", testDir.getAbsolutePath());
         locations.put("junit_suffix", options.testSuffix);
         locations.put("report_dir", reportDir.getAbsolutePath());
-        locations.put("llm_trace_dir", new File(reportDir, "llm-traces").getAbsolutePath());
+        locations.put("llm_trace_dir", new File(reportDir, LLM_TRACES).getAbsolutePath());
         return locations;
     }
 

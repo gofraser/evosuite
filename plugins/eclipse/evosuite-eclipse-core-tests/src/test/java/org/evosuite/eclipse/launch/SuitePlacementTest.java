@@ -45,6 +45,7 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.core.IJavaProject;
+import org.evosuite.eclipse.Activator;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.evosuite.eclipse.ui.SuiteComparison;
@@ -54,8 +55,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Where a run's new suite ends up, with a stand-in for EvoSuite that writes a suite where the
- * command line tells it to: as EvoSuite does, it takes the last value of each property.
+ * Where a run's new suite ends up, and how a run copes with problems, with a stand-in for
+ * EvoSuite that writes a suite where the command line tells it to: as EvoSuite does, it takes the
+ * last value of each property.
  */
 public class SuitePlacementTest {
 
@@ -342,6 +344,70 @@ public class SuitePlacementTest {
         String[] written = elsewhere.list();
         assertEquals(0, written == null ? 0 : written.length, "EvoSuite wrote outside the temporary folder");
         elsewhere.delete();
+    }
+
+    /** A test class whose sources cannot be read loses its own run, not those of the others. */
+    @Test
+    public void aTargetThatCannotBePreparedLeavesTheOthers() throws Exception {
+        TestProjects.addSource(project, "src/main/java", "demo.Other", CALCULATOR.replace("Calculator", "Other"));
+        File root = project.getProject().getFolder("src/main/java").getLocation().toFile();
+        // Two source folders, so that the job copies the sources, and one of them does not exist.
+        GenerationTarget broken = GenerationTarget.extending("demo.Calculator", List.of(
+                new GenerationTarget.Seed("demo.CalculatorTest", root),
+                new GenerationTarget.Seed("demo.CalculatorIT", new File(root.getParentFile(), "missing"))));
+        GenerationTarget fine = GenerationTarget.extending("demo.Other",
+                List.of(new GenerationTarget.Seed("demo.OtherTest", root)));
+        TestGenerationJob job = new TestGenerationJob(project, List.of(broken, fine),
+                EvoSuitePreferences.resolve(project.getProject(), null), SuiteAction.ADD);
+
+        IStatus result = run(job);
+
+        assertEquals(IStatus.ERROR, result.getSeverity(), result::toString);
+        assertTrue(result.getChildren()[0].getMessage().startsWith("Cannot copy the sources of CalculatorTest and "
+                + "CalculatorIT"), result.toString());
+        assertEquals(List.of(project.getProject().getFile("src/test/evosuite/demo/Other_ESTest.java")),
+                job.getGeneratedSuites());
+        assertEquals(1, runs.size());
+    }
+
+    /**
+     * What a run that crashed left in the state area goes at the next run, and so do the
+     * statistics EvoSuite appends to at each run.
+     */
+    @Test
+    public void removesWhatEarlierRunsLeftBehind() throws Exception {
+        File state = Activator.getDefault().getStateLocation().toFile();
+        File leftover = new File(state, "generated/crashed-1/demo/Calculator_ESTest.java");
+        leftover.getParentFile().mkdirs();
+        Files.writeString(leftover.toPath(), GENERATED);
+        File reports = new File(state, "reports/" + project.getElementName());
+        File statistics = new File(reports, "statistics.csv");
+        File trace = new File(reports, "llm-traces/trace.json");
+        trace.getParentFile().mkdirs();
+        Files.writeString(statistics.toPath(), "TARGET_CLASS\n");
+        Files.writeString(trace.toPath(), "{}");
+
+        IStatus result = run(job(WHOLE_CLASS, SuiteAction.REPLACE));
+
+        assertEquals(IStatus.OK, result.getSeverity(), result::toString);
+        assertEquals(0, new File(state, "generated").list().length, "temporary folders left behind");
+        assertFalse(statistics.exists(), "statistics kept");
+        assertTrue(trace.exists(), "LLM traces deleted");
+    }
+
+    /** The build path stays as it is when the settings keep the run from starting. */
+    @Test
+    public void checksTheSettingsBeforeChangingTheBuildPath() throws Exception {
+        preferences.put(EvoSuitePreferences.LLM_PROVIDER, GenerationOptions.LLM_OLLAMA);
+        var classpath = List.of(project.getRawClasspath());
+
+        IStatus result = run(job(WHOLE_CLASS, SuiteAction.REPLACE));
+
+        assertEquals(IStatus.ERROR, result.getSeverity(), result::toString);
+        assertTrue(result.getMessage().contains("needs a model"), result.getMessage());
+        assertEquals(classpath, List.of(project.getRawClasspath()));
+        assertFalse(project.getProject().getFolder("src/test/evosuite").exists(), "test folder created");
+        assertEquals(List.of(), runs);
     }
 
     private static void write(IFile file, String contents) throws Exception {

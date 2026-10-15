@@ -219,6 +219,7 @@ public class TestGenerationJob extends Job {
             return Status.CANCEL_STATUS;
         }
         try {
+            removeLeftovers();
             return generate(progress);
         } catch (OperationCanceledException e) {
             return Status.CANCEL_STATUS;
@@ -227,6 +228,28 @@ public class TestGenerationJob extends Job {
         } finally {
             ONE_RUN_AT_A_TIME.release();
         }
+    }
+
+    /**
+     * Deletes what earlier runs left in the state area: the temporary folders of a run that
+     * crashed, which no other run uses since runs take turns, and the statistics EvoSuite appends
+     * to at each run. The LLM traces are kept.
+     */
+    private void removeLeftovers() {
+        File[] generatedDirs = Activator.getDefault().getStateLocation().append("generated").toFile().listFiles();
+        for (File leftover : generatedDirs == null ? new File[0] : generatedDirs) {
+            deleteRecursively(leftover);
+        }
+        File[] reports = reportDir().listFiles();
+        for (File report : reports == null ? new File[0] : reports) {
+            if (!report.getName().equals(EvoSuiteCommand.LLM_TRACES)) {
+                deleteRecursively(report);
+            }
+        }
+    }
+
+    private File reportDir() {
+        return Activator.getDefault().getStateLocation().append("reports").append(project.getElementName()).toFile();
     }
 
     private IStatus generate(SubMonitor progress) throws CoreException {
@@ -243,6 +266,12 @@ public class TestGenerationJob extends Job {
                     + "tests and reports, and reads them from there. Set the test folder and suffix in the "
                     + "EvoSuite settings instead.");
         }
+
+        // Everything that can fail on the settings, before the build path changes below.
+        ProjectSetup.testFolder(project.getProject(), options);
+        Map<String, String> environment = llmEnvironment(console);
+        ProjectSetup.JavaInstallation java = ProjectSetup.javaInstallation(project, options);
+        File evosuiteJar = EvoSuiteJars.evosuite();
 
         IFolder testFolder = ProjectSetup.prepareTestFolder(project, options, progress.split(2));
         if (options.configureBuildPath && !ProjectSetup.separatesTestCode(project)) {
@@ -277,17 +306,13 @@ public class TestGenerationJob extends Job {
 
         boolean extending = targets.stream().anyMatch(GenerationTarget::extendsTests);
         List<String> classpath = ProjectSetup.runtimeClasspath(project, extending);
-        Map<String, String> environment = llmEnvironment(console);
-        ProjectSetup.JavaInstallation java = ProjectSetup.javaInstallation(project, options);
         if (!java.hasCompiler) {
             console.println(java.executable.getParentFile().getParent() + " is a JRE without javac. EvoSuite "
                     + "cannot compile the tests it generates to check them, so some may fail or not compile; "
                     + "set a JDK as Java home in the EvoSuite settings.");
         }
-        File evosuiteJar = EvoSuiteJars.evosuite();
         File projectDir = project.getProject().getLocation().toFile();
-                File reportDir = Activator.getDefault().getStateLocation()
-                .append("reports").append(project.getElementName()).toFile();
+        File reportDir = reportDir();
         // Kept apart from the test folder until the user's choice has been carried out.
         File outputDir = Activator.getDefault().getStateLocation().append("generated")
                 .append(project.getElementName() + "-" + System.nanoTime()).toFile();
@@ -316,8 +341,16 @@ public class TestGenerationJob extends Job {
                         options, target.methods());
                 SeedingReport seeding = null;
                 if (target.extendsTests()) {
+                    File seedSources;
+                    try {
+                        seedSources = seedSourceDir(target, outputDir);
+                    } catch (CoreException e) {
+                        // Only this target is lost; the others still run, and the suites done so far are placed.
+                        result.add(e.getStatus());
+                        continue;
+                    }
                     command.seededBy(target.seeds().stream().map(GenerationTarget.Seed::className)
-                            .collect(Collectors.toList()), seedSourceDir(target, outputDir));
+                            .collect(Collectors.toList()), seedSources);
                     seeding = new SeedingReport(target.seedNames());
                 }
                 File suite = EvoSuiteCommand.suiteFile(outputDir, className, options.testSuffix);

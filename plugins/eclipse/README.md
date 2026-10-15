@@ -196,7 +196,7 @@ options can go into *Advanced > Additional arguments*.
 
 The project directory is EvoSuite's base directory, so an `evosuite-files/evosuite.properties`
 in the project still applies. EvoSuite's statistics go to the plugin's state area, not into the
-project.
+project, and each run replaces those of the run before.
 
 ### Maven and Gradle projects
 
