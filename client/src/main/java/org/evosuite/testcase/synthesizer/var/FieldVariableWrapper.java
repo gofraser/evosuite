@@ -137,7 +137,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                     TestGenerationContext.getInstance()
                             .getClassLoaderForSUT()
                             .loadClass(fieldOwner);
-            //            registerAllMethods(fieldDeclaringClass);
             Field field = VariableCodeGenerationUtil.searchForField(fieldDeclaringClass, fieldName);
 
             if (field == null) {
@@ -164,7 +163,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                             // TODO
                             : usedRefSearcher.searchRelevantFieldReadingReferenceInTest(
                                     test, field, variable.callerObject);
-            //            System.currentTimeMillis();
             if (usedFieldInTest != null) {
 
                 /* generate some elements for container classes */
@@ -273,7 +271,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
             }
 
         } catch (ClassNotFoundException | SecurityException | ConstructionFailedException e) {
-            //            this.printConstructionError(test, b);
             logger.debug("Ignored failure during object-rule synthesis", e);
             return null;
         }
@@ -478,7 +475,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                     TestGenerationContext.getInstance()
                             .getClassLoaderForSUT()
                             .loadClass(fieldOwner);
-            //            registerAllMethods(fieldDeclaringClass);
             Field field = VariableCodeGenerationUtil.searchForField(fieldDeclaringClass, fieldName);
 
             /*

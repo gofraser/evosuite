@@ -451,26 +451,21 @@ public class LoopCounter {
         }
 
         try {
-            // Static initializers are exempt from the iteration limit. A <clinit> that
-            // merely runs a long loop is not stuck: building a large lookup table is
-            // ordinary code, and some libraries need far more than the limit allows
-            // (org.jmol.g3d.Normix3D needs >100k). Throwing here would make the JVM
-            // mark the class erroneous for the lifetime of the classloader, so that
-            // class and every class reading from it fail with NoClassDefFoundError
-            // for the rest of the run — a permanent loss to buy a bounded saving.
-            // A genuinely stuck initializer is still terminated by time-gated
-            // guards that only fire once the test has already run out of budget:
-            // the kill-switch probe in ExecutionTracer.checkTimeout(), the
-            // timed-out-class tracking in ClassReInitializeExecutor, and the
-            // per-thread deadline armed when TestCaseExecutor abandons a worker.
+            // Static initializers are exempt from the iteration limit. A <clinit> that merely runs a long
+            // loop is not stuck: building a large lookup table is ordinary code, and some libraries need far
+            // more than the limit allows. Throwing here would make the JVM mark the class erroneous for the
+            // lifetime of the classloader, so that class and every class reading from it fail with
+            // NoClassDefFoundError for the rest of the run. A genuinely stuck initializer is still
+            // terminated by time-gated guards that only fire once the test has already run out of budget:
+            // the kill-switch probe in ExecutionTracer.checkTimeout(), the timed-out-class tracking in
+            // ClassReInitializeExecutor, and the per-thread deadline armed when TestCaseExecutor abandons a
+            // worker.
             //
-            // Once past the limit inside such an initializer, every further back-edge would
-            // otherwise pay for a full stack walk: a 10-million-iteration table build then
-            // takes minutes of CPU and no interrupt or kill switch can stop it (they are
-            // deliberately ignored in a <clinit>), which is what stalled JUnit checks for
-            // their whole budget. Walk the stack only on the iteration that crosses the
-            // limit and then only every INTERRUPT_STATIC_INIT_RECHECK_INTERVAL-th time while
-            // it keeps finding a <clinit> (the throttled, positive-only memo).
+            // Past the limit inside such an initializer, every further back-edge would otherwise pay for a
+            // full stack walk, and no interrupt or kill switch can stop it (they are deliberately ignored in
+            // a <clinit>). Walk the stack only on the iteration that crosses the limit and then only every
+            // INTERRUPT_STATIC_INIT_RECHECK_INTERVAL-th time while it keeps finding a <clinit> (the
+            // throttled, positive-only memo).
             //
             // The replay of an initializer by __STATIC_RESET() is exempt from the limit for
             // the same reason: it runs the very same loops, and an exception out of it leaves
