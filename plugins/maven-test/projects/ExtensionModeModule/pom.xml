@@ -14,17 +14,10 @@
         <version>0.1.1-SNAPSHOT</version>
     </parent>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.14.3</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
 
     <properties>
-        <pit.junit5.plugin.version>1.2.2</pit.junit5.plugin.version>
+        <!-- this module checks that coverage tools work with extension-mode tests, not how much they cover -->
+        <jmockit.coverage.check>0</jmockit.coverage.check>
     </properties>
 
     <profiles>
@@ -39,13 +32,6 @@
                             <mutationThreshold>0</mutationThreshold>
                             <coverageThreshold>0</coverageThreshold>
                         </configuration>
-                        <dependencies>
-                            <dependency>
-                                <groupId>org.pitest</groupId>
-                                <artifactId>pitest-junit5-plugin</artifactId>
-                                <version>${pit.junit5.plugin.version}</version>
-                            </dependency>
-                        </dependencies>
                     </plugin>
                 </plugins>
             </build>

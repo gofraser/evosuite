@@ -104,7 +104,7 @@ public class ProjectUtils {
     }
 
     /**
-     * Get project's dependencies.
+     * Get project's resolved dependencies, including transitive ones.
      *
      * @param project The maven project.
      * @return List of dependency path elements.
@@ -112,12 +112,12 @@ public class ProjectUtils {
     public static List<String> getDependencyPathElements(MavenProject project) {
         List<String> dependencyArtifacts = new ArrayList<>();
 
-        project.getDependencyArtifacts()
+        project.getArtifacts()
                 .stream()
                 .filter(element -> !element.isOptional())
                 // FIXME do we really need to check the 'scope'?
                 //.filter(element -> element.getScope().equals(scope))
-                .filter(element -> element.getFile().exists())
+                .filter(element -> element.getFile() != null && element.getFile().exists())
                 .filter(element -> !element.getGroupId().equals(PackageInfo.getEvoSuitePackage()))
                 .filter(element -> !element.getGroupId().equals("junit"))
                 .forEach(element -> dependencyArtifacts.add(element.getFile().getAbsolutePath()));

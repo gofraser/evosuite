@@ -129,6 +129,18 @@ public class DmonPromotionOperatorTest {
         }
     }
 
+    /**
+     * Throws a NullPointerException on every construction unless DMoN's ephemeral assist
+     * injects {@code platform} first, as corina.editor.Editor does for App.platform.
+     */
+    public static class PlatformDependent {
+        static Runnable platform;
+
+        public PlatformDependent() {
+            platform.run();
+        }
+    }
+
     public static class InstanceFieldTarget {
         private static final InstanceFieldTarget INSTANCE = new InstanceFieldTarget();
         Runnable dep;
@@ -472,6 +484,74 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
             Properties.TIMEOUT = oldTimeout;
             NullArgumentTarget.fallback = null;
+        }
+    }
+
+    @Test
+    public void promotionIsKeptWhenTheRerunFailsWhereTheAssistRepairedTheOriginal() throws Exception {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        int oldTimeout = Properties.TIMEOUT;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // See validatePromotedOnceAcceptsPassingPromotion.
+            Properties.TIMEOUT = 60000;
+
+            NullArgumentTarget.fallback = null;
+            PlatformDependent.platform = null;
+
+            TestChromosome chromosome = new TestChromosome();
+            DefaultTestCase tc = new DefaultTestCase();
+            tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(PlatformDependent.class.getDeclaredConstructor(),
+                            PlatformDependent.class),
+                    Collections.<VariableReference>emptyList()));
+            VariableReference nullArgument = tc.addStatement(new NullStatement(tc, Runnable.class));
+            tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(NullArgumentTarget.class.getDeclaredConstructor(Runnable.class),
+                            NullArgumentTarget.class),
+                    Collections.singletonList(nullArgument)));
+            chromosome.setTestCase(tc);
+            chromosome.setChanged(false);
+
+            // The first statement only got past its null because the ephemeral assist repaired it
+            // while the original ran, so only the last statement threw.
+            ExecutionResult original = new ExecutionResult(chromosome.getTestCase(), null);
+            original.setTrace(new ExecutionTraceImpl());
+            original.addDmonAssistedPosition(0);
+            original.reportNewThrownException(2, new NullPointerException("this.dep"));
+            original.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(NullArgumentTarget.class.getName(), "<init>", 0,
+                            DmonFailureSiteKind.CONSTRUCTOR_INIT),
+                    Optional.of("this.dep"),
+                    Optional.of("this"),
+                    Optional.of("dep"),
+                    Optional.of(Runnable.class.getName())));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, original);
+
+            // The re-run runs without the assist and throws at the first statement, before the
+            // null the promotion is about. That says nothing about the promotion, so it is kept
+            // for the search to re-evaluate, as it was before promotions were validated.
+            TestCase promoted = chromosome.getTestCase();
+            Assert.assertEquals("Mock + injection + the original three", 5, promoted.size());
+            Assert.assertTrue(promoted.getStatement(0) instanceof FunctionalMockStatement);
+            Assert.assertTrue(((FunctionalMockStatement) promoted.getStatement(0)).isDmonPromotion());
+            Assert.assertTrue("The kept promotion must be re-evaluated", chromosome.isChanged());
+            Assert.assertNull("Validation should restore static state", NullArgumentTarget.fallback);
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.TIMEOUT = oldTimeout;
+            NullArgumentTarget.fallback = null;
+            PlatformDependent.platform = null;
         }
     }
 

@@ -1,44 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Tycho build of the EvoSuite Eclipse plugin.
+
+  This build is standalone rather than a module of the EvoSuite reactor: Tycho 5 needs Java 21 to
+  run, the engine builds on Java 17, and the root pom's quality plugins (checkstyle, spotbugs,
+  license headers, the Java 8 compiler floor) do not apply to an OSGi bundle.
+
+  It packages engine jars that the reactor has already built, so build those first:
+
+    (repository root, JDK 17)  mvn -pl master,standalone_runtime -am package -DskipTests
+    (this directory, JDK 21+)  ./mvnw verify
+
+  Use the wrapper: Maven 3.10 rejects the dependency list Tycho injects for test bundles
+  ("Invalid Collect Request"), so the build is pinned to Maven 3.9.
+
+  The p2 update site lands in evosuite-eclipse-site/target/repository, and as a zip next to it.
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <parent>
-    <groupId>org.evosuite.plugins</groupId>
-    <artifactId>evosuite-plugins</artifactId>
-    <version>1.2.1-SNAPSHOT</version>
-  </parent>
-
+  <groupId>org.evosuite.plugins</groupId>
   <artifactId>evosuite-eclipse-plugin</artifactId>
+  <version>1.2.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
-  <profiles>
-    <profile>
-      <id>Java 8</id>
-      <activation>
-        <jdk>(,9)</jdk>
-      </activation>
-      <properties>
-        <!-- Last version of Tycho that works with Java 8 -->
-        <tycho-version>1.7.0</tycho-version>
-        <eclipse-repo.url>http://download.eclipse.org/releases/photon</eclipse-repo.url>
-      </properties>
-    </profile>
-    <profile>
-      <id>Java 9+</id>
-      <activation>
-        <jdk>[9,)</jdk>
-      </activation>
-      <properties>
-        <tycho-version>2.4.0</tycho-version>
-        <eclipse-repo.url>http://download.eclipse.org/releases/2021-09</eclipse-repo.url>
-      </properties>
-    </profile>
-  </profiles>
-
   <properties>
-    <tycho-version>2.4.0</tycho-version>
-    <eclipse-repo.url>http://download.eclipse.org/releases/2021-09</eclipse-repo.url>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <tycho-version>5.0.4</tycho-version>
+    <!-- Maven's reproducible-build default (1980) would otherwise become every qualifier. -->
+    <project.build.outputTimestamp>${maven.build.timestamp}</project.build.outputTimestamp>
+    <!-- The platform the plugin is compiled and tested against. -->
+    <eclipse-repo.url>https://download.eclipse.org/releases/2026-09</eclipse-repo.url>
+    <!-- Engine jars built by the EvoSuite reactor; override with -Devosuite.root=... -->
+    <evosuite.root>${maven.multiModuleProjectDirectory}/../..</evosuite.root>
+    <evosuite.master.jar>${evosuite.root}/master/target/evosuite-master-${project.version}.jar</evosuite.master.jar>
+    <evosuite.runtime.jar>${evosuite.root}/standalone_runtime/target/evosuite-standalone-runtime-${project.version}.jar</evosuite.runtime.jar>
   </properties>
 
   <repositories>
@@ -52,35 +49,70 @@
   <build>
     <plugins>
       <plugin>
-        <!-- enable tycho build extension -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.2</version>
+        <executions>
+          <execution>
+            <id>enforce-build-environment</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.9.9,3.10)</version>
+                  <message>Build the Eclipse plugin with ./mvnw: Maven 3.10 fails on Tycho's test bundles.</message>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                  <message>Tycho 5 and the Eclipse 2026-09 platform need Java 21 or newer.</message>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.eclipse.tycho</groupId>
         <artifactId>tycho-maven-plugin</artifactId>
         <version>${tycho-version}</version>
         <extensions>true</extensions>
       </plugin>
       <plugin>
+        <!--
+          Qualifiers come from the last commit that touched each bundle, so that every change
+          produces a newer version p2 will offer as an update, and an unchanged bundle keeps its
+          version. Uncommitted changes fall back to the build time.
+        -->
+        <groupId>org.eclipse.tycho</groupId>
+        <artifactId>tycho-packaging-plugin</artifactId>
+        <version>${tycho-version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.eclipse.tycho</groupId>
+            <artifactId>tycho-buildtimestamp-jgit</artifactId>
+            <version>${tycho-version}</version>
+          </dependency>
+        </dependencies>
+        <configuration>
+          <timestampProvider>jgit</timestampProvider>
+          <jgit.dirtyWorkingTree>warning</jgit.dirtyWorkingTree>
+          <jgit.ignore>pom.xml</jgit.ignore>
+          <format>yyyyMMddHHmm</format>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.eclipse.tycho</groupId>
         <artifactId>target-platform-configuration</artifactId>
         <version>${tycho-version}</version>
         <configuration>
-          <resolver>p2</resolver>
-          <pomDependencies>consider</pomDependencies>
           <environments>
-            <environment>
-              <os>linux</os>
-              <ws>gtk</ws>
-              <arch>x86_64</arch>
-            </environment>
-            <environment>
-              <os>win32</os>
-              <ws>win32</ws>
-              <arch>x86_64</arch>
-            </environment>
-            <environment>
-              <os>macosx</os>
-              <ws>cocoa</ws>
-              <arch>x86_64</arch>
-            </environment>
+            <environment><os>linux</os><ws>gtk</ws><arch>x86_64</arch></environment>
+            <environment><os>linux</os><ws>gtk</ws><arch>aarch64</arch></environment>
+            <environment><os>win32</os><ws>win32</ws><arch>x86_64</arch></environment>
+            <environment><os>macosx</os><ws>cocoa</ws><arch>x86_64</arch></environment>
+            <environment><os>macosx</os><ws>cocoa</ws><arch>aarch64</arch></environment>
           </environments>
         </configuration>
       </plugin>
@@ -88,9 +120,10 @@
   </build>
 
   <modules>
-    <module>evosuite-eclipse-deps</module> 
-    <module>evosuite-eclipse-core</module> 
-    <module>evosuite-eclipse-feature</module> 
-    <module>evosuite-eclipse-site</module> 
+    <module>evosuite-eclipse-deps</module>
+    <module>evosuite-eclipse-core</module>
+    <module>evosuite-eclipse-core-tests</module>
+    <module>evosuite-eclipse-feature</module>
+    <module>evosuite-eclipse-site</module>
   </modules>
 </project>

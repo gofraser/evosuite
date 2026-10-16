@@ -31,11 +31,13 @@ import org.evosuite.runtime.thread.KillSwitchHandler;
 import org.evosuite.runtime.thread.ThreadStopper;
 import org.evosuite.runtime.util.JOptionPaneInputs;
 import org.evosuite.runtime.util.SystemInUtil;
+import org.evosuite.runtime.vnet.NonFunctionalRequirementExtension;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 import org.junit.jupiter.api.extension.TestInstanceFactory;
 import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
@@ -60,7 +62,7 @@ import java.util.regex.Pattern;
  * based initialization by inferring reset/init candidates from test class names.
  */
 public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback, BeforeEachCallback,
-        AfterEachCallback, AfterAllCallback {
+        AfterEachCallback, AfterAllCallback, TestExecutionExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(EvoSuiteExtension.class);
     static final String EAGER_GUI_INIT_PROPERTY = "evosuite.extension.eager_gui_init";
@@ -71,6 +73,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
     private final Class<?> testClass;
     private final ThreadStopper threadStopper;
     private final String[] classesToInitialize;
+    private final NonFunctionalRequirementExtension nonFunctionalRequirements = new NonFunctionalRequirementExtension();
 
     /**
      * Create a new EvoSuite extension for the given test class.
@@ -183,6 +186,16 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         }
         SystemInUtil.getInstance().initForTestCase();
         JOptionPaneInputs.getInstance().initForTestCase();
+    }
+
+    /**
+     * A test that ends on one of EvoSuite's resource limits passes, as with the
+     * {@link NonFunctionalRequirementExtension} that scaffolding-based suites register: test
+     * classes in extension mode have no scaffolding, so this extension is their only handler.
+     */
+    @Override
+    public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {
+        nonFunctionalRequirements.handleTestExecutionException(context, throwable);
     }
 
     @Override

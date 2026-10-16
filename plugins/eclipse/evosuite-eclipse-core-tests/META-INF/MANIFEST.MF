@@ -1,0 +1,15 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: EvoSuite Eclipse plugin - Tests
+Bundle-SymbolicName: org.evosuite.plugins.eclipse.core.tests
+Bundle-Version: 1.2.1.qualifier
+Bundle-Vendor: EvoSuite
+Fragment-Host: org.evosuite.plugins.eclipse.core
+Bundle-RequiredExecutionEnvironment: JavaSE-21
+Import-Package: com.sun.net.httpserver,
+ org.junit.jupiter.api;version="[5.9.0,6.0.0)",
+ org.junit.jupiter.api.function;version="[5.9.0,6.0.0)",
+ org.junit.jupiter.api.io;version="[5.9.0,6.0.0)"
+Require-Bundle: org.eclipse.core.expressions,
+ org.eclipse.m2e.core;resolution:=optional,
+ org.eclipse.m2e.maven.runtime;resolution:=optional

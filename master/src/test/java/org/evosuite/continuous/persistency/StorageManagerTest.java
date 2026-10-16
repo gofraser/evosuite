@@ -20,7 +20,12 @@
 package org.evosuite.continuous.persistency;
 
 import org.apache.commons.io.FileUtils;
+import com.examples.with.different.packagename.continuous.MoreBranches;
+import com.examples.with.different.packagename.continuous.SomeBranches;
 import org.evosuite.Properties;
+import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.continuous.project.ProjectAnalyzer;
+import org.evosuite.continuous.project.ProjectStaticData;
 import java.io.File;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -59,7 +64,9 @@ public class StorageManagerTest {
 
 
     @Test
-    public void extractClassNameTest() {
+    public void extractClassNameTest() throws Exception {
+        // a storage manager creates its folder, so not in the module's own .evosuite
+        Properties.CTG_DIR = Files.createTempDirectory("evosuite-ctg-names-").toString();
         String z = File.separator;
         String base = z + "some" + z + "thing" + z;
         String packageName = "foo";
@@ -123,5 +130,95 @@ public class StorageManagerTest {
 
         storage.clean();
         FileUtils.deleteDirectory(tempCtgRoot.toFile());
+    }
+
+    @Test
+    public void runDataAndLlmTracesAreKeptOutOfVersionControl() throws Exception {
+        Path tempCtgRoot = Files.createTempDirectory("evosuite-ctg-ignore-");
+        Properties.CTG_DIR = tempCtgRoot.resolve(".evosuite").toString();
+        try {
+            new StorageManager();
+            Path ignore = tempCtgRoot.resolve(".evosuite").resolve(".gitignore");
+            List<String> lines = Files.readAllLines(ignore, StandardCharsets.UTF_8);
+            Assertions.assertTrue(lines.contains("tmp_*/"), lines.toString());
+            Assertions.assertTrue(lines.contains("llm-traces/"), lines.toString());
+
+            // a .gitignore the user changed stays as it is
+            Files.write(ignore, java.util.Collections.singletonList("*"));
+            new StorageManager();
+            Assertions.assertEquals(java.util.Collections.singletonList("*"), Files.readAllLines(ignore));
+        } finally {
+            FileUtils.deleteDirectory(tempCtgRoot.toFile());
+        }
+    }
+
+    @Test
+    public void runsStartingWithinTheSameSecondGetTheirOwnTmpFolders() throws Exception {
+        Path tempCtgRoot = Files.createTempDirectory("evosuite-ctg-tmp-");
+        Properties.CTG_DIR = tempCtgRoot.toString();
+        try {
+            StorageManager first = new StorageManager();
+            StorageManager second = new StorageManager();
+            Assertions.assertTrue(first.createNewTmpFolders());
+            Assertions.assertTrue(second.createNewTmpFolders());
+            Assertions.assertNotEquals(first.getTmpTests(), second.getTmpTests());
+        } finally {
+            FileUtils.deleteDirectory(tempCtgRoot.toFile());
+        }
+    }
+
+    @Test
+    public void aRunOnSelectedClassesKeepsTheTestsOfTheOthers() throws Exception {
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
+        Path tempCtgRoot = Files.createTempDirectory("evosuite-ctg-selected-");
+        Properties.CTG_DIR = tempCtgRoot.toString();
+        String kept = SomeBranches.class.getName();
+        String selected = MoreBranches.class.getName();
+        try {
+            // first run: tests are generated for SomeBranches
+            StorageManager first = new StorageManager();
+            Assertions.assertTrue(first.createNewTmpFolders());
+            writeGeneratedSuite(first, kept);
+            ProjectStaticData all = new ProjectAnalyzer(new String[]{kept}).analyze();
+            first.mergeAndCommitChanges(all, null);
+            Assertions.assertTrue(StorageManager.hasBestTestSuite(kept));
+
+            // second run: only MoreBranches is selected, and SomeBranches was not even analyzed
+            StorageManager second = new StorageManager();
+            Assertions.assertTrue(second.createNewTmpFolders());
+            writeJobLogs(second, selected); // its job ran, but produced no tests
+            ProjectStaticData some = new ProjectAnalyzer(new String[]{selected}).analyze();
+            second.mergeAndCommitChanges(some, new String[]{selected});
+
+            Assertions.assertTrue(StorageManager.hasBestTestSuite(kept),
+                    "a run on selected classes deleted the tests of another class");
+            Assertions.assertTrue(StorageManager.getDatabaseProject().getCut().stream()
+                    .anyMatch(cut -> cut.getFullNameOfTargetClass().equals(kept)));
+        } finally {
+            FileUtils.deleteDirectory(tempCtgRoot.toFile());
+        }
+    }
+
+    private static void writeGeneratedSuite(StorageManager storage, String cut) throws Exception {
+        String simpleName = cut.substring(cut.lastIndexOf('.') + 1);
+        Path test = storage.getTmpTests().toPath().resolve(cut.replace('.', '/') + "_ESTest.java");
+        Files.createDirectories(test.getParent());
+        Files.write(test, ("public class " + simpleName + "_ESTest {}").getBytes(StandardCharsets.UTF_8));
+
+        String csv = "TARGET_CLASS,Length,Total_Time,Size,BranchCoverage,BranchCoverageBitString\n"
+                + cut + ",1,1000,1,0.5,10\n";
+        Files.write(storage.getTmpReports().toPath().resolve(simpleName + ".csv"),
+                csv.getBytes(StandardCharsets.UTF_8));
+
+        writeJobLogs(storage, cut);
+    }
+
+    private static void writeJobLogs(StorageManager storage, String cut) throws Exception {
+        Path logs = storage.getTmpLogs().toPath().resolve(cut);
+        Files.createDirectories(logs);
+        for (String log : new String[]{"std_err_CLIENT.log", "std_out_CLIENT.log",
+                "std_err_MASTER.log", "std_out_MASTER.log"}) {
+            Files.write(logs.resolve(log), new byte[0]);
+        }
     }
 }

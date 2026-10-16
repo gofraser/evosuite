@@ -185,28 +185,39 @@ public class ProcessRunner {
         list.add(params.getMvnLocation());
         list.add("compile");
         list.add("evosuite:generate");
-        list.add("-Dcores=" + params.getCores());
+        /*
+         * Each setting goes under its current name and under its old one, which plugin versions
+         * before 1.2.1 read; newer versions ignore the old name when the current one is given.
+         */
+        addProperty(list, "cores", "" + params.getCores());
         //the memory is per core
-        list.add("-DmemoryInMB=" + (params.getMemory() * params.getCores()));
-        list.add("-DtimeInMinutesPerClass=" + params.getTime());
-        list.add("-DspawnManagerPort=" + port);
+        addProperty(list, "memoryInMB", "" + (params.getMemory() * params.getCores()));
+        addProperty(list, "timeInMinutesPerClass", "" + params.getTime());
+        addProperty(list, "spawnManagerPort", "" + port);
 
         if (classes != null && classes.size() >= 0) {
             if (classes.size() <= 10) {
                 String cuts = getCommaList(classes);
-                list.add("-Dcuts=" + cuts);
+                addProperty(list, "cuts", cuts);
             } else {
                 String filePath = writeClassesToFile(classes);
-                list.add("-DcutsFile=" + filePath);
+                addProperty(list, "cutsFile", filePath);
             }
         }
 
-        list.add("evosuite:export"); //note, here -Dctg_export_folder would do as well
+        // newer plugin versions write the tests to this folder from generate already; older ones need export
+        list.add("-Devosuite.testFolder=" + params.getFolder());
+        list.add("evosuite:export");
         list.add("-DtargetFolder=" + params.getFolder());
         return list;
     }
 
-    private static String getCommaList(Set<String> set) {
+    private static void addProperty(List<String> list, String name, String value) {
+        list.add("-Devosuite." + name + "=" + value);
+        list.add("-D" + name + "=" + value);
+    }
+
+        private static String getCommaList(Set<String> set) {
         if (set != null && !set.isEmpty()) {
             return String.join(",", set);
         }

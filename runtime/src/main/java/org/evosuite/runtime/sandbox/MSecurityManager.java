@@ -472,8 +472,8 @@ public class MSecurityManager extends SecurityManager {
         try {
             System.setSecurityManager(this);
         } catch (UnsupportedOperationException e) {
-            // Java 24+ no longer supports Security Manager
-            evoLogger.warn("* Security Manager is not supported in this JVM (Java 24+)");
+            // Sandbox.isSecurityManagerSupported() should have kept us from getting here
+            evoLogger.warn("* This JVM does not allow a security manager: " + e.getMessage());
             throw e;
         } catch (SecurityException e) {
             // this should never happen in EvoSuite, ie this object should be created just once

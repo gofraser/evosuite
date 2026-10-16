@@ -53,22 +53,22 @@ public class HistorySchedule extends OneTimeSchedule {
 
         ProjectStaticData data = this.scheduler.getProjectData();
 
-        int maximumBudgetPerCore = 60 * this.scheduler.getConfiguration().timeInMinutes;
+        int maximumBudgetPerCore = this.scheduler.getConfiguration().timeInSeconds;
 
         // the total budget we need to choose how to allocate
         int totalBudget =
                 maximumBudgetPerCore * this.scheduler.getConfiguration().getNumberOfUsableCores();
 
         // a part of the budget is fixed, as each CUT needs a minimum of it
-        int minTime = 60 * this.scheduler.getConfiguration().minMinutesPerJob
-                * data.getTotalNumberOfTestableCUTs();
+        int minTime = this.scheduler.getConfiguration().minSecondsPerJob
+                * data.getTotalNumberOfCUTsToTest();
 
         // this is what left from the minimum allocation, and that now we can
         // choose how best to allocate
         int extraTime = totalBudget - minTime;
 
         // check how much time we can give extra for each branch in a CUT
-        int numberOfBranches = data.getTotalNumberOfBranches();
+        int numberOfBranches = data.getTotalNumberOfBranchesToTest();
         double timePerBranch =
                 numberOfBranches == 0.0 ? 0.0 : (double) extraTime / (double) numberOfBranches;
 
@@ -100,7 +100,7 @@ public class HistorySchedule extends OneTimeSchedule {
                 continue;
             }
 
-            double budget = 60.0 * scheduler.getConfiguration().minMinutesPerJob
+            double budget = scheduler.getConfiguration().minSecondsPerJob
                     + (info.numberOfBranches * timePerBranch);
 
             // classes that have been modified could get more time than 'normal' classes

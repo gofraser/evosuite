@@ -36,7 +36,7 @@ import java.util.List;
  * Mojo needed to prepare the EvoSuite tests for execution.
  * This is needed to make sure that bytecode is properly instrumented.
  */
-@Mojo(name = "prepare")
+@Mojo(name = "prepare", threadSafe = true)
 public class PrepareMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "${project}", required = true, readonly = true)

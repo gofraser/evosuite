@@ -1,0 +1,359 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.eclipse.launch;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.File;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+public class EvoSuiteCommandTest {
+
+    private static List<String> arguments(GenerationOptions options) {
+        return new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Calculator",
+                List.of("/p/bin", "/p/lib/a.jar"), new File("/p"), new File("/p/src/test/evosuite"),
+                new File("/state/reports"), options).toArguments();
+    }
+
+    @Test
+    public void runsTheJarOnTheProjectClasspath() {
+        List<String> args = arguments(new GenerationOptions());
+        assertEquals(List.of("/jdk/bin/java", "-jar", "/plugin/evosuite.jar", "-class", "demo.Calculator",
+                "-projectCP", "/p/bin" + File.pathSeparator + "/p/lib/a.jar", "-base_dir",
+                new File("/p").getAbsolutePath()), args.subList(0, 9));
+        assertTrue(args.contains("-Dtest_dir=" + new File("/p/src/test/evosuite").getAbsolutePath()));
+        assertTrue(args.contains("-Dreport_dir=" + new File("/state/reports").getAbsolutePath()));
+        assertTrue(args.contains("-Dshow_progress=true"));
+    }
+
+    @Test
+    public void restrictsTheRunToTheTargetMethodsBeforeTheUsersArguments() {
+        GenerationOptions options = new GenerationOptions();
+        options.extraArguments = "-Dtarget_method_list=other()V";
+        List<String> args = new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Calculator",
+                List.of("/p/bin"), new File("/p"), new File("/out"), new File("/state/reports"), options,
+                List.of("sign(I)Ljava/lang/String;", "<init>(I)V")).toArguments();
+        int methods = args.indexOf("-Dtarget_method_list=sign(I)Ljava/lang/String;:<init>(I)V");
+        assertTrue(methods > 0, args.toString());
+        assertTrue(methods < args.indexOf("-Dtarget_method_list=other()V"), args.toString());
+        assertFalse(arguments(options).stream().anyMatch(a -> a.startsWith("-Dtarget_method_list=sign")));
+    }
+
+    private static List<String> extending(GenerationOptions options) {
+        return new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Vault",
+                List.of("/p/bin", "/p/bin-test"), new File("/p"), new File("/out"), new File("/state/reports"),
+                options).seededBy(List.of("demo.VaultTest", "demo.VaultIT"), new File("/p/src/test/java"))
+                .toArguments();
+    }
+
+    /**
+     * A run that extends tests parses them from source, runs the compiled ones to leave out what
+     * they cover, and never carves them, whatever the user's arguments say.
+     */
+    @Test
+    public void extendingParsesTheTestsAndRunsThemButNeverCarves() {
+        GenerationOptions options = new GenerationOptions();
+        options.extraArguments = "-Dtest_factory=JUNIT -Dcarve_object_pool=true -Dtest_carving=true";
+        List<String> args = extending(options);
+
+        String tests = "demo.VaultTest:demo.VaultIT";
+        List<String> seeding = List.of("-Dtest_factory=PARSED_JUNIT", "-Dselected_junit=" + tests,
+                "-Dseed_test_source_dir=" + new File("/p/src/test/java").getAbsolutePath(), "-Djunit=" + tests,
+                "-Dcarve_object_pool=false", "-Dtest_carving=false");
+        assertEquals(seeding, args.subList(args.size() - seeding.size(), args.size()));
+        assertTrue(args.indexOf("-Dtest_factory=JUNIT") < args.indexOf("-Dtest_factory=PARSED_JUNIT"));
+        assertEquals("/p/bin" + File.pathSeparator + "/p/bin-test", args.get(args.indexOf("-projectCP") + 1));
+        // Nothing else that would start the carver: the old factory, measuring coverage, carving.
+        assertFalse(args.contains("-measureCoverage"));
+        assertFalse(arguments(new GenerationOptions()).stream().anyMatch(a -> a.startsWith("-Djunit=")
+                || a.contains("test_factory") || a.contains("selected_junit") || a.contains("carv")),
+                "an ordinary run has seeding arguments");
+    }
+
+    /**
+     * The criteria whose goals EvoSuite does not credit to the existing tests are left out, as
+     * they would keep copies of those tests; other criteria, including unknown ones, stay.
+     */
+    @Test
+    public void extendingLeavesOutTheCriteriaThatWouldRepeatTheTests() {
+        GenerationOptions options = new GenerationOptions();
+        List<String> args = extending(options);
+        assertEquals("LINE:BRANCH:EXCEPTION:WEAKMUTATION:CBRANCH", args.get(args.indexOf("-criterion") + 1));
+
+        options.criterion = "branch:Output:STRONGMUTATION:method";
+        args = extending(options);
+        assertEquals("branch:STRONGMUTATION", args.get(args.indexOf("-criterion") + 1));
+
+        // Nothing left: the user's choice stands.
+        options.criterion = "OUTPUT";
+        args = extending(options);
+        assertEquals("OUTPUT", args.get(args.indexOf("-criterion") + 1));
+
+        // Ordinary runs keep EvoSuite's default.
+        assertFalse(arguments(new GenerationOptions()).contains("-criterion"));
+    }
+
+    @Test
+    public void passesTheSettings() {
+        GenerationOptions options = new GenerationOptions();
+        options.searchBudget = 15;
+        options.assertions = false;
+        options.minimize = false;
+        options.testFormat = GenerationOptions.JUNIT4;
+        options.testSuffix = "_GenTest";
+        List<String> args = arguments(options);
+        assertTrue(args.contains("-Dsearch_budget=15"));
+        assertTrue(args.contains("-Dassertions=false"));
+        assertTrue(args.contains("-Dminimize=false"));
+        assertTrue(args.contains("-Dtest_format=JUNIT4"));
+        assertTrue(args.contains("-Djunit_suffix=_GenTest"));
+    }
+
+    @Test
+    public void leavesEngineDefaultsAloneWhenUnset() {
+        List<String> args = arguments(new GenerationOptions());
+        assertFalse(args.contains("-criterion"));
+        assertFalse(args.contains("-mem"));
+        assertFalse(args.stream().anyMatch(a -> a.startsWith("-Dassertion_strategy=") || a.startsWith("-Dtimeout=")
+                || a.contains("naming_strategy") || a.startsWith("-Dtest_comments=")), args.toString());
+    }
+
+    @Test
+    public void passesTheTestShapeSettings() {
+        GenerationOptions options = new GenerationOptions();
+        options.assertionStrategy = "ALL";
+        options.testNaming = "COVERAGE";
+        options.variableNaming = "HEURISTICS_BASED";
+        options.testComments = true;
+        options.testTimeout = 1000;
+        assertTrue(arguments(options).containsAll(List.of("-Dassertion_strategy=ALL",
+                "-Dtest_naming_strategy=COVERAGE", "-Dvariable_naming_strategy=HEURISTICS_BASED",
+                "-Dtest_comments=true", "-Dtimeout=1000")));
+    }
+
+    @Test
+    public void passesCriteriaAndMemoryWhenSet() {
+        GenerationOptions options = new GenerationOptions();
+        options.criterion = "LINE:BRANCH";
+        options.clientMemory = 3000;
+        List<String> args = arguments(options);
+        assertEquals("LINE:BRANCH", args.get(args.indexOf("-criterion") + 1));
+        assertEquals("3000", args.get(args.indexOf("-mem") + 1));
+    }
+
+    @Test
+    public void extraArgumentsComeLastSoTheyWin() {
+        GenerationOptions options = new GenerationOptions();
+        options.extraArguments = "-Dsearch_budget=5 -Dsandbox=false";
+        List<String> args = userArguments(arguments(options));
+        assertEquals(List.of("-Dsearch_budget=5", "-Dsandbox=false"), args.subList(args.size() - 2, args.size()));
+    }
+
+    @Test
+    public void splitsArgumentsLikeAShell() {
+        assertEquals(List.of(), EvoSuiteCommand.splitArguments("  "));
+        assertEquals(List.of("-Da=1", "-Db=two words", "-Dc=it's"),
+                EvoSuiteCommand.splitArguments(" -Da=1  -Db=\"two words\" \"-Dc=it's\""));
+        assertEquals(List.of("-Dx=a b"), EvoSuiteCommand.splitArguments("-Dx=a\\ b"));
+        assertEquals(List.of("-Dp='q'"), EvoSuiteCommand.splitArguments("\"-Dp='q'\""));
+        assertEquals(List.of(""), EvoSuiteCommand.splitArguments("''"));
+    }
+
+    @Test
+    public void keepsBackslashesInWindowsPaths() {
+        assertEquals(List.of("-Dtest_dir=C:\\work\\tests"),
+                EvoSuiteCommand.splitArguments("-Dtest_dir=C:\\work\\tests"));
+        assertEquals(List.of("-Dtest_dir=C:\\my work"),
+                EvoSuiteCommand.splitArguments("\"-Dtest_dir=C:\\my work\""));
+    }
+
+    @Test
+    public void noLlmArgumentsWithoutAProvider() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmModel = "m";
+        options.llmOnStagnation = true;
+        // Only the trace folder, which keeps traces out of the project should the LLM be switched
+        // on some other way.
+        assertFalse(arguments(options).stream().anyMatch(a -> (a.contains("llm") && !a.startsWith("-Dllm_trace_dir="))
+                || a.contains("strategy")));
+    }
+
+    @Test
+    public void passesTheLlmSettingsButNeverTheKey() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_ANTHROPIC;
+        options.llmModel = "claude-sonnet-5-5";
+        options.llmSeeding = "STANDARD";
+        options.llmOnStagnation = true;
+        options.llmOperators = true;
+        options.llmPostprocessing = true;
+        options.llmMaxCalls = 25;
+        List<String> args = arguments(options);
+        assertTrue(args.containsAll(List.of("-Dllm_provider=ANTHROPIC", "-Dllm_model=claude-sonnet-5-5",
+                "-Dllm_seeding_profile=STANDARD", "-Dllm_on_stagnation=true", "-Dllm_operator_enabled=true",
+                "-Dllm_postprocessing_enabled=true", "-Dllm_max_calls=25")), args.toString());
+        assertFalse(args.stream().anyMatch(a -> a.contains("llm_base_url") || a.contains("strategy")
+                || a.contains("api_key")), args.toString());
+    }
+
+    @Test
+    public void ollamaGetsTheLocalServerByDefault() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_OLLAMA;
+        assertTrue(arguments(options).contains("-Dllm_base_url=http://localhost:11434"));
+        options.llmBaseUrl = "http://gpu-box:11434";
+        assertTrue(arguments(options).contains("-Dllm_base_url=http://gpu-box:11434"));
+    }
+
+    @Test
+    public void searchOnlyKeepsTheLlmOffWhateverElseIsConfigured() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_ANTHROPIC;
+        options.llmModel = "claude-sonnet-5-5";
+        options.llmOnStagnation = true;
+        options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
+        options.extraArguments = "-Dllm_provider=OPENAI";
+        options.pomProperties = Map.of("llm_provider", "OLLAMA");
+        options.pomExtraArguments = "-Dllm_provider=OPENAI";
+        List<String> args = arguments(options);
+        assertFalse(options.usesLlm());
+        assertEquals("NONE", options.effectiveLlmProvider());
+        assertFalse(args.contains("-Dllm_provider=ANTHROPIC") || args.contains("-Dllm_on_stagnation=true"));
+        assertEquals("-Dllm_provider=NONE", args.get(args.size() - 1), "the last word on the provider");
+        // The settings themselves are untouched, ready for when the LLM is switched back on.
+        assertEquals("claude-sonnet-5-5", options.llmModel);
+    }
+
+    @Test
+    public void llmOnlyApproachesSwitchTheStrategy() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_OPENAI;
+        options.llmApproach = GenerationOptions.APPROACH_LLM_ITERATIVE;
+        List<String> args = arguments(options);
+        assertTrue(args.containsAll(List.of("-Dstrategy=LLMSTRATEGY", "-Dllm_strategy_mode=ITERATIVE_BUDGETED")));
+        options.llmApproach = GenerationOptions.APPROACH_LLM_SINGLE_PROMPT;
+        assertTrue(arguments(options).contains("-Dllm_strategy_mode=SINGLE_PROMPT"));
+    }
+
+    @Test
+    public void thePomsArgumentsComeLastAndExtraArgsWinOverItsProperties() {
+        GenerationOptions options = new GenerationOptions();
+        options.extraArguments = "-Dllm_model=ide";
+        options.pomProperties = new java.util.LinkedHashMap<>(Map.of("llm_model", "pom property"));
+        options.pomExtraArguments = "-Dllm_model=pom-args";
+        List<String> args = userArguments(arguments(options));
+        assertEquals(List.of("-Dllm_model=ide", "-Dllm_model=pom property", "-Dllm_model=pom-args"),
+                args.subList(args.size() - 3, args.size()));
+        assertEquals("pom-args", options.effectiveLlmModel());
+    }
+
+    @Test
+    public void thePomCanSwitchTheLlmOn() {
+        GenerationOptions options = new GenerationOptions();
+        assertEquals("NONE", options.effectiveLlmProvider());
+        options.pomProperties = Map.of("llm_provider", "ollama");
+        assertEquals("OLLAMA", options.effectiveLlmProvider());
+    }
+
+    /**
+     * EvoSuite takes the last value of a property, and the plug-in reads the suite from where it
+     * told EvoSuite to write it: a test folder or suffix in the user's arguments must not win.
+     */
+    @Test
+    public void theUsersArgumentsCannotMoveTheOutput() {
+        GenerationOptions options = new GenerationOptions();
+        options.extraArguments = "-Dtest_dir=/elsewhere -Dsearch_budget=5";
+        options.pomProperties = Map.of("junit_suffix", "Test", "report_dir", "/pom/reports");
+        options.pomExtraArguments = "-Dllm_trace_dir=/pom/traces";
+        List<String> args = arguments(options);
+
+        assertEquals("-Dtest_dir=" + new File("/p/src/test/evosuite").getAbsolutePath(), last(args, "-Dtest_dir="));
+        assertEquals("-Djunit_suffix=_ESTest", last(args, "-Djunit_suffix="));
+        assertEquals("-Dreport_dir=" + new File("/state/reports").getAbsolutePath(), last(args, "-Dreport_dir="));
+        assertEquals("-Dllm_trace_dir=" + new File(new File("/state/reports"), "llm-traces").getAbsolutePath(),
+                last(args, "-Dllm_trace_dir="));
+        assertEquals("-Dsearch_budget=5", last(args, "-Dsearch_budget="));
+        assertEquals(List.of("test_dir", "junit_suffix", "report_dir", "llm_trace_dir"),
+                EvoSuiteCommand.overriddenUserProperties(options));
+        assertEquals(List.of(), EvoSuiteCommand.overriddenUserProperties(new GenerationOptions()));
+    }
+
+    /** The arguments up to the output locations, which only follow the user's arguments. */
+    private static List<String> userArguments(List<String> args) {
+        int outputLocations = args.lastIndexOf(last(args, "-Dtest_dir="));
+        assertEquals(List.of("-Dtest_dir=", "-Djunit_suffix=", "-Dreport_dir=", "-Dllm_trace_dir="),
+                args.subList(outputLocations, outputLocations + 4).stream()
+                        .map(a -> a.substring(0, a.indexOf('=') + 1)).toList());
+        return args.subList(0, outputLocations);
+    }
+
+    private static String last(List<String> args, String prefix) {
+        return args.stream().filter(a -> a.startsWith(prefix)).reduce((a, b) -> b).orElse(null);
+    }
+
+    @Test
+    public void tracesStayOutOfTheProject() {
+        assertTrue(arguments(new GenerationOptions()).contains(
+                "-Dllm_trace_dir=" + new File(new File("/state/reports"), "llm-traces").getAbsolutePath()));
+    }
+
+    @Test
+    public void masksApiKeysForDisplay() {
+        assertEquals("java -Dllm_api_key=**** -Dx=1",
+                EvoSuiteCommand.forDisplay(List.of("java", "-Dllm_api_key=sk-secret", "-Dx=1")));
+    }
+
+    @Test
+    public void shortCommandLinesStayInline() throws Exception {
+        List<String> args = List.of("java", "-jar", "evosuite.jar");
+        assertEquals(args, EvoSuiteCommand.fitCommandLine(args, new File("unused"), 100));
+    }
+
+    @Test
+    public void longCommandLinesGoThroughAnArgumentFileTheLauncherReads(@TempDir Path dir) throws Exception {
+        String java = ProcessHandle.current().info().command().orElseThrow();
+        String probe = "a b\\c \"q\" " + "x".repeat(200);
+        List<String> args = List.of(java, "-Dprobe=" + probe, "-XshowSettings:properties", "-version");
+        File argumentFile = dir.resolve("args.txt").toFile();
+
+        List<String> fitted = EvoSuiteCommand.fitCommandLine(args, argumentFile, 100);
+        assertEquals(List.of(java, "@" + argumentFile.getAbsolutePath()), fitted);
+
+        Process process = new ProcessBuilder(fitted).redirectErrorStream(true).start();
+        String output = new String(process.getInputStream().readAllBytes());
+        process.waitFor();
+        assertTrue(output.contains("probe = " + probe), output);
+    }
+
+    @Test
+    public void locatesTheSuiteFile() {
+        assertEquals(new File(new File("/t"), "demo" + File.separator + "sub" + File.separator + "Calc_ESTest.java"),
+                EvoSuiteCommand.suiteFile(new File("/t"), "demo.sub.Calc", "_ESTest"));
+        assertEquals(new File(new File("/t"), "Calc_ESTest.java"),
+                EvoSuiteCommand.suiteFile(new File("/t"), "Calc", "_ESTest"));
+    }
+}

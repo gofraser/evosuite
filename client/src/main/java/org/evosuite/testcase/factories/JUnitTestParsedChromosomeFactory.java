@@ -93,6 +93,7 @@ public class JUnitTestParsedChromosomeFactory implements
 
         String[] classNames = Properties.SELECTED_JUNIT.split(":");
         TestParser parser = TestParser.forSUT();
+        int emptyTests = 0;
 
         for (String className : classNames) {
             String sourcePath = className.replace('.', File.separatorChar) + ".java";
@@ -114,6 +115,7 @@ public class JUnitTestParsedChromosomeFactory implements
                                     result.getOriginalMethodName(), tc.size());
                         }
                     } else {
+                        emptyTests++;
                         logger.info("Skipping empty parsed test '{}' from {}",
                                 result.getOriginalMethodName(), className);
                     }
@@ -130,15 +132,13 @@ public class JUnitTestParsedChromosomeFactory implements
             }
         }
 
-        // Filter to tests that reference the target class
-        if (Properties.TARGET_CLASS != null && !parsedTests.isEmpty()) {
-            int beforeFilter = parsedTests.size();
-            parsedTests.removeIf(tc -> !referencesTargetClass(tc, Properties.TARGET_CLASS));
-            if (parsedTests.size() < beforeFilter) {
-                logger.info("Filtered parsed tests from {} to {} (only keeping tests that reference {})",
-                        beforeFilter, parsedTests.size(), Properties.TARGET_CLASS);
-            }
+        if (parsedTests.isEmpty()) {
+            LoggingUtils.getEvoLogger().warn("* No test cases could be parsed from {} ({} empty test(s) skipped);"
+                    + " parsed JUnit seeding has no effect", Properties.SELECTED_JUNIT, emptyTests);
+            return;
         }
+
+        retainTestsReferencingTarget(Properties.TARGET_CLASS);
 
         if (!parsedTests.isEmpty()) {
             LoggingUtils.getEvoLogger().info("* Using {} parsed tests from JUnit source for seeding",
@@ -148,6 +148,28 @@ public class JUnitTestParsedChromosomeFactory implements
                     logger.debug("Parsed Test: {}", test.toCode());
                 }
             }
+        }
+    }
+
+    /**
+     * Keeps only the parsed tests that construct the target class or call one of its methods,
+     * and reports at warning level when the filter leaves nothing to seed with.
+     *
+     * @param targetClass the binary name of the class under test, or {@code null} to keep all tests
+     */
+    void retainTestsReferencingTarget(String targetClass) {
+        if (targetClass == null || parsedTests.isEmpty()) {
+            return;
+        }
+        int beforeFilter = parsedTests.size();
+        parsedTests.removeIf(tc -> !referencesTargetClass(tc, targetClass));
+        int dropped = beforeFilter - parsedTests.size();
+        if (parsedTests.isEmpty()) {
+            LoggingUtils.getEvoLogger().warn("* None of the {} parsed tests reference the target class {};"
+                    + " parsed JUnit seeding has no effect", beforeFilter, targetClass);
+        } else if (dropped > 0) {
+            LoggingUtils.getEvoLogger().info("* Dropped {} of {} parsed tests that do not reference {}",
+                    dropped, beforeFilter, targetClass);
         }
     }
 
@@ -210,20 +232,27 @@ public class JUnitTestParsedChromosomeFactory implements
         for (int i = 0; i < tc.size(); i++) {
             Statement stmt = tc.getStatement(i);
             if (stmt instanceof ConstructorStatement) {
-                String declClass = ((ConstructorStatement) stmt).getConstructor()
-                        .getDeclaringClass().getCanonicalName();
-                if (targetClassName.equals(declClass)) {
+                Class<?> declClass = ((ConstructorStatement) stmt).getConstructor().getDeclaringClass();
+                if (isTargetClass(declClass, targetClassName)) {
                     return true;
                 }
             } else if (stmt instanceof MethodStatement) {
-                String declClass = ((MethodStatement) stmt).getMethod()
-                        .getDeclaringClass().getCanonicalName();
-                if (targetClassName.equals(declClass)) {
+                Class<?> declClass = ((MethodStatement) stmt).getMethod().getDeclaringClass();
+                if (isTargetClass(declClass, targetClassName)) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    /**
+     * TARGET_CLASS is a binary name ({@code a.Outer$Inner}), so a nested class under test only
+     * matches by {@link Class#getName()}; the canonical name is still accepted as before.
+     */
+    private static boolean isTargetClass(Class<?> declClass, String targetClassName) {
+        return targetClassName.equals(declClass.getName())
+                || targetClassName.equals(declClass.getCanonicalName());
     }
 
     @Override
@@ -242,7 +271,13 @@ public class JUnitTestParsedChromosomeFactory implements
         logger.info("Cloning parsed test");
         TestCase test = Randomness.choice(parsedTests);
         TestChromosome chromosome = new TestChromosome();
-        chromosome.setTestCase(test.clone());
+        TestCase clone = test.clone();
+        // Parsed assertions describe the original test only. Once the clone is mutated they
+        // can contradict the values it now produces, and they would survive into the output
+        // next to the assertions generated after the search. Assertions are regenerated for
+        // the final suite anyway, so the search works on assertion-free seeds.
+        clone.removeAssertions();
+        chromosome.setTestCase(clone);
         if (N_mutations > 0) {
             int numMutations = Randomness.nextInt(N_mutations);
             logger.debug("Mutations: " + numMutations);

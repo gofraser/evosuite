@@ -26,6 +26,7 @@ import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.continuous.job.schedule.HistorySchedule;
+import org.evosuite.continuous.persistency.ClassFingerprints;
 import org.evosuite.continuous.project.ProjectStaticData.ClassInfo;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * <p>This class is used to analyze and gather all the
@@ -70,6 +72,16 @@ public class ProjectAnalyzer {
      * them), instead of justing using them directly (and get errors later).
      */
     private final boolean validateCutsToAnalyze;
+
+    /**
+     * Fingerprints from previous runs, to tell which classes changed; {@code null} treats all as changed.
+     */
+    private ClassFingerprints fingerprints = null;
+
+    /**
+     * Tells whether a class already has generated tests from a previous run.
+     */
+    private Predicate<String> hasTests = className -> false;
 
     /**
      * Main constructor.
@@ -114,6 +126,26 @@ public class ProjectAnalyzer {
         this.validateCutsToAnalyze = false;
         this.cutsToAnalyze = new LinkedHashSet<>();
         cutsToAnalyze.addAll(Arrays.asList(cuts));
+    }
+
+    /**
+     * Detect which classes changed since their tests were generated. In an incremental run
+     * (see {@link Properties#CTG_INCREMENTAL}) only those, and classes without tests, are tested.
+     *
+     * @param fingerprints the fingerprints recorded in previous runs
+     * @param hasTests     whether a class already has generated tests
+     */
+    public void useChangeDetection(ClassFingerprints fingerprints, Predicate<String> hasTests) {
+        this.fingerprints = fingerprints;
+        this.hasTests = hasTests;
+    }
+
+    /**
+     * Classes the user selected explicitly are tested even if they did not change, unless the
+     * selection is just a filter on the project's classes (see {@link Properties#CTG_SELECTED_CUTS_ARE_FILTER}).
+     */
+    private boolean cutsSelectedExplicitly() {
+        return cutsToAnalyze != null && validateCutsToAnalyze && !Properties.CTG_SELECTED_CUTS_ARE_FILTER;
     }
 
     private Collection<String> getCutsToAnalyze() {
@@ -190,6 +222,9 @@ public class ProjectAnalyzer {
 
         ProjectStaticData data = new ProjectStaticData();
         if (Properties.CTG_SCHEDULE.equals(AvailableSchedule.HISTORY)) {
+            data.loadPreviousResults();
+        }
+        if (Properties.CTG_HISTORY_FILE != null) {
             data.initializeLocalHistory();
         }
 
@@ -239,12 +274,56 @@ public class ProjectAnalyzer {
             ClassInfo ci = new ClassInfo(theClass, numberOfBranches, hasCode);
             data.addNewClass(ci);
 
-            if (Properties.CTG_SCHEDULE == AvailableSchedule.HISTORY) {
-                ci.setChanged(data.hasChanged(theClass.getCanonicalName() + ".java"));
-                ci.isToTest(data.isToTest(theClass.getCanonicalName(), HistorySchedule.COMMIT_IMPROVEMENT));
-            }
+            detectChange(data, ci);
         }
 
         return data;
+    }
+
+    private void detectChange(ProjectStaticData data, ClassInfo ci) {
+        String fingerprint = null;
+        if (fingerprints != null) {
+            // recorded once the class's tests are generated, whatever decides what changed
+            fingerprint = fingerprints.fingerprint(ci.theClass);
+            ci.setFingerprint(fingerprint);
+        }
+
+        // one source decides what changed: a list of changed source files if one is given
+        // (eg from version control), otherwise the fingerprints
+        boolean changed;
+        if (data.hasHistoryFile()) {
+            changed = data.hasChanged(sourceFileOf(ci.theClass));
+        } else if (fingerprints != null) {
+            changed = fingerprints.hasChanged(ci.getClassName(), fingerprint);
+        } else {
+            changed = true;
+        }
+
+        if (Properties.CTG_SCHEDULE == AvailableSchedule.HISTORY) {
+            ci.setChanged(changed);
+            ci.isToTest(changed || data.isToTest(ci.getClassName(), HistorySchedule.COMMIT_IMPROVEMENT));
+            return;
+        }
+
+        // "changed" also decides whether a new suite replaces the old one without comparing coverage.
+        // Outside HISTORY a class that is tested always gets its new suite, so it counts as changed;
+        // change detection only decides which classes are tested at all.
+        ci.setChanged(true);
+        if (Properties.CTG_INCREMENTAL && fingerprints != null && !cutsSelectedExplicitly()) {
+            ci.isToTest(changed || !hasTests.test(ci.getClassName()));
+        }
+    }
+
+    /**
+     * The source file a class is declared in, relative to its source root, eg {@code a.b.C.java} for
+     * {@code a.b.C} and for its nested classes {@code a.b.C$D}.
+     */
+    static String sourceFileOf(Class<?> theClass) {
+        String name = theClass.getName();
+        int nested = name.indexOf('$');
+        if (nested >= 0) {
+            name = name.substring(0, nested);
+        }
+        return name + ".java";
     }
 }

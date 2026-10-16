@@ -23,8 +23,10 @@ import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
+import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.continuous.project.ProjectStaticData;
+import org.evosuite.continuous.project.ProjectStaticData.ClassInfo;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.FileIOUtils;
 import org.evosuite.utils.LoggingUtils;
@@ -41,6 +43,7 @@ import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import java.io.*;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.*;
@@ -110,6 +113,8 @@ public class StorageManager {
             }
         }
 
+        writeGitIgnoreIfMissing(root);
+
         File testsFolder = getBestTestFolder();
         if (!testsFolder.exists()) {
             if (!testsFolder.mkdirs()) {
@@ -147,6 +152,47 @@ public class StorageManager {
                 + File.separator + Properties.CTG_BESTS_DIR_NAME);
     }
 
+    static final String GIT_IGNORE = ".gitignore";
+
+    /**
+     * Keep what should not be committed out of version control, without the user having to know about it:
+     * the folders of each run, which can be large, and LLM traces, which contain the project's code. What
+     * remains (the best tests, the class fingerprints, seeds and object pools) may be committed to share
+     * incremental runs. A .gitignore the user has edited is left alone.
+     */
+    private static void writeGitIgnoreIfMissing(File root) {
+        File ignore = new File(root, GIT_IGNORE);
+        if (ignore.exists()) {
+            return;
+        }
+        try {
+            FileUtils.write(ignore, "# Written by EvoSuite. Remove a line to commit what it names.\n"
+                    + TMP_PREFIX + "*/\n"
+                    + "llm-traces/\n", StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            logger.warn("Cannot write " + ignore + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Whether the current best set has a test suite for a class.
+     *
+     * @param className the class under test
+     * @return true if there is a test suite
+     */
+    public static boolean hasBestTestSuite(String className) {
+        return getFileForTargetBestTest(className + Properties.JUNIT_SUFFIX).exists();
+    }
+
+    /**
+     * Where the object pools written by accepted jobs are kept between runs.
+     *
+     * @return the folder
+     */
+    public static File getPoolInFolder() {
+        return new File(new File(Properties.CTG_DIR), "evosuite-" + Properties.CTG_TMP_POOLS_DIR_NAME);
+    }
+
     public static File getSeedInFolder() {
         return new File(new File(Properties.CTG_DIR), "evosuite-" + Properties.CTG_SEEDS_DIR_NAME);
     }
@@ -163,13 +209,20 @@ public class StorageManager {
         }
 
         String time = DateFormatUtils.format(new Date(), "yyyy_MM_dd_HH_mm_ss", Locale.getDefault());
-        File tmp = null;
+        String name;
 
         if (Properties.CTG_GENERATION_DIR_PREFIX == null) {
-            tmp = new File(Properties.CTG_DIR + File.separator + TMP_PREFIX + time);
+            name = Properties.CTG_DIR + File.separator + TMP_PREFIX + time;
         } else {
-            tmp = new File(Properties.CTG_DIR + File.separator + TMP_PREFIX
-                    + Properties.CTG_GENERATION_DIR_PREFIX + "_" + time);
+            name = Properties.CTG_DIR + File.separator + TMP_PREFIX
+                    + Properties.CTG_GENERATION_DIR_PREFIX + "_" + time;
+        }
+
+        // an incremental run with nothing to do can finish within a second, so the next
+        // run may start within the same second
+        File tmp = new File(name);
+        for (int i = 1; tmp.exists(); i++) {
+            tmp = new File(name + "_" + i);
         }
 
         if (!tmp.mkdirs()) {
@@ -290,7 +343,13 @@ public class StorageManager {
         Project db = StorageManager.getDatabaseProject();
         String info = "\n\n=== CTG run results ===\n";
 
-        info += removeNoMoreExistentData(db, current);
+        boolean wholeProject = cuts == null || cuts.length == 0;
+        if (wholeProject) {
+            // a run on selected classes only has not seen the others, which still exist
+            info += removeNoMoreExistentData(db, current);
+        }
+
+        ClassFingerprints fingerprints = ClassFingerprints.load(EvoSuite.getVersionIdentifier());
 
         List<TestsOnDisk> suites = gatherGeneratedTestsOnDisk();
         info += "\nNew test suites: " + suites.size();
@@ -306,13 +365,36 @@ public class StorageManager {
                 continue;
             }
 
+            ClassInfo classInfo = current.getClassInfo(cut);
+            if (!classInfo.isToTest() && Properties.CTG_SCHEDULE != Properties.AvailableSchedule.HISTORY) {
+                // unchanged in an incremental run: no job, and nothing to record
+                continue;
+            }
+
             TestsOnDisk suite = suites.parallelStream().filter(s -> s.cut.equals(cut)).findFirst().orElse(null);
-            if (suite == null && current.getClassInfo(cut).isToTest()) {
+            if (suite == null && classInfo.isToTest()) {
                 missingCUTs.add(cut);
             }
 
-            LoggingUtils.getEvoLogger().info("* Updating database to " + cut);
+            logger.debug("Updating database to " + cut);
             updateDatabase(cut, suite, db, current);
+
+            if (suite != null) {
+                // tests were generated for this version of the class, whether or not they beat the old ones;
+                // a class without tests keeps its old fingerprint, so the next run tries again
+                fingerprints.record(cut, classInfo.getFingerprint());
+                keepObjectPool(cut);
+            }
+        }
+
+        if (wholeProject) {
+            fingerprints.retainOnly(current.getClassNames());
+        }
+        try {
+            fingerprints.save();
+        } catch (IOException e) {
+            logger.error("Failed to save class fingerprints, the next run will regenerate all tests: "
+                    + e.getMessage(), e);
         }
 
         /*
@@ -627,6 +709,22 @@ public class StorageManager {
             } catch (IOException e) {
                 logger.error("Failed to copy over a new generated serialized test suite: " + e.getMessage(), e);
             }
+        }
+    }
+
+    /**
+     * Keep the object pool of a class for later runs, in which the class may not be tested again
+     * but still be the input of classes that are.
+     */
+    private void keepObjectPool(String cut) {
+        File pool = new File(tmpPools, cut + ".pool");
+        if (!pool.isFile()) {
+            return;
+        }
+        try {
+            FileUtils.copyFile(pool, new File(getPoolInFolder(), pool.getName()));
+        } catch (IOException e) {
+            logger.warn("Failed to keep the object pool of " + cut + ": " + e.getMessage());
         }
     }
 
@@ -950,7 +1048,7 @@ public class StorageManager {
         }
     }
 
-    private File getFileForTargetBestTest(String testName) {
+    private static File getFileForTargetBestTest(String testName) {
         String path = testName.replace(".", File.separator);
         path += ".java";
         return new File(getBestTestFolder() + File.separator + path);

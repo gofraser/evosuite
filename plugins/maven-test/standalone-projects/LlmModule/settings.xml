@@ -1,0 +1,8 @@
+<settings>
+    <servers>
+        <server>
+            <id>evosuite-llm</id>
+            <password>sk-maven-plugin-it</password>
+        </server>
+    </servers>
+</settings>

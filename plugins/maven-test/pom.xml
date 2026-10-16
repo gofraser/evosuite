@@ -14,10 +14,6 @@
     <artifactId>evosuite-maven-plugin-test</artifactId>
     <packaging>jar</packaging>
 
-    <properties>
-        <evosuiteVersion>${project.version}</evosuiteVersion>
-    </properties>
-
     <dependencies>
         <!-- Force this module to be built after the Maven Plugin-->
         <dependency>
@@ -36,5 +32,36 @@
             <artifactId>maven-verifier</artifactId>
         </dependency>
     </dependencies>
+
+    <properties>
+        <evosuiteVersion>${project.version}</evosuiteVersion>
+        <!-- JUnit 5 tags to run, eg "smoke"; all tests if empty -->
+        <its.groups></its.groups>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <groups>${its.groups}</groups>
+                    <systemPropertyVariables>
+                        <evosuiteVersion>${evosuiteVersion}</evosuiteVersion>
+                    </systemPropertyVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <!-- unlike the other modules, failing tests here must fail the build -->
+                        <id>failsafe-integration-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

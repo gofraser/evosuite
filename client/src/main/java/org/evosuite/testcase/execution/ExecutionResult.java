@@ -119,6 +119,12 @@ public class ExecutionResult implements Cloneable {
     private boolean dmonContaminated = false;
 
     /**
+     * Positions of the statements whose NPE the DMoN ephemeral assist repaired at runtime, so
+     * that the statement did not throw in this execution.
+     */
+    private final Set<Integer> dmonAssistedPositions = new TreeSet<>();
+
+    /**
      * Summary.
      * @return the executedStatements
      */
@@ -526,6 +532,7 @@ public class ExecutionResult implements Cloneable {
         copy.dmonPromotionPlan = this.dmonPromotionPlan;
         copy.dmonPromotionConsumed = this.dmonPromotionConsumed;
         copy.dmonContaminated = this.dmonContaminated;
+        copy.dmonAssistedPositions.addAll(this.dmonAssistedPositions);
 
         return copy;
     }
@@ -775,5 +782,22 @@ public class ExecutionResult implements Cloneable {
 
     public void setDmonContaminated(boolean dmonContaminated) {
         this.dmonContaminated = dmonContaminated;
+    }
+
+    /**
+     * Records that the ephemeral assist repaired the NPE of the statement at the position, which
+     * therefore passed in this execution although it would throw without DMoN.
+     *
+     * @param position the statement position
+     */
+    public void addDmonAssistedPosition(int position) {
+        dmonAssistedPositions.add(position);
+    }
+
+    /**
+     * @return the positions of the statements that passed only because of the ephemeral assist
+     */
+    public Set<Integer> getDmonAssistedPositions() {
+        return Collections.unmodifiableSet(dmonAssistedPositions);
     }
 }

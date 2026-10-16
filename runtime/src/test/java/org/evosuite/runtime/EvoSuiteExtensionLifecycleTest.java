@@ -60,6 +60,16 @@ public class EvoSuiteExtensionLifecycleTest {
     }
 
     @EvoRunnerParameters
+    public static class ResourceLimit_ESTest {
+        @org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit
+        public void marked() {
+        }
+
+        public void unmarked() {
+        }
+    }
+
+    @EvoRunnerParameters
     public static class NoDefaultConstructor_ESTest {
         private NoDefaultConstructor_ESTest(String ignored) {
         }
@@ -137,6 +147,30 @@ public class EvoSuiteExtensionLifecycleTest {
         Assertions.assertFalse(RuntimeSettings.resetStaticState);
         Assertions.assertFalse(RuntimeSettings.useSeparateClassLoader);
         Assertions.assertTrue(RuntimeSettings.useJEE);
+    }
+
+    @Test
+    public void shouldPassATestThatEndsOnAResourceLimit() throws Throwable {
+        EvoSuiteExtension extension = new EvoSuiteExtension(ResourceLimit_ESTest.class);
+
+        extension.handleTestExecutionException(methodContext(ResourceLimit_ESTest.class, "unmarked"),
+                new TooManyResourcesException("loop limit"));
+        extension.handleTestExecutionException(methodContext(ResourceLimit_ESTest.class, "marked"),
+                new StackOverflowError());
+    }
+
+    @Test
+    public void shouldRethrowOtherFailuresAndAStackOverflowOfAnUnmarkedTest() {
+        EvoSuiteExtension extension = new EvoSuiteExtension(ResourceLimit_ESTest.class);
+        ExtensionContext unmarked = methodContext(ResourceLimit_ESTest.class, "unmarked");
+
+        StackOverflowError overflow = new StackOverflowError();
+        Assertions.assertSame(overflow, Assertions.assertThrows(StackOverflowError.class,
+                () -> extension.handleTestExecutionException(unmarked, overflow)));
+        IllegalStateException failure = new IllegalStateException();
+        Assertions.assertSame(failure, Assertions.assertThrows(IllegalStateException.class,
+                () -> extension.handleTestExecutionException(
+                        methodContext(ResourceLimit_ESTest.class, "marked"), failure)));
     }
 
     @Test

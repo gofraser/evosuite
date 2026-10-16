@@ -39,19 +39,19 @@ public class SimpleSchedule extends OneTimeSchedule {
         assert enoughBudgetForAll();
 
         ProjectStaticData data = scheduler.getProjectData();
-        int totalBudgetInSeconds = 60 * scheduler.getConfiguration().timeInMinutes
+        int totalBudgetInSeconds = scheduler.getConfiguration().timeInSeconds
                 * scheduler.getConfiguration().getNumberOfUsableCores();
 
         List<JobDefinition> jobs = new LinkedList<>();
 
         //simple case, distribute budget equally
         int cores = scheduler.getConfiguration().getNumberOfUsableCores();
-        int cuts = data.getTotalNumberOfTestableCUTs();
+        int cuts = data.getTotalNumberOfCUTsToTest();
         int slots = (int) Math.round(cores * Math.ceil((double) cuts / (double) cores));
         int budgetInSecondsPerCUT = totalBudgetInSeconds / slots;
 
         for (ClassInfo info : data.getClassInfos()) {
-            if (!info.isTestable()) {
+            if (!info.isToSchedule()) {
                 continue;
             }
             JobDefinition job = new JobDefinition(

@@ -23,8 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
-import org.evosuite.testsuite.TestSuiteSerialization;
-import org.evosuite.utils.LoggingUtils;
+import org.evosuite.testcase.factories.SerializedSeedTestFactory;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,18 +47,14 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
      * Constructor.
      */
     public ArchiveTestChromosomeFactory() {
-        if (Properties.CTG_SEEDS_FILE_IN != null) {
-            //This does happen in CTG
-            seededTests = TestSuiteSerialization.loadTests(Properties.CTG_SEEDS_FILE_IN);
-            LoggingUtils.getEvoLogger().info("* Loaded {} tests from {}", seededTests.size(),
-                    Properties.CTG_SEEDS_FILE_IN);
-        }
+        //This does happen in CTG
+        seededTests = SerializedSeedTestFactory.loadCtgSeeds();
     }
 
     @Override
     public TestChromosome getChromosome() {
 
-        if (seededTests != null && !seededTests.isEmpty()) {
+        if (!seededTests.isEmpty()) {
             /*
              Ideally, we should populate the archive directly when EvoSuite starts.
              But might be bit tricky based on current archive implementation (which needs executed tests).
@@ -67,12 +62,7 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
              However, this is done just once per test, as anyway those will end up
              in archive.
              */
-            TestChromosome
-                    test =
-                    seededTests
-                            .remove(seededTests.size() - 1); //pull out one element, 'last' just for efficiency
-            test.getTestCase().removeAssertions(); // no assertions are used during search
-            return test;
+            return SerializedSeedTestFactory.takeSeed(seededTests);
         }
 
         TestChromosome test = null;

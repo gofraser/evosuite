@@ -36,11 +36,17 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * The class that actually execute the job as a separated process.
@@ -50,6 +56,8 @@ import java.util.List;
 public class JobHandler extends Thread {
 
     private static final Logger logger = LoggerFactory.getLogger(JobHandler.class);
+
+    private static final int MIN_MASTER_MEMORY_MB = 250;
 
     private final JobExecutor executor;
 
@@ -238,6 +246,21 @@ public class JobHandler extends Thread {
     }
 
 
+    /**
+     * The master's heap is taken out of the job's memory, and the rest goes to the client.
+     * The master holds the statistics and the generated suites of the job, which for large
+     * classes needs far more than a fixed small heap.
+     *
+     * @param jobMemoryInMB memory of the whole job
+     * @return heap of the master process
+     */
+    static int getMasterMemoryInMB(int jobMemoryInMB) {
+        if (Properties.CTG_MASTER_MEMORY != null) {
+            return Properties.CTG_MASTER_MEMORY;
+        }
+        return Math.max(MIN_MASTER_MEMORY_MB, jobMemoryInMB / 4);
+    }
+
     private List<String> getCommandString(JobDefinition job) {
 
         List<String> commands = new ArrayList<>();
@@ -272,10 +295,7 @@ public class JobHandler extends Thread {
             commands.add("-Dlog.level=" + Properties.LOG_LEVEL);
         }
 
-        /*
-         * TODO: this will likely need better handling
-         */
-        int masterMB = 250;
+        int masterMB = getMasterMemoryInMB(job.memoryInMB);
         int clientMB = job.memoryInMB - masterMB;
 
         commands.add("-Xmx" + masterMB + "m");
@@ -435,26 +455,45 @@ public class JobHandler extends Thread {
 
         if (job.inputClasses != null && job.inputClasses.size() > 0) {
 
-            String[] dep = job.inputClasses.toArray(new String[0]);
-
-            double poolP = 0.5;
-            if (Properties.P_OBJECT_POOL > 0) { //TODO need refactoring, ie a Double initialized with null
-                poolP = Properties.P_OBJECT_POOL;
+            List<String> pools = new ArrayList<>();
+            for (String dep : job.inputClasses) {
+                File pool = findPool(poolFolder, StorageManager.getPoolInFolder(), dep + extension,
+                        executor.isScheduled(dep));
+                if (pool != null) {
+                    pools.add(pool.getAbsolutePath());
+                }
             }
 
-            commands.add("-Dp_object_pool=" + poolP);
-            String cmd = "-Dobject_pools=";
+            if (!pools.isEmpty()) {
+                double poolP = 0.5;
+                if (Properties.P_OBJECT_POOL > 0) { //TODO need refactoring, ie a Double initialized with null
+                    poolP = Properties.P_OBJECT_POOL;
+                }
 
-            cmd += poolFolder.getAbsolutePath() + File.separator + dep[0] + extension;
-
-            for (int i = 1; i < dep.length; i++) {
-                cmd += File.pathSeparator + poolFolder.getAbsolutePath() + File.separator
-                        + dep[i] + extension;
+                commands.add("-Dp_object_pool=" + poolP);
+                commands.add("-Dobject_pools=" + String.join(File.pathSeparator, pools));
             }
-            commands.add(cmd);
         }
 
         return commands;
+    }
+
+    /**
+     * The pool a dependency wrote in this run or, if the dependency is not tested in this run (it did not
+     * change), the one kept from an earlier run. A dependency that is tested in this run but still running,
+     * or that failed, has no usable pool: the kept one was built from its old version. Passing a missing
+     * file would only produce errors in the job.
+     */
+    static File findPool(File currentRunPools, File keptPools, String fileName, boolean testedInThisRun) {
+        File current = new File(currentRunPools, fileName);
+        if (current.isFile()) {
+            return current;
+        }
+        if (testedInThisRun) {
+            return null;
+        }
+        File kept = new File(keptPools, fileName);
+        return kept.isFile() ? kept : null;
     }
 
     private List<String> getOutputVariables() {
@@ -510,6 +549,9 @@ public class JobHandler extends Thread {
         commands.add("-Dctg_schedule=" + Properties.CTG_SCHEDULE);
         commands.add("-Dctg_min_time_per_job=" + Properties.CTG_MIN_TIME_PER_JOB);
 
+        // before ctg_extra_args, so that a property given there takes precedence
+        commands.addAll(readExtraProperties(Properties.CTG_EXTRA_PROPERTIES_FILE));
+
         if (Properties.CTG_EXTRA_ARGS != null && !Properties.CTG_EXTRA_ARGS.isEmpty()) {
 
             String extraArgs = Properties.CTG_EXTRA_ARGS;
@@ -534,6 +576,35 @@ public class JobHandler extends Thread {
         return commands;
     }
 
+    /**
+     * The properties in {@link Properties#CTG_EXTRA_PROPERTIES_FILE}, as arguments for a test generation process.
+     *
+     * @param file the file, or {@code null} for none
+     * @return one {@code -Dkey=value} argument per property, in key order
+     * @throws IllegalArgumentException if the file cannot be read or names a property EvoSuite does not have
+     */
+    public static List<String> readExtraProperties(String file) throws IllegalArgumentException {
+        List<String> arguments = new ArrayList<>();
+        if (file == null || file.trim().isEmpty()) {
+            return arguments;
+        }
+        java.util.Properties extra = new java.util.Properties();
+        try (Reader in = Files.newBufferedReader(Paths.get(file), StandardCharsets.UTF_8)) {
+            extra.load(in);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Cannot read EvoSuite properties from " + file + ": "
+                    + e.getMessage(), e);
+        }
+        Set<String> known = Properties.getParameters();
+        for (String key : new TreeSet<>(extra.stringPropertyNames())) {
+            if (!known.contains(key)) {
+                throw new IllegalArgumentException("Unknown EvoSuite property '" + key + "' in " + file);
+            }
+            arguments.add("-D" + key + "=" + extra.getProperty(key));
+        }
+        return arguments;
+    }
+
     private List<String> timeSetUp(int seconds) {
 
         //do we have enough time for this job?
@@ -543,7 +614,7 @@ public class JobHandler extends Thread {
             seconds = remaining;
         }
 
-        int minSecondsPerJob = 60 * executor.configuration.minMinutesPerJob;
+        int minSecondsPerJob = executor.configuration.minSecondsPerJob;
 
         if (seconds < minSecondsPerJob) {
             //even if we do not have enough time, we go for the minimum

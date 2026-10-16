@@ -19,14 +19,18 @@
  */
 package org.evosuite.continuous;
 
+import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.continuous.job.JobDefinition;
 import org.evosuite.continuous.job.JobExecutor;
+import org.evosuite.continuous.job.JobHandler;
 import org.evosuite.continuous.job.JobScheduler;
+import org.evosuite.continuous.persistency.ClassFingerprints;
 import org.evosuite.continuous.persistency.StorageManager;
 import org.evosuite.continuous.project.ProjectAnalyzer;
 import org.evosuite.continuous.project.ProjectStaticData;
 import org.evosuite.utils.FileIOUtils;
+import org.evosuite.utils.LoggingUtils;
 import org.evosuite.xsd.Project;
 import org.evosuite.xsd.ProjectUtil;
 
@@ -144,13 +148,22 @@ public class ContinuousTestGeneration {
      * Apply CTG, and return a string with some summary.
      *
      * @return a summary string
+     * @throws CtgException if the run could not be completed; classes without tests are only reported
      */
-    public String execute() {
+    public String execute() throws CtgException {
+
+        try {
+            // fail before any job starts, not in each of them
+            JobHandler.readExtraProperties(Properties.CTG_EXTRA_PROPERTIES_FILE);
+        } catch (IllegalArgumentException e) {
+            throw new CtgException(e.getMessage(), e);
+        }
 
         //init the local storage manager
         StorageManager storage = new StorageManager();
         if (!storage.isStorageOk()) {
-            return "Failed to initialize local storage system";
+            throw new CtgException("Failed to initialize local storage system in "
+                    + new File(Properties.CTG_DIR).getAbsolutePath());
         }
 
         if (Properties.CTG_DELETE_OLD_TMP_FOLDERS) {
@@ -158,11 +171,14 @@ public class ContinuousTestGeneration {
         }
 
         if (!storage.createNewTmpFolders()) {
-            return "Failed to create tmp folders";
+            throw new CtgException("Failed to create tmp folders in "
+                    + new File(Properties.CTG_DIR).getAbsolutePath());
         }
 
         //check project
         ProjectAnalyzer analyzer = new ProjectAnalyzer(target, prefix, cuts);
+        analyzer.useChangeDetection(ClassFingerprints.load(EvoSuite.getVersionIdentifier()),
+                StorageManager::hasBestTestSuite);
         ProjectStaticData data = analyzer.analyze();
 
         if (data.getTotalNumberOfTestableCUTs() == 0) {
@@ -171,23 +187,34 @@ public class ContinuousTestGeneration {
                     + "Prefix: '" + prefix + "'\n";
         }
 
-        if (Properties.CTG_DEBUG_PORT != null && data.getTotalNumberOfTestableCUTs() != 1) {
+        int toTest = data.getTotalNumberOfCUTsToTest();
+        if (Properties.CTG_DEBUG_PORT != null && toTest > 1) {
             throw new IllegalStateException("Cannot debug CTG when more than one CUT is selected");
         }
 
-        if (Properties.CTG_TIME_PER_CLASS != null) {
-            configuration = configuration.getWithChangedTime(Properties.CTG_TIME_PER_CLASS,
-                    data.getTotalNumberOfTestableCUTs());
-        }
+        if (toTest == 0) {
+            LoggingUtils.getEvoLogger().info("* All " + data.getTotalNumberOfTestableCUTs()
+                    + " testable classes are unchanged since their tests were generated");
+        } else {
+            if (toTest < data.getTotalNumberOfTestableCUTs()) {
+                LoggingUtils.getEvoLogger().info("* Generating tests for " + toTest + " out of "
+                        + data.getTotalNumberOfTestableCUTs() + " testable classes, the others are unchanged");
+            }
+            if (Properties.CTG_SECONDS_PER_CLASS != null) {
+                configuration = configuration.getWithChangedTimeInSeconds(Properties.CTG_SECONDS_PER_CLASS, toTest);
+            } else if (Properties.CTG_TIME_PER_CLASS != null) {
+                configuration = configuration.getWithChangedTime(Properties.CTG_TIME_PER_CLASS, toTest);
+            }
 
-        JobScheduler scheduler = new JobScheduler(data, configuration);
-        JobExecutor executor = new JobExecutor(storage, projectClassPath, configuration);
+            JobScheduler scheduler = new JobScheduler(data, configuration);
+            JobExecutor executor = new JobExecutor(storage, projectClassPath, configuration);
 
-        //loop: define (partial) schedule
-        while (scheduler.canExecuteMore()) {
-            List<JobDefinition> jobs = scheduler.createNewSchedule();
-            executor.executeJobs(jobs, configuration.getNumberOfUsableCores());
-            executor.waitForJobs();
+            //loop: define (partial) schedule
+            while (scheduler.canExecuteMore()) {
+                List<JobDefinition> jobs = scheduler.createNewSchedule();
+                executor.executeJobs(jobs, configuration.getNumberOfUsableCores());
+                executor.waitForJobs();
+            }
         }
 
         String description = storage.mergeAndCommitChanges(data, cuts);
@@ -196,7 +223,7 @@ public class ContinuousTestGeneration {
             try {
                 exportToFolder(".", exportFolder);
             } catch (IOException e) {
-                return "Failed to export tests: " + e.getMessage();
+                throw new CtgException("Failed to export tests to " + exportFolder + ": " + e.getMessage(), e);
             }
         }
 

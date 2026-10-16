@@ -1,0 +1,436 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.ga.metaheuristics.mosa;
+
+import org.evosuite.Properties;
+import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
+import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.utils.Randomness;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
+/**
+ * Seeded characterisation of the generation step of {@link MOSA} and {@link DynaMOSA}, taken
+ * before the two {@code evolve()} methods are merged.
+ *
+ * <p>Both algorithms run their real {@code evolve()}: union of parents and offspring, preference
+ * sorting, crowding distance, survival. Only the sources of randomness and cost are replaced:
+ * offspring are fresh chromosomes whose fitness vector comes from the seeded {@link Randomness}
+ * (rounded to two decimals), and nothing is executed. The goals are minimisation goals that
+ * simply read the fitness vector, so the ranking is a pure function of the seeded numbers.
+ *
+ * <p>Each case pins the population (in order) and the rank-0 front after generations 1, 2 and 3.
+ * The default configuration (speciation off) is pinned for both algorithms, with more goals than
+ * the population size and with fewer. The speciation case pins the population sizes over
+ * several generations; see {@link #speciationRatchetsMosaButNotDynaMosa()}.
+ */
+class MosaEvolveCharacterisationTest extends MosaTestSupport {
+
+    // ------------------------------------------------------------------ fixture
+
+    private static final class Goal extends TestFitnessFunction {
+        private static final long serialVersionUID = 1L;
+        private final int id;
+
+        Goal(int id) {
+            this.id = id;
+        }
+
+        @Override
+        public double getFitness(TestChromosome individual, ExecutionResult result) {
+            return individual.getFitness(this);
+        }
+
+        @Override
+        public int compareTo(TestFitnessFunction o) {
+            return Integer.compare(id, ((Goal) o).id);
+        }
+
+        @Override
+        public boolean isMaximizationFunction() {
+            return false;
+        }
+
+        @Override
+        public String getTargetClass() {
+            return "Fixture";
+        }
+
+        @Override
+        public String getTargetMethod() {
+            return "goal" + id;
+        }
+
+        @Override
+        public int hashCode() {
+            return id;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Goal && ((Goal) o).id == id;
+        }
+    }
+
+    private static int nextId;
+    private static final Map<TestChromosome, String> LABELS = new IdentityHashMap<>();
+
+    /** Chromosomes with an empty test would all be equal, so each gets one distinct constant. */
+    private static TestChromosome chromosome(String label, List<Goal> goals) {
+        TestChromosome c = new TestChromosome();
+        DefaultTestCase tc = new DefaultTestCase();
+        tc.addStatement(new IntPrimitiveStatement(tc, nextId++));
+        c.setTestCase(tc);
+        LABELS.put(c, label);
+        for (Goal g : goals) {
+            c.addFitness(g, Math.round(Randomness.nextDouble() * 100) / 100.0);
+        }
+        return c;
+    }
+
+    private static List<Goal> goals(int n) {
+        List<Goal> goals = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            goals.add(new Goal(i));
+        }
+        return goals;
+    }
+
+    private static String labels(Collection<? extends TestChromosome> chromosomes) {
+        StringBuilder sb = new StringBuilder();
+        for (TestChromosome c : chromosomes) {
+            sb.append(sb.length() == 0 ? "" : " ").append(LABELS.get(c));
+        }
+        return sb.toString();
+    }
+
+    private interface Harness {
+        void step();
+
+        List<TestChromosome> currentPopulation();
+
+        List<TestChromosome> front0();
+
+        void restrictGoals(int n);
+    }
+
+    private static class MosaHarness extends MOSA implements Harness {
+        private static final long serialVersionUID = 1L;
+        private final List<Goal> allGoals;
+        private List<Goal> goals;
+        private int generation = 0;
+
+        MosaHarness(List<Goal> goals, int initialPopulation) {
+            super(() -> new TestChromosome());
+            this.allGoals = goals;
+            this.goals = goals;
+            for (int i = 0; i < initialPopulation; i++) {
+                population.add(chromosome("p" + i, goals));
+            }
+        }
+
+        @Override
+        protected Set<TestFitnessFunction> getUncoveredGoals() {
+            return new LinkedHashSet<>(goals);
+        }
+
+        @Override
+        protected List<TestChromosome> breedNextGeneration() {
+            generation++;
+            List<TestChromosome> offspring = new ArrayList<>();
+            for (int i = 0; i < population.size(); i++) {
+                offspring.add(chromosome("g" + generation + "o" + i, allGoals));
+            }
+            return offspring;
+        }
+
+        @Override
+        protected void calculateFitness(TestChromosome c) {
+            // fitness vectors are assigned on creation
+        }
+
+        @Override
+        public void step() {
+            evolve();
+        }
+
+        @Override
+        public List<TestChromosome> currentPopulation() {
+            return getPopulation();
+        }
+
+        @Override
+        public List<TestChromosome> front0() {
+            return rankingFunction.getSubfront(0);
+        }
+
+        @Override
+        public void restrictGoals(int n) {
+            goals = allGoals.subList(0, n);
+        }
+    }
+
+    private static class DynaHarness extends DynaMOSA implements Harness {
+        private static final long serialVersionUID = 1L;
+        private final List<Goal> allGoals;
+        private int generation = 0;
+
+        DynaHarness(List<Goal> goals, int initialPopulation) {
+            super(() -> new TestChromosome());
+            this.allGoals = goals;
+            this.goalsManager = new MultiCriteriaManager(Collections.emptyList());
+            this.goalsManager.getCurrentGoals().addAll(goals);
+            for (int i = 0; i < initialPopulation; i++) {
+                population.add(chromosome("p" + i, goals));
+            }
+        }
+
+        @Override
+        protected List<TestChromosome> breedNextGeneration() {
+            generation++;
+            List<TestChromosome> offspring = new ArrayList<>();
+            for (int i = 0; i < population.size(); i++) {
+                offspring.add(chromosome("g" + generation + "o" + i, allGoals));
+            }
+            return offspring;
+        }
+
+        @Override
+        protected void calculateFitness(TestChromosome c) {
+            // fitness vectors are assigned on creation
+        }
+
+        @Override
+        public void step() {
+            evolve();
+        }
+
+        @Override
+        public List<TestChromosome> currentPopulation() {
+            return getPopulation();
+        }
+
+        @Override
+        public List<TestChromosome> front0() {
+            return rankingFunction.getSubfront(0);
+        }
+
+        @Override
+        public void restrictGoals(int n) {
+            goalsManager.getCurrentGoals().clear();
+            goalsManager.getCurrentGoals().addAll(allGoals.subList(0, n));
+        }
+    }
+
+    private static Harness newHarness(boolean dynamosa, int goalCount, int population) {
+        nextId = 0;
+        LABELS.clear();
+        Properties.POPULATION = population;
+        Randomness.setSeed(42L);
+        return dynamosa
+                ? new DynaHarness(goals(goalCount), population)
+                : new MosaHarness(goals(goalCount), population);
+    }
+
+    /** Population size / rank-0 size after each generation, e.g. "6/6 7/7". */
+    private static String sizes(Harness harness, int generations) {
+        StringBuilder sb = new StringBuilder();
+        for (int g = 0; g < generations; g++) {
+            harness.step();
+            sb.append(sb.length() == 0 ? "" : " ")
+                    .append(harness.currentPopulation().size()).append('/').append(harness.front0().size());
+        }
+        return sb.toString();
+    }
+
+    private static String state(Harness harness) {
+        return "pop=[" + labels(harness.currentPopulation()) + "] front0=[" + labels(harness.front0()) + "]";
+    }
+
+    @BeforeEach
+    void configure() {
+        Properties.getInstance().resetToDefaults();
+        // MosaTestSupport isolation, re-applied after the reset
+        Properties.CRITERION = new Properties.Criterion[0];
+        Properties.SELECTION_FUNCTION = Properties.SelectionFunction.RANK_CROWD_DISTANCE_TOURNAMENT;
+        Properties.RANDOM_SEED = 42L;
+        Randomness.setSeed(42L);
+        // survivors are not cut by the species cap, as in MOSAPopulationSizeTest
+        Properties.SPECIES_SURVIVAL_CAP = 1.0;
+        Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
+        Properties.SPECIES_TIMELINE_ENABLED = false;
+        Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;
+    }
+
+    @AfterEach
+    void reset() {
+        Properties.getInstance().resetToDefaults();
+    }
+
+    // ------------------------------------------------------------------ default configuration
+
+    @Test
+    void mosaWithMoreGoalsThanPopulationKeepsPopulationSizeAndDropsAFrontZeroMember() {
+        Harness mosa = newHarness(false, 8, 6);
+
+        mosa.step();
+        // rank 0 has seven members, the population six: p0 is rank 0 and is cut by crowding
+        assertEquals("pop=[g1o3 g1o0 p1 g1o4 g1o2 p3] front0=[g1o3 g1o0 p1 g1o4 g1o2 p3 p0]", state(mosa));
+        mosa.step();
+        assertEquals("pop=[g1o3 g1o0 p1 g1o4 g2o0 p3] front0=[g1o3 g1o0 p1 g1o4 g2o0 p3]", state(mosa));
+        mosa.step();
+        assertEquals("pop=[g1o3 g3o5 p1 g1o4 g3o0 p3] front0=[g1o3 g3o5 p1 g1o4 g3o0 p3 g3o3]", state(mosa));
+    }
+
+    @Test
+    void dynaMosaWithMoreGoalsThanPopulationGrowsToTheSizeOfFrontZero() {
+        Harness dyna = newHarness(true, 8, 6);
+
+        dyna.step();
+        assertEquals("pop=[g1o3 g1o0 p1 g1o4 g1o2 p3 p0] front0=[g1o3 g1o0 p1 g1o4 g1o2 p3 p0]", state(dyna));
+        dyna.step();
+        assertEquals("pop=[g1o3 g2o6 p1 g1o4 g2o0 p3 p0] front0=[g1o3 g2o6 p1 g1o4 g2o0 p3 p0]", state(dyna));
+        dyna.step();
+        assertEquals("pop=[g1o3 g2o6 p1 g1o4 g2o0 p3 p0] front0=[g1o3 g2o6 p1 g1o4 g2o0 p3 p0]", state(dyna));
+    }
+
+    @Test
+    void mosaWithFewGoalsFillsThePopulationFromLowerFronts() {
+        Harness mosa = newHarness(false, 3, 6);
+
+        mosa.step();
+        assertEquals("pop=[p2 p3 g1o3 p1 g1o1 g1o4] front0=[p2 p3 g1o3]", state(mosa));
+        mosa.step();
+        assertEquals("pop=[g2o2 p3 g1o3 p2 g1o4 g2o0] front0=[g2o2 p3 g1o3]", state(mosa));
+        mosa.step();
+        assertEquals("pop=[g2o2 p3 g1o3 p2 g3o1 g1o4] front0=[g2o2 p3 g1o3]", state(mosa));
+    }
+
+    @Test
+    void dynaMosaWithFewGoalsFillsThePopulationFromLowerFronts() {
+        Harness dyna = newHarness(true, 3, 6);
+
+        dyna.step();
+        assertEquals("pop=[p2 p3 g1o3 p1 g1o1 g1o4] front0=[p2 p3 g1o3]", state(dyna));
+        dyna.step();
+        assertEquals("pop=[g2o2 p3 g1o3 p2 g1o4 g2o0] front0=[g2o2 p3 g1o3]", state(dyna));
+        dyna.step();
+        assertEquals("pop=[g2o2 p3 g1o3 p2 g3o1 g1o4] front0=[g2o2 p3 g1o3]", state(dyna));
+    }
+
+    /**
+     * With a rank-0 front that fits into the population the two algorithms are the same
+     * procedure; the merge has to keep that. They differ exactly when rank 0 outgrows the
+     * population (see the two tests above).
+     */
+    @Test
+    void mosaAndDynaMosaAgreeWhenFrontZeroFitsThePopulation() {
+        Harness mosa = newHarness(false, 3, 6);
+        String mosaSizes = sizes(mosa, 5);
+        String mosaState = state(mosa);
+        Harness dyna = newHarness(true, 3, 6);
+        String dynaSizes = sizes(dyna, 5);
+
+        assertEquals("6/3 6/3 6/3 6/3 6/3", mosaSizes);
+        assertEquals(mosaSizes, dynaSizes);
+        assertEquals(mosaState, state(dyna));
+    }
+
+    @Test
+    void mosaAndDynaMosaDifferWhenFrontZeroOutgrowsThePopulation() {
+        String mosaSizes = sizes(newHarness(false, 8, 6), 3);
+        String dynaSizes = sizes(newHarness(true, 8, 6), 3);
+
+        assertEquals("6/7 6/6 6/7", mosaSizes);
+        assertEquals("7/7 7/7 7/7", dynaSizes);
+        assertNotEquals(mosaSizes, dynaSizes);
+    }
+
+    // ------------------------------------------------------------------ speciation
+
+    /**
+     * Population size / rank-0 size under speciation_enabled=true: eight generations with eight
+     * goals and a base population of four, then three more generations after the goals shrink to
+     * three.
+     *
+     * <p>CURRENT BEHAVIOUR, NOT AN ENDORSEMENT. MOSA takes the next target from the current
+     * population size ({@code baseTarget = population.size()}, MOSA.java) and survival keeps
+     * {@code max(target, front0)}, so the target can only grow: it climbs to seven and stays
+     * there while rank 0 has six members (generations 4 to 8), while DynaMOSA, which re-anchors
+     * on {@code Properties.POPULATION} every generation, is at six whenever rank 0 is six. After the goals shrink
+     * the MOSA population falls to five, but because of the ranking depth (fronts are only
+     * computed until {@code POPULATION} individuals are ranked), not because the target came
+     * down.
+     *
+     * <p>Whether the ratchet is intended is an open owner decision (CLEANUP-PLAN, owner
+     * decisions, "MOSA population ratchet"; recommendation: re-anchor like DynaMOSA). If that
+     * decision changes the MOSA sequence below, update this test together with it.
+     */
+    @Test
+    void speciationRatchetsMosaButNotDynaMosa() {
+        Properties.SPECIATION_ENABLED = true;
+
+        Harness mosa = newHarness(false, 8, 4);
+        String mosaSizes = sizes(mosa, 8);
+        mosa.restrictGoals(3);
+        mosaSizes += " | " + sizes(mosa, 3);
+
+        Harness dyna = newHarness(true, 8, 4);
+        String dynaSizes = sizes(dyna, 8);
+        dyna.restrictGoals(3);
+        dynaSizes += " | " + sizes(dyna, 3);
+
+        // MOSA: stays at 7 while rank 0 has 6 members
+        assertEquals("6/6 7/7 7/7 7/6 7/6 7/6 7/6 7/6 | 5/3 5/3 5/3", mosaSizes);
+        // DynaMOSA: max(POPULATION, rank 0) every generation
+        assertEquals("6/6 7/7 7/7 6/6 7/7 6/6 6/6 6/6 | 4/3 4/3 4/3", dynaSizes);
+    }
+
+    /** The first generation does not yet ratchet: both algorithms start from the same base. */
+    @Test
+    void speciationFirstGenerationMatchesBetweenMosaAndDynaMosa() {
+        Properties.SPECIATION_ENABLED = true;
+        Harness mosa = newHarness(false, 8, 4);
+        mosa.step();
+        String mosaState = state(mosa);
+        Harness dyna = newHarness(true, 8, 4);
+        dyna.step();
+
+        assertEquals(mosaState, state(dyna));
+        assertEquals(6, dyna.currentPopulation().size());
+    }
+}

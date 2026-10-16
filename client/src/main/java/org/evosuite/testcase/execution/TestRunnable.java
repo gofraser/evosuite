@@ -818,6 +818,7 @@ public class TestRunnable implements InterfaceTestRunnable {
                     attempt + 1, maxRetries);
             Throwable retried = statement.execute(scope, out);
             if (retried == null) {
+                result.addDmonAssistedPosition(statement.getPosition());
                 return null;
             }
             lastThrown = retried;
