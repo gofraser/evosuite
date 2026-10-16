@@ -118,9 +118,7 @@ public class RuntimeSettings {
      * resulting {@link org.evosuite.runtime.TooManyResourcesException} is swallowed
      * during search), while too loose is still backstopped by the per-allocation
      * {@code array_limit} guard and by low-memory process shutdown. Picking the widest
-     * prior allowance means this change refuses nothing that was previously allowed; it
-     * is purely corrective (byte[] gains the allowance wide types already had) rather
-     * than a tightening bundled into the bug fix.
+     * prior allowance refuses nothing that was allowed before.
      */
     public static long maxCumulativeArrayBytes = 400_000_000L;
 

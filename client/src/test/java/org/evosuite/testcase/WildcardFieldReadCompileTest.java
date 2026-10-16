@@ -37,7 +37,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on JacksonDatabind-103: {@code ObjectIdGenerator.IdKey.type} is a {@code Class<?>}
+ * {@code ObjectIdGenerator.IdKey.type} is a {@code Class<?>}
  * field, and its value was declared {@code Class<Object>}. A parameterized cast from
  * {@code Class<capture>} to {@code Class<Object>} is itself rejected, so reading the field
  * needs a raw cast (an unchecked but legal conversion) or the declaration must keep the wildcard.

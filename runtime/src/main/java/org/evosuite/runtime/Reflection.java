@@ -49,6 +49,19 @@ public class Reflection {
         return original;
     }
 
+    /**
+     * Sorts reflected members by their string form, in place. The JVM returns the members of
+     * {@link Class#getMethods()} and its siblings in an order that can differ between runs,
+     * which makes test generation with a fixed seed non-reproducible. Unlike the getters below,
+     * this leaves error handling to the caller.
+     *
+     * @param members the result of a reflection call
+     * @return {@code members}, sorted
+     */
+    public static <T> T[] inStableOrder(T[] members) {
+        return sortArrayInPlace(members);
+    }
+
     public static Annotation[] getAnnotations(Class<?> clazz) throws SecurityException {
         return sortArrayInPlace(ReflectionUtils.getAnnotations(clazz));
     }

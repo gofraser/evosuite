@@ -20,6 +20,7 @@
 package org.evosuite.setup;
 
 import org.apache.commons.lang3.ClassUtils;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.annotations.EvoSuiteTest;
 import org.evosuite.coverage.MethodNameMatcher;
@@ -789,7 +790,7 @@ public class TestUsageChecker {
             }
         }
         try {
-            return clazz.getDeclaredMethods();
+            return Reflection.inStableOrder(clazz.getDeclaredMethods());
         } catch (Throwable t) {
             logger.debug("Cannot enumerate declared methods of " + clazz.getName() + ": " + t);
             synchronized (unlinkableDeclaredMethods) {
@@ -936,8 +937,8 @@ public class TestUsageChecker {
 
     /**
      * Reads the class-file major version of the class under test, or -1 if it cannot be determined.
-     * Suites for projects compiled for an older source level (for example Defects4J builds at
-     * -source 6) are compiled at that level, where a call to a static interface method is an error.
+     * Suites for projects compiled for an older source level (for example -source 6) are compiled at that level,
+     * where a call to a static interface method is an error.
      */
     static int targetClassFileMajorVersion() {
         if (targetMajorVersionOverride != null) {
@@ -1206,7 +1207,7 @@ public class TestUsageChecker {
             // A default-access abstract method is only skipped for ordinary classes, where the
             // implementation may live in a subclass outside the package. The constants of an
             // enum with constant-specific bodies are nested in the enum itself, and such an
-            // abstract method is often its only entry point (Jsoup's TokeniserState).
+            // abstract method is often its only entry point (a state-machine enum, for example).
             if (packageName.equals(Properties.CLASS_PREFIX)
                     && packageName.equals(declaredPackageName)
                     && (!Modifier.isAbstract(m.getModifiers()) || m.getDeclaringClass().isEnum())) {

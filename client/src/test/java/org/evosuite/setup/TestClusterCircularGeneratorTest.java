@@ -38,7 +38,7 @@ import java.util.Collections;
  * from that very type is not reachable by generation at all. The cluster has to report that as "no
  * generator", otherwise callers never reach their mocking / variable-reuse fallbacks.
  *
- * <p>This is the shape of {@code org.firebirdsql.jdbc.AbstractConnection}: its only concrete
+ * <p>This is the shape of a JDBC-style abstract connection: its only concrete
  * subclass takes an {@code FBManagedConnection}, whose own constructor is not public, so the only
  * two registered generators for {@code FBManagedConnection} are the field and the getter on
  * {@code AbstractConnection} itself.

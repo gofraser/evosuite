@@ -33,7 +33,7 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * A SUT thread that pauses in a mocked sleep() or wait() inside a loop that swallows every
- * exception (gangup's Kernel.run: {@code try { ...; Thread.sleep(10); } catch (Exception e)})
+ * exception (for example {@code try { ...; Thread.sleep(10); } catch (Exception e)})
  * is told to stop by an interrupt. The real pause ends with an InterruptedException, which
  * clears the flag, the SUT swallows it, and the loop's back-edge check in LoopCounter, which
  * ends a loop whose thread is still interrupted, finds nothing to react to. The thread then

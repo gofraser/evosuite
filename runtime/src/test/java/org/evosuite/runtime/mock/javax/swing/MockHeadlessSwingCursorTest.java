@@ -43,9 +43,8 @@ public class MockHeadlessSwingCursorTest {
 
     /**
      * Only a system custom cursor needs the display. Handing back null for the others made any SUT
-     * that uses the cursor it just asked for fail: squirrel-sql's CursorChanger rejects a null
-     * cursor outright, so 12 action classes never reached actionPerformed on any seed of the SF110
-     * replication.
+     * that uses the cursor it just asked for fail: callers that reject a null cursor never reached
+     * actionPerformed.
      */
     @Test
     public void cursorFactoriesThatWorkHeadlessAreNotMockedAway() {
@@ -63,7 +62,7 @@ public class MockHeadlessSwingCursorTest {
 
     /**
      * Focus bookkeeping needs no display either, and a null manager only defers the failure:
-     * freemind's IndependantMapViewCreator threw on addPropertyChangeListener. Same caveat as
+     * callers threw on addPropertyChangeListener. Same caveat as
      * above - the headless case only runs on a headless JVM.
      */
     @Test

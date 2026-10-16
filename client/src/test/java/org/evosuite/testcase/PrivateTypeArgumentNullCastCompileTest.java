@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on weka's {@code SGDText}: {@code m_dictionary.put(word, null)} on a
+ * For {@code SGDText}: {@code m_dictionary.put(word, null)} on a
  * {@code LinkedHashMap<String, Count>} field, where {@code Count} is a private nested class, was
  * rendered {@code put("...", (SGDText.Count) null)}.
  */

@@ -686,7 +686,7 @@ public class DmonPromotionOperatorTest {
     }
 
     /**
-     * Regression coverage for the JacksonDatabind-96 Defects4J symptom: with
+     * Regression coverage for the final-field symptom: with
      * {@code RESET_STATIC_FINAL_FIELDS=true} (the default), EvoSuite's instrumentation
      * strips {@code ACC_FINAL} from an originally-final static field and separately
      * registers it in {@link ModifiedTargetStaticFields} - exactly what
@@ -765,9 +765,9 @@ public class DmonPromotionOperatorTest {
      * <p>
      * Driving this through the five individual call sites is not practical: each one
      * is reached only after upstream discovery
-     * ({@code DmonInjectionDiscovery}/{@code TestClusterUtils.isFinalField}, fixed in
-     * d78ed5255) and statement construction ({@code AssignmentStatement}'s
-     * final-field guard, fixed in 46f4cffd6) have already screened out exactly the
+     * ({@code DmonInjectionDiscovery}/{@code TestClusterUtils.isFinalField})
+     * and statement construction ({@code AssignmentStatement}'s
+     * final-field guard) have already screened out exactly the
      * conditions that would make them fire - by design, none of the five should ever
      * trigger with correctly-screened input; they exist as defense in depth against a
      * future discovery bug. {@code rollbackMutatedTestCase} is itself that shared

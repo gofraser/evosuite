@@ -36,8 +36,8 @@ import com.examples.with.different.packagename.objectconstruction.parseargs.Args
 /**
  * Regression + reproduction test for the object-construction array-element synthesis defect.
  *
- * <p>{@code ArgsParser} (vendored from SF110 90_dcparseargs) branches on elements read from two
- * same-typed {@code String[]} fields. On the cluster this reliably drove EvoObj's array-element
+ * <p>{@code ArgsParser} branches on elements read from two
+ * same-typed {@code String[]} fields. That drove EvoObj's array-element
  * synthesis to emit an internally inconsistent test (an array-index assignment whose backing array
  * reference was missing), which then threw {@code AssertionError: VariableReference not found in
  * TestCase} while cloning and aborted the whole client with seed 42.
@@ -51,8 +51,8 @@ import com.examples.with.different.packagename.objectconstruction.parseargs.Args
  * still-open synthesizer root cause in {@code ArrayElementVariableWrapper}: when the underlying bug
  * fires the factory increments it and falls back. Note it typically reads 0 here -- EvoSuite system
  * tests run the client in-thread, so the seed-42 trajectory diverges from the separate-JVM client
- * that reproduced the defect on the cluster in ~18s. The faithful reproduction is therefore an
- * out-of-process run of the evosuite jar against dcparseargs.jar; this in-tree test guards the fix
+ * that reproduced the defect. The faithful reproduction is therefore an
+ * out-of-process run of the evosuite jar against the original project jar; this in-tree test guards the fix
  * and gives the future root-cause fix a concrete signal to drive to 0.
  */
 public class ArraySynthesisSystemTest extends SystemTestBase {
@@ -61,7 +61,7 @@ public class ArraySynthesisSystemTest extends SystemTestBase {
     public void wholeClassObjectRuleProducesOnlyCloneableTests() {
         Properties.STRATEGY = Properties.Strategy.MOSUITE;
         Properties.ALGORITHM = Algorithm.DYNAMOSA;
-        // Match the cluster criterion set: more criteria means many more branches carry a non-empty
+        // Use the full criterion set: more criteria means many more branches carry a non-empty
         // object graph, which is what exercises the array-element synthesis path often enough to
         // surface the defect.
         Properties.CRITERION = new Criterion[] { Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION,

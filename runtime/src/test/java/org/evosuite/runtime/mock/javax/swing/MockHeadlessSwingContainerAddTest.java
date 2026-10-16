@@ -37,9 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Adding a component needs no native peer, so it must happen even while GUI mocking is on:
- * skipping it left the container empty and the SUT's next call failed. 10_water-simulator's
- * ProgressGui adds two tabs and then selects one, which threw "component not found in tabbed
- * pane" on every seed of the SF110 replication.
+ * skipping it left the container empty and the SUT's next call failed: adding two tabs and then
+ * selecting one threw "component not found in tabbed pane".
  */
 class MockHeadlessSwingContainerAddTest {
 
@@ -155,8 +154,7 @@ class MockHeadlessSwingContainerAddTest {
     void aComponentTheMockLayerRemovedIsNotAdded() {
         // replacement_newLabel and its siblings return null in a headless environment, so the
         // rewritten add can be handed a null the SUT never created. Container.addImpl
-        // dereferences it; 99_newzgrabber's CreateDirectoryDialog does
-        // panel.add(new Label("Subdirectory:")) and threw on every seed of the SF110 replication.
+        // dereferences it; a dialog that does panel.add(new Label("Subdirectory:")) threw.
         JPanel parent = new JPanel(new BorderLayout());
 
         assertNull(MockHeadlessSwing.replacement_containerAdd(parent, (Component) null));
@@ -189,7 +187,7 @@ class MockHeadlessSwingContainerAddTest {
 
     /**
      * Container.remove reads comp.parent exactly as addImpl does, so the same null needs the same
-     * guard. 102_squirrel-sql's ButtonTabComponent does remove(null) and threw on all ten seeds.
+     * guard: a component doing remove(null) threw.
      */
     @Test
     void aComponentTheMockLayerRemovedIsNotRemovedEither() {

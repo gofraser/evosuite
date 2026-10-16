@@ -1344,8 +1344,8 @@ public final class MockHeadlessSwing {
     /**
      * Replacement for {@code Cursor.getSystemCustomCursor(String)}. Of the cursor factories only
      * this one needs the display. The predefined cursors and {@code new Cursor(int)} work headless
-     * and are not replaced: returning null for them made squirrel-sql's CursorChanger reject the
-     * cursor, so 12 action classes never reached actionPerformed.
+     * and are not replaced: returning null for them made callers reject the
+     * cursor.
      *
      * @param name cursor name
      * @return system custom cursor or null in headless mode when mocking is enabled
@@ -1657,8 +1657,7 @@ public final class MockHeadlessSwing {
      * Replacement for {@code Container.remove(Component)}. The symmetric case to
      * {@link #replacement_containerAdd(Container, Component)}: {@code Container.remove} reads
      * {@code comp.parent} exactly as {@code addImpl} does, so a component the mock layer replaced
-     * with {@code null} blows up here too. 102_squirrel-sql's ButtonTabComponent does
-     * {@code remove(null)} and threw on all ten seeds of the SF110 replication.
+     * with {@code null} blows up here too.
      *
      * @param source source container
      * @param comp component to remove
@@ -1904,10 +1903,9 @@ public final class MockHeadlessSwing {
     /**
      * Adding a component to a container is bookkeeping: it needs no native peer and works under
      * {@code java.awt.headless=true}. Skipping it while GUI mocking is on left the container and
-     * the component inconsistent, and the next call that reads the tree failed - 10_water-simulator's
-     * ProgressGui does {@code mainPanel.add(tab1, null)} and then
-     * {@code mainPanel.setSelectedComponent(tab1)}, which threw "component not found in tabbed pane"
-     * on every seed. So do the real work and only fall back to the previous no-op if the environment
+     * the component inconsistent, and the next call that reads the tree failed (for example
+     * {@code mainPanel.add(tab1, null)} followed by {@code mainPanel.setSelectedComponent(tab1)} threw
+     * "component not found in tabbed pane"). So do the real work and only fall back to the previous no-op if the environment
      * really refuses it.
      *
      * @param add       the real add call
@@ -2409,8 +2407,7 @@ public final class MockHeadlessSwing {
     /**
      * Replacement for {@code KeyboardFocusManager.setCurrentKeyboardFocusManager(KeyboardFocusManager)}.
      * Reading the current manager and {@code new DefaultKeyboardFocusManager()} work headless and
-     * are not replaced: a null manager only moved the failure one call later (freemind's
-     * IndependantMapViewCreator).
+     * are not replaced: a null manager only moved the failure one call later.
      *
      * @param manager the keyboard focus manager
      */

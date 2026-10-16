@@ -122,7 +122,7 @@ public class ArrayAllocationInstrumentationTest {
     }
 
     /**
-     * Re-review finding, 2026-10-01: the single-dimension charge was
+     * Empty arrays are charged: the single-dimension charge used to be
      * {@code elements * elementWidthBytes}, so every EMPTY array -- primitive or
      * reference -- cost zero bytes, even though each is a real heap object. A CUT
      * retaining many empty arrays could allocate forever without ever advancing the

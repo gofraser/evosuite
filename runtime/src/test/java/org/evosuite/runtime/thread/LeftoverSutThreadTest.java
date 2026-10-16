@@ -33,8 +33,7 @@ import static org.junit.Assert.assertTrue;
 /**
  * A thread the SUT started that loops on wait(), swallowing the interrupt, must not make the
  * end of the test wait for the whole timeout: with the real pause of mocked waits it never
- * reached the cap in time, so every such test cost the full timeout (78_caloriecount's
- * NewScheduler: 0 generations).
+ * reached the cap in time, so every such test cost the full timeout.
  */
 public class LeftoverSutThreadTest {
 

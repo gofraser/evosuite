@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 public class ReflectionTest {
 
@@ -47,8 +48,24 @@ public class ReflectionTest {
                 () -> Reflection.setField(stringField, fixture, 123));
     }
 
+    @Test
+    public void testInStableOrder_sortsByStringFormInPlace() throws Exception {
+        Method b = ReflectionFixture.class.getMethod("b");
+        Method a = ReflectionFixture.class.getMethod("a");
+        Method[] methods = {b, a};
+
+        Assertions.assertSame(methods, Reflection.inStableOrder(methods));
+        Assertions.assertArrayEquals(new Method[]{a, b}, methods);
+    }
+
     public static class ReflectionFixture {
         public boolean flag;
         public String text;
+
+        public void a() {
+        }
+
+        public void b() {
+        }
     }
 }

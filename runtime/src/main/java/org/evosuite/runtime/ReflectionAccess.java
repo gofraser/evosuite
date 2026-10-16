@@ -38,8 +38,8 @@ import java.util.Set;
  * <em>minus</em> the opens and exports EvoSuite added for itself. The master passes that
  * private list in the {@value #PRIVATE_ACCESS_PROPERTY} system property, after removing
  * whatever the user granted on EvoSuite's own command line or in {@code JDK_JAVA_OPTIONS};
- * a package the user opened for the SUT (liferay's XStream needs {@code java.base/java.util}
- * on JDK 17 in production too) is honoured, a package only EvoSuite opened is not. In a
+ * a package the user opened for the SUT (for example {@code java.base/java.util}
+ * on JDK 17) is honoured, a package only EvoSuite opened is not. In a
  * test JVM the property is absent and the rule reduces to the JVM's real answer.
  *
  * <p>On JDK 9 to 15 the default {@code --illegal-access=permit} lets code in the unnamed

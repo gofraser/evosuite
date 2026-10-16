@@ -32,8 +32,8 @@ import java.util.function.Predicate;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for the EvoObj infrastructure added to {@link BytecodeInstruction} in milestone
- * M0: operand-count, parameter-position, operand-source and INSTANCEOF queries evaluated
+ * Unit tests for the EvoObj infrastructure added to {@link BytecodeInstruction}:
+ * operand-count, parameter-position, operand-source and INSTANCEOF queries evaluated
  * against the known bytecode of a fixture method.
  */
 public class BytecodeInstructionOperandTest {

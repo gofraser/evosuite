@@ -647,7 +647,7 @@ public class ConstructionPathSynthesizer {
             FBranchDefUseAnalyzer.analyze(ins.getRawCFG());
 
             Use use = DefUsePool.getUseByInstruction(ins);
-            // Upstream DefUsePool has no getDefinitions(Use); reconstructed in DefUseAnalyzer (M2).
+            // Upstream DefUsePool has no getDefinitions(Use); reconstructed in DefUseAnalyzer.
             List<Definition> defs = DefUseAnalyzer.getDefinitions(use);
 
             if (!defs.isEmpty()) {

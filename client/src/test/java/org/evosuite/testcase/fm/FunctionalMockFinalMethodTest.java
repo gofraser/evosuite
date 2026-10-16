@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Regression test for the largest Defects4J/JacksonDatabind failure class: EvoSuite stubbing
+ * Regression test for a frequent failure class: EvoSuite stubbing
  * a Mockito mock on a method (or mocking a class) that was {@code final} in the original,
  * uninstrumented bytecode. {@link InstrumentingClassLoader} strips {@code final} so the search
  * itself can stub/mock such members, but that stripping happens only for classes loaded through

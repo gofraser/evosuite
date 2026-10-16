@@ -37,7 +37,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on Liferay's {@code MapBackedSet}: a variable that EvoSuite declared with a wildcard type
+ * A variable that EvoSuite declared with a wildcard type
  * argument ({@code LinkedHashMap<?, Boolean>}) was passed to a constructor whose parameter is
  * {@code Map<E, Boolean>} with {@code E} resolved to {@code String}. javac rejects that.
  */

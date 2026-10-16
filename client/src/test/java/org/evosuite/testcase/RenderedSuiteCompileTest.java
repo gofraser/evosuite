@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Drives the real {@link TestCodeVisitor} over hand-built tests and feeds the rendered
  * statements to javac. Each case is a defect that made a generated suite fail the compile
- * check on SF110.
+ * check.
  */
 public class RenderedSuiteCompileTest {
 

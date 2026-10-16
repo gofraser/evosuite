@@ -41,14 +41,13 @@ import java.util.concurrent.TimeUnit;
  * <p>{@code initialInStaticInit}/{@code initialInProtectedBootstrap} in {@link
  * TestCaseExecutor#execute(org.evosuite.testcase.TestCase, Scope, int)} are snapshotted once,
  * when the timeout is first caught. A thread that was executing ordinary SUT code at that
- * moment — so takes the fast kill-switch-swallow escalation added for 104_vuze's
+ * moment — so takes the fast kill-switch-swallow escalation added for loops that swallow it, such as
  * {@code accept_loop()} (see {@link TestCaseExecutorKillSwitchEscalationTest}), which skips the
  * &lt;clinit&gt; grace/abandon handling entirely — can enter a real &lt;clinit&gt; by the time
  * the last-resort force-stop decision is made a moment later. Forcing it there (interrupt can be
  * turned into an exception inside the initializer; {@code Thread.stop()} injects
  * {@code ThreadDeath} with no regard for the frame it lands in) is exactly the class-poisoning
- * failure {@code abandonStuckStaticInit} exists to avoid — this reproduced on the 108_liferay
- * cluster as a stuck {@code PropsUtil}/{@code PortletPreferencesPersistenceImpl} &lt;clinit&gt;
+ * failure {@code abandonStuckStaticInit} exists to avoid: a stuck &lt;clinit&gt;
  * chain, followed by {@code NoClassDefFoundError} on every later test in the process.
  *
  * <p>The SUT statement spins in a plain (non-&lt;clinit&gt;) loop, swallowing
@@ -129,7 +128,7 @@ public class TestCaseExecutorClinitReCheckTest {
                 try {
                     latch.await();
                 } catch (InterruptedException ignored) {
-                    // The liferay <clinit> chain this guards against does not necessarily
+                    // The <clinit> chain this guards against does not necessarily
                     // respond to interrupt either; keep waiting rather than let this escape
                     // and poison the class.
                 }
@@ -145,7 +144,7 @@ public class TestCaseExecutorClinitReCheckTest {
     /**
      * A real class initializer that keeps polling the timeout hook after the
      * executor has timed out the test. The outer stop flag lets a failing test
-     * cleanly release the worker on the old implementation.
+     * cleanly release the worker if the re-check is missing.
      */
     static final class RunawayClinitHolder {
         static {
@@ -185,8 +184,7 @@ public class TestCaseExecutorClinitReCheckTest {
         // guards against), BlockingClinitHolder is now permanently erroneous and this throws
         // NoClassDefFoundError/ExceptionInInitializerError instead of returning — the JVM marks
         // a class whose <clinit> did not complete normally as erroneous for the rest of the
-        // process, exactly the "every later test throws NoClassDefFoundError" symptom seen on
-        // the 108_liferay cluster.
+        // process, exactly the "every later test throws NoClassDefFoundError" symptom.
         BlockingClinitHolder.touch();
         Assertions.assertTrue(BlockingClinitHolder.initialized,
                 "BlockingClinitHolder's <clinit> should have completed normally, not been "

@@ -122,9 +122,8 @@ public class CallContext implements Serializable {
         }
 
         // A LinkedList is walked by index in O(n) per access; every method entry builds a
-        // context, so a deeply recursive method (caloriecount's IntComparator, which calls
-        // itself until the stack overflows) took cubic time in the depth and every test
-        // that called it ran into the timeout.
+        // context, so a method that recurses until the stack overflows took cubic time in the depth
+        // and every test that called it ran into the timeout.
         MethodCall[] calls = stackTrace.toArray(new MethodCall[0]);
         int startPos = calls.length - 1;
         int endPos = 0;
@@ -256,7 +255,7 @@ public class CallContext implements Serializable {
      * Derives the state of {@code child}, about to be pushed on top of {@code parent}.
      * Every method entry needs the context of the stack, and building it from the whole
      * stack costs time linear in the depth, so a method that recurses until the stack
-     * overflows (78_caloriecount's IntComparator) kept the test running into the timeout.
+     * overflows kept the test running into the timeout.
      *
      * @param parent         the call on top of the stack, null if the stack is empty
      * @param child          the call that is pushed

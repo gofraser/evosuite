@@ -153,9 +153,8 @@ public class ArrayAllocationLimitMethodAdapterTest {
 
     /**
      * ...but the cumulative budget must still cover it. Scoping that half to the class under
-     * analysis too left the common case unguarded: 44_summa's DoubleIntArrayList is the target
-     * and is guarded, while the chunk loop that actually exhausts the heap lives one call away in
-     * ChunkedLongArray, which is not. A library cannot trip this by sizing one buffer from its own
+     * analysis too left the common case unguarded: the target is guarded, while the chunk loop
+     * that actually exhausts the heap lives one call away in a helper class, which is not. A library cannot trip this by sizing one buffer from its own
      * constant -- only by allocating over and over within a single test.
      */
     @Test

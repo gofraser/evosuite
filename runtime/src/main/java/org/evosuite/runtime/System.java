@@ -296,8 +296,8 @@ public class System {
     /**
      * Mocked identity hash codes, keyed by the real identity hash of the object. An object
      * keeps its mocked value for as long as it is reachable: SUT code stores such objects as
-     * keys of {@code HashMap}s that live in static state across many tests (110_firebird's
-     * {@code GDSFactory.typeToPluginMap} is keyed by {@code GDSType}, which defines no
+     * keys of {@code HashMap}s that live in static state across many tests (for example a map
+     * keyed by a type that defines no
      * {@code hashCode()}), and a key whose hash changes after {@code put()} is searched for in
      * the wrong bucket and never found again. The entries are weak so that objects that died
      * with their test do not accumulate over a run; {@link #resetRuntime()} only restarts the
@@ -374,7 +374,7 @@ public class System {
      * something else: a String, an Integer, a value class. Answering with the mocked
      * identity id for those made two equal keys hash differently, so any hash table in
      * instrumented code stopped finding its own entries. Guava's {@code RegularImmutableMap}
-     * inside Closure lost "desc" that way: {@code putAll} copied the entry, {@code
+     * lost an entry that way: {@code putAll} copied the entry, {@code
      * containsKey("desc")} on another String instance said no, and the builder threw
      * "duplicate key". Only an object whose class leaves {@code hashCode()} to
      * {@code Object} gets the deterministic id; everything else gets its own.</p>

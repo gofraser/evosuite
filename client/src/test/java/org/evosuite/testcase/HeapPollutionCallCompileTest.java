@@ -41,7 +41,7 @@ import java.util.LinkedHashMap;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on Vuze's {@code BDecoder.print(Object)}: EvoSuite declared a list as
+ * EvoSuite declared a list as
  * {@code ArrayList<IOException>} and then added a plain {@code Object} to it, because the call's
  * own method model leaves the element type unresolved. javac checks the call against the
  * receiver's declared type, so such a call must go through a raw receiver.
@@ -142,7 +142,7 @@ public class HeapPollutionCallCompileTest {
     }
 
     /**
-     * Defects4J Chart-2: the declaration is rendered from the constructor's owner type
+     * The declaration is rendered from the constructor's owner type
      * (ArrayList&lt;File&gt;), but the variable itself can carry a different type, so the
      * receiver check must judge the call by the declared type.
      */
@@ -173,7 +173,7 @@ public class HeapPollutionCallCompileTest {
     }
 
     /**
-     * Defects4J Collections-3: the list is declared {@code ArrayList<Object>} from the constructor's
+     * The list is declared {@code ArrayList<Object>} from the constructor's
      * owner type, while the call is modelled on the variable's {@code ArrayList<File>}; the
      * returned iterator must be cast, javac sees {@code ListIterator<Object>}.
      */
@@ -197,7 +197,7 @@ public class HeapPollutionCallCompileTest {
     }
 
     /**
-     * Defects4J Collections-6: {@code Comparator<Object> c = Map.Entry.comparingByValue();} has no
+     * {@code Comparator<Object> c = Map.Entry.comparingByValue();} has no
      * type that javac can infer, so the static generic call needs a raw cast.
      */
     @Test
@@ -242,7 +242,7 @@ public class HeapPollutionCallCompileTest {
     }
 
     /**
-     * SF110 summa: {@code MemoryPool<E extends Comparable<E>>} was instantiated with {@code UURI},
+     * {@code MemoryPool<E extends Comparable<E>>} was instantiated with {@code UURI},
      * which implements only the raw {@code Comparable}; javac rejects {@code MemoryPool<UURI>}
      * ("not within bounds of type-variable E"). The receiver is rendered raw instead.
      */

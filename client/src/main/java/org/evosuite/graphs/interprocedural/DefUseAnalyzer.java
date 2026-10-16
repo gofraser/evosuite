@@ -80,7 +80,7 @@ public class DefUseAnalyzer {
 
     /**
      * Return the reaching definitions of the local-variable/field {@code use} that are also
-     * intraprocedurally reachable from the definition to the use. Needed by the M2
+     * intraprocedurally reachable from the definition to the use. Needed by the
      * slicer to link definitions of a local into the object construction graph.
      */
     public static List<BytecodeInstruction> getDefFromUse(BytecodeInstruction insOfuse) {
@@ -160,8 +160,7 @@ public class DefUseAnalyzer {
         // SourceValue frames normally retain the exact ASM nodes used to build the CFG. Resolve
         // those by identity first. Looking up the node only in a freshly parsed MethodNode is not
         // reliable for pre-built project JARs: AbstractInsnNode uses identity equality, so indexOf
-        // returns -1 even though the instruction is present. That was the reason the real Gangup
-        // BasicRules graph lost actor/target/action dependencies while the source fixture passed.
+        // returns -1 even though the instruction is present.
         InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
         RawControlFlowGraph rawCfg = GraphPool.getInstance(classLoader)
                 .getRawCFG(cfg.getClassName(), cfg.getMethodName());

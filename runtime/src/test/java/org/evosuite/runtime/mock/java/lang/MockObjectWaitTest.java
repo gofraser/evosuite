@@ -87,7 +87,7 @@ public class MockObjectWaitTest {
     }
 
     /**
-     * A wait loop on the test's own thread that never ends (78_caloriecount's NewScheduler)
+     * A wait loop on the test's own thread that never ends
      * is cut by the cumulative budget on every evaluation of the test. A real millisecond
      * for each of its ~200 waits made every such test last 250-450 ms and left the search
      * with a handful of generations.

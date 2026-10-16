@@ -218,8 +218,8 @@ public class Sandbox {
 
     /**
      * Kept per thread in a map of its own rather than in a {@link ThreadLocal}: SUT code that
-     * clears the thread locals of every thread (Liferay's ClearThreadLocalUtil does, through
-     * reflection) would reset the depth to 0, so the thread would never be restored to its
+     * clears the thread locals of every thread (through reflection)
+     * would reset the depth to 0, so the thread would never be restored to its
      * privileged state and could not write the generated tests afterwards.
      */
     private static int downgradeDepthOf(Thread t) {

@@ -19,6 +19,7 @@
  */
 package org.evosuite.coverage.method;
 
+import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.setup.TestUsageChecker;
@@ -66,7 +67,7 @@ public abstract class AbstractMethodCoverageFactory<T extends AbstractMethodTest
 
     protected List<T> getCoverageGoals(Class<?> clazz, String className) {
         List<T> goals = new ArrayList<>();
-        Constructor<?>[] allConstructors = clazz.getDeclaredConstructors();
+        Constructor<?>[] allConstructors = Reflection.inStableOrder(clazz.getDeclaredConstructors());
         for (Constructor<?> c : allConstructors) {
             if (TestUsageChecker.canUse(c)) {
                 String methodName = "<init>" + Type.getConstructorDescriptor(c);
@@ -74,7 +75,7 @@ public abstract class AbstractMethodCoverageFactory<T extends AbstractMethodTest
                 goals.add(createGoal(className, methodName));
             }
         }
-        Method[] allMethods = clazz.getDeclaredMethods();
+        Method[] allMethods = Reflection.inStableOrder(clazz.getDeclaredMethods());
         for (Method m : allMethods) {
             if (TestUsageChecker.canUse(m)) {
                 if (clazz.isEnum()) {

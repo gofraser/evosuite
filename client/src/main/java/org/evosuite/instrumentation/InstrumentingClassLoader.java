@@ -409,12 +409,11 @@ public class InstrumentingClassLoader extends ClassLoader {
     /**
      * Entry names of each classpath jar, keyed by jar path, built once on first use.
      *
-     * <p>Without this, every resource lookup reopened and reparsed the central directory of
-     * every jar on the target classpath. SF110's 108_liferay has 309 of them, and a
-     * reflection-heavy static initializer (XStream probing for optional converters, say) issues
-     * hundreds of lookups in a row - enough to push a &lt;clinit&gt; past the executor's grace
-     * period, at which point the class is abandoned mid-initialization and stays erroneous for
-     * the rest of the JVM. The cost was never in the classes themselves, only in finding them.
+     * <p>Without this, every resource lookup would reopen and reparse the central directory of
+     * every jar on the target classpath. A reflection-heavy static initializer issues hundreds of
+     * lookups in a row, which can push a &lt;clinit&gt; past the executor's grace period, at which
+     * point the class is abandoned mid-initialization and stays erroneous for the rest of the JVM.
+     * The cost is in finding the classes, not in the classes themselves.
      *
      * <p>Keyed by path rather than held as open {@link JarFile} handles so that the file
      * descriptors are released immediately; a name set costs memory but no fd, and the target
@@ -447,9 +446,9 @@ public class InstrumentingClassLoader extends ClassLoader {
     }
 
     /**
-     * Resolving one resource used to stat every classpath entry anew - several hundred of them
-     * for a SUT like 108_liferay - and frame computation asks for hundreds of classes while
-     * instrumenting a single one. Remember which entries exist and what kind they are, keyed by
+     * Resolving one resource would otherwise stat every classpath entry anew, and frame computation
+     * asks for hundreds of classes while instrumenting a single one. Remember which entries exist
+     * and what kind they are, keyed by
      * the classpath string so a change still takes effect, and remember the answers.
      */
     private volatile String cachedClasspath;

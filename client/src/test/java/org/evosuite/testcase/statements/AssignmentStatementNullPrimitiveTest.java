@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on weka's {@code RandomSplitResultProducer.m_randomize}: a null written into a primitive
+ * A null written into a primitive
  * boolean field, which neither compiles nor can have executed without an exception.
  */
 public class AssignmentStatementNullPrimitiveTest {

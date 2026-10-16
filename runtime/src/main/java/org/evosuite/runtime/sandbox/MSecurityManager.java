@@ -527,17 +527,15 @@ public class MSecurityManager extends SecurityManager {
              */
             if (executingTestCase) {
                 /*
-                 * Same outcome, and same message, as before: the old code took a
-                 * second hold, saw the flag, and gave that hold straight back
-                 * before throwing. Nesting test case executions is not supported.
+                 * Nesting test case executions is not supported.
                  */
                 throw new IllegalStateException("Trying to set up the sandbox while executing a test case");
             }
             /*
              * Flag/ownership divergence: somebody cleared the global flag while
-             * this thread still owned the permit. The old code took a second
+             * this thread still owned the permit. Taking a second
              * hold here which the single matching goingToEndTestCase() would
-             * never give back, i.e. it leaked the lock for the rest of the
+             * never give back, i.e. it would leak the lock for the rest of the
              * process lifetime. Re-arm the flag and keep the one hold we have.
              */
             logger.warn("Sandbox flag was cleared while thread '{}' still owned the sandbox lock; re-arming it",

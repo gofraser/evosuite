@@ -33,7 +33,7 @@ import java.nio.channels.ServerSocketChannel;
  * socket (which the sandbox refuses anyway): it returns an {@link EvoServerSocketChannel},
  * a channel backed by the EvoSuite virtual network. This keeps SUT code that calls
  * {@code ServerSocketChannel.open()} inside a {@code catch (Throwable)} block (a common
- * pattern) from having the channel object itself be {@code null}, which previously made
+ * pattern) from having the channel object itself be {@code null}, which would otherwise make
  * every subsequent use of the channel (bind, accept, isOpen) unreachable.
  */
 public class MockServerSocketChannel implements StaticReplacementMock {

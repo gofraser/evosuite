@@ -114,8 +114,7 @@ public final class MasterClassLoader {
      * {@code com.fasterxml.jackson.databind.introspect.POJOPropertyBuilder} looked the
      * constructor up in the wrong version, threw "Unknown constructor", broke the RMI
      * connection and left the master with an empty suite (Size 0, coverage 0.0) although
-     * the client had written hundreds of tests. Every JacksonDatabind and Gson target in
-     * the Defects4J assertion experiment was affected.
+     * the client had written hundreds of tests.
      */
     private static final class ProjectFirstClassLoader extends URLClassLoader {
 

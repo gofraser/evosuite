@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>The scenario this guards against: a SUT that keeps running instrumented code after
  * the kill switch was set, because it swallows {@link TestCaseExecutor.TimeoutExceeded}
- * the same way {@code VirtualBlockingServerChannelSelector.accept_loop()} in 104_vuze
+ * the same way a server {@code accept_loop()}
  * swallows every {@code Throwable} in its own catch-and-retry loop. Without fast
  * escalation, such a thread is only ever terminated by the last-resort
  * {@code Thread.stop()}, reached after paying the entire graceful shutdown chain

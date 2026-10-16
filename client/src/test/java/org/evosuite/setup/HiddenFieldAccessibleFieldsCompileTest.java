@@ -61,7 +61,7 @@ public class HiddenFieldAccessibleFieldsCompileTest {
     }
 
     /**
-     * Shaped like vuze's SkinView: internal state in protected fields that hide nothing.
+     * Internal state in protected fields that hide nothing.
      */
     public static class View {
         protected Tree skin;

@@ -550,7 +550,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 // row for exactly this reason; there is no argument for being stricter when we
                 // have an individual and merely could not measure one of its variables.
                 //
-                // On SF110 this is the terminal step of several unrelated failures - an
+                // This is the terminal step of several unrelated failures - an
                 // OutOfMemoryError in the search, a NoClassDefFoundError from an incomplete
                 // project classpath, and TestSuiteWriter skipping the coverage re-execution under
                 // memory pressure all end here - so it accounts for a large share of the runs

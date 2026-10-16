@@ -37,7 +37,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on firebird's {@code JaybirdSqlParser.arraySpec_return}: a field {@code CommonTree tree}
+ * A class with a field {@code CommonTree tree}
  * next to an inherited {@code Object getTree()}; writing null into the field was rendered
  * {@code x.tree = (Object) null}.
  */

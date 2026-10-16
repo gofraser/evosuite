@@ -45,10 +45,8 @@ public class ClinitResetSafetyAnalyzerTest {
     public void testGDSFactoryIsExcludedByExactNameDespiteMatchingTheRule() {
         // Same risky shape as RiskyRegistryClinit (resource-scan call reachable
         // from <clinit> + a static Map registry field), but built under the
-        // exact internal name org/firebirdsql/gds/impl/GDSFactory. Verified by
-        // paired before/after EvoSuite runs that permanently skipping this
-        // class's reset regresses org.firebirdsql.management.FBNBackupManager
-        // on every tested seed - see the class javadoc for the mechanism. Must
+        // exact internal name org/firebirdsql/gds/impl/GDSFactory. Permanently skipping this
+        // class's reset makes searches collapse - see the class javadoc for the mechanism. Must
         // never be flagged, regardless of what the structural rule would say.
         byte[] bytes = buildRiskyRegistryShapedClass("org/firebirdsql/gds/impl/GDSFactory");
         Assertions.assertFalse(ClinitResetSafetyAnalyzer.isUnsafeToReplayClinit(new ClassReader(bytes)));

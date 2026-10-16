@@ -19,6 +19,7 @@
  */
 package org.evosuite.setup;
 
+import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
@@ -1108,7 +1109,7 @@ public class TestCluster {
             generators.put(clazz, new LinkedHashSet<>());
         }
         logger.info("addNumericConstructor for class " + clazz);
-        for (Constructor<?> constructor : clazz.getRawClass().getConstructors()) {
+        for (Constructor<?> constructor : Reflection.inStableOrder(clazz.getRawClass().getConstructors())) {
             if (constructor.getParameterTypes().length == 1) {
                 Class<?> parameterClass = constructor.getParameterTypes()[0];
                 if (!parameterClass.equals(String.class)) {
@@ -1936,7 +1937,7 @@ public class TestCluster {
             list.add(obj);
         }
 
-        Collections.shuffle(list);
+        Randomness.shuffle(list);
         return list;
     }
 

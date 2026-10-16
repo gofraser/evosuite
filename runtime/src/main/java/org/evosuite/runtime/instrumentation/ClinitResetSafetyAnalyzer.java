@@ -46,12 +46,12 @@ import java.util.Set;
  *
  * <p>Two verified real-world instances motivate this rule:
  * <ul>
- *     <li>{@code org.firebirdsql.gds.impl.GDSFactory} (110_firebird):
+ *     <li>{@code org.firebirdsql.gds.impl.GDSFactory}:
  *     {@code <clinit>} calls {@code Thread.currentThread().getContextClassLoader()}
  *     directly and, through a private static helper, {@code
  *     ClassLoader.getResources("META-INF/services/...")}, to populate a
  *     {@code HashMap<GDSType, GDSFactoryPlugin>} keyed on object identity.</li>
- *     <li>{@code com.liferay.portal.kernel.util.SystemProperties} (108_liferay):
+ *     <li>{@code com.liferay.portal.kernel.util.SystemProperties}:
  *     {@code <clinit>} does {@code _instance = new SystemProperties()}, and the
  *     constructor it invokes reads {@code system.properties} off {@code
  *     Thread.currentThread().getContextClassLoader()} into an instance-level
@@ -66,7 +66,7 @@ import java.util.Set;
  *     ClassLoader.getSystemResource(s)}, {@code ServiceLoader.load(Installed)},
  *     or {@code Thread.getContextClassLoader()} - reachable from {@code
  *     <clinit>} by following calls the class makes to its own methods or
- *     constructor (this is what lets the Liferay case, where the scan lives
+ *     constructor (this is what lets the SystemProperties case, where the scan lives
  *     in the constructor invoked by {@code <clinit>}, be detected); and</li>
  *     <li>evidence that the class is building a registry: either a static
  *     field of a known {@code Map}/{@code Collection} type, or a self-typed
@@ -81,10 +81,8 @@ import java.util.Set;
  *
  * <p><b>Known exception: {@code org.firebirdsql.gds.impl.GDSFactory} itself
  * is excluded</b> ({@link #NEVER_SKIP_EXACT_CLASSES}), even though it
- * matches the rule above. Verified by paired before/after EvoSuite runs on
- * {@code org.firebirdsql.management.FBNBackupManager}: permanently skipping
- * its reset does not merely fail to help, it makes every tested seed
- * collapse (branch coverage capped near the first generation), including
+ * matches the rule above. Permanently skipping its reset does not merely fail to help, it makes
+ * searches collapse (branch coverage capped near the first generation), including
  * seeds where the unmodified baseline was healthy. The mechanism is
  * different from the read-once-then-frozen case this rule is designed for:
  * {@code GDSFactory.registerPlugin(GDSFactoryPlugin)} is a <em>public</em>
@@ -100,21 +98,19 @@ import java.util.Set;
  * distinct from {@code SystemProperties}, whose only public mutator
  * ({@code set(String, String)}) writes to an open string-keyed namespace
  * that a fuzzer colliding with a framework-critical key is astronomically
- * unlikely to hit in practice - confirmed by paired runs recovering {@code
- * RandomAccessInputStream} with no regressions across five healthy
- * liferay/weka/jgaap/vuze controls.
+ * unlikely to hit in practice.
  *
  * <p>No general bytecode-level rule was found that reliably separates these
  * two shapes (both mutate through a preserved map/set instance via {@code
  * .put}/{@code .add} rather than by reassigning the field, so "no writes
  * outside {@code <clinit>}" does not distinguish them) without either also
- * excluding the liferay case or requiring full points-to/key-space
+ * excluding the {@code SystemProperties} case or requiring full points-to/key-space
  * reasoning this analyzer does not attempt. Until such a rule exists, the
  * known-bad case is excluded by name rather than left to silently regress a
  * verified-healthy subject.
  *
- * <p>A static scan of every class in all 128 SF110 project jars (49,312
- * classes) found only 6 matches for the base rule, reviewed by hand for a
+ * <p>A static scan of a large corpus of project jars found only 6 matches for the base rule,
+ * reviewed by hand for a
  * public write path into the registry (the {@code registerPlugin} shape):
  * {@code corina.Species} and {@code MetadataFactory} both have one into a
  * small, collidable key space and are excluded here for the same reason as
@@ -141,7 +137,7 @@ public final class ClinitResetSafetyAnalyzer {
      * (it independently matches only under the coupled-bootstrap cross-class
      * check, which is not active in the base rule, but is listed here so
      * re-enabling that check does not silently reintroduce the same
-     * regression without this override).
+     * problem without this override).
      */
     private static final Set<String> NEVER_SKIP_EXACT_CLASSES = new HashSet<>(Arrays.asList(
             "org.firebirdsql.gds.impl.GDSFactory",
@@ -156,7 +152,7 @@ public final class ClinitResetSafetyAnalyzer {
             // EvoSuite's constant-seeding tends to reuse in generated tests - the same
             // collidable-key-space shape that made GDSFactory unsafe. Not dynamically
             // tested; excluded on the strength of the static evidence alone rather
-            // than risk corrupting 35_corina's other classes to find out.
+            // than risk corrupting the class's other state to find out.
             "corina.Species",
             // com.atlassw.tools.eclipse.checkstyle.config.meta.MetadataFactory: public
             // static createGenericMetadata(Module) does

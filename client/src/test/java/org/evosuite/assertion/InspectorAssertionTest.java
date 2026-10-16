@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 public class InspectorAssertionTest {
 
     /**
-     * Mirrors the SF110 {@code jigl.image.io.ImageInputStream} defect: an
+     * Mirrors a defect in which an
      * {@code assertEquals} comparing an inspector call's result against a private
      * nested enum constant (e.g. {@code imageInputStream0.type()}). The declaring
      * type can never be written in the generated test, not even as

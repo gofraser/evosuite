@@ -53,8 +53,8 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Milestone M5 verification for the search-integration hook in {@link RandomLengthTestFactory}
- *. Unlike the M2–M4 tests, which drive the analysis/synthesis/legitimization APIs
+ * Verification of the search-integration hook in {@link RandomLengthTestFactory}.
+ * Unlike the tests that drive the analysis/synthesis/legitimization APIs
  * directly, this test exercises the actual chromosome factory: with {@code apply_object_rule=true},
  * a working branch selected, and the application probability forced to 1, {@link
  * RandomLengthTestFactory#getChromosome()} must turn a freshly generated random test into an
@@ -181,7 +181,7 @@ public class ObjectRuleFactoryTest {
     }
 
     /**
-     * The M5 gate: driven through the real factory, the object rule turns a random test into a
+     * The gate: driven through the real factory, the object rule turns a random test into a
      * template that constructs the {@code Student} held in the branch-read field and calls the
      * target method {@code targetM}.
      */

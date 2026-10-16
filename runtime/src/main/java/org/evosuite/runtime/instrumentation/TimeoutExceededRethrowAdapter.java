@@ -70,7 +70,7 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
      * would dispatch straight back to the same handler, forever. This holds for finally
      * handlers too, although nothing is injected there: the kill-switch probe at the start
      * of the handler's line throws the same way, and a thread caught in that loop never
-     * ends (104_vuze's EventWaiter.waitForEvent). Such ranges are moved to start at a fresh
+     * ends. Such ranges are moved to start at a fresh
      * label emitted after the handler's first code.
      */
     private Map<Label, Label> shiftedRangeStarts;
@@ -78,8 +78,7 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     /**
      * javac also emits a handler range that begins earlier and runs past the handler's first
      * instruction: a finally block after a catch block is protected as
-     * {@code [catch handler, finally handler + 1) -> finally handler} (104_vuze's
-     * AESemaphore.reserve). The handler is then inside a range that leads back to it, so
+     * {@code [catch handler, finally handler + 1) -> finally handler}. The handler is then inside a range that leads back to it, so
      * the kill-switch probe at its start throws into the handler again. The range cannot be
      * split here, because the exception table is written before the code is seen; the
      * probe is left out instead: it is the first thing of the handler's line, and the

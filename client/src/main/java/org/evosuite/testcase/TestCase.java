@@ -340,7 +340,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     /**
      * Find the first {@link org.evosuite.testcase.statements.MethodStatement} whose name+descriptor
-     * equals {@code methodSignature} (EvoObj whole-class mode, plan E1). Returns null if the test
+     * equals {@code methodSignature} (EvoObj whole-class mode). Returns null if the test
      * does not call it, or if {@code methodSignature} is null/empty.
      *
      * @param methodSignature the method name+descriptor to look for

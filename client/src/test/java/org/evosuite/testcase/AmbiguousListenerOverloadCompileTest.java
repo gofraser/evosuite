@@ -35,7 +35,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on Vuze's DeviceImpl: addListener(DeviceListener) and addListener(TranscodeTargetListener)
+ * Two overloads, addListener(DeviceListener) and addListener(TranscodeTargetListener)
  * are both applicable to an argument implementing both interfaces, so the call is ambiguous
  * unless the argument is cast to the selected parameter type.
  */

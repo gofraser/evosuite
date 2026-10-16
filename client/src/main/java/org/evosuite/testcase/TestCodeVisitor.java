@@ -2301,7 +2301,7 @@ public class TestCodeVisitor extends TestVisitor {
             }
         } catch (LinkageError e) {
             // Reflecting over the receiver's methods resolves every type in their
-            // signatures, and SF110-style projects routinely ship classes whose
+            // signatures, and projects routinely ship classes whose
             // signatures mention optional dependencies that are not on the
             // classpath (lwjgl, JSP EL, Axis, ...). This runs on the search path
             // via getCode(), so it must not abort the run: without the overload
@@ -2520,7 +2520,7 @@ public class TestCodeVisitor extends TestVisitor {
      * -- eg a {@code Class<LinkedList>} class-literal variable (the static type of
      * {@code LinkedList.class} per JLS 15.8.2) reaching a {@code Class<LinkedList<String>>}
      * target. {@code GenericClassUtils.isClassLiteralAssignable} deliberately treats that
-     * pair as assignable (see {@code 90e6a0906}), but javac rejects the direct
+     * pair as assignable, but javac rejects the direct
      * assignment/invocation/cast-to-named-type in both directions. Every rendering path
      * that can carry such a value across a declared/actual type boundary -- a method-call
      * argument, a direct or field assignment -- must emit a raw {@code (Class)} cast
@@ -4338,7 +4338,7 @@ public class TestCodeVisitor extends TestVisitor {
     /**
      * The receiver expression of {@code outer.new Inner(...)}. javac resolves the simple name
      * {@code Inner} as a member type of the <em>static type</em> of {@code outer}, so when a
-     * subclass declares a member class of the same name as the inherited one (weka's
+     * subclass declares a member class of the same name as the inherited one (for example
      * {@code CoverTree.MyHeap} hides {@code NearestNeighbourSearch.MyHeap}), the expression
      * would create the subclass's member instead. Casting the receiver to the class that really
      * declares {@code inner} selects the right one.
@@ -5128,7 +5128,7 @@ public class TestCodeVisitor extends TestVisitor {
             // Both sides erase to the same raw class (java.lang.Class) -- which is why the
             // block above was skipped -- but their generic Class<...> type arguments differ
             // (eg a Class<Raw> literal assigned into a Class<Parameterized> field).
-            // GenericClassUtils' documented raw-literal leniency (90e6a0906) accepts this at
+            // GenericClassUtils' documented raw-literal leniency accepts this at
             // the assignability level, but javac rejects the direct assignment. requiresRawClassCast
             // is the single predicate for this; a raw (Class) cast is the fix for a direct
             // assignment such as a field write, same as at a method-call argument.

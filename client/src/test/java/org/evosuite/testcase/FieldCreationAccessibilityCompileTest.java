@@ -1,7 +1,6 @@
 package org.evosuite.testcase;
 
 import org.evosuite.Properties;
-import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.testcase.dmon.DmonPromotionOperator;
 import com.examples.with.different.packagename.fields.FieldAccessBase;
 import com.examples.with.different.packagename.fields.other.FieldAccessChild;

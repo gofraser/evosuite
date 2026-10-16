@@ -95,14 +95,12 @@ public class MockThread extends Thread implements OverrideMock {
      * <li>A thread the SUT started (a {@code MockThread}) pauses for real,
      * {@code min(requested, 50)} ms on every call. Such a thread runs alongside the
      * test, so the pause costs the search nothing, and it must not be shorter: a
-     * background loop that calls {@code sleep()} on every iteration (e.g. 104_vuze's
-     * {@code TRTrackerServerImpl.timerLoop()}, which sleeps 60 s and then holds a
-     * static {@code AEMonitor} for ~10 ms) would otherwise spin and starve the test
+     * background loop that calls {@code sleep()} on every iteration and holds a lock for a few
+     * milliseconds in between would otherwise spin and starve the test
      * thread that waits for the same monitor, until that thread is declared stuck and
      * force-stopped while it holds a lock the stop cannot release.</li>
      * <li>The test's own thread only yields. A real pause there is paid on every
-     * evaluation of the test: a polling loop that never ends (gangup's
-     * {@code Kernel.run()}, HSQLDB's {@code Server.start()}) lasted several seconds
+     * evaluation of the test: a polling loop that never ends (HSQLDB's {@code Server.start()}) lasted several seconds
      * under 200 ms of real sleep per test, and the search saw a handful of
      * generations. The call cap below ends such a loop.</li>
      * </ul>
@@ -152,7 +150,7 @@ public class MockThread extends Thread implements OverrideMock {
      * stop: LoopCounter ends a loop whose thread is still flagged as interrupted. A SUT loop that
      * swallows the exception would otherwise find the flag cleared and go on until the iteration
      * cap, tens of milliseconds of busy looping that the finished test's join has to wait for, for
-     * every test that started such a thread (27_gangup's Kernel). So the flag is set again before
+     * every test that started such a thread. So the flag is set again before
      * the exception is rethrown.
      *
      * @param stoppingPause the brief pause taken when the thread is being stopped
@@ -270,16 +268,13 @@ public class MockThread extends Thread implements OverrideMock {
             // A thread the SUT started runs alongside the test, so a real pause
             // costs the search nothing, and a short one is harmful: a periodic
             // background loop that "sleeps" 60 s and then holds a lock for a few
-            // milliseconds (vuze's TrackerServer timer loop, which holds
-            // ConfigurationManager's AEMonitor for ~10 ms per iteration) would,
-            // with a pause of 1 ms or just a yield, keep that lock almost
-            // continuously while the test thread constructing a second server
-            // waited for it, was declared stuck and force-stopped with a
+            // milliseconds would, with a pause of 1 ms or just a yield, keep that lock almost
+            // continuously while the test thread waiting for it was declared stuck and force-stopped with a
             // ReentrantLock in hand.
             // Once the test has ended and its leftover threads are being asked to
             // stop, a thread that keeps looping must not keep pausing: each pause
             // keeps the join waiting, so every later test would pay the whole
-            // timeout for it (78_caloriecount's NewScheduler thread).
+            // timeout for it.
             // The pause stays, but only a brief one: a loop that swallows the exception
             // (it catches RuntimeException or Throwable) would otherwise spin without
             // pausing for the whole stop window, and ThreadStopper keeps that window
@@ -289,8 +284,7 @@ public class MockThread extends Thread implements OverrideMock {
                     "MockThread: thread kept sleeping after its test ended");
         } else {
             // The test's own thread only ever sleeps in a polling loop that runs into
-            // the call cap (27_gangup's Kernel.run(), HSQLDB's Server.start() in
-            // 57_hft-bomberman's classes), and that happens on every evaluation of
+            // the call cap (for example HSQLDB's Server.start()), and that happens on every evaluation of
             // such a test, so any real pause adds up: 200 ms of them per test left the
             // search with a handful of generations. Yield instead; Thread.sleep(0)
             // also observes interrupts. Threads the SUT started, which are the ones
@@ -303,8 +297,7 @@ public class MockThread extends Thread implements OverrideMock {
         // typically catch InterruptedException and keep looping;
         // TooManyResourcesException is already used by LoopCounter for the same
         // purpose. The real pause above deliberately happens first: a loop that
-        // also swallows this exception (vuze's TRTrackerServerImpl timer loop
-        // catches Throwable) would otherwise turn into a busy loop the moment
+        // also swallows this exception (it catches Throwable) would otherwise turn into a busy loop the moment
         // the cap is reached, and a busy loop holding a monitor starves every
         // other thread that needs it.
         if (overCap) {

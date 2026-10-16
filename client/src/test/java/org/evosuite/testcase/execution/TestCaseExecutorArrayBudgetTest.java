@@ -33,7 +33,7 @@ import java.util.Collections;
 /**
  * The cumulative array budget belongs to one test. Class initialisers that run between tests
  * (static field re-initialisation, the search inspecting a class's annotations) must not be
- * charged against the total of the test that just finished (summa PoolFactoryGate).
+ * charged against the total of the test that just finished.
  */
 public class TestCaseExecutorArrayBudgetTest {
 

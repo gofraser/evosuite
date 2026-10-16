@@ -41,7 +41,7 @@ import java.util.Set;
  *
  * <p>Rather than threading a context object through every synthesis method signature, the context
  * is published for the current run via the run-scoped {@code ObjectRuleRuntime} and consulted at
- * the few points that previously read {@link Properties#TARGET_CLASS}/{@link
+ * the few points that read {@link Properties#TARGET_CLASS}/{@link
  * Properties#TARGET_METHOD} through {@link #activeClassName()}/{@link #activeMethodSignature()}.
  */
 public class TargetContext {

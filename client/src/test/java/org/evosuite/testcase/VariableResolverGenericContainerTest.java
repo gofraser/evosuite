@@ -34,22 +34,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /**
- * Deterministic unit test for the {@code VariableResolver.tryCreateStandardContainer} half of
- * commit 3f7bb5186 ("Bind owner type variables before satisfying generic call parameters").
+ * Deterministic unit test for the {@code VariableResolver.tryCreateStandardContainer} half of binding
+ * owner type variables before satisfying generic call parameters.
  *
- * <p>Before that fix, {@code tryCreateStandardContainer} always wrapped the chosen implementation
+ * <p>Without that binding, {@code tryCreateStandardContainer} would wrap the chosen implementation
  * class (eg, {@code LinkedHashSet}) in a raw {@code GenericConstructor}, so the resulting
  * statement declared a raw {@code LinkedHashSet} rather than {@code LinkedHashSet<String>}: an
  * unbound {@code LinkedHashSet<E>} is unchecked-assignable to a {@code Set<X>} request for any
  * {@code X}, which is exactly the hole that let EvoSuite pass a {@code LinkedHashSet<E>} as both
- * a {@code List<Integer>} and a {@code Set<String>} parameter of the same constructor call
- * (Defects4J Collections-21). This test calls the resolver directly, bypassing the mutation
- * machinery that {@link TestMutatorGenericConstructorOwnerBindingTest} goes through -- an earlier,
- * now-removed sibling offered several self-consistent List/Set pairs for the mutator to pick from
- * and only unreliably failed when the owner-binding fix was reverted, because an unbound pick
- * could still land on a self-consistent pair by chance (see that class's javadoc for the measured
- * failure rate); this test has only one implementation to pick and asserts its type argument
- * directly, so it cannot pass by accident.</p>
+ * a {@code List<Integer>} and a {@code Set<String>} parameter of the same constructor call.
+ * This test calls the resolver directly, bypassing the mutation
+ * machinery that {@link TestMutatorGenericConstructorOwnerBindingTest} goes through, which can
+ * pick a self-consistent pair by chance; this test has only one implementation to pick and asserts
+ * its type argument directly, so it cannot pass by accident.</p>
  */
 class VariableResolverGenericContainerTest {
 

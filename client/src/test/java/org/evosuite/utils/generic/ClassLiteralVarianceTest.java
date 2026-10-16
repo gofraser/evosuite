@@ -104,9 +104,9 @@ class ClassLiteralVarianceTest {
             new Case("Class<List<String>> -> Class<List<String>>",
                     "classOfListOfString", "classOfListOfString", true),
 
-            // Unbounded wildcard on the left: this is the opposite-direction bug. The old code
-            // erased the wildcard via getRawClass, yielding Object.class, which then compared
-            // unequal to List.class and wrongly rejected a valid assignment.
+            // Unbounded wildcard on the left: this is the opposite-direction bug. Erasing the wildcard
+            // via getRawClass would yield Object.class, which then compares unequal to List.class and
+            // wrongly rejects a valid assignment.
             new Case("Class<List<String>> -> Class<?>",
                     "classOfWildcard", "classOfListOfString", true),
 
@@ -120,7 +120,7 @@ class ClassLiteralVarianceTest {
             new Case("Class<List<String>> -> Class<List<?>>",
                     "classOfListOfWildcard", "classOfListOfString", false),
 
-            // ff45d8b1f's own case: a Class<Integer> must not satisfy a Class<Object> parameter,
+            // A Class<Integer> must not satisfy a Class<Object> parameter,
             // even though Integer is-a Object -- Class<T> is invariant, not covariant.
             new Case("Class<Integer> -> Class<Object>",
                     "classOfObject", "classOfInteger", false)

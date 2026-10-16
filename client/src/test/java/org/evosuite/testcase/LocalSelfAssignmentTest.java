@@ -34,8 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * A local assigned to itself is rendered as "T x_1 = x_1;" (javac: "might not have been
  * initialized") when the local was declared by a functional mock: the mock statement named its
  * variable without registering the declaration, so the assignment looked like a first
- * declaration, minted the fresh name x_1 and redirected every later use to it (SF110 vuze
- * CacheFileWithCache, "TOTorrentFile tOTorrentFile0_1 = tOTorrentFile0_1;").
+ * declaration, minted the fresh name x_1 and redirected every later use to it (
+ * e.g. "TOTorrentFile tOTorrentFile0_1 = tOTorrentFile0_1;").
  */
 public class LocalSelfAssignmentTest {
 

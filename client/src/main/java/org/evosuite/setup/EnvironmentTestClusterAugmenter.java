@@ -19,6 +19,7 @@
  */
 package org.evosuite.setup;
 
+import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.Random;
@@ -282,7 +283,7 @@ public class EnvironmentTestClusterAugmenter {
 
         // only consider public constructors/methods
 
-        for (Constructor<?> c : klass.getConstructors()) {
+        for (Constructor<?> c : Reflection.inStableOrder(klass.getConstructors())) {
             // first check if it should be skipped
             if (shouldSkip(excludeClass, c)) {
                 continue;
@@ -297,7 +298,7 @@ public class EnvironmentTestClusterAugmenter {
             testClusterGenerator.addNewDependencies(Arrays.asList(c.getParameterTypes()));
         }
 
-        for (Method m : klass.getMethods()) {
+        for (Method m : Reflection.inStableOrder(klass.getMethods())) {
             if (shouldSkip(excludeClass, m)) {
                 continue;
             }
@@ -328,7 +329,7 @@ public class EnvironmentTestClusterAugmenter {
         boolean excludeClass = klass.getAnnotation(EvoSuiteClassExclude.class) != null;
         // do not consider constructors
 
-        for (Method m : klass.getMethods()) {
+        for (Method m : Reflection.inStableOrder(klass.getMethods())) {
             if (shouldSkip(excludeClass, m)) {
                 continue;
             }

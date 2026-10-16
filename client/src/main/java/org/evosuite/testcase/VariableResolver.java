@@ -451,44 +451,27 @@ public class VariableResolver {
         // java.sql.Connection often fail at runtime, and mocking provides a reliable fallback.
         boolean isDeepFunctionalInterface = context.getDepth() > 0
                 && isFunctionalInterface(clazz.getRawClass());
-        // Do not gate this on whether the cluster has a generator for the type. It is
-        // tempting to, because "mock_if_no_generator" reads like a promise to mock only
-        // when there is nothing else to call, and gating it does help the case where a
-        // usable concrete implementation is being passed over in favour of a mock
-        // (102_squirrel-sql's Scanner, whose abstract Buffer parameter has working
-        // package-private FBuffer/SBuffer implementations, gains ~0.36 branch coverage).
-        // But P_FUNCTIONAL_MOCKING is 0.0 by default, so the boost below is the only thing
-        // that ever makes a deep interface/abstract dependency mockable at all: gating it
-        // does not reduce mocking for these types, it switches mocking off entirely and
-        // leaves the search with whatever concrete generator happens to exist, however
-        // badly it works. Plenty of them work badly - SharedORB.getInstance() throws
-        // ExportException outside an RMI call, so 66_openjms's JmsAdminConnectionImpl
-        // cannot be constructed at all without a mock ORB. Measured over SF110 (23,267
-        // classes, matched seeds, 120s budget), gating cost >0.20 branch coverage on 1213
-        // classes and gained it on at most 73, for -0.026 mean.
+        // Do not gate this on whether the cluster has a generator for the type. "mock_if_no_generator"
+        // reads like a promise to mock only when there is nothing else to call, but P_FUNCTIONAL_MOCKING
+        // is 0.0 by default, so the boost below is the only thing that ever makes a deep
+        // interface/abstract dependency mockable at all: gating it switches mocking off entirely and
+        // leaves the search with whatever concrete generator happens to exist, however badly it works
+        // (a singleton accessor that throws outside its intended environment cannot be constructed at
+        // all without a mock). Over a large corpus with matched seeds, gating cost many more classes
+        // a substantial amount of branch coverage than it helped.
         //
-        // The 0.5 boost is tossed independently at every depth, though, and that is its own
-        // problem for a class like 104_vuze's GenericMessageDecoder: reaching its decode
-        // branches requires Transport.read() to actually deliver bytes, which only happens
-        // along a concrete five-link chain (TCPTransportHelper -> TransportHelperFilter... ->
-        // LightweightTCPTransport). Each interface/abstract link on that chain independently
-        // survives the coin toss with probability 0.5, so the whole chain survives with
-        // probability ~0.5^k and almost never assembles. Once the search has committed to
-        // building a given deep interface/abstract dependency concretely (the coin came up
-        // "build a real one"), that decision should carry down into the dependencies of the
-        // chosen generator too: GenerationContext.concreteChain records that commitment and,
-        // below, lowers the boost to CHAIN_MOCK_BOOST for the rest of the chain instead of
-        // re-rolling 0.5 at every level. It is lowered, not removed: with 0 inside a chain
-        // GenericMessageDecoder went from 0.63 to 1.0 but freemind's ServerCommunication
-        // dropped from 0.86-0.91 to 0.64-0.68 on the same seeds, because a concrete link
-        // then drags every dependency below it into real construction, hopeless ones
-        // included; at 0.25 GenericMessageDecoder still reaches 1.0 on three seeds and
-        // ServerCommunication stays at 0.73-0.86. A "mock" outcome is unaffected: mocking a
-        // link still stops the chain there, exactly as before. Functional interfaces keep their 1.0 boost even inside a
-        // concrete chain (isDeepPlainInterfaceOrAbstract excludes them below) because they are
-        // almost never independently constructible (Comparator, Runnable, ...) - collapsing that
-        // boost to 0 would just trade "chain never assembles" for "functional dependency never
-        // resolves", which is a worse failure mode than an occasional over-eager mock.
+        // The 0.5 boost is tossed independently at every depth, so a branch that is only reachable
+        // through a concrete chain of k interface/abstract links assembles with probability ~0.5^k.
+        // Once the search has committed to building a deep interface/abstract dependency concretely
+        // (the coin came up "build a real one"), GenerationContext.concreteChain records that commitment
+        // and, below, lowers the boost to CHAIN_MOCK_BOOST for the rest of the chain. It is lowered, not
+        // removed: with 0 the chain assembles, but a concrete link drags every dependency below it into
+        // real construction, hopeless ones included. A "mock" outcome is unaffected: mocking a link
+        // still stops the chain there. Functional interfaces keep their 1.0 boost even inside a concrete
+        // chain (isDeepPlainInterfaceOrAbstract excludes them below) because they are almost never
+        // independently constructible (Comparator, Runnable, ...) - collapsing that boost to 0 would
+        // trade "chain never assembles" for "functional dependency never resolves", which is worse than
+        // an occasional over-eager mock.
         boolean isDeepInterfaceOrAbstract = context.getDepth() > 0
                 && (clazz.getRawClass().isInterface() || clazz.isAbstract());
         boolean isDeepPlainInterfaceOrAbstract = isDeepInterfaceOrAbstract && !isDeepFunctionalInterface;
@@ -501,8 +484,8 @@ public class VariableResolver {
         //
         // And only for the project's own types. A library type whose methods are all void is
         // still best served by a mock: it is a null-safe stand-in the SUT can paint on or
-        // notify. weka.gui.beans.BeanVisual passes Graphics2D around, and preferring the
-        // concrete PostscriptGraphics over a mock took it from 0.98 to 0.57 branch coverage.
+        // notify (for example a Graphics2D); preferring the concrete implementation over a mock
+        // can cost a large share of the branch coverage.
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
         boolean bypassTimeGate = false;
         if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {

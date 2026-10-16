@@ -192,9 +192,8 @@ public class TestClusterUtils {
      * libraries: {@code com.sun.} belongs to the JDK as much as to rome ({@code
      * com.sun.syndication}), JavaMail or Mojarra, and such a library sitting on the project's
      * classpath is a normal dependency of the class under test. Excluding it silently removes
-     * every method that mentions one of its types - 108_liferay's RSSUtil has a single method,
-     * returning {@code ObjectValuePair<String, SyndFeed>}, so the class dropped from 1.0 to
-     * 0.5 branch coverage. When the loaded class is available, let the module system decide:
+     * every method that mentions one of its types, so a class whose only method returns such a
+     * type loses all of its coverage. When the loaded class is available, let the module system decide:
      * only a class that really comes from the JDK is excluded.
      *
      * @param className the class name
@@ -383,9 +382,8 @@ public class TestClusterUtils {
         // The names stay those of the public fields, though: a non-public field is offered only
         // where it hides a public one. Offering every protected and package-private field let
         // value reuse pick the code under test's own internal state, typically still null, for
-        // any parameter of its type; vuze's SBC_ActivityView then had every SWTSkinObject mock
-        // stub getSkin() with its own null "skin" field instead of a mock, and lost two thirds
-        // of its branch coverage.
+        // any parameter of its type; mocks then stub getters with their own null field instead of
+        // a mock, which costs a large share of the class's branch coverage.
         final Set<String> publicNames = Arrays.stream(Reflection.getFields(clazz))
                 .map(Field::getName)
                 .collect(toCollection(HashSet::new));

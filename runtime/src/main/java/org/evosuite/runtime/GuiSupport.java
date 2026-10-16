@@ -504,7 +504,7 @@ public class GuiSupport {
         // not merely "no improvement", so if the guard cannot be built we must
         // not flip at all -- staying in the same headless state, and giving
         // the same HeadlessException-from-construction outcome, as the
-        // pre-existing (4d8f6531b) behavior for every GUI SUT.
+        // pre-existing behavior for every GUI SUT.
         Toolkit headlessToolkitBeforeFlip = null;
         Object guardToolkit = null;
         if (canSwapToolkit) {
@@ -638,9 +638,8 @@ public class GuiSupport {
      * Logs, exactly once per JVM, which of the two all-or-nothing modes
      * {@link #disableHeadlessForMockConstruction()} selected: the guarded
      * flip (GUI SUTs get a chance to construct), or staying headless (GUI
-     * SUTs throw {@link HeadlessException} from construction, as before this
-     * guard existed). The cluster only returns statistics CSVs, not logs by
-     * default, but when logs are captured this gives a direct, greppable way
+     * SUTs throw {@link HeadlessException} from construction). Logs are not captured by default, but
+     * when they are, this gives a direct, greppable way
      * to confirm which mode a run actually used instead of inferring it from
      * coverage after the fact.
      */

@@ -17,7 +17,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Reproduces two corruptions found on Defects4J Lang-15 (org.apache.commons.lang3.reflect.TypeUtils),
+ * Reproduces two corruptions found on {@code org.apache.commons.lang3.reflect.TypeUtils},
  * both in {@code TestMutator.deleteStatementGracefully}: repairing references to a statement
  * being deleted could pick an {@link AssignmentStatement}'s own retval as the replacement for its
  * parameter (or vice versa), aliasing retval and parameter to the very same

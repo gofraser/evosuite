@@ -77,7 +77,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
- * Milestone M3 verification for the object-construction template synthesis
+ * Verification of the object-construction template synthesis
  * ({@link ConstructionPathSynthesizer} and the wrapper/code-generation machinery). Each test runs
  * the full {@link DependencyAnalysis#analyzeClass} pipeline (with {@code apply_object_rule=true})
  * on a fixture, builds an initial test that calls the target method, then runs

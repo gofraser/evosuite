@@ -137,7 +137,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                     TestGenerationContext.getInstance()
                             .getClassLoaderForSUT()
                             .loadClass(fieldOwner);
-            //            registerAllMethods(fieldDeclaringClass);
             Field field = VariableCodeGenerationUtil.searchForField(fieldDeclaringClass, fieldName);
 
             if (field == null) {
@@ -164,7 +163,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                             // TODO
                             : usedRefSearcher.searchRelevantFieldReadingReferenceInTest(
                                     test, field, variable.callerObject);
-            //            System.currentTimeMillis();
             if (usedFieldInTest != null) {
 
                 /* generate some elements for container classes */
@@ -188,7 +186,7 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                 if (genericField.isFinal()) {
                     // Final fields cannot be assigned, but they are often precisely the stable
                     // constants used by a branch predicate (enum constants and their public
-                    // value fields are common examples).  The old code rejected them outright,
+                    // value fields are common examples).  Rejecting them outright,
                     // which left the downstream method-call argument unresolved and caused a
                     // random replacement value to be generated.  Materialize a read of the
                     // exact field instead.
@@ -273,7 +271,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
             }
 
         } catch (ClassNotFoundException | SecurityException | ConstructionFailedException e) {
-            //            this.printConstructionError(test, b);
             logger.debug("Ignored failure during object-rule synthesis", e);
             return null;
         }
@@ -478,7 +475,6 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                     TestGenerationContext.getInstance()
                             .getClassLoaderForSUT()
                             .loadClass(fieldOwner);
-            //            registerAllMethods(fieldDeclaringClass);
             Field field = VariableCodeGenerationUtil.searchForField(fieldDeclaringClass, fieldName);
 
             /*

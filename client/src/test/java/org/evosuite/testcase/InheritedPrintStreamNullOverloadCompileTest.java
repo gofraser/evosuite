@@ -44,7 +44,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on Weka's LogWindow: its inner LogWindowPrintStream overrides println(String) and
+ * A PrintStream subclass overrides println(String) and
  * println(Object) of PrintStream, which also declares println(char[]). A null argument is
  * applicable to all three, so the call only compiles with a cast to the targeted parameter.
  */

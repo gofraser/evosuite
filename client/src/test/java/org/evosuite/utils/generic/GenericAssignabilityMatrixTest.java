@@ -187,7 +187,7 @@ class GenericAssignabilityMatrixTest {
         static void classOfSuperInteger(Class<? super Integer> c) {
         }
 
-        // -- nested-shared-raw Class<T> cases (the actual shape of 4afbc209f/ff45d8b1f: two
+        // -- nested-shared-raw Class<T> cases (two
         // different parameterisations of the SAME raw class nested inside Class<...>, where the
         // reverted bug -- erasing the class-literal's type argument via getRawClass -- collapsed
         // both to List.class and could no longer tell them apart). Plain classOfInteger vs
@@ -341,7 +341,7 @@ class GenericAssignabilityMatrixTest {
         static void otherFLeafParam(OtherFLeaf f) {
         }
 
-        // -- the documented raw-class-literal leniency (90e6a0906): the static type of the
+        // -- the documented raw-class-literal leniency: the static type of the
         // expression `LinkedList.class` is `Class<LinkedList>` (LinkedList's own type parameter
         // unfilled, per JLS 15.8.2), modelled here the same way -- a raw LinkedList used as the
         // type *argument* of Class<...>, not a raw Class itself (that is classRaw, above).
@@ -525,7 +525,7 @@ class GenericAssignabilityMatrixTest {
         addBothDirections(cases, classFamily, "classOfSuperInteger", "classOfInteger");
         addBothDirections(cases, classFamily, "classOfNumber", "classOfInteger");
         // -- nested-shared-raw: two parameterisations of the same raw class nested inside
-        // Class<...>, which is the shape that actually exercises 4afbc209f/ff45d8b1f (see the
+        // Class<...>, which is the shape that actually exercises the bug (see the
         // Sigs comment above the fixtures for why classOfNumber/classOfInteger does not).
         addBothDirections(cases, classFamily, "classOfListOfString", "classOfListOfInteger");
         addBothDirections(cases, classFamily, "classOfListOfString", "classOfListOfWildcard");

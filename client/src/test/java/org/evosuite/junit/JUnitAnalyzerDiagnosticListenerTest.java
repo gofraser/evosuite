@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * errors and warnings alike, in one bounded list. When a file failed to compile for a real
  * reason, the accompanying warnings and notes were then logged at ERROR level right next to the
  * actual errors, which made us count warning-only output as a compile failure while triaging
- * SF110 logs. These tests drive the private listener directly (it is a private nested class, so
+ * logs. These tests drive the private listener directly (it is a private nested class, so
  * reflection is the only way in) to check that errors and non-errors are kept apart, and that a
  * flood of warnings can no longer evict a real error from the bounded list.
  */

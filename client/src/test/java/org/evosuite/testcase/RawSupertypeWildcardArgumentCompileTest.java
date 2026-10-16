@@ -37,7 +37,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on liferay: {@code new HashMap<String, List<String>>(hashMap0)} with a
+ * {@code new HashMap<String, List<String>>(hashMap0)} with a
  * {@code HashMap<String, groovy.lang.Sequence>} argument, where Sequence extends a raw ArrayList.
  * javac finds no suitable constructor because the raw supertype only converts unchecked at the top
  * level, not inside the copy constructor's {@code Map<? extends K, ? extends V>} argument.

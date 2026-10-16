@@ -19,6 +19,7 @@
  */
 package org.evosuite.setup;
 
+import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
@@ -331,7 +332,7 @@ public class TestClusterGenerator {
             return false;
         }
 
-        for (Method m : clazz.getDeclaredMethods()) {
+        for (Method m : Reflection.inStableOrder(clazz.getDeclaredMethods())) {
             if (m.isDefault()) {
                 return true;
             }

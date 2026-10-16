@@ -164,6 +164,13 @@ public class TimeController {
         return singleton;
     }
 
+    /**
+     * @return the phase the client is in
+     */
+    public ClientState getState() {
+        return state;
+    }
+
 
     /**
      * Update the current state of the client.

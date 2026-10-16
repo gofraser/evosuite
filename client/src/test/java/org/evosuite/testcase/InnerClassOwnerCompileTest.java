@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Observed on dom4j's {@code LazyList.LazyListIterator}: a non-static inner class of a generic
+ * For {@code LazyList.LazyListIterator}: a non-static inner class of a generic
  * outer class was declared as the raw {@code LazyList.LazyListIterator}, so {@code next()}
  * returned Object and the assignment to a typed variable did not compile. The declaration
  * has to carry the owner's type arguments ({@code LazyList<Integer>.LazyListIterator}).
@@ -146,7 +146,7 @@ public class InnerClassOwnerCompileTest {
     /**
      * javac types {@code outer.new Inner()} from the declared type of {@code outer}; the
      * constructor model can carry a different instantiation of the outer's type parameter
-     * (dom4j's LazyList<Integer> enclosing a model owner of LazyList<String>).
+     * (a LazyList<Integer> enclosing a model owner of LazyList<String>).
      */
     @Test
     public void testInnerDeclarationFollowsTheEnclosingInstanceType() throws Exception {

@@ -40,7 +40,7 @@ import java.lang.reflect.Method;
  * a raw {@code field.setAccessible(true)} call would succeed right here in this test
  * JVM, which is exactly the gap this class closes: a qualified opens/exports is
  * invisible to the one-arg {@code Module#isOpen}/{@code isExported} this class uses,
- * so the emulated answer still matches what Defects4J's stock test JVM would do.
+ * so the emulated answer still matches what a stock test JVM would do.
  */
 public class ReflectionAccessTest {
 

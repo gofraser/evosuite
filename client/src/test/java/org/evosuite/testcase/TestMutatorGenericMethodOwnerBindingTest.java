@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Method-branch companion to {@link TestMutatorGenericConstructorOwnerBindingTest}, covering the
- * part of {@code TestMutator.changeCall} that commit 3f7bb5186 left untested: the non-static
+ * part of {@code TestMutator.changeCall} that binds owner type variables: the non-static
  * method branch (around lines 82-94) that binds a generic method's owner type variables from its
  * callee, exactly as the constructor branch binds them from the owner class itself.
  *
@@ -56,7 +56,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * exactly one List candidate and one Set candidate are offered, with deliberately different
  * element types, so there is no self-consistent pair to stumble onto: reverting the owner-binding
  * hunk reuses the only two candidates there are -- the mismatched pair -- reproducing the
- * Collections-21-style bug deterministically, whereas the fix either refuses to bind E to two
+ * bug deterministically, whereas the fix either refuses to bind E to two
  * things at once (an unavoidable exception, since {@code changeCall} has no fallback generation
  * path of its own) or, if it somehow still succeeds, must have chosen a single consistent type for
  * both parameters.

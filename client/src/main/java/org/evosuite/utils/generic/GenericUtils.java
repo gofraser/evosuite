@@ -129,7 +129,7 @@ public class GenericUtils {
      * Sequence<T>, F extends FastaRecord<T,S>>} produce exactly this shape. Substituting the raw
      * replacement in that case reintroduces the variable into {@code returnType}, so it stays
      * eligible for substitution by a later entry (or a later call over the same map), and the type
-     * keeps growing every round instead of reaching a fixed point -- this is what previously drove
+     * keeps growing every round instead of reaching a fixed point -- this drives
      * >60-frame recursion in {@link org.evosuite.utils.generic.GenericClassImpl#satisfiesBoundaries(
      * TypeVariable, Map)}'s {@code isConcreteType}/{@code hasWildcardOrTypeVariable} helpers. When
      * that shape is detected we fall back to {@link #replaceTypeVariablesWithWildcards(Type)} for
@@ -293,7 +293,7 @@ public class GenericUtils {
      * ParameterizedType/GenericArrayType/WildcardType structure for this single substitution.
      * Self-referential / F-bounded type variables (e.g. {@code S extends Sequence<T>} chained with
      * further bounded type parameters that reference {@code S} back) can make that structure
-     * effectively unbounded, which previously showed up as the GA thread recursing 10-15+ frames
+     * effectively unbounded, which shows up as the GA thread recursing 10-15+ frames
      * deep in this method. We cap the descent at {@link Properties#MAX_GENERIC_DEPTH}, the same
      * constant {@link GenericClassImpl#getGenericInstantiation(Map, int)} uses to bound generic
      * instantiation depth, and simply stop substituting (returning the type as-is, variables and

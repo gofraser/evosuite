@@ -59,9 +59,9 @@ public class ObjectRuleBranchSelector {
     /**
      * Share of the configured search budget that {@link #prepareEligibility(Collection)} may spend
      * discovering eligibility before falling back to on-demand, per-generation discovery for the
-     * rest of the class. Sized from the release-corpus regression: with no aggregate budget,
-     * branch-heavy classes routed through inaccessible entry methods (for example
-     * {@code JVCParserTokenManager.jjMoveNfa_2}, 1180 branches) could spend the entire run
+     * rest of the class. With no aggregate budget,
+     * branch-heavy classes routed through inaccessible entry methods (a method with over a thousand
+     * branches) could spend the entire run
      * classifying branches before generating a single test. A tenth of the budget is enough to
      * fully classify most classes (their branch count times a cheap analysis is well under this)
      * while capping the worst case for the branch-heavy outliers; the remainder falls back safely
