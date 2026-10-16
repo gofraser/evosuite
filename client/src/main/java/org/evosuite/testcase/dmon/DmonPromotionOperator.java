@@ -377,16 +377,18 @@ public final class DmonPromotionOperator {
         boolean validatedSuccess = false;
         boolean progressAccepted = false;
         boolean keptUnchanged = false;
+        boolean keptInconclusive = false;
         try {
             Properties.DMON_ENABLED = false;
             validated = TestCaseExecutor.runTest(individual.getTestCase());
             int insertedStatements = individual.getTestCase().size() - backup.size();
             boolean progress = isValidationProgressAccepted(validated, plan);
-            progressAccepted = progress
+            keptInconclusive = failsAtAssistedStatement(validated, originalResult, insertedStatements);
+            progressAccepted = progress && !keptInconclusive
                     && !failsEarlierThanOriginal(validated, originalResult, insertedStatements);
-            keptUnchanged = !progress
+            keptUnchanged = !keptInconclusive && !progress
                     && failsExactlyAsOriginal(validated, originalResult, insertedStatements);
-            if (keptUnchanged) {
+            if (keptUnchanged || keptInconclusive) {
                 // as without validation: keep the promotion and let the GA re-evaluate it
                 individual.setChanged(true);
             } else if (progressAccepted) {
@@ -410,6 +412,10 @@ public final class DmonPromotionOperator {
             return new PromotionAttempt(markContaminatedIfNeeded(originalResult, !restoreOk), true,
                     restoreOk ? "VALIDATION_UNCHANGED_KEPT" : "VALIDATION_UNCHANGED_KEPT_WITH_RESTORE_WARNING");
         }
+        if (keptInconclusive) {
+            return new PromotionAttempt(markContaminatedIfNeeded(originalResult, !restoreOk), true,
+                    restoreOk ? "VALIDATION_INCONCLUSIVE_KEPT" : "VALIDATION_INCONCLUSIVE_KEPT_WITH_RESTORE_WARNING");
+        }
         if (validatedSuccess) {
             ExecutionResult effective = markContaminatedIfNeeded(validated, !restoreOk);
             if (validated != null && validated.noThrownExceptions()) {
@@ -430,6 +436,23 @@ public final class DmonPromotionOperator {
         ExecutionResult effective = markContaminatedIfNeeded(restored, !restoreOk);
         return new PromotionAttempt(effective, false,
                 restoreOk ? "VALIDATION_FAILED_ROLLED_BACK" : "VALIDATION_FAILED_AND_RESTORE_WARNING");
+    }
+
+    /**
+     * The validation re-runs the test with DMoN switched off, and with it the ephemeral assist
+     * that repaired other nulls of the original execution while it ran. A statement the assist
+     * got the original past throws in the re-run, before the null the promotion is about, so the
+     * re-run says nothing about the promotion: it neither failed earlier because of the
+     * promotion nor failed at the null site. Positions are compared after shifting the
+     * original ones by the number of statements the promotion inserted.
+     */
+    private static boolean failsAtAssistedStatement(ExecutionResult validated, ExecutionResult original,
+                                                    int insertedStatements) {
+        Integer validatedPosition = validated == null ? null : validated.getFirstPositionOfThrownException();
+        if (validatedPosition == null || original == null) {
+            return false;
+        }
+        return original.getDmonAssistedPositions().contains(validatedPosition - insertedStatements);
     }
 
     /**
