@@ -44,6 +44,19 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 
     private static final Logger logger = LoggerFactory.getLogger(SimpleMutationAssertionGenerator.class);
 
+    /**
+     * The phase to report assertion progress in. The standard-assertion fallback after LLM
+     * post-processing runs in that later phase, and the client cannot go back to
+     * ASSERTION_GENERATION from there.
+     */
+    static ClientState progressState(ClientState current) {
+        if (current != null
+                && current.getNumPhase() > ClientState.ASSERTION_GENERATION.getNumPhase()) {
+            return current;
+        }
+        return ClientState.ASSERTION_GENERATION;
+    }
+
 
     @Override
     public void addAssertions(TestSuiteChromosome suite) {
@@ -94,7 +107,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 int progress = (100 * numTest++) / suite.size();
                 if (progress != reportedProgress) {
                     reportedProgress = progress;
-                    ClientState state = ClientState.ASSERTION_GENERATION;
+                    ClientState state = progressState(TimeController.getInstance().getState());
                     ClientStateInformation information = new ClientStateInformation(state);
                     information.setProgress(progress);
                     ClientServices.getInstance().getClientNode().changeState(state, information);
