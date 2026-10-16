@@ -19,6 +19,7 @@
  */
 package org.evosuite.strategy;
 
+import org.evosuite.runtime.Reflection;
 import org.evosuite.ProgressMonitor;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
@@ -163,7 +164,7 @@ public abstract class TestGenerationStrategy {
     }
 
     static boolean hasUserTestableMethod(Class<?> targetClass) {
-        for (Method method : targetClass.getDeclaredMethods()) {
+        for (Method method : Reflection.inStableOrder(targetClass.getDeclaredMethods())) {
             if (TestUsageChecker.isCompilerGeneratedEnumMethod(method)) {
                 continue;
             }

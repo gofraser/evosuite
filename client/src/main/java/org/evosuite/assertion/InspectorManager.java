@@ -20,6 +20,7 @@
 package org.evosuite.assertion;
 
 import org.apache.commons.lang3.ClassUtils;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.setup.TestUsageChecker;
@@ -259,7 +260,7 @@ public class InspectorManager {
             return;
         }
         List<Inspector> inspectorList = new ArrayList<>();
-        for (Method method : clazz.getMethods()) {
+        for (Method method : Reflection.inStableOrder(clazz.getMethods())) {
             if (isInspectorMethod(method)) { // FIXXME
                 logger.debug("Inspector for class " + clazz.getSimpleName()
                         + ": " + method.getName() + " defined in "
@@ -345,7 +346,7 @@ public class InspectorManager {
             return result;
         }
 
-        for (Method method : clazz.getMethods()) {
+        for (Method method : Reflection.inStableOrder(clazz.getMethods())) {
             if (!isComplexReturnMethod(method)) {
                 continue;
             }

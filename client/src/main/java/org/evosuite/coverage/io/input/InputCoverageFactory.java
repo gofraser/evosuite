@@ -20,6 +20,7 @@
 package org.evosuite.coverage.io.input;
 
 import org.apache.commons.lang3.ClassUtils;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.assertion.Inspector;
@@ -70,7 +71,7 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
                 continue;
             }
 
-            for (Method method : TestClusterUtils.getClass(className).getDeclaredMethods()) {
+            for (Method method : Reflection.inStableOrder(TestClusterUtils.getClass(className).getDeclaredMethods())) {
                 String methodName = method.getName() + Type.getMethodDescriptor(method);
                 if (!TestUsageChecker.canUse(method)) {
                     continue;

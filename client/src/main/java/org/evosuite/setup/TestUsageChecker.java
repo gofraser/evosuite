@@ -20,6 +20,7 @@
 package org.evosuite.setup;
 
 import org.apache.commons.lang3.ClassUtils;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.annotations.EvoSuiteTest;
 import org.evosuite.coverage.MethodNameMatcher;
@@ -789,7 +790,7 @@ public class TestUsageChecker {
             }
         }
         try {
-            return clazz.getDeclaredMethods();
+            return Reflection.inStableOrder(clazz.getDeclaredMethods());
         } catch (Throwable t) {
             logger.debug("Cannot enumerate declared methods of " + clazz.getName() + ": " + t);
             synchronized (unlinkableDeclaredMethods) {
