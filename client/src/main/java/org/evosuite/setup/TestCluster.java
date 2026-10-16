@@ -381,6 +381,12 @@ public class TestCluster {
 
     }
 
+    private static boolean isNotCallableFromSource(GenericAccessibleObject<?> call) {
+        return call.isMethod() && call.getAccessibleObject() instanceof java.lang.reflect.Method
+                && TestUsageChecker.isNotCallableFromSource(
+                        (java.lang.reflect.Method) call.getAccessibleObject());
+    }
+
     /**
      * Add a generator reflection object.
      *
@@ -388,6 +394,10 @@ public class TestCluster {
      * @param call the generator call
      */
     public void addGenerator(GenericClass<?> target, GenericAccessibleObject<?> call) {
+        if (isNotCallableFromSource(call)) {
+            logger.debug("Skipping synthetic or bridge method {}", call);
+            return;
+        }
         if (!call.isAccessible()) {
             logger.warn("Skipping inaccessible generator {} for target {}", call, target);
             return;
@@ -412,6 +422,10 @@ public class TestCluster {
      * @param call the modifier call
      */
     public void addModifier(GenericClass<?> target, GenericAccessibleObject<?> call) {
+        if (isNotCallableFromSource(call)) {
+            logger.debug("Skipping synthetic or bridge method {}", call);
+            return;
+        }
         if (!call.isAccessible()) {
             logger.warn("Skipping inaccessible modifier {} for target {}", call, target);
             return;
@@ -432,6 +446,10 @@ public class TestCluster {
      */
     public void addTestCall(GenericAccessibleObject<?> call) throws IllegalArgumentException {
         Inputs.checkNull(call);
+        if (isNotCallableFromSource(call)) {
+            logger.debug("Skipping synthetic or bridge method {}", call);
+            return;
+        }
         allDiscoveredTestMethods.add(call);
         if (shouldFilterHeadlessIncompatibleTestCall(call)) {
             logger.debug("Skipping headless-incompatible test call: {}", call);
@@ -474,6 +492,35 @@ public class TestCluster {
         }
     }
 
+    /**
+     * Cheap pre-check for {@link GenericClass#canBeInstantiatedTo(GenericClass)}. For two
+     * ordinary class or parameterized types, being instantiable to the other type implies that
+     * the erasure of the generator's type is a subtype of the erasure of the requested type.
+     * Whether that holds is a single native call, whereas the generic check is expensive, and
+     * the cluster asks it once for every pair of (requested type, generated type), which on a
+     * classpath with many thousands of classes dominates test cluster setup.
+     *
+     * <p>Primitives, arrays, type variables and wildcards are left to the full check, because
+     * boxing, array covariance and bounds relate types that are not erasure subtypes.
+     *
+     * @param generatorClazz the type produced by a generator
+     * @param requested      the type that is needed
+     * @return true if the generic check cannot succeed
+     */
+    static boolean isRawTypeIncompatible(GenericClass<?> generatorClazz, GenericClass<?> requested) {
+        if (!isPlainClassOrParameterizedType(generatorClazz) || !isPlainClassOrParameterizedType(requested)) {
+            return false;
+        }
+        return !requested.getRawClass().isAssignableFrom(generatorClazz.getRawClass());
+    }
+
+    private static boolean isPlainClassOrParameterizedType(GenericClass<?> clazz) {
+        java.lang.reflect.Type type = clazz.getType();
+        Class<?> raw = clazz.getRawClass();
+        return raw != null && !raw.isPrimitive() && !raw.isArray()
+                && (type instanceof Class || type instanceof java.lang.reflect.ParameterizedType);
+    }
+
     private void cacheGeneratorsLocked(GenericClass<?> clazz) throws ConstructionFailedException {
 
         if (generatorCache.containsKey(clazz)) {
@@ -497,7 +544,8 @@ public class TestCluster {
                 // logger.debug("3. Considering original generator: " + generatorClazz + " for " +
                 // clazz);
 
-                if (generatorClazz.canBeInstantiatedTo(clazz)) {
+                if (!isRawTypeIncompatible(generatorClazz, clazz)
+                        && generatorClazz.canBeInstantiatedTo(clazz)) {
 
                     // logger.debug("4. generator " + generatorClazz + " can be instantiated to " +
                     // clazz);
@@ -534,8 +582,7 @@ public class TestCluster {
                             }
 
                             // If it is a generic method, instantiate generic type variables for the
-                            // produced
-                            // class
+                            // produced class
                             if (newGenerator.hasTypeParameters()) {
                                 logger.debug("Instantiating type parameters");
                                 /*
@@ -591,8 +638,8 @@ public class TestCluster {
                     // FIXME:
 
                     // There are cases where this might lead to relevant cast classes not being
-                    // included
-                    // but in manycases it will pull in large numbers of useless dependencies.
+                    // included but in manycases it will pull in large numbers of useless
+                    // dependencies.
 
                     // Commented out for now, until we find a case where the problem can be properly
                     // studied.
@@ -798,7 +845,7 @@ public class TestCluster {
         if (calls.isEmpty()) {
             throw new ConstructionFailedException("No modifiers for " + clazz);
         }
-        logger.debug("Possible modifiers for " + clazz + ": " + calls);
+        logger.debug("Possible modifiers for {}: {}", clazz, calls);
 
         GenericAccessibleObject<?> call = Randomness.choice(calls);
         if (call.hasTypeParameters()) {
@@ -993,8 +1040,7 @@ public class TestCluster {
                         && !Map.class.isAssignableFrom(call.getDeclaringClass())) {
 
                     // Methods that return collections are candidates, unless they are methods of
-                    // the
-                    // collections
+                    // the collections
                     calls.add(call);
                 } else if (!call.getDeclaringClass().getName().startsWith("java")) {
                     calls.add(call);
@@ -1036,7 +1082,7 @@ public class TestCluster {
                     }
                 }
             }
-            logger.debug("Generators for special case " + clazz + ": " + calls);
+            logger.debug("Generators for special case {}: {}", clazz, calls);
             // FIXXME: This is a workaround for the temporary workaround.
             if (calls.isEmpty()) {
                 addNumericConstructor(clazz);
@@ -1161,7 +1207,9 @@ public class TestCluster {
 
         List<GenericAccessibleObject<?>> compatible = new ArrayList<>();
         for (GenericAccessibleObject<?> candidate : generators) {
-            if (isHeadlessIncompatibleGenerator(candidate)) {
+            // A random cast class is satisfied by a real Swing component on purpose: nothing
+            // typed as that component competes with a mock here, unlike for a parameter.
+            if (isHeadlessIncompatibleGenerator(candidate, Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS)) {
                 continue;
             }
             GenericAccessibleObject<?> instantiated = instantiateGenerator(candidate, clazz);
@@ -1346,15 +1394,18 @@ public class TestCluster {
      * constructed objects;). Weight of a candidate is {@code paramCount + 1}.
      */
     private GenericAccessibleObject<?> chooseByParamNumBias(List<GenericAccessibleObject<?>> candidates) {
-        List<Double> cumulative = new ArrayList<>();
+        // getNumParameters() is the arity without resolving the generic parameter types.
+        int[] weights = new int[candidates.size()];
         double sum = 0;
-        for (GenericAccessibleObject<?> candidate : candidates) {
-            sum += candidate.getGenericParameterTypes().length + 1;
+        for (int i = 0; i < weights.length; i++) {
+            weights[i] = candidates.get(i).getNumParameters() + 1;
+            sum += weights[i];
         }
 
+        List<Double> cumulative = new ArrayList<>();
         double acc = 0;
-        for (GenericAccessibleObject<?> candidate : candidates) {
-            acc += (candidate.getGenericParameterTypes().length + 1) / sum;
+        for (int weight : weights) {
+            acc += weight / sum;
             cumulative.add(acc);
         }
 
@@ -1398,9 +1449,14 @@ public class TestCluster {
 
         // Stable sort, best (highest score) first, so ties keep their original relative order
         // and the result stays deterministic for a given input order and random seed.
+        // Score each generator once rather than on every comparison.
+        Map<GenericAccessibleObject<?>, Double> scores = new IdentityHashMap<>();
+        for (GenericAccessibleObject<?> generator : compatible) {
+            scores.computeIfAbsent(generator, g -> scoreGenerator(g, targetType));
+        }
         List<GenericAccessibleObject<?>> ranked = new ArrayList<>(compatible);
         ranked.sort(Comparator
-                .comparingDouble((GenericAccessibleObject<?> g) -> scoreGenerator(g, targetType))
+                .comparingDouble((GenericAccessibleObject<?> g) -> scores.get(g))
                 .reversed());
 
         int index = RankSelection.getIndex(ranked.size(), bias);
@@ -1408,6 +1464,11 @@ public class TestCluster {
     }
 
     private boolean isHeadlessIncompatibleGenerator(GenericAccessibleObject<?> generator) {
+        return isHeadlessIncompatibleGenerator(generator, Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS);
+    }
+
+    private boolean isHeadlessIncompatibleGenerator(GenericAccessibleObject<?> generator,
+                                                    boolean filterJdkGuiComponents) {
         if (!Properties.HEADLESS_MODE) {
             return false;
         }
@@ -1421,7 +1482,9 @@ public class TestCluster {
         // off the main thread.  Mock classes (org.evosuite.runtime.mock.*)
         // live outside java./javax. so are not affected.
         Class<?> declaringClass = generator.getDeclaringClass();
-        if (isJdkGuiComponent(declaringClass)) {
+        if (filterJdkGuiComponents && isJdkGuiComponent(declaringClass)
+                && !(Properties.HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS
+                && isComponentWrappingConstructor(generator))) {
             return true;
         }
 
@@ -1489,6 +1552,23 @@ public class TestCluster {
         return name.equals("java.awt.GraphicsConfiguration")
                 || name.equals("java.awt.GraphicsDevice")
                 || name.equals("java.awt.GraphicsEnvironment");
+    }
+
+    /**
+     * Returns true for a constructor that takes an existing {@link java.awt.Component}, such as
+     * {@code JScrollPane(Component)}: it wraps an object (often the class under test, which then
+     * gets a real parent) rather than standing in for a typed parameter with a default component.
+     */
+    private static boolean isComponentWrappingConstructor(GenericAccessibleObject<?> generator) {
+        if (!generator.isConstructor()) {
+            return false;
+        }
+        for (Class<?> parameterType : ((GenericConstructor) generator).getConstructor().getParameterTypes()) {
+            if (java.awt.Component.class.isAssignableFrom(parameterType)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

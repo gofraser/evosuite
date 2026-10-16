@@ -40,6 +40,7 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.*;
 import java.util.*;
 
@@ -509,19 +510,24 @@ public class TestFactory {
      * @return {@code true} if the null statement was successfully replaced, {@code false} otherwise
      */
     public boolean changeNullStatement(TestCase test, Statement statement) {
+        return replaceNullStatement(test, statement) != null;
+    }
+
+    /**
+     * Like {@link #changeNullStatement}, but returns the reference that now stands in for the
+     * null, or {@code null} if the null statement was left untouched. The construction may add
+     * several statements, so the replacement is not necessarily at the null's old position.
+     */
+    public VariableReference replaceNullStatement(TestCase test, Statement statement) {
         if (!(statement instanceof NullStatement)) {
-            return false;
+            return null;
         }
         NullStatement nullStat = (NullStatement) statement;
         Type type = nullStat.getReturnType();
-        Set<Statement> originalStatements =
-                Collections.newSetFromMap(new IdentityHashMap<>());
-        for (Statement existing : test) {
-            originalStatements.add(existing);
-        }
+        StatementInserter inserter = new StatementInserter(test, nullStat.getPosition());
 
+        VariableReference obj = null;
         try {
-            VariableReference obj = null;
 
             // check real array
             if (type.getTypeName().contains("[") && checkRealArray(type.getTypeName())) {
@@ -532,6 +538,16 @@ public class TestFactory {
                 try {
                     Class<?> clazz = Class.forName(className, false,
                             TestGenerationContext.getInstance().getClassLoaderForSUT());
+                    // Honor the global mock policy (MOCK_IF_NO_GENERATOR / P_FUNCTIONAL_MOCKING)
+                    // for the fallbacks below, so mocks appear only when actually allowed.
+                    VariableResolutionConfig config = new VariableResolutionConfig.Builder()
+                            .withAllowNull(false)
+                            .withCanUseMocks(true)
+                            .withCanReuseExistingVariables(false)
+                            .withPreferConcreteGenerators(TestGenerationContext.getInstance()
+                                    .getObjectRuleRuntime().isEntryConstruction()
+                                    && isPreferredConcreteFactoryType(clazz))
+                            .build();
                     if (clazz.isInterface()) {
                         InheritanceTree inheritanceTree = DependencyAnalysis.getInheritanceTree();
                         Set<String> subclasses = inheritanceTree.getSubclasses(className);
@@ -549,24 +565,8 @@ public class TestFactory {
                             }
                         }
                         if (obj == null) {
-                            // Honor MOCK_IF_NO_GENERATOR / P_FUNCTIONAL_MOCKING: with no reachable
-
-                            // implementation, let the resolver mock the interface itself, subject
-                            // to
-                            // the global mocking policy (so mocks appear only when actually
-                            // allowed).
-                            VariableResolutionConfig config =
-                                    new VariableResolutionConfig.Builder()
-                                            .withAllowNull(false)
-                                            .withCanUseMocks(true)
-                                            .withCanReuseExistingVariables(false)
-                                            .withPreferConcreteGenerators(
-                                                    TestGenerationContext.getInstance()
-                                                                    .getObjectRuleRuntime()
-                                                                    .isEntryConstruction()
-                                                            && isPreferredConcreteFactoryType(
-                                                                    clazz))
-                                            .build();
+                            // With no reachable implementation, let the resolver mock the
+                            // interface itself, subject to the global mocking policy.
                             obj = createObject(test, type, nullStat.getPosition(),
                                     GenerationContext.fromDepth(0), config);
                         }
@@ -577,20 +577,7 @@ public class TestFactory {
                             ss.randomize();
                             obj = test.addStatement(ss, nullStat.getPosition());
                         } else {
-                            // Honor the global mock policy for concrete no-generator types too, so
-                            // MOCK_IF_NO_GENERATOR applies here as it does elsewhere in generation.
-                            VariableResolutionConfig config =
-                                    new VariableResolutionConfig.Builder()
-                                            .withAllowNull(false)
-                                            .withCanUseMocks(true)
-                                            .withCanReuseExistingVariables(false)
-                                            .withPreferConcreteGenerators(
-                                                    TestGenerationContext.getInstance()
-                                                                    .getObjectRuleRuntime()
-                                                                    .isEntryConstruction()
-                                                            && isPreferredConcreteFactoryType(
-                                                                    clazz))
-                                            .build();
+                            // Concrete no-generator types follow the same mock policy.
                             obj = createObject(test, type, nullStat.getPosition(),
                                     GenerationContext.fromDepth(0), config);
                         }
@@ -601,12 +588,10 @@ public class TestFactory {
             }
 
             if (obj != null) {
-                VariableReference ref = nullStat.getVariableReferences().iterator().next();
-                test.replace(ref, obj);
-                test.remove(nullStat.getPosition());
+                replaceAndDelete(test, nullStat.getPosition(), obj);
             } else {
-                rollbackInsertedStatements(test, originalStatements);
-                return false;
+                inserter.rollback();
+                return null;
             }
         } catch (ConstructionFailedException | RuntimeException | AssertionError e) {
             /*
@@ -616,20 +601,11 @@ public class TestFactory {
              * only statements introduced by this attempt; the original statement identities and
              * their references remain untouched because replacement happens only after success.
              */
-            rollbackInsertedStatements(test, originalStatements);
-            return false;
+            inserter.rollback();
+            return null;
         }
 
-        return true;
-    }
-
-    private static void rollbackInsertedStatements(
-            TestCase test, Set<Statement> originalStatements) {
-        for (int i = test.size() - 1; i >= 0; i--) {
-            if (!originalStatements.contains(test.getStatement(i))) {
-                test.remove(i);
-            }
-        }
+        return obj;
     }
 
     private boolean checkRealArray(String typeName) {
@@ -644,21 +620,6 @@ public class TestFactory {
                 || "java.nio.charset.Charset".equals(name)
                 || "java.net.URI".equals(name)
                 || "java.io.File".equals(name);
-    }
-
-    /**
-     * Adds the given primitive statement {@code old} at the specified {@code position} to the test
-     * case {@code test}.
-     *
-     * @param test the test case to which to add the statement
-     * @param old the primitive statement to add
-     * @param position the position in {@code test} at which to add the statement
-     * @return a reference to the return value of the added statement
-     */
-    private VariableReference addPrimitive(
-            TestCase test, PrimitiveStatement<?> old, int position, int recursionDepth)
-            throws ConstructionFailedException {
-        return addPrimitive(test, old, position, GenerationContext.fromDepth(recursionDepth));
     }
 
     /**
@@ -856,6 +817,9 @@ public class TestFactory {
             logger.trace("Reusing value: {}", choice);
 
             ArrayIndex index = new ArrayIndex(test, arrRef, arrayIndex);
+            if (AssignmentStatement.isNullForPrimitiveTarget(test, index, choice)) {
+                throw new ConstructionFailedException("Cannot assign null to a primitive element");
+            }
             Statement st = new AssignmentStatement(test, index, choice);
             test.addStatement(st, position);
         } else {
@@ -878,6 +842,9 @@ public class TestFactory {
 
             position += test.size() - oldLength;
             ArrayIndex index = new ArrayIndex(test, arrRef, arrayIndex);
+            if (AssignmentStatement.isNullForPrimitiveTarget(test, index, var)) {
+                throw new ConstructionFailedException("Cannot assign null to a primitive element");
+            }
             Statement st = new AssignmentStatement(test, index, var);
             test.addStatement(st, position);
         }
@@ -1136,6 +1103,21 @@ public class TestFactory {
     }
 
     /**
+     * Public entry point used by EvoObj template synthesis to insert a null statement.
+     *
+     * @param test the test case for which to create the {@code null} variable
+     * @param type represents the type of the variable to create
+     * @param position the position in {@code test} at which to insert
+     * @param recursionDepth the generation depth to start from
+     * @return a reference to the inserted {@code null} variable
+     * @throws ConstructionFailedException if the creation of the variable fails
+     */
+    public VariableReference createNull(TestCase test, Type type, int position, int recursionDepth)
+            throws ConstructionFailedException {
+        return createNull(test, type, position, GenerationContext.fromDepth(recursionDepth));
+    }
+
+    /**
      * Creates a new {@code null} variable of the given {@code type} at the given {@code position}
      * in the {@code test} case.
      *
@@ -1152,15 +1134,17 @@ public class TestFactory {
      * @return a reference to the inserted {@code null} variable
      * @throws ConstructionFailedException if the creation of the variable fails
      */
-    /** Public entry point used by EvoObj template synthesis to insert a null statement. */
-    public VariableReference createNull(TestCase test, Type type, int position, int recursionDepth)
-            throws ConstructionFailedException {
-        return createNull(test, type, position, GenerationContext.fromDepth(recursionDepth));
-    }
-
     VariableReference createNull(TestCase test, Type type, int position,
                                          GenerationContext context) throws ConstructionFailedException {
         GenericClass<?> genericType = GenericClassFactory.get(type);
+
+        // A primitive has no null: "int int0 = null;" does not compile, and passing the null
+        // through reflection fails. Callers that fall back to null when they cannot build a
+        // value (such as the functional-mock fallback for an unmockable return type) get a
+        // primitive value instead.
+        if (genericType.isPrimitive()) {
+            return createPrimitive(test, genericType, position, context);
+        }
 
         // For example, HashBasedTable.Factory in Guava is private but used as a parameter
         // in a public method. This would lead to compile errors
@@ -1276,37 +1260,6 @@ public class TestFactory {
         return createOrReuseVariable(test, parameterType, position, context, config);
     }
 
-    private VariableReference createOrReuseVariableInternal(TestCase test, Type parameterType,
-                                                             int position, GenerationContext context,
-                                                             VariableResolutionConfig config)
-            throws ConstructionFailedException {
-        return variableResolver.resolveVariableInternal(test, parameterType, position, context, config);
-    }
-
-    private VariableReference createOrReuseVariableInternal(TestCase test, Type parameterType,
-                                                             int position, GenerationContext context,
-                                                             VariableReference exclude, boolean allowNull,
-                                                             boolean excludeCalleeGenerators, boolean canUseMocks)
-            throws ConstructionFailedException {
-        VariableResolutionConfig config = new VariableResolutionConfig.Builder()
-                .withExcludeVar(exclude)
-                .withAllowNull(allowNull)
-                .withExcludeCalleeGenerators(excludeCalleeGenerators)
-                .withCanUseMocks(canUseMocks)
-                .build();
-        return createOrReuseVariableInternal(test, parameterType, position, context, config);
-    }
-
-    private VariableReference createVariable(TestCase test, Type parameterType,
-                                             int position, int recursionDepth, VariableReference exclude,
-                                             boolean allowNull,
-                                             boolean excludeCalleeGenerators, boolean canUseMocks,
-                                             boolean canReuseExistingVariables)
-            throws ConstructionFailedException {
-        return createVariable(test, parameterType, position, GenerationContext.fromDepth(recursionDepth), exclude,
-                allowNull, excludeCalleeGenerators, canUseMocks, canReuseExistingVariables);
-    }
-
     /**
      * In the given {@code test} case, tries to create a variable of the type represented by {@code
      * parameterType} at the specified {@code position}. Clients can tweak the creation process
@@ -1341,126 +1294,6 @@ public class TestFactory {
             VariableResolutionConfig config)
             throws ConstructionFailedException {
         return variableResolver.createVariable(test, parameterType, position, context, config);
-    }
-
-    private VariableReference createVariable(TestCase test, Type parameterType,
-                                             int position, GenerationContext context, VariableReference exclude,
-                                             boolean allowNull,
-                                             boolean excludeCalleeGenerators, boolean canUseMocks,
-                                             boolean canReuseExistingVariables)
-            throws ConstructionFailedException {
-        VariableResolutionConfig config = new VariableResolutionConfig.Builder()
-                .withExcludeVar(exclude)
-                .withAllowNull(allowNull)
-                .withExcludeCalleeGenerators(excludeCalleeGenerators)
-                .withCanUseMocks(canUseMocks)
-                .withCanReuseExistingVariables(canReuseExistingVariables)
-                .build();
-        return createVariable(test, parameterType, position, context, config);
-    }
-
-    private List<VariableReference> getCandidatesForReuse(TestCase test, Type parameterType, int position,
-                                                          VariableReference exclude,
-                                                          boolean allowNull, boolean canUseMocks) {
-
-        // look at all vars defined before pos
-        List<VariableReference> objects = test.getObjects(parameterType, position);
-
-        // if an exclude var was specified, then remove it
-        if (exclude != null) {
-            objects.remove(exclude);
-            if (exclude.getAdditionalVariableReference() != null) {
-                objects.remove(exclude.getAdditionalVariableReference());
-            }
-
-            objects.removeIf(v -> exclude.equals(v.getAdditionalVariableReference()));
-        }
-
-        List<VariableReference> additionalToRemove = new ArrayList<>();
-
-        // no mock should be used more than once
-        Iterator<VariableReference> iter = objects.iterator();
-        while (iter.hasNext()) {
-            VariableReference ref = iter.next();
-            if (!(test.getStatement(ref.getStPosition()) instanceof FunctionalMockStatement)) {
-                continue;
-            }
-
-            // check if current mock var is used anywhere: if so, then we cannot choose it
-            for (int i = ref.getStPosition() + 1; i < test.size(); i++) {
-                Statement st = test.getStatement(i);
-                if (st.getVariableReferences().contains(ref)) {
-                    iter.remove();
-                    additionalToRemove.add(ref);
-                    break;
-                }
-            }
-        }
-
-        // check for null
-        if (!allowNull) {
-            iter = objects.iterator();
-            while (iter.hasNext()) {
-                VariableReference ref = iter.next();
-
-                if (ConstraintHelper.isNull(ref, test)) {
-                    iter.remove();
-                    additionalToRemove.add(ref);
-                }
-            }
-        }
-
-        // check for mocks
-        if (!canUseMocks) {
-            iter = objects.iterator();
-            while (iter.hasNext()) {
-                VariableReference ref = iter.next();
-
-                if (test.getStatement(ref.getStPosition()) instanceof FunctionalMockStatement) {
-                    iter.remove();
-                    additionalToRemove.add(ref);
-                }
-            }
-        }
-
-        // further remove all other vars that have the deleted ones as additionals
-        iter = objects.iterator();
-        while (iter.hasNext()) {
-            VariableReference ref = iter.next();
-            VariableReference additional = ref.getAdditionalVariableReference();
-            if (additional == null) {
-                continue;
-            }
-            if (additionalToRemove.contains(additional)) {
-                iter.remove();
-            }
-        }
-
-        // avoid using characters as values for numeric types arguments
-        iter = objects.iterator();
-        String parCls = parameterType.getTypeName();
-        if (Integer.TYPE.getTypeName().equals(parCls) || Long.TYPE.getTypeName().equals(parCls)
-                || Float.TYPE.getTypeName().equals(parCls) || Double.TYPE.getTypeName().equals(parCls)) {
-            while (iter.hasNext()) {
-                VariableReference ref = iter.next();
-                String cls = ref.getType().getTypeName();
-                if ((Character.TYPE.getTypeName().equals(cls))) {
-                    iter.remove();
-                }
-            }
-        }
-
-        // final safety filter: ensure type compatibility is consistent
-        iter = objects.iterator();
-        while (iter.hasNext()) {
-            VariableReference ref = iter.next();
-            if (!ref.isAssignableTo(parameterType)) {
-                logger.trace("Removing incompatible reuse candidate {} for type {}", ref, parameterType);
-                iter.remove();
-            }
-        }
-
-        return objects;
     }
 
     /**
@@ -1522,6 +1355,19 @@ public class TestFactory {
     }
 
     /**
+     * Replaces the uses of the variable defined at {@code position} and deletes its statement,
+     * or, if a statement refuses the replacement, deletes it with every statement that uses it.
+     *
+     * @param test        the test case
+     * @param position    the position of the statement to delete
+     * @param replacement the variable taking over the uses
+     * @see TestMutator#replaceAndDelete(TestCase, int, VariableReference)
+     */
+    public void replaceAndDelete(TestCase test, int position, VariableReference replacement) {
+        testMutator.replaceAndDelete(test, position, replacement);
+    }
+
+    /**
      * Summary.
      *
      * @param test the test case.
@@ -1532,20 +1378,6 @@ public class TestFactory {
     public boolean deleteStatementGracefully(TestCase test, int position)
             throws ConstructionFailedException {
         return testMutator.deleteStatementGracefully(test, position);
-    }
-
-    /**
-     * Inserts a random reflection call into the test case.
-     *
-     * @param test           the test case
-     * @param position       the position to insert the call
-     * @param recursionDepth current recursion depth
-     * @return true if successful
-     * @throws ConstructionFailedException if construction fails
-     */
-    private boolean insertRandomReflectionCall(TestCase test, int position, int recursionDepth)
-            throws ConstructionFailedException {
-        return insertRandomReflectionCall(test, position, GenerationContext.fromDepth(recursionDepth));
     }
 
     boolean insertRandomReflectionCall(TestCase test, int position, GenerationContext context)
@@ -1610,22 +1442,6 @@ public class TestFactory {
 
         test.addStatement(st, position);
         return true;
-    }
-
-    /**
-     * Inserts a random reflection call on a specific object into the test case.
-     *
-     * @param test           the test case
-     * @param callee         the object to call the method on
-     * @param position       the position to insert the call
-     * @param recursionDepth current recursion depth
-     * @return true if successful
-     * @throws ConstructionFailedException if construction fails
-     */
-    private boolean insertRandomReflectionCallOnObject(TestCase test, VariableReference callee,
-                                                       int position, int recursionDepth)
-            throws ConstructionFailedException {
-        return insertRandomReflectionCallOnObject(test, callee, position, GenerationContext.fromDepth(recursionDepth));
     }
 
     boolean insertRandomReflectionCallOnObject(TestCase test, VariableReference callee,
@@ -2017,6 +1833,9 @@ public class TestFactory {
             int position,
             Type expectedType,
             VariableReference actualVar) {
+        if (!logger.isDebugEnabled()) {
+            return;
+        }
         if (actualVar != null && isClassLiteralAssignableByErasure(expectedType, actualVar.getType())) {
             return;
         }

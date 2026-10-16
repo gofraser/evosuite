@@ -69,6 +69,12 @@ public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {
         return Randomness.choice(valueSet);
     }
 
+    /**
+     * Removes all values that satisfy the predicate.
+     *
+     * @param predicate the condition under which a value is removed
+     * @return the number of removed values
+     */
     public synchronized int removeIf(Predicate<? super T> predicate) {
         int removed = 0;
         Iterator<T> iterator = queue.iterator();

@@ -39,9 +39,51 @@ import java.util.Deque;
  */
 public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
 
+    /**
+     * Instance calls on Swing/AWT (or application) owners that are redirected to a static
+     * {@code MockHeadlessSwing} replacement taking the receiver as an extra first argument.
+     * Name and descriptor pairs are distinct, so at most one entry matches a call.
+     */
+    private static final SwingFallback[] SWING_FALLBACKS = {
+            new SwingFallback("setDragEnabled", "(Z)V",
+                    "replacement_setDragEnabledGeneric"),
+            new SwingFallback("setDropTarget", "(Ljava/awt/dnd/DropTarget;)V",
+                    "replacement_setDropTargetGeneric"),
+            new SwingFallback("setMixingCutoutShape", "(Ljava/awt/Shape;)V",
+                    "replacement_setMixingCutoutShapeGeneric"),
+            new SwingFallback("setCursor", "(Ljava/awt/Cursor;)V",
+                    "replacement_setCursorGeneric"),
+            new SwingFallback("remove", "(Ljava/awt/Component;)V",
+                    "replacement_removeComponentGeneric"),
+            new SwingFallback("add", "(Ljava/awt/Component;)Ljava/awt/Component;",
+                    "replacement_addComponentGeneric"),
+            new SwingFallback("add", "(Ljava/lang/String;Ljava/awt/Component;)Ljava/awt/Component;",
+                    "replacement_addNameComponentGeneric"),
+            new SwingFallback("add", "(Ljava/awt/Component;I)Ljava/awt/Component;",
+                    "replacement_addComponentIndexGeneric"),
+            new SwingFallback("add", "(Ljava/awt/Component;Ljava/lang/Object;)V",
+                    "replacement_addComponentConstraintsGeneric"),
+            new SwingFallback("add", "(Ljava/awt/Component;Ljava/lang/Object;I)V",
+                    "replacement_addComponentConstraintsIndexGeneric"),
+            new SwingFallback("addTab", "(Ljava/lang/String;Ljava/awt/Component;)V",
+                    "replacement_addTabTitleComponentGeneric"),
+            new SwingFallback("addTab", "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;)V",
+                    "replacement_addTabTitleIconComponentGeneric"),
+            new SwingFallback("addTab", "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;)V",
+                    "replacement_addTabTitleIconComponentTipGeneric"),
+            new SwingFallback("insertTab", "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;I)V",
+                    "replacement_insertTabGeneric")
+    };
+
     private final String className;
 
     private final String superClassName;
+
+    /**
+     * False when retransforming: the superclass cannot change then, so the super constructor
+     * call must keep targeting the original superclass.
+     */
+    private final boolean canChangeSuperclass;
 
     private boolean needToWaitForSuperConstructor = false;
 
@@ -74,9 +116,16 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
      */
     public MethodCallReplacementMethodAdapter(MethodVisitor mv, String className,
                                               String superClassName, String methodName, int access, String desc) {
+        this(mv, className, superClassName, methodName, access, desc, true);
+    }
+
+    public MethodCallReplacementMethodAdapter(MethodVisitor mv, String className,
+                                              String superClassName, String methodName, int access, String desc,
+                                              boolean canChangeSuperclass) {
         super(Opcodes.ASM9, mv, access, methodName, desc);
         this.className = className;
         this.superClassName = superClassName;
+        this.canChangeSuperclass = canChangeSuperclass;
         if (methodName.equals("<init>")) {
             needToWaitForSuperConstructor = true;
         }
@@ -236,173 +285,17 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
 
         // Generic Swing/AWT fallbacks for methods not covered by the cache-based
         // replacements (e.g., subclass calls that don't match the exact owner).
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "setDragEnabled".equals(name)
-                && "(Z)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_setDragEnabledGeneric",
-                    "(Ljava/lang/Object;Z)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "setDropTarget".equals(name)
-                && "(Ljava/awt/dnd/DropTarget;)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_setDropTargetGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/dnd/DropTarget;)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "setMixingCutoutShape".equals(name)
-                && "(Ljava/awt/Shape;)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_setMixingCutoutShapeGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Shape;)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "setCursor".equals(name)
-                && "(Ljava/awt/Cursor;)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_setCursorGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Cursor;)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "add".equals(name)
-                && "(Ljava/awt/Component;)Ljava/awt/Component;".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_addComponentGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Component;)Ljava/awt/Component;",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "add".equals(name)
-                && "(Ljava/lang/String;Ljava/awt/Component;)Ljava/awt/Component;".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_addNameComponentGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/awt/Component;)Ljava/awt/Component;",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "add".equals(name)
-                && "(Ljava/awt/Component;I)Ljava/awt/Component;".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_addComponentIndexGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Component;I)Ljava/awt/Component;",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "add".equals(name)
-                && "(Ljava/awt/Component;Ljava/lang/Object;)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_addComponentConstraintsGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Component;Ljava/lang/Object;)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "add".equals(name)
-                && "(Ljava/awt/Component;Ljava/lang/Object;I)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_addComponentConstraintsIndexGeneric",
-                    "(Ljava/lang/Object;Ljava/awt/Component;Ljava/lang/Object;I)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "addTab".equals(name)
-                && "(Ljava/lang/String;Ljava/awt/Component;)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_addTabTitleComponentGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/awt/Component;)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "addTab".equals(name)
-                && "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_addTabTitleIconComponentGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "addTab".equals(name)
-                && "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_addTabTitleIconComponentTipGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
-        }
-
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
-                && "insertTab".equals(name)
-                && "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;I)V".equals(desc)
-                && isSwingAwtOrAppOwner(owner)) {
-            super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
-                    "replacement_insertTabGeneric",
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;I)V",
-                    false);
-            hasBeenInstrumented = true;
-            isReplaced = true;
+        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL) {
+            for (SwingFallback fallback : SWING_FALLBACKS) {
+                if (fallback.name.equals(name) && fallback.desc.equals(desc) && isSwingAwtOrAppOwner(owner)) {
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                            PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
+                            fallback.replacementName, fallback.replacementDesc, false);
+                    hasBeenInstrumented = true;
+                    isReplaced = true;
+                    break;
+                }
+            }
         }
 
         // Generic socket connect fallback for Socket subclasses (eg SSLSocket).
@@ -470,7 +363,10 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         }
 
         // for constructors
-        if (!isReplaced) {
+        boolean keepsOriginalSuperConstructor = !canChangeSuperclass && needToWaitForSuperConstructor
+                && opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)
+                && owner.replace('/', '.').equals(superClassName);
+        if (!isReplaced && !keepsOriginalSuperConstructor) {
             if (MethodCallReplacementCache.getInstance().hasSpecialReplacementCall(owner, name + desc)) {
                 MethodCallReplacement replacement = MethodCallReplacementCache.getInstance()
                         .getSpecialReplacementCall(owner, name + desc);
@@ -562,6 +458,28 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         }
         String ownerWithDots = owner.replace('/', '.');
         return ownerWithDots.equals(superClassName) || ownerWithDots.equals(className);
+    }
+
+    /**
+     * A Swing/AWT instance method and the static {@code MockHeadlessSwing} method that replaces it.
+     */
+    private static final class SwingFallback {
+
+        private final String name;
+
+        private final String desc;
+
+        private final String replacementName;
+
+        private final String replacementDesc;
+
+        private SwingFallback(String name, String desc, String replacementName) {
+            this.name = name;
+            this.desc = desc;
+            this.replacementName = replacementName;
+            // The receiver becomes the first argument of the static replacement.
+            this.replacementDesc = "(Ljava/lang/Object;" + desc.substring(1);
+        }
     }
 
     /**

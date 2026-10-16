@@ -212,6 +212,23 @@ public final class TestSuiteChromosome
         return new TestSuiteChromosome(this);
     }
 
+    /**
+     * Copies this suite with the suite-level values but bare tests: each test keeps only a clone
+     * of its test case, none of its per-goal fitness values.
+     *
+     * @return a copy that shares nothing mutable with this suite
+     */
+    public TestSuiteChromosome copyWithBareTests() {
+        TestSuiteChromosome copy = new TestSuiteChromosome();
+        for (TestChromosome test : tests) {
+            TestChromosome bare = new TestChromosome();
+            bare.setTestCase(test.getTestCase().clone());
+            copy.addTestChromosome(bare);
+        }
+        copy.copySuiteLevelValuesFrom(this);
+        return copy;
+    }
+
     /* (non-Javadoc)
      * @see org.evosuite.ga.Chromosome#compareSecondaryObjective(org.evosuite.ga.Chromosome)
      */

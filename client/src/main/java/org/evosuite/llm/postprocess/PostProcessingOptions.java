@@ -47,6 +47,11 @@ public final class PostProcessingOptions {
         this.minimumFreeMemoryBytes = Math.max(0L, minimumFreeMemoryBytes);
     }
 
+    /**
+     * Reads the current values of the global {@link Properties} into an immutable snapshot.
+     *
+     * @return the snapshot of the post-processing configuration
+     */
     public static PostProcessingOptions fromProperties() {
         return new PostProcessingOptions(
                 new Features(Properties.LLM_POSTPROCESSING_ASSERTIONS,
@@ -97,11 +102,9 @@ public final class PostProcessingOptions {
                 Properties.MIN_FREE_MEM);
     }
 
-    public static Builder builder() {
-        return new Builder(fromProperties());
-    }
-
-    /** Fresh requests always use the winning treatment. */
+    /**
+     * Fresh requests always use the winning treatment.
+     */
     public String promptVersion() {
         return LlmPostProcessingProtocol.PRODUCTION_PROMPT_VERSION;
     }
@@ -110,16 +113,45 @@ public final class PostProcessingOptions {
         return LlmPostProcessingProtocol.RESPONSE_SCHEMA_VERSION;
     }
 
-    public Features features() { return features; }
-    public ContextLimits contextLimits() { return contextLimits; }
-    public AssertionPolicy assertionPolicy() { return assertionPolicy; }
-    public PhaseBudget phaseBudget() { return phaseBudget; }
-    public RepairFallbackPolicy repairFallbackPolicy() { return repairFallbackPolicy; }
-    public String targetClass() { return targetClass; }
-    public boolean enabled() { return enabled; }
-    public Properties.LlmProvider provider() { return provider; }
-    public int callTimeoutSeconds() { return callTimeoutSeconds; }
-    public long minimumFreeMemoryBytes() { return minimumFreeMemoryBytes; }
+    public Features features() {
+        return features;
+    }
+
+    public ContextLimits contextLimits() {
+        return contextLimits;
+    }
+
+    public AssertionPolicy assertionPolicy() {
+        return assertionPolicy;
+    }
+
+    public PhaseBudget phaseBudget() {
+        return phaseBudget;
+    }
+
+    public RepairFallbackPolicy repairFallbackPolicy() {
+        return repairFallbackPolicy;
+    }
+
+    public String targetClass() {
+        return targetClass;
+    }
+
+    public boolean enabled() {
+        return enabled;
+    }
+
+    public Properties.LlmProvider provider() {
+        return provider;
+    }
+
+    public int callTimeoutSeconds() {
+        return callTimeoutSeconds;
+    }
+
+    public long minimumFreeMemoryBytes() {
+        return minimumFreeMemoryBytes;
+    }
 
     public static final class Features {
         private final boolean assertions;
@@ -128,6 +160,15 @@ public final class PostProcessingOptions {
         private final boolean comments;
         private final boolean sectionBreaks;
 
+        /**
+         * Creates the feature switches.
+         *
+         * @param assertions whether assertions are proposed
+         * @param testNames whether test names are proposed
+         * @param variableNames whether variable names are proposed
+         * @param comments whether comments are proposed
+         * @param sectionBreaks whether section breaks are proposed
+         */
         public Features(boolean assertions, boolean testNames, boolean variableNames,
                         boolean comments, boolean sectionBreaks) {
             this.assertions = assertions;
@@ -137,12 +178,29 @@ public final class PostProcessingOptions {
             this.sectionBreaks = sectionBreaks;
         }
 
-        public boolean assertions() { return assertions; }
-        public boolean testNames() { return testNames; }
-        public boolean variableNames() { return variableNames; }
-        public boolean comments() { return comments; }
-        public boolean sectionBreaks() { return sectionBreaks; }
-        public boolean any() { return assertions || testNames || variableNames || comments || sectionBreaks; }
+        public boolean assertions() {
+            return assertions;
+        }
+
+        public boolean testNames() {
+            return testNames;
+        }
+
+        public boolean variableNames() {
+            return variableNames;
+        }
+
+        public boolean comments() {
+            return comments;
+        }
+
+        public boolean sectionBreaks() {
+            return sectionBreaks;
+        }
+
+        public boolean any() {
+            return assertions || testNames || variableNames || comments || sectionBreaks;
+        }
     }
 
     public static final class ContextLimits {
@@ -154,6 +212,17 @@ public final class PostProcessingOptions {
         private final int commentChars;
         private final int commentsPerTest;
 
+        /**
+         * Creates the limits on the context given to the model; negative values are treated as zero.
+         *
+         * @param observationChars the maximum number of characters per observation
+         * @param candidateFacts the maximum number of candidate facts
+         * @param candidateChars the maximum number of characters of candidate facts
+         * @param callableChars the maximum number of characters of the callable listing
+         * @param collectionElements the maximum number of collection elements shown
+         * @param commentChars the maximum number of characters per comment
+         * @param commentsPerTest the maximum number of comments per test
+         */
         public ContextLimits(int observationChars, int candidateFacts, int candidateChars,
                              int callableChars, int collectionElements,
                              int commentChars, int commentsPerTest) {
@@ -166,13 +235,33 @@ public final class PostProcessingOptions {
             this.commentsPerTest = nonNegative(commentsPerTest);
         }
 
-        public int observationChars() { return observationChars; }
-        public int candidateFacts() { return candidateFacts; }
-        public int candidateChars() { return candidateChars; }
-        public int callableChars() { return callableChars; }
-        public int collectionElements() { return collectionElements; }
-        public int commentChars() { return commentChars; }
-        public int commentsPerTest() { return commentsPerTest; }
+        public int observationChars() {
+            return observationChars;
+        }
+
+        public int candidateFacts() {
+            return candidateFacts;
+        }
+
+        public int candidateChars() {
+            return candidateChars;
+        }
+
+        public int callableChars() {
+            return callableChars;
+        }
+
+        public int collectionElements() {
+            return collectionElements;
+        }
+
+        public int commentChars() {
+            return commentChars;
+        }
+
+        public int commentsPerTest() {
+            return commentsPerTest;
+        }
     }
 
     public static final class AssertionPolicy {
@@ -193,6 +282,27 @@ public final class PostProcessingOptions {
         private final int compileTimeoutMs;
         private final int evalTimeoutMs;
 
+        /**
+         * Creates the policy for assertions; negative limits are treated as zero and a null callable policy as
+         * {@code PURE_BOUNDED}.
+         *
+         * @param maxAssertions the maximum number of assertions per test
+         * @param maxChainDepth the maximum depth of member chains in expressions
+         * @param callablePolicy the policy that selects which methods expressions may call
+         * @param allowChainedCalls whether calls may be chained
+         * @param maxCallableArgs the maximum number of arguments of a callable method
+         * @param maxCallableMembersPerType the maximum number of callable members per type
+         * @param maxCallableTypesPerTest the maximum number of types with callable members per test
+         * @param pureStaticAllowlist comma-separated static methods that are known to be pure
+         * @param allowImmutableConstructors whether constructors of immutable types may be called
+         * @param immutableTypes comma-separated names of immutable types
+         * @param maxExpressionChars the maximum number of characters of an expression
+         * @param maxExpressionNodes the maximum number of syntax nodes of an expression
+         * @param maxConstructedArrayElements the maximum number of elements of an array an expression constructs
+         * @param maxLiteralChars the maximum number of characters of a literal
+         * @param compileTimeoutMs the timeout for compiling an assertion in milliseconds
+         * @param evalTimeoutMs the timeout for evaluating an assertion in milliseconds
+         */
         public AssertionPolicy(int maxAssertions, int maxChainDepth,
                                Properties.LlmPostProcessingCallablePolicy callablePolicy,
                                boolean allowChainedCalls, int maxCallableArgs,
@@ -220,22 +330,69 @@ public final class PostProcessingOptions {
             this.evalTimeoutMs = nonNegative(evalTimeoutMs);
         }
 
-        public int maxAssertions() { return maxAssertions; }
-        public int maxChainDepth() { return maxChainDepth; }
-        public Properties.LlmPostProcessingCallablePolicy callablePolicy() { return callablePolicy; }
-        public boolean allowChainedCalls() { return allowChainedCalls; }
-        public int maxCallableArgs() { return maxCallableArgs; }
-        public int maxCallableMembersPerType() { return maxCallableMembersPerType; }
-        public int maxCallableTypesPerTest() { return maxCallableTypesPerTest; }
-        public Set<String> pureStaticAllowlist() { return pureStaticAllowlist; }
-        public boolean allowImmutableConstructors() { return allowImmutableConstructors; }
-        public Set<String> immutableTypes() { return immutableTypes; }
-        public int maxExpressionChars() { return maxExpressionChars; }
-        public int maxExpressionNodes() { return maxExpressionNodes; }
-        public int maxConstructedArrayElements() { return maxConstructedArrayElements; }
-        public int maxLiteralChars() { return maxLiteralChars; }
-        public int compileTimeoutMs() { return compileTimeoutMs; }
-        public int evalTimeoutMs() { return evalTimeoutMs; }
+        public int maxAssertions() {
+            return maxAssertions;
+        }
+
+        public int maxChainDepth() {
+            return maxChainDepth;
+        }
+
+        public Properties.LlmPostProcessingCallablePolicy callablePolicy() {
+            return callablePolicy;
+        }
+
+        public boolean allowChainedCalls() {
+            return allowChainedCalls;
+        }
+
+        public int maxCallableArgs() {
+            return maxCallableArgs;
+        }
+
+        public int maxCallableMembersPerType() {
+            return maxCallableMembersPerType;
+        }
+
+        public int maxCallableTypesPerTest() {
+            return maxCallableTypesPerTest;
+        }
+
+        public Set<String> pureStaticAllowlist() {
+            return pureStaticAllowlist;
+        }
+
+        public boolean allowImmutableConstructors() {
+            return allowImmutableConstructors;
+        }
+
+        public Set<String> immutableTypes() {
+            return immutableTypes;
+        }
+
+        public int maxExpressionChars() {
+            return maxExpressionChars;
+        }
+
+        public int maxExpressionNodes() {
+            return maxExpressionNodes;
+        }
+
+        public int maxConstructedArrayElements() {
+            return maxConstructedArrayElements;
+        }
+
+        public int maxLiteralChars() {
+            return maxLiteralChars;
+        }
+
+        public int compileTimeoutMs() {
+            return compileTimeoutMs;
+        }
+
+        public int evalTimeoutMs() {
+            return evalTimeoutMs;
+        }
     }
 
     public static final class PhaseBudget {
@@ -249,6 +406,19 @@ public final class PostProcessingOptions {
         private final int limitedMaxCalls;
         private final Properties.LlmPostProcessingScope scope;
 
+        /**
+         * Creates the budget of a phase; negative values are treated as zero.
+         *
+         * @param maxTests the maximum number of tests processed
+         * @param maxTotalStatements the maximum number of statements over all processed tests
+         * @param maxCalls the maximum number of model calls
+         * @param timeoutSeconds the timeout of the phase in seconds
+         * @param incompletePolicy the handling of tests whose minimization is incomplete; null skips them
+         * @param limitedMaxTests the maximum number of tests in the limited mode
+         * @param limitedMaxTotalStatements the maximum number of statements in the limited mode
+         * @param limitedMaxCalls the maximum number of model calls in the limited mode
+         * @param scope the tests the phase applies to; null selects all tests
+         */
         public PhaseBudget(int maxTests, int maxTotalStatements, int maxCalls, int timeoutSeconds,
                            Properties.LlmPostProcessingOnIncompleteMinimization incompletePolicy,
                            int limitedMaxTests, int limitedMaxTotalStatements, int limitedMaxCalls,
@@ -265,15 +435,41 @@ public final class PostProcessingOptions {
             this.scope = scope == null ? Properties.LlmPostProcessingScope.ALL_TESTS : scope;
         }
 
-        public int maxTests() { return maxTests; }
-        public int maxTotalStatements() { return maxTotalStatements; }
-        public int maxCalls() { return maxCalls; }
-        public int timeoutSeconds() { return timeoutSeconds; }
-        public Properties.LlmPostProcessingOnIncompleteMinimization incompletePolicy() { return incompletePolicy; }
-        public int limitedMaxTests() { return limitedMaxTests; }
-        public int limitedMaxTotalStatements() { return limitedMaxTotalStatements; }
-        public int limitedMaxCalls() { return limitedMaxCalls; }
-        public Properties.LlmPostProcessingScope scope() { return scope; }
+        public int maxTests() {
+            return maxTests;
+        }
+
+        public int maxTotalStatements() {
+            return maxTotalStatements;
+        }
+
+        public int maxCalls() {
+            return maxCalls;
+        }
+
+        public int timeoutSeconds() {
+            return timeoutSeconds;
+        }
+
+        public Properties.LlmPostProcessingOnIncompleteMinimization incompletePolicy() {
+            return incompletePolicy;
+        }
+
+        public int limitedMaxTests() {
+            return limitedMaxTests;
+        }
+
+        public int limitedMaxTotalStatements() {
+            return limitedMaxTotalStatements;
+        }
+
+        public int limitedMaxCalls() {
+            return limitedMaxCalls;
+        }
+
+        public Properties.LlmPostProcessingScope scope() {
+            return scope;
+        }
     }
 
     public static final class RepairFallbackPolicy {
@@ -282,6 +478,14 @@ public final class PostProcessingOptions {
         private final Properties.LlmPostProcessingAssertionFallback fallback;
         private final Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy;
 
+        /**
+         * Creates the policy for repairing and replacing rejected assertions; null values select the defaults.
+         *
+         * @param assertionRepairEnabled whether rejected assertions are sent back to the model for repair
+         * @param repairPolicy the repair policy
+         * @param fallback the fallback used when repair does not succeed
+         * @param fallbackStrategy the strategy that selects what the fallback applies to
+         */
         public RepairFallbackPolicy(boolean assertionRepairEnabled,
                                     Properties.LlmPostProcessingRepairPolicy repairPolicy,
                                     Properties.LlmPostProcessingAssertionFallback fallback,
@@ -295,39 +499,26 @@ public final class PostProcessingOptions {
                     ? Properties.LlmPostProcessingAssertionFallbackStrategy.ALL : fallbackStrategy;
         }
 
-        public boolean assertionRepairEnabled() { return assertionRepairEnabled; }
-
-        public Properties.LlmPostProcessingRepairPolicy repairPolicy() { return repairPolicy; }
-        public Properties.LlmPostProcessingAssertionFallback fallback() { return fallback; }
-        public Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy() { return fallbackStrategy; }
-    }
-
-    /** Small builder used by unit tests without mutating global Properties. */
-    public static final class Builder {
-        private PostProcessingOptions value;
-
-        private Builder(PostProcessingOptions value) { this.value = value; }
-
-        public Builder features(Features features) {
-            value = new PostProcessingOptions(features, value.contextLimits, value.assertionPolicy,
-                    value.phaseBudget, value.repairFallbackPolicy, value.targetClass,
-                    value.enabled, value.provider, value.callTimeoutSeconds,
-                    value.minimumFreeMemoryBytes);
-            return this;
+        public boolean assertionRepairEnabled() {
+            return assertionRepairEnabled;
         }
 
-        public Builder targetClass(String targetClass) {
-            value = new PostProcessingOptions(value.features, value.contextLimits, value.assertionPolicy,
-                    value.phaseBudget, value.repairFallbackPolicy, targetClass,
-                    value.enabled, value.provider, value.callTimeoutSeconds,
-                    value.minimumFreeMemoryBytes);
-            return this;
+        public Properties.LlmPostProcessingRepairPolicy repairPolicy() {
+            return repairPolicy;
         }
 
-        public PostProcessingOptions build() { return value; }
+        public Properties.LlmPostProcessingAssertionFallback fallback() {
+            return fallback;
+        }
+
+        public Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy() {
+            return fallbackStrategy;
+        }
     }
 
-    private static int nonNegative(int value) { return Math.max(0, value); }
+    private static int nonNegative(int value) {
+        return Math.max(0, value);
+    }
 
     private static Set<String> parseList(String value) {
         if (value == null || value.trim().isEmpty()) {

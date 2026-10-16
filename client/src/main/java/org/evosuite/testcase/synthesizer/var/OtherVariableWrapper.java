@@ -6,6 +6,7 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.ConstructorStatement;
@@ -16,7 +17,6 @@ import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.VariableInTest;
-import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
@@ -28,6 +28,7 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -39,6 +40,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class OtherVariableWrapper extends DepVariableWrapper {
@@ -57,8 +59,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             VariableInTest variable,
             Map<DepVariableWrapper, VarRelevance> map,
             Branch b,
-            boolean allowNullValue,
-            Operation recommendation) {
+            boolean allowNullValue) {
         List<VariableReference> list = new ArrayList<>();
         terminalObservation = false;
         VariableReference var =
@@ -77,6 +78,17 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         return !terminalObservation;
     }
 
+    /**
+     * Finds an existing variable in the test for this dependency or generates one.
+     *
+     * @param test the test to search and extend
+     * @param isLeaf whether this wrapper is a leaf of the dependency tree
+     * @param callerObject the object on which the dependency is accessed
+     * @param map the relevance information of the wrappers in the tree
+     * @param b the targeted branch
+     * @param allowNullValue whether a null value may be used
+     * @return the variable reference for this dependency, or null if none could be produced
+     */
     public VariableReference generateOrFind(
             TestCase test,
             boolean isLeaf,
@@ -110,6 +122,32 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         return null;
     }
 
+    /**
+     * The method a call instruction of the class under test refers to, provided the generated
+     * test can call it from source. A protected or package-private method declared in a class
+     * outside the test's package (for example {@code DefaultElement.contentList()} reached
+     * from a subclass in another package) is not callable by a test that is not a subclass:
+     * javac reports "has protected access".
+     */
+    static Method findSourceCallableMethod(
+            Class<?> declaringClass, String name, Class<?>[] parameterTypes) {
+        try {
+            Method found = declaringClass.getMethod(name, parameterTypes);
+            return TestUsageChecker.isNotCallableFromSource(found) ? null : found;
+        } catch (Exception e) {
+            try {
+                Method declared = declaringClass.getDeclaredMethod(name, parameterTypes);
+                if (TestUsageChecker.isCallableFromTestPackage(declared)
+                        && !TestUsageChecker.isNotCallableFromSource(declared)) {
+                    return declared;
+                }
+            } catch (Exception ignored) {
+                // No source-level callable method represents this node.
+            }
+        }
+        return null;
+    }
+
     private VariableReference generateMethodCallStatement(
             TestCase test,
             Map<DepVariableWrapper, VarRelevance> map,
@@ -136,23 +174,11 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             }
 
             if (!fullName.contains("<init>")) {
-                Method call = null;
-                try {
-                    call =
-                            fieldDeclaringClass.getMethod(
-                                    fullName.substring(0, fullName.indexOf("(")), paramClasses);
-                } catch (Exception e) {
-                    try {
-                        Method declared =
-                                fieldDeclaringClass.getDeclaredMethod(
-                                        fullName.substring(0, fullName.indexOf("(")), paramClasses);
-                        if (!Modifier.isPrivate(declared.getModifiers())) {
-                            call = declared;
-                        }
-                    } catch (Exception ignored) {
-                        // No source-level callable method represents this node.
-                    }
-                }
+                Method call =
+                        findSourceCallableMethod(
+                                fieldDeclaringClass,
+                                fullName.substring(0, fullName.indexOf("(")),
+                                paramClasses);
 
                 if (call == null) {
                     /*
@@ -181,7 +207,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                     int position = par.findRelationPosition(this);
                     if (position > -1) {
                         paramRefMap.put(position, parRef);
-                        if (position == 0 && !containsReference(receiverCandidates, parRef)) {
+                        if (position == 0 && !receiverCandidates.contains(parRef)) {
                             receiverCandidates.add(parRef);
                         }
                     }
@@ -210,15 +236,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                                             allowNullValue);
                     MethodStatement statement =
                             (MethodStatement) test.getStatement(varRef.getStPosition());
-                    for (int i = 0; i < statement.getParameterReferences().size(); i++) {
-                        VariableReference oldParam = statement.getParameterReferences().get(i);
-                        VariableReference newParam = paramRefMap.get(i);
-                        if (newParam != null) {
-                            statement.replace(oldParam, newParam);
-                            VariableCodeGenerationUtil.replaceMapFromNode2Code(
-                                    map, oldParam, newParam);
-                        }
-                    }
+                    applyGraphArguments(statement, 0, paramRefMap, map);
                     return varRef;
                 } else {
                     Statement stat = test.getStatement(callerObject.getStPosition());
@@ -286,16 +304,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                                                     allowNullValue);
                             MethodStatement statement =
                                     (MethodStatement) test.getStatement(varRef.getStPosition());
-                            for (int i = 0; i < statement.getParameterReferences().size(); i++) {
-                                VariableReference oldParam =
-                                        statement.getParameterReferences().get(i);
-                                VariableReference newParam = paramRefMap.get(i + 1);
-                                if (newParam != null) {
-                                    statement.replace(oldParam, newParam);
-                                    VariableCodeGenerationUtil.replaceMapFromNode2Code(
-                                            map, oldParam, newParam);
-                                }
-                            }
+                            applyGraphArguments(statement, 1, paramRefMap, map);
                             return varRef;
                         }
                     }
@@ -306,6 +315,32 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         }
 
         return null;
+    }
+
+    /**
+     * Passes the variables that the dependency graph found for the arguments of a freshly
+     * generated call. The graph's variable for an argument was found by what the SUT does with
+     * it, not by the call's signature: a {@code Long} that the SUT compares can end up as the
+     * {@code T key} of a {@code binarySearch} whose {@code T} is bound to another class, and the
+     * rendered cast ({@code (Meal) long0}) does not compile. An argument that does not fit its
+     * parameter as instantiated keeps the value that was generated for it.
+     *
+     * @param offset the position in {@code paramRefMap} of the call's first argument (1 when
+     *               position 0 is the receiver)
+     */
+    static void applyGraphArguments(MethodStatement statement, int offset,
+                                    Map<Integer, VariableReference> paramRefMap,
+                                    Map<DepVariableWrapper, VarRelevance> map) {
+        java.lang.reflect.Type[] declared = statement.getMethod().getParameterTypes();
+        for (int i = 0; i < statement.getParameterReferences().size(); i++) {
+            VariableReference oldParam = statement.getParameterReferences().get(i);
+            VariableReference newParam = paramRefMap.get(i + offset);
+            if (newParam == null || (i < declared.length && !newParam.isAssignableTo(declared[i]))) {
+                continue;
+            }
+            statement.replace(oldParam, newParam);
+            VariableCodeGenerationUtil.replaceMapFromNode2Code(map, oldParam, newParam);
+        }
     }
 
     static boolean isPureObservation(Method method) {
@@ -587,26 +622,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                         || Iterable.class.isAssignableFrom(observation.getReturnType()))) {
             return null;
         }
-        List<Method> mutations = new ArrayList<>();
-        for (Method candidate : receiver.getVariableClass().getDeclaredMethods()) {
-            String name = candidate.getName();
-            if (Modifier.isPrivate(candidate.getModifiers())
-                    || Modifier.isStatic(candidate.getModifiers())
-                    || candidate.getParameterCount() < 1
-                    || candidate.getParameterCount() > 2
-                    || !(name.startsWith("add") || name.startsWith("put"))) {
-                continue;
-            }
-            mutations.add(candidate);
-        }
-        mutations.sort(
-                (left, right) -> {
-                    int count =
-                            Integer.compare(left.getParameterCount(), right.getParameterCount());
-                    return count != 0
-                            ? count
-                            : left.toGenericString().compareTo(right.toGenericString());
-                });
+        List<Method> mutations = collectionMutationCandidates(receiver.getVariableClass());
         for (Method mutation : mutations) {
             EntityWithParametersStatement target = test.findTargetExecutableStatement();
             int position = target == null ? test.size() : target.getPosition();
@@ -649,6 +665,35 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             return observed;
         }
         return null;
+    }
+
+    /**
+     * The receiver's own {@code add*}/{@code put*} methods that the generated test can call,
+     * fewest parameters first. A non-public method qualifies only when its class is in the
+     * package the tests are generated into.
+     */
+    static List<Method> collectionMutationCandidates(Class<?> receiverClass) {
+        List<Method> mutations = new ArrayList<>();
+        for (Method candidate : receiverClass.getDeclaredMethods()) {
+            String name = candidate.getName();
+            if (!TestUsageChecker.isCallableFromTestPackage(candidate)
+                    || Modifier.isStatic(candidate.getModifiers())
+                    || candidate.getParameterCount() < 1
+                    || candidate.getParameterCount() > 2
+                    || !(name.startsWith("add") || name.startsWith("put"))) {
+                continue;
+            }
+            mutations.add(candidate);
+        }
+        mutations.sort(
+                (left, right) -> {
+                    int count =
+                            Integer.compare(left.getParameterCount(), right.getParameterCount());
+                    return count != 0
+                            ? count
+                            : left.toGenericString().compareTo(right.toGenericString());
+                });
+        return mutations;
     }
 
     private static VariableReference deterministicMutationArgument(
@@ -990,7 +1035,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             }
             MethodStatement methodStatement = (MethodStatement) statement;
             if (!insertion.equals(methodStatement.getMethod().getMethod())
-                    || !sameReference(receiver, methodStatement.getCallee())
+                    || !Objects.equals(receiver, methodStatement.getCallee())
                     || methodStatement.getParameterReferences().isEmpty()) {
                 continue;
             }
@@ -1027,20 +1072,6 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             pending.addAll(node.children);
         }
         return null;
-    }
-
-    private static boolean sameReference(VariableReference left, VariableReference right) {
-        return left == right || (left != null && right != null && left.equals(right));
-    }
-
-    private static boolean containsReference(
-            List<VariableReference> references, VariableReference candidate) {
-        for (VariableReference reference : references) {
-            if (sameReference(reference, candidate)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -1107,16 +1138,16 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         for (int i = start; i < test.size(); i++) {
             Statement s = test.getStatement(i);
             if (s instanceof MethodStatement) {
-                MethodStatement mStatement = (MethodStatement) s;
-                Method invocation = mStatement.getMethod().getMethod();
-                VariableReference calleeObject = mStatement.getCallee();
+                MethodStatement methodStatement = (MethodStatement) s;
+                Method invocation = methodStatement.getMethod().getMethod();
+                VariableReference calleeObject = methodStatement.getCallee();
                 if (calleeObject != null && callerObject != null) {
-                    if (sameReference(calleeObject, callerObject) && invocation.equals(call)) {
-                        return mStatement;
+                    if (Objects.equals(calleeObject, callerObject) && invocation.equals(call)) {
+                        return methodStatement;
                     }
                 } else if (calleeObject == null && callerObject == null) {
                     if (invocation.equals(call)) {
-                        return mStatement;
+                        return methodStatement;
                     }
                 }
             }
@@ -1181,19 +1212,20 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                             fieldDeclaringClass.getMethod(
                                     fullName.substring(0, fullName.indexOf("(")), paramClasses);
                 } catch (Exception e) {
+                    // The method cannot be resolved reflectively; call stays null and is handled below.
                 }
 
                 if (call == null) {
                     return null;
                 }
 
-                MethodStatement mStatement = findMethodCall(call, callerObject, test);
-                if (mStatement != null) {
-                    return mStatement.getReturnValue();
+                MethodStatement methodStatement = findMethodCall(call, callerObject, test);
+                if (methodStatement != null) {
+                    return methodStatement.getReturnValue();
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.debug("Ignored failure during object-rule synthesis", e);
         }
 
         return null;

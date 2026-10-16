@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
+import org.evosuite.runtime.ArrayAllocationBudget;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
@@ -39,9 +40,10 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -73,8 +75,6 @@ public class TestCaseExecutor implements ThreadFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(TestCaseExecutor.class);
 
-    private static final PrintStream systemOut = System.out;
-    private static final PrintStream systemErr = System.err;
 
     private static TestCaseExecutor instance = null;
 
@@ -279,6 +279,7 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     private TestCaseExecutor() {
+        RenderingWarmUp.warmUp();
         executor = Executors.newSingleThreadExecutor(this);
         newObservers();
     }
@@ -311,6 +312,13 @@ public class TestCaseExecutor implements ThreadFactory {
             this(message, stackTrace, null, null);
         }
 
+        /**
+         * Creates a timeout marker with the position and code of the statement that was running.
+         * @param message the exception message
+         * @param stackTrace the stack trace to report, may be null
+         * @param statementPosition the position of the running statement, may be null
+         * @param statementCode the code of the running statement, may be null
+         */
         public TimeoutExceeded(String message,
                                StackTraceElement[] stackTrace,
                                Integer statementPosition,
@@ -448,10 +456,23 @@ public class TestCaseExecutor implements ThreadFactory {
         testsSinceMockingDisabled = 0;
         if (mockingDisabledDueToTimeouts) {
             logger.info("Restoring functional mocking during context reset.");
-            Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
-            Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+            restoreFunctionalMockingUnlessGloballyDisabled();
             mockingDisabledDueToTimeouts = false;
         }
+    }
+
+    /**
+     * Undoes the temporary, timeout-driven disabling of functional mocking. If the permanent
+     * GLOBAL mock failover fired in the meantime it wrote the same properties, and mocking must
+     * stay off: restoring the saved values would generate mocks that the failover then rejects.
+     */
+    private void restoreFunctionalMockingUnlessGloballyDisabled() {
+        if (FunctionalMockStatement.isFunctionalMockingGloballyDisabled()) {
+            logger.info("Not restoring functional mocking: it is disabled globally.");
+            return;
+        }
+        Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
+        Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
     }
 
     /**
@@ -542,6 +563,11 @@ public class TestCaseExecutor implements ThreadFactory {
             } finally {
                 clearMockInvocationsIfNeeded(tc, scope, timedOutExecution,
                         workerThreadStillAliveAfterTimeout);
+                // The cumulative array budget is per test. Left at this test's total, it is
+                // charged by whatever runs class initialisers before the next test starts
+                // (static field re-initialisation below, or the search inspecting a class),
+                // which then fail with a TooManyResourcesException of a test that is over.
+                ArrayAllocationBudget.reset();
             }
             if (timedOutExecution && workerThreadStillAliveAfterTimeout) {
                 rotateExecutorAfterStalledTimeout();
@@ -572,8 +598,7 @@ public class TestCaseExecutor implements ThreadFactory {
                     if (testsSinceMockingDisabled >= MOCK_DISABLE_RETRY_INTERVAL) {
                         logger.info("Restoring functional mocking after {} tests without success "
                                 + "— giving mocked tests another chance.", testsSinceMockingDisabled);
-                        Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
-                        Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+                        restoreFunctionalMockingUnlessGloballyDisabled();
                         mockingDisabledDueToTimeouts = false;
                         consecutiveTimeoutCount = 0;
                     }
@@ -583,8 +608,7 @@ public class TestCaseExecutor implements ThreadFactory {
                 // Restore mocking if we previously disabled it and the timeout pattern broke
                 if (mockingDisabledDueToTimeouts) {
                     logger.info("Restoring functional mocking — consecutive timeout streak broken.");
-                    Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
-                    Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+                    restoreFunctionalMockingUnlessGloballyDisabled();
                     mockingDisabledDueToTimeouts = false;
                 }
             }
@@ -711,8 +735,7 @@ public class TestCaseExecutor implements ThreadFactory {
              * evosuite. As exceptions from the tested code are caught before
              * this.
              */
-            System.setOut(systemOut);
-            System.setErr(systemErr);
+            callable.handBackStreams();
 
             logger.error("ExecutionException (this is likely a serious error in the framework)", e1);
             ExecutionResult result = new ExecutionResult(tc, null);
@@ -728,6 +751,10 @@ public class TestCaseExecutor implements ThreadFactory {
             }
             return result; // FIXME: is this reachable?
         } catch (TimeoutException e1) {
+            // The worker will finish on its own time, after the sandbox has been
+            // cleared below; mark it before anything is cleared. The streams stay with
+            // the worker until we give up on it, below.
+            callable.markResultDiscarded();
             // Snapshot immediately on timeout catch, before any interrupt/wait/cleanup
             // can move the worker back to the executor idle loop.
             StackTraceElement[] timeoutStackSnapshot = currentThread != null
@@ -770,16 +797,18 @@ public class TestCaseExecutor implements ThreadFactory {
             waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
 
             // A thread that is still running instrumented code well past the kill switch,
-            // with hundreds of checkTimeout() probes already seen and ignored, is not
-            // merely slow — it has demonstrably swallowed TimeoutExceeded (typically via a
+            // having seen and ignored a checkTimeout() probe of its own, is not merely
+            // slow — it has demonstrably swallowed TimeoutExceeded (typically via a
             // "catch (Throwable) { ...; continue; }" loop in the SUT) and will keep doing
             // so no matter how long we wait through the graceful chain below. Detect that
-            // here and skip straight to the Thread.stop() last resort.
+            // here and skip straight to the Thread.stop() last resort. ExecutionTracer
+            // only counts probes made by the thread under test, so a background SUT thread
+            // touching an instrumented line cannot push us down this path.
             boolean sutSwallowsKillSwitch = shouldFastEscalateAfterKillSwitch(
                     initialInProtectedBootstrap, needsTimeoutCleanup(handler),
                     ExecutionTracer.getKillSwitchProbeCount(), KILL_SWITCH_SWALLOW_PROBE_THRESHOLD);
             if (sutSwallowsKillSwitch) {
-                logger.info("Thread {} hit {} kill-switch probes after being told to stop — "
+                logger.warn("Thread {} hit {} kill-switch probes after being told to stop — "
                                 + "it is looping through code that swallows TimeoutExceeded; "
                                 + "skipping the graceful shutdown chain and escalating straight "
                                 + "to Thread.stop().",
@@ -854,12 +883,9 @@ public class TestCaseExecutor implements ThreadFactory {
                     // Abandon the thread instead, the same way this method already abandons
                     // an unkillable thread elsewhere: leave it running at background priority
                     // and let the caller rotate to a fresh executor. A genuinely infinite loop
-                    // in the initializer is still bounded — LoopCounter's unconditional 10x
-                    // iteration cap and ExecutionTracer.checkTimeout()'s clinit kill-switch
-                    // ceiling both throw regardless of interrupt state — so this does not
-                    // reintroduce an unkillable-forever thread, it just stops us from being
-                    // the ones who force an early, poisoning exit for a <clinit> that is
-                    // merely slow rather than stuck.
+                    // in the initializer is still bounded: the per-thread abandonment deadline
+                    // is checked by both LoopCounter and ExecutionTracer, even though ordinary
+                    // loop counting and the kill switch are disabled during this grace path.
                     if (alreadyAbandonedThisClass) {
                         logger.debug("Static initializer of {} was already abandoned once; "
                                         + "abandoning again without re-waiting the grace period.",
@@ -873,6 +899,12 @@ public class TestCaseExecutor implements ThreadFactory {
                     if (stuckClinitClass != null) {
                         abandonedClinitClasses.add(stuckClinitClass);
                     }
+                    // The worker is intentionally left alone after this point to
+                    // avoid force-throwing out of <clinit>. Arm LoopCounter's
+                    // per-thread, time-bounded escape so an instrumented infinite
+                    // initializer cannot keep the class-initialization lock and
+                    // consume CPU forever.
+                    LoopCounter.getInstance().abandonStaticInitializer(currentThread);
                     abandonStuckStaticInit = true;
                 } else if (wasInStaticInit && needsTimeoutCleanup(handler)) {
                     // The initial timeout was consumed by classloading/static initialization.
@@ -895,7 +927,9 @@ public class TestCaseExecutor implements ThreadFactory {
                         logger.info(elem.toString());
                     }
                 }
-                logger.info(tc.toCode());
+                // Not tc.toCode(): the thread is still running the test, and rendering a
+                // functional mock it is observing reads, and repairs, half-updated parameters
+                logger.info("Test with {} statements", tc.size());
 
                 // Re-interrupt in case the first one was swallowed
                 if (currentThread != null) {
@@ -932,48 +966,78 @@ public class TestCaseExecutor implements ThreadFactory {
                     && currentThread.isAlive() && isThreadStuckInSutCode(currentThread);
             if (!abandonStuckStaticInit && shouldForceStopAfterCancellation(needsTimeoutCleanup(handler),
                     workerStillExecutingAfterCancellation)) {
-                logger.warn("Run still not finished, thread {} is stuck at:",
-                        currentThread == null ? "<null>" : currentThread.getName());
-                if (currentThread != null) {
-                    for (StackTraceElement element : currentThread.getStackTrace()) {
-                        logger.warn("  {}", element);
+                // Re-sample <clinit> membership right here, immediately before doing
+                // anything forceful. initialInStaticInit/initialInProtectedBootstrap were
+                // snapshotted once, back when the timeout was first caught; everything
+                // between there and here — the fast kill-switch-swallow escalation, which
+                // skips the grace/abandon handling above entirely, or simply the time spent
+                // waiting through the graceful chain — is enough for the thread to have left
+                // ordinary SUT code and entered a <clinit> since. Forcing it now is exactly
+                // the class-poisoning bug abandonStuckStaticInit exists to avoid, so route
+                // into the same abandon handling instead of interrupting or stopping it,
+                // no matter which path got us here.
+                if (isInStaticInit()) {
+                    String stuckClinitClass = currentStaticInitClass();
+                    if (stuckClinitClass != null) {
+                        abandonedClinitClasses.add(stuckClinitClass);
+                    }
+                    // This late re-check is another abandonment path. Arm
+                    // the same per-thread deadline before leaving the worker
+                    // untouched, otherwise a class initializer entered after
+                    // the initial timeout can still run forever.
+                    LoopCounter.getInstance().abandonStaticInitializer(currentThread);
+                    logger.warn("Thread {} is inside <clinit> of {} at the force-stop decision "
+                                    + "(it was not when the timeout was first caught) — abandoning "
+                                    + "it instead of forcing it, to avoid poisoning the class.",
+                            currentThread == null ? "<null>" : currentThread.getName(),
+                            ExecutionTracer.describeCurrentClassInit());
+                    abandonStuckStaticInit = true;
+                } else {
+                    logger.warn("Run still not finished, thread {} is stuck at:",
+                            currentThread == null ? "<null>" : currentThread.getName());
+                    if (currentThread != null) {
+                        for (String line : summarizeStuckStack(currentThread.getStackTrace())) {
+                            logger.warn("  {}", line);
+                        }
+                    }
+                    // Try interrupt first — works for threads blocked on I/O,
+                    // sleeping, or waiting on monitors.
+                    if (currentThread != null && currentThread.isAlive()) {
+                        currentThread.interrupt();
+                    }
+                    // Last resort: Thread.stop() to kill CPU-bound loops in
+                    // uninstrumented JDK code (e.g. Logger.getEffectiveLoggerBundle)
+                    // that don't respond to interrupt(). Deprecated but necessary —
+                    // a leaked thread burns 100% CPU for the entire process lifetime.
+                    if (currentThread != null && currentThread.isAlive()) {
+                        Thread stoppedThread = currentThread;
+                        try {
+                            logger.warn("Force-stopping stuck thread {} via Thread.stop()",
+                                    stoppedThread.getName());
+                            stoppedThread.stop();
+                            stoppedThread.join(Properties.SHUTDOWN_TIMEOUT);
+                        } catch (Throwable t) {
+                            logger.info("Exception during Thread.stop() cleanup: {}", t.getMessage());
+                        }
+                        // Thread.stop() gives the victim no chance to run any finally
+                        // block, and on JDK 20+ it does not even stop it (it throws
+                        // UnsupportedOperationException instead). Either way we have
+                        // just given up on this thread, so if it was inside the
+                        // sandbox its lock is now leaked, and every later test
+                        // execution in this process would stall for the full sandbox
+                        // acquisition timeout before recovering. Hand the lock back
+                        // here instead of paying that timeout. No-op when the thread
+                        // did not own the lock, so it is safe to call unconditionally.
+                        if (Sandbox.reclaimSandboxLockOwnedBy(stoppedThread)) {
+                            logger.warn("Reclaimed the sandbox lock leaked by force-stopped thread {}",
+                                    stoppedThread.getName());
+                        }
                     }
                 }
-                // Try interrupt first — works for threads blocked on I/O,
-                // sleeping, or waiting on monitors.
-                if (currentThread != null && currentThread.isAlive()) {
-                    currentThread.interrupt();
-                }
-                // Last resort: Thread.stop() to kill CPU-bound loops in
-                // uninstrumented JDK code (e.g. Logger.getEffectiveLoggerBundle)
-                // that don't respond to interrupt(). Deprecated but necessary —
-                // a leaked thread burns 100% CPU for the entire process lifetime.
-                if (currentThread != null && currentThread.isAlive()) {
-                    Thread stoppedThread = currentThread;
-                    try {
-                        logger.warn("Force-stopping stuck thread {} via Thread.stop()",
-                                stoppedThread.getName());
-                        stoppedThread.stop();
-                        stoppedThread.join(Properties.SHUTDOWN_TIMEOUT);
-                    } catch (Throwable t) {
-                        logger.info("Exception during Thread.stop() cleanup: {}", t.getMessage());
-                    }
-                    // Thread.stop() gives the victim no chance to run any finally
-                    // block, and on JDK 20+ it does not even stop it (it throws
-                    // UnsupportedOperationException instead). Either way we have
-                    // just given up on this thread, so if it was inside the
-                    // sandbox its lock is now leaked, and every later test
-                    // execution in this process would stall for the full sandbox
-                    // acquisition timeout before recovering. Hand the lock back
-                    // here instead of paying that timeout. No-op when the thread
-                    // did not own the lock, so it is safe to call unconditionally.
-                    if (Sandbox.reclaimSandboxLockOwnedBy(stoppedThread)) {
-                        logger.warn("Reclaimed the sandbox lock leaked by force-stopped thread {}",
-                                stoppedThread.getName());
-                    }
-                }
-                ExecutionTracer.disable();
             }
+            // This is the point where we give up on the worker: whatever it still does, it
+            // no longer gets to hand the streams back. A no-op if it already did.
+            callable.handBackStreams();
             ExecutionTracer.disable();
 
             // Record whether execution is genuinely still running in SUT code
@@ -1021,9 +1085,6 @@ public class TestCaseExecutor implements ThreadFactory {
                 ExecutionTracer.setKillSwitch(false);
                 ExecutionTracer.enable();
             }
-            System.setOut(systemOut);
-            System.setErr(systemErr);
-
             return result;
         } finally {
             if (threadGroup != null) {
@@ -1081,6 +1142,21 @@ public class TestCaseExecutor implements ThreadFactory {
         }
     }
 
+    /**
+     * Tracks an abandoned worker so ResourceController can count it. Its loop-iteration counts
+     * are protected from the reset() that every subsequent, unrelated test triggers; see
+     * LoopCounter.protectFromReset() for why an abandoned thread would otherwise never reach its
+     * own iteration-limit escape hatch.
+     */
+    private void retireStalledThread(Thread thread) {
+        thread.setPriority(Thread.MIN_PRIORITY);
+        stalledThreads.add(thread);
+        LoopCounter.getInstance().protectFromReset(thread);
+        if (lastTimeoutWasStuckClinit) {
+            clinitStuckThreads.add(thread);
+        }
+    }
+
     private synchronized void rotateExecutorAfterStalledTimeout() {
         long now = System.currentTimeMillis();
         long elapsed = now - lastRotationTimestamp;
@@ -1089,16 +1165,7 @@ public class TestCaseExecutor implements ThreadFactory {
                     + "Reusing existing executor.", elapsed, Properties.ROTATION_COOLDOWN_MS);
             // Still track the stalled thread even if we skip rotation
             if (currentThread != null && currentThread.isAlive()) {
-                currentThread.setPriority(Thread.MIN_PRIORITY);
-                stalledThreads.add(currentThread);
-                // Protect its loop-iteration counts from being wiped by the reset()
-                // that every subsequent, unrelated test triggers — see the javadoc
-                // on LoopCounter.protectFromReset() for why an abandoned thread would
-                // otherwise never reach its own iteration-limit escape hatch.
-                LoopCounter.getInstance().protectFromReset(currentThread);
-                if (lastTimeoutWasStuckClinit) {
-                    clinitStuckThreads.add(currentThread);
-                }
+                retireStalledThread(currentThread);
             }
             return;
         }
@@ -1114,15 +1181,17 @@ public class TestCaseExecutor implements ThreadFactory {
                 sb.append("\n  at ").append(elem);
             }
             logger.warn(sb.toString());
-            currentThread.setPriority(Thread.MIN_PRIORITY);
-            stalledThreads.add(currentThread);
-            LoopCounter.getInstance().protectFromReset(currentThread);
-            if (lastTimeoutWasStuckClinit) {
-                clinitStuckThreads.add(currentThread);
-            }
+            retireStalledThread(currentThread);
         }
         if (executor != null) {
-            executor.shutdownNow();
+            if (lastTimeoutWasStuckClinit) {
+                // shutdownNow() would interrupt the active initializer we deliberately
+                // abandoned, potentially poisoning its class. Retire the pool without
+                // interrupting that task; its per-thread abandonment deadline stays armed.
+                executor.shutdown();
+            } else {
+                executor.shutdownNow();
+            }
         }
         totalRotationCount++;
         lastRotationTimestamp = now;
@@ -1402,4 +1471,39 @@ public class TestCaseExecutor implements ThreadFactory {
         this.observers = observers;
     }
 
+
+    /** Frames of a stuck thread's stack that are logged before the rest is elided. */
+    static final int MAX_LOGGED_TOP_FRAMES = 40;
+
+    /** Frames at the bottom of a stuck thread's stack that are logged after the elision. */
+    static final int MAX_LOGGED_BOTTOM_FRAMES = 10;
+
+    /**
+     * Renders the stack of a stuck thread for the log. A recursion over mocked objects (such as
+     * JOptionPane.getDesktopPaneForComponent walking an endless chain of mocked parents) leaves a
+     * stack tens of thousands of frames deep, all the same frame, and the dump is repeated for
+     * every stuck test. Runs of an identical frame are folded into one line with a count, and a
+     * stack that is still long afterwards keeps only its top and bottom frames.
+     */
+    static List<String> summarizeStuckStack(StackTraceElement[] stack) {
+        List<String> folded = new ArrayList<>();
+        int i = 0;
+        while (i < stack.length) {
+            int j = i + 1;
+            while (j < stack.length && stack[j].equals(stack[i])) {
+                j++;
+            }
+            folded.add(j - i > 1 ? stack[i] + " (and " + (j - i - 1) + " identical frames more)"
+                    : stack[i].toString());
+            i = j;
+        }
+        int limit = MAX_LOGGED_TOP_FRAMES + MAX_LOGGED_BOTTOM_FRAMES;
+        if (folded.size() <= limit) {
+            return folded;
+        }
+        List<String> result = new ArrayList<>(folded.subList(0, MAX_LOGGED_TOP_FRAMES));
+        result.add("... " + (folded.size() - limit) + " more frames omitted ...");
+        result.addAll(folded.subList(folded.size() - MAX_LOGGED_BOTTOM_FRAMES, folded.size()));
+        return result;
+    }
 }

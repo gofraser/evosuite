@@ -81,7 +81,30 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
      */
     @Override
     protected ExecutionResult runTest(TestCase test) {
-        return runTest(test, null);
+        reportUnexpectedActiveMutation("before");
+        try {
+            return runTest(test, null);
+        } finally {
+            reportUnexpectedActiveMutation("after");
+        }
+    }
+
+    /**
+     * Report mutation state leaking into an execution of the original SUT.
+     *
+     * <p>This is deliberately diagnostic rather than an assertion that throws:
+     * a timed-out worker can outlive the caller, and the assertion-generation
+     * run should still finish so that we can collect a complete census.</p>
+     *
+     * @param phase whether this check is before or after the original run
+     */
+    private void reportUnexpectedActiveMutation(String phase) {
+        int activeMutation = MutationObserver.activeMutation;
+        if (activeMutation != -1) {
+            logger.error("Mutation assertion detector: unexpected active mutation {} {} original "
+                    + "runTest on thread {}", activeMutation, phase,
+                    Thread.currentThread().getName());
+        }
     }
 
     /**

@@ -167,6 +167,17 @@ public class FieldReference extends VariableReferenceImpl {
     }
 
     /**
+     * Names an object for a message without calling its toString(), which is code of the SUT and
+     * may throw or run for a long time on an object in an arbitrary state.
+     */
+    private static String describe(Object o) {
+        if (o == null) {
+            return "null";
+        }
+        return o.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(o));
+    }
+
+    /**
      * {@inheritDoc}
      *
      * <p>Set the actual object represented by this variable in a given scope.
@@ -195,8 +206,8 @@ public class FieldReference extends VariableReferenceImpl {
                 if (!field.getField().getDeclaringClass()
                         .isAssignableFrom(sourceObject.getClass())) {
                     throw new CodeUnderTestException(new IllegalArgumentException(
-                            "Cannot assignable: " + value + " of class "
-                                    + value.getClass() + " to field " + field
+                            "Cannot assignable: " + describe(value) + " of class "
+                                    + (value == null ? null : value.getClass()) + " to field " + field
                                     + " of variable " + source));
                 }
             }
@@ -204,7 +215,7 @@ public class FieldReference extends VariableReferenceImpl {
 
         } catch (IllegalArgumentException e) {
             logger.error("Error while assigning field: " + getName() + " with value "
-                    + value + " on object " + sourceObject + ": " + e, e);
+                    + describe(value) + " on object " + describe(sourceObject) + ": " + e, e);
             throw e;
         } catch (IllegalAccessException e) {
             logger.error("Error while assigning field: "
@@ -246,24 +257,68 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
+     * <p>The same field of the replacement owner, typed by the field's type in that owner (a
+     * {@code Box<Integer>} owner makes {@code value} an Integer). Declined if the owner would
+     * become an explicit null, which does not compile, or no longer declares the field.
      */
     @Override
-    public void replaceAdditionalVariableReference(VariableReference var1,
-                                                   VariableReference var2) {
-        if (source != null) {
-            if (source.equals(var1)) {
-                if (var2 instanceof ConstantValue) {
-                    if (((ConstantValue) var2).getValue() == null) {
-                        // No explicit null dereference, it would just lead to a compile error
-                        return;
-                    }
-                }
-                source = var2;
-                updateTypeFromSource();
-            } else {
-                source.replaceAdditionalVariableReference(var1, var2);
+    public VariableReference withReplacement(VariableReference var1, VariableReference var2) {
+        if (equals(var1)) {
+            return var2;
+        }
+        if (source == null) {
+            return this;
+        }
+        VariableReference reboundSource = source.withReplacement(var1, var2);
+        if (reboundSource == source) {
+            return this;
+        }
+        if (reboundSource == null || isNullConstant(reboundSource)
+                || losesDeclaringClass(reboundSource)) {
+            return null;
+        }
+        Type reboundType;
+        if (field.isStatic()) {
+            reboundType = getType();
+        } else {
+            try {
+                reboundType = new GenericField(field.getField(), reboundSource.getGenericClass())
+                        .getFieldType();
+            } catch (RuntimeException e) {
+                logger.debug("Cannot rebind field {} to owner {}", field.getName(),
+                        reboundSource.getType(), e);
+                return null;
             }
         }
+        if (reboundType == null) {
+            return null;
+        }
+        return new FieldReference(this, reboundSource, reboundType);
+    }
+
+    private FieldReference(FieldReference original, VariableReference source, Type type) {
+        super(original.testCase, type);
+        this.field = original.field;
+        this.source = source;
+    }
+
+    /**
+     * No explicit null dereference, it would just lead to a compile error.
+     */
+    private static boolean isNullConstant(VariableReference owner) {
+        return owner instanceof ConstantValue && ((ConstantValue) owner).getValue() == null;
+    }
+
+    /**
+     * Whether the field would be read from an owner whose class does not declare it although the
+     * current owner's class does. A current owner that already relies on a downcast is left as
+     * the code that created it decided.
+     */
+    private boolean losesDeclaringClass(VariableReference owner) {
+        Class<?> declaringClass = field.getField().getDeclaringClass();
+        return declaringClass.isAssignableFrom(source.getVariableClass())
+                && !declaringClass.isAssignableFrom(owner.getVariableClass());
     }
 
     /**
@@ -449,7 +504,10 @@ public class FieldReference extends VariableReferenceImpl {
     @Override
     public void changeClassLoader(ClassLoader loader) {
         field.changeClassLoader(loader);
-        if (!isStatic()) {
+        // A static field may still be accessed through a source expression
+        // (e.g. a.b.STATIC). That source is not reachable from the statement
+        // otherwise, and copy() copies it, so it has to follow the loader too.
+        if (source != null) {
             source.changeClassLoader(loader);
         }
         super.changeClassLoader(loader);

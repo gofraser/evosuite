@@ -94,4 +94,22 @@ public class TimeControllerPhaseBudgetTest {
         Assertions.assertTrue(controller.isThereStillTimeInThisPhase(1),
                 "with nothing overspent yet there is still slack to work with");
     }
+
+    @Test
+    public void phasePercentageOfAPhaseWithoutBudgetIsComplete() {
+        Properties.SEARCH_BUDGET = 0;
+        TimeController.resetSingleton();
+        TimeController controller = controllerInPhase(ClientState.SEARCH);
+
+        // 0 elapsed over a 0 timeout is not a number; the phase simply has no time left
+        Assertions.assertEquals(1.0, controller.getPhasePercentage(), 0.0);
+    }
+
+    @Test
+    public void phasePercentageStartsAtZeroAndStaysInRange() {
+        TimeController controller = controllerInPhase(ClientState.SEARCH);
+
+        double percentage = controller.getPhasePercentage();
+        Assertions.assertTrue(percentage >= 0 && percentage < 0.5, "got " + percentage);
+    }
 }

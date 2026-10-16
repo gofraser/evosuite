@@ -183,9 +183,6 @@ public class MethodCall implements Cloneable {
     }
 
     /**
-     * {@inheritDoc}
-     */
-    /**
      * Returns, for every branch executed in this call, the minimum true and false
      * distance over all its executions.
      *
@@ -214,6 +211,36 @@ public class MethodCall implements Cloneable {
         minBranchDistancesTraceSize = size;
         minBranchDistances = result;
         return result;
+    }
+
+    private org.evosuite.setup.Call contextCall;
+
+    /**
+     * The call context of the stack that ends in this call, kept up to date as calls are
+     * pushed so that a context does not have to be rebuilt from the whole stack, see
+     * {@link org.evosuite.setup.CallContext#extend}. Null when it is not known.
+     */
+    public org.evosuite.setup.CallContext.State contextState;
+
+    /**
+     * The entry of this call in a {@link org.evosuite.setup.CallContext}. It is immutable and
+     * every method entry builds a context over the whole call stack, so it is created once:
+     * a method that recurses thousands of frames deep otherwise allocates and hashes
+     * a Call per frame per entry.
+     */
+    public org.evosuite.setup.Call asContextCall() {
+        org.evosuite.setup.Call call = contextCall;
+        if (call == null) {
+            call = new org.evosuite.setup.Call(className, methodName);
+            contextCall = call;
+        }
+        return call;
+    }
+
+    /** Drops the context of this call once it has left the call stack. */
+    public void releaseContext() {
+        contextState = null;
+        contextCall = null;
     }
 
     @Override

@@ -17,16 +17,19 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.ConstructionReferenceUtil;
 import org.evosuite.testcase.synthesizer.VariableInTest;
-import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -41,6 +44,8 @@ import java.util.Set;
 
 public class ParameterVariableWrapper extends DepVariableWrapper {
 
+    private static final Logger logger = LoggerFactory.getLogger(ParameterVariableWrapper.class);
+
     protected ParameterVariableWrapper(DepVariable var) {
         super(var);
     }
@@ -52,8 +57,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
             VariableInTest variable,
             Map<DepVariableWrapper, VarRelevance> map,
             Branch b,
-            boolean allowNullValue,
-            Operation recommendation) {
+            boolean allowNullValue) {
         List<VariableReference> list = new ArrayList<>();
         VariableReference var =
                 generateOrFind(test, isLeaf, variable.callerObject, map, b, allowNullValue);
@@ -113,7 +117,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
             try {
                 newParameter = generateParameter(test, castSubClass, allowNullValue && isLeaf);
             } catch (ConstructionFailedException e) {
-                e.printStackTrace();
+                logger.debug("Ignored failure during object-rule synthesis", e);
             }
 
             if (newParameter == null) {
@@ -132,15 +136,15 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
             return newParameter;
         } else {
 
-            /** find the existing parameters */
-            EntityWithParametersStatement mStat = test.findTargetExecutableStatement();
-            if (mStat == null) {
+            // find the existing parameters
+            EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
+            if (methodStat == null) {
                 return null;
             }
             int paramPosition = this.var.getParamOrder();
-            VariableReference paramRef = mStat.getParameterReferences().get(paramPosition - 1);
+            VariableReference paramRef = methodStat.getParameterReferences().get(paramPosition - 1);
 
-            /** make sure the parameter obj is not null */
+            // make sure the parameter obj is not null
             int paramPosInTest = ConstructionReferenceUtil.definitionPosition(test, paramRef);
             if (paramPosInTest < 0) {
                 return null;
@@ -152,7 +156,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 TestFactory testFactory = TestFactory.getInstance();
                 boolean isSuccess = testFactory.changeNullStatement(test, paramDef);
                 if (isSuccess) {
-                    paramRef = mStat.getParameterReferences().get(paramPosition - 1);
+                    paramRef = methodStat.getParameterReferences().get(paramPosition - 1);
                 } else {
 
                     return null;
@@ -182,8 +186,8 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 BytecodeInstruction ins = v.getInstruction();
                 AbstractInsnNode insNode = ins.getASMNode();
                 if (insNode instanceof TypeInsnNode) {
-                    TypeInsnNode tNode = (TypeInsnNode) insNode;
-                    String classType = tNode.desc;
+                    TypeInsnNode targetNode = (TypeInsnNode) insNode;
+                    String classType = targetNode.desc;
                     potentialCastType =
                             org.objectweb.asm.Type.getObjectType(classType).getClassName();
 
@@ -235,8 +239,8 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 selectConstructor(paramDeclaringClazz.getRawClass().getConstructors());
         if (constructor != null) {
             GenericConstructor gc = new GenericConstructor(constructor, paramDeclaringClazz);
-            EntityWithParametersStatement mStat = test.findTargetExecutableStatement();
-            if (mStat == null) {
+            EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
+            if (methodStat == null) {
                 return null;
             }
 
@@ -244,12 +248,12 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 if (Randomness.nextDouble() < Properties.NULL_PROBABILITY) {
                     paramRef =
                             TestFactory.getInstance()
-                                    .createNull(test, paramClass, mStat.getPosition() - 1, 0);
+                                    .createNull(test, paramClass, methodStat.getPosition() - 1, 0);
                 }
             } else {
                 paramRef =
                         TestFactory.getInstance()
-                                .addConstructor(test, gc, mStat.getPosition() - 1, 2);
+                                .addConstructor(test, gc, methodStat.getPosition() - 1, 2);
             }
         }
 
@@ -570,10 +574,10 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
     }
 
     private String[] extractParameter(String methodSig) {
-        String parameters = methodSig.substring(methodSig.indexOf("(") + 1, methodSig.indexOf(")"));
-        String[] args = parameters.split(";");
+        Type[] argumentTypes = Type.getArgumentTypes(methodSig.substring(methodSig.indexOf('(')));
+        String[] args = new String[argumentTypes.length];
         for (int i = 0; i < args.length; i++) {
-            args[i] = args[i].replace("/", ".").substring(1, args[i].length());
+            args[i] = argumentTypes[i].getClassName();
         }
         return args;
     }

@@ -24,7 +24,9 @@ import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
 import org.evosuite.instrumentation.testability.BooleanHelper;
+import org.evosuite.runtime.LoopCounter;
 import org.evosuite.seeding.ConstantPoolManager;
+import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,8 +68,11 @@ public class ExecutionTracer {
      * Counts how many times checkTimeout() has been called with the kill switch
      * active, reset whenever the kill switch is (re)armed. Unlike
      * {@link #clinitKillSwitchCount}, this counts every probe, not just the ones
-     * taken inside a static initializer: a thread that racks up a large number of
-     * these after being told to stop is not merely slow, it is looping through code
+     * taken inside a static initializer, and only counted for the thread under test:
+     * a probe from a background SUT thread says nothing about why the test thread is
+     * stuck, and instrumented non-target classes call {@link #checkTimeout()} from
+     * whatever thread reaches them. The thread under test running one of these after
+     * being told to stop is not merely slow, it is looping through code
      * (typically a {@code catch (Throwable)} block) that swallows
      * {@link TestCaseExecutor.TimeoutExceeded}. {@link TestCaseExecutor} uses this to
      * decide when to stop waiting through the graceful shutdown chain and escalate
@@ -216,6 +221,20 @@ public class ExecutionTracer {
         ExecutionTraceImpl.enableTraceCalls();
     }
 
+    /**
+     * Whether a retained execution result must keep its per-invocation
+     * {@link MethodCall} records. Only the def-use criteria read them from a stored
+     * result ({@code DefUseExecutionTraceAnalyzer}); every other criterion decides
+     * coverage from the aggregated maps and needs the per-call records only while
+     * approach levels for uncovered goals are computed on a fresh result.
+     *
+     * @return true if the configured criteria consume stored per-call traces
+     */
+    public static boolean coverageRequiresMethodCallTraces() {
+        return ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)
+                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.ALLDEFS);
+    }
+
     public static boolean isTraceCallsEnabled() {
         return ExecutionTraceImpl.isTraceCallsEnabled();
     }
@@ -241,6 +260,22 @@ public class ExecutionTracer {
         numStatements = 0;
         clinitDepth = 0;
         java.util.Arrays.fill(clinitClassNames, null);
+    }
+
+    /**
+     * Whether the caller is the thread whose test is being executed. Unlike
+     * {@link #isThreadNeqCurrentThread()} this is cheap enough for the kill-switch probe,
+     * which instrumented code runs at every source line, and it does not fabricate a
+     * tracked thread as a side effect.
+     *
+     * @return true if this probe says something about the thread under test
+     */
+    private static boolean isProbeFromThreadUnderTest() {
+        if (!checkCallerThread) {
+            return true;
+        }
+        Thread tracked = currentThread;
+        return tracked == null || Thread.currentThread() == tracked;
     }
 
     /**
@@ -424,10 +459,15 @@ public class ExecutionTracer {
         // checkTimeout is a kill-switch probe and must fire regardless of tracing
         // state, otherwise a runaway SUT loop during JUnit check (where the tracer
         // is deliberately disabled to avoid pollution) would have no way out.
+        if (LoopCounter.getInstance().shouldTerminateAbandonedStaticInitializer()) {
+            throw new TestCaseExecutor.TimeoutExceeded();
+        }
         if (!tracer.killSwitch) {
             return;
         }
-        tracer.killSwitchProbeCount++;
+        if (isProbeFromThreadUnderTest()) {
+            tracer.killSwitchProbeCount++;
+        }
 
         if (!isInStaticInit()) {
             tracer.clinitKillSwitchCount = 0;

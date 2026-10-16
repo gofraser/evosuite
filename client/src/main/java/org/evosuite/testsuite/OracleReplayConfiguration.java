@@ -28,6 +28,12 @@ public final class OracleReplayConfiguration {
         // utility class
     }
 
+    /**
+     * Sets the assertion and LLM post-processing properties for an oracle replay strategy.
+     *
+     * @param strategy the strategy that decides which assertion generators are enabled
+     * @throws IllegalArgumentException if the strategy is null or unsupported
+     */
     public static void apply(Properties.OracleReplayStrategy strategy) {
         if (strategy == null) {
             throw new IllegalArgumentException("oracle replay strategy must not be null");

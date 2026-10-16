@@ -24,8 +24,8 @@ import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import org.evosuite.Properties;
-import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.ArrayLengthAssertion;
+import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.assertion.ContainsAssertion;
 import org.evosuite.assertion.EqualsAssertion;
@@ -38,8 +38,8 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ArrayStatement;
-import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
@@ -749,42 +749,56 @@ final class OracleContext {
         }
         List<CallableMember> members = new ArrayList<>();
         Class<?> declaredClass = classForTypeName(typeName, runtimeValue);
-        addCuratedCallableMembers(members, variableId, typeName, runtimeValue, options);
-        if ("java.lang.Boolean".equals(typeName) || "Boolean".equals(typeName)) {
-            add(members, variableId, "java.lang.Boolean", "booleanValue()Z", "boolean");
-        } else if ("java.lang.Byte".equals(typeName) || "Byte".equals(typeName)) {
-            add(members, variableId, "java.lang.Byte", "byteValue()B", "byte");
-            add(members, variableId, "java.lang.Byte", "intValue()I", "int");
-        } else if ("java.lang.Short".equals(typeName) || "Short".equals(typeName)) {
-            add(members, variableId, "java.lang.Short", "shortValue()S", "short");
-            add(members, variableId, "java.lang.Short", "intValue()I", "int");
-        } else if ("java.lang.Integer".equals(typeName) || "Integer".equals(typeName)) {
-            add(members, variableId, "java.lang.Integer", "intValue()I", "int");
-            add(members, variableId, "java.lang.Integer", "longValue()J", "long");
-        } else if ("java.lang.Long".equals(typeName) || "Long".equals(typeName)) {
-            add(members, variableId, "java.lang.Long", "longValue()J", "long");
-            add(members, variableId, "java.lang.Long", "intValue()I", "int");
-        } else if ("java.lang.Float".equals(typeName) || "Float".equals(typeName)) {
-            add(members, variableId, "java.lang.Float", "floatValue()F", "float");
-            add(members, variableId, "java.lang.Float", "doubleValue()D", "double");
-        } else if ("java.lang.Double".equals(typeName) || "Double".equals(typeName)) {
-            add(members, variableId, "java.lang.Double", "doubleValue()D", "double");
-            add(members, variableId, "java.lang.Double", "floatValue()F", "float");
-        } else if ("java.lang.Character".equals(typeName) || "Character".equals(typeName)) {
-            add(members, variableId, "java.lang.Character", "charValue()C", "char");
-        } else if ("java.math.BigInteger".equals(typeName) || "BigInteger".equals(typeName)) {
-            add(members, variableId, "java.math.BigInteger", "abs()Ljava/math/BigInteger;",
-                    "java.math.BigInteger");
-            add(members, variableId, "java.math.BigInteger", "signum()I", "int");
-            add(members, variableId, "java.math.BigInteger", "compareTo(Ljava/math/BigInteger;)I", "int");
-        } else if ("java.math.BigDecimal".equals(typeName) || "BigDecimal".equals(typeName)) {
-            add(members, variableId, "java.math.BigDecimal", "abs()Ljava/math/BigDecimal;",
-                    "java.math.BigDecimal");
-            add(members, variableId, "java.math.BigDecimal", "signum()I", "int");
-            add(members, variableId, "java.math.BigDecimal", "compareTo(Ljava/math/BigDecimal;)I", "int");
+        addCuratedCallableMembers(members, variableId, typeName, declaredClass, runtimeValue, options);
+        switch (ExprType.canonicalName(typeName)) {
+            case "java.lang.Boolean":
+                add(members, variableId, "java.lang.Boolean", "booleanValue()Z", "boolean");
+                break;
+            case "java.lang.Byte":
+                add(members, variableId, "java.lang.Byte", "byteValue()B", "byte");
+                add(members, variableId, "java.lang.Byte", "intValue()I", "int");
+                break;
+            case "java.lang.Short":
+                add(members, variableId, "java.lang.Short", "shortValue()S", "short");
+                add(members, variableId, "java.lang.Short", "intValue()I", "int");
+                break;
+            case "java.lang.Integer":
+                add(members, variableId, "java.lang.Integer", "intValue()I", "int");
+                add(members, variableId, "java.lang.Integer", "longValue()J", "long");
+                break;
+            case "java.lang.Long":
+                add(members, variableId, "java.lang.Long", "longValue()J", "long");
+                add(members, variableId, "java.lang.Long", "intValue()I", "int");
+                break;
+            case "java.lang.Float":
+                add(members, variableId, "java.lang.Float", "floatValue()F", "float");
+                add(members, variableId, "java.lang.Float", "doubleValue()D", "double");
+                break;
+            case "java.lang.Double":
+                add(members, variableId, "java.lang.Double", "doubleValue()D", "double");
+                add(members, variableId, "java.lang.Double", "floatValue()F", "float");
+                break;
+            case "java.lang.Character":
+                add(members, variableId, "java.lang.Character", "charValue()C", "char");
+                break;
+            case "java.math.BigInteger":
+                add(members, variableId, "java.math.BigInteger", "abs()Ljava/math/BigInteger;",
+                        "java.math.BigInteger");
+                add(members, variableId, "java.math.BigInteger", "signum()I", "int");
+                add(members, variableId, "java.math.BigInteger", "compareTo(Ljava/math/BigInteger;)I", "int");
+                break;
+            case "java.math.BigDecimal":
+                add(members, variableId, "java.math.BigDecimal", "abs()Ljava/math/BigDecimal;",
+                        "java.math.BigDecimal");
+                add(members, variableId, "java.math.BigDecimal", "signum()I", "int");
+                add(members, variableId, "java.math.BigDecimal", "compareTo(Ljava/math/BigDecimal;)I", "int");
+                break;
+            default:
+                break;
         }
         if (options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.INSPECTORS_ONLY
-                || options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
+                || options.assertionPolicy().callablePolicy()
+                        == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
             addInspectorMembers(members, variableId, declaredClass, runtimeValue);
         }
         if (options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED
@@ -795,9 +809,8 @@ final class OracleContext {
     }
 
     private static void addCuratedCallableMembers(List<CallableMember> members, String receiverId,
-                                                  String typeName, Object runtimeValue,
+                                                  String typeName, Class<?> type, Object runtimeValue,
                                                   PostProcessingOptions options) {
-        Class<?> type = classForTypeName(typeName, runtimeValue);
         String owner = type == null ? typeName : type.getTypeName();
         if (isStringType(typeName, type)) {
             add(members, receiverId, owner, "length()I", "int");
@@ -967,7 +980,7 @@ final class OracleContext {
         if (!advertisedTypes.add(typeName)) {
             return;
         }
-        addCuratedCallableMembers(members, null, typeName, null, options);
+        addCuratedCallableMembers(members, null, typeName, returnType, null, options);
         if (options.assertionPolicy().callablePolicy()
                 == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
             addPureBoundedMembers(members, null, returnType, advertisedTypes, depth, options);

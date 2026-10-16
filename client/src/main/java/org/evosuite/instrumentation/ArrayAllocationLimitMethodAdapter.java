@@ -23,12 +23,12 @@ import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.TooManyResourcesException;
+import org.evosuite.runtime.instrumentation.ArrayAllocationMethodAdapter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.GeneratorAdapter;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,10 +39,10 @@ import java.util.Map;
  *
  * @author Gordon Fraser
  */
-public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
+public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdapter {
 
     /**
-     * Whether the array-size guard is emitted for this class at all.
+     * Whether the per-allocation array-size guard is emitted for this class.
      *
      * <p>{@code array_limit} bounds the array sizes a <em>test</em> can ask for, so it only makes
      * sense where the size can come from a test input: the classes under analysis. Third-party
@@ -51,8 +51,11 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
      * limit -- and rejecting that is a false positive that kills every call into the library.
      * EvoSuite 1.2.0 chained this adapter from {@code ExecutionPathClassAdapter} only, i.e. it
      * had exactly this scope; it was later also chained from {@code NonTargetClassAdapter}.
+     *
+     * <p>The cumulative budget deliberately does <em>not</em> share this scope: see
+     * {@link #emitCumulativeBudgetCheck(int)}.
      */
-    private final boolean enabled;
+    private final boolean sizeGuardEnabled;
 
     /**
      * <p>Constructor for ArrayAllocationLimitMethodAdapter.</p>
@@ -65,8 +68,8 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
      */
     public ArrayAllocationLimitMethodAdapter(MethodVisitor mv, String className,
                                              String methodName, int access, String desc) {
-        super(Opcodes.ASM9, mv, access, methodName, desc);
-        this.enabled = appliesTo(className);
+        super(mv, access, methodName, desc);
+        this.sizeGuardEnabled = appliesTo(className);
     }
 
     private static boolean appliesTo(String className) {
@@ -106,6 +109,20 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
         super.visitInsn(Opcodes.ATHROW);
     }
 
+    /**
+     * Stack: ..., int(size). Leaves the stack as it is if size &lt;= ARRAY_LIMIT, and throws
+     * otherwise.
+     */
+    private void emitSizeGuard() {
+        Label ok = new Label();
+        visitInsn(Opcodes.DUP);
+        visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
+                "ARRAY_LIMIT", "I");
+        super.visitJumpInsn(Opcodes.IF_ICMPLE, ok);
+        throwAllocationRejected("Array allocation exceeds the configured array_limit");
+        super.visitLabel(ok);
+    }
+
     /* (non-Javadoc)
      * @see org.objectweb.asm.MethodVisitor#visitIntInsn(int, int)
      */
@@ -115,16 +132,10 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
      */
     @Override
     public void visitIntInsn(int opcode, int operand) {
-        if (enabled && opcode == Opcodes.NEWARRAY) {
-            Label origTarget = new Label();
-            visitInsn(Opcodes.DUP);
-            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
-                    "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
-            throwAllocationRejected("Array allocation exceeds the configured array_limit");
-            super.visitLabel(origTarget);
-            emitCumulativeBudgetCheck();
-
+        if (opcode == Opcodes.NEWARRAY) {
+            if (sizeGuardEnabled) {
+                emitSizeGuard();
+            }
         }
         super.visitIntInsn(opcode, operand);
     }
@@ -139,38 +150,12 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     @Override
     public void visitTypeInsn(int opcode, String type) {
 
-        if (enabled && opcode == Opcodes.ANEWARRAY) {
-            Label origTarget = new Label();
-            visitInsn(Opcodes.DUP);
-            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
-                    "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
-            throwAllocationRejected("Array allocation exceeds the configured array_limit");
-            super.visitLabel(origTarget);
-            emitCumulativeBudgetCheck();
-
+        if (opcode == Opcodes.ANEWARRAY) {
+            if (sizeGuardEnabled) {
+                emitSizeGuard();
+            }
         }
         super.visitTypeInsn(opcode, type);
-    }
-
-    /**
-     * Emits a call that records the array size still sitting on top of the stack against
-     * the cumulative allocation budget, and rejects the allocation if that running total
-     * is now too high. Leaves the stack exactly as it found it (the size is duplicated,
-     * not consumed) so the NEWARRAY/ANEWARRAY that follows still sees its operand.
-     *
-     * <p>A single allocation passing the per-call {@code array_limit} check above says
-     * nothing about a loop that repeats such an allocation many times -- e.g. one chunk
-     * per iteration in a chunked-array growth method -- which is exactly the pattern that
-     * can exhaust the heap while every individual allocation looks legal. See
-     * {@link org.evosuite.runtime.ArrayAllocationBudget}.
-     */
-    private void emitCumulativeBudgetCheck() {
-        visitInsn(Opcodes.DUP);
-        visitInsn(Opcodes.I2L);
-        super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.ArrayAllocationBudget.class),
-                "checkAndRecord", "(J)V", false);
     }
 
     /**
@@ -181,16 +166,8 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
                                 boolean isInterface) {
-        if (enabled && shouldLimitSizeArg(opcode, owner, name, descriptor)) {
-            // Stack: ..., int(size)  →  clamp size to ARRAY_LIMIT
-            Label ok = new Label();
-            visitInsn(Opcodes.DUP);
-            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
-                    "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPLE, ok);
-            // size > ARRAY_LIMIT → reject the allocation
-            throwAllocationRejected("Array allocation exceeds the configured array_limit");
-            super.visitLabel(ok);
+        if (sizeGuardEnabled && shouldLimitSizeArg(opcode, owner, name, descriptor)) {
+            emitSizeGuard();
         }
         super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
     }
@@ -222,63 +199,72 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     @Override
     public void visitMultiANewArrayInsn(String desc, int dims) {
 
-        if (!enabled) {
-            super.visitMultiANewArrayInsn(desc, dims);
-            return;
+        Label origTarget = null;
+        Label errorTarget = null;
+
+        if (sizeGuardEnabled) {
+            origTarget = new Label();
+            errorTarget = new Label();
+
+            // Multidimensional arrays can only have max 256 dimensions
+            if (Properties.ARRAY_LIMIT < 256) {
+                push(dims);
+                visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
+                        "ARRAY_LIMIT", "I");
+                super.visitJumpInsn(Opcodes.IF_ICMPGT, errorTarget);
+            }
         }
 
-        Label origTarget = new Label();
-        Label errorTarget = new Label();
-
-        // Multidimensional arrays can only have max 256 dimensions
-        if (Properties.ARRAY_LIMIT < 256) {
-            push(dims);
-            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
-                    "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPGT, errorTarget);
-        }
-
-        // Check each of the dimensions
+        // Spill the dimensions to locals. This is needed both for the size-guard checks
+        // below (only emitted when sizeGuardEnabled) and for the cumulative-budget
+        // accounting that follows them, which -- like the NEWARRAY/ANEWARRAY case in
+        // emitCumulativeBudgetCheck() -- is emitted unconditionally: a library class
+        // cannot trip it by sizing one buffer from its own constant, only by allocating
+        // repeatedly within a single test.
         Map<Integer, Integer> to = new HashMap<>();
         for (int i = dims - 1; i >= 0; i--) {
             int loc = newLocal(Type.INT_TYPE);
             storeLocal(loc);
             to.put(i, loc);
         }
-        for (int i = 0; i < dims; i++) {
-            loadLocal(to.get(i));
-            visitFieldInsn(Opcodes.GETSTATIC, "org/evosuite/Properties",
-                    "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPGT, errorTarget);
-        }
 
-        // Check the product of all dimensions against ARRAY_LIMIT.
-        // Individual dimensions may each be under the limit, but their
-        // product can still cause OOM (e.g. new Float[50000][50000]).
-        if (dims >= 2) {
-            // Compute product as long to avoid int overflow
-            loadLocal(to.get(0));
-            visitInsn(Opcodes.I2L);
-            for (int i = 1; i < dims; i++) {
+        if (sizeGuardEnabled) {
+            // Check each of the dimensions
+            for (int i = 0; i < dims; i++) {
                 loadLocal(to.get(i));
-                visitInsn(Opcodes.I2L);
-                visitInsn(Opcodes.LMUL);
+                visitFieldInsn(Opcodes.GETSTATIC, "org/evosuite/Properties",
+                        "ARRAY_LIMIT", "I");
+                super.visitJumpInsn(Opcodes.IF_ICMPGT, errorTarget);
             }
-            // Compare: product >= (long) ARRAY_LIMIT → reject
-            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
-                    "ARRAY_LIMIT", "I");
-            visitInsn(Opcodes.I2L);
-            visitInsn(Opcodes.LCMP);
-            // LCMP pushes 1 if product > limit, 0 if equal, -1 if less
-            super.visitJumpInsn(Opcodes.IFGT, errorTarget);
+
+            // Check the product of all dimensions against ARRAY_LIMIT.
+            // Individual dimensions may each be under the limit, but their
+            // product can still cause OOM (e.g. new Float[50000][50000]).
+            if (dims >= 2) {
+                // Compute product as long to avoid int overflow
+                loadLocal(to.get(0));
+                visitInsn(Opcodes.I2L);
+                for (int i = 1; i < dims; i++) {
+                    loadLocal(to.get(i));
+                    visitInsn(Opcodes.I2L);
+                    visitInsn(Opcodes.LMUL);
+                }
+                // Compare: product >= (long) ARRAY_LIMIT → reject
+                visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
+                        "ARRAY_LIMIT", "I");
+                visitInsn(Opcodes.I2L);
+                visitInsn(Opcodes.LCMP);
+                // LCMP pushes 1 if product > limit, 0 if equal, -1 if less
+                super.visitJumpInsn(Opcodes.IFGT, errorTarget);
+            }
+
+            goTo(origTarget);
+            super.visitLabel(errorTarget);
+            throwAllocationRejected("Multi-dimensional array allocation exceeds the configured array_limit");
+            super.visitLabel(origTarget);
         }
 
-        goTo(origTarget);
-        super.visitLabel(errorTarget);
-        throwAllocationRejected("Multi-dimensional array allocation exceeds the configured array_limit");
-        super.visitLabel(origTarget);
-
-        // Restore original dimensions
+        // Restore dimensions before the runtime adapter performs cumulative accounting.
         for (int i = 0; i < dims; i++) {
             loadLocal(to.get(i));
         }

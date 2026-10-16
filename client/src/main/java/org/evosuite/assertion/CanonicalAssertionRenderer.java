@@ -26,10 +26,12 @@ import org.evosuite.Properties;
  */
 public interface CanonicalAssertionRenderer {
 
-    String render(TemplateAssertionKind kind,
-                  String expected,
-                  String actual,
-                  String delta);
+    default String render(TemplateAssertionKind kind,
+                          String expected,
+                          String actual,
+                          String delta) {
+        return render(kind, expected, actual, delta, false);
+    }
 
     String render(TemplateAssertionKind kind,
                   String expected,
@@ -37,6 +39,11 @@ public interface CanonicalAssertionRenderer {
                   String delta,
                   boolean arrayEquality);
 
+    /**
+     * Returns the renderer matching the configured test output format.
+     *
+     * @return the JUnit 3 renderer for JUnit 3 output, otherwise the JUnit 4/5 renderer
+     */
     static CanonicalAssertionRenderer forConfiguredFormat() {
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT3) {
             return JUnit3CanonicalAssertionRenderer.INSTANCE;

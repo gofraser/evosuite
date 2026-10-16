@@ -65,8 +65,16 @@ public class ExecutionResult implements Cloneable {
     /**
      * Final runtime scope after statement execution. This is used for in-process
      * assertion evaluation during LLM repair loops and is intentionally transient.
+     *
+     * <p>Held softly. The scope references every object the test created, and the
+     * search keeps the last result of every chromosome in the population and the
+     * archive, so a strong reference would keep the objects of all those tests alive.
+     * A class whose constructor allocates memory proportional to an argument then
+     * exhausts the heap through retained garbage rather than through any single test.
+     * Consumers read the scope right after the execution; if the heap gets tight the
+     * scope is gone and they treat it as unavailable.
      */
-    protected transient Scope finalScope;
+    protected transient java.lang.ref.SoftReference<Scope> finalScope;
 
     /**
      * Duration of execution.
@@ -300,14 +308,14 @@ public class ExecutionResult implements Cloneable {
      * Sets the final runtime scope captured at the end of execution.
      */
     public void setFinalScope(Scope finalScope) {
-        this.finalScope = finalScope;
+        this.finalScope = finalScope == null ? null : new java.lang.ref.SoftReference<>(finalScope);
     }
 
     /**
      * Returns the final runtime scope captured at the end of execution.
      */
     public Scope getFinalScope() {
-        return finalScope;
+        return finalScope == null ? null : finalScope.get();
     }
 
     /**

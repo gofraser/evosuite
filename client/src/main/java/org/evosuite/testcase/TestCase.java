@@ -475,12 +475,21 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     void removeAssertions();
 
     /**
-     * Replace a VariableReference with another one.
+     * Replace a VariableReference with another one, in all statements or in none.
+     *
+     * <p>Every statement is first asked whether it accepts the replacement
+     * ({@link Statement#acceptsReplacement}); only if all of them do is any statement changed.
+     * A test is never left with some uses of {@code var1} replaced and others not, which would
+     * be inconsistent wherever they share an element or field reference. A refusal is reported
+     * so that the caller can decide what to do with the statements still using {@code var1};
+     * {@link TestMutator#replaceAndDelete} deletes them.
      *
      * @param var1 The old variable
      * @param var2 The new variable
+     * @return true if the replacement was applied, false if a statement refused it and nothing
+     *         was changed
      */
-    void replace(VariableReference var1, VariableReference var2);
+    boolean replace(VariableReference var1, VariableReference var2);
 
 
     /**
@@ -507,6 +516,24 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      * @return Number of statements
      */
     int size();
+
+    /**
+     * Returns the position of the statement whose return value is {@code reference} itself.
+     *
+     * <p>Unlike {@link VariableReference#getStPosition()} this matches by identity and does not
+     * throw for a reference no statement defines.
+     *
+     * @param reference the reference to look up
+     * @return the position, or -1 if no statement returns this exact reference
+     */
+    default int positionOfReturnValue(VariableReference reference) {
+        for (int i = 0; i < size(); i++) {
+            if (getStatement(i).getReturnValue() == reference) {
+                return i;
+            }
+        }
+        return -1;
+    }
 
     /**
      * Get number of statements plus the number of assertions.

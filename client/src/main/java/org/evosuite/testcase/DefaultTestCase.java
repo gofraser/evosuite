@@ -20,7 +20,6 @@
 package org.evosuite.testcase;
 
 import org.apache.commons.lang3.reflect.MethodUtils;
-import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
@@ -29,6 +28,7 @@ import org.evosuite.ga.ConstructionFailedException;
 // Presentation metadata is stored natively on the test case.
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.setup.TestClusterUtils;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.*;
@@ -110,6 +110,10 @@ public class DefaultTestCase implements TestCase, Serializable {
         return presentationMetadata;
     }
 
+    /**
+     * Returns the presentation metadata, creating it if the test case has none yet.
+     * @return the presentation metadata, never null
+     */
     public TestPresentationMetadata getOrCreatePresentationMetadata() {
         if (presentationMetadata == null) {
             presentationMetadata = new TestPresentationMetadata();
@@ -199,6 +203,10 @@ public class DefaultTestCase implements TestCase, Serializable {
         if (!var.isPrimitive() && !(var instanceof NullReference)) {
             // add fields of this object to list
             for (Field field : TestClusterUtils.getAccessibleFields(var.getVariableClass())) {
+                // The cache is keyed by class; visibility also depends on the current test package.
+                if (!TestUsageChecker.isCallableFromTestPackage(field)) {
+                    continue;
+                }
                 GenericField genericField = new GenericField(field, var.getGenericClass());
                 FieldReference f;
                 try {
@@ -277,6 +285,9 @@ public class DefaultTestCase implements TestCase, Serializable {
      */
     @Override
     public VariableReference addStatement(Statement statement, int position) {
+        if (presentationMetadata != null) {
+            presentationMetadata.insertPosition(position);
+        }
         statements.add(position, statement);
         assert (isValid());
         return statement.getReturnValue();
@@ -317,6 +328,9 @@ public class DefaultTestCase implements TestCase, Serializable {
      */
     @Override
     public void chop(int length) {
+        if (presentationMetadata != null) {
+            presentationMetadata.truncateFrom(length);
+        }
         while (statements.size() > length) {
             statements.remove(length);
         }
@@ -438,6 +452,9 @@ public class DefaultTestCase implements TestCase, Serializable {
         t.coveredGoals.addAll(coveredGoals);
         t.accessedEnvironment.copyFrom(accessedEnvironment);
         t.isFailing = isFailing;
+        // The JUnitAnalyzer verdict decides whether TestCodeVisitor comments out
+        // fail()/assertions, so a clone that is rendered must keep it.
+        t.unstable = unstable;
         t.id = idGenerator.getAndIncrement(); //always create new ID when making a clone
         //t.exception_statement = exception_statement;
         //t.exceptionThrown = exceptionThrown;
@@ -727,7 +744,7 @@ public class DefaultTestCase implements TestCase, Serializable {
             // TODO: Need to support arrays that were not self-created
             if (value instanceof ArrayReference) { // &&
                 int length = ((ArrayReference) value).getStructuralArrayLength();
-                for (int index = 0; index < length; index++) {
+                for (int index : ArrayReference.getCandidateIndices(length)) {
                     variables.add(new ArrayIndex(this, (ArrayReference) value, index));
                 }
             } else if (!(value instanceof ArrayIndex)) {
@@ -790,7 +807,7 @@ public class DefaultTestCase implements TestCase, Serializable {
                     }
 
                     int length = ((ArrayReference) value).getStructuralArrayLength();
-                    for (int index = 0; index < length; index++) {
+                    for (int index : ArrayReference.getCandidateIndices(length)) {
                         if (((ArrayReference) value).isInitialized(index, position)) {
                             variables.add(new ArrayIndex(this, (ArrayReference) value,
                                     index));
@@ -1314,6 +1331,12 @@ public class DefaultTestCase implements TestCase, Serializable {
         if (position >= size()) {
             return;
         }
+        // Re-key the presentation metadata before the removal so it reflects the
+        // statement list exactly as it stood when the entries were recorded; the
+        // arithmetic only needs the position being removed, not the resulting size.
+        if (presentationMetadata != null) {
+            presentationMetadata.removePosition(position);
+        }
         statements.remove(position);
         removeDanglingAssertions();
         assert (isValid());
@@ -1520,8 +1543,14 @@ public class DefaultTestCase implements TestCase, Serializable {
      * {@inheritDoc}
      */
     @Override
-    public void replace(VariableReference var1, VariableReference var2) {
+    public boolean replace(VariableReference var1, VariableReference var2) {
+        for (Statement statement : statements) {
+            if (!statement.acceptsReplacement(var1, var2)) {
+                return false;
+            }
+        }
         statements.forEach(s -> s.replace(var1, var2));
+        return true;
     }
 
 

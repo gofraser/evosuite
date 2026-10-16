@@ -31,6 +31,8 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.function.Supplier;
+
 /** Coordinates speculative EvoObj generation without coupling it to ordinary random generation. */
 final class ObjectRuleGenerationCoordinator {
 
@@ -166,17 +168,9 @@ final class ObjectRuleGenerationCoordinator {
             for (int entryAttempt = 0; entryAttempt < 3; entryAttempt++) {
                 cleanConstructionAttempts++;
                 test = owner.getNewTestCase();
-                boolean previousEntryConstruction =
-                        org.evosuite.TestGenerationContext.getInstance()
-                                .getObjectRuleRuntime()
-                                .setEntryConstruction(true);
-                try {
-                    insertion = entryBuilder.insertEntryMethodCall(test, context, entryGraph);
-                } finally {
-                    org.evosuite.TestGenerationContext.getInstance()
-                            .getObjectRuleRuntime()
-                            .setEntryConstruction(previousEntryConstruction);
-                }
+                TestCase entryTest = test;
+                insertion = withEntryConstruction(
+                        () -> entryBuilder.insertEntryMethodCall(entryTest, context, entryGraph));
                 if (test.size() >= size) {
                     while (test.size() > 0) {
                         test.remove(test.size() - 1);
@@ -194,7 +188,7 @@ final class ObjectRuleGenerationCoordinator {
                 // the ordinary test exists, however, it may already contain a receiver produced by
                 // the same factory path used by regular search (eg
                 // CompoundByteTransition.coalesce).
-                TestCase baseline = generateDefaultFromCheckpoint(size, stateBeforeAttempt);
+                TestCase baseline = fallbackToDefault(size, stateBeforeAttempt);
                 Randomness.State randomnessAfterBaseline = Randomness.snapshot();
                 TestCase attachmentCandidate;
                 try {
@@ -203,20 +197,9 @@ final class ObjectRuleGenerationCoordinator {
                     Randomness.restore(randomnessAfterBaseline);
                     return baseline;
                 }
-                boolean previousFallbackEntryConstruction =
-                        org.evosuite.TestGenerationContext.getInstance()
-                                .getObjectRuleRuntime()
-                                .setEntryConstruction(true);
-                boolean attachedToExistingReceiver;
-                try {
-                    attachedToExistingReceiver =
-                            entryBuilder.insertEntryMethodCallOnExistingReceiver(
-                                    attachmentCandidate, context);
-                } finally {
-                    org.evosuite.TestGenerationContext.getInstance()
-                            .getObjectRuleRuntime()
-                            .setEntryConstruction(previousFallbackEntryConstruction);
-                }
+                boolean attachedToExistingReceiver = withEntryConstruction(
+                        () -> entryBuilder.insertEntryMethodCallOnExistingReceiver(
+                                attachmentCandidate, context));
                 if (attachedToExistingReceiver) {
                     return templateSynthesizer.synthesize(
                             attachmentCandidate, allowNullValue, size, stateBeforeAttempt);
@@ -242,18 +225,12 @@ final class ObjectRuleGenerationCoordinator {
         }
     }
 
-    TestCase fallbackToDefault(int size, SpeculativeGenerationState stateBeforeAttempt) {
-
-        return generateDefaultFromCheckpoint(size, stateBeforeAttempt);
-    }
-
     /**
      * Runs default generation with the complete pre-attempt context. The surrounding speculative
      * context is restored only so enclosing finally blocks remain well nested; the RNG deliberately
      * remains at the post-baseline state.
      */
-    private TestCase generateDefaultFromCheckpoint(
-            int size, SpeculativeGenerationState stateBeforeAttempt) {
+    TestCase fallbackToDefault(int size, SpeculativeGenerationState stateBeforeAttempt) {
 
         double speculativePrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
         boolean speculativeEntryConstruction =
@@ -268,7 +245,7 @@ final class ObjectRuleGenerationCoordinator {
         org.evosuite.TestGenerationContext.getInstance()
                 .getObjectRuleRuntime()
                 .setEntryConstruction(stateBeforeAttempt.entryConstruction);
-        restoreTargetContext(stateBeforeAttempt.targetContext);
+        TargetContext.setActive(stateBeforeAttempt.targetContext);
         try {
             return owner.getBaselineRandomTestCase(size);
         } finally {
@@ -277,15 +254,21 @@ final class ObjectRuleGenerationCoordinator {
             org.evosuite.TestGenerationContext.getInstance()
                     .getObjectRuleRuntime()
                     .setEntryConstruction(speculativeEntryConstruction);
-            restoreTargetContext(speculativeTargetContext);
+            TargetContext.setActive(speculativeTargetContext);
         }
     }
 
-    private static void restoreTargetContext(TargetContext context) {
-        if (context == null) {
-            TargetContext.clearActive();
-        } else {
-            TargetContext.setActive(context);
+    /**
+     * Runs {@code action} with entry construction switched on, restoring the previous setting.
+     */
+    private static <T> T withEntryConstruction(Supplier<T> action) {
+        ObjectRuleRuntime runtime =
+                org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime();
+        boolean previous = runtime.setEntryConstruction(true);
+        try {
+            return action.get();
+        } finally {
+            runtime.setEntryConstruction(previous);
         }
     }
 
@@ -298,7 +281,9 @@ final class ObjectRuleGenerationCoordinator {
         return owner.newConstructionPathSynthesizer();
     }
 
-    /** Consistency seam paired with {@link #newConstructionPathSynthesizer()}. */
+    /**
+     * Consistency seam paired with {@link #newConstructionPathSynthesizer()}.
+     */
     boolean isSynthesizedTestConsistent(TestCase test) {
         return owner.isSynthesizedTestConsistent(test);
     }

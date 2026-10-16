@@ -48,6 +48,8 @@ public final class LlmAssertionPolicyResolver {
     }
 
     /**
+     * Decides whether parsed assertions are kept.
+     *
      * @param llmStrategyContext true for STRATEGY=LLMSTRATEGY generation paths
      * @return true if parsed assertions should be kept
      */
@@ -56,6 +58,8 @@ public final class LlmAssertionPolicyResolver {
     }
 
     /**
+     * Builds the instruction suffix for the active assertion policy.
+     *
      * @param llmStrategyContext true for STRATEGY=LLMSTRATEGY generation paths
      * @return instruction suffix to bias LLM assertion generation
      */

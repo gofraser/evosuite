@@ -21,8 +21,15 @@ package org.evosuite.testcase;
 
 import com.examples.with.different.packagename.AbstractEnumInInnerClass;
 import com.examples.with.different.packagename.AbstractEnumUser;
+import com.examples.with.different.packagename.AccessExamples;
+import com.examples.with.different.packagename.ClassWithPublicField;
 import com.examples.with.different.packagename.EnumInInnerClass;
+import com.examples.with.different.packagename.PackagePrivateNestedConstructorExample;
+import com.examples.with.different.packagename.PrivateNestedReflectiveConstructorExample;
+import com.examples.with.different.packagename.PrivateNestedReflectiveConstructorSuperclassExample;
 import com.examples.with.different.packagename.EnumUser;
+import com.examples.with.different.packagename.subpackage.AccessExamplesProtectedOverride;
+import com.examples.with.different.packagename.subpackage.AccessExamplesSubclass;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.assertion.EqualsAssertion;
@@ -52,6 +59,7 @@ import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
@@ -81,6 +89,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -235,6 +245,20 @@ public class TestCodeVisitorTest {
 
     public static class PrivateGenericFieldHolder {
         private java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
+    }
+
+    /**
+     * Mirrors {@code org.jsoup.helper.HttpConnection.Base}: a private nested class
+     * declaring a (package-private, i.e. not itself {@code private}) field, extended
+     * by a public nested subclass. The field's own modifier would let it compile as
+     * direct access, but its declaring class cannot be named from outside
+     * {@code TestCodeVisitorTest}, so accesses must go through reflection.
+     */
+    private abstract static class InaccessibleSuperWithField {
+        String secret = "secret";
+    }
+
+    public static class PublicSubOfInaccessibleSuper extends InaccessibleSuperWithField {
     }
 
     public static class ChainedInspectorSource {
@@ -722,32 +746,20 @@ public class TestCodeVisitorTest {
     public void testUninterpretedStatementAddsImportForParentPackageSiblingType() {
         TestCodeVisitor visitor = new TestCodeVisitor();
         visitor.getClassName(com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
-        try {
-            Method resolver = TestCodeVisitor.class.getDeclaredMethod("resolveSimpleClassName", String.class);
-            resolver.setAccessible(true);
-            Class<?> resolved = (Class<?>) resolver.invoke(visitor, "AccessExamples");
-            assertNotNull(resolved, "Expected parent-package sibling type to resolve");
-            assertEquals("com.examples.with.different.packagename.AccessExamples", resolved.getName(),
-                    "Expected parent-package sibling type resolution from known subpackage class");
-        } catch (Exception e) {
-            fail("Could not invoke resolveSimpleClassName via reflection: " + e.getMessage());
-        }
+        Class<?> resolved = visitor.snippetSupport.resolveSimpleClassName("AccessExamples");
+        assertNotNull(resolved, "Expected parent-package sibling type to resolve");
+        assertEquals("com.examples.with.different.packagename.AccessExamples", resolved.getName(),
+                "Expected parent-package sibling type resolution from known subpackage class");
     }
 
     @Test
     public void testUninterpretedStatementAddsImportForParentPackageSiblingTypeInJdkPackage() {
         TestCodeVisitor visitor = new TestCodeVisitor();
         visitor.getClassName(java.awt.event.MouseEvent.class);
-        try {
-            Method resolver = TestCodeVisitor.class.getDeclaredMethod("resolveSimpleClassName", String.class);
-            resolver.setAccessible(true);
-            Class<?> resolved = (Class<?>) resolver.invoke(visitor, "Color");
-            assertNotNull(resolved, "Expected parent-package sibling type to resolve");
-            assertEquals("java.awt.Color", resolved.getName(),
-                    "Expected parent-package sibling type resolution from known JDK subpackage class");
-        } catch (Exception e) {
-            fail("Could not invoke resolveSimpleClassName via reflection: " + e.getMessage());
-        }
+        Class<?> resolved = visitor.snippetSupport.resolveSimpleClassName("Color");
+        assertNotNull(resolved, "Expected parent-package sibling type to resolve");
+        assertEquals("java.awt.Color", resolved.getName(),
+                "Expected parent-package sibling type resolution from known JDK subpackage class");
     }
 
     @Test
@@ -1212,6 +1224,60 @@ public class TestCodeVisitorTest {
 
         assertTrue(code.contains("(Class) "));
         assertFalse(code.contains("(Class<LinkedList<Integer>>) "));
+    }
+
+    @Test
+    public void testProtectedSuperclassMethodUsesPublicOverrideWithoutCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference receiver = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(AccessExamplesProtectedOverride.class.getDeclaredConstructor(),
+                        AccessExamplesProtectedOverride.class),
+                0,
+                0);
+        Method protectedMethod = AccessExamples.class.getDeclaredMethod("protectedMethod");
+        tc.addStatement(new MethodStatement(
+                tc,
+                new GenericMethod(protectedMethod, AccessExamplesProtectedOverride.class),
+                receiver,
+                Collections.emptyList()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("AccessExamplesProtectedOverride accessExamplesProtectedOverride0 ="), code);
+        assertTrue(code.contains("accessExamplesProtectedOverride0.protectedMethod();"), code);
+        assertFalse(code.contains("((AccessExamples)accessExamplesProtectedOverride0)"), code);
+    }
+
+    @Test
+    public void testPackagePrivateSuperclassMethodKeepsSamePackageCast() throws Exception {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = AccessExamples.class.getPackage().getName();
+        try {
+            TestCase tc = new DefaultTestCase();
+            VariableReference receiver = TestFactory.getInstance().addConstructor(
+                    tc,
+                    new GenericConstructor(AccessExamplesSubclass.class.getDeclaredConstructor(),
+                            AccessExamplesSubclass.class),
+                    0,
+                    0);
+            Method packagePrivateMethod = AccessExamples.class.getDeclaredMethod("defaultMethod");
+            tc.addStatement(new MethodStatement(
+                    tc,
+                    new GenericMethod(packagePrivateMethod, AccessExamplesSubclass.class),
+                    receiver,
+                    Collections.emptyList()));
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("((AccessExamples)accessExamplesSubclass0).defaultMethod();"), code);
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
     }
 
     @Test
@@ -1960,6 +2026,69 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testFieldDeclaredInPrivateSuperclassReadUsesClassForNameNotClassLiteral() throws Exception {
+        // Defects4J Jsoup-90 regression: PrivateAccess.getVariable(HttpConnection.Base.class, ...)
+        // does not compile because Base is a private nested class. The field itself
+        // (headers/method) is only package-private, so the fix must key off of the
+        // declaring class's accessibility rather than the field's own modifiers.
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(PublicSubOfInaccessibleSuper.class.getDeclaredConstructor(),
+                        PublicSubOfInaccessibleSuper.class),
+                0,
+                0);
+
+        java.lang.reflect.Field secretField = InaccessibleSuperWithField.class.getDeclaredField("secret");
+        FieldReference secretReference = new FieldReference(
+                tc, new GenericField(secretField, PublicSubOfInaccessibleSuper.class), holder);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String access = visitor.getVariableName(secretReference);
+
+        assertTrue(access.contains("PrivateAccess.getVariable("),
+                "Field inherited from an inaccessible declaring class must go through PrivateAccess:\n" + access);
+        assertTrue(access.contains("Class.forName(\"" + InaccessibleSuperWithField.class.getName() + "\")"),
+                "The declaring class is private, so its Class must be obtained reflectively:\n" + access);
+        assertFalse(access.contains(InaccessibleSuperWithField.class.getSimpleName() + ".class"),
+                "Must not emit an uncompilable .class literal for a private declaring class:\n" + access);
+    }
+
+    @Test
+    public void testFieldDeclaredInPrivateSuperclassWriteUsesClassForNameNotClassLiteral() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(PublicSubOfInaccessibleSuper.class.getDeclaredConstructor(),
+                        PublicSubOfInaccessibleSuper.class),
+                0,
+                0);
+
+        StringPrimitiveStatement value = new StringPrimitiveStatement(tc, "updated");
+        tc.addStatement(value);
+
+        java.lang.reflect.Field secretField = InaccessibleSuperWithField.class.getDeclaredField("secret");
+        FieldReference secretReference = new FieldReference(
+                tc, new GenericField(secretField, PublicSubOfInaccessibleSuper.class), holder);
+        AssignmentStatement assignmentStatement = new AssignmentStatement(
+                tc, secretReference, value.getReturnValue());
+        assertTrue(assignmentStatement.isValid());
+        tc.addStatement(assignmentStatement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("PrivateAccess.setVariable("),
+                "Field write on an inaccessible declaring class must go through PrivateAccess:\n" + code);
+        assertTrue(code.contains("Class.forName(\"" + InaccessibleSuperWithField.class.getName() + "\")"),
+                "The declaring class is private, so its Class must be obtained reflectively:\n" + code);
+        assertFalse(code.contains(InaccessibleSuperWithField.class.getSimpleName() + ".class"),
+                "Must not emit an uncompilable .class literal for a private declaring class:\n" + code);
+    }
+
+    @Test
     public void testPackagePrivateConstructorInDifferentGeneratedPackageUsesReflection() throws Exception {
         String oldClassPrefix = Properties.CLASS_PREFIX;
         Properties.CLASS_PREFIX = "different.generated.package";
@@ -2356,6 +2485,441 @@ public class TestCodeVisitorTest {
                 "Ambiguous null across a non-public overload must be cast:\n" + code);
         assertFalse(code.contains("OverloadedNullConstructors(null)"),
                 "Bare ambiguous null must not be emitted:\n" + code);
+    }
+
+    /**
+     * Strips every double-quoted string literal out of {@code code}, so callers can
+     * check that a forbidden identifier never appears as a source-level reference
+     * (declared type, cast, class literal) while still allowing it to appear inside
+     * a {@code Class.forName("...")} string, where naming it is required and safe.
+     */
+    private static String stripStringLiterals(String code) {
+        return code.replaceAll("\"([^\"\\\\]|\\\\.)*\"", "\"\"");
+    }
+
+    @Test
+    public void testReflectiveConstructorFallbackPrefersAccessibleInterfaceOverObject()
+            throws Exception {
+        TestCase tc = new DefaultTestCase();
+
+        Class<?> privateProxyClass = Class.forName(
+                "com.examples.with.different.packagename.PrivateNestedReflectiveConstructorExample$PrivateProxy");
+        java.lang.reflect.Constructor<?> rawCtor = privateProxyClass.getDeclaredConstructor(String.class);
+
+        StringPrimitiveStatement label = new StringPrimitiveStatement(tc, "secret");
+        tc.addStatement(label);
+
+        GenericConstructor proxyCtor = new GenericConstructor(rawCtor, privateProxyClass);
+        ConstructorStatement proxyStatement = new ConstructorStatement(
+                tc, proxyCtor, Collections.singletonList(label.getReturnValue()));
+        VariableReference proxyVar = tc.addStatement(proxyStatement);
+
+        GenericConstructor holderCtor = new GenericConstructor(
+                PrivateNestedReflectiveConstructorExample.ProxyHolder.class.getDeclaredConstructor(),
+                PrivateNestedReflectiveConstructorExample.ProxyHolder.class);
+        VariableReference holder = tc.addStatement(
+                new ConstructorStatement(tc, holderCtor, Collections.emptyList()));
+
+        Method describe = PrivateNestedReflectiveConstructorExample.ProxyHolder.class
+                .getDeclaredMethod("describe", PrivateNestedReflectiveConstructorExample.Proxy.class);
+        tc.addStatement(new MethodStatement(
+                tc,
+                new GenericMethod(describe, PrivateNestedReflectiveConstructorExample.ProxyHolder.class),
+                holder,
+                Collections.singletonList(proxyVar)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String proxyVarName = visitor.getVariableName(proxyVar);
+        String declaredType = visitor.getClassName(PrivateNestedReflectiveConstructorExample.Proxy.class);
+
+        // 1. No reference to the private type name anywhere outside a string literal
+        // (not as a class literal, not as the declared type, not as a cast). The
+        // generated *variable name* legitimately echoes the private simple name
+        // (e.g. "..._PrivateProxy0") -- that is just an identifier, not a type
+        // reference -- so it is excluded before checking.
+        String withoutStringLiterals = stripStringLiterals(code).replace(proxyVarName, "");
+        assertFalse(withoutStringLiterals.contains("PrivateProxy"),
+                "Private nested type name must never be written outside a string literal "
+                        + "or the (irrelevant) generated variable name:\n" + code);
+
+        // The class literal for the reflective getDeclaredConstructor() call must
+        // still be obtainable, just reflectively.
+        assertTrue(code.contains("Class.forName(\"" + privateProxyClass.getName() + "\")"),
+                "Reflective fallback should obtain the private class via Class.forName:\n" + code);
+
+        // 2. The declared type is the accessible interface the class implements
+        // (Proxy), not Object -- and the downstream describe(Proxy) call still
+        // accepts the very same variable, with no extra cast.
+        assertEquals("PrivateNestedReflectiveConstructorExample.Proxy", declaredType);
+        assertTrue(code.contains(declaredType + " " + proxyVarName + " = ("
+                        + declaredType + ") constructor"),
+                "Declaration and cast should use the accessible interface:\n" + code);
+        assertTrue(code.contains(".describe(" + proxyVarName + ")"),
+                "Downstream call should accept the declared interface type directly:\n" + code);
+    }
+
+    @Test
+    public void testReflectiveConstructorFallbackFallsBackToAccessibleSuperclassWithoutInterfaces()
+            throws Exception {
+        TestCase tc = new DefaultTestCase();
+
+        Class<?> privateWeakEntryClass = Class.forName(
+                "com.examples.with.different.packagename."
+                        + "PrivateNestedReflectiveConstructorSuperclassExample$PrivateWeakEntry");
+        java.lang.reflect.Constructor<?> rawCtor = privateWeakEntryClass.getDeclaredConstructor(
+                Object.class, java.lang.ref.ReferenceQueue.class);
+
+        GenericConstructor ctor = new GenericConstructor(rawCtor, privateWeakEntryClass);
+        ConstructorStatement statement = new ConstructorStatement(
+                tc, ctor, Arrays.asList(new NullReference(tc, Object.class),
+                        new NullReference(tc, java.lang.ref.ReferenceQueue.class)));
+        tc.addStatement(statement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String entryVarName = visitor.getVariableName(statement.getReturnValue());
+
+        String withoutStringLiterals = stripStringLiterals(code).replace(entryVarName, "");
+        assertFalse(withoutStringLiterals.contains("PrivateWeakEntry"),
+                "Private nested type name must never be written outside a string literal "
+                        + "or the (irrelevant) generated variable name:\n" + code);
+        assertTrue(code.contains("WeakReference " + entryVarName
+                        + " = (WeakReference) constructor"),
+                "With no accessible interface, the nearest accessible superclass should be used:\n" + code);
+    }
+
+    @Test
+    public void testPackagePrivateNestedConstructorStillRendersByNameInSamePackage() throws Exception {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = PackagePrivateNestedConstructorExample.class.getPackage().getName();
+        try {
+            TestCase tc = new DefaultTestCase();
+            Class<?> workerClass = Class.forName(
+                    "com.examples.with.different.packagename."
+                            + "PackagePrivateNestedConstructorExample$PackagePrivateWorker");
+            GenericConstructor ctor = new GenericConstructor(
+                    workerClass.getDeclaredConstructor(), workerClass);
+            tc.addStatement(new ConstructorStatement(tc, ctor, Collections.emptyList()));
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains(
+                            "PackagePrivateNestedConstructorExample.PackagePrivateWorker "
+                                    + "packagePrivateNestedConstructorExample_PackagePrivateWorker0 = new "
+                                    + "PackagePrivateNestedConstructorExample.PackagePrivateWorker();"),
+                    "Package-private nested constructors in the matching package must still "
+                            + "be called directly, not reflectively:\n" + code);
+            assertFalse(code.contains("getDeclaredConstructor"),
+                    "Legally accessible constructor must not fall back to reflection:\n" + code);
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
+    }
+
+    /**
+     * Pins the regression reported against FIX 1: a public nested class with a
+     * non-public constructor (a common factory-method-only idiom) must keep its own
+     * declared/cast type -- NOT fall back to {@code Object} -- even though the
+     * constructor itself is not source-accessible and must go through the
+     * reflective fallback. {@link PublicTypeWithPackagePrivateCtor} is public and
+     * its own enclosing class ({@code TestCodeVisitorTest}) is public too, so the
+     * type is unambiguously nameable; {@code Properties.CLASS_PREFIX} is pointed at
+     * an unrelated package (as in
+     * {@link #testPackagePrivateConstructorInDifferentGeneratedPackageUsesReflection()})
+     * so that the package-private constructor is conservatively treated as
+     * inaccessible, forcing the reflective fallback, while the type itself stays
+     * nameable regardless of {@code CLASS_PREFIX} (nameability only depends on the
+     * {@code private} flags along the enclosing chain, not on package matching).
+     * Mirrors {@code TestRepairLoopSalvageTest.SalvageTarget} / {@code
+     * TestRepairLoopExecutionFeedbackTest.FeedbackTarget}, both public nested
+     * classes with implicit public constructors inside a package-private outer test
+     * class (so their own constructor accessibility fails the same conservative
+     * package-match check, just via the enclosing class rather than an explicit
+     * {@code CLASS_PREFIX} override), which the earlier (incorrect) fix broke by
+     * gating the declared/cast type on constructor accessibility instead of the
+     * type's own nameability.
+     */
+    @Test
+    public void testPublicNestedClassWithNonPublicConstructorKeepsOwnDeclaredType() throws Exception {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = "different.generated.package";
+        try {
+            TestCase tc = new DefaultTestCase();
+            StringPrimitiveStatement arg = new StringPrimitiveStatement(tc, "x");
+            tc.addStatement(arg);
+
+            GenericConstructor constructor = new GenericConstructor(
+                    PublicTypeWithPackagePrivateCtor.class.getDeclaredConstructor(String.class),
+                    PublicTypeWithPackagePrivateCtor.class);
+            ConstructorStatement ctorStmt = new ConstructorStatement(
+                    tc, constructor, Collections.singletonList((VariableReference) arg.getReturnValue()));
+            VariableReference instance = tc.addStatement(ctorStmt);
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+            String declaredType = visitor.getClassName(PublicTypeWithPackagePrivateCtor.class);
+            String varName = visitor.getVariableName(instance);
+
+            assertEquals("TestCodeVisitorTest.PublicTypeWithPackagePrivateCtor", declaredType);
+
+            // Reflective fallback is still used for the constructor call itself.
+            assertTrue(code.contains("getDeclaredConstructor("), "Expected reflective construction:\n" + code);
+            assertTrue(code.contains(".setAccessible(true);"), "Expected reflective construction:\n" + code);
+            assertTrue(code.contains(".newInstance("), "Expected reflective construction:\n" + code);
+
+            // The declared type and cast must be the real nested class, not Object.
+            assertTrue(code.contains(declaredType + " " + varName + " = (" + declaredType + ") constructor"),
+                    "Declared/cast type must be the nested class's own name, not Object:\n" + code);
+            assertFalse(code.contains("Object " + varName), "Must not fall back to Object:\n" + code);
+            assertFalse(code.contains("(Object) constructor"), "Must not cast to Object:\n" + code);
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
+    }
+
+    /*
+     * visitAssignmentStatement declaration-decision matrix.
+     *
+     * TestCodeVisitor#visitAssignmentStatement decides whether to print a type
+     * declaration for its target by asking whether that target was already a
+     * registered key in declarationVariableNames (see getDeclarationVariableName),
+     * rather than comparing an unrelated signal (the old retval.getStPosition() ==
+     * statement.getPosition() check) that can disagree with what actually got
+     * written to that registry. The following tests pin both failure directions:
+     * too few declarations (an identifier used but never declared, the original
+     * SF110 bug) and too many (a duplicate declaration, the residual risk of the
+     * fix itself).
+     */
+
+    /**
+     * Scans generated code for a plain, untyped assignment line ({@code name =
+     * value;}) whose target identifier was never introduced with a type on an
+     * earlier line (nor on that same line). This is the strongest form of the
+     * regression guard for the SF110 bug: it does not merely check one specific
+     * rendering, it checks that nothing anywhere in the generated method is used
+     * as an assignment target without first being declared.
+     */
+    private static void assertNoUndeclaredAssignmentTargets(String code) {
+        Set<String> declaredIdentifiers = new java.util.HashSet<>();
+        Pattern typedDeclaration = Pattern.compile(
+                "^[A-Za-z_][\\w.<>\\[\\], ]*[ >\\]]([A-Za-z_]\\w*)\\s*=[^=].*;$");
+        Pattern plainAssignment = Pattern.compile("^([A-Za-z_]\\w*)\\s*=[^=].*;$");
+        for (String rawLine : code.split("\n")) {
+            String line = rawLine.trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            Matcher typed = typedDeclaration.matcher(line);
+            if (typed.matches()) {
+                declaredIdentifiers.add(typed.group(1));
+                continue;
+            }
+            Matcher plain = plainAssignment.matcher(line);
+            if (plain.matches()) {
+                String name = plain.group(1);
+                assertTrue(declaredIdentifiers.contains(name),
+                        "Identifier '" + name + "' is used as an assignment target but was "
+                                + "never declared with a type anywhere earlier:\n" + code);
+            }
+        }
+    }
+
+    @Test
+    public void testAssignmentStatementDeclaresTypeOnFirstVariableIntroduction() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        ConstructorStatement sourceStatement = new ConstructorStatement(
+                tc,
+                new GenericConstructor(ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class),
+                Collections.<VariableReference>emptyList());
+        VariableReference source = tc.addStatement(sourceStatement);
+
+        // A variable reference that has never appeared as the return value of any
+        // earlier statement: this is the "first assignment introduces the variable"
+        // case.
+        VariableReference target = new VariableReferenceImpl(tc, ClassWithPublicField.class);
+        tc.addStatement(new AssignmentStatement(tc, target, source));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String targetName = visitor.getVariableName(target);
+
+        String declarationLine = "ClassWithPublicField " + targetName + " = ";
+        int firstIndex = code.indexOf(declarationLine);
+        assertTrue(firstIndex >= 0, "Expected a typed declaration for the new variable:\n" + code);
+        assertEquals(firstIndex, code.lastIndexOf(declarationLine),
+                "Expected the type declaration to appear exactly once:\n" + code);
+    }
+
+    @Test
+    public void testAssignmentStatementReassignmentOmitsTypeAndKeepsOriginalName() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        GenericConstructor ctor = new GenericConstructor(
+                ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class);
+        VariableReference source1 = tc.addStatement(
+                new ConstructorStatement(tc, ctor, Collections.<VariableReference>emptyList()));
+        VariableReference source2 = tc.addStatement(
+                new ConstructorStatement(tc, ctor, Collections.<VariableReference>emptyList()));
+
+        VariableReference target = new VariableReferenceImpl(tc, ClassWithPublicField.class);
+        tc.addStatement(new AssignmentStatement(tc, target, source1));
+        tc.addStatement(new AssignmentStatement(tc, target, source2));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String targetName = visitor.getVariableName(target);
+        String source2Name = visitor.getVariableName(source2);
+
+        String typedDeclaration = "ClassWithPublicField " + targetName + " = ";
+        String plainReassignment = targetName + " = " + source2Name + ";";
+
+        assertTrue(code.contains(typedDeclaration), "Expected the first use to declare the type:\n" + code);
+        assertTrue(code.contains(plainReassignment),
+                "Expected the reassignment to reuse the same identifier with no type:\n" + code);
+        assertFalse(code.contains("ClassWithPublicField " + plainReassignment),
+                "Reassignment must not repeat the type declaration:\n" + code);
+    }
+
+    @Test
+    public void testAssignmentStatementFieldReferenceTargetStaysUndeclared() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = tc.addStatement(new ConstructorStatement(
+                tc,
+                new GenericConstructor(ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class),
+                Collections.<VariableReference>emptyList()));
+        StringPrimitiveStatement value = new StringPrimitiveStatement(tc, "updated");
+        tc.addStatement(value);
+
+        java.lang.reflect.Field yField = ClassWithPublicField.class.getDeclaredField("y");
+        FieldReference yReference = new FieldReference(tc, new GenericField(yField, ClassWithPublicField.class), holder);
+        tc.addStatement(new AssignmentStatement(tc, yReference, value.getReturnValue()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String holderName = visitor.getVariableName(holder);
+        String valueName = visitor.getVariableName(value.getReturnValue());
+
+        assertTrue(code.contains(holderName + ".y = " + valueName + ";"),
+                "Expected a direct, undeclared field write:\n" + code);
+        assertFalse(code.contains("ClassWithPublicField " + holderName + ".y"),
+                "Field reference targets must never carry a type declaration:\n" + code);
+    }
+
+    @Test
+    public void testAssignmentStatementArrayIndexTargetStaysUndeclared() {
+        TestCase tc = new DefaultTestCase();
+        ArrayStatement arrayStatement = new ArrayStatement(tc, int[].class, 3);
+        tc.addStatement(arrayStatement);
+        IntPrimitiveStatement valueStatement = new IntPrimitiveStatement(tc, 7);
+        tc.addStatement(valueStatement);
+
+        ArrayIndex index = new ArrayIndex(tc, arrayStatement.getArrayReference(), 0);
+        tc.addStatement(new AssignmentStatement(tc, index, valueStatement.getReturnValue()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String arrayName = visitor.getVariableName(arrayStatement.getArrayReference());
+        String valueName = visitor.getVariableName(valueStatement.getReturnValue());
+
+        assertTrue(code.contains(arrayName + "[0] = " + valueName + ";"),
+                "Expected a direct, undeclared array write:\n" + code);
+        assertFalse(code.contains("int " + arrayName + "[0]"),
+                "Array index targets must never carry a type declaration:\n" + code);
+    }
+
+    /**
+     * Reproduces the SF110 {@code RegistryAwareMBeanServer} bug: an assignment
+     * target whose own cached {@link VariableReference#getStPosition()} disagrees
+     * with where it is actually used when rendering this test case (simulated here
+     * with a VariableReference minted against a different, throwaway TestCase,
+     * standing in for a stale/cloned reference), alongside two other statements
+     * (a real object and a functional mock) of the same type so that a
+     * position-based recovery of the identity would be ambiguous. Old code decided
+     * "needs a type" from the stale position and got it wrong, printing a freshly
+     * minted name with no declaration anywhere. The fix decides from the same
+     * declarationVariableNames registry that minted the name, so the two can never
+     * disagree.
+     */
+    @Test
+    public void testAssignmentStatementWithStaleRetvalPositionStillDeclaresType() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference realObject = tc.addStatement(new ConstructorStatement(
+                tc,
+                new GenericConstructor(ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class),
+                Collections.<VariableReference>emptyList()));
+        FunctionalMockStatement mockStatement = new FunctionalMockStatement(
+                tc, ClassWithPublicField.class, GenericClassFactory.get(ClassWithPublicField.class));
+        tc.addStatement(mockStatement);
+
+        TestCase staleOwner = new DefaultTestCase();
+        VariableReference orphanRetval = staleOwner.addStatement(new ConstructorStatement(
+                staleOwner,
+                new GenericConstructor(ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class),
+                Collections.<VariableReference>emptyList()));
+        assertEquals(0, orphanRetval.getStPosition());
+
+        tc.addStatement(new AssignmentStatement(tc, orphanRetval, realObject));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertNoUndeclaredAssignmentTargets(code);
+    }
+
+    /**
+     * The constructor visitor pre-declares a retval above a try block
+     * ({@code Type var = null;}) when the call can throw, then assigns the result
+     * inside the try with a plain, type-free assignment
+     * (visitConstructorStatement's {@code declarationPrefix = ""} path). A later,
+     * ordinary AssignmentStatement that targets the same already-declared variable
+     * must not print a second type declaration: that is the "too many
+     * declarations" failure mode the fix must avoid.
+     */
+    @Test
+    public void testAssignmentStatementAfterTryCatchPreDeclaredRetvalDoesNotDuplicateDeclaration() throws Exception {
+        boolean oldCatchUndeclared = Properties.CATCH_UNDECLARED_EXCEPTIONS;
+        Properties.CATCH_UNDECLARED_EXCEPTIONS = true;
+        try {
+            TestCase tc = new DefaultTestCase();
+            GenericConstructor ctor = new GenericConstructor(
+                    ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class);
+            ConstructorStatement ctorStatement = new ConstructorStatement(
+                    tc, ctor, Collections.<VariableReference>emptyList());
+            VariableReference instance = tc.addStatement(ctorStatement);
+            VariableReference replacement = tc.addStatement(
+                    new ConstructorStatement(tc, ctor, Collections.<VariableReference>emptyList()));
+            tc.addStatement(new AssignmentStatement(tc, instance, replacement));
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            visitor.setExceptions(Collections.singletonMap(
+                    ctorStatement.getPosition(), new RuntimeException("boom")));
+            tc.accept(visitor);
+            String code = visitor.getCode();
+            String instanceName = visitor.getVariableName(instance);
+
+            String declarationLine = "ClassWithPublicField " + instanceName + " = null;";
+            assertTrue(code.contains(declarationLine),
+                    "Expected the constructor path to pre-declare above the try block:\n" + code);
+            assertTrue(code.contains("try {"), "Expected a try block:\n" + code);
+
+            long declarationCount = Pattern.compile(Pattern.quote("ClassWithPublicField " + instanceName))
+                    .matcher(code).results().count();
+            assertEquals(1, declarationCount,
+                    "Variable must be declared exactly once, including by the later reassignment:\n" + code);
+            assertNoUndeclaredAssignmentTargets(code);
+        } finally {
+            Properties.CATCH_UNDECLARED_EXCEPTIONS = oldCatchUndeclared;
+        }
     }
 }
 

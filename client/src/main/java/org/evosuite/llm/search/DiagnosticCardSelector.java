@@ -45,6 +45,12 @@ public class DiagnosticCardSelector {
         return select(extractedCards, maxCards, null, false);
     }
 
+    /**
+     * Selects up to {@code maxCards} cards without any repeated-injection history.
+     * @param extractedCards the candidate cards
+     * @param maxCards maximum number of cards to select
+     * @return the selected and discarded cards
+     */
     public SelectionResult select(List<ProblemCard> extractedCards,
                                   int maxCards,
                                   RepeatedInjectionMemory repeatedInjectionMemory,
@@ -340,6 +346,11 @@ public class DiagnosticCardSelector {
         private final List<ProblemCard> selectedCards;
         private final List<DiscardedCard> discardedCards;
 
+        /**
+         * Creates a result from the selected and discarded cards; null lists are treated as empty.
+         * @param selectedCards the selected cards
+         * @param discardedCards the discarded cards with their reasons
+         */
         public SelectionResult(List<ProblemCard> selectedCards, List<DiscardedCard> discardedCards) {
             this.selectedCards = selectedCards == null
                     ? Collections.<ProblemCard>emptyList()
@@ -357,6 +368,11 @@ public class DiagnosticCardSelector {
             return discardedCards;
         }
 
+        /**
+         * Counts the discarded cards with the given reason.
+         * @param reason the discard reason to count
+         * @return the number of cards discarded for that reason
+         */
         public long countDiscardReason(DiscardReason reason) {
             if (reason == null || discardedCards.isEmpty()) {
                 return 0L;
@@ -370,6 +386,10 @@ public class DiagnosticCardSelector {
             return total;
         }
 
+        /**
+         * Summarises how many cards were discarded for each reason.
+         * @return a map-style string of reason counts, {@code {}} if nothing was discarded
+         */
         public String summarizeDiscardReasons() {
             if (discardedCards.isEmpty()) {
                 return "{}";

@@ -229,15 +229,36 @@ public class LoggingUtils {
     }
 
     /**
-     * Redirect current System.out and System.err to a buffer.
+     * An output stream that drops everything written to it.
      */
-    public static void muteCurrentOutAndErrStream() {
+    static final class DiscardingOutputStream extends OutputStream {
+        @Override
+        public void write(int b) {
+            // dropped
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) {
+            // dropped
+        }
+    }
+
+    /**
+     * Redirect current System.out and System.err to a stream that discards the output.
+     */
+    public static synchronized void muteCurrentOutAndErrStream() {
         if (alreadyMuted) {
             return;
         }
 
-        ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-        PrintStream outStream = new PrintStream(byteStream);
+        // The output is thrown away, not buffered. Nothing reads it back, and a buffer cannot
+        // be bounded safely: the code under test logs from loops, and the first logger it
+        // creates while the streams are muted (java.util.logging's ConsoleHandler, log4j's
+        // ConsoleAppender) keeps this very stream for the rest of the process. A buffer
+        // therefore collected the stderr of every later test, a stack trace per swallowed
+        // exception, until it reached the 2 GB array limit, and from then on every write to
+        // it threw OutOfMemoryError into whichever test happened to log.
+        PrintStream outStream = new PrintStream(new DiscardingOutputStream());
         latestOut = System.out;
         latestErr = System.err;
         System.setOut(outStream);
@@ -249,13 +270,28 @@ public class LoggingUtils {
     /**
      * Allow again printing to previous streams that were muted.
      */
-    public static void restorePreviousOutAndErrStream() {
+    public static synchronized void restorePreviousOutAndErrStream() {
         if (!alreadyMuted) {
             return;
         }
         System.setOut(latestOut);
         System.setErr(latestErr);
         alreadyMuted = false;
+    }
+
+    /**
+     * The streams that output reaches when nothing is muted: the streams saved by the active
+     * mute if there is one, the current System.out and System.err otherwise. A caller that
+     * wants to hand the streams back after some code ran must take them from here and not from
+     * System, which may hold the discarding stream if another execution is still muting.
+     *
+     * @return the visible output stream and the visible error stream
+     */
+    public static synchronized PrintStream[] currentUnmutedOutAndErrStream() {
+        if (alreadyMuted) {
+            return new PrintStream[]{latestOut, latestErr};
+        }
+        return new PrintStream[]{System.out, System.err};
     }
 
     /**

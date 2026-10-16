@@ -152,7 +152,16 @@ public class MockIllegalStateException extends IllegalStateException implements 
         if (!MockFramework.isEnabled()) {
             return super.initCause(cause);
         }
-        return getDelegate().initCause(cause);
+        getDelegate().initCause(cause);
+        // The delegate answers while mocking is on, but the cause the exception itself keeps is
+        // what getCause() reports once mocking is off, for instance to the JUnit rule that looks
+        // for a wrapped resource limit after the test, so set it there too.
+        try {
+            super.initCause(cause);
+        } catch (IllegalStateException | IllegalArgumentException alreadyInitialised) {
+            // The delegate has accepted the cause, so this only says that it is set already.
+        }
+        return this;
     }
 
     @Override

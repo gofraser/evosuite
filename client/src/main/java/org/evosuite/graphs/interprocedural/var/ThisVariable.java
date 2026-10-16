@@ -4,8 +4,8 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
 
 public class ThisVariable extends DepVariable {
 
-	public ThisVariable(BytecodeInstruction insn) {
-		super(insn);
-	}
+    public ThisVariable(BytecodeInstruction insn) {
+        super(insn);
+    }
 
 }

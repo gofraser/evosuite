@@ -20,21 +20,46 @@
 package org.evosuite.testcase.dmon;
 
 import org.evosuite.Properties;
+import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.GenerationContext;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.NullStatement;
+import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.After;
 import org.junit.Test;
 
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Optional;
 
 public class DmonPromotionOperatorTest {
+
+    private String oldClassPrefix;
+
+    @Before
+    public void useFixturePackageForDirectFieldAccess() {
+        oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = getClass().getPackage().getName();
+    }
+
+    @After
+    public void restoreTestPackage() {
+        Properties.CLASS_PREFIX = oldClassPrefix;
+    }
+
 
     public static class SetterTarget {
         private static Runnable dep;
@@ -75,6 +100,35 @@ public class DmonPromotionOperatorTest {
         }
     }
 
+    /** Constructs fine until {@code dep} is set; {@code use()} fails on the null {@code dep}. */
+    public static class EarlierFailureTarget {
+        static Runnable dep;
+
+        public EarlierFailureTarget() {
+            if (dep != null) {
+                throw new IllegalStateException("constructor breaks once dep is set");
+            }
+        }
+
+        public void use() {
+            dep.run();
+        }
+    }
+
+    /**
+     * Fails on the null its caller passed in. The static {@code fallback} is reachable by a
+     * promotion but is not where the null comes from, so injecting into it changes nothing.
+     */
+    public static class NullArgumentTarget {
+        static Runnable fallback;
+        private final Runnable dep;
+
+        public NullArgumentTarget(Runnable dep) {
+            this.dep = dep;
+            this.dep.run();
+        }
+    }
+
     public static class InstanceFieldTarget {
         private static final InstanceFieldTarget INSTANCE = new InstanceFieldTarget();
         Runnable dep;
@@ -84,8 +138,12 @@ public class DmonPromotionOperatorTest {
         }
     }
 
+    /** Inherits Inflater's private field "input", which java.base does not open on JDK 9+. */
+    public static class InflaterSubclass extends java.util.zip.Inflater {
+    }
+
     @Test
-    public void promotesUsingStaticSetter() {
+    public void unopenedJdkFieldIsNotAnInjectionTargetAndDoesNotEscape() {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
@@ -93,6 +151,94 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(new DefaultTestCase());
+            chromosome.setChanged(false);
+
+            ExecutionResult result = new ExecutionResult(chromosome.getTestCase(), null);
+            // No inferred type or member token: the mock type must come from the field,
+            // which forces setAccessible on the JDK-private field.
+            result.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(InflaterSubclass.class.getName(), "<init>", 10,
+                            DmonFailureSiteKind.CONSTRUCTOR_INIT),
+                    Optional.of("this.input"),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty()));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, result);
+
+            Assert.assertTrue(result.isDmonPromotionConsumed());
+            Assert.assertFalse(chromosome.isChanged());
+            Assert.assertEquals(0, chromosome.getTestCase().size());
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+        }
+    }
+
+    /** Fails when the injection statement is added, i.e. after the mock is already in place. */
+    private static class FailingInjectionTestCase extends DefaultTestCase {
+        @Override
+        public org.evosuite.testcase.variable.VariableReference addStatement(
+                org.evosuite.testcase.statements.Statement statement, int position) {
+            if (statement instanceof MethodStatement) {
+                throw new IllegalStateException("injected failure after the mock was added");
+            }
+            return super.addStatement(statement, position);
+        }
+    }
+
+    @Test
+    public void failureAfterMockWasAddedLeavesNoOrphanedMock() {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(new FailingInjectionTestCase());
+            chromosome.setChanged(false);
+
+            ExecutionResult result = new ExecutionResult(chromosome.getTestCase(), null);
+            result.setTrace(new ExecutionTraceImpl());
+            chromosome.setLastExecutionResult(result);
+            result.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(SetterTarget.class.getName(), "<init>", 10, DmonFailureSiteKind.CONSTRUCTOR_INIT),
+                    Optional.of("this.dep"),
+                    Optional.of("this"),
+                    Optional.of("dep"),
+                    Optional.of(Runnable.class.getName())));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, result);
+
+            Assert.assertEquals("the orphaned mock must be rolled back", 0, chromosome.getTestCase().size());
+            Assert.assertFalse(chromosome.isChanged());
+            Assert.assertTrue(chromosome.getLastExecutionResult().isDmonPromotionConsumed());
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+        }
+    }
+
+    @Test
+    public void promotesUsingStaticSetter() {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // Checks the shape of the promoted test, not its validation.
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -117,6 +263,7 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
         }
     }
 
@@ -125,10 +272,13 @@ public class DmonPromotionOperatorTest {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // Checks the shape of the promoted test, not its validation.
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -153,6 +303,7 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
         }
     }
 
@@ -162,11 +313,20 @@ public class DmonPromotionOperatorTest {
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        int oldTimeout = Properties.TIMEOUT;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // This test drives a real TestCaseExecutor.runTest() (via
+            // validateOrRollback) that creates a Mockito mock. The first such
+            // execution in the JVM can pay a one-off, occasionally multi-second
+            // AWT/ByteBuddy class-generation warm-up cost that the default 3s
+            // Properties.TIMEOUT does not budget for, independent of anything
+            // under test here; give it generous headroom like other tests that
+            // execute real code do (e.g. SymbolicObserverTest).
+            Properties.TIMEOUT = 60000;
 
             ValidateTarget.dep = null;
 
@@ -196,7 +356,122 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.TIMEOUT = oldTimeout;
             ValidateTarget.dep = null;
+        }
+    }
+
+    @Test
+    public void promotionThatMakesAnEarlierStatementThrowIsRolledBack() throws Exception {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        int oldTimeout = Properties.TIMEOUT;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // See validatePromotedOnceAcceptsPassingPromotion.
+            Properties.TIMEOUT = 60000;
+
+            EarlierFailureTarget.dep = null;
+
+            TestChromosome chromosome = new TestChromosome();
+            DefaultTestCase tc = new DefaultTestCase();
+            VariableReference target = tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(EarlierFailureTarget.class.getDeclaredConstructor(),
+                            EarlierFailureTarget.class),
+                    Collections.emptyList()));
+            tc.addStatement(new MethodStatement(tc,
+                    new GenericMethod(EarlierFailureTarget.class.getMethod("use"), EarlierFailureTarget.class),
+                    target, Collections.emptyList()));
+            chromosome.setTestCase(tc);
+            chromosome.setChanged(false);
+
+            // The constructor ran, the call after it threw on the null field.
+            ExecutionResult original = new ExecutionResult(chromosome.getTestCase(), null);
+            original.setTrace(new ExecutionTraceImpl());
+            original.reportNewThrownException(1, new NullPointerException("dep"));
+            original.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(EarlierFailureTarget.class.getName(), "use", 0,
+                            DmonFailureSiteKind.METHOD_INVOCATION),
+                    Optional.of("this.dep"),
+                    Optional.of("this"),
+                    Optional.of("dep"),
+                    Optional.of(Runnable.class.getName())));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, original);
+
+            // With the mock injected the constructor throws, so the test would lose the
+            // constructor's coverage that the original execution reached.
+            Assert.assertEquals("Promotion should be rolled back", 2, chromosome.getTestCase().size());
+            Assert.assertTrue(chromosome.getTestCase().getStatement(0) instanceof ConstructorStatement);
+            Assert.assertNull("Rollback should restore static state", EarlierFailureTarget.dep);
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.TIMEOUT = oldTimeout;
+            EarlierFailureTarget.dep = null;
+        }
+    }
+
+    @Test
+    public void promotionThatLeavesTheFailureUnchangedIsKept() throws Exception {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        int oldTimeout = Properties.TIMEOUT;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // See validatePromotedOnceAcceptsPassingPromotion.
+            Properties.TIMEOUT = 60000;
+
+            NullArgumentTarget.fallback = null;
+
+            TestChromosome chromosome = new TestChromosome();
+            DefaultTestCase tc = new DefaultTestCase();
+            VariableReference nullArgument = tc.addStatement(new NullStatement(tc, Runnable.class));
+            tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(NullArgumentTarget.class.getDeclaredConstructor(Runnable.class),
+                            NullArgumentTarget.class),
+                    Collections.singletonList(nullArgument)));
+            chromosome.setTestCase(tc);
+            chromosome.setChanged(false);
+
+            ExecutionResult original = new ExecutionResult(chromosome.getTestCase(), null);
+            original.setTrace(new ExecutionTraceImpl());
+            original.reportNewThrownException(1, new NullPointerException("this.dep"));
+            original.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(NullArgumentTarget.class.getName(), "<init>", 0,
+                            DmonFailureSiteKind.CONSTRUCTOR_INIT),
+                    Optional.of("this.dep"),
+                    Optional.of("this"),
+                    Optional.of("dep"),
+                    Optional.of(Runnable.class.getName())));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, original);
+
+            // The re-run fails exactly as before, so rolling back gains nothing; keeping the
+            // promotion keeps a lenient Runnable mock in the test that the search can pass
+            // as the constructor argument the null came from.
+            TestCase promoted = chromosome.getTestCase();
+            Assert.assertEquals("Mock + injection + null + constructor", 4, promoted.size());
+            Assert.assertTrue(promoted.getStatement(0) instanceof FunctionalMockStatement);
+            Assert.assertTrue(((FunctionalMockStatement) promoted.getStatement(0)).isDmonPromotion());
+            Assert.assertTrue("The kept promotion must be re-evaluated", chromosome.isChanged());
+            Assert.assertNull("Validation should restore static state", NullArgumentTarget.fallback);
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.TIMEOUT = oldTimeout;
+            NullArgumentTarget.fallback = null;
         }
     }
 
@@ -206,11 +481,16 @@ public class DmonPromotionOperatorTest {
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        int oldTimeout = Properties.TIMEOUT;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // See validatePromotedOnceAcceptsPassingPromotion: this also drives a
+            // real TestCaseExecutor.runTest() and can hit the same one-off warm-up
+            // cost.
+            Properties.TIMEOUT = 60000;
 
             ValidateFailTarget.dep = null;
 
@@ -223,6 +503,12 @@ public class DmonPromotionOperatorTest {
             chromosome.setChanged(false);
 
             ExecutionResult original = new ExecutionResult(chromosome.getTestCase(), null);
+            // A production ExecutionResult always carries a real trace (it comes from
+            // TestCaseExecutor.runTest), which ExecutionResult.clone() relies on
+            // unconditionally (trace.lazyClone()). The rollback path below calls
+            // clone() on this object, so give it a trace here too, the same way a
+            // real execution would have.
+            original.setTrace(new ExecutionTraceImpl());
             original.setDmonPromotionPlan(new DmonPromotionPlan(
                     new DmonFailureSite(ValidateFailTarget.class.getName(), "<init>", 0, DmonFailureSiteKind.CONSTRUCTOR_INIT),
                     Optional.of("this.dep"),
@@ -241,6 +527,7 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.TIMEOUT = oldTimeout;
             ValidateFailTarget.dep = null;
         }
     }
@@ -281,10 +568,13 @@ public class DmonPromotionOperatorTest {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            // Checks the shape of the promoted test, not its validation.
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -311,6 +601,203 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
+        }
+    }
+
+    /**
+     * Regression coverage for the JacksonDatabind-96 Defects4J symptom: with
+     * {@code RESET_STATIC_FINAL_FIELDS=true} (the default), EvoSuite's instrumentation
+     * strips {@code ACC_FINAL} from an originally-final static field and separately
+     * registers it in {@link ModifiedTargetStaticFields} - exactly what
+     * {@code CreateClassResetClassAdapter.visitEnd()} does at class-load time. A field
+     * selector that only checks raw {@code java.lang.reflect.Modifier.isFinal} cannot
+     * see that stripping and will happily select the field as an assignment target,
+     * producing a statement like {@code Owner.field = mock;} that then fails to
+     * compile ("cannot assign a value to final variable") because the field is still
+     * declared {@code final} in source.
+     *
+     * <p>
+     * {@link FieldTarget#dep} is not actually declared final (making the reflective
+     * {@code Field} object itself final is awkward to arrange in a plain unit test),
+     * but registering it in {@link ModifiedTargetStaticFields} reproduces precisely the
+     * state the selector must defend against: a field that reflects as non-final yet
+     * must never be used as a generated-test assignment target.
+     * </p>
+     */
+    @Test
+    public void staticFieldSelectorRefusesFieldWithStrippedFinalModifier() {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        boolean oldReset = Properties.RESET_STATIC_FINAL_FIELDS;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            Properties.RESET_STATIC_FINAL_FIELDS = true;
+            ModifiedTargetStaticFields.getInstance()
+                    .addFinalField(FieldTarget.class.getName(), "dep");
+
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(new DefaultTestCase());
+            chromosome.setChanged(false);
+
+            ExecutionResult result = new ExecutionResult(chromosome.getTestCase(), null);
+            result.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(FieldTarget.class.getName(), "<init>", 10, DmonFailureSiteKind.CONSTRUCTOR_INIT),
+                    Optional.of("this.dep"),
+                    Optional.of("this"),
+                    Optional.of("dep"),
+                    Optional.of(Runnable.class.getName())));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, result);
+
+            Assert.assertTrue(result.isDmonPromotionConsumed());
+            Assert.assertFalse(
+                    "A field whose final modifier was only stripped by instrumentation "
+                            + "must never be selected as a static assignment target",
+                    chromosome.isChanged());
+            Assert.assertEquals("No statement should have been inserted",
+                    0, chromosome.getTestCase().size());
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.RESET_STATIC_FINAL_FIELDS = oldReset;
+            ModifiedTargetStaticFields.resetSingleton();
+        }
+    }
+
+    /**
+     * Complementary case to
+     * {@link #staticFieldSelectorRefusesFieldWithStrippedFinalModifier()}: here the
+     * mock statement {@code has} already been inserted into the chromosome's live
+     * {@link TestCase} - exactly what {@code factory.addFunctionalMock} does in place
+     * inside {@code DmonPromotionOperator.tryPromoteInPlace} - and only then does a
+     * later step of the promotion plan fail. Every one of the five failure exits past
+     * that mutation point (two guard checks, two catch clauses) now funnels through
+     * the same private {@code rollbackMutatedTestCase} helper, so this test drives
+     * that helper directly with the exact object-identity setup production code
+     * builds: a pre-mutation {@code backup} clone taken before the mutation, and the
+     * live {@code TestCase} already carrying the orphaned mock.
+     *
+     * <p>
+     * Driving this through the five individual call sites is not practical: each one
+     * is reached only after upstream discovery
+     * ({@code DmonInjectionDiscovery}/{@code TestClusterUtils.isFinalField}, fixed in
+     * d78ed5255) and statement construction ({@code AssignmentStatement}'s
+     * final-field guard, fixed in 46f4cffd6) have already screened out exactly the
+     * conditions that would make them fire - by design, none of the five should ever
+     * trigger with correctly-screened input; they exist as defense in depth against a
+     * future discovery bug. {@code rollbackMutatedTestCase} is itself that shared
+     * defense, so testing it directly with a real, production-identical mutation is
+     * the precise and honest way to verify it.
+     * </p>
+     */
+    @Test
+    public void rollbackAfterMockAddedDiscardsOrphanedMockAndClearsChangedFlag() throws Exception {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+
+            TestChromosome chromosome = new TestChromosome();
+            DefaultTestCase tc = new DefaultTestCase();
+            GenericConstructor gc = new GenericConstructor(
+                    ValidateTarget.class.getDeclaredConstructor(), ValidateTarget.class);
+            tc.addStatement(new ConstructorStatement(tc, gc, Collections.emptyList()));
+            chromosome.setTestCase(tc);
+            chromosome.setChanged(false);
+
+            ExecutionResult original = new ExecutionResult(chromosome.getTestCase(), null);
+            // rollbackMutatedTestCase calls originalResult.clone(), which (like
+            // validateOrRollback's own rollback path) unconditionally dereferences
+            // the trace; give this result a trace the way a real execution would.
+            original.setTrace(new ExecutionTraceImpl());
+            chromosome.setLastExecutionResult(original);
+
+            // Mirror tryPromoteInPlace lines 245/248: snapshot a backup before the
+            // mutation, then mutate the live TestCase in place exactly as
+            // factory.addFunctionalMock does - the orphaned mock a failed promotion
+            // attempt would otherwise leave behind.
+            TestCase backup = tc.clone();
+            TestFactory.getInstance().addFunctionalMock(tc, Runnable.class, 0, new GenerationContext());
+            Assert.assertEquals("Sanity check: the mock really did mutate the live test case in place",
+                    2, chromosome.getTestCase().size());
+            Assert.assertTrue(chromosome.getTestCase().getStatement(0) instanceof FunctionalMockStatement);
+
+            Method rollback = DmonPromotionOperator.class.getDeclaredMethod(
+                    "rollbackMutatedTestCase", TestChromosome.class, TestCase.class, ExecutionResult.class);
+            rollback.setAccessible(true);
+            ExecutionResult restored = (ExecutionResult) rollback.invoke(null, chromosome, backup, original);
+
+            Assert.assertEquals("A failure exit after the mock was added must leave the chromosome's "
+                            + "test case unchanged (same size as before the promotion attempt)",
+                    1, chromosome.getTestCase().size());
+            Assert.assertFalse(chromosome.getTestCase().getStatement(0) instanceof FunctionalMockStatement);
+            Assert.assertFalse("The chromosome must not be left claiming to be unchanged while its "
+                            + "test case still differs from what was last evaluated - nor, after the "
+                            + "rollback runs, claiming a change that was in fact undone",
+                    chromosome.isChanged());
+            Assert.assertSame("The chromosome must be evaluated against the restored result next time",
+                    restored, chromosome.getLastExecutionResult());
+            Assert.assertSame("The restored result must point at the same TestCase object the "
+                            + "chromosome now holds",
+                    chromosome.getTestCase(), restored.test);
+            Assert.assertTrue("A plan that failed at construction time cannot succeed on retry without "
+                            + "code changes, so it must not be retried",
+                    restored.isDmonPromotionConsumed());
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+        }
+    }
+
+    /**
+     * Same rollback helper, but starting from {@code chromosome.setChanged(true)} to
+     * prove the helper does not merely leave whatever flag value was already there: it
+     * must actively force {@code isChanged()} back to {@code false}, because after the
+     * rollback the chromosome's test case is, byte for byte, what {@code originalResult}
+     * was last evaluated against.
+     */
+    @Test
+    public void rollbackAfterMockAddedForcesChangedFlagFalseEvenIfPreviouslyTrue() throws Exception {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+
+            TestChromosome chromosome = new TestChromosome();
+            DefaultTestCase tc = new DefaultTestCase();
+            chromosome.setTestCase(tc);
+            chromosome.setChanged(false);
+
+            ExecutionResult original = new ExecutionResult(chromosome.getTestCase(), null);
+            original.setTrace(new ExecutionTraceImpl());
+            chromosome.setLastExecutionResult(original);
+
+            TestCase backup = tc.clone();
+            TestFactory.getInstance().addFunctionalMock(tc, Runnable.class, 0, new GenerationContext());
+            // Simulate some intervening code having speculatively (and, for this
+            // failure exit, wrongly) marked the chromosome as changed.
+            chromosome.setChanged(true);
+
+            Method rollback = DmonPromotionOperator.class.getDeclaredMethod(
+                    "rollbackMutatedTestCase", TestChromosome.class, TestCase.class, ExecutionResult.class);
+            rollback.setAccessible(true);
+            rollback.invoke(null, chromosome, backup, original);
+
+            Assert.assertFalse("isChanged() must be forced back to false: after the rollback the test "
+                            + "case is exactly what was last evaluated, so the GA must not re-run fitness "
+                            + "evaluation needlessly, nor skip re-evaluation of a genuinely stale cache",
+                    chromosome.isChanged());
+            Assert.assertEquals(0, chromosome.getTestCase().size());
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
         }
     }
 }

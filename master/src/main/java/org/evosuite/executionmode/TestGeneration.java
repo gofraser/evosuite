@@ -652,13 +652,15 @@ public class TestGeneration {
             processArgs.add(cmdLineClone.toArray(new String[0]));
         }
 
+        boolean clientConnectionTimedOut = false;
+
         if (handler.startProcessGroup(processArgs)) {
 
             Set<ClientNodeRemote> clients = null;
             try {
                 //FIXME: timeout here should be handled by TimeController
                 Map<String, ClientNodeRemote> connectedClients = MasterServices.getInstance().getMasterNode()
-                        .getClientsOnceAllConnected(60000);
+                        .getClientsOnceAllConnected(Properties.CLIENT_CONNECTION_TIMEOUT_MS);
                 if (connectedClients != null) {
                     clients = new CopyOnWriteArraySet<>(connectedClients.values());
                 }
@@ -666,6 +668,7 @@ public class TestGeneration {
                 // ignored
             }
             if (clients == null) {
+                clientConnectionTimedOut = true;
                 logger.error("Timed out while waiting for all clients to connect. "
                                 + "Expected {} client(s). Clients' state:\n{}"
                                 + "Master registry port: {}",
@@ -737,6 +740,20 @@ public class TestGeneration {
         }
 
         logger.debug("Master process has finished to wait for client");
+
+        if (clientConnectionTimedOut) {
+            /*
+             * A (partial) statistics row has already been attempted above. But a client that
+             * never registered means this run produced no (or incomplete) test data, so the
+             * process must not exit 0: a driving wrapper script (e.g. on a cluster) relies on
+             * a non-zero exit status to decide whether to retry the run. This check is
+             * deliberately done before the generic "hasFailed" handling below, which is not
+             * allowed to throw (see its comment), so that the timeout is never silently masked
+             * by a subsequent statistics-writing failure.
+             */
+            throw new IllegalStateException("Timed out while waiting for "
+                    + Properties.NUM_PARALLEL_CLIENTS + " client(s) to connect to master; aborting run");
+        }
 
         //FIXME: tmp hack till understood what TestGenerationResult is...
         if (hasFailed) {

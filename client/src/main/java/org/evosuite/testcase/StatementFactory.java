@@ -26,11 +26,14 @@ import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.variable.*;
+import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,6 +50,10 @@ import java.util.Set;
 public class StatementFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(StatementFactory.class);
+
+    /** Receivers are never null and never functional mocks (see the call sites). */
+    private static final VariableResolutionConfig NON_NULL_CALLEE_CONFIG =
+            new VariableResolutionConfig.Builder().withAllowNull(false).withCanUseMocks(false).build();
 
     private final TestFactory testFactory;
 
@@ -139,6 +146,30 @@ public class StatementFactory {
             throw new ConstructionFailedException("Max recursion depth reached");
         }
 
+        if (constructor.getConstructor().getParameterCount() >= 2
+                && constructor.getOwnerClass().hasWildcardOrTypeVariables()) {
+            // The cluster hands out the raw GenericConstructor, so a constructor such as
+            // SetUniqueList(List<E>, Set<E>) still has the owner's type variable E in every
+            // parameter. satisfyParameters resolves each parameter on its own, widening E to
+            // a wildcard, so the two arguments can end up with different instantiations of
+            // E while the printed call has to pick one. Bind E once before satisfying any of
+            // them. Only for 2+ parameters: a single one cannot disagree with itself, and a
+            // forced instantiation would replace the diamond that explicit wildcard owners
+            // (ArrayList<?>) are printed with. exactType helps only when it is a concrete
+            // instantiation of this owner; a raw Class from tryCreateStandardContainer is
+            // wrapped just as unbound as the constructor's own owner.
+            try {
+                GenericClass<?> exactOwner = exactType == null ? null : GenericClassFactory.get(exactType);
+                constructor = exactOwner != null
+                        && !exactOwner.hasWildcardOrTypeVariables()
+                        && exactOwner.getRawClass().equals(constructor.getRawGeneratedType())
+                        ? constructor.copyWithOwnerFromReturnType(exactOwner)
+                        : constructor.getGenericInstantiation();
+            } catch (ConstructionFailedException e) {
+                logger.debug("Cannot bind owner type variables of {}: {}", constructor, e.getMessage());
+            }
+        }
+
         int length = test.size();
 
         try {
@@ -149,10 +180,11 @@ public class StatementFactory {
                     position,
                     context.deeper(),
                     VariableResolutionConfig.defaultConfig());
-            
+
             if (isCapacitySensitiveConstructor(constructor)) {
                 validateOrAdjustCapacityParameters(test, constructor, position, parameters);
             }
+            constructor = bindInnerClassOwnerToEnclosingArgument(constructor, parameters);
             int newLength = test.size();
             position += (newLength - length);
 
@@ -163,6 +195,53 @@ public class StatementFactory {
                     + constructor.getRawGeneratedType().getName()
                     + " due to " + e.getClass().getCanonicalName() + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * A non-static member constructor has an erased synthetic parameter for its enclosing
+     * instance. A generator can therefore carry (for example) {@code Outer<String>.Inner} while
+     * parameter resolution selects an {@code Outer<Integer>} argument. Bind the constructor model
+     * to that actual argument before storing the statement, so subsequent calls use the same
+     * owner type that the renderer sees on the inner variable.
+     */
+    static GenericConstructor bindInnerClassOwnerToEnclosingArgument(
+            GenericConstructor constructor, List<VariableReference> parameters) {
+        Class<?> innerClass = constructor.getRawGeneratedType();
+        if (innerClass == null || !innerClass.isMemberClass()
+                || Modifier.isStatic(innerClass.getModifiers())
+                || innerClass.getDeclaringClass() == null || parameters.isEmpty()) {
+            return constructor;
+        }
+
+        VariableReference enclosingArgument = parameters.get(0);
+        Class<?> enclosingClass = enclosingArgument.getVariableClass();
+        if (enclosingClass == null
+                || !innerClass.getDeclaringClass().isAssignableFrom(enclosingClass)) {
+            return constructor;
+        }
+
+        Type enclosingType;
+        try {
+            enclosingType = GenericUtils.getExactSuperType(
+                    enclosingArgument.getType(), innerClass.getDeclaringClass());
+        } catch (RuntimeException e) {
+            logger.debug("Cannot resolve enclosing type for {}", constructor, e);
+            return constructor;
+        }
+        if (enclosingType == null) {
+            return constructor;
+        }
+
+        Type currentType = constructor.getOwnerClass().getType();
+        Type[] innerArguments = currentType instanceof ParameterizedType
+                ? ((ParameterizedType) currentType).getActualTypeArguments()
+                : innerClass.getTypeParameters();
+        Type reboundType = new ParameterizedTypeImpl(innerClass, innerArguments, enclosingType);
+        GenericClass<?> reboundOwner = GenericClassFactory.get(reboundType);
+        if (reboundOwner.equals(constructor.getOwnerClass())) {
+            return constructor;
+        }
+        return constructor.copyWithNewOwner(reboundOwner);
     }
 
     /**
@@ -186,8 +265,15 @@ public class StatementFactory {
             "java.awt.image.DataBufferByte",
             "java.awt.image.DataBufferInt",
             "java.awt.image.DataBufferShort",
+            "java.awt.image.DataBufferUShort",
             "java.awt.image.DataBufferFloat",
             "java.awt.image.DataBufferDouble",
+            // Rasters and sample models allocate bank index and offset arrays per band, and
+            // the sample arrays themselves, from their int arguments (the factories are
+            // static, so the guard has to be keyed on the declaring class)
+            "java.awt.image.Raster",
+            "java.awt.image.WritableRaster",
+            "java.awt.image.SampleModel",
             // I/O — allocate internal byte[]/char[] buffers
             "java.io.ByteArrayInputStream",
             "java.io.ByteArrayOutputStream",
@@ -534,6 +620,18 @@ public class StatementFactory {
     }
 
     /**
+     * Compiler-generated members (access$NNN stubs, bridges, lambda bodies) cannot be named in
+     * source, so a call to one would never compile in the generated test.
+     */
+    private static void rejectUncallableFromSource(GenericMethod method)
+            throws ConstructionFailedException {
+        if (TestUsageChecker.isNotCallableFromSource(method.getMethod())) {
+            throw new ConstructionFailedException(
+                    "Method cannot be called from source: " + method.getName());
+        }
+    }
+
+    /**
      * Adds a method call.
      *
      * @param test the test case
@@ -545,58 +643,7 @@ public class StatementFactory {
      */
     public VariableReference addMethod(TestCase test, GenericMethod method, int position,
                                        GenerationContext context) throws ConstructionFailedException {
-
-        if (context.getDepth() > Properties.MAX_RECURSION) {
-            throw new ConstructionFailedException("Max recursion depth reached");
-        }
-
-        int length = test.size();
-        VariableReference callee = null;
-        List<VariableReference> parameters = null;
-
-        try {
-            method = bindTypeParameters(method, null);
-            if (!method.isStatic()) {
-                // A functional mock can never be a callee: mocking the receiver would both hide
-                // the real behaviour and short-circuit the lazy dependency resolution that pulls
-                // the receiver's own class (and its parameter types) into the test cluster.
-                VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
-                        VariableResolutionConfig.defaultConfig())
-                        .withAllowNull(false)
-                        .withCanUseMocks(false)
-                        .build();
-                callee = testFactory.createOrReuseVariable(test, method.getOwnerType(), position,
-                        context, nonNullCalleeConfig);
-                
-                position += test.size() - length;
-                length = test.size();
-
-                if (!TestUsageChecker.canUse(method.getMethod(), callee.getVariableClass())) {
-                    throw new ConstructionFailedException("Cannot apply method to this callee");
-                }
-                if (!MethodStatement.isCompatibleCalleeType(method, callee.getType())) {
-                    throw new ConstructionFailedException("Cannot apply method to this callee");
-                }
-            }
-
-            parameters = testFactory.satisfyParameters(test, callee,
-                    Arrays.asList(method.getParameterTypes()),
-                    Arrays.asList(method.getMethod().getParameters()),
-                    position, context.deeper(), true, false, true);
-
-        } catch (ConstructionFailedException e) {
-            throw e;
-        }
-
-        int newLength = test.size();
-        position += (newLength - length);
-
-        Statement st = new MethodStatement(test, method, callee, parameters);
-        VariableReference ret = test.addStatement(st, position);
-        if (callee != null) {
-            ret.setDistance(callee.getDistance() + 1);
-        }
-        return ret;
+        return addMethod(test, method, position, context, true);
     }
 
     /**
@@ -636,27 +683,7 @@ public class StatementFactory {
     public VariableReference addMethodFor(TestCase test, VariableReference callee,
                                           GenericMethod method, int position, GenerationContext context)
             throws ConstructionFailedException {
-
-        if (position <= callee.getStPosition()) {
-            throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
-        }
-
-        method = bindTypeParameters(method, callee.getGenericClass());
-        int length = test.size();
-
-        List<VariableReference> parameters = testFactory.satisfyParameters(
-                test, callee,
-                Arrays.asList(method.getParameterTypes()),
-                Arrays.asList(method.getMethod().getParameters()), position, context.deeper(), true, false, true);
-
-        int newLength = test.size();
-        position += (newLength - length);
-
-        Statement st = new MethodStatement(test, method, callee, parameters);
-        VariableReference ret = test.addStatement(st, position);
-        ret.setDistance(callee.getDistance() + 1);
-
-        return ret;
+        return addMethodFor(test, callee, method, position, context, true);
     }
 
     /**
@@ -667,6 +694,7 @@ public class StatementFactory {
     public VariableReference addMethod(TestCase test, GenericMethod method, int position,
                                        GenerationContext context, boolean allowNullParam)
             throws ConstructionFailedException {
+        rejectUncallableFromSource(method);
 
         if (context.getDepth() > Properties.MAX_RECURSION) {
             throw new ConstructionFailedException("Max recursion depth reached");
@@ -681,13 +709,8 @@ public class StatementFactory {
             // A functional mock can never be a callee: mocking the receiver would both hide the
             // real behaviour and short-circuit the lazy dependency resolution that pulls the
             // receiver's own class (and its parameter types) into the test cluster.
-            VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
-                    VariableResolutionConfig.defaultConfig())
-                    .withAllowNull(false)
-                    .withCanUseMocks(false)
-                    .build();
             callee = testFactory.createOrReuseVariable(test, method.getOwnerType(), position,
-                    context, nonNullCalleeConfig);
+                    context, NON_NULL_CALLEE_CONFIG);
 
             position += test.size() - length;
             length = test.size();
@@ -723,6 +746,7 @@ public class StatementFactory {
     public VariableReference addMethodFor(TestCase test, VariableReference callee,
                                           GenericMethod method, int position, GenerationContext context,
                                           boolean allowNullParameter) throws ConstructionFailedException {
+        rejectUncallableFromSource(method);
 
         if (position <= callee.getStPosition()) {
             throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
@@ -760,6 +784,9 @@ public class StatementFactory {
     public VariableReference addField(TestCase test, GenericField field, int position,
                                       GenerationContext context) throws ConstructionFailedException {
 
+        if (!TestUsageChecker.isCallableFromTestPackage(field.getField())) {
+            throw new ConstructionFailedException("Cannot access field from the test package");
+        }
         if (context.getDepth() > Properties.MAX_RECURSION) {
             throw new ConstructionFailedException("Max recursion depth reached");
         }
@@ -771,13 +798,8 @@ public class StatementFactory {
             // A functional mock can never be a callee: mocking the receiver would both hide the
             // real behaviour and short-circuit the lazy dependency resolution that pulls the
             // receiver's own class (and its parameter types) into the test cluster.
-            VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
-                    VariableResolutionConfig.defaultConfig())
-                    .withAllowNull(false)
-                    .withCanUseMocks(false)
-                    .build();
             callee = testFactory.createOrReuseVariable(test, field.getOwnerType(), position,
-                    context, nonNullCalleeConfig);
+                    context, NON_NULL_CALLEE_CONFIG);
             position += test.size() - length;
 
             if (!TestUsageChecker.canUse(field.getField(), callee.getVariableClass())) {
@@ -815,6 +837,9 @@ public class StatementFactory {
         if (TestClusterUtils.isFinalField(field.getField())) {
             throw new ConstructionFailedException("Cannot assign to final field " + field.getName());
         }
+        if (!TestUsageChecker.isCallableFromTestPackage(field.getField())) {
+            throw new ConstructionFailedException("Cannot access field from the test package");
+        }
 
         if (context.getDepth() > Properties.MAX_RECURSION) {
             throw new ConstructionFailedException("Max recursion depth reached");
@@ -826,13 +851,8 @@ public class StatementFactory {
             // A functional mock can never be a callee: mocking the receiver would both hide the
             // real behaviour and short-circuit the lazy dependency resolution that pulls the
             // receiver's own class (and its parameter types) into the test cluster.
-            VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
-                    VariableResolutionConfig.defaultConfig())
-                    .withAllowNull(false)
-                    .withCanUseMocks(false)
-                    .build();
             callee = testFactory.createOrReuseVariable(test, field.getOwnerType(), position,
-                    context, nonNullCalleeConfig);
+                    context, NON_NULL_CALLEE_CONFIG);
             position += test.size() - length;
             length = test.size();
             if (!TestUsageChecker.canUse(field.getField(), callee.getVariableClass())) {
@@ -858,6 +878,9 @@ public class StatementFactory {
             throw new ConstructionFailedException(message);
         }
 
+        if (AssignmentStatement.isNullForPrimitiveTarget(test, f, var)) {
+            throw new ConstructionFailedException("Cannot assign null to a primitive field");
+        }
         Statement st = new AssignmentStatement(test, f, var);
         VariableReference ret = test.addStatement(st, position);
         assert (test.isValid());
@@ -881,6 +904,9 @@ public class StatementFactory {
         if (TestClusterUtils.isFinalField(field.getField())) {
             throw new ConstructionFailedException("Cannot assign to final field " + field.getName());
         }
+        if (!TestUsageChecker.isCallableFromTestPackage(field.getField())) {
+            throw new ConstructionFailedException("Cannot access field from the test package");
+        }
 
         if (position <= callee.getStPosition()) {
             throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
@@ -901,7 +927,11 @@ public class StatementFactory {
             throw new ConstructionFailedException(message);
         }
 
-        Statement st = new AssignmentStatement(test, new FieldReference(test, field, callee), value);
+        FieldReference target = new FieldReference(test, field, callee);
+        if (AssignmentStatement.isNullForPrimitiveTarget(test, target, value)) {
+            throw new ConstructionFailedException("Cannot assign null to a primitive field");
+        }
+        Statement st = new AssignmentStatement(test, target, value);
         VariableReference ret = test.addStatement(st, position);
         ret.setDistance(callee.getDistance() + 1);
 

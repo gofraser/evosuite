@@ -129,7 +129,11 @@ public class NativeTcp {
      * @param b the byte to send
      */
     public synchronized void writeToSUT(byte b) {
+        boolean wasEmpty = localBuffer.isEmpty();
         localBuffer.add(b);
+        if (wasEmpty) {
+            VirtualNetwork.getInstance().signalStateChange();
+        }
     }
 
     /**

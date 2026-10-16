@@ -94,8 +94,14 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
         this(source.testChromosomeFactory);
 
         source.tests.forEach(e -> addTest(e.clone()));
+        copySuiteLevelValuesFrom(source);
+    }
 
-        //this.setFitness(source.getFitness());
+    /**
+     * Copies the suite-level fitness, coverage and search bookkeeping of {@code source}; the
+     * tests themselves are left to the caller.
+     */
+    protected final void copySuiteLevelValuesFrom(T source) {
         this.setFitnessValues(source.getFitnessValues());
         this.setPreviousFitnessValues(source.getPreviousFitnessValues());
         this.setChanged(source.isChanged());

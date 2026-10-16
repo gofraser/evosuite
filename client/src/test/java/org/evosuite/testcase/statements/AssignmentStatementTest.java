@@ -21,6 +21,8 @@ package org.evosuite.testcase.statements;
 
 import org.evosuite.symbolic.TestCaseBuilder;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.variable.ArrayIndex;
+import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericField;
@@ -61,7 +63,46 @@ public class AssignmentStatementTest {
         Assertions.assertSame(newValue, assignment.getValue());
     }
 
+    @Test
+    public void testReplaceUpdatesSourceOfFieldTarget() throws Exception {
+        TestCaseBuilder builder = new TestCaseBuilder();
+        VariableReference owner1 = builder.appendConstructor(AssignmentFixture.class.getConstructor());
+        VariableReference owner2 = builder.appendConstructor(AssignmentFixture.class.getConstructor());
+        VariableReference value = builder.appendStringPrimitive("v");
+        DefaultTestCase test = builder.getDefaultTestCase();
+
+        FieldReference target = new FieldReference(test,
+                new GenericField(AssignmentFixture.class.getField("instanceText"), AssignmentFixture.class),
+                owner1);
+        AssignmentStatement assignment = new AssignmentStatement(test, target, value);
+        test.addStatement(assignment);
+
+        assignment.replace(owner1, owner2);
+
+        Assertions.assertFalse(assignment.references(owner1), test.toCode());
+        Assertions.assertTrue(assignment.references(owner2), test.toCode());
+    }
+
+    @Test
+    public void testReplaceUpdatesArrayOfIndexTarget() throws Exception {
+        TestCaseBuilder builder = new TestCaseBuilder();
+        ArrayReference array1 = builder.appendArrayStmt(String[].class, 2);
+        ArrayReference array2 = builder.appendArrayStmt(String[].class, 2);
+        VariableReference value = builder.appendStringPrimitive("v");
+        DefaultTestCase test = builder.getDefaultTestCase();
+
+        AssignmentStatement assignment = new AssignmentStatement(test,
+                new ArrayIndex(test, array1, 0), value);
+        test.addStatement(assignment);
+
+        assignment.replace(array1, array2);
+
+        Assertions.assertFalse(assignment.references(array1), test.toCode());
+        Assertions.assertTrue(assignment.references(array2), test.toCode());
+    }
+
     public static class AssignmentFixture {
         public static String text;
+        public String instanceText;
     }
 }

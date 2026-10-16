@@ -20,6 +20,7 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -161,29 +162,27 @@ final class SemanticStringInputSynthesizer {
 
     private static String exemplar(Kind kind, Set<String> fields) {
         switch (kind) {
-        case JSON:
-            if (fields.contains("VALUE_STRING")) {
-                return "{\"value\":\"text\"}";
-            }
-            if (fields.contains("START_ARRAY") || fields.contains("END_ARRAY")) {
-                return "{\"value\":[]}";
-            }
-            if (fields.contains("START_OBJECT")) {
-                return "{\"value\":{}}";
-            }
-            if (fields.contains("END_OBJECT")) {
-                return "{}";
-            }
-            return "{\"value\":0}";
+            case JSON:
+                if (fields.contains("VALUE_STRING")) {
+                    return "{\"value\":\"text\"}";
+                }
+                if (fields.contains("START_ARRAY") || fields.contains("END_ARRAY")) {
+                    return "{\"value\":[]}";
+                }
+                if (fields.contains("START_OBJECT")) {
+                    return "{\"value\":{}}";
+                }
+                if (fields.contains("END_OBJECT")) {
+                    return "{}";
+                }
+                return "{\"value\":0}";
             case CIDR:
-
-                // Start with a fully valid value. Its String slot remains mutable, so ordinary
-                // search
+                // Start with a fully valid value. Its String slot remains mutable, so ordinary search
                 // can subsequently explore malformed masks without templates failing at the parser.
                 return "10.0.0.1/24";
-        case IP_ADDRESS:
-        default:
-            return "10.0.0.1";
+            case IP_ADDRESS:
+            default:
+                return "10.0.0.1";
         }
     }
 

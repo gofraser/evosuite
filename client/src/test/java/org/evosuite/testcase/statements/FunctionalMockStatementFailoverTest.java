@@ -20,7 +20,14 @@
 package org.evosuite.testcase.statements;
 
 import org.evosuite.Properties;
+import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
+import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testcase.variable.VariableReferenceImpl;
+import org.evosuite.utils.generic.GenericClassFactory;
+import org.mockito.MockSettings;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -107,5 +114,38 @@ public class FunctionalMockStatementFailoverTest {
         assertFalse(FunctionalMockStatement.isFunctionalMockingGloballyDisabledForTests());
         assertEquals(0.6, Properties.P_FUNCTIONAL_MOCKING, 0.0);
         assertTrue(Properties.MOCK_IF_NO_GENERATOR);
+    }
+
+    @Test
+    public void testCauseChainRecognizesModuleAccessRefusal() {
+        Throwable chain = new RuntimeException(
+                new java.lang.reflect.InaccessibleObjectException("module java.base does not open"));
+        assertTrue(FunctionalMockStatement.isMockAccessRefusalForTests(chain));
+        assertFalse(FunctionalMockStatement.isMockAccessRefusalForTests(new IllegalStateException("other")));
+    }
+
+    @Test
+    public void testModuleAccessRefusalFailsOnlyTheStatement() throws Exception {
+        FunctionalMockStatement.resetMockingFailoverStateForTests();
+        Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE = Properties.FunctionalMockingFailoverMode.CLASS;
+
+        TestCase tc = new DefaultTestCase();
+        VariableReference ref = new VariableReferenceImpl(tc, java.util.List.class);
+        FunctionalMockStatement stmt = new FunctionalMockStatement(tc, ref,
+                GenericClassFactory.get(java.util.List.class)) {
+            @Override
+            protected MockSettings createMockSettings() {
+                throw new java.lang.reflect.InaccessibleObjectException(
+                        "Unable to make public java.lang.Object() accessible");
+            }
+        };
+        tc.addStatement(stmt);
+
+        // The refusal is reported as an exception of the statement, not as an EvosuiteError
+        // that would abort the search.
+        Throwable result = stmt.execute(new Scope(), System.out);
+
+        assertNotNull(result);
+        assertTrue(FunctionalMockStatement.isClassBlacklistedForTests("java.util.List"));
     }
 }

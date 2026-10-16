@@ -21,9 +21,8 @@ package org.evosuite.testsuite;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestPresentationMetadata;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,7 +30,6 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.List;
 
 /** Reads and writes validated structural-suite artifacts. */
 public final class StructuralSuiteArtifact {
@@ -43,6 +41,16 @@ public final class StructuralSuiteArtifact {
         // utility class
     }
 
+    /**
+     * Writes the assertion-free structure of a suite and its metadata to disk.
+     *
+     * @param artifactFile the file the suite is serialized to; its metadata goes next to it
+     * @param targetClass the class under test
+     * @param suite the suite to store
+     * @param minimizationResult the result of the minimization that produced the suite
+     * @return the metadata that was written
+     * @throws IOException if the artifact cannot be written
+     */
     public static StructuralSuiteMetadata write(File artifactFile, String targetClass,
                                                 TestSuiteChromosome suite,
                                                 MinimizationResult minimizationResult) throws IOException {
@@ -83,15 +91,9 @@ public final class StructuralSuiteArtifact {
             // Fingerprint the persisted representation, which is the exact
             // representation every replay arm will load, rather than the
             // pre-serialization in-memory graph.
-            List<TestChromosome> normalizedTests = TestSuiteSerialization.loadTests(
-                    artifactTemp.toFile());
-            TestSuiteChromosome normalizedSuite = new TestSuiteChromosome();
-            for (TestChromosome test : normalizedTests) {
-                normalizedSuite.addTestChromosome(test);
-            }
-            boolean normalizationChangedShape = normalizedSuite.size() != structuralSuite.size()
-                    || normalizedSuite.totalLengthOfTestCases()
-                    != structuralSuite.totalLengthOfTestCases();
+            TestSuiteChromosome normalizedSuite = loadSuite(artifactTemp.toFile());
+            boolean normalizationChangedShape = !hasShape(normalizedSuite,
+                    structuralSuite.size(), structuralSuite.totalLengthOfTestCases());
             if (normalizationChangedShape) {
                 // A test can deserialize yet fail class-loader normalization.
                 // Persist the successfully normalized subset as the canonical
@@ -101,15 +103,9 @@ public final class StructuralSuiteArtifact {
                     throw new IOException("Could not serialize normalized structural suite to "
                             + artifact);
                 }
-                List<TestChromosome> validationTests = TestSuiteSerialization.loadTests(
-                        artifactTemp.toFile());
-                TestSuiteChromosome validationSuite = new TestSuiteChromosome();
-                for (TestChromosome test : validationTests) {
-                    validationSuite.addTestChromosome(test);
-                }
-                if (validationSuite.size() != normalizedSuite.size()
-                        || validationSuite.totalLengthOfTestCases()
-                        != normalizedSuite.totalLengthOfTestCases()) {
+                TestSuiteChromosome validationSuite = loadSuite(artifactTemp.toFile());
+                if (!hasShape(validationSuite,
+                        normalizedSuite.size(), normalizedSuite.totalLengthOfTestCases())) {
                     throw new IOException("Normalized structural suite is not round-trip stable: expected "
                             + normalizedSuite.size() + " tests/"
                             + normalizedSuite.totalLengthOfTestCases() + " statements but loaded "
@@ -141,6 +137,14 @@ public final class StructuralSuiteArtifact {
         return metadata;
     }
 
+    /**
+     * Loads a stored suite and verifies it against its metadata and structural fingerprint.
+     *
+     * @param artifactFile the file the suite was serialized to
+     * @param expectedTargetClass the class under test the artifact must belong to
+     * @return the loaded suite with its metadata
+     * @throws IOException if the artifact is missing, malformed or does not match its metadata
+     */
     public static Loaded read(File artifactFile, String expectedTargetClass) throws IOException {
         validatePath(artifactFile);
         File artifact = artifactFile.getAbsoluteFile();
@@ -155,14 +159,9 @@ public final class StructuralSuiteArtifact {
         StructuralSuiteMetadata metadata = JSON.readValue(metadataFile, StructuralSuiteMetadata.class);
         validateMetadata(metadata, expectedTargetClass);
 
-        List<TestChromosome> tests = TestSuiteSerialization.loadTests(artifact);
-        TestSuiteChromosome suite = new TestSuiteChromosome();
-        for (TestChromosome test : tests) {
-            suite.addTestChromosome(test);
-        }
+        TestSuiteChromosome suite = loadSuite(artifact);
 
-        if (suite.size() != metadata.getTestCount()
-                || suite.totalLengthOfTestCases() != metadata.getStatementCount()) {
+        if (!hasShape(suite, metadata.getTestCount(), metadata.getStatementCount())) {
             throw new IOException("Structural-suite shape does not match its metadata: expected "
                     + metadata.getTestCount() + " tests/" + metadata.getStatementCount()
                     + " statements but loaded " + suite.size() + " tests/"
@@ -178,6 +177,22 @@ public final class StructuralSuiteArtifact {
         return new Loaded(suite, metadata);
     }
 
+    private static TestSuiteChromosome loadSuite(File file) {
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTestChromosomes(TestSuiteSerialization.loadTests(file));
+        return suite;
+    }
+
+    private static boolean hasShape(TestSuiteChromosome suite, long tests, long statements) {
+        return suite.size() == tests && suite.totalLengthOfTestCases() == statements;
+    }
+
+    /**
+     * Returns the file holding the metadata of the given artifact.
+     *
+     * @param artifactFile the artifact
+     * @return the metadata file next to it
+     */
     public static File metadataFile(File artifactFile) {
         return new File(artifactFile.getPath() + ".json");
     }
@@ -242,7 +257,12 @@ public final class StructuralSuiteArtifact {
             this.metadata = metadata;
         }
 
-        public TestSuiteChromosome getSuite() { return suite; }
-        public StructuralSuiteMetadata getMetadata() { return metadata; }
+        public TestSuiteChromosome getSuite() {
+            return suite;
+        }
+
+        public StructuralSuiteMetadata getMetadata() {
+            return metadata;
+        }
     }
 }

@@ -23,6 +23,7 @@ import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.mock.OverrideMock;
 
 import javax.swing.JDialog;
+
 import java.awt.Dialog;
 import java.awt.Dialog.ModalityType;
 import java.awt.Frame;
@@ -132,8 +133,17 @@ public class MockJDialog extends JDialog implements OverrideMock {
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
+    /**
+     * Creates a dialog that falls back to a stub graphics configuration when none is given.
+     *
+     * @param owner the owner window
+     * @param title the dialog title
+     * @param modalityType the modality type
+     * @param gc the graphics configuration, or null for the default or stub configuration
+     */
     public MockJDialog(Window owner, String title, ModalityType modalityType, GraphicsConfiguration gc) {
-        super(prepareWindow(owner), title, modalityType, gc != null ? gc : GuiSupport.getDefaultOrStubGraphicsConfiguration());
+        super(prepareWindow(owner), title, modalityType,
+                gc != null ? gc : GuiSupport.getDefaultOrStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 

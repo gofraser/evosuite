@@ -558,13 +558,12 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 logger.error("Some statistics are missing; writing the row with empty values for them");
                 map = getOutputVariables(individual, true);
                 setGenerationStatus(TestGenerationResult.Status.ERROR.name());
-                if (map != null) {
-                    OutputVariable<?> status = map.get(RuntimeVariable.Test_Generation_Status.toString());
-                    if (status == null || !TestGenerationResult.Status.ERROR.name().equals(String.valueOf(status.getValue()))) {
-                        map.put(RuntimeVariable.Test_Generation_Status.toString(),
-                                new OutputVariable<>(RuntimeVariable.Test_Generation_Status.toString(),
-                                        TestGenerationResult.Status.ERROR.name()));
-                    }
+                // Keep the selected schema: CSV rows are serialized positionally under
+                // the first row's header. The internal status still records the failure
+                // for coverage normalization even when the status column is unselected.
+                if (map != null && map.containsKey(RuntimeVariable.Test_Generation_Status.toString())) {
+                    map.put(RuntimeVariable.Test_Generation_Status.toString(),
+                            outputVariables.get(RuntimeVariable.Test_Generation_Status.toString()));
                 }
             }
 
@@ -620,28 +619,34 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             return false;
         }
 
-        Double coverageValue = normalizeGoalsAndCoverage(map, individual);
-        normalizeCriterionCoverage(map, coverageValue);
-        if (coverageValue == null || coverageValue == 0.0) {
-            OutputVariable<?> lineCoverageVar = map.get(RuntimeVariable.LineCoverage.name());
-            if (lineCoverageVar == null) {
-                lineCoverageVar = outputVariables.get(RuntimeVariable.LineCoverage.name());
-            }
-            OutputVariable<?> criterionVar = map.get("criterion");
-            Double lineCoverage = lineCoverageVar == null ? null : toDouble(lineCoverageVar.getValue());
-            String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
-            boolean isLineCriterion = criterion.equalsIgnoreCase("LINE")
-                    || criterion.equalsIgnoreCase("ONLYLINE")
-                    || criterion.isEmpty();
-            OutputVariable<?> totalGoalsOut = map.get(RuntimeVariable.Total_Goals.toString());
-            OutputVariable<?> coveredGoalsOut = map.get(RuntimeVariable.Covered_Goals.toString());
-            boolean missingTotals =
-                    totalGoalsOut == null || coveredGoalsOut == null
-                            || toDouble(totalGoalsOut.getValue()) == null
-                            || toDouble(coveredGoalsOut.getValue()) == null;
-            if (lineCoverage != null && isLineCriterion && missingTotals) {
-                map.put(RuntimeVariable.Coverage.toString(),
-                        new OutputVariable<>(RuntimeVariable.Coverage.toString(), lineCoverage));
+        if (isCoverageAnalysisReportedIncomplete()) {
+            // Raw completeness gates this branch, so Coverage and the goal counters are
+            // withheld here instead of normalized as if the sweep had finished, even though
+            // other paths (e.g. StatisticsSender) can still have written them into map.
+            withholdAggregatesForIncompleteCoverageAnalysis(map);
+        } else {
+            Double coverageValue = normalizeGoalsAndCoverage(map, individual);
+            normalizeCriterionCoverage(map, coverageValue);
+            if (coverageValue == null || coverageValue == 0.0) {
+                OutputVariable<?> lineCoverageVar = map.get(RuntimeVariable.LineCoverage.name());
+                if (lineCoverageVar == null) {
+                    lineCoverageVar = outputVariables.get(RuntimeVariable.LineCoverage.name());
+                }
+                Double lineCoverage = lineCoverageVar == null ? null : toDouble(lineCoverageVar.getValue());
+                String criterion = projectedCriterionName(map);
+                boolean isLineCriterion = criterion.equalsIgnoreCase("LINE")
+                        || criterion.equalsIgnoreCase("ONLYLINE")
+                        || criterion.isEmpty();
+                OutputVariable<?> totalGoalsOut = map.get(RuntimeVariable.Total_Goals.toString());
+                OutputVariable<?> coveredGoalsOut = map.get(RuntimeVariable.Covered_Goals.toString());
+                boolean missingTotals =
+                        totalGoalsOut == null || coveredGoalsOut == null
+                                || toDouble(totalGoalsOut.getValue()) == null
+                                || toDouble(coveredGoalsOut.getValue()) == null;
+                if (lineCoverage != null && isLineCriterion && missingTotals) {
+                    map.put(RuntimeVariable.Coverage.toString(),
+                            new OutputVariable<>(RuntimeVariable.Coverage.toString(), lineCoverage));
+                }
             }
         }
 
@@ -654,6 +659,90 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         } else {
             backend.writeData(individual, map);
             return true;
+        }
+    }
+
+    /**
+     * Checks whether the client reported an incomplete coverage-analysis sweep via {@link
+     * RuntimeVariable#CoverageAnalysisComplete} (see {@link
+     * org.evosuite.coverage.CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()}).
+     * Reads the raw {@link #outputVariables} map, not a projected {@code map}, because
+     * this gate must apply even when the marker itself was not selected into the output.
+     *
+     * @return true if the sweep was reported incomplete
+     */
+    private boolean isCoverageAnalysisReportedIncomplete() {
+        OutputVariable<?> completeVar = outputVariables.get(RuntimeVariable.CoverageAnalysisComplete.toString());
+        if (completeVar == null || completeVar.getValue() == null) {
+            return false;
+        }
+        return "false".equalsIgnoreCase(String.valueOf(completeVar.getValue()).trim());
+    }
+
+    /**
+     * Blanks {@link RuntimeVariable#Coverage}, {@link RuntimeVariable#Total_Goals} and {@link
+     * RuntimeVariable#Covered_Goals} in {@code map} for an incomplete sweep, so the CSV never
+     * reports a sweep missing one or more configured criteria as an ordinary, trustworthy score.
+     * Each of those three entries is replaced in place via {@link LinkedHashMap#put} on its
+     * existing key only if already present, never removed and never inserted for a key the
+     * {@code -Doutput_variables} selection omitted. {@link
+     * RuntimeVariable#CoverageAnalysisGoalsChecked}/{@code CoverageAnalysisGoalsTotal} (the
+     * already-accurate per-criterion progress) are untouched.
+     *
+     * <p>{@link #withholdCriterionCoverageForIncompleteCoverageAnalysis(Map)} is also applied
+     * here so the final projected schema -- the key set {@link
+     * org.evosuite.statistics.backend.CSVStatisticsBackend} actually writes -- does not depend on
+     * whether this method or {@link #normalizeCriterionCoverage(Map, Double)} ran: both insert
+     * {@link RuntimeVariable#BranchCoverage} under the same single-{@code BRANCH}-criterion
+     * condition, so together they keep the column order and field count identical between a
+     * complete and an incomplete sweep for the same selection.
+     *
+     * @param map the output-variable map about to be written
+     */
+    private static void withholdAggregatesForIncompleteCoverageAnalysis(Map<String, OutputVariable<?>> map) {
+        blankIfPresent(map, RuntimeVariable.Coverage.toString());
+        blankIfPresent(map, RuntimeVariable.Total_Goals.toString());
+        blankIfPresent(map, RuntimeVariable.Covered_Goals.toString());
+        withholdCriterionCoverageForIncompleteCoverageAnalysis(map);
+    }
+
+    /**
+     * Replaces {@code key}'s entry with a blank value, in place, only if {@code map} already has
+     * that key -- see {@link #withholdAggregatesForIncompleteCoverageAnalysis(Map)}.
+     */
+    private static void blankIfPresent(Map<String, OutputVariable<?>> map, String key) {
+        if (map.containsKey(key)) {
+            map.put(key, new OutputVariable<>(key, ""));
+        }
+    }
+
+    /**
+     * Mirrors, for an incomplete sweep, the schema effect that {@link
+     * #normalizeCriterionCoverage(Map, Double)} has on a complete one: when the projected {@code
+     * criterion} is exactly {@code BRANCH}, {@link RuntimeVariable#BranchCoverage} ends up in the
+     * final map either way, whether or not {@code -Doutput_variables} selected it, so {@link
+     * org.evosuite.statistics.backend.CSVStatisticsBackend}'s header and every row it appends keep
+     * the same key set regardless of completeness. Unlike the complete-sweep path -- which fills
+     * the value with the sweep's derived coverage -- this always blanks it, present or not,
+     * exactly like {@link #blankIfPresent(Map, String)} does for {@link RuntimeVariable#Coverage}:
+     * an abandoned sweep must not report a plausible-looking number for the one configured
+     * criterion, even if {@code BranchCoverage} itself was selected.
+     *
+     * <p>That schema effect is deliberately governed by {@link #isBranchOnlyCriterion(Map)} alone
+     * -- the projected {@code criterion} column -- so an unselected {@code BranchCoverage} is
+     * never inserted here. But a run can be configured single-{@code BRANCH} in {@link Properties}
+     * while {@code -Doutput_variables} omits the {@code criterion} column itself; in that case
+     * {@link #isBranchOnlyCriterion(Map)} is false, yet an already selected {@code BranchCoverage}
+     * must still be blanked, not retained as an ordinary-looking score. {@link
+     * #isConfiguredBranchOnlyCriterion()} answers that from run configuration directly, and only
+     * ever blanks a value already present -- it never inserts the column either.
+     */
+    private static void withholdCriterionCoverageForIncompleteCoverageAnalysis(Map<String, OutputVariable<?>> map) {
+        if (isBranchOnlyCriterion(map)) {
+            map.put(RuntimeVariable.BranchCoverage.toString(),
+                    new OutputVariable<>(RuntimeVariable.BranchCoverage.toString(), ""));
+        } else if (isConfiguredBranchOnlyCriterion()) {
+            blankIfPresent(map, RuntimeVariable.BranchCoverage.toString());
         }
     }
 
@@ -750,15 +839,16 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Fill criterion-specific coverage variables when they are missing.
+     * Fill criterion-specific coverage variables when they are missing. Only called for a
+     * complete sweep; {@link #withholdCriterionCoverageForIncompleteCoverageAnalysis(Map)} is its
+     * incomplete-sweep counterpart, inserting the same {@link RuntimeVariable#BranchCoverage} key
+     * (blanked, not derived) so the final schema does not depend on completeness.
      */
     private static void normalizeCriterionCoverage(Map<String, OutputVariable<?>> map, Double coverageValue) {
         if (coverageValue == null) {
             return;
         }
-        OutputVariable<?> criterionVar = map.get("criterion");
-        String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
-        if (criterion.equalsIgnoreCase("BRANCH")) {
+        if (isBranchOnlyCriterion(map)) {
             OutputVariable<?> branchCoverageVar = map.get(RuntimeVariable.BranchCoverage.toString());
             Double branchCoverage = branchCoverageVar == null ? null : toDouble(branchCoverageVar.getValue());
             if (branchCoverage == null) {
@@ -766,6 +856,51 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                         new OutputVariable<>(RuntimeVariable.BranchCoverage.toString(), coverageValue));
             }
         }
+    }
+
+    /**
+     * The projected {@code criterion} column's value, trimmed, or {@code ""} when the column is not
+     * part of this projection.
+     */
+    private static String projectedCriterionName(Map<String, OutputVariable<?>> map) {
+        OutputVariable<?> criterionVar = map.get("criterion");
+        return criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
+    }
+
+    /**
+     * Whether the projected {@code criterion} column -- see {@link #projectedCriterionName(Map)} --
+     * is exactly {@code BRANCH}: the case in which {@link #normalizeCriterionCoverage(Map, Double)}
+     * derives a {@code BranchCoverage} column for a complete sweep and {@link
+     * #withholdCriterionCoverageForIncompleteCoverageAnalysis(Map)} inserts the same column
+     * (blanked) for an incomplete one. Both must answer this question identically or the two
+     * outcomes emit different schemas.
+     *
+     * <p>This governs SCHEMA only -- whether {@code BranchCoverage} is inserted at all -- and is
+     * {@code false} whenever {@code -Doutput_variables} did not select {@code criterion}, even if
+     * the run is actually configured single-{@code BRANCH}. It does not, and must not, decide
+     * whether an already selected {@code BranchCoverage} VALUE should be blanked; see {@link
+     * #isConfiguredBranchOnlyCriterion()} for that question.
+     */
+    private static boolean isBranchOnlyCriterion(Map<String, OutputVariable<?>> map) {
+        return projectedCriterionName(map).equalsIgnoreCase("BRANCH");
+    }
+
+    /**
+     * Whether this run is actually configured, in {@link Properties#CRITERION}, with exactly one
+     * criterion and it is {@code BRANCH} -- independent of whether {@code -Doutput_variables}
+     * selected the {@code criterion} column for output. This is the same array that populates the
+     * projected {@code criterion} column itself when it is selected ({@link
+     * PropertyOutputVariableFactory} reads it via {@link Properties#getStringValue(String)}), read
+     * here directly instead of through that projection.
+     *
+     * <p>Used only to decide whether an EXISTING selected {@link RuntimeVariable#BranchCoverage}
+     * value must be blanked for an incomplete sweep -- never to decide whether to INSERT the
+     * column. {@link #isBranchOnlyCriterion(Map)} alone governs insertion, so an unselected {@code
+     * BranchCoverage} is never invented from this check.
+     */
+    private static boolean isConfiguredBranchOnlyCriterion() {
+        Properties.Criterion[] criteria = Properties.CRITERION;
+        return criteria != null && criteria.length == 1 && criteria[0] == Properties.Criterion.BRANCH;
     }
 
     private void setCoverageUnavailableIfMissing(Map<String, OutputVariable<?>> map) {

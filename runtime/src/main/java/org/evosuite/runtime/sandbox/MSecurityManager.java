@@ -49,6 +49,7 @@ import java.net.UnknownHostException;
 import java.security.*;
 import java.sql.SQLPermission;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -220,6 +221,13 @@ public class MSecurityManager extends SecurityManager {
     private static volatile long sandboxLockAcquireTimeoutMs = TimeUnit.MINUTES.toMillis(5);
 
     /**
+     * See {@link Sandbox#setJvmExitRefused(boolean)}. Kept here rather than in {@link Sandbox}
+     * because it is read during permission checks, which must not load a class whose static
+     * initializer sets the security manager.
+     */
+    private static volatile boolean jvmExitRefused;
+
+    /**
      * Override the default 5-minute timeout used by {@link #goingToExecuteTestCase()}
      * when waiting to acquire the sandbox lock. Callers (e.g. the EvoSuite
      * client side) can tune this based on Properties.TIMEOUT and friends.
@@ -244,6 +252,10 @@ public class MSecurityManager extends SecurityManager {
     /**
      * Data structure containing all the (EvoSuite) threads that do not need to
      * go through the same sandbox as the SUT threads.
+     *
+     * <p>Every permission check looks the current thread up here, and EvoSuite registers
+     * short-lived helper threads all the time, so this is a plain concurrent set rather than a
+     * copy-on-write one, and threads that have terminated are pruned when threads are added.
      */
     private final Set<Thread> privilegedThreads;
 
@@ -279,9 +291,14 @@ public class MSecurityManager extends SecurityManager {
      * instance is automatically added as "privileged".
      */
     public MSecurityManager() {
-        privilegedThreads = new CopyOnWriteArraySet<>();
+        privilegedThreads = ConcurrentHashMap.newKeySet();
         privilegedThreads.add(Thread.currentThread());
-        defaultManager = System.getSecurityManager();
+        SecurityManager current = System.getSecurityManager();
+        // A stand-in left while an earlier sandbox was down is not what this one restores: it
+        // restores the manager the stand-in replaced, or a new stand-in for it if exiting the
+        // JVM is still refused then.
+        defaultManager = current instanceof ExitRefusingSecurityManager
+                ? ((ExitRefusingSecurityManager) current).getReplacedManager() : current;
         executingTestCase = false;
         privilegedThreadToIgnore = null;
         privilegedThreadToIgnoreNesting = 0;
@@ -311,8 +328,19 @@ public class MSecurityManager extends SecurityManager {
      * @return the set of privileged threads
      */
     public Set<Thread> getPrivilegedThreads() {
+        pruneTerminatedPrivilegedThreads();
         Set<Thread> set = new LinkedHashSet<>(privilegedThreads);
         return set;
+    }
+
+    /**
+     * Forgets privileged threads that have terminated. A terminated thread can never ask for a
+     * permission again, but keeping it would make the set, and every copy of it handed to a new
+     * security manager, grow with each helper thread EvoSuite ever started. Threads that were
+     * registered before being started are kept.
+     */
+    private void pruneTerminatedPrivilegedThreads() {
+        privilegedThreads.removeIf(t -> t.getState() == Thread.State.TERMINATED);
     }
 
     /**
@@ -459,7 +487,9 @@ public class MSecurityManager extends SecurityManager {
      */
     public void restoreDefaultManager() throws SecurityException {
         try {
-            System.setSecurityManager(defaultManager);
+            // Handing over to the stand-in directly leaves no moment without a manager.
+            System.setSecurityManager(jvmExitRefused
+                    ? new ExitRefusingSecurityManager(defaultManager) : defaultManager);
         } catch (UnsupportedOperationException e) {
             // Java 24+ no longer supports Security Manager
             evoLogger.warn("* Security Manager is not supported in this JVM (Java 24+), cannot restore");
@@ -824,7 +854,14 @@ public class MSecurityManager extends SecurityManager {
      */
     public synchronized void addPrivilegedThread(Thread t) throws SecurityException {
         if (privilegedThreads.contains(Thread.currentThread())) {
+            if (privilegedThreads.contains(t)) {
+                return;
+            }
+            if (t.getState() == Thread.State.TERMINATED) {
+                return;
+            }
             logger.debug("Adding privileged thread: \"" + t.getName() + "\"");
+            pruneTerminatedPrivilegedThreads();
             privilegedThreads.add(t);
         } else {
             String current = Thread.currentThread().getName();
@@ -897,6 +934,25 @@ public class MSecurityManager extends SecurityManager {
         return;
     }
 
+    static void setJvmExitRefused(boolean refused) {
+        jvmExitRefused = refused;
+    }
+
+    static boolean isJvmExitRefused() {
+        return jvmExitRefused;
+    }
+
+    /**
+     * Whether the permission is the one checked by {@code System.exit}, {@code Runtime.exit}
+     * and {@code Runtime.halt}.
+     *
+     * @param perm the permission
+     * @return true if granting it would let the JVM be terminated
+     */
+    static boolean isExitPermission(Permission perm) {
+        return perm instanceof RuntimePermission && perm.getName().startsWith("exitVM");
+    }
+
     // ------------------------------------------------------------------------------------------
 
     private boolean isAWTThread() {
@@ -931,6 +987,12 @@ public class MSecurityManager extends SecurityManager {
              * allow everything
              */
             return true;
+        }
+
+        // Not even to privileged threads: a sandbox brought up by a generated test makes every
+        // thread alive at that moment privileged, SUT threads left over from earlier tests included.
+        if (jvmExitRefused && isExitPermission(perm)) {
+            return false;
         }
 
         /*

@@ -22,6 +22,8 @@ package org.evosuite.testcase.dmon;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.setup.TestClusterUtils;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.TestCase;
@@ -35,6 +37,7 @@ import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
+import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericField;
@@ -145,7 +148,24 @@ public final class DmonPromotionOperator {
 
         DmonPromotionPlan plan = result.getDmonPromotionPlan();
         registerOwnerForStaticReset(plan);
-        PromotionAttempt attempt = tryPromoteInPlace(individual, plan, result);
+        PromotionAttempt attempt;
+        try {
+            attempt = tryPromoteInPlace(individual, plan, result);
+        } catch (RuntimeException e) {
+            // Only failures before the test case is touched can reach this handler (target
+            // resolution, which is read-only reflection); everything from the backup clone
+            // onwards runs inside tryPromoteInPlace's rollback boundary.
+            logger.warn("DMoN promotion aborted: {}", e.toString());
+            attempt = new PromotionAttempt(result, false, "UNEXPECTED_FAILURE");
+        } catch (LinkageError e) {
+            // Reflecting over a SUT class (getMethods, getDeclaredField, ...) links the
+            // types it mentions; one that is absent from the classpath raises
+            // NoClassDefFoundError here, before the test case is touched. Post-mutation
+            // linkage errors are rolled back in tryPromoteInPlace. That makes this promotion impossible, nothing more:
+            // left to propagate it ends the whole client run.
+            logger.debug("DMoN promotion abandoned, SUT class cannot be linked: {}", e.toString());
+            attempt = new PromotionAttempt(result, false, "LINKAGE_ERROR");
+        }
         logger.debug("{} DMoN promotion plan at {}.{}:{} [reason={}]",
                 attempt.applied ? "Applied" : "Consumed",
                 plan.getFailureSite().getOwnerClass(),
@@ -261,7 +281,8 @@ public final class DmonPromotionOperator {
                 newStatements.add(buildStaticFieldAssignment(test, staticTargetField, mockRef));
             } else {
                 if (instanceAccessor == null) {
-                    return new PromotionAttempt(originalResult, false, "NO_INSTANCE_ACCESSOR");
+                    return new PromotionAttempt(
+                            rollbackMutatedTestCase(individual, backup, originalResult), false, "NO_INSTANCE_ACCESSOR");
                 }
                 MethodStatement accessorStatement = buildStaticAccessorCall(test, instanceAccessor);
                 VariableReference receiver = accessorStatement.getReturnValue();
@@ -272,7 +293,9 @@ public final class DmonPromotionOperator {
                     newStatements.add(accessorStatement);
                     newStatements.add(buildInstanceFieldAssignment(test, instanceField, receiver, mockRef));
                 } else {
-                    return new PromotionAttempt(originalResult, false, "NO_INSTANCE_INJECTION_TARGET");
+                    return new PromotionAttempt(
+                            rollbackMutatedTestCase(individual, backup, originalResult), false,
+                                    "NO_INSTANCE_INJECTION_TARGET");
                 }
             }
             int insertionIndex = 1;
@@ -287,12 +310,60 @@ public final class DmonPromotionOperator {
                     instanceAccessor, instanceSetter, instanceField, fieldHint);
             return validateOrRollback(individual, backup, originalResult, restore, plan);
         } catch (ConstructionFailedException | RuntimeException e) {
+            // Covers both a failed mock/statement construction and a statement loop
+            // that added some but not all of newStatements before throwing: either
+            // way the live TestCase was mutated in place, and rollbackMutatedTestCase
+            // discards the whole object (partial statements included) in favour of
+            // the pre-mutation backup, so no separate partial-add cleanup is needed.
             logger.debug("DMoN promotion failed: {}", e.getMessage(), e);
-            return new PromotionAttempt(originalResult, false, "CONSTRUCTION_FAILED");
+            return new PromotionAttempt(
+                    rollbackMutatedTestCase(individual, backup, originalResult), false, "CONSTRUCTION_FAILED");
         } catch (IllegalAccessException e) {
             logger.debug("DMoN validation restore snapshot failed: {}", e.getMessage(), e);
-            return new PromotionAttempt(originalResult, false, "VALIDATION_SNAPSHOT_FAILED");
+            return new PromotionAttempt(
+                    rollbackMutatedTestCase(individual, backup, originalResult), false, "VALIDATION_SNAPSHOT_FAILED");
+        } catch (LinkageError e) {
+            // Includes ExceptionInInitializerError and NoClassDefFoundError raised by a SUT
+            // static initializer while the validation snapshot reads a field. The test case
+            // is already mutated here, so it must be rolled back like any other failure.
+            logger.debug("DMoN promotion abandoned, SUT class cannot be linked: {}", e.toString());
+            return new PromotionAttempt(
+                    rollbackMutatedTestCase(individual, backup, originalResult), false, "LINKAGE_ERROR");
         }
+    }
+
+    /**
+     * Undo an in-place mutation of {@code individual}'s live {@link TestCase} after a
+     * promotion attempt failed partway through. {@code factory.addFunctionalMock} and
+     * {@code test.addStatement} both mutate the chromosome's TestCase object directly
+     * (there is no copy-on-write), and {@code originalResult} holds that very same
+     * TestCase reference rather than a snapshot, so a failure that merely returns
+     * {@code originalResult} silently leaves the mutated test in the chromosome while
+     * reporting no change -- exactly the stale-fitness hazard this method exists to
+     * avoid.
+     *
+     * <p>This mirrors the restore idiom in {@link #validateOrRollback}'s own failure
+     * path: swap the chromosome back onto the pre-mutation {@code backup}, rebuild an
+     * ExecutionResult around it, mark it so this plan is not retried, and tell the GA
+     * the chromosome is unchanged (because, after the swap, it truly is -- it is back
+     * to exactly what {@code originalResult} was last evaluated against). These are
+     * construction-time failures (no injection target, a failed mock/statement build,
+     * or a failed validation-restore snapshot), not runtime assertion failures, so the
+     * same owner/mock/field resolution will fail again on retry; marking the plan
+     * consumed here prevents the operator from repeatedly re-attempting a plan that
+     * cannot work, the same reasoning validateOrRollback already applies to its own
+     * failed-validation case.
+     */
+    private static ExecutionResult rollbackMutatedTestCase(TestChromosome individual,
+                                                            TestCase backup,
+                                                            ExecutionResult originalResult) {
+        individual.setTestCase(backup);
+        ExecutionResult restored = originalResult.clone();
+        restored.setTest(individual.getTestCase());
+        restored.markDmonPromotionConsumed();
+        individual.setLastExecutionResult(restored);
+        individual.setChanged(false);
+        return restored;
     }
 
     private static PromotionAttempt validateOrRollback(TestChromosome individual,
@@ -305,11 +376,20 @@ public final class DmonPromotionOperator {
         ExecutionResult validated = null;
         boolean validatedSuccess = false;
         boolean progressAccepted = false;
+        boolean keptUnchanged = false;
         try {
             Properties.DMON_ENABLED = false;
             validated = TestCaseExecutor.runTest(individual.getTestCase());
-            progressAccepted = isValidationProgressAccepted(validated, plan);
-            if (progressAccepted) {
+            int insertedStatements = individual.getTestCase().size() - backup.size();
+            boolean progress = isValidationProgressAccepted(validated, plan);
+            progressAccepted = progress
+                    && !failsEarlierThanOriginal(validated, originalResult, insertedStatements);
+            keptUnchanged = !progress
+                    && failsExactlyAsOriginal(validated, originalResult, insertedStatements);
+            if (keptUnchanged) {
+                // as without validation: keep the promotion and let the GA re-evaluate it
+                individual.setChanged(true);
+            } else if (progressAccepted) {
                 boolean mockMaterialized = materializeFunctionalMockInvocations(individual);
                 individual.setLastExecutionResult(validated);
                 individual.setChanged(mockMaterialized);
@@ -325,6 +405,10 @@ public final class DmonPromotionOperator {
                 }
             }
             Properties.DMON_ENABLED = oldDmonEnabled;
+        }
+        if (keptUnchanged) {
+            return new PromotionAttempt(markContaminatedIfNeeded(originalResult, !restoreOk), true,
+                    restoreOk ? "VALIDATION_UNCHANGED_KEPT" : "VALIDATION_UNCHANGED_KEPT_WITH_RESTORE_WARNING");
         }
         if (validatedSuccess) {
             ExecutionResult effective = markContaminatedIfNeeded(validated, !restoreOk);
@@ -346,6 +430,45 @@ public final class DmonPromotionOperator {
         ExecutionResult effective = markContaminatedIfNeeded(restored, !restoreOk);
         return new PromotionAttempt(effective, false,
                 restoreOk ? "VALIDATION_FAILED_ROLLED_BACK" : "VALIDATION_FAILED_AND_RESTORE_WARNING");
+    }
+
+    /**
+     * A promotion that makes the test throw at an earlier statement than before has not
+     * moved past the null: it cut off the part of the test that already ran, and with it the
+     * coverage the original execution had reached. Positions are compared after shifting the
+     * original one by the number of statements the promotion inserted.
+     */
+    private static boolean failsEarlierThanOriginal(ExecutionResult validated, ExecutionResult original,
+                                                    int insertedStatements) {
+        Integer validatedPosition = validated == null ? null : validated.getFirstPositionOfThrownException();
+        Integer originalPosition = original == null ? null : original.getFirstPositionOfThrownException();
+        if (validatedPosition == null || originalPosition == null) {
+            return false;
+        }
+        return validatedPosition < originalPosition + insertedStatements;
+    }
+
+    /**
+     * A promotion whose re-run still hits the null and throws the same exception at the same
+     * statement as the original execution (after shifting by the inserted statements) changed
+     * nothing up to the failure: the null does not come from state the injection reaches, but
+     * typically from a null argument or a null return of a mocked call. Rolling such a promotion
+     * back gains nothing and discards its lenient mock of the type the null needed, which the
+     * search reuses where the null does come from, for example as the constructor argument.
+     * Such a promotion is kept, as it was before promotions were validated.
+     */
+    private static boolean failsExactlyAsOriginal(ExecutionResult validated, ExecutionResult original,
+                                                  int insertedStatements) {
+        Integer validatedPosition = validated == null ? null : validated.getFirstPositionOfThrownException();
+        Integer originalPosition = original == null ? null : original.getFirstPositionOfThrownException();
+        if (validatedPosition == null || originalPosition == null
+                || validatedPosition != originalPosition + insertedStatements) {
+            return false;
+        }
+        Throwable validatedException = validated.getExceptionThrownAtPosition(validatedPosition);
+        Throwable originalException = original.getExceptionThrownAtPosition(originalPosition);
+        return validatedException != null && originalException != null
+                && validatedException.getClass().equals(originalException.getClass());
     }
 
     private static boolean isValidationProgressAccepted(ExecutionResult validated, DmonPromotionPlan plan) {
@@ -530,6 +653,8 @@ public final class DmonPromotionOperator {
     }
 
     private static Field findStaticInjectionField(Class<?> ownerClass, Class<?> mockType, String preferredField) {
+        // DmonInjectionDiscovery.findStaticField already screens finality with the
+        // stripping-aware predicate, so this fast path is covered too.
         Field preferred = DmonInjectionDiscovery.findStaticField(ownerClass, preferredField);
         if (preferred != null && preferred.getType().isAssignableFrom(mockType)) {
             return preferred;
@@ -537,7 +662,12 @@ public final class DmonPromotionOperator {
         for (Class<?> c = ownerClass; c != null; c = c.getSuperclass()) {
             for (Field f : c.getDeclaredFields()) {
                 int mods = f.getModifiers();
-                if (!java.lang.reflect.Modifier.isStatic(mods) || java.lang.reflect.Modifier.isFinal(mods)) {
+                // A raw Modifier.isFinal check misses a field whose ACC_FINAL was
+                // stripped by instrumentation for the bytecode-level static-reset
+                // machinery: such a field reflects as non-final but must still never
+                // be used as a generated-test assignment target (only that bytecode
+                // machinery, which never has to compile as Java source, may write it).
+                if (!Modifier.isStatic(mods) || TestClusterUtils.isFinalField(f)) {
                     continue;
                 }
                 if (f.getType().isAssignableFrom(mockType)) {
@@ -549,6 +679,8 @@ public final class DmonPromotionOperator {
     }
 
     private static Field findInstanceInjectionField(Class<?> ownerClass, Class<?> mockType, String preferredField) {
+        // DmonInjectionDiscovery.findInstanceField already screens finality with the
+        // stripping-aware predicate, so this fast path is covered too.
         Field preferred = DmonInjectionDiscovery.findInstanceField(ownerClass, preferredField);
         if (preferred != null && preferred.getType().isAssignableFrom(mockType)) {
             return preferred;
@@ -556,7 +688,7 @@ public final class DmonPromotionOperator {
         for (Class<?> c = ownerClass; c != null; c = c.getSuperclass()) {
             for (Field f : c.getDeclaredFields()) {
                 int mods = f.getModifiers();
-                if (Modifier.isStatic(mods) || Modifier.isFinal(mods)) {
+                if (Modifier.isStatic(mods) || TestClusterUtils.isFinalField(f)) {
                     continue;
                 }
                 if (f.getType().isAssignableFrom(mockType)) {
@@ -573,9 +705,10 @@ public final class DmonPromotionOperator {
     }
 
     private static Statement buildStaticFieldAssignment(TestCase test, Field field, VariableReference mockRef) {
-        if (Modifier.isPrivate(field.getModifiers())) {
+        if (!TestUsageChecker.isCallableFromTestPackage(field)) {
             try {
-                return new PrivateFieldStatement(test, field.getDeclaringClass(), field.getName(), null, mockRef);
+                return new PrivateFieldStatement(test, field.getDeclaringClass(), field.getName(),
+                        new ConstantValue(test, field.getDeclaringClass()), mockRef);
             } catch (NoSuchFieldException | ConstructionFailedException e) {
                 throw new RuntimeException("Failed to create private static field assignment for DMoN promotion", e);
             }
@@ -602,7 +735,7 @@ public final class DmonPromotionOperator {
                                                           Field field,
                                                           VariableReference receiver,
                                                           VariableReference mockRef) {
-        if (Modifier.isPrivate(field.getModifiers())) {
+        if (!TestUsageChecker.isCallableFromTestPackage(field)) {
             try {
                 return new PrivateFieldStatement(test, field.getDeclaringClass(), field.getName(), receiver, mockRef);
             } catch (NoSuchFieldException | ConstructionFailedException e) {
@@ -630,7 +763,9 @@ public final class DmonPromotionOperator {
             if (rollbackField == null) {
                 return null;
             }
-            rollbackField.setAccessible(true);
+            if (!trySetAccessible(rollbackField)) {
+                return null;
+            }
             Object oldValue = rollbackField.get(null);
             return new FieldValidationRestore(rollbackField, oldValue);
         }
@@ -640,7 +775,9 @@ public final class DmonPromotionOperator {
         }
         Object receiver;
         try {
-            instanceAccessor.setAccessible(true);
+            if (!trySetAccessible(instanceAccessor)) {
+                return null;
+            }
             receiver = instanceAccessor.invoke(null);
         } catch (ReflectiveOperationException e) {
             return null;
@@ -656,7 +793,9 @@ public final class DmonPromotionOperator {
         if (rollbackField == null) {
             return null;
         }
-        rollbackField.setAccessible(true);
+        if (!trySetAccessible(rollbackField)) {
+            return null;
+        }
         Object oldValue = rollbackField.get(receiver);
         return new InstanceFieldValidationRestore(rollbackField, receiver, oldValue);
     }
@@ -665,12 +804,30 @@ public final class DmonPromotionOperator {
         for (Class<?> c = type; c != null; c = c.getSuperclass()) {
             try {
                 Field f = c.getDeclaredField(fieldName);
-                f.setAccessible(true);
-                return f;
+                if (trySetAccessible(f)) {
+                    return f;
+                }
             } catch (NoSuchFieldException expected) {
             }
         }
         return null;
+    }
+
+    /**
+     * Make a member accessible, reporting failure instead of throwing. On JDK 9+ a
+     * member of a JDK class in a package its module does not open throws
+     * InaccessibleObjectException (a RuntimeException, unavailable at this module's
+     * Java 8 source level), and a SecurityManager may throw SecurityException. Such a
+     * member is not a usable injection or rollback target.
+     */
+    private static boolean trySetAccessible(java.lang.reflect.AccessibleObject member) {
+        try {
+            member.setAccessible(true);
+            return true;
+        } catch (RuntimeException e) {
+            logger.debug("DMoN cannot make {} accessible: {}", member, e.toString());
+            return false;
+        }
     }
 
     private static Method findInstanceSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint) {

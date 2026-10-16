@@ -93,4 +93,31 @@ public class ExceptionCoverageHelperTest {
         // I will assert "Unknown" to confirm failure, then fix.
         assertEquals("Unknown", id);
     }
+
+    /**
+     * A throwable of the SUT that hands out its stack trace once and null afterwards.
+     */
+    private static class OneShotStackTraceException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        private boolean handedOut;
+
+        @Override
+        public synchronized StackTraceElement[] getStackTrace() {
+            if (handedOut) {
+                return null;
+            }
+            handedOut = true;
+            return new StackTraceElement[]{new StackTraceElement("com.example.Sut", "run", "Sut.java", 1)};
+        }
+    }
+
+    @Test
+    public void testShouldSkipAsksTheSutExceptionForItsStackTraceOnce() {
+        ExecutionResult result = mock(ExecutionResult.class);
+        result.test = mock(TestCase.class);
+        when(result.test.size()).thenReturn(1);
+        when(result.getExceptionThrownAtPosition(0)).thenReturn(new OneShotStackTraceException());
+
+        assertFalse(ExceptionCoverageHelper.shouldSkip(result, 0));
+    }
 }

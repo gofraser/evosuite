@@ -109,7 +109,13 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
             if (object.getClass().isPrimitive() || object.getClass().isEnum()
                     || isWrapperType(object.getClass()) || object instanceof String) {
                 if (object instanceof String) {
-                    if (StringValueFilter.shouldFilter((String) object)) {
+                    if (StringValueFilter.shouldFilter((String) object)
+                            || StringValueFilter.isRelayedAwtDefaultName((String) object, scope)) {
+                        return;
+                    }
+                    if (statement instanceof MethodStatement && StringValueFilter.isAwtDefaultName(
+                            (String) object,
+                            ((MethodStatement) statement).getMethod().getMethod().getDeclaringClass())) {
                         return;
                     }
                 }

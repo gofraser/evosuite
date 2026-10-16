@@ -147,7 +147,7 @@ public class TestOutputModeResolverTest {
         }
 
         if (mode != TestOutputMode.NO_RUNTIME) {
-            int firstNormalImport = code.indexOf("import java.util.concurrent.TimeUnit;");
+            int firstNormalImport = code.indexOf("import org.junit.jupiter.api.Timeout;");
             int firstStaticImport = code.indexOf("import static org.junit.jupiter.api.Assertions.*;");
             Assertions.assertTrue(firstNormalImport >= 0);
             Assertions.assertTrue(firstStaticImport >= 0);

@@ -31,7 +31,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
-import java.net.SocketImpl;
 import java.net.SocketImplFactory;
 import java.net.SocketOptions;
 import java.nio.channels.ServerSocketChannel;
@@ -78,19 +77,6 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
          *
          * ie, the only side effect is to set the variable "impl"
          */
-        setImpl();
-    }
-
-    /**
-     * Creates an unbound server socket with a user-specified SocketImpl.
-     *
-     * @param impl a SocketImpl instance.
-     */
-    protected MockServerSocket(SocketImpl impl) {
-        super(impl);
-        if (!MockFramework.isEnabled()) {
-            return;
-        }
         setImpl();
     }
 

@@ -35,7 +35,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NotYetBoundException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.spi.SelectorProvider;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -54,8 +53,6 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
 
     private final MockServerSocket socket;
 
-    private volatile boolean blocking = true;
-
     /**
      * The thread that opened the channel. A blocking accept() from this thread with
      * no simulated client pending fails at once, as the java.net mock does: the test
@@ -68,7 +65,7 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
      */
     private final Thread openingThread = Thread.currentThread();
 
-    /** How long a serving thread waits between checks for a pending client, in ms. */
+    /** The longest a serving thread waits between checks for a pending client, in ms. */
     private static final long ACCEPT_POLL_MS = 20L;
 
     /**
@@ -81,27 +78,15 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
     private final long openGeneration = VirtualNetwork.getInstance().getResetGeneration();
 
     EvoServerSocketChannel() throws IOException {
-        super(SelectorProvider.provider());
+        super(EvoSelectorProvider.provider());
         this.socket = new MockServerSocket();
     }
 
     /**
-     * Returns {@code true} if the virtual network has moved past the generation this
-     * channel was opened in. As a side effect, the first time this is detected the
-     * channel is actually closed, so that {@link #isOpen()} -- which is {@code final} in
-     * {@link java.nio.channels.spi.AbstractInterruptibleChannel} and only reflects the
-     * real closed flag -- starts reporting {@code false} too.
+     * See {@link EvoSelectorProvider#closeIfStale(long, java.io.Closeable)}.
      */
     private boolean staleGeneration() {
-        if (VirtualNetwork.getInstance().getResetGeneration() != openGeneration) {
-            try {
-                close();
-            } catch (IOException ignored) {
-                // best effort; the channel is being reported as stale/closed regardless
-            }
-            return true;
-        }
-        return false;
+        return EvoSelectorProvider.closeIfStale(openGeneration, this);
     }
 
     private static Set<SocketOption<?>> supportedOptionsSet() {
@@ -114,7 +99,16 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
     @Override
     public ServerSocketChannel bind(SocketAddress local, int backlog) throws IOException {
         socket.bind(local, backlog);
+        VirtualNetwork.getInstance().signalStateChange();
         return this;
+    }
+
+    /** Returns whether a selector should report OP_ACCEPT for this channel. */
+    boolean isAcceptReady() {
+        if (staleGeneration() || !isOpen() || !socket.isBound()) {
+            return false;
+        }
+        return VirtualNetwork.getInstance().hasPendingTcpConnection();
     }
 
     @Override
@@ -178,7 +172,7 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
         try {
             accepted = socket.accept();
         } catch (IOException e) {
-            if (!blocking) {
+            if (!isBlocking()) {
                 // real NIO semantics: a non-blocking accept() with nothing pending
                 // returns null instead of blocking/throwing
                 return null;
@@ -195,6 +189,7 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
             throw new IOException("Unexpected non-mocked socket returned by accept()");
         }
 
+        VirtualNetwork.getInstance().signalStateChange();
         return EvoSocketChannel.wrap((MockSocket) accepted);
     }
 
@@ -212,11 +207,12 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
             if (staleGeneration() || !isOpen()) {
                 throw new AsynchronousCloseException();
             }
+            long version = VirtualNetwork.getInstance().getStateVersion();
             try {
                 return socket.accept();
             } catch (IOException noClientYet) {
                 try {
-                    Thread.sleep(ACCEPT_POLL_MS);
+                    VirtualNetwork.getInstance().awaitStateChange(version, ACCEPT_POLL_MS);
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     throw new ClosedByInterruptException();
@@ -228,10 +224,11 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
     @Override
     protected void implCloseSelectableChannel() throws IOException {
         socket.close();
+        VirtualNetwork.getInstance().signalStateChange();
     }
 
     @Override
     protected void implConfigureBlocking(boolean block) throws IOException {
-        this.blocking = block;
+        VirtualNetwork.getInstance().signalStateChange();
     }
 }

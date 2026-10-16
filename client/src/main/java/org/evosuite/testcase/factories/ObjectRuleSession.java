@@ -56,6 +56,9 @@ public final class ObjectRuleSession {
         reset();
     }
 
+    /**
+     * Resets all counters and the working target to their initial state.
+     */
     public synchronized void reset() {
 
         templateInjections = 0;
@@ -82,6 +85,12 @@ public final class ObjectRuleSession {
         workingGoals = new ArrayList<>();
     }
 
+    /**
+     * Sets the branch and goals that the current iteration works on.
+     * @param iteration the current iteration
+     * @param branch the branch being targeted
+     * @param goals the goals of the branch, null is treated as empty
+     */
     public synchronized void setWorkingTarget(int iteration, Branch branch,
             List<BranchCoverageTestFitness> goals) {
         currentIteration = iteration;

@@ -60,12 +60,24 @@ public class StableSpeciesAssigner implements SpeciesAssigner, SpeciesBirthRegis
     private int nextId = 0;
     private int currentGeneration = 0;
 
+    /**
+     * Creates an assigner using Jaccard distance and the speciation threshold and dormancy window from the
+     * configured properties.
+     */
     public StableSpeciesAssigner() {
         this(new JaccardSpeciesDistance(),
                 Properties.SPECIATION_THRESHOLD,
                 Properties.SPECIES_DORMANT_GENERATIONS);
     }
 
+    /**
+     * Creates an assigner with explicit parameters.
+     *
+     * @param distanceMetric the distance metric between individuals and species
+     * @param threshold      the distance below which an individual joins an existing species
+     * @param dormantWindow  the number of generations after which an empty species becomes dormant, negative
+     *                       values are treated as zero
+     */
     public StableSpeciesAssigner(SpeciesDistance distanceMetric,
                                  double threshold,
                                  int dormantWindow) {

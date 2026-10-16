@@ -41,27 +41,46 @@ import java.util.regex.Pattern;
  */
 public final class DependencyFailureAnalysis {
 
-    /** Pattern matching {@code NoClassDefFoundError: Could not initialize class &lt;FQCN&gt;}. */
+    /**
+     * Pattern matching {@code NoClassDefFoundError: Could not initialize class &lt;FQCN&gt;}.
+     */
     private static final Pattern COULD_NOT_INITIALIZE_PATTERN =
             Pattern.compile("Could not initialize class\\s+([A-Za-z_][A-Za-z0-9_$.]+)");
 
     public enum Kind {
-        /** A non-CUT instance method/constructor body threw. Recoverable; inline dep code. */
+        /**
+         * A non-CUT instance method/constructor body threw. Recoverable; inline dep code.
+         */
         DEP_MEMBER_FAILURE,
-        /** A non-CUT class's {@code <clinit>} threw; class permanently poisoned. */
+        /**
+         * A non-CUT class's {@code <clinit>} threw; class permanently poisoned.
+         */
         CLASS_INIT_FAILURE,
-        /** A {@code NoClassDefFoundError} reporting an already-poisoned class. */
+        /**
+         * A {@code NoClassDefFoundError} reporting an already-poisoned class.
+         */
         CLASS_INIT_AFTERSHOCK,
-        /** Throwable did not originate in classifiable non-CUT code. */
+        /**
+         * Throwable did not originate in classifiable non-CUT code.
+         */
         NONE
     }
 
-    /** Stack-frame coordinates of the offending non-CUT member. */
+    /**
+     * Stack-frame coordinates of the offending non-CUT member.
+     */
     public static final class Frame {
         private final String className;
         private final String methodName;
         private final int lineNumber;
 
+        /**
+         * Creates a stack-frame coordinate.
+         *
+         * @param className the class of the frame
+         * @param methodName the method of the frame
+         * @param lineNumber the line number in the frame
+         */
         public Frame(String className, String methodName, int lineNumber) {
             this.className = className;
             this.methodName = methodName;
@@ -103,12 +122,16 @@ public final class DependencyFailureAnalysis {
         return kind;
     }
 
-    /** Frame that points at the failing dep member, or {@code null} for {@link Kind#NONE}. */
+    /**
+     * Frame that points at the failing dep member, or {@code null} for {@link Kind#NONE}.
+     */
     public Frame getFrame() {
         return frame;
     }
 
-    /** FQCN of the class that failed to initialize, for the two {@code CLASS_INIT_*} kinds. */
+    /**
+     * FQCN of the class that failed to initialize, for the two {@code CLASS_INIT_*} kinds.
+     */
     public String getPoisonedClass() {
         return poisonedClass;
     }

@@ -136,6 +136,14 @@ public class EvoClassLoader extends ClassLoader {
             classes.put(fullyQualifiedTargetClass, result);
             logger.info("Keeping class: " + fullyQualifiedTargetClass);
             return result;
+        } catch (VirtualMachineError e) {
+            // A StackOverflowError while instrumenting (a StackOverflowError handler in the SUT
+            // resolving a class, as Jackson's BeanSerializerBase does) must stay a
+            // StackOverflowError: wrapped in ClassNotFoundException it becomes a
+            // NoClassDefFoundError that HotSpot records permanently for that constant-pool
+            // entry, whereas a VirtualMachineError is not recorded and the caller's next
+            // attempt can succeed.
+            throw e;
         } catch (Throwable t) {
             logger.error("Error while loading class: " + t.getMessage(), t);
             throw new ClassNotFoundException(t.getMessage(), t);

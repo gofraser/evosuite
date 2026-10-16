@@ -85,7 +85,8 @@ final class MethodAttemptObserver {
                     ? ExtractorObservationSupport.exceptionKey(result)
                     : "";
             traceSink.trace("method_stats",
-                    "test={} executed_statements={} safe_size={} thrown_pos={} has_exception={} timeout={} exception={}",
+                    "test={} executed_statements={} safe_size={} thrown_pos={} has_exception={} timeout={} "
+                            + "exception={}",
                     chromosomeIndex, executedStatements, safeSize, thrownPos, result.hasTestException(),
                     result.hasTimeout(), exceptionKey);
             // Track goal methods directly invoked (success or otherwise) in the prefix of a failing

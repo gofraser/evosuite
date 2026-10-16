@@ -304,16 +304,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final boolean speciationEnabled;
 
     /**
-     * Speciation assigner. Always non-null; uses a no-op implementation when speciation is
-     * disabled. Transient because lambdas/anonymous classes are not serializable and this field is
-     * not needed after RMI transfer.
+     * Speciation assigner. Non-null only when {@link #speciationEnabled}; every use is guarded by
+     * that flag. Transient because this field is not needed after RMI transfer.
      */
     protected final transient SpeciesAssigner speciesAssigner;
 
     /**
-     * Speciation policy. Always non-null; uses a no-op implementation when speciation is disabled.
-     * Transient because anonymous inner classes are not serializable and this field is not needed
-     * after RMI transfer.
+     * Speciation policy. Non-null only when {@link #speciationEnabled}; every use is guarded by
+     * that flag. Transient because this field is not needed after RMI transfer.
      */
     protected final transient SpeciesPolicy speciesPolicy;
 
@@ -324,8 +322,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final boolean trackSpeciesWhenSpeciationDisabled;
 
     /**
-     * Species assigner used only for observability when speciation is disabled. This never feeds
-     * back into survival, ranking, or mating behavior.
+     * Species assigner for timeline tracking and stable-ID bookkeeping. Always non-null: it is
+     * {@link #speciesAssigner} when speciation is enabled; otherwise it is used only for
+     * observability and never feeds back into survival, ranking, or mating behavior.
      */
     protected final transient SpeciesAssigner speciesTrackingAssigner;
 
@@ -532,30 +531,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.speciesTrackingAssigner = this.speciesAssigner;
         } else {
             this.speciationEnabled = false;
-            // No-op implementations: groupBySpecies puts all in one species,
-            // policy methods return input unchanged.
-            SpeciesAssigner singleSpeciesAssigner = population -> {
-                Map<Integer, List<TestChromosome>> single = new HashMap<>();
-                single.put(0, new ArrayList<>(population));
-                return single;
-            };
-            this.speciesAssigner = singleSpeciesAssigner;
-            this.speciesPolicy = new SpeciesPolicy() {
-                @Override
-                public List<TestChromosome> applySurvivalCaps(
-                        List<TestChromosome> rankedSurvivors,
-                        Map<Integer, List<TestChromosome>> speciesMap,
-                        int targetSize, double survivalCap) {
-                    return rankedSurvivors.subList(0, Math.min(targetSize, rankedSurvivors.size()));
-                }
-
-                @Override
-                public List<TestChromosome> balanceParentPool(
-                        List<TestChromosome> pop,
-                        Map<Integer, List<TestChromosome>> speciesMap) {
-                        return pop;
-                }
-            };
+            // Survival never consults the assigner or the policy without speciation.
+            this.speciesAssigner = null;
+            this.speciesPolicy = null;
             // Sidecar implies tracking-only species assignment too, since we need
             // a real species map per generation to plot.
             this.trackSpeciesWhenSpeciationDisabled =
@@ -566,7 +544,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         ? new StableSpeciesAssigner()
                         : new DefaultSpeciesAssigner();
             } else {
-                this.speciesTrackingAssigner = singleSpeciesAssigner;
+                // Tracking is off: a single-species assigner that is never asked to group.
+                this.speciesTrackingAssigner = population -> {
+                    Map<Integer, List<TestChromosome>> single = new HashMap<>();
+                    single.put(0, new ArrayList<>(population));
+                    return single;
+                };
             }
         }
 
@@ -749,17 +732,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
 
         // EvoObj: collect the uncovered branch goals once per generation (not per inserted test)
-        // and
-        // evict cached templates for branches that are now covered. No-op unless enabled.
+        // and evict cached templates for branches that are now covered. No-op unless enabled.
         List<Branch> uncoveredBranches = null;
-        List<Branch> candidateBranches = null;
         Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch = null;
         boolean objectRuleActive =
                 Properties.APPLY_OBJECT_RULE && !objectRulePermanentlyInert;
         if (objectRuleActive) {
             uncoveredGoalsByBranch = objectRuleUncoveredGoalsByBranch();
             uncoveredBranches = new ArrayList<>(uncoveredGoalsByBranch.keySet());
-            candidateBranches = objectRuleCandidateBranches();
 
             TestGenerationContext.getInstance()
                     .getObjectRuleRuntime()
@@ -778,7 +758,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                             TestGenerationContext.getInstance()
                                     .getObjectRuleRuntime()
                                     .getBranchSelector()
-                                    .selectWorkingBranch(candidateBranches);
+                                    .selectWorkingBranch(uncoveredBranches);
                     ObjectRuleSession session =
                             TestGenerationContext.getInstance().getObjectRuleRuntime().getSession();
                     session.setWorkingTarget(
@@ -904,14 +884,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             operatorExecutor = null;
         }
         super.shutdownLlmAssistance();
-    }
-
-    protected List<Branch> objectRuleCandidateBranches() {
-        return objectRuleUncoveredBranches();
-    }
-
-    protected List<Branch> objectRuleUncoveredBranches() {
-        return new ArrayList<>(objectRuleUncoveredGoalsByBranch().keySet());
     }
 
     protected Map<Branch, List<BranchCoverageTestFitness>> objectRuleUncoveredGoalsByBranch() {
@@ -1752,25 +1724,23 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected void recordPopulationSnapshot(
             int coveredGoalCount, int uncoveredGoalCount, double diversity) {
         recordFreshInjectedSurvivorMetrics();
-        SpeciesAssigner trackingAssigner = (speciesTrackingAssigner != null)
-                ? speciesTrackingAssigner : speciesAssigner;
         if (populationSpeciesRecorder != null && lastTrackedSpeciesMap != null
                 && !this.population.isEmpty()) {
             try {
                 int[] speciesPerSlot = buildSpeciesPerSlot(this.population, lastTrackedSpeciesMap);
                 int[] rankPerSlot = buildRankPerSlot(this.population);
-                int nInjected = 0;
-                int nInjectedIncubator = 0;
-                int nInjectedPostIncubator = 0;
+                int numInjected = 0;
+                int numInjectedIncubator = 0;
+                int numInjectedPostIncubator = 0;
                 Map<InjectionSource, Integer> sourceCounts = new EnumMap<>(InjectionSource.class);
                 for (TestChromosome tc : this.population) {
                     InjectionSource src = tc.getInjectionSource();
                     if (src != null) {
-                        nInjected++;
+                        numInjected++;
                         if (isIncubatorActive(tc)) {
-                            nInjectedIncubator++;
+                            numInjectedIncubator++;
                         } else {
-                            nInjectedPostIncubator++;
+                            numInjectedPostIncubator++;
                         }
                         sourceCounts.merge(src, 1, Integer::sum);
                     }
@@ -1839,9 +1809,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                 elapsedMs,
                                 this.population.size(),
                                 lastTrackedSpeciesMap.size(),
-                                nInjected,
-                                nInjectedIncubator,
-                                nInjectedPostIncubator,
+                                numInjected,
+                                numInjectedIncubator,
+                                numInjectedPostIncubator,
                                 dominant,
                                 lastGenInjectedAttemptsCount,
                                 lastGenDominantAttemptSource,
@@ -2006,16 +1976,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
         }
 
-        if (trackingAssigner instanceof StableSpeciesAssigner) {
+        if (speciesTrackingAssigner instanceof StableSpeciesAssigner) {
             try {
-                ((StableSpeciesAssigner) trackingAssigner).advanceGeneration();
-            } catch (Exception e) {
-                logger.debug("StableSpeciesAssigner.advanceGeneration() failed", e);
-            }
-        } else if (speciesAssigner instanceof StableSpeciesAssigner
-                && speciesAssigner != trackingAssigner) {
-            try {
-                ((StableSpeciesAssigner) speciesAssigner).advanceGeneration();
+                ((StableSpeciesAssigner) speciesTrackingAssigner).advanceGeneration();
             } catch (Exception e) {
                 logger.debug("StableSpeciesAssigner.advanceGeneration() failed", e);
             }
@@ -2141,9 +2104,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     private int[] buildRankPerSlot(List<TestChromosome> population) {
-        int nFronts = this.rankingFunction.getNumberOfSubfronts();
+        int numFronts = this.rankingFunction.getNumberOfSubfronts();
         IdentityHashMap<TestChromosome, Integer> rankLookup = new IdentityHashMap<>();
-        for (int r = 0; r < nFronts; r++) {
+        for (int r = 0; r < numFronts; r++) {
             for (TestChromosome tc : this.rankingFunction.getSubfront(r)) {
                 rankLookup.put(tc, r);
             }
@@ -2344,7 +2307,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                 source.getClass().getSimpleName(), e);
                     }
                 }
-            } catch (Exception e) {
+            } catch (Exception | LinkageError e) {
+                // LinkageError: a source reflecting on SUT types (eg to build an LLM prompt) can
+                // hit a class whose dependencies are not on the classpath. That source's
+                // candidates are optional; losing them must not end the search.
                 logger.debug("External candidate source failed; skipping", e);
             } finally {
                 source.reportAttemptOutcomes(gainsByAttemptId);
@@ -3529,8 +3495,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         this.fitnessFunctions.forEach(fitnessFunction -> fitnessFunction.getFitness(c));
 
         // if one of the coverage criterion is Criterion.EXCEPTION, then we have to analyse the
-        // results
-        // of the execution to look for generated exceptions
+        // results of the execution to look for generated exceptions
         if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.EXCEPTION)) {
             ExceptionCoverageSuiteFitness.calculateExceptionInfo(
                     Collections.singletonList(c.getLastExecutionResult()),

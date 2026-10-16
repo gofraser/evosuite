@@ -25,7 +25,6 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
-import org.evosuite.testcase.execution.MethodCall;
 
 import java.util.*;
 
@@ -152,11 +151,9 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
         if (result == null || result.getTrace() == null) {
             return Collections.emptySet();
         }
-        Set<String> sigs = new HashSet<>();
-        for (MethodCall mc : result.getTrace().getMethodCalls()) {
-            sigs.add(mc.className + "." + mc.methodName);
-        }
-        return sigs;
+        // coveredMethods is keyed by "className.methodName" for every call entered,
+        // independent of whether per-call MethodCall records are being kept.
+        return new HashSet<>(result.getTrace().getCoveredMethods());
     }
 
     /** Cap on a single string literal's contribution, to bound feature length. */

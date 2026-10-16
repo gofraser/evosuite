@@ -25,20 +25,25 @@ import org.evosuite.runtime.mock.MockFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.swing.ComboBoxEditor;
+import javax.swing.ComboBoxModel;
+import javax.swing.Icon;
+import javax.swing.JColorChooser;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
-import javax.swing.JComboBox;
 import javax.swing.JList;
 import javax.swing.JMenuBar;
-import javax.swing.JTable;
 import javax.swing.JTabbedPane;
+import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTree;
-import javax.swing.Icon;
-import javax.swing.ComboBoxModel;
-import javax.swing.ComboBoxEditor;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.event.UndoableEditListener;
 import javax.swing.plaf.basic.BasicComboBoxEditor;
+import javax.swing.text.BadLocationException;
 import javax.swing.text.Caret;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.Document;
@@ -47,28 +52,28 @@ import javax.swing.text.JTextComponent;
 import javax.swing.text.Position;
 import javax.swing.text.Segment;
 import javax.swing.text.SimpleAttributeSet;
-import javax.swing.text.BadLocationException;
-import javax.swing.JColorChooser;
-import javax.swing.event.DocumentListener;
-import javax.swing.event.UndoableEditListener;
+
+import java.awt.AWTError;
 import java.awt.AWTException;
 import java.awt.Button;
+import java.awt.CheckboxMenuItem;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Desktop;
-import java.awt.DefaultKeyboardFocusManager;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Frame;
-import java.awt.GraphicsEnvironment;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.HeadlessException;
 import java.awt.Insets;
 import java.awt.KeyboardFocusManager;
-import java.awt.CheckboxMenuItem;
 import java.awt.Label;
+import java.awt.MediaTracker;
 import java.awt.Menu;
 import java.awt.MenuBar;
 import java.awt.MenuItem;
@@ -76,6 +81,7 @@ import java.awt.MenuShortcut;
 import java.awt.MouseInfo;
 import java.awt.PointerInfo;
 import java.awt.PopupMenu;
+import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.Shape;
 import java.awt.SystemTray;
@@ -84,17 +90,17 @@ import java.awt.TextField;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
 import java.awt.Window;
-import java.awt.Color;
-import java.awt.Rectangle;
 import java.awt.datatransfer.FlavorMap;
 import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.net.URI;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -317,6 +323,215 @@ public final class MockHeadlessSwing {
     }
 
     /**
+     * Replacement for {@code MediaTracker.waitForID(int)}.
+     *
+     * <p>{@code Toolkit.getImage(...)} itself never blocks: it hands back an {@code Image}
+     * immediately and starts an asynchronous load on a background {@code sun.awt.image.ImageFetcher}
+     * thread. The blocking happens here, in {@code MediaTracker}, which is exactly why a SUT
+     * constructor that does {@code getImage(...)} followed by {@code tracker.waitForID(0)} can sit
+     * for the entire test timeout: on a real display the fetcher finishes in milliseconds, but under
+     * EvoSuite the fetcher thread is unrelated to progress of the search and the wait is pure lost
+     * time. Note the return path below claims the wait <em>finished</em>, not that the image is
+     * absent or broken; see {@link #replacement_statusID(MediaTracker, int, boolean)} for why that
+     * distinction matters.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @throws InterruptedException propagated from the real wait when mocking is off
+     */
+    public static void replacement_waitForID(MediaTracker source, int id) throws InterruptedException {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            source.waitForID(id);
+            return;
+        }
+        // Headless and mocking enabled: the load is not going to get any more done by waiting
+        // for it, so treat it as already finished instead of blocking the search.
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.waitForID(int, long)}. See
+     * {@link #replacement_waitForID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @param ms     the timeout in milliseconds
+     * @return {@code true} (the wait is reported as complete) in mocked mode
+     * @throws InterruptedException propagated from the real wait when mocking is off
+     */
+    public static boolean replacement_waitForID(MediaTracker source, int id, long ms) throws InterruptedException {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.waitForID(id, ms);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.waitForAll()}. See
+     * {@link #replacement_waitForID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @throws InterruptedException propagated from the real wait when mocking is off
+     */
+    public static void replacement_waitForAll(MediaTracker source) throws InterruptedException {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            source.waitForAll();
+            return;
+        }
+        // Headless and mocking enabled: nothing left to usefully wait for.
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.waitForAll(long)}. See
+     * {@link #replacement_waitForID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @param ms     the timeout in milliseconds
+     * @return {@code true} (the wait is reported as complete) in mocked mode
+     * @throws InterruptedException propagated from the real wait when mocking is off
+     */
+    public static boolean replacement_waitForAll(MediaTracker source, long ms) throws InterruptedException {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.waitForAll(ms);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.checkID(int)}.
+     *
+     * <p>A caller that just returned from a (now instant) {@code waitForID}/{@code waitForAll} and
+     * then asks {@code checkID}/{@code checkAll} whether the image is done must see the same answer
+     * the wait implied, or it falls straight into its own retry/poll loop and the starvation comes
+     * back through a different door. So this reports "done" here too, consistently with
+     * {@link #replacement_statusID(MediaTracker, int, boolean)}.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @return {@code true} in mocked mode
+     */
+    public static boolean replacement_checkID(MediaTracker source, int id) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.checkID(id);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.checkID(int, boolean)}. See
+     * {@link #replacement_checkID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @param load   whether to start loading if not already started
+     * @return {@code true} in mocked mode
+     */
+    public static boolean replacement_checkID(MediaTracker source, int id, boolean load) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.checkID(id, load);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.checkAll()}. See
+     * {@link #replacement_checkID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @return {@code true} in mocked mode
+     */
+    public static boolean replacement_checkAll(MediaTracker source) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.checkAll();
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.checkAll(boolean)}. See
+     * {@link #replacement_checkID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @param load   whether to start loading if not already started
+     * @return {@code true} in mocked mode
+     */
+    public static boolean replacement_checkAll(MediaTracker source, boolean load) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.checkAll(load);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.statusID(int, boolean)}.
+     *
+     * <p>Reports {@link MediaTracker#COMPLETE}, not {@link MediaTracker#ERRORED}. Three earlier
+     * defects in this file - {@code getAllFonts()} returning empty, {@code Container.add} being
+     * skipped, {@code Cursor.getPredefinedCursor} returning null - all came from a mock claiming the
+     * requested thing was simply not there, which starved SUT code that legitimately branches on
+     * success. Reporting {@code ERRORED} here would repeat that mistake: SUT code that checks
+     * {@code isErrorID}/{@code isErrorAny} or a {@code catch}/error-handling branch would now run
+     * instead of the normal path the class was written for, for a reason that has nothing to do with
+     * the actual image. {@code COMPLETE} is the answer consistent with "the wait is over and nothing
+     * went wrong", which is the only claim this mock is actually entitled to make.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @param load   whether to start loading if not already started
+     * @return {@link MediaTracker#COMPLETE} in mocked mode
+     */
+    public static int replacement_statusID(MediaTracker source, int id, boolean load) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.statusID(id, load);
+        }
+        return MediaTracker.COMPLETE;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.statusAll(boolean)}. See
+     * {@link #replacement_statusID(MediaTracker, int, boolean)}.
+     *
+     * @param source the media tracker
+     * @param load   whether to start loading if not already started
+     * @return {@link MediaTracker#COMPLETE} in mocked mode
+     */
+    public static int replacement_statusAll(MediaTracker source, boolean load) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.statusAll(load);
+        }
+        return MediaTracker.COMPLETE;
+    }
+
+    /**
      * Replacement for {@code setDragEnabled} on {@link JList}.
      *
      * @param source  the source component
@@ -454,7 +669,7 @@ public final class MockHeadlessSwing {
             throw new NullPointerException();
         }
         if (!isMockingInHeadlessEnvironment()) {
-            source.setMixingCutoutShape(shape);
+            invokeComponentSetMixingCutoutShapeReflective(source, shape);
             return;
         }
         // Headless and mocking enabled: skip expensive shape mixing computation.
@@ -894,6 +1109,12 @@ public final class MockHeadlessSwing {
         return Desktop.getDesktop();
     }
 
+    /**
+     * Replacement for {@code Desktop.open(File)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param file the file to open
+     */
     public static void replacement_desktopOpen(Desktop source, File file) {
         if (source == null) {
             throw new NullPointerException();
@@ -904,9 +1125,16 @@ public final class MockHeadlessSwing {
         try {
             source.open(file);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.edit(File)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param file the file to edit
+     */
     public static void replacement_desktopEdit(Desktop source, File file) {
         if (source == null) {
             throw new NullPointerException();
@@ -917,9 +1145,16 @@ public final class MockHeadlessSwing {
         try {
             source.edit(file);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.print(File)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param file the file to print
+     */
     public static void replacement_desktopPrint(Desktop source, File file) {
         if (source == null) {
             throw new NullPointerException();
@@ -930,9 +1165,16 @@ public final class MockHeadlessSwing {
         try {
             source.print(file);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.browse(URI)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param uri the URI to browse
+     */
     public static void replacement_desktopBrowse(Desktop source, URI uri) {
         if (source == null) {
             throw new NullPointerException();
@@ -943,9 +1185,15 @@ public final class MockHeadlessSwing {
         try {
             source.browse(uri);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.mail()}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     */
     public static void replacement_desktopMail(Desktop source) {
         if (source == null) {
             throw new NullPointerException();
@@ -956,9 +1204,16 @@ public final class MockHeadlessSwing {
         try {
             source.mail();
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code Desktop.mail(URI)}; does nothing in a headless environment.
+     *
+     * @param source the desktop the call was made on
+     * @param uri the mailto URI
+     */
     public static void replacement_desktopMail(Desktop source, URI uri) {
         if (source == null) {
             throw new NullPointerException();
@@ -969,6 +1224,7 @@ public final class MockHeadlessSwing {
         try {
             source.mail(uri);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
@@ -992,6 +1248,12 @@ public final class MockHeadlessSwing {
         return SystemTray.getSystemTray();
     }
 
+    /**
+     * Replacement for {@code SystemTray.add(TrayIcon)}; does nothing in a headless environment.
+     *
+     * @param source the system tray the call was made on
+     * @param trayIcon the icon to add
+     */
     public static void replacement_systemTrayAdd(SystemTray source, TrayIcon trayIcon) {
         if (source == null) {
             throw new NullPointerException();
@@ -1002,9 +1264,16 @@ public final class MockHeadlessSwing {
         try {
             source.add(trayIcon);
         } catch (Exception ignored) {
+            // Best effort: the platform may not support the action, which must not fail the test.
         }
     }
 
+    /**
+     * Replacement for {@code SystemTray.remove(TrayIcon)}; does nothing in a headless environment.
+     *
+     * @param source the system tray the call was made on
+     * @param trayIcon the icon to remove
+     */
     public static void replacement_systemTrayRemove(SystemTray source, TrayIcon trayIcon) {
         if (source == null) {
             throw new NullPointerException();
@@ -1043,6 +1312,13 @@ public final class MockHeadlessSwing {
         }
     }
 
+    /**
+     * Replacement for {@code Robot.createScreenCapture(Rectangle)}; returns a blank image in a headless environment.
+     *
+     * @param source the robot the call was made on
+     * @param screenRect the area to capture
+     * @return the captured image, or a transparent image of the requested size when headless
+     */
     public static BufferedImage replacement_robotCreateScreenCapture(Robot source, Rectangle screenRect) {
         if (source == null) {
             throw new NullPointerException();
@@ -1066,32 +1342,10 @@ public final class MockHeadlessSwing {
     }
 
     /**
-     * Replacement for {@code Cursor.getDefaultCursor()}.
-     *
-     * @return default cursor or null in headless mode when mocking is enabled
-     */
-    public static Cursor replacement_getDefaultCursor() {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
-        return Cursor.getDefaultCursor();
-    }
-
-    /**
-     * Replacement for {@code Cursor.getPredefinedCursor(int)}.
-     *
-     * @param type predefined cursor type
-     * @return predefined cursor or null in headless mode when mocking is enabled
-     */
-    public static Cursor replacement_getPredefinedCursor(int type) {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
-        return Cursor.getPredefinedCursor(type);
-    }
-
-    /**
-     * Replacement for {@code Cursor.getSystemCustomCursor(String)}.
+     * Replacement for {@code Cursor.getSystemCustomCursor(String)}. Of the cursor factories only
+     * this one needs the display. The predefined cursors and {@code new Cursor(int)} work headless
+     * and are not replaced: returning null for them made squirrel-sql's CursorChanger reject the
+     * cursor, so 12 action classes never reached actionPerformed.
      *
      * @param name cursor name
      * @return system custom cursor or null in headless mode when mocking is enabled
@@ -1102,19 +1356,6 @@ public final class MockHeadlessSwing {
             return null;
         }
         return Cursor.getSystemCustomCursor(name);
-    }
-
-    /**
-     * Replacement for {@code new Cursor(int)}.
-     *
-     * @param type predefined cursor type
-     * @return a cursor instance or null in headless mode when mocking is enabled
-     */
-    public static Cursor replacement_newCursor(int type) {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
-        return new Cursor(type);
     }
 
     /**
@@ -1413,6 +1654,44 @@ public final class MockHeadlessSwing {
     }
 
     /**
+     * Replacement for {@code Container.remove(Component)}. The symmetric case to
+     * {@link #replacement_containerAdd(Container, Component)}: {@code Container.remove} reads
+     * {@code comp.parent} exactly as {@code addImpl} does, so a component the mock layer replaced
+     * with {@code null} blows up here too. 102_squirrel-sql's ButtonTabComponent does
+     * {@code remove(null)} and threw on all ten seeds of the SF110 replication.
+     *
+     * @param source source container
+     * @param comp component to remove
+     */
+    public static void replacement_containerRemove(Container source, Component comp) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isMockedAwayComponent(comp)) {
+            // The add was skipped for this null, so there is nothing to take out again.
+            return;
+        }
+        source.remove(comp);
+    }
+
+    /**
+     * Generic replacement for {@code remove(Component)}.
+     *
+     * @param source source object
+     * @param comp component to remove
+     */
+    public static void replacement_removeComponentGeneric(Object source, Component comp) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof Container) {
+            replacement_containerRemove((Container) source, comp);
+            return;
+        }
+        invokeRemoveComponentReflective(source, comp);
+    }
+
+    /**
      * Generic replacement for {@code add(String, Component)}.
      *
      * @param source source object
@@ -1574,10 +1853,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
-            return;
-        }
-        source.addTab(title, component);
+        addOrDegrade(() -> {
+            source.addTab(title, component);
+            return component;
+        }, component);
     }
 
     /**
@@ -1588,10 +1867,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
-            return;
-        }
-        source.addTab(title, icon, component);
+        addOrDegrade(() -> {
+            source.addTab(title, icon, component);
+            return component;
+        }, component);
     }
 
     /**
@@ -1602,10 +1881,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
-            return;
-        }
-        source.addTab(title, icon, component, tip);
+        addOrDegrade(() -> {
+            source.addTab(title, icon, component, tip);
+            return component;
+        }, component);
     }
 
     /**
@@ -1616,10 +1895,62 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
-            return;
+        addOrDegrade(() -> {
+            source.insertTab(title, icon, component, tip, index);
+            return component;
+        }, component);
+    }
+
+    /**
+     * Adding a component to a container is bookkeeping: it needs no native peer and works under
+     * {@code java.awt.headless=true}. Skipping it while GUI mocking is on left the container and
+     * the component inconsistent, and the next call that reads the tree failed - 10_water-simulator's
+     * ProgressGui does {@code mainPanel.add(tab1, null)} and then
+     * {@code mainPanel.setSelectedComponent(tab1)}, which threw "component not found in tabbed pane"
+     * on every seed. So do the real work and only fall back to the previous no-op if the environment
+     * really refuses it.
+     *
+     * @param add       the real add call
+     * @param mocked    what to return when a headless environment refuses the call
+     * @return the result of the real call, or {@code mocked}
+     */
+    private static <T> T addOrDegrade(java.util.function.Supplier<T> add, T mocked) {
+        try {
+            return add.get();
+        } catch (HeadlessException | AWTError e) {
+            // HeadlessException is how AWT/Swing normally report "no display"; AWTError is
+            // what Toolkit throws when it cannot create a native peer. Both are environment
+            // refusals, which is what this method exists to paper over.
+            //
+            // Nothing else is caught here. In particular an AssertionError, LinkageError or
+            // ExceptionInInitializerError can reach this call from inside a SUT override of
+            // addImpl/insertTab/etc (Container and JTabbedPane invoke those virtually), and
+            // those are real SUT failures, not a headless refusal - swallowing them would
+            // turn a genuine defect into apparent success. A ThreadDeath (EvoSuite
+            // force-stopping a wedged test thread) or a VirtualMachineError (the SUT
+            // exhausted the JVM) are likewise real outcomes, not ours to hide; they were
+            // never caught here even before this needed to be more selective.
+            if (!isGuiMockingEnabled()) {
+                throw e;
+            }
+            logger.debug("Headless environment refused a container add; leaving it out", e);
+            return mocked;
         }
-        source.insertTab(title, icon, component, tip, index);
+    }
+
+    /**
+     * The AWT constructor replacements hand back {@code null} for a heavyweight component in a
+     * headless environment ({@link #replacement_newLabel(String)} and its siblings), so a rewritten
+     * container add can be handed a null the SUT never created. {@code Container.addImpl}
+     * dereferences it and the NullPointerException escapes whatever the SUT was building. There is
+     * nothing to add, so skip the call instead. {@code JTabbedPane.addTab}/{@code insertTab} are
+     * deliberately not covered: a null component is legal there and still adds a tab.
+     *
+     * @param comp the component the SUT is adding
+     * @return whether the mock layer, not the SUT, is the source of this null
+     */
+    private static boolean isMockedAwayComponent(Component comp) {
+        return comp == null && isGuiMockingEnabled();
     }
 
     /**
@@ -1633,10 +1964,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return comp;
         }
-        return source.add(comp);
+        return addOrDegrade(() -> source.add(comp), comp);
     }
 
     /**
@@ -1651,10 +1982,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return comp;
         }
-        return source.add(name, comp);
+        return addOrDegrade(() -> source.add(name, comp), comp);
     }
 
     /**
@@ -1669,10 +2000,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return comp;
         }
-        return source.add(comp, index);
+        return addOrDegrade(() -> source.add(comp, index), comp);
     }
 
     /**
@@ -1686,10 +2017,13 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return;
         }
-        source.add(comp, constraints);
+        addOrDegrade(() -> {
+            source.add(comp, constraints);
+            return comp;
+        }, comp);
     }
 
     /**
@@ -1704,10 +2038,13 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return;
         }
-        source.add(comp, constraints, index);
+        addOrDegrade(() -> {
+            source.add(comp, constraints, index);
+            return comp;
+        }, comp);
     }
 
     /**
@@ -2063,26 +2400,17 @@ public final class MockHeadlessSwing {
      * @param bottom bottom inset
      * @param right right inset
      * @return an insets instance. In headless mode we still return a real object
-     * to avoid downstream NPEs in code that clones or dereferences insets.
+     *     to avoid downstream NPEs in code that clones or dereferences insets.
      */
     public static Insets replacement_newInsets(int top, int left, int bottom, int right) {
         return new Insets(top, left, bottom, right);
     }
 
     /**
-     * Replacement for {@code KeyboardFocusManager.getCurrentKeyboardFocusManager()}.
-     *
-     * @return current keyboard focus manager, or null in headless mode when mocking is enabled
-     */
-    public static KeyboardFocusManager replacement_getCurrentKeyboardFocusManager() {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
-        return KeyboardFocusManager.getCurrentKeyboardFocusManager();
-    }
-
-    /**
      * Replacement for {@code KeyboardFocusManager.setCurrentKeyboardFocusManager(KeyboardFocusManager)}.
+     * Reading the current manager and {@code new DefaultKeyboardFocusManager()} work headless and
+     * are not replaced: a null manager only moved the failure one call later (freemind's
+     * IndependantMapViewCreator).
      *
      * @param manager the keyboard focus manager
      */
@@ -2091,18 +2419,6 @@ public final class MockHeadlessSwing {
             return;
         }
         KeyboardFocusManager.setCurrentKeyboardFocusManager(manager);
-    }
-
-    /**
-     * Replacement for {@code new DefaultKeyboardFocusManager()}.
-     *
-     * @return a keyboard focus manager or null in headless mode when mocking is enabled
-     */
-    public static DefaultKeyboardFocusManager replacement_newDefaultKeyboardFocusManager() {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
-        return new DefaultKeyboardFocusManager();
     }
 
     /**
@@ -2221,6 +2537,51 @@ public final class MockHeadlessSwing {
     }
 
     /**
+     * The {@code Component.setMixingCutoutShape(Shape)} method, resolved once reflectively, or
+     * {@code null} if it does not exist. {@code Component.setMixingCutoutShape(Shape)} is a Java
+     * 9+ API -- absent from {@code java.awt.Component} on a Java 8 JVM, confirmed with
+     * {@code javap} against Corretto 8 -- so a direct, statically typed call to it (as this
+     * replacement used to make) compiles cleanly against a modern JDK but throws
+     * {@link NoSuchMethodError} the first time it executes on Java 8. Resolving it reflectively
+     * and checking for {@code null} lets {@link #replacement_setMixingCutoutShape(Component, Shape)}
+     * degrade to a no-op on Java 8, the same way it already skips the call when headless mocking
+     * is enabled.
+     */
+    private static final Method COMPONENT_SET_MIXING_CUTOUT_SHAPE_METHOD =
+            resolveComponentSetMixingCutoutShapeMethod();
+
+    private static Method resolveComponentSetMixingCutoutShapeMethod() {
+        try {
+            return Component.class.getMethod("setMixingCutoutShape", Shape.class);
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Invoke {@code Component.setMixingCutoutShape(Shape)} reflectively, no-op'ing on a JVM
+     * (Java 8) where the method does not exist instead of failing with {@link NoSuchMethodError}.
+     *
+     * @param source the source component
+     * @param shape  the shape
+     */
+    private static void invokeComponentSetMixingCutoutShapeReflective(Component source, Shape shape) {
+        if (COMPONENT_SET_MIXING_CUTOUT_SHAPE_METHOD == null) {
+            // Java 8: Component.setMixingCutoutShape(Shape) does not exist. There is no shape
+            // mixing optimisation to apply, so there is nothing to do.
+            return;
+        }
+        try {
+            COMPONENT_SET_MIXING_CUTOUT_SHAPE_METHOD.invoke(source, shape);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access setMixingCutoutShape(Shape) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
+    /**
      * Invoke {@code setMixingCutoutShape} reflectively.
      *
      * @param source the source component
@@ -2271,6 +2632,20 @@ public final class MockHeadlessSwing {
             throw new IllegalArgumentException("No add(Component) on " + source.getClass().getName(), e);
         } catch (IllegalAccessException e) {
             throw new IllegalStateException("Cannot access add(Component) on " + source.getClass().getName(), e);
+        }
+    }
+
+    private static void invokeRemoveComponentReflective(Object source, Component comp) {
+        try {
+            Method method = source.getClass().getMethod("remove", Component.class);
+            method.invoke(source, comp);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No remove(Component) on " + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access remove(Component) on "
+                    + source.getClass().getName(), e);
         }
     }
 
@@ -2525,6 +2900,7 @@ public final class MockHeadlessSwing {
 
         private final StringBuilder text = new StringBuilder();
         private final Map<Object, Object> properties = new HashMap<>();
+        private final List<DocumentListener> documentListeners = new ArrayList<>();
         private final Element rootElement = new HeadlessSafeElement(this);
 
         @Override
@@ -2534,12 +2910,40 @@ public final class MockHeadlessSwing {
 
         @Override
         public void addDocumentListener(DocumentListener listener) {
-            // no-op
+            if (listener != null) {
+                documentListeners.add(listener);
+            }
         }
 
         @Override
         public void removeDocumentListener(DocumentListener listener) {
-            // no-op
+            documentListeners.remove(listener);
+        }
+
+        /**
+         * Notifies the listeners the class under test registered, as a real
+         * {@code AbstractDocument} does. Swing's own listeners (caret, UI
+         * delegate) are skipped: they expect the element structure of a real
+         * document, which this model does not have, and they never saw events
+         * before.
+         */
+        private void fire(final DocumentEvent.EventType type, final int offset, final int length) {
+            DocumentEvent event = null;
+            for (DocumentListener listener : new ArrayList<>(documentListeners)) {
+                String name = listener.getClass().getName();
+                if (name.startsWith("javax.swing.") || name.startsWith("sun.swing.")
+                        || name.startsWith("com.sun.java.swing.") || name.startsWith("com.apple.laf.")) {
+                    continue;
+                }
+                if (event == null) {
+                    event = new HeadlessSafeDocumentEvent(this, type, offset, length);
+                }
+                if (type == DocumentEvent.EventType.INSERT) {
+                    listener.insertUpdate(event);
+                } else {
+                    listener.removeUpdate(event);
+                }
+            }
         }
 
         @Override
@@ -2568,6 +2972,9 @@ public final class MockHeadlessSwing {
                 throw new BadLocationException("Invalid range", offs);
             }
             text.delete(offs, offs + len);
+            if (len > 0) {
+                fire(DocumentEvent.EventType.REMOVE, offs, len);
+            }
         }
 
         @Override
@@ -2578,6 +2985,9 @@ public final class MockHeadlessSwing {
             }
             if (str != null) {
                 text.insert(offset, str);
+                if (!str.isEmpty()) {
+                    fire(DocumentEvent.EventType.INSERT, offset, str.length());
+                }
             }
         }
 
@@ -2630,6 +3040,46 @@ public final class MockHeadlessSwing {
             if (r != null) {
                 r.run();
             }
+        }
+    }
+
+    private static final class HeadlessSafeDocumentEvent implements DocumentEvent {
+
+        private final Document document;
+        private final EventType type;
+        private final int offset;
+        private final int length;
+
+        private HeadlessSafeDocumentEvent(Document document, EventType type, int offset, int length) {
+            this.document = document;
+            this.type = type;
+            this.offset = offset;
+            this.length = length;
+        }
+
+        @Override
+        public int getOffset() {
+            return offset;
+        }
+
+        @Override
+        public int getLength() {
+            return length;
+        }
+
+        @Override
+        public Document getDocument() {
+            return document;
+        }
+
+        @Override
+        public EventType getType() {
+            return type;
+        }
+
+        @Override
+        public ElementChange getChange(Element elem) {
+            return null;
         }
     }
 
@@ -2730,17 +3180,37 @@ public final class MockHeadlessSwing {
 
         @Override
         public java.awt.Font[] getAllFonts() {
-            return new java.awt.Font[0];
+            // Font enumeration does not need a display device: even the JDK's own
+            // sun.java2d.HeadlessGraphicsEnvironment delegates font queries to the
+            // real font manager while still rejecting display-only operations. This
+            // stub used to hand back an empty array unconditionally, which starves
+            // any SUT branch that depends on a non-empty font list (e.g. iterating
+            // getAvailableFontFamilyNames() looking for a match) of real data purely
+            // because EvoSuite runs headless. Fall back to empty only if the real
+            // environment genuinely cannot be reached.
+            try {
+                return GraphicsEnvironment.getLocalGraphicsEnvironment().getAllFonts();
+            } catch (Throwable ignored) {
+                return new java.awt.Font[0];
+            }
         }
 
         @Override
         public String[] getAvailableFontFamilyNames() {
-            return new String[0];
+            try {
+                return GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
+            } catch (Throwable ignored) {
+                return new String[0];
+            }
         }
 
         @Override
         public String[] getAvailableFontFamilyNames(java.util.Locale l) {
-            return new String[0];
+            try {
+                return GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames(l);
+            } catch (Throwable ignored) {
+                return new String[0];
+            }
         }
     }
 

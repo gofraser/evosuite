@@ -19,6 +19,7 @@
  */
 package org.evosuite.utils.generic;
 
+import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.utils.ParameterizedTypeImpl;
@@ -42,28 +43,6 @@ public class GenericUtils {
      * Constant to represent @NotNull annotation.
      */
     public static final String NONNULL = "Nonnull";
-
-    /**
-     * Checks if the type is assignable to the type variable.
-     *
-     * @param type         the type
-     * @param typeVariable the type variable
-     * @return true if assignable
-     */
-    public static boolean isAssignable(Type type, TypeVariable<?> typeVariable) {
-        boolean isAssignable = true;
-        for (Type boundType : typeVariable.getBounds()) {
-            // Have to resolve the type because a typevariable may have a reference to itself
-            // in its bounds
-            Type resolvedBoundType = GenericUtils.replaceTypeVariable(boundType,
-                    typeVariable, type);
-            if (!GenericClassUtils.isAssignable(resolvedBoundType, type)) {
-                isAssignable = false;
-                break;
-            }
-        }
-        return isAssignable;
-    }
 
     private static final Logger logger = LoggerFactory.getLogger(GenericUtils.class);
 
@@ -405,25 +384,6 @@ public class GenericUtils {
     }
 
     /**
-     * Returns a map of matching type parameters between two generic array types.
-     *
-     * @param p1 the first generic array type
-     * @param p2 the second generic array type
-     * @return the map of matching type parameters
-     */
-    public Map<TypeVariable<?>, Type> getMatchingTypeParameters(GenericArrayType p1,
-                                                                GenericArrayType p2) {
-        if (p1.getGenericComponentType() instanceof ParameterizedType
-                && p2.getGenericComponentType() instanceof ParameterizedType) {
-            return getMatchingTypeParameters((ParameterizedType) p1.getGenericComponentType(),
-                    (ParameterizedType) p2.getGenericComponentType());
-        } else {
-            Map<TypeVariable<?>, Type> map = new HashMap<>();
-            return map;
-        }
-    }
-
-    /**
      * TODO: Try to match p2 superclasses.
      *
      * @param p1 Desired TypeVariable assignment
@@ -552,5 +512,34 @@ public class GenericUtils {
         return false;
     }
 
-
+    /**
+     * Like {@link GenericTypeReflector#getExactSuperType}, but without its treatment of a static
+     * nested class of a generic outer class as raw. gentyref's raw check walks the enclosing
+     * classes without looking at {@code static}, so for {@code DefaultContig.Builder extends
+     * AbstractContigBuilder<AssembledRead, ...>} it answers the erased
+     * {@code AbstractContigBuilder}, and every parameter that mentions the superclass's type
+     * variable ({@code Iterable<P>}) is erased with it.
+     */
+    public static Type getExactSuperType(Type type, Class<?> searchClass) {
+        Type exact = GenericTypeReflector.getExactSuperType(type, searchClass);
+        if (!(exact instanceof Class<?>) || searchClass.getTypeParameters().length == 0
+                || !(type instanceof Class<?>)) {
+            return exact;
+        }
+        Class<?> clazz = (Class<?>) type;
+        if (clazz.getTypeParameters().length != 0 || !clazz.isMemberClass()
+                || !Modifier.isStatic(clazz.getModifiers())) {
+            return exact;
+        }
+        Map<TypeVariable<?>, Type> arguments = TypeUtils.getTypeArguments(clazz, searchClass);
+        if (arguments == null) {
+            return exact;
+        }
+        for (TypeVariable<?> variable : searchClass.getTypeParameters()) {
+            if (arguments.get(variable) == null) {
+                return exact;
+            }
+        }
+        return TypeUtils.parameterize(searchClass, arguments);
+    }
 }

@@ -22,11 +22,13 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LlmStrategyControlFlowTest {
@@ -126,5 +128,36 @@ class LlmStrategyControlFlowTest {
 
         assertEquals(1, evaluations.get());
         assertEquals(0.25, chromosome.getFitnessValues().get(goal), 0.0);
+    }
+
+    @Test
+    void topDiagnosticPrefersDominantExecutionErrorOverProgressNotes() {
+        String top = LlmStrategy.topDiagnostic(Arrays.asList(
+                "Applied wrapper normalization (block #1): wrapper-normalized",
+                "Execution error in test 'a': java.lang.IllegalArgumentException - Duplicate\n  at X",
+                "Execution error in test 'b': java.lang.NullPointerException - x is null",
+                "Execution error in test 'c': java.lang.IllegalArgumentException - Duplicate",
+                "Partial success: kept 0 executable test(s), 0 failed to parse, 3 failed to execute."));
+
+        assertEquals("Execution error: java.lang.IllegalArgumentException - Duplicate (2 occurrences)", top);
+    }
+
+    @Test
+    void topDiagnosticFallsBackToLatestFailureThatIsNotAProgressNote() {
+        assertEquals("Parser failure: bad token", LlmStrategy.topDiagnostic(Arrays.asList(
+                "Applied wrapper normalization (block #1): wrapper-normalized",
+                "Parser produced no test methods.",
+                "Parser failure: bad token",
+                "Skipped repair: identical error repeated")));
+        assertNull(LlmStrategy.topDiagnostic(Collections.singletonList(
+                "Applied wrapper normalization (block #1): wrapper-normalized")));
+    }
+
+    @Test
+    void failedRoundRestartIsBoundedByRemainingBudgetAndCount() {
+        assertTrue(LlmStrategy.canRestartAfterFailedRounds(200_000L, 60_000L, 0));
+        assertFalse(LlmStrategy.canRestartAfterFailedRounds(30_000L, 60_000L, 0));
+        assertFalse(LlmStrategy.canRestartAfterFailedRounds(200_000L, 60_000L,
+                LlmStrategy.MAX_CONSECUTIVE_FAILED_ROUND_RESTARTS));
     }
 }

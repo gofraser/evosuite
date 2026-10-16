@@ -20,6 +20,8 @@
 package org.evosuite.testcase.variable;
 
 import com.googlecode.gentyref.GenericTypeReflector;
+import org.apache.commons.lang3.ClassUtils;
+import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
@@ -361,7 +363,15 @@ public class ArrayIndex extends VariableReferenceImpl {
             Class<?> componentType = arrayObject.getClass().getComponentType();
             int lastIndex = indices.get(indices.size() - 1);
 
-            if (componentType.equals(int.class)) {
+            if (ClassUtils.isPrimitiveWrapper(componentType)
+                    && !ClassUtils.isPrimitiveWrapper(getVariableClass())) {
+                // A wider static element type (Object, Number, ...) holds the value as is: the
+                // generated test stores it without conversion, so a Short into a Long[] throws.
+                // Only a wrapper-typed element is rendered with a conversion cast
+                // ("(Long) (long) short0"), which the branches below mirror.
+                checkReferenceStore(componentType, value);
+                Array.set(arrayObject, lastIndex, value);
+            } else if (componentType.equals(int.class)) {
                 Array.setInt(arrayObject, lastIndex, getIntValue(value));
             } else if (componentType.equals(boolean.class)) {
                 Array.setBoolean(arrayObject, lastIndex, (Boolean) value);
@@ -380,6 +390,7 @@ public class ArrayIndex extends VariableReferenceImpl {
             } else if (componentType.equals(Integer.class)) {
                 Array.set(arrayObject, lastIndex, getIntValue(value));
             } else if (componentType.equals(Boolean.class)) {
+                checkReferenceStore(componentType, value);
                 Array.set(arrayObject, lastIndex, value);
             } else if (componentType.equals(Character.class)) {
                 Array.set(arrayObject, lastIndex, getCharValue(value));
@@ -394,11 +405,39 @@ public class ArrayIndex extends VariableReferenceImpl {
             } else if (componentType.equals(Byte.class)) {
                 Array.set(arrayObject, lastIndex, getByteValue(value));
             } else {
+                checkReferenceStore(componentType, value);
                 Array.set(arrayObject, lastIndex, value);
             }
         } catch (ArrayIndexOutOfBoundsException e) {
             throw new CodeUnderTestException(e);
         }
+    }
+
+    /**
+     * The static type of an array (eg Object[]) can be wider than its runtime type (eg
+     * String[]); the generated test then throws an ArrayStoreException, whereas
+     * {@link Array#set} would signal this as an IllegalArgumentException.
+     */
+    private static void checkReferenceStore(Class<?> componentType, Object value)
+            throws CodeUnderTestException {
+        if (value != null && !componentType.isInstance(value)) {
+            if (isMockSubstitution(componentType, value)) {
+                // The generated test runs with the mocking instrumentation, which makes its
+                // File a MockFile, so it stores without an exception. The search executes the
+                // reflective constructor and holds the real class, which cannot be stored
+                // here; leave the failure to Array.set so the test is invalid, rather than
+                // recording an exception the generated test would not throw.
+                return;
+            }
+            throw new CodeUnderTestException(new ArrayStoreException(value.getClass().getName()));
+        }
+    }
+
+    private static boolean isMockSubstitution(Class<?> componentType, Object value) {
+        // An override mock extends the class it replaces.
+        return OverrideMock.class.isAssignableFrom(componentType)
+                && componentType.getSuperclass() != null
+                && componentType.getSuperclass().isInstance(value);
     }
 
     /**
@@ -442,21 +481,26 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * {@inheritDoc}
+     *
+     * <p>The element of the replacement array at the same indices, typed by the replacement's
+     * component type. Declined if the replacement is not an array, or has fewer dimensions than
+     * this element indexes into. EvoSuite might try to replace the array with a field reference,
+     * but for this we have FieldStatements, which would give us ArrayReferences.
      */
     @Override
-    public void replaceAdditionalVariableReference(VariableReference var1,
-                                                   VariableReference var2) {
-        if (array.equals(var1)) {
-            if (var2 instanceof ArrayReference) {
-                array = (ArrayReference) var2;
-            }
-            // EvoSuite might try to replace this with a field reference
-            // but for this we have FieldStatements, which would give us
-            // ArrayReferences.
-            // Such a replacement should only happen as part of a graceful delete
-        } else {
-            array.replaceAdditionalVariableReference(var1, var2);
+    public VariableReference withReplacement(VariableReference var1, VariableReference var2) {
+        if (equals(var1)) {
+            return var2;
         }
+        VariableReference reboundArray = array.withReplacement(var1, var2);
+        if (reboundArray == array) {
+            return this;
+        }
+        if (!(reboundArray instanceof ArrayReference)
+                || getReturnType((ArrayReference) reboundArray, indices.size()) == null) {
+            return null;
+        }
+        return new ArrayIndex(testCase, (ArrayReference) reboundArray, new ArrayList<>(indices));
     }
 
     /**

@@ -279,7 +279,8 @@ class OverloadResolver {
         boolean explicitVarArgArray = usesExplicitVarArgsArray(formalTypes, isVarArgs, actualTypes);
         int score = isVarArgs ? 10 : 0;
         for (int i = 0; i < actualTypes.length; i++) {
-            Class<?> formal = getFormalTypeForArgument(formalTypes, isVarArgs, i, actualTypes.length, explicitVarArgArray);
+            Class<?> formal = getFormalTypeForArgument(
+                    formalTypes, isVarArgs, i, actualTypes.length, explicitVarArgArray);
             if (formal == null) {
                 score += 100;
                 continue;

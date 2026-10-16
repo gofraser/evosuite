@@ -50,8 +50,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     /**
      * The coordinator is local execution state and must not cross the client/master RMI boundary.
      */
-    private transient ObjectRuleGenerationCoordinator objectRuleCoordinator =
-            new ObjectRuleGenerationCoordinator(this);
+    private transient ObjectRuleGenerationCoordinator objectRuleCoordinator;
 
     /**
      * Creates a random test case (i.e., a test case consisting of random statements) with the
@@ -155,7 +154,9 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         return new ConstructionPathSynthesizer();
     }
 
-    /** Consistency seam paired with {@link #newConstructionPathSynthesizer()}. */
+    /**
+     * Consistency seam paired with {@link #newConstructionPathSynthesizer()}.
+     */
     protected boolean isSynthesizedTestConsistent(TestCase test) {
         return ObjectRuleTemplateSynthesizer.isConsistent(test);
     }

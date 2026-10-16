@@ -27,6 +27,7 @@ import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.setup.callgraph.CallGraph;
 import org.evosuite.setup.callgraph.CallGraphEntry;
 import org.evosuite.utils.MethodUtil;
+
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
@@ -51,10 +52,25 @@ public class TargetContext {
     private final boolean constructorEntry;
     private final String branchMethodSignature;
 
+    /**
+     * Creates a context for a branch target that is not reached through a constructor entry.
+     *
+     * @param className the class under test
+     * @param methodSignature the signature of the targeted method
+     * @param branch the targeted branch
+     */
     public TargetContext(String className, String methodSignature, Branch branch) {
         this(className, methodSignature, branch, false);
     }
 
+    /**
+     * Creates a context for a branch target.
+     *
+     * @param className the class under test
+     * @param methodSignature the signature of the targeted method
+     * @param branch the targeted branch
+     * @param constructorEntry whether the target is reached through a constructor entry
+     */
     public TargetContext(String className, String methodSignature, Branch branch, boolean constructorEntry) {
         this.className = className;
         this.methodSignature = methodSignature;
@@ -180,10 +196,12 @@ public class TargetContext {
         return false;
     }
 
-    private static boolean isDirectlyAccessibleEntry(Method method, Class<?> owner) {
+    static boolean isDirectlyAccessibleEntry(Method method, Class<?> owner) {
+        if (TestUsageChecker.isNotCallableFromSource(method)) {
+            return false;
+        }
         int modifiers = method.getModifiers();
         return Modifier.isPublic(modifiers)
-                || Modifier.isProtected(modifiers)
                 || TestUsageChecker.canUse(method, owner);
     }
 
@@ -230,6 +248,11 @@ public class TargetContext {
         return context == null ? Properties.TARGET_METHOD : context.methodSignature;
     }
 
+    /**
+     * Returns whether the active context targets a constructor entry and no explicit target method is configured.
+     *
+     * @return true if the active target is a constructor entry
+     */
     public static boolean activeConstructorEntry() {
         TargetContext context = getActive();
         return context != null && context.constructorEntry

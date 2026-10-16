@@ -41,6 +41,15 @@ public class ParseDiagnostic {
         this(severity, null, message, lineNumber, sourceSnippet);
     }
 
+    /**
+     * Create a new ParseDiagnostic with a diagnostic kind.
+     *
+     * @param severity the severity.
+     * @param kind the kind of diagnostic, or null if unclassified.
+     * @param message the message.
+     * @param lineNumber the line number.
+     * @param sourceSnippet the source snippet.
+     */
     public ParseDiagnostic(Severity severity,
                            DiagnosticKind kind,
                            String message,

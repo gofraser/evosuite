@@ -26,8 +26,8 @@ import org.evosuite.ga.stoppingconditions.MaxFitnessEvaluationsStoppingCondition
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
-import org.evosuite.llm.IterativeLlmTimelineRecorder;
 import org.evosuite.llm.IterativeLlmSidecarRecorder;
+import org.evosuite.llm.IterativeLlmTimelineRecorder;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
@@ -50,7 +50,6 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
-import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ArrayUtil;
@@ -219,7 +218,6 @@ public class LlmStrategy extends TestGenerationStrategy {
                 new IterativeLlmTimelineRecorder();
         IterativeLlmSidecarRecorder sidecarRecorder =
                 new IterativeLlmSidecarRecorder(allGoals);
-        List<Double> ratioTimeline = new ArrayList<>();
         List<Integer> newGoalsTimeline = new ArrayList<>();
         List<Integer> coverageTimeline = new ArrayList<>();
         List<Long> elapsedTimeline = new ArrayList<>();
@@ -230,7 +228,11 @@ public class LlmStrategy extends TestGenerationStrategy {
         List<Integer> targetGoalsTimeline = new ArrayList<>();
         int totalGoals = allGoals.size();
         int parseFailureCount = 0;
-        int parseFailStreak = 0;
+        // Consecutive rounds without usable tests, whether the response did not
+        // parse or every parsed test failed at execution.
+        int failedRoundStreak = 0;
+        long failedStreakStartedNanos = strategyStartedNanos;
+        int consecutiveRestarts = 0;
         int parseFailLimit = Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT;
         int totalParsedTests = 0;
         int totalUniqueTests = 0;
@@ -257,7 +259,7 @@ public class LlmStrategy extends TestGenerationStrategy {
         totalParsedTests += initial.tests.size();
         totalUniqueTests += initialAdded;
         totalDuplicates += initialDuplicates;
-        ratioTimeline.add(computeParsedRatio(suite));
+        sampleParsedRatio(suite);
         Set<TestFitnessFunction> coveredGoals = suite.getCoveredGoals();
         coverageTimeline.add(coveredGoals.size());
         newGoalsTimeline.add(coveredGoals.size());
@@ -275,8 +277,10 @@ public class LlmStrategy extends TestGenerationStrategy {
                     "* Initial broad-coverage query produced no usable tests: {}",
                     initial.failureSummary);
             previousFailureHint = initial.failureSummary;
-            parseFailureCount++;
-            parseFailStreak++;
+            if (!initial.droppedAtExecution) {
+                parseFailureCount++;
+            }
+            failedRoundStreak++;
         }
 
         if (isFinishedWithTests(suite, stoppingCondition)) {
@@ -285,7 +289,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                     : ExitReason.STOPPING_CONDITION;
             return finishIterative(suite, 0, rounds, exitReason,
                     parseFailureCount, totalParsedTests, totalUniqueTests,
-                    totalDuplicates, ratioTimeline, newGoalsTimeline,
+                    totalDuplicates, newGoalsTimeline,
                     coverageTimeline, elapsedTimeline, queryLatencyTimeline,
                     suiteSizeTimeline, parsedTestsTimeline,
                     uniqueTestsTimeline, targetGoalsTimeline, timelineRecorder,
@@ -315,6 +319,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                 exitReason = ExitReason.MAX_ITERATIONS;
                 break;
             }
+            long roundStartedNanos = System.nanoTime();
             final Set<TestFitnessFunction> coveredSnapshot = coveredGoals;
             Collection<TestFitnessFunction> uncoveredGoals = allGoals.stream()
                     .filter(g -> !coveredSnapshot.contains(g))
@@ -376,7 +381,7 @@ public class LlmStrategy extends TestGenerationStrategy {
             }
 
             // Per-iteration sample (gap-free).
-            ratioTimeline.add(computeParsedRatio(suite));
+            sampleParsedRatio(suite);
             int newGoalsThisIter = coveredGoals.size() - coveredBefore;
             newGoalsTimeline.add(newGoalsThisIter);
             coverageTimeline.add(coveredGoals.size());
@@ -402,21 +407,53 @@ public class LlmStrategy extends TestGenerationStrategy {
                 break;
             }
 
-            // Update parse-failure streak/hint.
-            if (outcome.failureSummary != null && added == 0) {
-                parseFailureCount++;
-                parseFailStreak++;
+            // Update failed-round streak/hint.
+            boolean failedRound = outcome.failureSummary != null && added == 0;
+            if (failedRound) {
+                if (!outcome.droppedAtExecution) {
+                    parseFailureCount++;
+                }
+                if (failedRoundStreak == 0) {
+                    failedStreakStartedNanos = roundStartedNanos;
+                }
+                failedRoundStreak++;
                 previousFailureHint = outcome.failureSummary;
-                if (parseFailLimit > 0 && parseFailStreak >= parseFailLimit) {
+                if (parseFailLimit > 0 && failedRoundStreak >= parseFailLimit) {
+                    long streakMillis = elapsedMillis(failedStreakStartedNanos);
+                    if (canRestartAfterFailedRounds(remainingMillis(deadlineNanos),
+                            streakMillis, consecutiveRestarts)) {
+                        // Budget remains: drop the failure feedback, which tends to
+                        // anchor the LLM on its broken approach, and re-prompt from
+                        // scratch instead of ending the run.
+                        consecutiveRestarts++;
+                        LoggingUtils.getEvoLogger().info(
+                                "* {} consecutive iterations produced no usable tests; "
+                                        + "re-prompting without failure feedback (restart {} of {})",
+                                failedRoundStreak, consecutiveRestarts,
+                                MAX_CONSECUTIVE_FAILED_ROUND_RESTARTS);
+                        failedRoundStreak = 0;
+                        previousFailureHint = null;
+                        continue;
+                    }
                     LoggingUtils.getEvoLogger().info(
-                            "* {} consecutive iterations produced no parsed tests, stopping",
-                            parseFailStreak);
-                    exitReason = ExitReason.PARSE_FAIL_STREAK;
+                            "* {} consecutive iterations produced no usable tests, stopping",
+                            failedRoundStreak);
+                    exitReason = outcome.droppedAtExecution
+                            ? ExitReason.EXECUTION_FAIL_STREAK
+                            : ExitReason.PARSE_FAIL_STREAK;
                     break;
                 }
             } else {
-                parseFailStreak = 0;
+                failedRoundStreak = 0;
                 previousFailureHint = null;
+                if (added > 0) {
+                    consecutiveRestarts = 0;
+                }
+            }
+            if (failedRound && parseFailLimit > 0) {
+                // Bounded by the failed-round guard above; a round without usable
+                // tests is not a round without new coverage.
+                continue;
             }
 
             if (newGoalsThisIter > 0) {
@@ -435,7 +472,7 @@ public class LlmStrategy extends TestGenerationStrategy {
 
         return finishIterative(suite, iteration, rounds, exitReason,
                 parseFailureCount, totalParsedTests, totalUniqueTests,
-                totalDuplicates, ratioTimeline, newGoalsTimeline,
+                totalDuplicates, newGoalsTimeline,
                 coverageTimeline, elapsedTimeline, queryLatencyTimeline,
                 suiteSizeTimeline, parsedTestsTimeline, uniqueTestsTimeline,
                 targetGoalsTimeline, timelineRecorder, sidecarRecorder);
@@ -453,7 +490,6 @@ public class LlmStrategy extends TestGenerationStrategy {
                                                 int totalParsedTests,
                                                 int totalUniqueTests,
                                                 int totalDuplicates,
-                                                List<Double> ratioTimeline,
                                                 List<Integer> newGoalsTimeline,
                                                 List<Integer> coverageTimeline,
                                                 List<Long> elapsedTimeline,
@@ -464,7 +500,6 @@ public class LlmStrategy extends TestGenerationStrategy {
                                                 List<Integer> targetGoalsTimeline,
                                                 IterativeLlmTimelineRecorder timelineRecorder,
                                                 IterativeLlmSidecarRecorder sidecarRecorder) {
-        emitRatioTimeline(ratioTimeline);
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.LLM_Iterative_Iterations, iteration);
         ClientServices.getInstance().getClientNode()
@@ -513,7 +548,9 @@ public class LlmStrategy extends TestGenerationStrategy {
         return suite;
     }
 
-    /** Iterative-mode loop exit reasons; surfaced via {@code LLM_Iterative_Exit_Reason}. */
+    /**
+     * Iterative-mode loop exit reasons; surfaced via {@code LLM_Iterative_Exit_Reason}.
+     */
     private enum ExitReason {
         STOPPING_CONDITION,
         ALL_GOALS_COVERED,
@@ -522,6 +559,26 @@ public class LlmStrategy extends TestGenerationStrategy {
         MAX_ITERATIONS,
         NO_PROGRESS,
         PARSE_FAIL_STREAK,
+        EXECUTION_FAIL_STREAK,
+    }
+
+    /**
+     * Upper bound on back-to-back restarts after streaks of rounds without
+     * usable tests; a round that adds tests resets it.
+     */
+    static final int MAX_CONSECUTIVE_FAILED_ROUND_RESTARTS = 3;
+
+    /**
+     * Whether a streak of rounds without usable tests should restart the
+     * conversation rather than end the run: only while at least as much time
+     * remains as the failing streak consumed, so repeated restarts can use at
+     * most about half of the remaining budget each, and only a bounded number
+     * of times in a row.
+     */
+    static boolean canRestartAfterFailedRounds(long remainingMillis, long streakMillis,
+                                               int consecutiveRestarts) {
+        return consecutiveRestarts < MAX_CONSECUTIVE_FAILED_ROUND_RESTARTS
+                && remainingMillis >= streakMillis;
     }
 
     /**
@@ -771,19 +828,24 @@ public class LlmStrategy extends TestGenerationStrategy {
      */
     private static final class QueryOutcome {
         final List<TestChromosome> tests;
-        /** Short, single-line summary of what went wrong; {@code null} on success. */
+        /**
+         * Short, single-line summary of what went wrong; {@code null} on success.
+         */
         final String failureSummary;
         final long latencyMillis;
+        /** The response parsed, but every candidate test failed at execution. */
+        final boolean droppedAtExecution;
 
         QueryOutcome(List<TestChromosome> tests, String failureSummary,
-                     long latencyMillis) {
+                     long latencyMillis, boolean droppedAtExecution) {
             this.tests = tests;
             this.failureSummary = failureSummary;
             this.latencyMillis = latencyMillis;
+            this.droppedAtExecution = droppedAtExecution;
         }
 
         static QueryOutcome success(List<TestChromosome> tests, long latencyMillis) {
-            return new QueryOutcome(tests, null, latencyMillis);
+            return new QueryOutcome(tests, null, latencyMillis, false);
         }
 
         static QueryOutcome failure(String summary) {
@@ -792,7 +854,12 @@ public class LlmStrategy extends TestGenerationStrategy {
 
         static QueryOutcome failure(String summary, long latencyMillis) {
             return new QueryOutcome(Collections.<TestChromosome>emptyList(),
-                    summary, latencyMillis);
+                    summary, latencyMillis, false);
+        }
+
+        static QueryOutcome droppedAtExecution(String summary, long latencyMillis) {
+            return new QueryOutcome(Collections.<TestChromosome>emptyList(),
+                    summary, latencyMillis, true);
         }
     }
 
@@ -820,6 +887,12 @@ public class LlmStrategy extends TestGenerationStrategy {
             long latencyMillis = elapsedMillis(startedNanos);
             if (!result.isSuccess()) {
                 String hint = topDiagnostic(result.getDiagnostics());
+                if (result.isDroppedAtExecution()) {
+                    return QueryOutcome.droppedAtExecution(
+                            "All generated tests failed at execution: "
+                                    + (hint == null ? "no diagnostic" : hint),
+                            latencyMillis);
+                }
                 return QueryOutcome.failure("Parse/repair failed: "
                         + (hint == null ? "no diagnostic" : hint),
                         latencyMillis);
@@ -847,20 +920,77 @@ public class LlmStrategy extends TestGenerationStrategy {
         }
     }
 
-    /** Returns the first non-blank diagnostic line, truncated to 200 chars, or null. */
-    private static String topDiagnostic(List<String> diagnostics) {
+    /**
+     * Picks the diagnostic most useful as feedback for the next query,
+     * truncated to 200 chars: the most frequent execution error (ties go to
+     * the most recent one), otherwise the most recent diagnostic that is not
+     * a progress note of the repair loop such as "Applied wrapper
+     * normalization". Returns null when there is none.
+     */
+    static String topDiagnostic(List<String> diagnostics) {
         if (diagnostics == null) {
             return null;
         }
+        Map<String, Integer> executionErrorCounts = new HashMap<>();
+        String dominantExecutionError = null;
+        int dominantCount = 0;
+        String latestFailure = null;
         for (String d : diagnostics) {
-            if (d != null && !d.trim().isEmpty()) {
-                String firstLine = d.trim().split("\\R", 2)[0];
-                return firstLine.length() > 200
-                        ? firstLine.substring(0, 200) + "…"
-                        : firstLine;
+            if (d == null || d.trim().isEmpty()) {
+                continue;
+            }
+            String firstLine = d.trim().split("\\R", 2)[0];
+            String executionError = stripExecutionErrorPrefix(firstLine);
+            if (executionError != null) {
+                int count = executionErrorCounts.merge(executionError, 1, Integer::sum);
+                if (count >= dominantCount) {
+                    dominantExecutionError = executionError;
+                    dominantCount = count;
+                }
+            } else if (!isRepairProgressNote(firstLine)) {
+                latestFailure = firstLine;
+            }
+        }
+        String top;
+        if (dominantExecutionError != null) {
+            top = "Execution error: " + dominantExecutionError
+                    + (dominantCount > 1 ? " (" + dominantCount + " occurrences)" : "");
+        } else {
+            top = latestFailure;
+        }
+        if (top == null) {
+            return null;
+        }
+        return top.length() > 200 ? top.substring(0, 200) + "…" : top;
+    }
+
+    private static final String[] EXECUTION_ERROR_PREFIXES = {
+            "Execution error in test '", "Execution failure in test '"};
+
+    /** Returns the error after "Execution error in test 'name': ", or null. */
+    private static String stripExecutionErrorPrefix(String line) {
+        for (String prefix : EXECUTION_ERROR_PREFIXES) {
+            if (line.startsWith(prefix)) {
+                int end = line.indexOf("': ", prefix.length());
+                return end < 0 ? line : line.substring(end + 3).trim();
             }
         }
         return null;
+    }
+
+    private static final String[] REPAIR_PROGRESS_NOTE_PREFIXES = {
+            "Applied wrapper normalization", "Applied truncation recovery",
+            "Normalized ", "Removed ", "Expanded cluster", "Skipped ",
+            "Partial success", "Returned partial success", "Detected hard output-contract",
+            "Continuing repair", "Salvaged ", "Stopped salvage", "All LLM candidate tests dropped"};
+
+    private static boolean isRepairProgressNote(String line) {
+        for (String prefix : REPAIR_PROGRESS_NOTE_PREFIXES) {
+            if (line.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean evaluateSuiteAndGoals(
@@ -1023,16 +1153,15 @@ public class LlmStrategy extends TestGenerationStrategy {
         return total > 0 ? (double) parsed / total : 0.0;
     }
 
-    private void emitRatioTimeline(List<Double> timeline) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < timeline.size(); i++) {
-            if (i > 0) {
-                sb.append(";");
-            }
-            sb.append(String.format(Locale.ROOT, "%.4f", timeline.get(i)));
-        }
+    /**
+     * Records the current parsed-statement ratio. The master keeps
+     * {@link RuntimeVariable#LLM_Parsed_Statement_Ratio_Timeline} as a sampled sequence of
+     * doubles, which MOSA reports once per generation, so each value is tracked as it is computed
+     * rather than joined into one string at the end, which the statistics could not store.
+     */
+    private void sampleParsedRatio(TestSuiteChromosome suite) {
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline,
-                        sb.toString());
+                        computeParsedRatio(suite));
     }
 }

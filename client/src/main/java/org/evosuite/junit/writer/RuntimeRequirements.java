@@ -33,17 +33,20 @@ public final class RuntimeRequirements {
     private final TestOutputMode outputMode;
     private final boolean useAgent;
     private final boolean hasSecurityException;
+    private final boolean hasTimeout;
     private final boolean usesMocks;
     private final boolean shouldResetProperties;
 
     private RuntimeRequirements(TestOutputMode outputMode,
                                 boolean useAgent,
                                 boolean hasSecurityException,
+                                boolean hasTimeout,
                                 boolean usesMocks,
                                 boolean shouldResetProperties) {
         this.outputMode = outputMode;
         this.useAgent = useAgent;
         this.hasSecurityException = hasSecurityException;
+        this.hasTimeout = hasTimeout;
         this.usesMocks = usesMocks;
         this.shouldResetProperties = shouldResetProperties;
     }
@@ -60,6 +63,7 @@ public final class RuntimeRequirements {
                 TestSuiteWriterUtils.resolveTestOutputMode(),
                 TestSuiteWriterUtils.needToUseAgent(),
                 TestSuiteWriterUtils.hasAnySecurityException(safeResults),
+                safeResults.stream().anyMatch(ExecutionResult::hasTimeout),
                 TestSuiteWriterUtils.doesUseMocks(safeResults),
                 TestSuiteWriterUtils.shouldResetProperties(safeResults)
         );
@@ -91,6 +95,15 @@ public final class RuntimeRequirements {
 
     public boolean hasSecurityException() {
         return hasSecurityException;
+    }
+
+    /**
+     * Whether any test body is run on a separate thread through the scaffolding's
+     * {@code executor}. TestSuiteWriter wraps a test that way when it hit a security
+     * exception or a timeout, so the scaffolding must declare the executor in both cases.
+     */
+    public boolean needsThreadWrapper() {
+        return hasSecurityException || hasTimeout;
     }
 
     public boolean usesMocks() {

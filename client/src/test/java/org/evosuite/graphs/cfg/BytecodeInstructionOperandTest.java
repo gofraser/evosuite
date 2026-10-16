@@ -168,10 +168,6 @@ public class BytecodeInstructionOperandTest {
         assertTrue(indexSources.stream().anyMatch(BytecodeInstruction::isConstant),
                 "the array index 0 is a constant");
 
-        // The alias must behave identically.
-        assertEquals(iaload.getSourceOfStackInstructionList(1).size(),
-                iaload.getSourceListOfStackInstruction(1).size(),
-                "getSourceListOfStackInstruction must alias getSourceOfStackInstructionList");
     }
 
     @Test

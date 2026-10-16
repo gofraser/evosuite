@@ -20,6 +20,7 @@
 package org.evosuite.runtime.vnet;
 
 import org.evosuite.runtime.TooManyResourcesException;
+import org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -34,13 +35,18 @@ public class NonFunctionalRequirementRule implements TestRule {
 
     @Override
     public Statement apply(Statement base, Description description) {
+        final boolean endsOnLimit = description != null
+                && description.getAnnotation(EvoSuiteEndsOnResourceLimit.class) != null;
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
                 try {
                     base.evaluate();
-                } catch (TooManyResourcesException e) {
-                    //prevent TMRE to propagate to the JUnit runner
+                } catch (Throwable e) {
+                    if (!TooManyResourcesException.isExpectedLimitFailure(e, endsOnLimit)) {
+                        throw e;
+                    }
+                    //prevent TMRE (or, for a test ending on a limit, its stack overflow twin) to propagate
                 }
             }
         };

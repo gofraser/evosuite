@@ -20,13 +20,16 @@
 package org.evosuite.llm;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.postprocess.LlmPostProcessor;
 import org.evosuite.llm.search.DiagnosticCardSelector;
 import org.evosuite.llm.search.ExtractorCandidateMetric;
 import org.evosuite.llm.search.ExtractorRejectReason;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.rmi.ClientServices;
+import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 
 import java.util.Collection;
 import java.util.EnumMap;
@@ -342,6 +345,12 @@ public class LlmStatistics {
         return diagnosticCardsDeduplicated.get();
     }
 
+    /**
+     * Counts diagnostic-card candidates that reached the published stage.
+     *
+     * @param cardTypes the card type of each contributing card
+     * @param candidateCount the number of candidates to add
+     */
     public static void recordDiagnosticCandidatesPublished(Collection<ProblemCardType> cardTypes, int candidateCount) {
         recordDiagnosticCandidateStage(cardTypes, candidateCount,
                 diagnosticCandidatesPublished,
@@ -358,6 +367,12 @@ public class LlmStatistics {
         return getCounterValue(diagnosticCandidatesPublishedByType, type);
     }
 
+    /**
+     * Counts diagnostic-card candidates that reached the admitted stage.
+     *
+     * @param cardTypes the card type of each contributing card
+     * @param candidateCount the number of candidates to add
+     */
     public static void recordDiagnosticCandidatesAdmitted(Collection<ProblemCardType> cardTypes, int candidateCount) {
         recordDiagnosticCandidateStage(cardTypes, candidateCount,
                 diagnosticCandidatesAdmitted,
@@ -374,6 +389,12 @@ public class LlmStatistics {
         return getCounterValue(diagnosticCandidatesAdmittedByType, type);
     }
 
+    /**
+     * Counts diagnostic-card candidates that reached the survived stage.
+     *
+     * @param cardTypes the card type of each contributing card
+     * @param candidateCount the number of candidates to add
+     */
     public static void recordDiagnosticCandidatesSurvived(Collection<ProblemCardType> cardTypes, int candidateCount) {
         recordDiagnosticCandidateStage(cardTypes, candidateCount,
                 diagnosticCandidatesSurvived,
@@ -390,6 +411,11 @@ public class LlmStatistics {
         return getCounterValue(diagnosticCandidatesSurvivedByType, type);
     }
 
+    /**
+     * Counts the candidates the diagnostic extractors rejected, by reject reason.
+     *
+     * @param rejectCounts the number of rejected candidates per reason; null or empty is ignored
+     */
     public static void recordDiagnosticExtractorRejects(Map<ExtractorRejectReason, Integer> rejectCounts) {
         if (rejectCounts == null || rejectCounts.isEmpty()) {
             return;
@@ -407,6 +433,11 @@ public class LlmStatistics {
         }
     }
 
+    /**
+     * Counts the candidates the diagnostic extractors produced, by metric.
+     *
+     * @param candidateCounts the number of candidates per metric; null or empty is ignored
+     */
     public static void recordDiagnosticExtractorCandidates(Map<ExtractorCandidateMetric, Integer> candidateCounts) {
         if (candidateCounts == null || candidateCounts.isEmpty()) {
             return;
@@ -511,6 +542,13 @@ public class LlmStatistics {
         return counter == null ? 0L : counter.get();
     }
 
+    /**
+     * Counts uncovered-goal gains that cannot be attributed to a single diagnostic-card type because several
+     * types were selected; gains with at most one selected type are ignored.
+     *
+     * @param selectedTypes the card types that were selected when the gain occurred
+     * @param gainedGoals the number of goals gained; non-positive values are ignored
+     */
     public static void recordDiagnosticCoverageGainAttributionAmbiguous(
             Collection<ProblemCardType> selectedTypes,
             int gainedGoals) {
@@ -599,22 +637,12 @@ public class LlmStatistics {
                 .recordRetryAttempt(latencyMs);
     }
 
-    /** Records a failed LLM call for the given feature. */
-    public void recordFailure(LlmFeature feature) {
-        recordFailure(feature, 0L);
-    }
-
     /** Records a final failed provider attempt, including its elapsed time. */
     public void recordFailure(LlmFeature feature, long latencyMs) {
         totalCalls.incrementAndGet();
         failedCalls.incrementAndGet();
         totalLatencyMs.addAndGet(Math.max(0L, latencyMs));
         perFeature.computeIfAbsent(feature, ignored -> new FeatureStats()).recordFailure(latencyMs);
-    }
-
-    /** Records an LLM call timeout for the given feature. */
-    public void recordTimeout(LlmFeature feature) {
-        recordTimeout(feature, 0L);
     }
 
     /** Records a final timed-out provider attempt, including its elapsed time. */
@@ -847,11 +875,17 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, 0);
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, 0);
         ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, 0);
-        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, 0);
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, 0);
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, 0);
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Statement_Execution_Failures, 0);
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures, 0);
+        // Tracked during the run by other components; publish their totals rather than zero,
+        // because the master keeps the last value it receives.
+        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used,
+                ObjectPoolManager.getInstance().getSequenceUsageCount());
+        ExecutableSnippetEngine snippets = ExecutableSnippetEngine.INSTANCE;
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, snippets.getCompileFailures());
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, snippets.getRuntimeFailures());
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Statement_Execution_Failures,
+                snippets.getStatementExecutionFailures());
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures,
+                snippets.getAssertionEvaluationFailures());
         ClientServices.track(RuntimeVariable.LLM_All_Candidates_Dropped_Execution, 0);
         ClientServices.track(RuntimeVariable.LLM_Semantic_Mutations, 0);
         ClientServices.track(RuntimeVariable.LLM_Semantic_Mutation_Fallbacks, 0);
@@ -877,52 +911,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Parsed_Timeline, "");
         ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Unique_Timeline, "");
         ClientServices.track(RuntimeVariable.LLM_Iterative_Target_Goals_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Skip_Reason, "");
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Minimization_Status, "");
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Minimization_Stop_Cause, "");
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Requested_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Requested_Statements, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Initial_Calls, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Repair_Calls, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Repair_Calls_Skipped_Budget, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Accepted_Responses, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Skipped_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Cap_Skipped_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Infrastructure_Failures, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Edits, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Unknown_Ids, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Duplicates, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Invalid_Fields, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Unsupported_Kinds, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Limit_Exceeded, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Compile, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Observed_Execution, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Stability_Execution, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_Infrastructure, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_No_Accepted, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_All, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_Mutation, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Fallback_Assertions_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Processed_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Partially_Processed_Tests, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Test_Names_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Test_Names_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Variable_Names_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Variable_Names_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Comments_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Comments_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_Initial, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Repair_Requested, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed_After_Repair, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Applied, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped, 0);
+        LlmPostProcessor.initializeRuntimeVariables();
         ClientServices.track(RuntimeVariable.LLM_StagnationCalls, 0);
         ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls, 0);
         ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Cards_Used, 0);
@@ -1059,7 +1048,8 @@ public class LlmStatistics {
             case EXCEPTION_BARRIER_UPSTREAM_CANDIDATES:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierUpstreamCandidates;
             case EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedInsufficientAttempts;
+                return RuntimeVariable
+                        .LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedInsufficientAttempts;
             case EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedLowFailureRate;
             case MOCK_NEEDED_DEPENDENCY_CANDIDATES:

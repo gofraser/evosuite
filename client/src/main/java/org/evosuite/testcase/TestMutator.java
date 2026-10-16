@@ -81,6 +81,17 @@ public class TestMutator {
             VariableReference callee = null;
             if (!method.isStatic()) {
                 callee = testFactory.getRandomNonNullNonPrimitiveObject(test, method.getOwnerType(), position);
+                if (method.getOwnerClass().hasWildcardOrTypeVariables()) {
+                    // The cluster hands out the raw GenericMethod; bind the owner's type
+                    // variables from the callee once, or every parameter mentioning them is
+                    // widened to a wildcard and resolved independently of the others.
+                    try {
+                        method = method.getGenericInstantiation(callee.getGenericClass());
+                    } catch (ConstructionFailedException e) {
+                        // Keep the unbound method; its parameters fall back to wildcards below.
+                        logger.debug("Cannot bind owner type variables of {}: {}", method, e.getMessage());
+                    }
+                }
             }
 
             List<VariableReference> parameters = new ArrayList<>();
@@ -102,6 +113,17 @@ public class TestMutator {
         } else if (call.isConstructor()) {
 
             GenericConstructor constructor = (GenericConstructor) call;
+            if (constructor.getOwnerClass().hasWildcardOrTypeVariables()) {
+                // As for methods above: with E of SetUniqueList(List<E>, Set<E>) unbound, the
+                // two parameters are widened to List<?>/Set<?> and filled independently, while
+                // TestCodeVisitor prints a single <E> that then matches only one of them.
+                try {
+                    constructor = constructor.getGenericInstantiation();
+                } catch (ConstructionFailedException e) {
+                    // Keep the unbound constructor; its parameters fall back to wildcards below.
+                    logger.debug("Cannot bind owner type variables of {}: {}", constructor, e.getMessage());
+                }
+            }
             VariableReference retval = statement.getReturnValue();
             List<VariableReference> parameters = new ArrayList<>();
             for (Type type : constructor.getParameterTypes()) {
@@ -114,6 +136,37 @@ public class TestMutator {
                 effectiveType = TestFactory.normalizeClassLiteralTypeArgumentByErasure(effectiveType);
                 parameters.add(test.getRandomObject(effectiveType, position));
             }
+            GenericConstructor reboundConstructor =
+                    StatementFactory.bindInnerClassOwnerToEnclosingArgument(constructor, parameters);
+            if (reboundConstructor != constructor
+                    && !retval.getGenericClass().isAssignableFrom(reboundConstructor.getOwnerClass())) {
+                // The enclosing argument would turn the declaration into a different
+                // instantiation (Outer<String>.Inner) while the return variable and its later
+                // uses stay typed Outer<Integer>.Inner. Retyping a variable under existing
+                // uses breaks them. Raw and wildcard return types can accept more specific
+                // owners, but a disagreeing concrete owner must still be rejected.
+                reboundConstructor = null;
+                Class<?> declaring = constructor.getRawGeneratedType().getDeclaringClass();
+                for (VariableReference candidate : test.getObjects(declaring, position)) {
+                    if (candidate.equals(retval)) {
+                        continue;
+                    }
+                    List<VariableReference> alternative = new ArrayList<>(parameters);
+                    alternative.set(0, candidate);
+                    GenericConstructor bound = StatementFactory
+                            .bindInnerClassOwnerToEnclosingArgument(constructor, alternative);
+                    if (retval.getGenericClass().isAssignableFrom(bound.getOwnerClass())) {
+                        parameters = alternative;
+                        reboundConstructor = bound;
+                        break;
+                    }
+                }
+                if (reboundConstructor == null) {
+                    throw new ConstructionFailedException("No enclosing instance of "
+                            + retval.getGenericClass() + " for " + constructor);
+                }
+            }
+            constructor = reboundConstructor;
             ConstructorStatement c = new ConstructorStatement(test, constructor, retval, parameters);
             c.setParsedFromLlm(statement.isParsedFromLlm());
             test.setStatement(c, position);
@@ -241,6 +294,38 @@ public class TestMutator {
         return true;
     }
 
+    /**
+     * Replaces every use of the variable defined at {@code position} with {@code replacement}
+     * and deletes the statement. The replacement applies to all statements or to none
+     * ({@link TestCase#replace}); if a statement refuses it (an assignment that would write the
+     * new value into a target of an incompatible type, an element argument whose type would no
+     * longer fit), every use of the old variable remains, and they are deleted through the
+     * dependency cascade together with the statement at {@code position}. The construction of
+     * the replacement itself is kept either way.
+     *
+     * @param test        the test case
+     * @param position    the position of the statement to delete
+     * @param replacement the variable that takes over the uses of the deleted statement
+     */
+    public void replaceAndDelete(TestCase test, int position, VariableReference replacement) {
+        Statement statement = test.getStatement(position);
+        // replace() repoints the statement's own return value too, and the position is derived
+        // from the return value, so keep the original variable to restore it below.
+        VariableReference ref = statement.getReturnValue();
+        // A use replace() does not rewrite, such as one in an assertion, also keeps the old
+        // variable alive and needs the cascade.
+        boolean refused = !test.replace(ref, replacement);
+        for (int i = 0; i < test.size() && !refused; i++) {
+            refused = i != position && test.getStatement(i).references(ref);
+        }
+        if (refused) {
+            statement.setRetval(ref);
+            deleteStatement(test, position);
+        } else {
+            test.remove(position);
+        }
+    }
+
     private void recursiveDeleteInclusion(TestCase test, Set<Integer> toDelete, int position) {
 
         if (toDelete.contains(position)) {
@@ -349,23 +434,42 @@ public class TestMutator {
         }
 
         if (!alternatives.isEmpty()) {
-            // Change all references to return value at position to something else
+            // Change all references to return value at position to something else. Each
+            // statement gets its own replacement, so this replaces statement by statement
+            // rather than through TestCase.replace. That is sound because a statement's
+            // replace() is all or nothing and never changes another statement, not even through
+            // an element or field reference they share; a statement that refuses keeps using
+            // var and is removed with it by the deleteStatement cascade below.
             for (int i = position + 1; i < test.size(); i++) {
                 Statement s = test.getStatement(i);
                 if (s.references(var)) {
                     if (s.isAssignmentStatement()) {
                         AssignmentStatement assignment = (AssignmentStatement) s;
                         if (assignment.getValue() == var) {
-                            VariableReference replacementVar = Randomness.choice(alternatives);
-                            if (assignment.getReturnValue().isAssignableFrom(replacementVar)) {
-                                s.replace(var, replacementVar);
-                                changed = true;
+                            // The assignment's own retval is a candidate too; choosing it
+                            // aliases both sides to one variable, printed as an undeclared
+                            // "x = x" because the retval no longer declares at this position.
+                            List<VariableReference> candidates = alternatives.stream()
+                                    .filter(r -> r != assignment.getReturnValue())
+                                    .collect(Collectors.toList());
+                            if (!candidates.isEmpty()) {
+                                VariableReference replacementVar = Randomness.choice(candidates);
+                                if (assignment.getReturnValue().isAssignableFrom(replacementVar)) {
+                                    s.replace(var, replacementVar);
+                                    changed = true;
+                                }
                             }
                         } else if (assignment.getReturnValue() == var) {
-                            VariableReference replacementVar = Randomness.choice(alternatives);
-                            if (replacementVar.isAssignableFrom(assignment.getValue())) {
-                                s.replace(var, replacementVar);
-                                changed = true;
+                            // Same aliasing in the other direction.
+                            List<VariableReference> candidates = alternatives.stream()
+                                    .filter(r -> r != assignment.getValue())
+                                    .collect(Collectors.toList());
+                            if (!candidates.isEmpty()) {
+                                VariableReference replacementVar = Randomness.choice(candidates);
+                                if (replacementVar.isAssignableFrom(assignment.getValue())) {
+                                    s.replace(var, replacementVar);
+                                    changed = true;
+                                }
                             }
                         }
                     } else {
@@ -406,8 +510,28 @@ public class TestMutator {
                         if (var2 instanceof ArrayIndex) {
                             ArrayIndex ai = (ArrayIndex) var2;
                             if (ai.getArray().equals(var)) {
-                                s.replace(var2, Randomness.choice(alternatives));
-                                changed = true;
+                                // As above: an assignment's other side must not become
+                                // the replacement for this side.
+                                List<VariableReference> candidates = alternatives;
+                                if (s.isAssignmentStatement()) {
+                                    AssignmentStatement assignment = (AssignmentStatement) s;
+                                    VariableReference otherSide = null;
+                                    if (assignment.getReturnValue() == var2) {
+                                        otherSide = assignment.getValue();
+                                    } else if (assignment.getValue() == var2) {
+                                        otherSide = assignment.getReturnValue();
+                                    }
+                                    if (otherSide != null) {
+                                        final VariableReference excluded = otherSide;
+                                        candidates = alternatives.stream()
+                                                .filter(r -> r != excluded)
+                                                .collect(Collectors.toList());
+                                    }
+                                }
+                                if (!candidates.isEmpty()) {
+                                    s.replace(var2, Randomness.choice(candidates));
+                                    changed = true;
+                                }
                             }
                         }
                     }
@@ -537,7 +661,7 @@ public class TestMutator {
             ArrayReference array = (ArrayReference) var;
             int length = array.getStructuralArrayLength();
             if (length > 0) {
-                for (int i = 0; i < length; i++) {
+                for (int i : ArrayReference.getCandidateIndices(length)) {
                     logger.debug("Assigning array index {}", i);
                     int oldLen = test.size();
                     try {

@@ -163,15 +163,15 @@ public class BytecodeInstrumentation {
 
     /**
      * Check whether the given class is the class under test (CUT).
-     * <p>
-     * This uses the narrow CUT definition that the coverage goal factories use (see
+     *
+     * <p>This uses the narrow CUT definition that the coverage goal factories use (see
      * {@code AbstractFitnessFactory.isCUT} and {@code InstrumentingClassLoader.shouldWarnForMissingClass}):
      * the target class itself plus its nested classes ({@code Foo$Bar}).  Nested classes
      * count as CUT because their branches and lines are part of the target's coverage
      * goals, so losing their probes degrades the reported coverage just as silently as
      * losing the probes of the outer class.
-     * <p>
-     * The broader {@link org.evosuite.setup.TestCluster#isTargetClassName(String)} is
+     *
+     * <p>The broader {@link org.evosuite.setup.TestCluster#isTargetClassName(String)} is
      * deliberately NOT used here: it also matches every class below
      * {@code TARGET_CLASS_PREFIX} and, with {@code INSTRUMENT_PARENT}, subclasses of the
      * target.  Those are exactly the dependency classes that the instrumentation fallback
@@ -192,8 +192,8 @@ public class BytecodeInstrumentation {
     /**
      * Abort instead of silently returning bytecode without coverage probes for the class
      * under test.
-     * <p>
-     * The fallback rungs that stop emitting probes ({@link #transformBytesMinimal},
+     *
+     * <p>The fallback rungs that stop emitting probes ({@link #transformBytesMinimal},
      * {@link #transformBytesBarePassthrough} and {@link #copyOriginalBytecode}) are the
      * right answer for dependency classes: the run continues and only loses instrumentation
      * we do not measure anyway.  For the CUT they are the wrong answer: no probes means no
@@ -384,6 +384,12 @@ public class BytecodeInstrumentation {
     private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots,
                                             ClassLoader classLoader, boolean enableLoopCounter,
                                             ClassReader reader) {
+        if (DependencyAnalysis.shouldAnalyze(classNameWithDots)) {
+            // Innermost, so the injected rethrow is written straight to the writer and
+            // never enters the MethodNode buffers of the CFG/testability adapters.
+            cv = new TimeoutExceededRethrowClassAdapter(cv);
+        }
+
         if (config.resetStaticFields()) {
             cv = new StaticAccessClassAdapter(cv, className);
         }
@@ -655,7 +661,7 @@ public class BytecodeInstrumentation {
 
     private ClassVisitor addTargetTransformationAdapters(ClassVisitor cv, String className, ClassLoader classLoader) {
         if (!config.testCarving() && config.makeAccessible()) {
-            cv = new AccessibleClassAdapter(cv, className);
+            cv = new AccessibleClassAdapter(cv, className, classLoader);
         }
 
         cv = new RemoveFinalClassAdapter(cv);
@@ -679,7 +685,7 @@ public class BytecodeInstrumentation {
         cv = new NonTargetClassAdapter(cv, className);
 
         if (config.makeAccessible()) {
-            cv = new AccessibleClassAdapter(cv, className);
+            cv = new AccessibleClassAdapter(cv, className, classLoader);
         }
 
         // If we are doing testability transformation on all classes we need
@@ -796,13 +802,7 @@ public class BytecodeInstrumentation {
     private ClassVisitor handleStaticReset(String className, ClassVisitor cv, ClassReader reader) {
         // Create a __STATIC_RESET() cloning the original <clinit> method or
         // create one by default
-        final CreateClassResetClassAdapter resetClassAdapter;
-        if (config.resetStaticFinalFields()) {
-            resetClassAdapter = new CreateClassResetClassAdapter(cv, className, true, reader);
-        } else {
-            resetClassAdapter = new CreateClassResetClassAdapter(cv, className, false, reader);
-        }
-        cv = resetClassAdapter;
+        cv = new CreateClassResetClassAdapter(cv, className, config.resetStaticFinalFields(), reader);
 
         // Adds a callback before leaving the <clinit> method
         EndOfClassInitializerVisitor exitClassInitAdapter = new EndOfClassInitializerVisitor(cv, className);

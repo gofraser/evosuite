@@ -18,8 +18,11 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.instrumentation;
+import org.evosuite.runtime.instrumentation.TimeoutExceededRethrowAdapter;
 
 import org.evosuite.Properties;
+import org.evosuite.runtime.ArrayAllocationBudget;
+import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.junit.jupiter.api.AfterEach;
@@ -70,6 +73,8 @@ public class ArrayAllocationLimitMethodAdapterTest {
 
     private String originalTargetClass;
 
+    private long originalCumulativeLimit;
+
     private Class<?> instrumented;
 
     @BeforeEach
@@ -77,6 +82,9 @@ public class ArrayAllocationLimitMethodAdapterTest {
         Properties.getInstance().resetToDefaults();
         originalArrayLimit = Properties.ARRAY_LIMIT;
         originalTargetClass = Properties.TARGET_CLASS;
+        // The budget is process-wide static state; leaving it moved would fail later tests.
+        originalCumulativeLimit = RuntimeSettings.maxCumulativeArrayBytes;
+        ArrayAllocationBudget.reset();
         Properties.ARRAY_LIMIT = LIMIT;
         // The guard only applies to classes under analysis, so the fixture has to be one.
         Properties.TARGET_CLASS = VICTIM;
@@ -87,6 +95,8 @@ public class ArrayAllocationLimitMethodAdapterTest {
     public void tearDown() {
         Properties.ARRAY_LIMIT = originalArrayLimit;
         Properties.TARGET_CLASS = originalTargetClass;
+        RuntimeSettings.maxCumulativeArrayBytes = originalCumulativeLimit;
+        ArrayAllocationBudget.reset();
     }
 
     @Test
@@ -139,6 +149,91 @@ public class ArrayAllocationLimitMethodAdapterTest {
         instrumented = instrument(VICTIM);
 
         assertEquals(LIMIT * 100, invoke("newArray", LIMIT * 100));
+    }
+
+    /**
+     * ...but the cumulative budget must still cover it. Scoping that half to the class under
+     * analysis too left the common case unguarded: 44_summa's DoubleIntArrayList is the target
+     * and is guarded, while the chunk loop that actually exhausts the heap lives one call away in
+     * ChunkedLongArray, which is not. A library cannot trip this by sizing one buffer from its own
+     * constant -- only by allocating over and over within a single test.
+     */
+    @Test
+    public void libraryAllocationStillCountsAgainstTheCumulativeBudget() throws Exception {
+        Properties.TARGET_CLASS = "some.other.Class";
+        instrumented = instrument(VICTIM);
+        RuntimeSettings.maxCumulativeArrayBytes = 10_000L;
+
+        // Each allocation is far below array_limit and would never be refused on its own.
+        assertEquals(6_000, invoke("newArray", 6_000));
+        assertRejected("newArray", 6_000);
+    }
+
+    /**
+     * The budget is per test execution, so a reset has to actually clear it.
+     */
+    @Test
+    public void theCumulativeBudgetStartsAfreshForTheNextTest() throws Exception {
+        Properties.TARGET_CLASS = "some.other.Class";
+        instrumented = instrument(VICTIM);
+        RuntimeSettings.maxCumulativeArrayBytes = 10_000L;
+
+        assertEquals(6_000, invoke("newArray", 6_000));
+        ArrayAllocationBudget.reset();
+        assertEquals(6_000, invoke("newArray", 6_000));
+    }
+
+    /**
+     * The budget counts bytes, not elements: an element of a {@code long[]} is 8 times
+     * the footprint of an element of the {@code byte[]} used by the other tests in this
+     * class. A budget that (incorrectly) counted elements would let this pair of
+     * allocations through, because 100 elements is comfortably under a budget of 500;
+     * counted correctly, the second allocation's 800 bytes push the running total (800)
+     * over that same budget.
+     */
+    @Test
+    public void cumulativeBudgetCountsBytesNotElementsForWideElementTypes() throws Exception {
+        RuntimeSettings.maxCumulativeArrayBytes = 500L;
+
+        // 50 longs = 400 bytes: within budget, whether counted in bytes or elements.
+        assertEquals(50, invoke("newLongArray", 50));
+        // Another 50 longs => 100 elements (still under 500) but 800 bytes (over 500).
+        assertRejected("newLongArray", 50);
+    }
+
+    /**
+     * {@code visitMultiANewArrayInsn} used to never call the cumulative-budget check at
+     * all, so a loop of legal-sized multi-dimensional allocations contributed nothing to
+     * the running total and could exhaust the heap regardless of cumulative_array_limit_bytes.
+     * {@code multiNewArray(rows, columns)} allocates an {@code int[rows][columns]}: each
+     * call here charges the outer 10-slot reference array, the ten inner 20-element
+     * {@code int[]} leaves, and a header overhead per array object -- 1056 bytes in
+     * total (see {@code ArrayAllocationBudget.checkAndRecord(int[], int)}) -- well
+     * under array_limit (1000 elements) on its own.
+     */
+    @Test
+    public void multiDimensionalAllocationCountsAgainstTheCumulativeBudget() throws Exception {
+        RuntimeSettings.maxCumulativeArrayBytes = 2_000L;
+
+        assertEquals(10, invoke("multiNewArray", 10, 20)); // 1056 bytes: within budget
+        assertRejected("multiNewArray", 10, 20); // 2112 bytes total: over budget
+    }
+
+    /**
+     * {@code visitMultiANewArrayInsn} used to charge the product of all dimensions times
+     * the leaf width, which is zero whenever any dimension -- including a leaf -- is
+     * zero. {@code multiNewArray(1000, 0)} allocates a real outer reference array of
+     * 1000 slots plus 1000 (empty) inner {@code int[]} objects, so repeating this shape
+     * in a loop could exhaust the heap while the old charge stayed at zero regardless of
+     * how large the first dimension got. This exercises the fix through the full chain
+     * the client adapter runs in production: its own per-call size guard first, then the
+     * runtime adapter's cumulative accounting.
+     */
+    @Test
+    public void zeroSizedLeafDimensionStillCountsAgainstTheCumulativeBudget() throws Exception {
+        RuntimeSettings.maxCumulativeArrayBytes = 100L;
+
+        assertRejected("multiNewArray", 1000, 0);
     }
 
     // ---------------------------------------------------------------- helpers

@@ -239,6 +239,18 @@ public class GraphPool {
      *            object.
      */
     public void registerActualCFG(ActualControlFlowGraph cfg) {
+        registerActualCFG(cfg, false);
+    }
+
+    /**
+     * Registers an actual control flow graph, and its control dependence graph when the method
+     * is in the instrumented scope or {@code forceControlDependence} is set.
+     *
+     * @param cfg the CFG to register
+     * @param forceControlDependence whether to register the control dependence graph regardless
+     *     of the instrumented scope
+     */
+    private void registerActualCFG(ActualControlFlowGraph cfg, boolean forceControlDependence) {
         String className = cfg.getClassName();
         String methodName = cfg.getMethodName();
 
@@ -257,7 +269,8 @@ public class GraphPool {
             cfg.toDot();
         }
 
-        if (DependencyAnalysis.shouldInstrument(cfg.getClassName(), cfg.getMethodName())) {
+        if (forceControlDependence
+                || DependencyAnalysis.shouldInstrument(cfg.getClassName(), cfg.getMethodName())) {
             createAndRegisterControlDependence(cfg);
         }
     }
@@ -307,25 +320,7 @@ public class GraphPool {
      * @param cfg the CFG to register
      */
     public void alwaysRegisterActualCFG(ActualControlFlowGraph cfg) {
-        String className = cfg.getClassName();
-        String methodName = cfg.getMethodName();
-
-        if (className == null || methodName == null) {
-            throw new IllegalStateException(
-                    "expect class and method name of CFGs to be set before entering the GraphPool");
-        }
-
-        Map<String, ActualControlFlowGraph> methods = actualCFGs.computeIfAbsent(className,
-                k -> new ConcurrentHashMap<>());
-        logger.debug("Added CFG for class " + className + " and method " + methodName);
-        cfg.finalise();
-        methods.put(methodName, cfg);
-
-        if (Properties.WRITE_CFG) {
-            cfg.toDot();
-        }
-
-        createAndRegisterControlDependence(cfg);
+        registerActualCFG(cfg, true);
     }
 
     private void createAndRegisterControlDependence(ActualControlFlowGraph cfg) {
@@ -450,6 +445,18 @@ public class GraphPool {
 
     public static void clearAll() {
         instanceMap.clear();
+    }
+
+    /**
+     * Drops the pool of the given class loader, so that the graphs built while it instrumented
+     * classes (and, through them, the loader itself) can be garbage collected.
+     *
+     * @param classLoader the class loader whose pool is no longer needed
+     */
+    public static void release(ClassLoader classLoader) {
+        if (classLoader != null) {
+            instanceMap.remove(classLoader);
+        }
     }
 
 }

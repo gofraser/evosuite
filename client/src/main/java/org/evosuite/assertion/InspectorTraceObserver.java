@@ -92,7 +92,8 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                     Object value = i.getValue(target);
                     logger.debug("Inspector " + i.getMethodCall() + " is: " + value);
 
-                    if (value instanceof String && StringValueFilter.shouldFilter((String) value, target)) {
+                    if (value instanceof String && (StringValueFilter.shouldFilter((String) value, target)
+                            || StringValueFilter.isRelayedAwtDefaultName((String) value, scope))) {
                         continue;
                     }
 
@@ -135,7 +136,10 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                     }
                     logger.debug("Chained inspector " + ci.getMethodCall() + " is: " + value);
 
-                    if (value instanceof String && StringValueFilter.shouldFilter((String) value, target)) {
+                    if (value instanceof String && (StringValueFilter.shouldFilter((String) value, target)
+                            || StringValueFilter.isAwtDefaultName((String) value,
+                            ci.getInnerInspector().getMethod().getDeclaringClass())
+                            || StringValueFilter.isRelayedAwtDefaultName((String) value, scope))) {
                         continue;
                     }
 

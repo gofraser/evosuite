@@ -32,14 +32,13 @@ import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.junit.JUnitAnalyzer;
-import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.junit.writer.Scaffolding;
+import org.evosuite.junit.writer.TestSuiteWriter;
+import org.evosuite.llm.LlmRunLifecycle;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
-import org.evosuite.llm.LlmRunLifecycle;
 import org.evosuite.llm.postprocess.LlmPostProcessingPhaseContext;
 import org.evosuite.llm.postprocess.LlmPostProcessor;
-import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.llm.seeding.LlmPoolEnrichmentOrchestrator;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
@@ -62,6 +61,7 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
@@ -69,6 +69,7 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.MinimizationResult;
 import org.evosuite.testsuite.MinimizationStopCause;
 import org.evosuite.testsuite.OracleReplayConfiguration;
@@ -86,6 +87,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.function.LongSupplier;
 
 /**
  * Main entry point. Does all the static analysis, invokes a test generation
@@ -465,7 +467,7 @@ public class TestSuiteGenerator {
                             suite.getTests(), suite.getLastExecutionResults());
 
             MinimizationResult minimizationResult = metadata.toMinimizationResult();
-            publishMinimizationResult(minimizationResult);
+            minimizationResult.publish();
             ClientServices.track(RuntimeVariable.Oracle_Replay_Strategy,
                     Properties.ORACLE_REPLAY_STRATEGY.name());
             ClientServices.track(RuntimeVariable.Oracle_Replay_Input_Fingerprint,
@@ -640,6 +642,102 @@ public class TestSuiteGenerator {
     }
 
     /**
+     * Tests that use a variable no earlier statement defines cannot be cloned by the
+     * minimizer and cannot be written as compilable code; one of them used to abort the
+     * whole post-processing, so they are dropped first, each with one warning.
+     */
+    void removeTestsWithUnresolvedReferences(TestSuiteChromosome testSuite) {
+        Iterator<TestChromosome> iterator = testSuite.getTestChromosomes().iterator();
+        int index = 0;
+        while (iterator.hasNext()) {
+            TestChromosome test = iterator.next();
+            List<String> problems;
+            try {
+                // The same check the search applies to its offspring, plus assignments whose
+                // value or target is only defined later, which clone() tolerates but any
+                // positional copy, and the written test, do not.
+                problems = TestParser.findOrphanedVariableReferences(test.getTestCase());
+                if (problems.isEmpty()) {
+                    problems = TestParser.findUnsafelyCopyableStatements(test.getTestCase());
+                }
+            } catch (Throwable t) {
+                problems = Collections.singletonList("reference check crashed: " + t);
+            }
+            if (!problems.isEmpty()) {
+                logger.warn("Dropping test {} of the suite (id {}) before post-processing: {}",
+                        index, test.getTestCase().getID(), problems);
+                iterator.remove();
+            }
+            index++;
+        }
+    }
+
+    /**
+     * Drops every test that is a prefix of another test in the suite, crediting
+     * its covered goals to the test that contains it.
+     *
+     * <p>The archive keeps the shortest test for each goal, and a test that
+     * grew out of another by appending statements covers everything its
+     * origin does, so the suite the search hands back is largely made of
+     * prefixes of its own tests. {@link TestSuiteWriter} merges them when the
+     * tests are written, but by then inlining, minimization and the coverage
+     * analysis have each re-executed all of them. Merging here, before any of
+     * that, compares each candidate against the tests already kept, so it is
+     * worst-case quadratic in the number of tests, with each comparison
+     * walking statements. Same condition as the writer: with
+     * {@code call_probability} the prefixes are kept as distinct tests.</p>
+     */
+    void removePrefixTests(TestSuiteChromosome testSuite) {
+        if (Properties.CALL_PROBABILITY > 0 || testSuite.size() < 2) {
+            return;
+        }
+        // Longest first, so a test only has to be compared with the tests
+        // that can contain it; the sort is stable, so equal tests keep their
+        // order and the first of them is the one that survives.
+        List<TestChromosome> byLength = new ArrayList<>(testSuite.getTestChromosomes());
+        byLength.sort(Comparator.comparingInt((TestChromosome t) -> -t.size()));
+        List<TestChromosome> kept = new ArrayList<>();
+        Set<TestChromosome> prefixes = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (TestChromosome test : byLength) {
+            TestChromosome container = null;
+            for (TestChromosome candidate : kept) {
+                if (test.getTestCase().isPrefix(candidate.getTestCase())) {
+                    container = candidate;
+                    break;
+                }
+            }
+            if (container == null) {
+                kept.add(test);
+                continue;
+            }
+            for (TestFitnessFunction goal : test.getTestCase().getCoveredGoals()) {
+                container.getTestCase().addCoveredGoal(goal);
+            }
+            // isPrefix(candidate) only matches when test's statement i equals
+            // candidate's statement i for every i < test.size(), so
+            // addAssertions(TestCase) can walk that same shared range and copy
+            // across assertions not already present. LLM/seed tests carry
+            // oracles the assertion phase never regenerates, so without this
+            // they are lost outright when the shorter test is discarded below.
+            // Presentation metadata (test names, comments, section breaks) is
+            // not merged here, since it is only attached later by LLM
+            // post-processing.
+            container.getTestCase().addAssertions(test.getTestCase());
+            prefixes.add(test);
+        }
+        if (prefixes.isEmpty()) {
+            return;
+        }
+        List<TestChromosome> remaining = new ArrayList<>(testSuite.getTestChromosomes());
+        remaining.removeIf(prefixes::contains);
+        testSuite.replaceWithTestChromosomes(remaining);
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Removed " + prefixes.size() + " tests that were prefixes of other tests, "
+                + remaining.size() + " remain");
+        logSuiteDiagnostics("postProcess:afterPrefixRemoval", testSuite);
+    }
+
+    /**
      * Apply any readability optimizations and other techniques that should use
      * or modify the generated tests.
      *
@@ -647,6 +745,8 @@ public class TestSuiteGenerator {
      */
     protected void postProcessTests(TestSuiteChromosome testSuite) {
         logSuiteDiagnostics("postProcess:start", testSuite);
+
+        removeTestsWithUnresolvedReferences(testSuite);
 
         // If overall time is short, the search might not have had enough time
         // to come up with a suite without timeouts. However, they will slow
@@ -715,6 +815,8 @@ public class TestSuiteGenerator {
             }
         }
 
+        removePrefixTests(testSuite);
+
         if (Properties.INLINE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.INLINING);
             ConstantInliner inliner = new ConstantInliner();
@@ -746,7 +848,7 @@ public class TestSuiteGenerator {
                 ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
                 ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
                 ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
-                publishMinimizationResult(minimizationResult);
+                minimizationResult.publish();
             } else {
                 double before = testSuite.getFitness();
                 TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
@@ -789,39 +891,10 @@ public class TestSuiteGenerator {
             ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
             ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
             ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
-            publishMinimizationResult(minimizationResult);
+            minimizationResult.publish();
         }
 
-        if (Properties.COVERAGE) {
-            ClientServices.getInstance().getClientNode().changeState(ClientState.COVERAGE_ANALYSIS);
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Skipping coverage analysis because not enough time is left");
-            } else {
-                // Deliberately not gated on isMemoryTooLowForPhase() like the heavier phases
-                // below: with the criteria unchanged since search (the common case here),
-                // analyzeCoverage() does not re-instrument or re-execute a single test, only
-                // clones the suite and reads already-cached results, so it does not need the
-                // same headroom minimization or JUnit checking do. Attempt it and only fall
-                // back if it actually runs out of memory -- each criterion's output variable
-                // is tracked as soon as that criterion's goals are checked, so a suite this
-                // large that OOMs partway through still leaves whatever was tracked before
-                // the failure, rather than reporting nothing at all.
-                Criterion[] originalCriteria = Properties.CRITERION;
-                if (requestedCriteria != null) {
-                    Properties.CRITERION = requestedCriteria;
-                }
-                try {
-                    CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
-                } catch (OutOfMemoryError e) {
-                    LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                            + "Coverage analysis ran out of memory partway through; "
-                            + "keeping whatever coverage numbers were already tracked");
-                } finally {
-                    Properties.CRITERION = originalCriteria;
-                }
-            }
-        }
+        runCoverageAnalysisIfEnabled(testSuite);
 
         double coverage = testSuite.getCoverage();
         if (coverage == 0.0 && Properties.CRITERION.length > 1) {
@@ -931,15 +1004,10 @@ public class TestSuiteGenerator {
             }
         }
 
-        postProcessOracles(testSuite, minimizationResult);
-    }
-
-    /** Apply assertions, unified LLM post-processing, and final JUnit validation. */
-    private void postProcessOracles(TestSuiteChromosome testSuite,
-                                    MinimizationResult minimizationResult) {
         postProcessOracles(testSuite, minimizationResult, null);
     }
 
+    /** Apply assertions, unified LLM post-processing, and final JUnit validation. */
     private void postProcessOracles(TestSuiteChromosome testSuite,
                                     MinimizationResult minimizationResult,
                                     ReplayStructureSnapshot replayStructure) {
@@ -1071,8 +1139,10 @@ public class TestSuiteGenerator {
                     retainedAssertionSource == null ? assertionSource : retainedAssertionSource);
             if (useProcessedAssertions) {
                 structural.addAssertions(assertionSource);
+                structural.setUnstable(structural.isUnstable() || assertionSource.isUnstable());
             } else if (fallbackSource != null && fallbackSource.size() == structural.size()) {
                 structural.addAssertions(fallbackSource);
+                structural.setUnstable(structural.isUnstable() || fallbackSource.isUnstable());
                 logger.info("Restoring replay test {} with its baseline mutation assertions after "
                         + "hybrid oracle validation rejected the LLM-processed oracle", index);
             } else if (retained.contains(assertionSource)) {
@@ -1184,10 +1254,6 @@ public class TestSuiteGenerator {
         }
     }
 
-    static boolean shouldGenerateStandardAssertions() {
-        return shouldGenerateStandardAssertions(true);
-    }
-
     static boolean shouldGenerateStandardAssertions(boolean llmServiceReady) {
         return Properties.ASSERTIONS
                 && (isMutationLlmReplay()
@@ -1283,21 +1349,60 @@ public class TestSuiteGenerator {
                 withTimeout, withTestException, withSecurityException, firstExceptionHistogram);
     }
 
-    private void publishMinimizationResult(MinimizationResult result) {
-        ClientServices.track(RuntimeVariable.Minimization_Status, result.getStatus().name());
-        ClientServices.track(RuntimeVariable.Minimization_Stop_Cause,
-                result.getUnderlyingStopCause().name());
-        ClientServices.track(RuntimeVariable.Minimization_Original_Tests,
-                result.getOriginalTests());
-        ClientServices.track(RuntimeVariable.Minimization_Original_Length,
-                result.getOriginalLength());
-        ClientServices.track(RuntimeVariable.Minimization_Final_Tests,
-                result.getFinalTests());
-        ClientServices.track(RuntimeVariable.Minimization_Final_Length,
-                result.getFinalLength());
-        ClientServices.track(RuntimeVariable.Minimization_Elapsed_Millis,
-                result.getElapsedMillis());
+    /**
+     * Runs coverage analysis if {@link Properties#COVERAGE} requests it, recording the sweep as
+     * incomplete whenever this method itself gives up before, or partway through, calling
+     * {@link CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome)} -- that analyzer only
+     * tracks completeness for budget exits it hits internally, not for an outer skip or an
+     * uncaught {@link OutOfMemoryError} here.
+     *
+     * @param testSuite the suite to analyze
+     */
+    private void runCoverageAnalysisIfEnabled(TestSuiteChromosome testSuite) {
+        if (!Properties.COVERAGE) {
+            return;
+        }
+        ClientServices.getInstance().getClientNode().changeState(ClientState.COVERAGE_ANALYSIS);
+        if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Skipping coverage analysis because not enough time is left");
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
+            return;
+        }
+        // Deliberately not gated on isMemoryTooLowForPhase() like the heavier phases
+        // below: with the criteria unchanged since search (the common case here),
+        // analyzeCoverage() does not re-instrument or re-execute a single test, only
+        // clones the suite and reads already-cached results, so it does not need the
+        // same headroom minimization or JUnit checking do. Attempt it and only fall
+        // back if it actually runs out of memory -- each criterion's output variable
+        // is tracked as soon as that criterion's goals are checked, so a suite this
+        // large that OOMs partway through still leaves whatever was tracked before
+        // the failure, rather than reporting nothing at all.
+        Criterion[] originalCriteria = Properties.CRITERION;
+        if (requestedCriteria != null) {
+            Properties.CRITERION = requestedCriteria;
+        }
+        try {
+            CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
+        } catch (OutOfMemoryError e) {
+            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Coverage analysis ran out of memory partway through; "
+                    + "keeping whatever coverage numbers were already tracked");
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
+        } finally {
+            Properties.CRITERION = originalCriteria;
+        }
     }
+
+    /**
+     * Overrides the free-memory measurement used by {@link #isMemoryTooLowForPhase} below;
+     * {@code null} in production. Setting {@code Properties.MIN_FREE_MEM} alone cannot force this
+     * branch deterministically in a test, because the doubled threshold still has to exceed
+     * actual free heap, and that is not guaranteed on a JVM with a large enough maximum heap.
+     * Tests in this package (see {@code TestSuiteGeneratorJUnitCheckCompletenessTest}) set this
+     * instead, and must reset it to {@code null} afterwards.
+     */
+    static LongSupplier freeMemoryBytesForTesting = null;
 
     /**
      * Check whether free memory is too low to safely enter a post-search phase
@@ -1308,21 +1413,18 @@ public class TestSuiteGenerator {
      * @return true if memory is too low (caller should skip the phase)
      */
     private boolean isMemoryTooLowForPhase(String phaseName) {
-        Runtime runtime = Runtime.getRuntime();
-        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-        long threshold = Properties.MIN_FREE_MEM * 2L;
-        if (freeMem < threshold) {
-            System.gc();
-            freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-            if (freeMem < threshold) {
-                LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Skipping " + phaseName + " due to low memory: "
-                        + (freeMem / 1024 / 1024) + " MB free, need "
-                        + (threshold / 1024 / 1024) + " MB");
-                return true;
-            }
+        LongSupplier freeMemoryBytes = freeMemoryBytesForTesting != null
+                ? freeMemoryBytesForTesting : PhaseMemoryGuard::currentFreeHeapBytes;
+        PhaseMemoryGuard guard =
+                new PhaseMemoryGuard(freeMemoryBytes, System::gc, Properties.MIN_FREE_MEM * 2L);
+        if (!guard.isExhausted()) {
+            return false;
         }
-        return false;
+        LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Skipping " + phaseName + " due to low memory: "
+                + (guard.getLastFreeBytes() / 1024 / 1024) + " MB free, need "
+                + (guard.getThresholdBytes() / 1024 / 1024) + " MB");
+        return true;
     }
 
     /**
@@ -1346,7 +1448,15 @@ public class TestSuiteGenerator {
             throw new RuntimeException(msg);
         }
 
+        // Establish this run's validation metadata before the preflight below can return: a
+        // reused JVM (e.g. many checks within one run, or many tests within one JVM) would
+        // otherwise leave whatever a previous check round recorded in place, so a low-memory skip
+        // here could be masked by, or wrongly blamed on, stale incompleteness from earlier.
+        JUnitAnalyzer.resetMemoryExhaustion();
+
         if (isMemoryTooLowForPhase("JUnit check")) {
+            JUnitAnalyzer.recordCheckIncomplete(
+                    "skipped the whole JUnit check phase due to low memory");
             return;
         }
 
@@ -1361,6 +1471,8 @@ public class TestSuiteGenerator {
 
         // note: compiling and running JUnit tests can be very time consuming
         if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            JUnitAnalyzer.recordCheckIncomplete(
+                    "JUnit check phase budget expired before any check could run");
             Properties.USE_SEPARATE_CLASSLOADER = junitSeparateClassLoader;
             return;
         }
@@ -1388,18 +1500,33 @@ public class TestSuiteGenerator {
                     removedByCompileFilter, beforeCompileFilter);
         }
 
+        // Each check compiles the tests and runs them on freshly loaded classes, which is
+        // expensive in memory; stop checking, and keep the tests not checked yet, rather than
+        // run the client out of heap.
+        PhaseMemoryGuard memoryGuard = new PhaseMemoryGuard();
+
         // compile and run each test one at a time. and keep track of total time
         long start = java.lang.System.currentTimeMillis();
         Iterator<TestCase> iter = testCases.iterator();
         int removedInSingleTestChecks = 0;
+        int checkedInSingleTestChecks = 0;
         while (iter.hasNext()) {
             if (JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()) {
                 logger.warn("Aborting remaining per-test JUnit checks due to prior javac infrastructure failure");
                 break;
             }
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                JUnitAnalyzer.recordCheckIncomplete(
+                        "ran out of time before finishing the per-test JUnit checks; "
+                                + (testCases.size() - checkedInSingleTestChecks + removedInSingleTestChecks)
+                                + " test(s) left unchecked");
                 break;
             }
+            if (isMemoryExhaustedForJUnitCheck(memoryGuard, "the remaining per-test JUnit checks",
+                    testCases.size() - checkedInSingleTestChecks + removedInSingleTestChecks)) {
+                break;
+            }
+            checkedInSingleTestChecks++;
             TestCase tc = iter.next();
             List<TestCase> list = new ArrayList<>();
             list.add(tc);
@@ -1421,13 +1548,24 @@ public class TestSuiteGenerator {
          */
         long delta = java.lang.System.currentTimeMillis() - start;
 
-        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()) {
-            numUnstable += checkAllTestsIfTime(testCases, delta);
+        // What running the whole suite once costs; the per-test total is an upper bound
+        // until the whole-suite check has actually been timed.
+        long suiteRunMs = delta;
+        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()
+                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the whole-suite JUnit check", 0)) {
+            if (hasTimeForWholeSuiteCheck(delta)) {
+                long suiteCheckStart = java.lang.System.currentTimeMillis();
+                numUnstable += JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
+                suiteRunMs = Math.min(suiteRunMs, java.lang.System.currentTimeMillis() - suiteCheckStart);
+            } else {
+                JUnitAnalyzer.recordCheckIncomplete("ran out of time before the whole-suite JUnit check");
+            }
         }
 
         // second passage on reverse order, this is to spot dependencies among
         // tests
-        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure() && testCases.size() > 1) {
+        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure() && testCases.size() > 1
+                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the reverse-order JUnit check", 0)) {
             Collections.reverse(testCases);
             try {
                 numUnstable += checkAllTestsIfTime(testCases, delta);
@@ -1438,7 +1576,10 @@ public class TestSuiteGenerator {
             }
         }
 
-        chromosome.setExtensionInitializationOrder(resolveExtensionInitializationOrderIfNeeded(testCases, delta));
+        chromosome.setExtensionInitializationOrder(
+                isMemoryExhaustedForJUnitCheck(memoryGuard, "the order-sensitivity analysis", 0)
+                        ? Collections.<String>emptyList()
+                        : resolveExtensionInitializationOrderIfNeeded(testCases, delta, suiteRunMs));
 
         chromosome.clearTests(); // remove all tests
         for (TestCase testCase : testCases) {
@@ -1461,15 +1602,63 @@ public class TestSuiteGenerator {
 
     }
 
+    /**
+     * Checks the memory guard of the JUnit check phase, and logs (once) that the remaining
+     * checks are skipped when memory has run out.
+     *
+     * @param guard     the guard of the phase
+     * @param what      the checks that would be skipped, for the log
+     * @param unchecked number of tests that stay unchecked, or 0 if not relevant
+     * @return true if the checks must be skipped
+     */
+    private static boolean isMemoryExhaustedForJUnitCheck(PhaseMemoryGuard guard, String what, int unchecked) {
+        boolean wasExhausted = guard.isExhaustedAlready();
+        String cause;
+        // Whether this call is the first to see *this guard's own* JVM-level free-memory check
+        // trip, as opposed to it tripping because JUnitAnalyzer already hit an internal OOM
+        // (which that analyzer already records as incomplete itself).
+        boolean ownGuardTrippedNow = false;
+        if (!wasExhausted && JUnitAnalyzer.isMemoryExhaustedDuringCheck()) {
+            // A check (e.g. javac, which shares this heap) ran out of memory.
+            guard.markExhausted();
+            cause = "a check ran out of memory";
+        } else if (guard.isExhausted()) {
+            ownGuardTrippedNow = !wasExhausted;
+            cause = (guard.getLastFreeBytes() / 1024 / 1024) + " MB free, need "
+                    + (guard.getThresholdBytes() / 1024 / 1024) + " MB";
+        } else {
+            return false;
+        }
+        if (!wasExhausted) {
+            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Low memory during JUnit check (" + cause + "); skipping "
+                    + what + " and all later checks, keeping the suite"
+                    + (unchecked > 0 ? " (" + unchecked + " test(s) left unchecked)" : ""));
+            if (ownGuardTrippedNow) {
+                // Only this branch is unrecorded elsewhere: it is this generator-level guard's own
+                // JVM-free-memory reading, independent of anything JUnitAnalyzer observed.
+                JUnitAnalyzer.recordCheckIncomplete(
+                        "low free JVM memory during JUnit check; skipping " + what + " and all later checks");
+            }
+        }
+        return true;
+    }
+
     private static int checkAllTestsIfTime(List<TestCase> testCases, long delta) {
-        if (TimeController.getInstance().hasTimeToExecuteATestCase()
-                && TimeController.getInstance().isThereStillTimeInThisPhase(delta)) {
+        if (hasTimeForWholeSuiteCheck(delta)) {
             return JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
         }
+        JUnitAnalyzer.recordCheckIncomplete("ran out of time before the reverse-order JUnit check");
         return 0;
     }
 
-    private static List<String> resolveExtensionInitializationOrderIfNeeded(List<TestCase> testCases, long delta) {
+    private static boolean hasTimeForWholeSuiteCheck(long delta) {
+        return TimeController.getInstance().hasTimeToExecuteATestCase()
+                && TimeController.getInstance().isThereStillTimeInThisPhase(delta);
+    }
+
+    private static List<String> resolveExtensionInitializationOrderIfNeeded(List<TestCase> testCases, long delta,
+                                                                            long suiteRunMs) {
         if (Properties.TEST_FORMAT != Properties.OutputFormat.JUNIT5
                 || !Properties.TEST_EXTENSION_MODE
                 || !Properties.RESET_STATIC_FIELDS
@@ -1478,14 +1667,15 @@ public class TestSuiteGenerator {
             return Collections.emptyList();
         }
 
-        if (!TimeController.getInstance().hasTimeToExecuteATestCase()
-                || !TimeController.getInstance().isThereStillTimeInThisPhase(delta)) {
+        if (!hasTimeForWholeSuiteCheck(delta)) {
+            JUnitAnalyzer.recordCheckIncomplete(
+                    "ran out of time before the extension initialization order could be resolved");
             return Collections.emptyList();
         }
 
         List<String> observedInitializationOrder = ClassReInitializer.getInstance().getInitializedClasses();
         if (Properties.TEST_EXTENSION_PRELOAD_INITIALIZED_CLASSES) {
-            List<String> preloadOrder = buildExtensionInitializationOrder(observedInitializationOrder);
+            List<String> preloadOrder = JUnitAnalyzer.buildExtensionInitializationOrder(observedInitializationOrder);
             if (!preloadOrder.isEmpty()) {
                 logger.info("Extension preloading enabled. Emitting explicit initialization order with {} classes.",
                         preloadOrder.size());
@@ -1493,6 +1683,13 @@ public class TestSuiteGenerator {
             return preloadOrder;
         }
 
+        if (!hasTimeForOrderSensitivityAnalysis(suiteRunMs)) {
+            logger.warn("Skipping order-sensitivity analysis: less than twice its expected cost of {} ms "
+                    + "left in the JUnit check phase", orderSensitivityAnalysisCostMs(suiteRunMs));
+            JUnitAnalyzer.recordCheckIncomplete(
+                    "skipped the order-sensitivity analysis for lack of time");
+            return Collections.emptyList();
+        }
         JUnitAnalyzer.OrderSensitivityAnalysis analysis = JUnitAnalyzer.analyzeOrderSensitivity(testCases);
         if (!analysis.isOrderSensitive()) {
             return Collections.emptyList();
@@ -1502,7 +1699,7 @@ public class TestSuiteGenerator {
             return Collections.emptyList();
         }
 
-        List<String> explicitOrder = buildExtensionInitializationOrder(observedInitializationOrder);
+        List<String> explicitOrder = JUnitAnalyzer.buildExtensionInitializationOrder(observedInitializationOrder);
         if (explicitOrder.size() < 2) {
             return Collections.emptyList();
         }
@@ -1516,32 +1713,21 @@ public class TestSuiteGenerator {
         return explicitOrder;
     }
 
-    private static List<String> buildExtensionInitializationOrder(List<String> observedInitializationOrder) {
-        LinkedHashSet<String> ordered = new LinkedHashSet<>();
-        if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.trim().isEmpty()) {
-            ordered.add(Properties.TARGET_CLASS.trim());
-        }
-        if (observedInitializationOrder != null) {
-            for (String className : observedInitializationOrder) {
-                if (className == null) {
-                    continue;
-                }
-                String trimmed = className.trim();
-                if (!trimmed.isEmpty()) {
-                    ordered.add(trimmed);
-                }
-            }
-        }
+    /**
+     * The order-sensitivity analysis compiles and runs the whole suite twice, forward and in
+     * reverse.
+     */
+    static long orderSensitivityAnalysisCostMs(long suiteRunMs) {
+        return 2L * Math.max(0L, suiteRunMs);
+    }
 
-        int maxClasses = Math.max(1, Properties.TEST_EXTENSION_PRELOAD_MAX_CLASSES);
-        List<String> limited = new ArrayList<>(Math.min(maxClasses, ordered.size()));
-        for (String className : ordered) {
-            limited.add(className);
-            if (limited.size() >= maxClasses) {
-                break;
-            }
-        }
-        return limited;
+    /**
+     * Returns whether the current phase has at least twice the expected cost of the
+     * order-sensitivity analysis left, so that starting it does not run the phase over time.
+     */
+    static boolean hasTimeForOrderSensitivityAnalysis(long suiteRunMs) {
+        return TimeController.getInstance().isThereStillTimeInThisPhase(
+                2L * orderSensitivityAnalysisCostMs(suiteRunMs));
     }
 
     /**
@@ -1619,7 +1805,7 @@ public class TestSuiteGenerator {
      * @return the result of the test generation process
      */
     public static TestGenerationResult writeJUnitTestsAndCreateResult(TestSuiteChromosome testSuite, String suffix) {
-        return writeJUnitTestsAndCreateResult(testSuite, suffix, false, null);
+        return writeJUnitTestsAndCreateResult(testSuite, suffix, false, null, null);
     }
 
     private static TestGenerationResult writeReplayJUnitTestsAndCreateResult(
@@ -1632,22 +1818,13 @@ public class TestSuiteGenerator {
 
     private static TestGenerationResult writeJUnitTestsAndCreateResult(
             TestSuiteChromosome testSuite, String suffix, boolean preserveExactStructure,
-            ReplayStructureSnapshot replayStructure) {
-        return writeJUnitTestsAndCreateResult(testSuite, suffix,
-                preserveExactStructure, replayStructure, null);
-    }
-
-    private static TestGenerationResult writeJUnitTestsAndCreateResult(
-            TestSuiteChromosome testSuite, String suffix, boolean preserveExactStructure,
             ReplayStructureSnapshot replayStructure,
             Scaffolding.ReplaySnapshot replayScaffoldingSnapshot) {
         TestSuiteChromosome suiteToWrite = testSuite;
-        boolean checkWriterStructure = false;
         int writerInputTests = 0;
         int writerInputStatements = 0;
         if (preserveExactStructure) {
             suiteToWrite = cloneSuiteForWriting(testSuite);
-            checkWriterStructure = true;
             writerInputTests = suiteToWrite.size();
             writerInputStatements = suiteToWrite.totalLengthOfTestCases();
         }
@@ -1660,13 +1837,11 @@ public class TestSuiteGenerator {
                 // Prefix folding is useful for ordinary generation, but replay
                 // promises one-to-one structural suites across oracle arms.
                 suiteWriter.insertAllTests(tests);
+                suiteWriter.setReplayScaffoldingSnapshot(replayScaffoldingSnapshot);
             } else {
                 suiteWriter.insertTests(tests);
             }
             suiteWriter.setExtensionInitializationOrder(testSuite.getExtensionInitializationOrder());
-            if (preserveExactStructure) {
-                suiteWriter.setReplayScaffoldingSnapshot(replayScaffoldingSnapshot);
-            }
 
             String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
             String testDir = Properties.TEST_DIR;
@@ -1684,7 +1859,7 @@ public class TestSuiteGenerator {
             // matching the authoritative preservation signal computed before
             // rendering. Compare those counts rather than object identity so a
             // structure-preserving rendering is not misreported as a change.
-            if (checkWriterStructure
+            if (preserveExactStructure
                     && !writerPreservedExecutableStructure(
                             suiteToWrite, writerInputTests, writerInputStatements)) {
                 throw new IllegalStateException(
@@ -1730,7 +1905,7 @@ public class TestSuiteGenerator {
                 && renderedSuite.totalLengthOfTestCases() <= inputStatements;
     }
 
-    private static TestSuiteChromosome cloneSuiteForWriting(TestSuiteChromosome source) {
+    static TestSuiteChromosome cloneSuiteForWriting(TestSuiteChromosome source) {
         TestSuiteChromosome copy = new TestSuiteChromosome();
         for (TestCase test : source.getTests()) {
             copy.addTest(test.clone());

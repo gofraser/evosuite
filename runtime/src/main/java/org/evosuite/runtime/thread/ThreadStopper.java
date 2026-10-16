@@ -64,6 +64,12 @@ public class ThreadStopper {
      */
     private long startTime;
 
+    /**
+     * Minimum time the kill switch stays on for a leftover thread, regardless of how
+     * much of the timeout the test itself consumed.
+     */
+    private static final long MIN_KILL_SWITCH_WINDOW_MS = 200;
+
 
     /**
      * Creates a new ThreadStopper.
@@ -148,83 +154,92 @@ public class ThreadStopper {
          * to prevent issues with code that do not handle interrupt
          */
         killSwitch.setKillSwitch(true);
+        KillSwitchHandler.setStoppingLeftoverThreads(true);
+        // In total the test case should not run for more than the timeout. A test that
+        // already used it up (typically because it was blocked on a lock held by one of
+        // these very threads) would leave no time at all: the kill switch would be on
+        // for microseconds, no probe would fire, and the thread would survive into the
+        // next test, still holding its locks. So always leave the switch on long enough
+        // for a running thread to reach a probe.
+        long deadline = Math.max(startTime + timeout,
+                System.currentTimeMillis() + MIN_KILL_SWITCH_WINDOW_MS);
 
-        /*
-         * try to interrupt the SUT threads
-         */
-        checkThreads:
-        for (Thread t : threadArray) {
-            // May happen...
-            if (t == null) {
-                continue;
-            }
-
-            if (t.isAlive() && !currentRunningThreads.contains(t)) {
-                if (EvoSuiteOwnedThreads.isOwned(t)) {
+        try {
+            /*
+             * try to interrupt the SUT threads
+             */
+            checkThreads:
+            for (Thread t : threadArray) {
+                // May happen...
+                if (t == null) {
                     continue;
                 }
-                /*
-                 * We may want to ignore some threads such as GUI event handlers
-                 */
-                for (String name : threadsToIgnore) {
-                    if (t.getName().startsWith(name)) {
-                        continue checkThreads;
+
+                if (t.isAlive() && !currentRunningThreads.contains(t)) {
+                    if (EvoSuiteOwnedThreads.isOwned(t)) {
+                        continue;
                     }
-                }
-                t.interrupt();
-            }
-        }
-
-        /*
-         * now, join up to a total of TIMEOUT ms.
-         */
-        checkThreads:
-        for (Thread t : threadArray) {
-            // May happen...
-            if (t == null) {
-                continue;
-            }
-
-            if (t.isAlive() && !currentRunningThreads.contains(t)) {
-                if (EvoSuiteOwnedThreads.isOwned(t)) {
-                    continue;
-                }
-                for (String name : threadsToIgnore) {
-                    if (t.getName().startsWith(name)) {
-                        continue checkThreads;
-                    }
-                }
-
-                logger.info("Found new thread");
-                try {
                     /*
-                     * In total the test case should not run for more than Properties.TIMEOUT ms
+                     * We may want to ignore some threads such as GUI event handlers
                      */
-                    long delta = System.currentTimeMillis() - startTime;
-                    long waitingTime = timeout - delta;
-                    if (waitingTime > 0) {
-                        t.join(waitingTime);
+                    for (String name : threadsToIgnore) {
+                        if (t.getName().startsWith(name)) {
+                            continue checkThreads;
+                        }
                     }
-                } catch (InterruptedException e) {
-                    // What can we do?
-                    break;
-                }
-                if (t.isAlive()) {
-                    logger.info("Thread is still alive: " + t.getName());
+                    t.interrupt();
                 }
             }
+
+            /*
+             * now, join up to a total of TIMEOUT ms.
+             */
+            checkThreads:
+            for (Thread t : threadArray) {
+                // May happen...
+                if (t == null) {
+                    continue;
+                }
+
+                if (t.isAlive() && !currentRunningThreads.contains(t)) {
+                    if (EvoSuiteOwnedThreads.isOwned(t)) {
+                        continue;
+                    }
+                    for (String name : threadsToIgnore) {
+                        if (t.getName().startsWith(name)) {
+                            continue checkThreads;
+                        }
+                    }
+
+                    logger.info("Found new thread");
+                    try {
+                        long waitingTime = deadline - System.currentTimeMillis();
+                        if (waitingTime > 0) {
+                            t.join(waitingTime);
+                        }
+                    } catch (InterruptedException e) {
+                        // What can we do?
+                        break;
+                    }
+                    if (t.isAlive()) {
+                        logger.info("Thread is still alive: " + t.getName());
+                    }
+                }
+            }
+        } finally {
+            /*
+             * we need it, otherwise issue during search in which accessing enum in SUT would call toString,
+             * and so throw a TimeoutExceeded exception. Also when stopping a thread failed (the SUT can
+             * override Thread.interrupt() and throw): left on, both would stop the threads of later tests.
+             */
+            killSwitch.setKillSwitch(false);
+            KillSwitchHandler.setStoppingLeftoverThreads(false);
+
+            /*
+             * important. this is used to later check if current threads are set
+             */
+            currentRunningThreads = null;
         }
-
-        /*
-         * we need it, otherwise issue during search in which accessing enum in SUT would call toString,
-         * and so throw a TimeoutExceeded exception
-         */
-        killSwitch.setKillSwitch(false);
-
-        /*
-         * important. this is used to later check if current threads are set
-         */
-        currentRunningThreads = null;
     }
 
 }

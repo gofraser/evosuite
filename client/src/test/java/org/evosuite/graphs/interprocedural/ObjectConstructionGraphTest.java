@@ -240,7 +240,7 @@ public class ObjectConstructionGraphTest {
 	}
 
 	/**
-	 * Mirrors {@code InterproceduralGraphAnalysis.checkObjectDifficultPath}: a leaf is reachable
+	 * A leaf is reachable
 	 * from a valid root when some root-to-leaf {@link ConstructionPath} has a valid root (rooted in
 	 * the target class or a static field).
 	 */

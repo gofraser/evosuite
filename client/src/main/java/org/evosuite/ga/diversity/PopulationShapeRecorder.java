@@ -23,10 +23,6 @@ import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +37,8 @@ import java.util.List;
  * <p>Output schema (one row per recorded individual):
  * <pre>
  *   population_shape_&lt;TARGET_CLASS&gt;.csv :
- *     gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs,struct_features
+ *     gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,
+ *     branches,method_sigs,struct_features
  * </pre>
  * {@code branches} holds covered branch IDs sorted ascending, joined with
  * {@code ';'} (empty if no execution trace). {@code method_sigs} holds the
@@ -68,7 +65,8 @@ public final class PopulationShapeRecorder {
     public static final String FILENAME_PREFIX = "population_shape";
 
     private static final String HEADER =
-            "gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs,struct_features";
+            "gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,"
+                    + "method_sigs,struct_features";
 
     private final List<Row> rows = new ArrayList<>();
     private final String path;
@@ -105,57 +103,47 @@ public final class PopulationShapeRecorder {
 
     /** Writes all buffered rows to disk. Safe to call multiple times. */
     public synchronized void flush() {
-        File file = new File(path);
-        File dir = file.getParentFile();
-        if (dir != null && !dir.exists() && !dir.mkdirs()) {
-            logger.warn("Could not create directory {} for {}", dir, file.getName());
-            return;
-        }
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            writer.write(HEADER);
-            writer.newLine();
-            for (Row row : rows) {
-                StringBuilder sb = new StringBuilder();
-                sb.append(row.gen)
-                        .append(',').append(row.elapsedMs)
-                        .append(',').append(row.idx)
-                        .append(',').append(row.speciesId)
-                        .append(',').append(row.rank)
-                        .append(',');
-                if (row.injectionSource != null) {
-                    sb.append(row.injectionSource);
-                }
-                sb.append(',').append(row.coveredGoals).append(',');
-                if (!Double.isNaN(row.sumFitness)) {
-                    sb.append(Double.toString(row.sumFitness));
-                }
-                sb.append(',');
-                for (int i = 0; i < row.branches.length; i++) {
-                    if (i > 0) {
-                        sb.append(';');
-                    }
-                    sb.append(row.branches[i]);
-                }
-                sb.append(',');
-                for (int i = 0; i < row.methodSigs.length; i++) {
-                    if (i > 0) {
-                        sb.append('|');
-                    }
-                    sb.append(row.methodSigs[i]);
-                }
-                sb.append(',');
-                for (int i = 0; i < row.structFeatures.length; i++) {
-                    if (i > 0) {
-                        sb.append('|');
-                    }
-                    sb.append(row.structFeatures[i]);
-                }
-                writer.write(sb.toString());
-                writer.newLine();
+        List<String> lines = new ArrayList<>(rows.size());
+        for (Row row : rows) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(row.gen)
+                    .append(',').append(row.elapsedMs)
+                    .append(',').append(row.idx)
+                    .append(',').append(row.speciesId)
+                    .append(',').append(row.rank)
+                    .append(',');
+            if (row.injectionSource != null) {
+                sb.append(row.injectionSource);
             }
+            sb.append(',').append(row.coveredGoals).append(',');
+            if (!Double.isNaN(row.sumFitness)) {
+                sb.append(Double.toString(row.sumFitness));
+            }
+            sb.append(',');
+            for (int i = 0; i < row.branches.length; i++) {
+                if (i > 0) {
+                    sb.append(';');
+                }
+                sb.append(row.branches[i]);
+            }
+            sb.append(',');
+            for (int i = 0; i < row.methodSigs.length; i++) {
+                if (i > 0) {
+                    sb.append('|');
+                }
+                sb.append(row.methodSigs[i]);
+            }
+            sb.append(',');
+            for (int i = 0; i < row.structFeatures.length; i++) {
+                if (i > 0) {
+                    sb.append('|');
+                }
+                sb.append(row.structFeatures[i]);
+            }
+            lines.add(sb.toString());
+        }
+        if (SidecarCsv.write(path, HEADER, lines, logger, "population shape snapshots")) {
             logger.info("Population shape: wrote {} rows to {}", rows.size(), path);
-        } catch (IOException e) {
-            logger.warn("Failed to write population shape snapshots: {}", e.getMessage());
         }
     }
 
@@ -177,8 +165,8 @@ public final class PopulationShapeRecorder {
         final String[] structFeatures;
 
         Row(int gen, long elapsedMs, int idx, int speciesId, int rank,
-            String injectionSource, int coveredGoals, double sumFitness, int[] branches,
-            String[] methodSigs, String[] structFeatures) {
+                String injectionSource, int coveredGoals, double sumFitness, int[] branches,
+                String[] methodSigs, String[] structFeatures) {
             this.gen = gen;
             this.elapsedMs = elapsedMs;
             this.idx = idx;

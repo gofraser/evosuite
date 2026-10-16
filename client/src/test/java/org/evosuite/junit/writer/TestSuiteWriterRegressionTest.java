@@ -20,7 +20,9 @@
 package org.evosuite.junit.writer;
 
 import org.evosuite.Properties;
+import org.evosuite.symbolic.TestCaseBuilder;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.utils.generic.GenericMethod;
@@ -331,6 +333,47 @@ public class TestSuiteWriterRegressionTest {
             }
         }
         return imports;
+    }
+
+    private static final class LowMemoryWriter extends TestSuiteWriter {
+        int collections = 0;
+        int executions = 0;
+
+        @Override
+        long freeHeapBytes() {
+            return 0L;
+        }
+
+        @Override
+        void collectGarbage() {
+            collections++;
+        }
+
+        @Override
+        protected ExecutionResult runTest(TestCase test) {
+            executions++;
+            return super.runTest(test);
+        }
+    }
+
+    @Test
+    public void testLowMemoryDuringWriteCollectsAtMostOnce() throws Exception {
+        Path tempDir = Files.createTempDirectory("evosuite-low-memory-");
+        configureDefaults();
+
+        LowMemoryWriter writer = new LowMemoryWriter();
+        for (int i = 0; i < 5; i++) {
+            TestCaseBuilder builder = new TestCaseBuilder();
+            builder.appendIntPrimitive(i);
+            writer.insertTest(builder.getDefaultTestCase());
+        }
+        Assertions.assertEquals(5, writer.getTestCases().size());
+        writer.writeTestSuite("LowMemoryTest", tempDir.toString(), Collections.emptyList());
+
+        Assertions.assertEquals(1, writer.collections);
+        Assertions.assertEquals(0, writer.executions);
+        Assertions.assertTrue(Files.exists(tempDir.resolve("LowMemoryTest.java")));
+        deleteTempDir(tempDir);
     }
 
     private static String readFile(Path path) throws Exception {

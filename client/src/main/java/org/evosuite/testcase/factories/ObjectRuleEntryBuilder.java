@@ -11,6 +11,7 @@
  */
 package org.evosuite.testcase.factories;
 
+import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.StatementFactory;
@@ -18,6 +19,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.VariableResolutionConfig;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
@@ -75,10 +77,11 @@ class ObjectRuleEntryBuilder {
                     .loadClass(context.getClassName());
             if (context.isConstructorEntry()) {
                 for (java.lang.reflect.Constructor<?> c : clazz.getDeclaredConstructors()) {
-                    if (("<init>" + org.evosuite.utils.MethodUtil.getSignature(c)).equals(context.getMethodSignature())) {
-                        org.evosuite.utils.generic.GenericConstructor gConstructor =
+                    if (("<init>"
+                            + org.evosuite.utils.MethodUtil.getSignature(c)).equals(context.getMethodSignature())) {
+                        org.evosuite.utils.generic.GenericConstructor genericConstructor =
                                 new org.evosuite.utils.generic.GenericConstructor(c, clazz);
-                        TestFactory.getInstance().addConstructor(test, gConstructor, test.size(), 0);
+                        TestFactory.getInstance().addConstructor(test, genericConstructor, test.size(), 0);
                         return findConstructorCallStatement(test, context.getClassName(),
                                 context.getMethodSignature()) != null
                                 ? EntryInsertionResult.SUCCESS : EntryInsertionResult.RETRYABLE_FAILURE;
@@ -90,9 +93,9 @@ class ObjectRuleEntryBuilder {
             if (entry == null) {
                 return EntryInsertionResult.PERMANENT_FAILURE;
             }
-            GenericMethod gMethod = new GenericMethod(entry, clazz);
+            GenericMethod genericMethod = new GenericMethod(entry, clazz);
             if (java.lang.reflect.Modifier.isStatic(entry.getModifiers())) {
-                insertStableEntryInvocation(test, gMethod, null, entry.getGenericParameterTypes());
+                insertStableEntryInvocation(test, genericMethod, null, entry.getGenericParameterTypes());
             } else {
                 Set<String> requiredFields = entryGraph == null
                         ? Collections.emptySet()
@@ -103,7 +106,7 @@ class ObjectRuleEntryBuilder {
                             ? EntryInsertionResult.RETRYABLE_FAILURE
                             : EntryInsertionResult.PERMANENT_FAILURE;
                 }
-                GenericMethod boundEntry = gMethod.copyWithNewOwner(receiver.getGenericClass());
+                GenericMethod boundEntry = genericMethod.copyWithNewOwner(receiver.getGenericClass());
                 insertStableEntryInvocation(
                         test, boundEntry, receiver, boundEntry.getParameterTypes());
             }
@@ -362,7 +365,19 @@ class ObjectRuleEntryBuilder {
             GenericConstructor constructor, Set<String> requiredFieldDescriptors)
             throws Exception {
         List<VariableReference> parameters = new ArrayList<>();
-        Type[] parameterTypes = constructor.getConstructor().getGenericParameterTypes();
+        if (constructor.getOwnerClass().hasWildcardOrTypeVariables()) {
+            // The cluster hands out the constructor of the unbound owner, so a parameter of type T
+            // would be satisfied by a value of type T (a mock of T's bound, a null of T). Such a
+            // variable is "assignable" to whatever T is printed as -- String for a WindowQueue<String>
+            // that gets an Integer or a mock of Comparable -- and the rendered cast
+            // "(String) integer0" does not compile. Bind the owner first, as addConstructor does.
+            try {
+                constructor = constructor.getGenericInstantiation();
+            } catch (ConstructionFailedException e) {
+                logger.trace("Cannot bind owner type variables of {}: {}", constructor, e.toString());
+            }
+        }
+        Type[] parameterTypes = constructor.getParameterTypes();
         Class<?>[] erasedTypes = constructor.getConstructor().getParameterTypes();
         for (int i = 0; i < parameterTypes.length; i++) {
             String descriptor = org.objectweb.asm.Type.getDescriptor(erasedTypes[i]);
@@ -601,13 +616,14 @@ class ObjectRuleEntryBuilder {
             TestCase prefix = test.clone();
             prefix.chop(receiverPosition + 1);
             ExecutionResult result = TestCaseExecutor.getInstance().execute(prefix);
+            Scope finalScope = result.getFinalScope();
             if (result.hasTimeout() || result.getFirstPositionOfThrownException() != null
-                    || result.getFinalScope() == null) {
+                    || finalScope == null) {
                 return false;
             }
             VariableReference clonedReceiver =
                     prefix.getStatement(receiverPosition).getReturnValue();
-            Object runtimeReceiver = result.getFinalScope().getObject(clonedReceiver);
+            Object runtimeReceiver = finalScope.getObject(clonedReceiver);
             return receiverClass.isInstance(runtimeReceiver);
         } catch (Throwable failure) {
             logger.trace("Runtime validation of entry receiver failed: {}", failure.toString());
@@ -748,8 +764,11 @@ class ObjectRuleEntryBuilder {
                 ? type : null;
     }
 
-    private static java.lang.reflect.Method findEntryMethod(Class<?> clazz, String signature) {
+    static java.lang.reflect.Method findEntryMethod(Class<?> clazz, String signature) {
         for (java.lang.reflect.Method method : clazz.getDeclaredMethods()) {
+            if (org.evosuite.setup.TestUsageChecker.isNotCallableFromSource(method)) {
+                continue;
+            }
             if ((method.getName() + org.evosuite.utils.MethodUtil.getSignature(method)).equals(signature)) {
                 return method;
             }

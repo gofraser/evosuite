@@ -20,6 +20,7 @@
 package org.evosuite.statistics;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.FitnessFunction;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -31,11 +32,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StatisticsSenderTest {
@@ -144,5 +149,116 @@ class StatisticsSenderTest {
         Properties.MIN_FREE_MEM = 0;
         assertFalse(StatisticsSender.isMemoryTooLowForReExecution(),
                 "MIN_FREE_MEM=0 must never trip the guard");
+    }
+
+    // --- lightweightCopy: what the master receives ---
+
+    private static class GoalFitness extends FitnessFunction<TestChromosome> {
+        private final int id;
+
+        GoalFitness(int id) {
+            this.id = id;
+        }
+
+        @Override
+        public double getFitness(TestChromosome individual) {
+            return 0.0;
+        }
+
+        @Override
+        public boolean isMaximizationFunction() {
+            return false;
+        }
+    }
+
+    private static class SuiteFitness extends FitnessFunction<TestSuiteChromosome> {
+        @Override
+        public double getFitness(TestSuiteChromosome individual) {
+            return 0.0;
+        }
+
+        @Override
+        public boolean isMaximizationFunction() {
+            return false;
+        }
+    }
+
+    private static TestSuiteChromosome suiteWithPerGoalFitness(SuiteFitness suiteFitness, int tests, int goals) {
+        List<GoalFitness> goalFunctions = new java.util.ArrayList<>();
+        for (int g = 0; g < goals; g++) {
+            goalFunctions.add(new GoalFitness(g));
+        }
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        for (int t = 0; t < tests; t++) {
+            TestChromosome test = makeChromosomeWithoutResult();
+            for (GoalFitness goal : goalFunctions) {
+                test.addFitness(goal, 1.0, 0.0);
+            }
+            suite.addTest(test);
+        }
+        suite.addFitness(suiteFitness, 3.0, 0.5);
+        return suite;
+    }
+
+    private static int serializedSize(Object o) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+            out.writeObject(o);
+        }
+        return bytes.size();
+    }
+
+    @Test
+    void lightweightCopyKeepsWhatTheMasterReadsAndDropsPerTestFitness() throws Exception {
+        SuiteFitness suiteFitness = new SuiteFitness();
+        TestSuiteChromosome suite = suiteWithPerGoalFitness(suiteFitness, 20, 200);
+
+        TestSuiteChromosome copy = StatisticsSender.lightweightCopy(suite);
+
+        assertNotSame(suite, copy);
+        assertEquals(suite.size(), copy.size());
+        assertEquals(suite.totalLengthOfTestCases(), copy.totalLengthOfTestCases());
+        assertEquals(suite.getFitness(), copy.getFitness());
+        assertEquals(suite.getCoverage(), copy.getCoverage());
+        assertEquals(suite.getFitness(suiteFitness), copy.getFitness(suiteFitness));
+        for (TestChromosome test : copy.getTestChromosomes()) {
+            assertTrue(test.getFitnessValues().isEmpty(), "per-goal fitness values must not be sent");
+        }
+        assertFalse(suite.getTestChromosomes().get(0).getFitnessValues().isEmpty(),
+                "the live individual must keep its fitness values");
+        assertNotSame(suite.getTestChromosomes().get(0).getTestCase(),
+                copy.getTestChromosomes().get(0).getTestCase());
+        assertTrue(serializedSize(copy) * 10 < serializedSize(suite),
+                "the copy should be far smaller than the individual it stands for");
+    }
+
+    @Test
+    void lightweightCopyReturnsOtherChromosomesAsTheyAre() {
+        TestChromosome test = makeChromosomeWithoutResult();
+        assertSame(test, StatisticsSender.lightweightCopy(test));
+    }
+
+    /**
+     * A test case whose clone fails the consistency assertions of a statement copy.
+     */
+    private static class InconsistentTestCase extends DefaultTestCase {
+        @Override
+        public DefaultTestCase clone() {
+            throw new AssertionError("statement copy failed its consistency check");
+        }
+    }
+
+    @Test
+    void sendIndividualToMasterDoesNotLetAFailedCopyEscape() {
+        Properties.NEW_STATISTICS = true;
+        TestChromosome test = new TestChromosome();
+        test.setTestCase(new InconsistentTestCase());
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+
+        // Sending statistics is optional, so a failed copy must not abort the caller,
+        // neither on the first failure (reported) nor on later ones.
+        assertDoesNotThrow(() -> StatisticsSender.sendIndividualToMaster(suite));
+        assertDoesNotThrow(() -> StatisticsSender.sendIndividualToMaster(suite));
     }
 }

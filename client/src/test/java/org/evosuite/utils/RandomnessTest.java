@@ -53,6 +53,28 @@ public class RandomnessTest {
         }
     }
 
+    /**
+     * EvoObj restores the same pre-attempt state once for its baseline and again when the
+     * synthesis attempted on top of that baseline is rejected; both must replay the same stream.
+     */
+    @Test
+    public void testRestoringTheSameStateTwiceReplaysTheSameSequence() {
+        Randomness.State original = Randomness.snapshot();
+        try {
+            Randomness.setSeed(123456789L);
+            Randomness.State state = Randomness.snapshot();
+
+            Randomness.restore(state);
+            int first = Randomness.nextInt();
+            Randomness.nextDouble();
+
+            Randomness.restore(state);
+            assertEquals(first, Randomness.nextInt());
+        } finally {
+            Randomness.restore(original);
+        }
+    }
+
     @Test
     public void testChoiceList() {
         List<String> list = Arrays.asList("a", "b", "c");

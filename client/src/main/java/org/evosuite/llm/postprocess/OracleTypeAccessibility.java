@@ -22,6 +22,14 @@ public final class OracleTypeAccessibility {
         return isAccessible(type, Properties.TARGET_CLASS);
     }
 
+    /**
+     * Tells whether test code in the package of the target class can refer to a type: the type and all its enclosing
+     * classes must be public or in that package, and the type must be usable in generated tests.
+     *
+     * @param type the type to check, may be null
+     * @param targetClass the name of the class under test
+     * @return true if the type is accessible; primitives and null are always accessible
+     */
     public static boolean isAccessible(Class<?> type, String targetClass) {
         if (type == null || type.isPrimitive()) {
             return true;
@@ -43,12 +51,20 @@ public final class OracleTypeAccessibility {
         return accessibleView(type, Properties.TARGET_CLASS);
     }
 
+    /**
+     * Finds the closest accessible supertype of a type: the type itself, else the nearest accessible superclass,
+     * else the first accessible directly implemented interface.
+     *
+     * @param type the type to look at, may be null
+     * @param targetClass the name of the class under test
+     * @return the accessible type, or null if there is none
+     */
     public static Class<?> accessibleView(Class<?> type, String targetClass) {
         if (isAccessible(type, targetClass)) {
             return type;
         }
         for (Class<?> current = type == null ? null : type.getSuperclass();
-             current != null; current = current.getSuperclass()) {
+                current != null; current = current.getSuperclass()) {
             if (isAccessible(current, targetClass)) {
                 return current;
             }

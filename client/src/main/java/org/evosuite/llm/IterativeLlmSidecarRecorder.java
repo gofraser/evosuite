@@ -36,6 +36,11 @@ public final class IterativeLlmSidecarRecorder {
     private final FitnessSpaceSnapshotRecorder fitnessRecorder;
     private final PopulationShapeRecorder shapeRecorder;
 
+    /**
+     * Creates a recorder for the sidecars enabled in the properties.
+     *
+     * @param goals the fitness goals whose coverage is tracked, may be null for none
+     */
     public IterativeLlmSidecarRecorder(List<TestFitnessFunction> goals) {
         this.goals = goals == null
                 ? Collections.<TestFitnessFunction>emptyList()
@@ -49,6 +54,14 @@ public final class IterativeLlmSidecarRecorder {
         initializeGoalIndex();
     }
 
+    /**
+     * Records the state of the suite after a round into each enabled sidecar whose sampling interval selects the
+     * round.
+     *
+     * @param round the index of the iterative round
+     * @param elapsedMs the time elapsed since the start of the search in milliseconds
+     * @param suite the suite as it stands after the round
+     */
     public void record(int round, long elapsedMs, TestSuiteChromosome suite) {
         if (objectiveRecorder != null
                 && sampled(round,
@@ -65,6 +78,9 @@ public final class IterativeLlmSidecarRecorder {
         }
     }
 
+    /**
+     * Writes the data of all enabled sidecars to disk.
+     */
     public void flush() {
         if (objectiveRecorder != null) {
             objectiveRecorder.flush();

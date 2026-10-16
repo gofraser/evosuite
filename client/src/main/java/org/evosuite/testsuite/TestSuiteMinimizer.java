@@ -24,6 +24,7 @@ import org.evosuite.Properties.SecondaryObjective;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.TestFitnessFactory;
+import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.rmi.ClientServices;
@@ -31,7 +32,6 @@ import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -101,7 +101,7 @@ public class TestSuiteMinimizer {
      */
     private static final double MIN_REEXECUTION_SURVIVAL_RATIO = 0.5;
 
-    /**
+    /*
      * Minimization must not cost coverage in any criterion, so goals are
      * compared per criterion rather than pooled, and every loss is treated as
      * a fault to be corrected rather than tolerated.
@@ -197,34 +197,48 @@ public class TestSuiteMinimizer {
 
         logger.info("Minimization Strategy: " + strategy + ", " + suite.size() + " tests");
 
-        // Snapshot the input suite so that, if the inner work OOMs or otherwise throws,
-        // we can revert to the pre-minimization suite. The un-minimized suite covers a
-        // strict superset of the minimized one, so this preserves coverage at the cost
-        // of giving up on minimization for this run. The same snapshot backs the
-        // coverage-preservation check below, which reverts when the minimized suite
-        // ends up covering substantially fewer goals than the input did.
-        final List<TestChromosome> snapshot = deepCloneTests(suite.tests);
-        final Set<TestFitnessFunction> coveredGoalsBefore = coveredGoalsExcludingNonDeterministic(suite);
+        // Minimization re-executes every test many times, once per statement it tries to drop and
+        // once per goal it checks. A DMoN promotion attempt on each of those executions inserts
+        // statements into a copy, runs the copy again and, when the re-run does not get further,
+        // rolls it back, so a test whose null cannot be repaired that way repeats the whole
+        // attempt every time and minimization runs out of time. The suite's promotions were
+        // decided during the search; the minimizer must only shrink the tests, not add to them.
+        // Switched off before the coverage baseline, so the baseline and the minimized suite are
+        // measured the same way and the baseline run does not promote into the input suite.
+        final boolean promoteInPlace = Properties.DMON_PROMOTE_IN_PLACE;
+        Properties.DMON_PROMOTE_IN_PLACE = false;
         MinimizationStatus status = MinimizationStatus.COMPLETED;
-
         try {
-            if (minimizePerTest) {
-                status = minimizeTests(suite);
-            } else {
-                status = minimizeSuite(suite);
-            }
-        } catch (Throwable t) {
-            status = MinimizationStatus.FAILED;
-            logger.error("Minimization failed ({}); reverting to pre-minimization snapshot of {} tests.",
-                    t.getClass().getSimpleName(), snapshot.size(), t);
-            suite.tests.clear();
-            suite.tests.addAll(deepCloneTests(snapshot));
-            System.gc();
-        }
+            // Snapshot the input suite so that, if the inner work OOMs or otherwise throws,
+            // we can revert to the pre-minimization suite. The un-minimized suite covers a
+            // strict superset of the minimized one, so this preserves coverage at the cost
+            // of giving up on minimization for this run. The same snapshot backs the
+            // coverage-preservation check below, which reverts when the minimized suite
+            // ends up covering substantially fewer goals than the input did.
+            final List<TestChromosome> snapshot = deepCloneTests(suite.tests);
+            final Set<TestFitnessFunction> coveredGoalsBefore = coveredGoalsExcludingNonDeterministic(suite);
 
-        if (minimizePerTest && status != MinimizationStatus.FAILED
-                && shouldEnforceCoveragePreservation(coveredGoalsBefore)) {
-            status = reconcileCoverageAfterMinimization(suite, snapshot, coveredGoalsBefore, status);
+            try {
+                if (minimizePerTest) {
+                    status = minimizeTests(suite);
+                } else {
+                    status = minimizeSuite(suite);
+                }
+            } catch (Throwable t) {
+                status = MinimizationStatus.FAILED;
+                logger.error("Minimization failed ({}); reverting to pre-minimization snapshot of {} tests.",
+                        t.getClass().getSimpleName(), snapshot.size(), t);
+                suite.tests.clear();
+                suite.tests.addAll(snapshot);
+                System.gc();
+            }
+
+            if (minimizePerTest && status != MinimizationStatus.FAILED
+                    && shouldEnforceCoveragePreservation(coveredGoalsBefore)) {
+                status = reconcileCoverageAfterMinimization(suite, snapshot, coveredGoalsBefore, status);
+            }
+        } finally {
+            Properties.DMON_PROMOTE_IN_PLACE = promoteInPlace;
         }
 
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Size,
@@ -235,7 +249,7 @@ public class TestSuiteMinimizer {
         MinimizationResult result = new MinimizationResult(status, firstStopCause,
                 originalTests, originalLength, suite.size(), suite.totalLengthOfTestCases(),
                 System.currentTimeMillis() - startTime);
-        publishResult(result);
+        result.publish();
         return result;
     }
 
@@ -299,7 +313,7 @@ public class TestSuiteMinimizer {
                     lostGoals.size(), coveredGoalsBefore.size(), lostByCriterion, retention,
                     MIN_GOAL_RETENTION_FOR_REPAIR, snapshot.size());
             suite.tests.clear();
-            suite.tests.addAll(deepCloneTests(snapshot));
+            suite.tests.addAll(snapshot);
             // Keep an already-reported timeout/low-memory status: it explains
             // why coverage was lost and is more informative than the rollback
             // itself. The rollback is recorded either way by the log above.
@@ -307,7 +321,7 @@ public class TestSuiteMinimizer {
         }
 
         List<TestChromosome> repairTests = testsCoveringGoals(snapshot, lostGoals);
-        suite.tests.addAll(deepCloneTests(repairTests));
+        suite.tests.addAll(repairTests);
         logger.warn("Minimization lost {} of {} covered goals ({}); repaired by restoring {} "
                         + "pre-minimization test(s) that covered them.",
                 lostGoals.size(), coveredGoalsBefore.size(), lostByCriterion, repairTests.size());
@@ -395,16 +409,6 @@ public class TestSuiteMinimizer {
         return clones;
     }
 
-    private void publishResult(MinimizationResult result) {
-        ClientServices.track(RuntimeVariable.Minimization_Status, result.getStatus().name());
-        ClientServices.track(RuntimeVariable.Minimization_Stop_Cause, result.getUnderlyingStopCause().name());
-        ClientServices.track(RuntimeVariable.Minimization_Original_Tests, result.getOriginalTests());
-        ClientServices.track(RuntimeVariable.Minimization_Original_Length, result.getOriginalLength());
-        ClientServices.track(RuntimeVariable.Minimization_Final_Tests, result.getFinalTests());
-        ClientServices.track(RuntimeVariable.Minimization_Final_Length, result.getFinalLength());
-        ClientServices.track(RuntimeVariable.Minimization_Elapsed_Millis, result.getElapsedMillis());
-    }
-
     private void updateClientStatus(int progress) {
         ClientState state = ClientState.MINIMIZATION;
         ClientStateInformation information = new ClientStateInformation(state);
@@ -447,7 +451,15 @@ public class TestSuiteMinimizer {
         final int originalSuiteSize = suite.size();
         final int originalSuiteLength = suite.totalLengthOfTestCases();
 
-        ExecutionTracer.enableTraceCalls();
+        // Minimisation only asks whether a goal is still covered, which the aggregated
+        // trace answers; per-call records are needed by the def-use criteria alone.
+        // Every test in the suite is re-executed and its result cached, so on
+        // call-heavy targets recording them exhausts the heap before the first goal.
+        if (ExecutionTracer.coverageRequiresMethodCallTraces()) {
+            ExecutionTracer.enableTraceCalls();
+        } else {
+            ExecutionTracer.disableTraceCalls();
+        }
 
         // Ensure ExecutionTracer is in a clean state before re-executing tests.
         // After the search phase (especially if the last execution timed out),
@@ -493,6 +505,11 @@ public class TestSuiteMinimizer {
         int testsWithTraces = 0;
         int testsWithExceptions = 0;
         String firstExceptionType = null;
+        // The probe runs each test under exactly the conditions the goal scan
+        // below will, so its results are as good as the scan's own: keeping
+        // them saves re-executing up to half the suite, which on a 958-test
+        // archive suite at ~70 ms a test was more than the whole phase budget.
+        Map<TestChromosome, ExecutionResult> probeResults = new IdentityHashMap<>();
         for (int i = 0; i < suite.getTestChromosomes().size(); i++) {
             MinimizationStopCause stopCause = getStopCause();
             if (stopCause != MinimizationStopCause.NONE) {
@@ -503,6 +520,7 @@ public class TestSuiteMinimizer {
             }
             TestChromosome test = suite.getTestChromosomes().get(i);
             ExecutionResult result = runPreflight(test.getTestCase());
+            probeResults.put(test, result);
             if (!result.getTrace().getCoveredTrueBranches().isEmpty()
                     || !result.getTrace().getCoveredFalseBranches().isEmpty()
                     || !result.getTrace().getCoveredBranchlessMethods().isEmpty()
@@ -539,8 +557,19 @@ public class TestSuiteMinimizer {
         }
 
         // Tests can reproduce coverage — now clear stale state and proceed.
+        // The search-phase goals are remembered per test so that, should
+        // minimization stop early, the originals it has to fall back on can be
+        // judged on what they contributed rather than kept wholesale.
+        Map<TestChromosome, Set<TestFitnessFunction>> goalsBeforeReset = new IdentityHashMap<>();
         for (TestChromosome test : suite.getTestChromosomes()) {
-            test.setChanged(true); // implies test.clearCachedResults();
+            goalsBeforeReset.put(test, new LinkedHashSet<>(test.getTestCase().getCoveredGoals()));
+            ExecutionResult probed = probeResults.get(test);
+            if (probed != null) {
+                test.setLastExecutionResult(probed);
+                test.setChanged(false);
+            } else {
+                test.setChanged(true); // implies test.clearCachedResults();
+            }
             // Clear stale covered goals from the search phase.  The archive
             // stores test references (not clones), so goals accumulated during
             // the search may no longer be reproducible on re-execution.
@@ -571,8 +600,15 @@ public class TestSuiteMinimizer {
 
         MinimizationStopCause incompleteStopCause = MinimizationStopCause.NONE;
 
+        int reportedProgress = -1;
         for (TestFitnessFunction goal : goals) {
-            updateClientStatus(numGoals > 0 ? 100 * currentGoal / numGoals : 100);
+            // Report progress only when the percentage changes: every report is a remote call,
+            // and a class can have tens of thousands of goals.
+            int progress = numGoals > 0 ? 100 * currentGoal / numGoals : 100;
+            if (progress != reportedProgress) {
+                updateClientStatus(progress);
+                reportedProgress = progress;
+            }
             currentGoal++;
             MinimizationStopCause stopCause = getStopCause();
             if (stopCause != MinimizationStopCause.NONE) {
@@ -669,7 +705,7 @@ public class TestSuiteMinimizer {
                 // reproduce their coverage, and an empty/failing test would
                 // just bloat the output suite.
                 if (covered.size() > coveredBefore) {
-                    insertMinimizedTest(minimizedTests, copy);
+                    PrefixMergingInserter.insert(minimizedTests, copy, TestChromosome::getTestCase, logger);
                     keptMinimizedTests++;
                 } else {
                     discardedMinimizedTestsWithoutCoverage++;
@@ -703,7 +739,31 @@ public class TestSuiteMinimizer {
         List<TestChromosome> finalTests = new ArrayList<>();
 
         if (incompleteStopCause != MinimizationStopCause.NONE && originalTestChromosomes != null) {
-            finalTests.addAll(originalTestChromosomes);
+            // Minimization stopped early, so the goals it never reached are only
+            // covered by the original tests. Keep those originals that still
+            // contribute a goal the minimized tests do not cover, and hand them
+            // their search-phase goals back: the scan above cleared them, and
+            // without them the coverage reconciliation in minimize() saw every
+            // unreached goal as lost and restored the very same tests a second
+            // time - on jackson-databind TokenBuffer a 927-test suite left
+            // minimization with 1174 tests, of which 247 were duplicates.
+            int droppedOriginals = 0;
+            for (TestChromosome test : originalTestChromosomes) {
+                Set<TestFitnessFunction> goalsBefore = goalsBeforeReset.getOrDefault(test,
+                        Collections.emptySet());
+                if (!goalsBefore.isEmpty() && covered.containsAll(goalsBefore)) {
+                    droppedOriginals++;
+                    continue;
+                }
+                for (TestFitnessFunction goal : goalsBefore) {
+                    test.getTestCase().addCoveredGoal(goal);
+                }
+                finalTests.add(test);
+            }
+            logger.info("Minimization stopped early; kept {} of {} original tests, dropped {} whose "
+                            + "goals the {} minimized tests already cover.",
+                    finalTests.size(), originalTestChromosomes.size(), droppedOriginals,
+                    minimizedTests.size());
         }
 
         finalTests.addAll(minimizedTests);
@@ -744,32 +804,6 @@ public class TestSuiteMinimizer {
         return statusForStopCause(incompleteStopCause);
     }
 
-    private static void insertMinimizedTest(List<TestChromosome> minimizedTests, TestChromosome candidate) {
-        if (Properties.CALL_PROBABILITY <= 0) {
-            TestCase candidateTest = candidate.getTestCase();
-            for (int i = 0; i < minimizedTests.size(); i++) {
-                TestChromosome existing = minimizedTests.get(i);
-                TestCase existingTest = existing.getTestCase();
-                if (candidateTest.isPrefix(existingTest)) {
-                    logger.info("This is a prefix of an existing test");
-                    existingTest.addAssertions(candidateTest);
-                    return;
-                }
-                if (existingTest.isPrefix(candidateTest)) {
-                    candidateTest.addAssertions(existingTest);
-                    minimizedTests.set(i, candidate);
-                    logger.info("We have a prefix of this one");
-                    return;
-                }
-            }
-        }
-        logger.info("Adding new test case:");
-        if (logger.isDebugEnabled()) {
-            logger.debug(candidate.getTestCase().toCode());
-        }
-        minimizedTests.add(candidate);
-    }
-
     private boolean isTimeoutReached() {
         return !TimeController.getInstance().isThereStillTimeInThisPhase();
     }
@@ -782,7 +816,7 @@ public class TestSuiteMinimizer {
      * blown by minutes (GC thrashing makes the cooperative time checks fire
      * far too late).
      *
-     * Returns true if memory remains critically low even after a hint GC.
+     * <p>Returns true if memory remains critically low even after a hint GC.
      * Callers should treat this like a timeout and break out of long loops,
      * preserving partial results.
      */

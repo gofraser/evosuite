@@ -82,4 +82,62 @@ class InspectorTraceObserverTest {
         assertEquals(DeclaredSwitchArgument.class, observer.observationType(var, declaringStatement),
                 "Observer should prefer the statement's declared type over a runtime-narrowed subtype");
     }
+
+    @Test
+    void defaultAwtComponentNameIsNotAsserted() throws Exception {
+        org.evosuite.symbolic.TestCaseBuilder builder = new org.evosuite.symbolic.TestCaseBuilder();
+        VariableReference panel0 = builder.appendConstructor(java.awt.Panel.class.getConstructor());
+        VariableReference name0 = builder.appendMethod(panel0, java.awt.Component.class.getMethod("getName"));
+        org.evosuite.testcase.DefaultTestCase test = builder.getDefaultTestCase();
+
+        org.evosuite.Properties.TARGET_CLASS = "java.awt.Panel";
+        new UnitAssertionGenerator().addAssertions(test);
+
+        for (int i = 0; i < test.size(); i++) {
+            for (Assertion a : test.getStatement(i).getAssertions()) {
+                String code = a.getCode();
+                assertFalse(code.matches(".*\\\"panel\\d+\\\".*"), code);
+            }
+        }
+        assertNotNull(name0);
+    }
+
+    /** Not a component itself: hands on the name and toString() of the panel it wraps. */
+    public static class PanelHelper {
+        private final java.awt.Panel panel;
+
+        public PanelHelper(java.awt.Panel panel) {
+            this.panel = panel;
+        }
+
+        public String getName() {
+            return panel.getName();
+        }
+
+        @Override
+        public String toString() {
+            return panel.toString();
+        }
+    }
+
+    @Test
+    void defaultAwtNameRelayedByANonComponentIsNotAsserted() throws Exception {
+        org.evosuite.symbolic.TestCaseBuilder builder = new org.evosuite.symbolic.TestCaseBuilder();
+        VariableReference panel0 = builder.appendConstructor(java.awt.Panel.class.getConstructor());
+        VariableReference helper0 = builder.appendConstructor(
+                PanelHelper.class.getConstructor(java.awt.Panel.class), panel0);
+        builder.appendMethod(helper0, PanelHelper.class.getMethod("getName"));
+        builder.appendMethod(helper0, PanelHelper.class.getMethod("toString"));
+        org.evosuite.testcase.DefaultTestCase test = builder.getDefaultTestCase();
+
+        org.evosuite.Properties.TARGET_CLASS = PanelHelper.class.getName();
+        new UnitAssertionGenerator().addAssertions(test);
+
+        for (int i = 0; i < test.size(); i++) {
+            for (Assertion a : test.getStatement(i).getAssertions()) {
+                String code = a.getCode();
+                assertFalse(code.matches("(?s).*panel\\d+.*"), code);
+            }
+        }
+    }
 }

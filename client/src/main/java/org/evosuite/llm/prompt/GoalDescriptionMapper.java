@@ -780,7 +780,8 @@ public class GoalDescriptionMapper {
     }
 
     public static final class BranchTarget {
-        private static final BranchTarget EMPTY = new BranchTarget(GoalTarget.empty(), -1, false, false, false, null, false);
+        private static final BranchTarget EMPTY =
+                new BranchTarget(GoalTarget.empty(), -1, false, false, false, null, false);
 
         private final GoalTarget target;
         private final int lineNumber;
@@ -831,6 +832,11 @@ public class GoalDescriptionMapper {
             return lineNumber;
         }
 
+        /**
+         * Describes where the branch is, as the qualified method name plus the line number when known.
+         *
+         * @return a human-readable location, or "unknown location" if neither is available
+         */
         public String getLocationLabel() {
             String qualifiedMethod = target.getQualifiedMethodName();
             if (qualifiedMethod.isEmpty()) {
@@ -842,6 +848,11 @@ public class GoalDescriptionMapper {
             return qualifiedMethod;
         }
 
+        /**
+         * Describes which outcome of the branch is still needed.
+         *
+         * @return the switch case, switch default, TRUE path or FALSE path label
+         */
         public String getOutcomeLabel() {
             if (switchCaseBranch) {
                 return defaultCase ? "switch default case" : "switch case " + caseValue;
@@ -861,6 +872,11 @@ public class GoalDescriptionMapper {
             return "need " + getOutcomeLabel();
         }
 
+        /**
+         * Renders this branch target as a one-line goal description for the prompt.
+         *
+         * @return the goal description
+         */
         public String asGoalDescription() {
             String methodName = target.getMethodName();
             if (methodName.isEmpty()) {

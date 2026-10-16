@@ -28,6 +28,8 @@ import org.evosuite.junit.naming.methods.NumberedTestNameGenerationStrategy;
 import org.evosuite.junit.naming.methods.TestNameGenerationStrategy;
 import org.evosuite.llm.postprocess.LlmPostProcessingTestNameStrategy;
 import org.evosuite.result.TestGenerationResultBuilder;
+import org.evosuite.runtime.TooManyResourcesException;
+import org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit;
 import org.evosuite.runtime.*;
 import org.evosuite.runtime.testdata.EnvironmentDataList;
 import org.evosuite.testcase.DefaultTestCase;
@@ -38,6 +40,7 @@ import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testsuite.PrefixMergingInserter;
 import org.evosuite.utils.FileIOUtils;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.runner.RunWith;
@@ -50,6 +53,7 @@ import javax.swing.*;
 import java.io.File;
 import java.io.PrintStream;
 import java.util.*;
+import java.util.function.Function;
 
 import static org.evosuite.junit.writer.TestSuiteWriterUtils.*;
 
@@ -124,31 +128,7 @@ public class TestSuiteWriter implements Opcodes {
      * @return Index of the test case
      */
     public int insertTest(TestCase test) {
-        if (Properties.CALL_PROBABILITY <= 0) {
-            for (int i = 0; i < testCases.size(); i++) {
-                if (test.isPrefix(testCases.get(i))) {
-                    // It's shorter than an existing one
-                    // test_cases.set(i, test);
-                    logger.info("This is a prefix of an existing test");
-                    testCases.get(i).addAssertions(test);
-                    return i;
-                } else {
-                    // Already have that one...
-                    if (testCases.get(i).isPrefix(test)) {
-                        test.addAssertions(testCases.get(i));
-                        testCases.set(i, test);
-                        logger.info("We have a prefix of this one");
-                        return i;
-                    }
-                }
-            }
-        }
-        logger.info("Adding new test case:");
-        if (logger.isDebugEnabled()) {
-            logger.debug(test.toCode());
-        }
-        testCases.add(test);
-        return testCases.size() - 1;
+        return PrefixMergingInserter.insert(testCases, test, Function.identity(), logger);
     }
 
     /**
@@ -237,17 +217,26 @@ public class TestSuiteWriter implements Opcodes {
         LoopCounter.getInstance().setActive(true);
 
         List<ExecutionResult> results = new ArrayList<>();
-        boolean lowMemoryLogged = false;
+        // Once memory is found critical, it stays critical for the rest of this write, and the
+        // heap is collected at most once per write: collecting before every remaining test cost
+        // one full GC of the whole heap per test when memory ran low.
+        boolean memoryCritical = false;
+        boolean collectedForWrite = false;
         for (TestCase test : testCases) {
             boolean budgetExhausted = !TimeController.getInstance().hasTimeToExecuteATestCase();
-            boolean memoryCritical = !budgetExhausted && isMemoryCriticalForWrite();
-            if (budgetExhausted || memoryCritical) {
-                if (memoryCritical && !lowMemoryLogged) {
+            if (!budgetExhausted && !memoryCritical && isBelowWriteMemoryThreshold()) {
+                if (!collectedForWrite) {
+                    collectedForWrite = true;
+                    collectGarbage();
+                }
+                memoryCritical = isBelowWriteMemoryThreshold();
+                if (memoryCritical) {
                     logger.warn("Test execution during JUnit write skipped: free memory below {} MB threshold; "
                                     + "falling back to cached results to avoid OOM",
                             (Properties.MIN_FREE_MEM * 2L) / 1024 / 1024);
-                    lowMemoryLogged = true;
                 }
+            }
+            if (budgetExhausted || memoryCritical) {
                 // Try to use a cached result; if none exists, fall back to placeholder
                 boolean added = false;
                 for (ExecutionResult result : cachedResults) {
@@ -450,16 +439,18 @@ public class TestSuiteWriter implements Opcodes {
      * it over the edge.  Mirrors {@code TestSuiteGenerator#isMemoryTooLowForPhase}
      * but kept inline to avoid a cross-module dependency.
      */
-    private boolean isMemoryCriticalForWrite() {
+    private boolean isBelowWriteMemoryThreshold() {
+        return freeHeapBytes() < Properties.MIN_FREE_MEM * 2L;
+    }
+
+    /** Free heap, including the part the JVM has not claimed from the OS yet. */
+    long freeHeapBytes() {
         java.lang.Runtime runtime = java.lang.Runtime.getRuntime();
-        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-        long threshold = Properties.MIN_FREE_MEM * 2L;
-        if (freeMem >= threshold) {
-            return false;
-        }
+        return runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+    }
+
+    void collectGarbage() {
         java.lang.System.gc();
-        freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-        return freeMem < threshold;
     }
 
     /**
@@ -596,7 +587,6 @@ public class TestSuiteWriter implements Opcodes {
             importNames.add(java.util.concurrent.ExecutorService.class.getCanonicalName());
             importNames.add(java.util.concurrent.Executors.class.getCanonicalName());
             importNames.add(java.util.concurrent.Future.class.getCanonicalName());
-            importNames.add(java.util.concurrent.TimeUnit.class.getCanonicalName());
         }
 
         if (requirements.isInlineScaffoldingMode()) {
@@ -847,6 +837,21 @@ public class TestSuiteWriter implements Opcodes {
 
 
     /**
+     * Whether the test ends on one of EvoSuite's resource limits: the exception that ends it
+     * is or wraps a {@link TooManyResourcesException}. Such a test is rendered without a
+     * try/catch around that statement and is marked so that the JUnit rule also accepts the
+     * stack overflow the same unbounded recursion can end on in a cold JVM. JUnit 3 has no rule
+     * to hook into, so its tests are not marked.
+     */
+    static boolean endsOnResourceLimit(ExecutionResult result) {
+        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT3) {
+            return false;
+        }
+        Integer pos = result.getFirstPositionOfThrownException();
+        return pos != null && TooManyResourcesException.isOrWraps(result.getExceptionThrownAtPosition(pos));
+    }
+
+    /**
      * Convert one test case to a Java method.
      *
      * @param number Number of the test case
@@ -877,6 +882,10 @@ public class TestSuiteWriter implements Opcodes {
             methodName = TestSuiteWriterUtils.getNameOfTest(testCases, number);
         }
         methodName = ensureUniqueMethodName(methodName);
+        if (endsOnResourceLimit(result)) {
+            builder.append(METHOD_SPACE).append("@").append(EvoSuiteEndsOnResourceLimit.class.getName())
+                    .append(NEWLINE);
+        }
         builder.append(adapter.getMethodDefinition(methodName));
 
         /*
@@ -921,12 +930,12 @@ public class TestSuiteWriter implements Opcodes {
             builder.append(INNER_BLOCK_SPACE);
             builder.append("@Override public void run() { ");
             builder.append(NEWLINE);
-            Set<Class<?>> exceptions = test.getDeclaredExceptions();
-            if (!exceptions.isEmpty()) {
-                builder.append(INNER_INNER_BLOCK_SPACE);
-                builder.append("try {");
-                builder.append(NEWLINE);
-            }
+            // run() cannot throw checked exceptions, and the body may throw some that are not
+            // among the statements' declared exceptions (reflective fallbacks, PrivateAccess
+            // helpers, assertion calls on methods that declare checked exceptions), so always wrap
+            builder.append(INNER_INNER_BLOCK_SPACE);
+            builder.append("try {");
+            builder.append(NEWLINE);
             codeSpace = INNER_INNER_INNER_BLOCK_SPACE;
         }
 
@@ -939,17 +948,30 @@ public class TestSuiteWriter implements Opcodes {
 
         if (needsThreadWrapper) {
             Set<Class<?>> exceptions = test.getDeclaredExceptions();
+            builder.append(INNER_INNER_BLOCK_SPACE);
             if (!exceptions.isEmpty()) {
-                builder.append(INNER_INNER_BLOCK_SPACE);
                 builder.append("} catch(Throwable t) {");
                 builder.append(NEWLINE);
                 builder.append(INNER_INNER_INNER_BLOCK_SPACE);
                 builder.append("  // Need to catch declared exceptions");
                 builder.append(NEWLINE);
+            } else {
+                // Not declared by any statement: still surface it through future.get()
+                builder.append("} catch(RuntimeException | Error e) {");
+                builder.append(NEWLINE);
+                builder.append(INNER_INNER_INNER_BLOCK_SPACE);
+                builder.append("  throw e;");
+                builder.append(NEWLINE);
                 builder.append(INNER_INNER_BLOCK_SPACE);
-                builder.append("}");
+                builder.append("} catch(Throwable t) {");
+                builder.append(NEWLINE);
+                builder.append(INNER_INNER_INNER_BLOCK_SPACE);
+                builder.append("  throw new RuntimeException(t);");
                 builder.append(NEWLINE);
             }
+            builder.append(INNER_INNER_BLOCK_SPACE);
+            builder.append("}");
+            builder.append(NEWLINE);
 
             builder.append(INNER_BLOCK_SPACE);
             builder.append("} "); //closing run(){
@@ -959,7 +981,7 @@ public class TestSuiteWriter implements Opcodes {
             builder.append(NEWLINE);
 
             builder.append(BLOCK_SPACE);
-            builder.append("future.get(" + Properties.TIMEOUT + ", TimeUnit.MILLISECONDS);");
+            builder.append("future.get(" + Properties.TIMEOUT + ", java.util.concurrent.TimeUnit.MILLISECONDS);");
             builder.append(NEWLINE);
             if (!Properties.TEST_SCAFFOLDING) {
                 builder.append(BLOCK_SPACE);

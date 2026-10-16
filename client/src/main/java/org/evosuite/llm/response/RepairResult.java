@@ -37,6 +37,7 @@ public class RepairResult {
     private final List<String> diagnostics;
     private final int attemptsUsed;
     private final List<String> expandedClasses;
+    private final boolean droppedAtExecution;
     private final boolean needsClusterExpansion;
 
     private RepairResult(boolean success,
@@ -44,12 +45,14 @@ public class RepairResult {
                          List<String> diagnostics,
                          int attemptsUsed,
                          List<String> expandedClasses,
+                         boolean droppedAtExecution,
                          boolean needsClusterExpansion) {
         this.success = success;
         this.parseResults = parseResults;
         this.diagnostics = diagnostics;
         this.attemptsUsed = attemptsUsed;
         this.expandedClasses = expandedClasses;
+        this.droppedAtExecution = droppedAtExecution;
         this.needsClusterExpansion = needsClusterExpansion;
     }
 
@@ -63,6 +66,7 @@ public class RepairResult {
                 Collections.unmodifiableList(new ArrayList<>(diagnostics)),
                 attemptsUsed,
                 Collections.unmodifiableList(new ArrayList<>(expandedClasses)),
+                false,
                 false);
     }
 
@@ -70,11 +74,24 @@ public class RepairResult {
     public static RepairResult failure(List<String> diagnostics,
                                        int attemptsUsed,
                                        List<String> expandedClasses) {
+        return failure(diagnostics, attemptsUsed, expandedClasses, false);
+    }
+
+    /**
+     * Creates a failure result; {@code droppedAtExecution} records that the
+     * response yielded parseable tests that all failed at execution, as
+     * opposed to a response that could not be parsed at all.
+     */
+    public static RepairResult failure(List<String> diagnostics,
+                                       int attemptsUsed,
+                                       List<String> expandedClasses,
+                                       boolean droppedAtExecution) {
         return new RepairResult(false,
                 Collections.<ParseResult>emptyList(),
                 Collections.unmodifiableList(new ArrayList<>(diagnostics)),
                 attemptsUsed,
                 Collections.unmodifiableList(new ArrayList<>(expandedClasses)),
+                droppedAtExecution,
                 false);
     }
 
@@ -94,6 +111,7 @@ public class RepairResult {
                 Collections.unmodifiableList(new ArrayList<>(diagnostics)),
                 attemptsUsed,
                 Collections.unmodifiableList(new ArrayList<>(expandedClasses)),
+                false,
                 true);
     }
 
@@ -124,6 +142,14 @@ public class RepairResult {
 
     public List<String> getExpandedClasses() {
         return expandedClasses;
+    }
+
+    /**
+     * True for a failure where parsed candidate tests existed but every one
+     * was dropped at execution.
+     */
+    public boolean isDroppedAtExecution() {
+        return droppedAtExecution;
     }
 
     /** Returns all successfully parsed test cases contained in this result.

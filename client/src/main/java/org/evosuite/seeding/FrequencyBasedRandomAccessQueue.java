@@ -64,6 +64,11 @@ public class FrequencyBasedRandomAccessQueue<T> implements RandomAccessQueue<T> 
         return values.getRandomConstant();
     }
 
+    /**
+     * Removes all queue entries matching a predicate.
+     * @param predicate selects the values to remove
+     * @return the number of removed entries
+     */
     public synchronized int removeIf(Predicate<? super T> predicate) {
         int removed = 0;
         Iterator<T> iterator = queue.iterator();

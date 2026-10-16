@@ -215,7 +215,7 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
         if (individual == null) {
             return;
         }
-        individuals.offer(individual.clone());
+        individuals.offer(StatisticsSender.lightweightCopy(individual));
     }
 
     @Override

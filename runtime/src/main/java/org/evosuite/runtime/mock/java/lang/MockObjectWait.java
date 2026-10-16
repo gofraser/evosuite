@@ -22,6 +22,7 @@ package org.evosuite.runtime.mock.java.lang;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.mock.MockFramework;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -52,6 +53,22 @@ public class MockObjectWait {
      */
     private static final long MAX_CUMULATIVE_WAIT_MS = 10_000L;
 
+    /**
+     * The real, tiny timed wait each mocked {@code wait()} performs — see
+     * {@link #doMockedWait(Object, long)}.
+     */
+    private static final long REAL_WAIT_MILLIS = 1L;
+
+    /**
+     * How many real waits of {@link #REAL_WAIT_MILLIS} the test's own thread performs per
+     * test, see {@link #doMockedWait(Object, long)}.
+     */
+    private static final int MAX_TEST_THREAD_REAL_WAITS = 3;
+
+    private static final int REAL_WAIT_STRIDE = 64;
+
+    private static final AtomicInteger testThreadRealWaits = new AtomicInteger(0);
+
     private static final AtomicLong cumulativeWaitRequested = new AtomicLong(0L);
 
     /**
@@ -60,6 +77,7 @@ public class MockObjectWait {
      */
     public static void reset() {
         cumulativeWaitRequested.set(0L);
+        testThreadRealWaits.set(0);
     }
 
     /**
@@ -127,17 +145,53 @@ public class MockObjectWait {
         obj.notifyAll();
     }
 
+    /**
+     * The test thread's first few waits of a test are real. After those a wait only is
+     * while another thread is blocked on a monitor: it may be one this thread holds, and
+     * a wait that never gave it up would leave a thread that needs it to notify blocked
+     * for ever, so the waiting loop would run into the budget instead of seeing the
+     * notification. A wait loop that nothing ever notifies (it makes about 200 calls)
+     * must not pay for real waits, nor let the threads the SUT started run on, which
+     * costs the search a lot (78_caloriecount's NewScheduler).
+     * Finding out is not free (listing the threads on every wait halved the search's
+     * generations), so it is done on every {@link #REAL_WAIT_STRIDE}th wait only; a thread
+     * that is blocked stays so until the monitor is given up.
+     */
+    private static boolean shouldWaitForReal(int waitNumber) {
+        return waitNumber <= MAX_TEST_THREAD_REAL_WAITS
+                || (waitNumber % REAL_WAIT_STRIDE == 0 && isAnotherThreadBlocked());
+    }
+
+    private static boolean isAnotherThreadBlocked() {
+        try {
+            ThreadGroup root = Thread.currentThread().getThreadGroup();
+            while (root.getParent() != null) {
+                root = root.getParent();
+            }
+            Thread[] threads = new Thread[root.activeCount() + 8];
+            int n = root.enumerate(threads, true);
+            Thread self = Thread.currentThread();
+            for (int i = 0; i < n; i++) {
+                if (threads[i] != self && threads[i].getState() == Thread.State.BLOCKED) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Throwable t) {
+            // No way to tell: giving the monitor up is the safe answer.
+            return true;
+        }
+    }
+
     private static void doMockedWait(Object obj, long requestedMillis) throws InterruptedException {
-        // Unlike MockThread.sleep (which does a real capped sleep), we do NOT
-        // perform a real obj.wait() here.  Object.wait() is almost always called
-        // inside a while(condition) loop; with the mock the condition never
-        // changes, so the loop spins until the budget fires.  A real 50ms wait
-        // per iteration would accumulate to seconds of wall-clock time and
-        // trigger EvoSuite's test-execution timeout before our budget kicks in.
-        //
-        // Instead we return immediately and only track cumulative "virtual"
-        // wait time.  The budget fires after ~200 loop iterations (10s virtual
-        // time), but in near-zero real time.
+        // Object.wait() is almost always called inside a while(condition)
+        // loop; with the mock the condition never changes, so the loop spins
+        // until the budget fires.  A real 50ms wait per iteration (the old
+        // per-call cap) would accumulate to seconds of wall-clock time and
+        // trigger EvoSuite's test-execution timeout before our budget kicks
+        // in, so we only track cumulative "virtual" wait time for that
+        // purpose: the budget fires after ~200 loop iterations (10s virtual
+        // time).
         long effectiveMillis = (requestedMillis <= 0)
                 ? MAX_WAIT_PER_CALL_MS
                 : Math.min(requestedMillis, MAX_WAIT_PER_CALL_MS);
@@ -148,6 +202,47 @@ public class MockObjectWait {
         org.evosuite.runtime.System.advanceCurrentTimeMillis(effectiveMillis);
 
         long cumulative = cumulativeWaitRequested.addAndGet(effectiveMillis);
+
+        // Unlike the old implementation, do perform a real (but tiny, bounded)
+        // timed wait: obj.wait(millis) releases obj's monitor for the duration
+        // and re-acquires it before returning, exactly like a real wait()
+        // would. Skipping this entirely left the calling thread holding obj's
+        // *intrinsic* lock for the whole (virtual) wait — fine for a single
+        // isolated call, but code such as 104_vuze's AEMonitor.enter() calls
+        // wait() from inside its own synchronized(this) block in a retry loop;
+        // with no real wait, that thread held the AEMonitor's lock for its
+        // entire spin, permanently starving any other thread also trying to
+        // enter() the same AEMonitor. Bounding it at REAL_WAIT_MILLIS keeps
+        // it cheap while restoring the "wait() releases the monitor"
+        // contract the SUT relies on.
+        // A SUT thread can afford the full capped wait: it runs alongside the test,
+        // and releasing the monitor for longer is what lets the test thread in (see
+        // MockThread.sleep). The test's own thread waits for real only for its first
+        // few waits of a test, enough to let a thread the SUT started take the monitor
+        // and act: a wait loop that never ends (78_caloriecount's NewScheduler) would
+        // otherwise pay ~200 real milliseconds on every evaluation, and the search
+        // saw a handful of generations.
+        if (Thread.currentThread() instanceof MockThread) {
+            // Once the test has ended and this leftover thread is being asked to stop, it waits
+            // only briefly for real, so the monitor is released and a loop that swallows the
+            // exception is no hot spin; see MockThread.sleep and MockThread.STOPPING_REAL_PAUSE_MS.
+            MockThread.pauseOnSutThread(() -> obj.wait(MockThread.STOPPING_REAL_PAUSE_MS),
+                    () -> obj.wait(effectiveMillis),
+                    "MockObjectWait: thread kept waiting after its test ended");
+        } else if (shouldWaitForReal(testThreadRealWaits.incrementAndGet())) {
+            obj.wait(REAL_WAIT_MILLIS);
+        } else {
+            // What a real wait would still have done.
+            if (!Thread.holdsLock(obj)) {
+                throw new IllegalMonitorStateException("current thread is not owner");
+            }
+            if (Thread.interrupted()) {
+                throw new InterruptedException();
+            }
+        }
+
+        // Only after really giving the monitor up: a wait() loop that swallows
+        // this exception must never turn into a busy loop holding the monitor.
         if (cumulative > MAX_CUMULATIVE_WAIT_MS) {
             throw new TooManyResourcesException(
                     "MockObjectWait: cumulative wait request exceeded "

@@ -237,20 +237,27 @@ public class Randomness implements Serializable {
      * {@link MersenneTwister}, whose clone includes the full state vector and Gaussian cache.
      */
     public static State snapshot() {
-        try {
-            return new State((Random) ((MersenneTwister) random).clone(), seed);
-        } catch (CloneNotSupportedException | ClassCastException e) {
-            throw new IllegalStateException("Cannot snapshot EvoSuite random generator", e);
-        }
+        return new State(copy(random), seed);
     }
 
-    /** Restores a state returned by {@link #snapshot()}. */
+    /**
+     * Restores a state returned by {@link #snapshot()}. The state can be restored any number of
+     * times: each restore resumes from the snapshot, not from where the previous one left off.
+     */
     public static void restore(State state) {
         if (state == null) {
             throw new IllegalArgumentException("Random state must not be null");
         }
-        random = state.random;
+        random = copy(state.random);
         seed = state.seed;
+    }
+
+    private static Random copy(Random generator) {
+        try {
+            return (Random) ((MersenneTwister) generator).clone();
+        } catch (CloneNotSupportedException | ClassCastException e) {
+            throw new IllegalStateException("Cannot copy EvoSuite random generator", e);
+        }
     }
 
     /**

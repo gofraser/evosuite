@@ -95,7 +95,7 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
         }
 
         return new MethodCallReplacementMethodAdapter(mv, className, superClassName, name, access,
-                desc);
+                desc, canChangeSignature);
     }
 
     /**
@@ -142,11 +142,8 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
                     found = true;
                 }
             }
-            if (!found && !canChangeSignature) {
-                // We are retransforming, but interface is missing. This is a problem.
-                logger.error("Class " + name
-                        + " is being retransformed for mocking but does not have InstrumentedClass interface!");
-            }
+            // Retransformation cannot add the marker interface. The caller reports
+            // that limitation after the JVM has accepted the transformed method bodies.
 
             if (!found && canChangeSignature) {
                 logger.info("Adding mock interface to class " + name);
@@ -156,11 +153,8 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
             }
         }
 
-        if (MockList.shouldBeMocked(superNameWithDots)) {
-
-            /*
-             * TODO: likely need to suppress the change of superclass if !canChangeSignature
-             */
+        // Retransformation cannot change the superclass (the JVM rejects the whole batch)
+        if (canChangeSignature && MockList.shouldBeMocked(superNameWithDots)) {
 
             Class<?> mockSuperClass = MockList.getMockClass(superNameWithDots);
             if (StaticReplacementMock.class.isAssignableFrom(mockSuperClass)) {

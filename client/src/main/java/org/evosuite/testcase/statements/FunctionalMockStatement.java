@@ -22,12 +22,13 @@ package org.evosuite.testcase.statements;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
-import org.evosuite.coverage.mutation.MutationObserver;
 import org.evosuite.assertion.Assertion;
+import org.evosuite.coverage.mutation.MutationObserver;
 import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.runtime.FalsePositiveException;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.UnmockableTypes;
 import org.evosuite.runtime.instrumentation.InstrumentedClass;
+import org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter;
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -50,6 +51,7 @@ import org.mockito.MockSettings;
 import org.mockito.Mockito;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.mockito.stubbing.OngoingStubbing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -253,8 +255,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     protected transient volatile EvoInvocationListener listener;
 
-    protected transient Method mockCreator;
-
     /**
      * Constructor for FunctionalMockStatement.
      *
@@ -272,7 +272,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         methodParameters = new LinkedHashMap<>();
         checkTarget();
         assert parameters.isEmpty();
-        //setUpMockCreator();
     }
 
     /**
@@ -317,19 +316,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             checkTarget();
         }
         assert parameters.isEmpty();
-        //setUpMockCreator();
-    }
-
-    private void setUpMockCreator() {
-        ClassLoader loader = targetClass.getRawClass().getClassLoader();
-        try {
-            Class<?> mockito = loader.loadClass(Mockito.class.getName());
-            mockCreator = mockito.getDeclaredMethod("mock",
-                    loader.loadClass(Class.class.getName()), loader.loadClass(MockSettings.class.getName()));
-
-        } catch (Exception e) {
-            logger.error("Failed to setup mock creator: " + e.getMessage());
-        }
     }
 
     @Override
@@ -376,6 +362,10 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
+        if (UnmockableTypes.isUnmockable(rawClass)) {
+            return false;
+        }
+
         if (!InstrumentedClass.class.isAssignableFrom(rawClass)
                 && Modifier.isFinal(rawClass.getModifiers())) {
             /*
@@ -383,6 +373,14 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 then if it is final we cannot mock it :(
                 recall that instrumentation does remove the final modifiers
              */
+            return false;
+        }
+
+        if (MethodDescriptor.wasOriginallyFinal(rawClass)) {
+            // Final in the original bytecode: the check above no longer sees that once
+            // InstrumentingClassLoader has stripped the modifier. The generated test's JVM
+            // usually loads the class unstripped (see MethodDescriptor.shouldBeMocked), and
+            // there Mockito's subclass mock maker cannot mock a final class at all.
             return false;
         }
 
@@ -432,19 +430,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
-        // Reject ClassLoader types.  Mockito's SubclassByteBuddyMockMaker
-        // generates a subclass of the mocked type, so a ClassLoader mock IS a
-        // ClassLoader.  On JDK 25+, instantiating a dynamically-generated
-        // ClassLoader subclass triggers a JVM guarantee failure
-        // (moduleEntry.cpp: "unnamed module is null") because the unnamed module
-        // for the new ClassLoader is not properly initialized.  Even on older
-        // JDKs, mocking ClassLoaders is semantically dangerous — the mock may be
-        // used as a parent loader by other code, corrupting the class loading
-        // hierarchy.
-        if (ClassLoader.class.isAssignableFrom(rawClass)) {
-            return false;
-        }
-
         // Reject ForkJoinTask types.  A mocked ForkJoinTask's exec() returns
         // false (default mock), so the task never "completes".  When SUT code
         // calls invokeAll()/join() on such a mock, ForkJoinTask.awaitDone()
@@ -463,12 +448,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
-        // ad-hoc list of classes we should not really mock
-        List<Class<?>> avoid = Arrays.asList(
-        // add here if needed
-        );
-
-        return !avoid.contains(rawClass);
+        return true;
     }
 
     private static boolean isSealed(Class<?> rawClass) {
@@ -515,6 +495,64 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         return canBeFunctionalMockedIncludingSUT(type);
     }
 
+    private static final Map<Class<?>, Boolean> usefulMockSurfaceCache = new ConcurrentHashMap<>();
+
+    /**
+     * Checks whether mocking {@code rawClass} could ever let the search control any
+     * observable outcome. A functional mock only helps the search by letting it stub
+     * a method's return value; {@link MethodDescriptor#shouldBeMocked()} already refuses
+     * void methods, {@code equals}/{@code hashCode}/{@code toString}, private methods, and
+     * (since a class' methods can only be intercepted if not final in the original
+     * bytecode - see {@link MethodDescriptor#shouldBeMocked()}) methods that were final
+     * before instrumentation. When every instance method of a type falls into one of
+     * those buckets, a mock of it is inert: Mockito creates the object, but every call
+     * on it either runs unstubbable real code or returns Mockito's default answer, with
+     * no way for the search to steer it. In that situation the search should prefer a
+     * real generator over spending evaluations on a mock that cannot be controlled.
+     *
+     * <p>This applies the method filter of {@code MethodDescriptor.shouldBeMocked()}
+     * ({@link MethodDescriptor#isStubbable(Method)}) but needs no {@code GenericMethod}
+     * instance, so it can be asked before a mock is actually created.
+     *
+     * @param rawClass the type that would be mocked
+     * @return true if at least one method exists that a functional mock could usefully stub
+     */
+    public static boolean hasUsefulMockSurface(Class<?> rawClass) {
+        // Called on the object-creation hot path (once per interface/abstract dependency
+        // resolution), so cache the per-class reflection scan below.
+        return usefulMockSurfaceCache.computeIfAbsent(rawClass, FunctionalMockStatement::computeHasUsefulMockSurface);
+    }
+
+    private static boolean computeHasUsefulMockSurface(Class<?> rawClass) {
+        Set<Method> candidates = new LinkedHashSet<>();
+        for (Class<?> c = rawClass; c != null; c = c.getSuperclass()) {
+            candidates.addAll(Arrays.asList(c.getDeclaredMethods()));
+        }
+        candidates.addAll(Arrays.asList(rawClass.getMethods()));
+
+        for (Method method : candidates) {
+            int modifiers = method.getModifiers();
+            if (Modifier.isStatic(modifiers) || Modifier.isPrivate(modifiers)) {
+                continue;
+            }
+            if (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers)) {
+                continue;
+            }
+            if (MethodDescriptor.isStubbable(method)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Clears the {@link #hasUsefulMockSurface(Class)} cache. Called by
+     * {@code TestGenerationContext.resetContext()} alongside {@link RemoveFinalClassAdapter#reset()},
+     * whose bookkeeping this cache is derived from.
+     */
+    public static void resetUsefulMockSurfaceCache() {
+        usefulMockSurfaceCache.clear();
+    }
 
     /**
      * Add a method stubbing to this mock statement. Used by the test parser to
@@ -1033,6 +1071,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         for (int i = 0; i < parameters.size(); i++) {
             VariableReference ref = parameters.get(i);
             if (ref == null) {
+                VariableReference repeated = previousReturnValueOfSameMethod(i);
+                if (repeated != null) {
+                    parameters.set(i, repeated);
+                    continue;
+                }
                 Class<?> expected = getExpectedParameterType(i);
                 Object value = null;
                 if (expected.isPrimitive()) {
@@ -1060,6 +1103,25 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         }
     }
 
+
+    /**
+     * The return value of the call before the {@code i}-th one to the same mocked method. A
+     * mock answers every call beyond its last stubbed value with that last value, so a call
+     * that was not stubbed when the test was observed returned it there; a null in its place
+     * would make the rendered test behave differently from the observation.
+     *
+     * @return the value of the previous call, or null if {@code i} is the first call of its
+     * method or no previous value is known
+     */
+    private VariableReference previousReturnValueOfSameMethod(int i) {
+        for (MethodDescriptor md : mockedMethods) {
+            int[] bounds = methodParameters.get(md.getID());
+            if (bounds != null && i > bounds[0] && i <= bounds[1]) {
+                return parameters.get(i - 1);
+            }
+        }
+        return null;
+    }
 
     /**
      * getExpectedParameterType.
@@ -1142,10 +1204,32 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // now resolves to ByteBuddyMockMaker, not SubclassByteBuddyMockMaker),
         // triggering an internal AssertionError in MockUtil.getMockHandlerOrNull.
         MockSettings settings = withSettings().stubOnly().invocationListeners(listener);
-        if (useLenientDefaultAnswer) {
-            settings = settings.defaultAnswer(FunctionalMockStatement::lenientDefaultAnswer);
+        Answer<Object> defaultAnswer = useLenientDefaultAnswer
+                ? FunctionalMockStatement::lenientDefaultAnswer
+                : Mockito.RETURNS_DEFAULTS;
+        if (!Properties.USE_SEPARATE_CLASSLOADER) {
+            defaultAnswer = callRealMethodIfOriginallyFinal(defaultAnswer);
         }
-        return settings;
+        return settings.defaultAnswer(defaultAnswer);
+    }
+
+    /**
+     * InstrumentingClassLoader strips {@code final} from methods, so during the search Mockito
+     * intercepts a final method that SUT code calls on a mock and the default answer (null, 0)
+     * comes back. The generated test's JVM usually loads the class unstripped, where Mockito's
+     * subclass mock maker cannot intercept the method and the real implementation runs on the
+     * mock's uninitialised fields (typically a NullPointerException from inside the final
+     * method). To keep search and replay in agreement, a method that was final in the original
+     * bytecode runs its real implementation during the search too. With
+     * use_separate_classloader the test JVM strips the modifier as well, so this is not needed.
+     */
+    static Answer<Object> callRealMethodIfOriginallyFinal(Answer<Object> fallback) {
+        return invocation -> {
+            if (MethodDescriptor.wasOriginallyFinal(invocation.getMethod())) {
+                return invocation.callRealMethod();
+            }
+            return fallback.answer(invocation);
+        };
     }
 
     /**
@@ -1159,6 +1243,18 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     @SuppressWarnings("unchecked")
     static Object lenientDefaultAnswer(InvocationOnMock invocation) {
+        return lenientDefaultAnswer(invocation, 0);
+    }
+
+    /**
+     * Number of mocks that may hang off one another through unstubbed accessors. A
+     * {@code getParent()} that always hands out a fresh mock has no end, so SUT or JDK code that
+     * recurses or loops up the chain (JOptionPane.getDesktopPaneForComponent) would never return.
+     */
+    public static final int MAX_LENIENT_MOCK_CHAIN = 16;
+
+    @SuppressWarnings("unchecked")
+    static Object lenientDefaultAnswer(InvocationOnMock invocation, int chain) {
         if (isEofReadMethod(invocation)) {
             // Unstubbed Reader/InputStream read() returning 0 can create
             // non-progress loops. Default to EOF; explicit stubs still win.
@@ -1222,16 +1318,21 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // where a method returns its own type (e.g., Builder.withX() → Builder).
         int depth = lenientMockDepth.get();
         if (depth < MAX_LENIENT_MOCK_DEPTH
+                && chain < MAX_LENIENT_MOCK_CHAIN
                 && returnType != Object.class
                 && returnType != java.io.Serializable.class
                 && returnType != Comparable.class
                 && returnType != Cloneable.class
                 && !Modifier.isFinal(returnType.getModifiers())
-                && !returnType.isPrimitive()) {
+                // getModifiers() no longer shows final once the class is instrumented
+                && !MethodDescriptor.wasOriginallyFinal(returnType)
+                && !returnType.isPrimitive()
+                && !UnmockableTypes.isUnmockable(returnType)) {
             try {
                 lenientMockDepth.set(depth + 1);
+                final int subMockChain = chain + 1;
                 return Mockito.mock(returnType,
-                        (org.mockito.stubbing.Answer<?>) FunctionalMockStatement::lenientDefaultAnswer);
+                        (org.mockito.stubbing.Answer<?>) inv -> lenientDefaultAnswer(inv, subMockChain));
             } catch (Exception ignored) {
                 // Cannot mock (e.g., final class, sealed) — fall through to null.
             } finally {
@@ -1269,6 +1370,32 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             current = next;
         }
         return false;
+    }
+
+    /**
+     * True if the JVM's module system refused the reflective access Mockito needs to create the
+     * mock (java.lang.reflect.InaccessibleObjectException, a RuntimeException since Java 9). The
+     * module setup of the JVM running the search, not EvoSuite's own state, decides this, so it
+     * ends the mock attempt rather than the whole generation. The type is matched by name because
+     * this module is compiled for Java 8.
+     */
+    private static boolean isMockAccessRefusal(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if ("java.lang.reflect.InaccessibleObjectException".equals(current.getClass().getName())) {
+                return true;
+            }
+            Throwable next = current.getCause();
+            if (next == current) {
+                break;
+            }
+            current = next;
+        }
+        return false;
+    }
+
+    static boolean isMockAccessRefusalForTests(Throwable throwable) {
+        return isMockAccessRefusal(throwable);
     }
 
     private static boolean isCodeUnderTestInitializationFailure(Throwable throwable) {
@@ -1338,6 +1465,13 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     static boolean isFunctionalMockingGloballyDisabledForTests() {
+        return isFunctionalMockingGloballyDisabled();
+    }
+
+    /**
+     * @return true once the GLOBAL mock failover has permanently disabled functional mocking
+     */
+    public static boolean isFunctionalMockingGloballyDisabled() {
         return functionalMockingGloballyDisabled.get();
     }
 
@@ -1447,8 +1581,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 if (!useLenientDefaultAnswer) {
 
                     //execute all "when" statements
-                    int index = 0;
-
                     logger.debug("Mockito: going to mock {} different methods", mockedMethods.size());
                     for (MethodDescriptor md : mockedMethods) {
 
@@ -1531,21 +1663,16 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                         //thenReturn(...)
                         Object[] thenReturnInputs = null;
                         try {
-                            int size = Math.min(md.getCounter(),
-                                    Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT);
+                            // the values of this method, as the renderer and the coordinator
+                            // see them: by ID range, not by a running position in the flat list
+                            List<VariableReference> stubValues = getParameters(md.getID());
+                            int size = stubValues == null ? 0 : stubValues.size();
 
                             thenReturnInputs = new Object[size];
 
                             for (int i = 0; i < thenReturnInputs.length; i++) {
 
-                                int k = i + index; //the position in flat parameter list
-                                if (k >= parameters.size()) {
-                                    throw new CodeUnderTestException(new FalsePositiveException(
-                                            "EvoSuite ERROR: index " + k + " out of "
-                                                    + parameters.size()));
-                                }
-
-                                VariableReference parameterVar = parameters.get(i + index);
+                                VariableReference parameterVar = stubValues.get(i);
                                 thenReturnInputs[i] = parameterVar.getObject(scope);
 
                                 CodeUnderTestException codeUnderTestException = null;
@@ -1592,8 +1719,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                                     thenReturnInputs.length);
                             retForThen.thenReturn(thenReturnInputs[0], values);
                         }
-
-                        index += thenReturnInputs == null ? 0 : thenReturnInputs.length;
                     }
 
                 } // end if (!useLenientDefaultAnswer)
@@ -1626,7 +1751,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             } catch (Throwable t) {
                 AtMostOnceLogger.error(logger, "Failed to use Mockito on " + targetClass
                         + ": " + t.getMessage());
-                if (isCodeUnderTestInitializationFailure(t)) {
+                if (isCodeUnderTestInitializationFailure(t) || isMockAccessRefusal(t)) {
                     handleRecoverableMockFailure(targetClass, t);
                 }
                 throw new EvosuiteError(t);

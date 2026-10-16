@@ -27,6 +27,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 /**
  * This singleton class is used to store/run the the shutdown thread hooks that
@@ -149,13 +150,60 @@ public class ShutdownHookHandler {
      * @return a negative value if there was any exception
      */
     public int safeExecuteAddedHooks() {
+        return safeExecuteAddedHooks(() -> false);
+    }
+
+    /**
+     * Whether running shutdown hooks while the sandbox is on but no test case is
+     * marked as executing deserves a warning.
+     *
+     * <p>The state is expected, and not worth a warning, on a test thread whose
+     * execution timed out: the thread that waited for it gave up, reclaimed the
+     * sandbox and cleared the process-global "executing" flag, and the worker
+     * goes on to finish its test (observers, hooks) afterwards. Whether the
+     * worker was given up on is read after the sandbox state, so a timeout that
+     * lands in between is still seen.
+     *
+     * @param workerWasGivenUp tells whether the calling thread's execution was given up on
+     * @return true if the state is unexpected
+     */
+    static boolean isUnexpectedIdleSandbox(BooleanSupplier workerWasGivenUp) {
+        return Sandbox.isSecurityManagerInitialized() && !Sandbox.isOnAndExecutingSUTCode()
+                && !workerWasGivenUp.getAsBoolean();
+    }
+
+    /**
+     * Same as {@link #safeExecuteAddedHooks()}, but a worker whose execution was
+     * given up on (timed out) does not trigger the warning about a sandbox that
+     * is on with no test case marked as executing.
+     *
+     * @param workerWasGivenUp tells whether the calling thread's execution was given up on
+     * @return a negative value if there was any exception
+     */
+    public int safeExecuteAddedHooks(BooleanSupplier workerWasGivenUp) {
 
         //the shutdown hook threads should still be checked against the sandbox
         boolean safe = Sandbox.isSafeToExecuteSUTCode();
         int n = -1;
 
-        assert !Sandbox.isSecurityManagerInitialized() || Sandbox.isOnAndExecutingSUTCode() :
-                "Executing hooks outside of a test case, but with sandbox on";
+        /*
+         * The sandbox being on while no test case is marked as executing is not
+         * a state this method can rule out. The "executing" flag is process-global
+         * and is also written by threads we have given up on: a JUnit check runner
+         * that was abandoned (and had its lock reclaimed) goes on to run its
+         * scaffolding teardown, which resets and re-initializes the sandbox and
+         * clears the flag while the next test execution is already under way
+         * (SF110 vuze SESecurityManagerImpl, apbsmem Main). Asserting here turned
+         * that into a framework error that failed the whole class. It is harmless
+         * to carry on: the hooks run on this thread, which is checked by the
+         * security manager like any other thread, because permission checks of
+         * unprivileged threads do not depend on the flag, and privileged threads
+         * are downgraded below.
+         */
+        if (isUnexpectedIdleSandbox(workerWasGivenUp)) {
+            logger.warn("Executing shutdown hooks while the sandbox is on but no test case is marked as "
+                    + "executing; the sandbox state was changed by another thread");
+        }
 
         try {
             if (!safe) {

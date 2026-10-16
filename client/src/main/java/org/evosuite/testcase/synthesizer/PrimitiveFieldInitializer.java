@@ -16,106 +16,123 @@ import org.evosuite.testcase.statements.numeric.ShortPrimitiveStatement;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericField;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class PrimitiveFieldInitializer extends FieldInitializer{
-	private final Integer integerHint;
+public class PrimitiveFieldInitializer extends FieldInitializer {
 
-	public PrimitiveFieldInitializer() {
-		this(null);
-	}
+    private static final Logger logger = LoggerFactory.getLogger(PrimitiveFieldInitializer.class);
+    private final Integer integerHint;
 
-	public PrimitiveFieldInitializer(Integer integerHint) {
-		this.integerHint = integerHint;
-	}
+    public PrimitiveFieldInitializer() {
+        this(null);
+    }
 
-	public VariableReference assignField(TestFactory testFactory, TestCase test, String fieldType, GenericField genericField,
-			int insertionPosition, FieldReference fieldVar, boolean allowNullValue) throws ConstructionFailedException {
-		try {
-			PrimitiveStatement<?> primStatement = createNewPrimitiveStatement(test, fieldType);
-			if (integerHint == null || !setIntegerHint(primStatement, fieldType, integerHint)) {
-				primStatement.randomize();
-			}
-			VariableReference varRef = testFactory.addPrimitive(test, primStatement, insertionPosition + 1);
-			return varRef;
-		} catch (ConstructionFailedException e) {
-			e.printStackTrace();
-		}
-		return null;
-		
-	}
+    public PrimitiveFieldInitializer(Integer integerHint) {
+        this.integerHint = integerHint;
+    }
 
-	@SuppressWarnings({"rawtypes", "unchecked"})
-	static boolean setIntegerHint(
-			PrimitiveStatement<?> statement, String fieldType, int value) {
-		if (statement == null) {
-			return false;
-		}
-		Object converted;
-		switch (fieldType) {
-		case "B":
-		case "byte":
-			converted = (byte) value;
-			break;
-		case "C":
-		case "char":
-			converted = (char) value;
-			break;
-		case "S":
-		case "short":
-			converted = (short) value;
-			break;
-		case "I":
-		case "int":
-			converted = value;
-			break;
-		case "J":
-		case "long":
-			converted = (long) value;
-			break;
-		case "F":
-		case "float":
-			converted = (float) value;
-			break;
-		case "D":
-		case "double":
-			converted = (double) value;
-			break;
-		default:
-			return false;
-		}
-		((PrimitiveStatement) statement).setValue(converted);
-		return true;
-	}
-	
-	@SuppressWarnings("rawtypes")
-	private NumericalPrimitiveStatement createNewPrimitiveStatement(TestCase test, String desc) {
-		switch (desc) {
-		case "Z":
-		case "boolean":
-			return new BooleanPrimitiveStatement(test);
-		case "B":
-		case "byte":
-			return new BytePrimitiveStatement(test);
-		case "C":
-		case "char":
-			return new CharPrimitiveStatement(test);
-		case "S":
-		case "short":
-			return new ShortPrimitiveStatement(test);
-		case "I":
-		case "int":
-			return new IntPrimitiveStatement(test);
-		case "J":
-		case "long":
-			return new LongPrimitiveStatement(test);
-		case "F":
-		case "float":
-			return new FloatPrimitiveStatement(test);
-		case "D":
-		case "double":
-			return new DoublePrimitiveStatement(test);
-		default:
-			return null;
-		}
-	}
+    /**
+     * Inserts a primitive value of the given type, using the integer hint if there is one and a random value otherwise.
+     * @param testFactory the factory used to insert statements
+     * @param test the test case to extend
+     * @param fieldType the name or descriptor of the primitive type
+     * @param genericField the field being assigned
+     * @param insertionPosition the position after which the primitive is inserted
+     * @param fieldVar the reference to the field
+     * @param allowNullValue unused, primitives are never null
+     * @return the reference to the new primitive, or null if it could not be constructed
+     * @throws ConstructionFailedException if the primitive cannot be inserted
+     */
+    public VariableReference assignField(TestFactory testFactory, TestCase test, String fieldType,
+            GenericField genericField,
+            int insertionPosition, FieldReference fieldVar, boolean allowNullValue) throws ConstructionFailedException {
+        try {
+            PrimitiveStatement<?> primStatement = createNewPrimitiveStatement(test, fieldType);
+            if (integerHint == null || !setIntegerHint(primStatement, fieldType, integerHint)) {
+                primStatement.randomize();
+            }
+            VariableReference varRef = testFactory.addPrimitive(test, primStatement, insertionPosition + 1);
+            return varRef;
+        } catch (ConstructionFailedException e) {
+            logger.debug("Ignored failure during object-rule synthesis", e);
+        }
+        return null;
+
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    static boolean setIntegerHint(
+            PrimitiveStatement<?> statement, String fieldType, int value) {
+        if (statement == null) {
+            return false;
+        }
+        Object converted;
+        switch (fieldType) {
+            case "B":
+            case "byte":
+                converted = (byte) value;
+                break;
+            case "C":
+            case "char":
+                converted = (char) value;
+                break;
+            case "S":
+            case "short":
+                converted = (short) value;
+                break;
+            case "I":
+            case "int":
+                converted = value;
+                break;
+            case "J":
+            case "long":
+                converted = (long) value;
+                break;
+            case "F":
+            case "float":
+                converted = (float) value;
+                break;
+            case "D":
+            case "double":
+                converted = (double) value;
+                break;
+            default:
+                return false;
+        }
+        ((PrimitiveStatement) statement).setValue(converted);
+        return true;
+    }
+
+    @SuppressWarnings("rawtypes")
+    private NumericalPrimitiveStatement createNewPrimitiveStatement(TestCase test, String desc) {
+        switch (desc) {
+            case "Z":
+            case "boolean":
+                return new BooleanPrimitiveStatement(test);
+            case "B":
+            case "byte":
+                return new BytePrimitiveStatement(test);
+            case "C":
+            case "char":
+                return new CharPrimitiveStatement(test);
+            case "S":
+            case "short":
+                return new ShortPrimitiveStatement(test);
+            case "I":
+            case "int":
+                return new IntPrimitiveStatement(test);
+            case "J":
+            case "long":
+                return new LongPrimitiveStatement(test);
+            case "F":
+            case "float":
+                return new FloatPrimitiveStatement(test);
+            case "D":
+            case "double":
+                return new DoublePrimitiveStatement(test);
+            default:
+                return null;
+        }
+    }
 }

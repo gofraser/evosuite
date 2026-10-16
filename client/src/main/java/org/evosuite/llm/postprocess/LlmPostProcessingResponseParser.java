@@ -39,7 +39,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
+import static org.evosuite.llm.postprocess.LlmPostProcessingExpressionUtils.allowedFields;
 import static org.evosuite.llm.postprocess.LlmPostProcessingParseResult.Diagnostic;
 import static org.evosuite.llm.postprocess.LlmPostProcessingParseResult.DiagnosticCode;
 
@@ -49,6 +51,7 @@ import static org.evosuite.llm.postprocess.LlmPostProcessingParseResult.Diagnost
 public final class LlmPostProcessingResponseParser {
 
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Set<String> ROOT_FIELDS = allowedFields("schemaVersion", "testName", "variableNames",
             "comments", "sectionBreaksAfter", "assertions", "assertionDecision", "noAssertionReason");
     private static final Set<String> ASSERTION_DECISIONS = allowedFields("PROPOSED", "NO_SAFE_ORACLE");
@@ -58,6 +61,7 @@ public final class LlmPostProcessingResponseParser {
     private static final Set<String> ASSERTION_FIELDS = allowedFields("assertionId", "kind", "expected", "actual",
             "delta", "purpose", "intent", "container", "element", "target", "size", "map", "key",
             "candidateId", "value", "expression");
+
     private LlmPostProcessingResponseParser() {
         // Utility class.
     }
@@ -73,6 +77,14 @@ public final class LlmPostProcessingResponseParser {
                 setupInputVariableIds, variableTypes, selectableCandidates, options);
     }
 
+    /**
+     * Decodes and validates a post-processing response against the ids and callables that the context allows.
+     *
+     * @param response the raw text of the response
+     * @param context the context that describes what the response may refer to
+     * @return the proposals found in the response, together with the diagnostics for what was rejected
+     * @throws IllegalArgumentException if the context is null
+     */
     public static LlmPostProcessingParseResult parse(String response, ParseContext context) {
         if (context == null) {
             throw new IllegalArgumentException("Post-processing parse context must not be null");
@@ -137,12 +149,6 @@ public final class LlmPostProcessingResponseParser {
 
     static String normalizeJsonResponse(String response) {
         return PostProcessingResponseDecoder.normalizeJsonResponse(response);
-    }
-
-    private static Set<String> allowedFields(String... fields) {
-        Set<String> result = new HashSet<>();
-        Collections.addAll(result, fields);
-        return Collections.unmodifiableSet(result);
     }
 
     public static final class ParseContext {
@@ -232,6 +238,14 @@ public final class LlmPostProcessingResponseParser {
         private final String actual;
         private final String delta;
 
+        /**
+         * Creates a candidate assertion that the response may select.
+         *
+         * @param kind the kind of the assertion
+         * @param expected the expected expression
+         * @param actual the actual expression
+         * @param delta the delta for floating-point comparisons, may be null
+         */
         public SelectableCandidate(LlmPostProcessingResponse.AssertionKind kind, String expected,
                                    String actual, String delta) {
             this.kind = kind;
@@ -268,8 +282,9 @@ public final class LlmPostProcessingResponseParser {
                     + "|" + normalize(delta);
         }
 
-        private static String normalize(String expression) {
-            return expression == null ? "" : expression.replaceAll("\\s+", "");
+        /** Removes all whitespace, so that formatting does not distinguish two expressions. */
+        static String normalize(String expression) {
+            return expression == null ? "" : WHITESPACE.matcher(expression).replaceAll("");
         }
 
     }
@@ -277,6 +292,7 @@ public final class LlmPostProcessingResponseParser {
     public static final class CallableMethod {
         private final String receiverId;
         private final String ownerType;
+        private final String canonicalOwnerType;
         private final String methodName;
         private final int argumentCount;
         private final JvmMethodDescriptor signature;
@@ -290,20 +306,40 @@ public final class LlmPostProcessingResponseParser {
             this(receiverId, null, methodName, argumentCount, returnType);
         }
 
+        /**
+         * Creates a callable method that is identified by its number of arguments.
+         *
+         * @param receiverId the id of the receiver variable
+         * @param ownerType the declaring type of the method
+         * @param methodName the name of the method
+         * @param argumentCount the number of arguments
+         * @param returnType the return type of the method
+         */
         public CallableMethod(String receiverId, String ownerType, String methodName, int argumentCount,
                               String returnType) {
             this.receiverId = receiverId;
             this.ownerType = ownerType;
+            this.canonicalOwnerType = ExprType.canonicalRawName(ownerType);
             this.methodName = methodName;
             this.argumentCount = argumentCount;
             this.signature = null;
             this.returnType = returnType;
         }
 
+        /**
+         * Creates a callable method that is identified by its JVM descriptor.
+         *
+         * @param receiverId the id of the receiver variable
+         * @param ownerType the declaring type of the method
+         * @param methodName the name of the method
+         * @param descriptor the JVM descriptor of the method
+         * @param returnType the return type of the method
+         */
         public CallableMethod(String receiverId, String ownerType, String methodName, String descriptor,
                               String returnType) {
             this.receiverId = receiverId;
             this.ownerType = ownerType;
+            this.canonicalOwnerType = ExprType.canonicalRawName(ownerType);
             this.methodName = methodName;
             this.signature = JvmMethodDescriptor.parse(descriptor);
             this.argumentCount = signature == null ? 0 : signature.argumentCount();
@@ -321,23 +357,19 @@ public final class LlmPostProcessingResponseParser {
             CallableMethod that = (CallableMethod) other;
             return argumentCount == that.argumentCount
                     && java.util.Objects.equals(receiverId, that.receiverId)
-                    && java.util.Objects.equals(canonicalOwnerType(ownerType), canonicalOwnerType(that.ownerType))
+                    && java.util.Objects.equals(canonicalOwnerType, that.canonicalOwnerType)
                     && java.util.Objects.equals(methodName, that.methodName)
                     && java.util.Objects.equals(signatureText(), that.signatureText());
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(receiverId, canonicalOwnerType(ownerType), methodName, argumentCount,
+            return java.util.Objects.hash(receiverId, canonicalOwnerType, methodName, argumentCount,
                     signatureText());
         }
 
         private String signatureText() {
             return signature == null ? null : signature.descriptor();
-        }
-
-        private JvmMethodDescriptor signature() {
-            return signature;
         }
 
         String receiverId() {
@@ -346,6 +378,10 @@ public final class LlmPostProcessingResponseParser {
 
         String ownerType() {
             return ownerType;
+        }
+
+        String canonicalOwnerType() {
+            return canonicalOwnerType;
         }
 
         String methodName() {
@@ -362,16 +398,6 @@ public final class LlmPostProcessingResponseParser {
 
         String returnType() {
             return returnType;
-        }
-
-        private static String canonicalOwnerType(String typeName) {
-            if (typeName == null) {
-                return null;
-            }
-            String trimmed = typeName.trim();
-            int genericStart = trimmed.indexOf('<');
-            String raw = genericStart < 0 ? trimmed : trimmed.substring(0, genericStart);
-            return ExprType.canonicalName(raw);
         }
     }
 
@@ -448,25 +474,19 @@ public final class LlmPostProcessingResponseParser {
                 }
                 String candidateId = text(entry.get("candidateId"));
                 boolean selectedCandidate = candidateId != null && !candidateId.trim().isEmpty();
-                SelectableCandidate candidate = null;
+                boolean parsed;
                 if (selectedCandidate) {
-                    candidate = context.selectableCandidates.get(candidateId.trim());
+                    SelectableCandidate candidate = context.selectableCandidates.get(candidateId.trim());
                     if (candidate == null) {
                         diagnostic(DiagnosticCode.UNKNOWN_ID, path + ".candidateId",
                                 "Unknown candidate ID: " + candidateId.trim());
                         continue;
                     }
+                    parsed = parseSelectedCandidate(entry, path, assertionId, candidate, candidateId.trim());
+                } else {
+                    parsed = parseSynthesizedAssertion(entry, path, assertionId, assertionKeys);
                 }
-                if (selectedCandidate) {
-                    if (parseSelectedCandidate(entry, path, assertionId, candidate,
-                            candidateId.trim())) {
-                        acceptedAssertions.put(i, response.getAssertions()
-                                .get(response.getAssertions().size() - 1));
-                        accepted++;
-                    }
-                    continue;
-                }
-                if (parseSynthesizedAssertion(entry, path, assertionId, assertionKeys)) {
+                if (parsed) {
                     acceptedAssertions.put(i, response.getAssertions()
                             .get(response.getAssertions().size() - 1));
                     accepted++;
@@ -551,7 +571,7 @@ public final class LlmPostProcessingResponseParser {
                     || !canRenderCanonicalAssertion(kind, expected, actual, delta, path)) {
                 return false;
             }
-            String assertionKey = assertionKey(kind, expected, actual, delta);
+            String assertionKey = SelectableCandidate.canonicalKey(kind, expected, actual, delta);
             if (!assertionKeys.add(assertionKey)) {
                 diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate assertion expression");
                 return false;
@@ -666,9 +686,8 @@ public final class LlmPostProcessingResponseParser {
             if (!expectedType.isFloatingPoint() && !actualType.isFloatingPoint()) {
                 return null;
             }
-            String type = expectedType.isFloatingPoint() ? expectedType.typeName : actualType.typeName;
-            return "float".equals(type) || "java.lang.Float".equals(type) || "Float".equals(type)
-                    ? "0.0F" : "0.0D";
+            ExprType floatingType = expectedType.isFloatingPoint() ? expectedType : actualType;
+            return floatingType.isFloatLike() ? "0.0F" : "0.0D";
         }
 
         /**
@@ -693,9 +712,7 @@ public final class LlmPostProcessingResponseParser {
             } else {
                 return expression;
             }
-            String typeName = inferredType == null ? null : canonicalType(inferredType.typeName);
-            String owner = "float".equals(typeName) || "java.lang.Float".equals(typeName)
-                    ? "Float" : "Double";
+            String owner = inferredType != null && inferredType.isFloatLike() ? "Float" : "Double";
             return owner + "." + member;
         }
 
@@ -952,27 +969,10 @@ public final class LlmPostProcessingResponseParser {
             return operandPolicy.isNegativeNumericLiteral(expression);
         }
 
-        private boolean sameType(String first, String second) {
-            return expressionTypes.sameType(first, second);
-        }
-
-        private String canonicalType(String typeName) {
-            return expressionTypes.canonicalType(typeName);
-        }
-
-        private String assertionKey(LlmPostProcessingResponse.AssertionKind kind, String expected, String actual,
-                                    String delta) {
-            return SelectableCandidate.canonicalKey(kind, expected, actual, delta);
-        }
-
-        private String normalizedExpression(String expression) {
-            return expression == null ? "" : expression.replaceAll("\\s+", "");
-        }
-
         private boolean isDirectSetupInputAssertion(LlmPostProcessingResponse.AssertionKind kind,
                                                     String expected, String actual) {
-            String normalizedActual = normalizedExpression(actual);
-            String normalizedExpected = normalizedExpression(expected);
+            String normalizedActual = SelectableCandidate.normalize(actual);
+            String normalizedExpected = SelectableCandidate.normalize(expected);
             if (normalizedActual.isEmpty()) {
                 return false;
             }
@@ -990,22 +990,14 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean isLiteralOrNullExpression(String expression) {
-            if (expression == null || expression.isEmpty()) {
-                return false;
-            }
-            Expression parsed;
-            try {
-                parsed = StaticJavaParser.parseExpression(expression);
-            } catch (RuntimeException e) {
-                return false;
-            }
-            return parsed.isLiteralExpr() || parsed.isNullLiteralExpr();
+            Expression parsed = LlmPostProcessingExpressionUtils.parseExpressionOrNull(expression);
+            return parsed != null && (parsed.isLiteralExpr() || parsed.isNullLiteralExpr());
         }
 
         private boolean isObviousTautology(LlmPostProcessingResponse.AssertionKind kind, String expected,
                                            String actual) {
-            String normalizedExpected = normalizedExpression(expected);
-            String normalizedActual = normalizedExpression(actual);
+            String normalizedExpected = SelectableCandidate.normalize(expected);
+            String normalizedActual = SelectableCandidate.normalize(actual);
             if ((kind == LlmPostProcessingResponse.AssertionKind.EQUALS
                     || kind == LlmPostProcessingResponse.AssertionKind.SAME)
                     && !normalizedExpected.isEmpty()
@@ -1032,21 +1024,13 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean isSelfComparison(String expression, boolean assertedTrue) {
-            if (expression == null || expression.trim().isEmpty()) {
-                return false;
-            }
-            Expression parsed;
-            try {
-                parsed = StaticJavaParser.parseExpression(expression);
-            } catch (RuntimeException e) {
-                return false;
-            }
+            Expression parsed = LlmPostProcessingExpressionUtils.parseExpressionOrNull(expression);
             if (!(parsed instanceof BinaryExpr)) {
                 return false;
             }
             BinaryExpr binary = (BinaryExpr) parsed;
-            if (!normalizedExpression(binary.getLeft().toString())
-                    .equals(normalizedExpression(binary.getRight().toString()))) {
+            if (!SelectableCandidate.normalize(binary.getLeft().toString())
+                    .equals(SelectableCandidate.normalize(binary.getRight().toString()))) {
                 return false;
             }
             BinaryExpr.Operator operator = binary.getOperator();
@@ -1216,26 +1200,6 @@ public final class LlmPostProcessingResponseParser {
                 }
             }
             return changed;
-        }
-
-        private boolean containsDisallowedObjectConstruction(Expression expression) {
-            return callablePolicy.containsDisallowedObjectConstruction(expression);
-        }
-
-        private boolean containsDisallowedStaticMethodCall(Expression expression) {
-            return callablePolicy.containsDisallowedStaticMethodCall(expression);
-        }
-
-        private boolean isInstanceCallScope(Expression scope) {
-            return callablePolicy.isInstanceCallScope(scope);
-        }
-
-        private boolean containsDisallowedInstanceMethodCall(Expression expression) {
-            return callablePolicy.containsDisallowedInstanceMethodCall(expression);
-        }
-
-        private boolean isCallableMethod(String receiverId, String ownerType, MethodCallExpr call) {
-            return callablePolicy.isCallableMethod(receiverId, ownerType, call);
         }
 
         private static final class ExpressionParseResult {

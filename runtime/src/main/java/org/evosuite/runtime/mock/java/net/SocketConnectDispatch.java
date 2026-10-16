@@ -38,6 +38,13 @@ public final class SocketConnectDispatch {
         // utility class
     }
 
+    /**
+     * Connects a socket, refusing real network connections while mocks are enabled.
+     *
+     * @param socket the socket to connect
+     * @param endpoint the address to connect to
+     * @throws IOException if the connection fails or the socket is not a mock socket while mocks are enabled
+     */
     public static void connect(Socket socket, SocketAddress endpoint) throws IOException {
         if (!MockFramework.isEnabled()) {
             socket.connect(endpoint);
@@ -56,6 +63,14 @@ public final class SocketConnectDispatch {
         throw new IOException("Real socket connect is not supported while EvoSuite VNET mocks are active");
     }
 
+    /**
+     * Connects a socket with a timeout, refusing real network connections while mocks are enabled.
+     *
+     * @param socket the socket to connect
+     * @param endpoint the address to connect to
+     * @param timeout the connection timeout in milliseconds
+     * @throws IOException if the connection fails or the socket is not a mock socket while mocks are enabled
+     */
     public static void connect(Socket socket, SocketAddress endpoint, int timeout) throws IOException {
         if (!MockFramework.isEnabled()) {
             socket.connect(endpoint, timeout);

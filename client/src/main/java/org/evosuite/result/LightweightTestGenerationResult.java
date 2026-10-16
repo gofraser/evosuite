@@ -59,6 +59,14 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
     private final Map<String, Set<Failure>> contractViolations = new LinkedHashMap<>();
     private final Map<FitnessFunction<?>, Double> targetCoverages = new LinkedHashMap<>();
 
+    /**
+     * Copies the aggregate results of a full test generation result into a lightweight snapshot that holds no
+     * test case objects; values the source cannot provide are left at their defaults.
+     *
+     * @param source the result to copy from, may be null
+     * @param <T> the chromosome type of the result
+     * @return the snapshot, empty if the source is null
+     */
     public static <T extends Chromosome<T>> LightweightTestGenerationResult<T> from(TestGenerationResult<?> source) {
         LightweightTestGenerationResult<T> out = new LightweightTestGenerationResult<>();
         if (source == null) {
@@ -68,23 +76,28 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
         try {
             out.status = source.getTestGenerationStatus();
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             out.errorMessage = safe(source.getErrorMessage());
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             out.classUnderTest = safe(source.getClassUnderTest());
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             String[] criterion = source.getTargetCriterion();
             out.targetCriterion = criterion == null ? new String[0] : Arrays.copyOf(criterion, criterion.length);
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             out.testSuiteCode = safe(source.getTestSuiteCode());
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
 
         // Do not copy per-test TestCase objects.
@@ -101,6 +114,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                     out.testCode.put(name, code);
                 }
             } catch (Throwable ignored) {
+                // Best-effort snapshot: skip any value the source result cannot provide.
             }
             try {
                 String comment = source.getComment(name);
@@ -108,6 +122,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                     out.comments.put(name, comment);
                 }
             } catch (Throwable ignored) {
+                // Best-effort snapshot: skip any value the source result cannot provide.
             }
             try {
                 Set<Integer> lines = source.getCoveredLines(name);
@@ -115,6 +130,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                     out.coveredLinesByTest.put(name, new LinkedHashSet<>(lines));
                 }
             } catch (Throwable ignored) {
+                // Best-effort snapshot: skip any value the source result cannot provide.
             }
             try {
                 Set<BranchInfo> branches = source.getCoveredBranches(name);
@@ -122,6 +138,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                     out.coveredBranchesByTest.put(name, new LinkedHashSet<>(branches));
                 }
             } catch (Throwable ignored) {
+                // Best-effort snapshot: skip any value the source result cannot provide.
             }
             try {
                 Set<MutationInfo> mutants = source.getCoveredMutants(name);
@@ -129,6 +146,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                     out.coveredMutantsByTest.put(name, new LinkedHashSet<>(mutants));
                 }
             } catch (Throwable ignored) {
+                // Best-effort snapshot: skip any value the source result cannot provide.
             }
             try {
                 Set<Failure> failures = source.getContractViolations(name);
@@ -136,6 +154,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                     out.contractViolations.put(name, new LinkedHashSet<>(failures));
                 }
             } catch (Throwable ignored) {
+                // Best-effort snapshot: skip any value the source result cannot provide.
             }
         }
 
@@ -145,6 +164,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                 out.coveredLines.addAll(lines);
             }
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             Set<Integer> lines = source.getUncoveredLines();
@@ -152,6 +172,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                 out.uncoveredLines.addAll(lines);
             }
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             Set<BranchInfo> branches = source.getCoveredBranches();
@@ -159,6 +180,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                 out.coveredBranches.addAll(branches);
             }
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             Set<BranchInfo> branches = source.getUncoveredBranches();
@@ -166,6 +188,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                 out.uncoveredBranches.addAll(branches);
             }
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             Set<MutationInfo> mutants = source.getCoveredMutants();
@@ -173,6 +196,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                 out.coveredMutants.addAll(mutants);
             }
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             Set<MutationInfo> mutants = source.getUncoveredMutants();
@@ -180,6 +204,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                 out.uncoveredMutants.addAll(mutants);
             }
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
         try {
             Set<MutationInfo> mutants = source.getExceptionMutants();
@@ -187,6 +212,7 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
                 out.exceptionMutants.addAll(mutants);
             }
         } catch (Throwable ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
         }
 
         return out;

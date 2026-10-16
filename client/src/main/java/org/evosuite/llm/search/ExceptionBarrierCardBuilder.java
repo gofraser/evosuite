@@ -81,7 +81,8 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
                     && signatureEvidence.getAttempts() >= context.thresholds.minAttemptsForExceptionBarrier()
                     && signatureEvidence.getExceptions() >= context.thresholds.minAttemptsForExceptionBarrier()
                     && signatureEvidence.getBlockage() >= context.thresholds.minFailureRateForExceptionBarrier();
-            UpstreamExceptionBarrierEvidence upstreamEvidence = selectUpstreamExceptionBarrier(stats, historical, context);
+            UpstreamExceptionBarrierEvidence upstreamEvidence = selectUpstreamExceptionBarrier(stats, historical,
+                    context);
             boolean upstreamBarrier = !methodLevelBarrier && !contextBarrier && !signatureBarrier
                     && upstreamEvidence != null
                     && upstreamEvidence.getAttempts() >= context.thresholds.minAttemptsForExceptionBarrier()
@@ -90,7 +91,8 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
             if (!methodLevelBarrier && !contextBarrier && !signatureBarrier && !upstreamBarrier) {
                 continue;
             }
-            List<TestFitnessFunction> relatedGoals = context.goalsByMethod.getOrDefault(method, Collections.emptyList());
+            List<TestFitnessFunction> relatedGoals = context.goalsByMethod.getOrDefault(method,
+                    Collections.emptyList());
             double impact = CardBuildSupport.leverageAwareImpact(relatedGoals, 5.0);
             boolean useSignatureAxis = signatureBarrier && signatureEvidence != null
                     && !(upstreamBarrier && upstreamEvidence != null);
@@ -195,7 +197,8 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
                             + failingPrefixes + "/" + failingInvocations
                             + " directly observed failing executions.");
                 } else {
-                    evidence.add("Direct throws occurred without earlier successful statements in the same failing tests.");
+                    evidence.add("Direct throws occurred without earlier successful statements "
+                            + "in the same failing tests.");
                 }
             }
             CardBuildSupport.addOverloadEvidence(evidence, methodContext);
@@ -283,7 +286,8 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
             boolean belowFailureRate =
                     candidate.getBlockage() < context.thresholds.minFailureRateForExceptionBarrier();
             if (belowAttempts) {
-                context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS);
+                context.telemetry.increment(
+                        ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS);
             }
             if (belowFailureRate) {
                 context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE);
@@ -300,7 +304,8 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
         if (context.telemetry == null) {
             return;
         }
-        for (UpstreamExceptionBarrierEvidence candidate : mergedUpstreamExceptionBarriers(current, historical).values()) {
+        for (UpstreamExceptionBarrierEvidence candidate : mergedUpstreamExceptionBarriers(current,
+                historical).values()) {
             if (candidate == null || candidate.getAttempts() <= 0 || candidate.getExceptions() <= 0) {
                 continue;
             }
@@ -309,7 +314,8 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
             boolean belowFailureRate =
                     candidate.getBlockage() < context.thresholds.minFailureRateForExceptionBarrier();
             if (belowAttempts) {
-                context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS);
+                context.telemetry.increment(
+                        ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS);
             }
             if (belowFailureRate) {
                 context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE);
@@ -341,7 +347,8 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
             AttemptStats current,
             ExceptionBarrierTracker.AggregatedStats historical,
             CardBuildContext context) {
-        Map<String, ExceptionBarrierContextEvidence> mergedContexts = mergedExceptionBarrierContexts(current, historical);
+        Map<String, ExceptionBarrierContextEvidence> mergedContexts = mergedExceptionBarrierContexts(current,
+                historical);
 
         ExceptionBarrierContextEvidence best = null;
         for (ExceptionBarrierContextEvidence candidate : mergedContexts.values()) {
@@ -371,7 +378,8 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
         int attempts = current == null ? 0 : current.attempts;
         int successes = current == null ? 0 : current.successes;
         int exceptions = current == null ? 0 : current.exceptions;
-        String dominantException = current == null ? "" : CardBuildSupport.dominantException(current.exceptionTypeCounts);
+        String dominantException = current == null ? ""
+                : CardBuildSupport.dominantException(current.exceptionTypeCounts);
         String dominantInvocation = current == null ? "" : current.dominantFailingInvocationLabel();
         int failingPrefixes = current == null ? 0 : current.failingInvocationsWithSuccessfulPrefix;
         if (historical != null) {

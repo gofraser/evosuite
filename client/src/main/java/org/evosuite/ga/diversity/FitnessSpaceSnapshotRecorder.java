@@ -23,10 +23,6 @@ import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -99,43 +95,34 @@ public final class FitnessSpaceSnapshotRecorder {
 
     /** Writes all buffered rows to disk. Safe to call multiple times. */
     public synchronized void flush() {
-        File file = new File(path);
-        File dir = file.getParentFile();
-        if (dir != null && !dir.exists() && !dir.mkdirs()) {
-            logger.warn("Could not create directory {} for {}", dir, file.getName());
-            return;
-        }
         int n = Math.max(numGoals, 0);
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            StringBuilder header = new StringBuilder("gen,individual_id,rank");
+        StringBuilder header = new StringBuilder("gen,individual_id,rank");
+        for (int i = 0; i < n; i++) {
+            header.append(",goal_").append(i);
+        }
+        List<String> lines = new ArrayList<>(rows.size());
+        for (Row row : rows) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(row.gen).append(',').append(row.individualId)
+                    .append(',').append(row.rank);
             for (int i = 0; i < n; i++) {
-                header.append(",goal_").append(i);
-            }
-            writer.write(header.toString());
-            writer.newLine();
-            for (Row row : rows) {
-                StringBuilder sb = new StringBuilder();
-                sb.append(row.gen).append(',').append(row.individualId)
-                        .append(',').append(row.rank);
-                for (int i = 0; i < n; i++) {
-                    sb.append(',');
-                    double v = (i < row.vector.length) ? row.vector[i] : Double.NaN;
-                    if (!Double.isNaN(v)) {
-                        sb.append(Double.toString(v));
-                    }
+                sb.append(',');
+                double v = (i < row.vector.length) ? row.vector[i] : Double.NaN;
+                if (!Double.isNaN(v)) {
+                    sb.append(Double.toString(v));
                 }
-                writer.write(sb.toString());
-                writer.newLine();
             }
+            lines.add(sb.toString());
+        }
+        if (SidecarCsv.write(path, header.toString(), lines, logger, "fitness space snapshots")) {
             logger.info("Fitness space snapshots: wrote {} rows to {}", rows.size(), path);
-        } catch (IOException e) {
-            logger.warn("Failed to write fitness space snapshots: {}", e.getMessage());
         }
     }
 
     private static String defaultPath() {
         return SidecarCsv.path(FILENAME_PREFIX);
     }
+
 
     private static final class Row {
         final int gen;

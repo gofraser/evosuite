@@ -164,7 +164,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         //        + " - declared in " + m.getDeclaringClass());
         Type exactDeclaringType = null;
         try {
-            exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
+            exactDeclaringType = GenericUtils.getExactSuperType(GenericTypeReflector.capture(type),
                     m.getDeclaringClass());
         } catch (java.lang.TypeNotPresentException e) {
             // May happen in completely intransparent circumstances when there are dependency issues with annotations:
@@ -198,7 +198,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
      */
     public Type[] getExactParameterTypes(Method m, Type type) {
         Type[] parameterTypes = m.getGenericParameterTypes();
-        Type exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
+        Type exactDeclaringType = GenericUtils.getExactSuperType(GenericTypeReflector.capture(type),
                 m.getDeclaringClass());
         if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
             Class<?> rawType = getRawClass(type);
@@ -301,6 +301,16 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     @Override
     public boolean isOverloaded(List<VariableReference> parameters) {
+        return isOverloaded(parameters, null);
+    }
+
+    /**
+     * As {@link #isOverloaded(List)}, but a sibling overload declared by a subclass of the
+     * method's declaring class also counts when the call is made on a receiver of that subclass.
+     *
+     * @param receiverClass the static class of the receiver, or null
+     */
+    public boolean isOverloaded(List<VariableReference> parameters, Class<?> receiverClass) {
         String methodName = getName();
         Class<?> declaringClass = method.getDeclaringClass();
         Class<?>[] parameterTypes = method.getParameterTypes();
@@ -330,7 +340,12 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         boolean thisMethodApplicable = false;
         boolean hasSiblingWithSameName = false;
         try {
-            for (java.lang.reflect.Method otherMethod : getCandidateMethods(declaringClass)) {
+            Set<Method> candidates = getCandidateMethods(declaringClass);
+            if (receiverClass != null && !receiverClass.equals(declaringClass)
+                    && declaringClass.isAssignableFrom(receiverClass)) {
+                candidates.addAll(getCandidateMethods(receiverClass));
+            }
+            for (java.lang.reflect.Method otherMethod : candidates) {
                 if (!otherMethod.getName().equals(methodName)) {
                     continue;
                 }

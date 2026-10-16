@@ -41,15 +41,33 @@ public class JUnitFailure {
      */
     public JUnitFailure(String message, String exceptionClassName,
                         String descriptionMethodName, boolean isAssertionError, String trace) {
+        this(message, exceptionClassName, null, descriptionMethodName, isAssertionError, trace);
+    }
+
+    /**
+     * Initializes a JUnitFailure of a test whose class is known.
+     *
+     * @param message failure message
+     * @param exceptionClassName name of the exception class
+     * @param descriptionClassName the class of the test, or null if not known
+     * @param descriptionMethodName name of the method description
+     * @param isAssertionError true if the failure is an assertion error
+     * @param trace stack trace of the failure
+     */
+    public JUnitFailure(String message, String exceptionClassName, String descriptionClassName,
+                        String descriptionMethodName, boolean isAssertionError, String trace) {
         super();
         this.message = message;
         this.exceptionClassName = exceptionClassName;
+        this.descriptionClassName = descriptionClassName;
         this.descriptionMethodName = descriptionMethodName;
         this.isAssertionError = isAssertionError;
         this.trace = trace;
     }
 
     private final String descriptionMethodName;
+    /** The class of the test, null if not known; not part of the identity of a failure. */
+    private final String descriptionClassName;
     private final String exceptionClassName;
     private final String message;
     private final boolean isAssertionError;
@@ -58,6 +76,15 @@ public class JUnitFailure {
 
     public void addToExceptionStackTrace(String elemToString) {
         exceptionStackTrace.add(elemToString);
+    }
+
+    /**
+     * The class of the test that failed.
+     *
+     * @return the class, or null if not known
+     */
+    public String getDescriptionClassName() {
+        return descriptionClassName;
     }
 
     public String getDescriptionMethodName() {

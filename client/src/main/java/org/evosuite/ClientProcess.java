@@ -28,7 +28,6 @@ import org.evosuite.rmi.service.MasterNodeRemote;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
-import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.MSecurityManager;
 import org.evosuite.runtime.sandbox.Sandbox;
@@ -166,7 +165,8 @@ public class ClientProcess {
         RuntimeSettings.sandboxMode = Properties.SANDBOX_MODE;
         RuntimeSettings.maxNumberOfThreads = Properties.MAX_STARTED_THREADS;
         RuntimeSettings.maxNumberOfIterationsPerLoop = Properties.MAX_LOOP_ITERATIONS;
-        RuntimeSettings.maxCumulativeArrayElements = Properties.CUMULATIVE_ARRAY_LIMIT;
+        RuntimeSettings.maxCumulativeArrayBytes = Properties.CUMULATIVE_ARRAY_LIMIT_BYTES;
+        RuntimeSettings.maxMockInvocationsPerTest = Properties.MAX_MOCK_INVOCATIONS_PER_TEST;
         RuntimeSettings.useVNET = Properties.VIRTUAL_NET;
         RuntimeSettings.useSeparateClassLoader = Properties.USE_SEPARATE_CLASSLOADER;
         RuntimeSettings.className = Properties.TARGET_CLASS;
@@ -178,21 +178,6 @@ public class ClientProcess {
         // the per-test timeout is generous but still bounded.
         org.evosuite.runtime.sandbox.MSecurityManager.setSandboxLockAcquireTimeoutMs(
                 Math.max(60_000L, 8L * Properties.TIMEOUT));
-
-        // Set target class prefix so the instrumentation exclusion list can
-        // skip problematic libraries (e.g., dom4j) that cause classloader
-        // conflicts, while still allowing instrumentation of the CUT itself.
-        if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.isEmpty()) {
-            if (Properties.TARGET_CLASS.contains(".")) {
-                String prefix = Properties.TARGET_CLASS.substring(
-                        0, Properties.TARGET_CLASS.lastIndexOf('.') + 1);
-                RuntimeInstrumentation.setTargetClassPrefix(prefix);
-            } else {
-                // Default package — no library prefix can match, but we still
-                // need a non-null value to activate the exclusion list.
-                RuntimeInstrumentation.setTargetClassPrefix("");
-            }
-        }
 
         MethodCallReplacementCache.resetSingleton();
     }
@@ -284,7 +269,8 @@ public class ClientProcess {
              * window. If generation already completed successfully, a blocked zero-status
              * exit should not turn the run into CLIENT_CRASH.
              */
-            logger().warn("System.exit(0) was blocked after successful test generation; returning from main instead", e);
+            logger().warn(
+                    "System.exit(0) was blocked after successful test generation; returning from main instead", e);
         }
     }
 }

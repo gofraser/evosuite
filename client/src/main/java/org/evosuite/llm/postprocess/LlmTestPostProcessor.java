@@ -74,8 +74,8 @@ final class LlmTestPostProcessor {
             result.requestedCalls = 1;
             result.initialCalls = 1;
             result.requestedStatements = test.size();
-            String rawResponse = processor.queryWithPostProcessingTraceContext(prompt, testIndex,
-                    minimizationResult, 1);
+            String rawResponse = processor.queryWithPostProcessingTraceContext(phaseContext, prompt,
+                    testIndex, minimizationResult, 1);
             LlmPostProcessingParseResult parseResult = LlmPostProcessingResponseParser.parse(
                     rawResponse, oracleContext.toParseContext());
             if (parseResult.isInfrastructureFailure()) {
@@ -204,6 +204,16 @@ final class LlmTestPostProcessor {
             }
             return result;
         } catch (RuntimeException | AssertionError e) {
+            if (LlmPostProcessor.isInterruption(e)) {
+                // An interrupt is a request to stop, not a provider failure:
+                // do not run the fallback and let the phase end here.
+                logger.info("Unified LLM post-processing stopped at test {}: thread interrupted", testIndex);
+                result.stopReason = LlmPostProcessingPhase.StopReason.INTERRUPTED;
+                if (options.features().assertions()) {
+                    phaseContext.recordFailedAssertionTest(test);
+                }
+                return result;
+            }
             logger.warn("Unified LLM post-processing skipped test {} after per-test failure: {}",
                     testIndex, e.getMessage());
             result.infrastructureFailures = 1;

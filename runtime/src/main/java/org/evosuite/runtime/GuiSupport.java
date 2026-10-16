@@ -1065,6 +1065,7 @@ public class GuiSupport {
                     return real;
                 }
             } catch (Throwable ignored) {
+                // The real environment cannot report screens (e.g. headless); fall back to the stub device.
             }
             return new GraphicsDevice[]{StubGraphicsDevice.INSTANCE};
         }
@@ -1077,6 +1078,7 @@ public class GuiSupport {
                     return real;
                 }
             } catch (Throwable ignored) {
+                // The real environment has no default screen (e.g. headless); fall back to the stub device.
             }
             return StubGraphicsDevice.INSTANCE;
         }

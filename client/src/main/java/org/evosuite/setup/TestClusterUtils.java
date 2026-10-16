@@ -25,8 +25,6 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.Reflection;
 import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
 import org.evosuite.runtime.util.ReflectionUtils;
-import org.junit.Test;
-import org.junit.runners.Suite;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +34,10 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -70,43 +72,6 @@ public class TestClusterUtils {
     private static final Map<Class<?>, Set<Field>> accessibleFieldCache = new LinkedHashMap<>();
     private static final Map<Class<?>, Set<Method>> methodCache = new LinkedHashMap<>();
 
-
-    /**
-     * Determine if this class contains JUnit tests.
-     *
-     * @param className the class name
-     * @return true if the class contains JUnit tests
-     * @deprecated use {@code org.evosuite.junit.CoverageAnalysis.isTest(Class<?> cls)}
-     */
-    @Deprecated
-    public static boolean isTest(String className) {
-        // TODO-JRO Identifying tests should be done differently:
-        // If the class either contains methods
-        // annotated with @Test (> JUnit 4.0)
-        // or contains Test or Suite in it's inheritance structure
-        try {
-            Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
-            Class<?> superClazz = clazz.getSuperclass();
-            while (!superClazz.equals(Object.class)) {
-                if (superClazz.equals(Suite.class)) {
-                    return true;
-                }
-                if (superClazz.equals(Test.class)) {
-                    return true;
-                }
-
-                superClazz = clazz.getSuperclass();
-            }
-            for (Method method : clazz.getMethods()) {
-                if (method.isAnnotationPresent(Test.class)) {
-                    return true;
-                }
-            }
-        } catch (ClassNotFoundException e) {
-            logger.info("Could not load class: {}", className);
-        }
-        return false;
-    }
 
     /**
      * Determine if a class name corresponds to an anonymous class.
@@ -217,13 +182,95 @@ public class TestClusterUtils {
      * @return a boolean.
      */
     public static boolean checkIfCanUse(final String className) {
+        return checkIfCanUse(className, null);
+    }
+
+    /**
+     * Whether a class may be used in generated tests.
+     *
+     * <p>The excluded prefixes name JDK internals, but two of them are also used by ordinary
+     * libraries: {@code com.sun.} belongs to the JDK as much as to rome ({@code
+     * com.sun.syndication}), JavaMail or Mojarra, and such a library sitting on the project's
+     * classpath is a normal dependency of the class under test. Excluding it silently removes
+     * every method that mentions one of its types - 108_liferay's RSSUtil has a single method,
+     * returning {@code ObjectValuePair<String, SyndFeed>}, so the class dropped from 1.0 to
+     * 0.5 branch coverage. When the loaded class is available, let the module system decide:
+     * only a class that really comes from the JDK is excluded.
+     *
+     * @param className the class name
+     * @param clazz     the loaded class, or {@code null} if it is not available
+     * @return whether the class may be used
+     */
+    public static boolean checkIfCanUse(final String className, final Class<?> clazz) {
         if (isConfiguredTargetClassOrPackage(className)) {
             return true;
         }
-        return classExceptions.stream().noneMatch(className::startsWith);
+        String excluded = classExceptions.stream().filter(className::startsWith).findFirst().orElse(null);
+        if (excluded == null) {
+            return true;
+        }
+        return AMBIGUOUS_JDK_PREFIXES.contains(excluded) && clazz != null && !isJdkClass(clazz);
     }
 
-    private static boolean isConfiguredTargetClassOrPackage(final String className) {
+    /**
+     * Prefixes from {@link #classExceptions} that a library may legitimately use as well.
+     */
+    private static final Set<String> AMBIGUOUS_JDK_PREFIXES = Collections.unmodifiableSet(
+            new LinkedHashSet<>(Arrays.asList("com.sun.", "com.oracle.")));
+
+    /**
+     * Whether the class comes from the JDK itself rather than from the project's classpath.
+     *
+     * <p>A {@code java.}/{@code jdk.}-named module is additionally required to be one
+     * {@link JavaModuleLookup#isFromSystemImage the running JDK's own install image actually
+     * resolved this class's module from}, not merely named that way or named like a module that
+     * exists somewhere in the image: a user module can call itself {@code java.fake}, or reuse the
+     * name of a real image module that the default boot layer does not include (such as
+     * {@code jdk.hotspot.agent}), and export an arbitrary package from it. Without this check,
+     * such a module made every class it exports -- including one in an otherwise-ambiguous
+     * package like {@code com.sun.} -- look like JDK code to {@link #checkIfCanUse(String, Class)}
+     * 's ambiguous-prefix exception, silently rejecting a genuine user-library class for a reason
+     * unrelated to its own package.
+     *
+     * <p>{@code javafx.}, and the bare module names {@code "java"}/{@code "jdk"}, are
+     * deliberately exempt from that image check: unlike {@code java.}/{@code jdk.}-named
+     * modules, a genuine {@code javafx.*} module (OpenJFX) is an ordinary external dependency
+     * resolved from the project's own module/classpath, not part of every running JDK's image,
+     * so requiring image membership there would reject genuine JavaFX classes, not just spoofs.
+     *
+     * @param clazz the loaded class
+     * @return true if the class belongs to a JDK module or was loaded by the boot/platform loader
+     */
+    private static boolean isJdkClass(final Class<?> clazz) {
+        ClassLoader loader = clazz.getClassLoader();
+        if (loader == null) {
+            return true; // boot loader: JDK
+        }
+        // The module system is only available from Java 9 on, and this module is compiled
+        // against Java 8, so ask for the module reflectively (see JavaModuleLookup). On Java 8
+        // there are no modules and a class that was loaded at all came from the classpath.
+        JavaModuleLookup.Result result = JavaModuleLookup.lookupModule(clazz);
+        if (result.isUnavailable()) {
+            // No module system, or it refused to answer: fall back to the old, conservative
+            // behaviour of treating the prefix as a JDK package.
+            return true;
+        }
+        if (!result.isNamed()) {
+            return false;
+        }
+        // Prefix alone is not provenance (see the Javadoc above): a java.* or jdk.* module counts
+        // only if it was actually resolved from the running JDK's image, not merely named like
+        // one that exists somewhere in it. The other names below never carry those prefixes.
+        String name = result.moduleName();
+        return JavaModuleLookup.isSystemImageJdkModule(result)
+                || name.startsWith("javafx.") || name.equals("java") || name.equals("jdk");
+    }
+
+    /**
+     * Package-visible so {@link TestUsageChecker#canUse(Class)} can apply the same bypass to its
+     * own-class rejection below (see the call site there for why).
+     */
+    static boolean isConfiguredTargetClassOrPackage(final String className) {
         if (className == null) {
             return false;
         }
@@ -271,23 +318,32 @@ public class TestClusterUtils {
      * @return the set of fields
      */
     public static Set<Field> getFields(Class<?> clazz) {
-        // TODO: Helper not necessary here!
+        // Keyed by simple name, not toGenericString(): a field declared in clazz with the
+        // same name as one inherited from its superclass/interfaces *hides* that field (JLS
+        // 8.3), even when the two have unrelated, incompatible types. Inserting the
+        // superclass/interface fields first and clazz's own declared fields last reproduces
+        // that hiding - the later put() for the same name overwrites the earlier one, so only
+        // the hiding field survives, exactly as Java itself resolves `obj.field` through a
+        // clazz-typed reference. Keying by toGenericString() let both fields survive as
+        // independent entries (different modifiers/type/declaring class never collide), which
+        // produced code assigning the inherited field's declared type through a variable typed
+        // as the subclass, where the hiding field's narrower type made that assignment illegal.
         Map<String, Field> helper = new TreeMap<>();
 
         if (clazz.getSuperclass() != null) {
             for (Field f : getFields(clazz.getSuperclass())) {
-                helper.put(f.toGenericString(), f);
+                helper.put(f.getName(), f);
             }
 
         }
         for (Class<?> in : Reflection.getInterfaces(clazz)) {
             for (Field f : getFields(in)) {
-                helper.put(f.toGenericString(), f);
+                helper.put(f.getName(), f);
             }
         }
 
         for (Field f : Reflection.getDeclaredFields(clazz)) {
-            helper.put(f.toGenericString(), f);
+            helper.put(f.getName(), f);
         }
         Set<Field> fields = new LinkedHashSet<>(helper.values());
 
@@ -318,8 +374,24 @@ public class TestClusterUtils {
     }
 
     private static Set<Field> computeAccessibleFields(final Class<?> clazz) {
-        final Set<Field> accessibleFields = Arrays.stream(Reflection.getFields(clazz))
-                .filter(f -> TestUsageChecker.canUse(f) && !isFinalField(f))
+        // getFields(clazz) already applies field hiding (JLS 8.3), and unlike Class.getFields()
+        // it also sees a non-public hiding field. With the public-only view a package-private
+        // "CommonTree tree" in an ANTLR return scope was invisible and the public "Object tree"
+        // it hides was offered instead: a reference typed Object that javac resolves, in
+        // "x.tree = value", to the hiding field of type CommonTree. canUse is asked with clazz
+        // as the owner so a field hidden somewhere below its declaring class is rejected.
+        // The names stay those of the public fields, though: a non-public field is offered only
+        // where it hides a public one. Offering every protected and package-private field let
+        // value reuse pick the code under test's own internal state, typically still null, for
+        // any parameter of its type; vuze's SBC_ActivityView then had every SWTSkinObject mock
+        // stub getSkin() with its own null "skin" field instead of a mock, and lost two thirds
+        // of its branch coverage.
+        final Set<String> publicNames = Arrays.stream(Reflection.getFields(clazz))
+                .map(Field::getName)
+                .collect(toCollection(HashSet::new));
+        final Set<Field> accessibleFields = getFields(clazz).stream()
+                .filter(f -> publicNames.contains(f.getName()))
+                .filter(f -> TestUsageChecker.canUse(f, clazz) && !isFinalField(f))
                 .sorted(comparing(Field::getName))
                 .collect(toCollection(LinkedHashSet::new));
         return accessibleFields;

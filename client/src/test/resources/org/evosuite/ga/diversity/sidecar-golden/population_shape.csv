@@ -1,0 +1,4 @@
+gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs,struct_features
+0,12,0,3,0,LLM_ASYNC,4,1.5,1;4;9,a()V|b(I)V,k:CALL|lit:7
+0,12,1,-1,2,,0,,,,
+5,900,0,2,1,,2,0.125,7,c()V,

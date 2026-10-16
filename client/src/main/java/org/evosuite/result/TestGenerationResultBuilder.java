@@ -125,6 +125,20 @@ public class TestGenerationResultBuilder {
         testCases.clear();
         contractViolations.clear();
         uncoveredLines = LinePool.getAllLines();
+        // The goals still to be covered are read from the pools only when something needs them.
+        // Building a MutationInfo (with its description string) for every mutant here made each
+        // finished result hold a second copy of them, and did so again right after the result
+        // had been built, when the heap is at its fullest.
+        uncoveredBranches.clear();
+        uncoveredMutants.clear();
+        uncoveredGoalsLoaded = false;
+    }
+
+    private void loadUncoveredGoals() {
+        if (uncoveredGoalsLoaded) {
+            return;
+        }
+        uncoveredGoalsLoaded = true;
         for (Branch b : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getAllBranches()) {
             uncoveredBranches.add(new BranchInfo(b, true));
@@ -146,6 +160,7 @@ public class TestGenerationResultBuilder {
     }
 
     private <T extends Chromosome<T>> void fillInformationFromTestData(TestGenerationResultImpl<T> result) {
+        loadUncoveredGoals();
 
         Set<MutationInfo> exceptionMutants = new LinkedHashSet<>();
         for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
@@ -206,6 +221,8 @@ public class TestGenerationResultBuilder {
 
     private final Set<MutationInfo> uncoveredMutants = new LinkedHashSet<>();
 
+    private boolean uncoveredGoalsLoaded = false;
+
     private final LinkedHashMap<FitnessFunction<?>, Double> targetCoverages = new LinkedHashMap<>();
 
     /**
@@ -218,6 +235,7 @@ public class TestGenerationResultBuilder {
      * @param result   the execution result of the test case
      */
     public void setTestCase(String name, String code, TestCase testCase, String comment, ExecutionResult result) {
+        loadUncoveredGoals();
         testCode.put(name, code);
         testCases.put(name, testCase);
         Set<Failure> failures = new LinkedHashSet<>();

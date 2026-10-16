@@ -70,4 +70,35 @@ public class ThreadSleepReplacementInstrumentationTest {
 
         Assertions.assertTrue(replaced, "Expected unqualified Thread subclass sleep() to be replaced");
     }
+
+    @Test
+    public void testSystemGcIsReplaced() throws Exception {
+        java.io.InputStream classStream = getClass().getClassLoader()
+                .getResourceAsStream("com/examples/CallsSystemGc.class");
+        Assertions.assertNotNull(classStream, "Missing test class bytes");
+        ClassReader reader = new ClassReader(classStream.readAllBytes());
+
+        byte[] transformedBytes = new RuntimeInstrumentation().transformBytes(
+                getClass().getClassLoader(), "com/examples/CallsSystemGc", reader, false);
+
+        ClassNode node = new ClassNode();
+        new ClassReader(transformedBytes).accept(node, ClassReader.SKIP_FRAMES);
+        String systemOwner = PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class);
+        boolean replaced = false;
+        for (MethodNode m : node.methods) {
+            if (!"collect".equals(m.name)) {
+                continue;
+            }
+            for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn.getType() != AbstractInsnNode.METHOD_INSN) {
+                    continue;
+                }
+                MethodInsnNode min = (MethodInsnNode) insn;
+                if ("gc".equals(min.name) && systemOwner.equals(min.owner)) {
+                    replaced = true;
+                }
+            }
+        }
+        Assertions.assertTrue(replaced, "Expected System.gc() to be replaced");
+    }
 }

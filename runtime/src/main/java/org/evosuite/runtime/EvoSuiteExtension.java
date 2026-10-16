@@ -47,7 +47,9 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -116,6 +118,8 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
 
     @Override
     public void beforeAll(ExtensionContext context) {
+        // Before the classes are initialised: a static initialiser may wrap the streams too.
+        saveStandardStreams(context);
         configureRuntimeSettings(testClass);
         maybeInitializeGui();
         if (needsAgentLifecycle()) {
@@ -154,6 +158,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
 
     @Override
     public void beforeEach(ExtensionContext context) {
+        saveStandardStreams(context);
         threadStopper.storeCurrentThreads();
         threadStopper.startRecordingTime();
         if (RuntimeSettings.mockJVMNonDeterminism) {
@@ -196,6 +201,8 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
                 failure = recordFailureOrSuppress(failure, JDKClassResetter::reset);
                 failure = recordFailureOrSuppress(failure, this::resetDiscoveredClasses);
             }
+            // After the class reset, which runs static initializers again.
+            failure = recordFailureOrSuppress(failure, () -> restoreStandardStreams(context));
             if (RuntimeSettings.resetStaticState || RuntimeSettings.mockJVMNonDeterminism) {
                 // Close out the sandbox window opened in beforeEach() (see the comment
                 // there); must stay in sync with that condition.
@@ -211,8 +218,42 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         }
     }
 
+    /**
+     * Streams saved per test invocation (or per class for beforeAll/afterAll), keyed by the
+     * unique id of the context, so that tests of one class running in parallel do not
+     * overwrite each other's snapshot. A null context, which only unit tests pass, uses the
+     * key "".
+     */
+    private final Map<String, StandardStreams.Snapshot> standardStreams = new ConcurrentHashMap<>();
+
+    private static String streamsKey(ExtensionContext context) {
+        String id = context == null ? null : context.getUniqueId();
+        return id == null ? "" : id;
+    }
+
+    /**
+     * Code under test may wrap System.out/err on construction (a redirecting logger). The
+     * streams are handed back after each test and after the class, or the wrappers stack up
+     * and every print fans out through all of them.
+     */
+    private void saveStandardStreams(ExtensionContext context) {
+        standardStreams.put(streamsKey(context), StandardStreams.save());
+    }
+
+    private void restoreStandardStreams(ExtensionContext context) {
+        StandardStreams.restore(standardStreams.remove(streamsKey(context)));
+    }
+
     @Override
     public void afterAll(ExtensionContext context) {
+        try {
+            afterAllCleanup();
+        } finally {
+            restoreStandardStreams(context);
+        }
+    }
+
+    private void afterAllCleanup() {
         if (needsAgentLifecycle()) {
             try {
                 InstrumentingAgent.deactivate();

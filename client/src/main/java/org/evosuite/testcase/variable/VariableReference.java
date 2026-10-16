@@ -323,13 +323,25 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     void setAdditionalVariableReference(VariableReference var);
 
     /**
-     * replaceAdditionalVariableReference.
+     * The reference that takes this one's place in a statement when {@code var1} is replaced by
+     * {@code var2}: {@code var2} if this reference is {@code var1}, a new reference if
+     * {@code var1} is used inside this one (the owner of a field, the array of an element), and
+     * this reference itself if it does not use {@code var1}.
      *
-     * @param var1 a {@link VariableReference} object.
-     * @param var2 a {@link VariableReference} object.
+     * <p>This reference is never changed. Element and field references are shared by the
+     * statements that use them, so rebinding one in place for one statement would silently
+     * rebind, and retype, it in every other statement too. The result is computed from
+     * {@code var2} and from what this reference was declared as, never from state another
+     * replacement could have changed.
+     *
+     * @param var1 the variable to be replaced
+     * @param var2 its replacement
+     * @return the reference to use instead of this one, or null if this reference cannot be
+     *         rebound to {@code var2} (it would have to keep using {@code var1})
      */
-    void replaceAdditionalVariableReference(VariableReference var1,
-                                            VariableReference var2);
+    default VariableReference withReplacement(VariableReference var1, VariableReference var2) {
+        return equals(var1) ? var2 : this;
+    }
 
     /**
      * loadBytecode.

@@ -43,7 +43,7 @@ final class PostProcessingAssertionReconciler {
         int count = 0;
         for (TestChromosome chromosome : suite.getTestChromosomes()) {
             if (chromosome != null && chromosome.getTestCase() != null) {
-                count += countTemplateAssertions(chromosome.getTestCase(), true);
+                count += countTemplateAssertions(chromosome.getTestCase());
             }
         }
         return count;
@@ -59,9 +59,9 @@ final class PostProcessingAssertionReconciler {
                 }
                 TestCase test = chromosome.getTestCase();
                 if (test.isUnstable()) {
-                    stillPresentButCommented += countTemplateAssertions(test, true);
+                    stillPresentButCommented += countTemplateAssertions(test);
                 } else {
-                    shipped += countTemplateAssertions(test, true);
+                    shipped += countTemplateAssertions(test);
                 }
             }
         }
@@ -70,8 +70,8 @@ final class PostProcessingAssertionReconciler {
         return new Reconciliation(shipped, removedUnstable);
     }
 
-    private static int countTemplateAssertions(TestCase test, boolean includeUnstable) {
-        if (test == null || (!includeUnstable && test.isUnstable())) {
+    private static int countTemplateAssertions(TestCase test) {
+        if (test == null) {
             return 0;
         }
         int count = 0;

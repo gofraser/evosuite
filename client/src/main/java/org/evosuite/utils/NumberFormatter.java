@@ -20,6 +20,7 @@
 package org.evosuite.utils;
 
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.evosuite.setup.GeneratedTestAccess;
 import org.evosuite.testcase.TestCodeVisitor;
 
 /**
@@ -33,6 +34,25 @@ public class NumberFormatter {
 
     public static String getNumberString(Object value) {
         return getNumberString(value, null);
+    }
+
+    /**
+     * Decides whether {@code value} is an enum constant, for the purpose of
+     * routing it to the enum-specific assertion/rendering code.
+     *
+     * <p>This is simply {@code value instanceof Enum}; checking
+     * {@code value.getClass().isEnum()} as well would be redundant, since every
+     * enum class extends {@link Enum} already. {@code instanceof} alone is also
+     * the form that stays correct for an enum constant with its own
+     * constant-specific class body (one overriding a method per constant): its
+     * runtime class is an anonymous subclass, for which {@code isEnum()} is
+     * false but {@code instanceof Enum} still holds.
+     *
+     * @param value the value to check, possibly {@code null}
+     * @return {@code true} if {@code value} is an enum constant
+     */
+    public static boolean isEnum(Object value) {
+        return value instanceof Enum;
     }
 
     /**
@@ -118,18 +138,29 @@ public class NumberFormatter {
             } else {
                 return "" + val;
             }
-        } else if (value.getClass().isEnum() || value instanceof Enum) {
-            // java.util.concurrent.TimeUnit is an example where the enum
-            // elements are anonymous inner classes, and then isEnum does
-            // not return true apparently? So we check using instanceof as well.
-
+        } else if (isEnum(value)) {
             String className;
             Class<?> enumClass = value.getClass();
             if (enumClass.isAnonymousClass()) {
                 enumClass = enumClass.getEnclosingClass();
             }
 
-            if (visitor != null) {
+            // Use the narrower isEnumConstantNameableInGeneratedTest here, not the
+            // blanket, deliberately over-conservative
+            // isClassLiteralReferenceableFromGeneratedTest used for ".class" literals
+            // -- see that method's javadoc for why the two predicates must differ (a
+            // class literal has a Class.forName(...) escape hatch; an enum constant
+            // rendered as a value does not). Falling back to the blanket check here
+            // forced reachable nested enums through the naive fallback below -- raw
+            // getSimpleName() chaining with no import registration or conflict
+            // resolution -- which silently resolves to the wrong class when another,
+            // already-imported class shares the enum's enclosing simple name (see
+            // ProductionEnumAssertionCompileTest's collision case). Callers that can
+            // restructure the surrounding expression (PrimitiveAssertion,
+            // InspectorAssertion) check referenceability themselves and render a
+            // by-name comparison instead, so they never reach this branch for a
+            // non-referenceable (e.g. source-private) enum.
+            if (visitor != null && GeneratedTestAccess.isEnumConstantNameableInGeneratedTest(enumClass)) {
                 className = visitor.getClassName(enumClass);
                 Class<?> enclosingClass = enumClass.getEnclosingClass();
                 if (enclosingClass != null && className.indexOf('.') < 0) {

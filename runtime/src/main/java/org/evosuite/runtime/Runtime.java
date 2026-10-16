@@ -117,6 +117,9 @@ public class Runtime {
                 .equals(t.getClass().getName())) {
             throw (RuntimeException) t;
         }
+        if (t instanceof TooManyResourcesException && ((TooManyResourcesException) t).isRepeated()) {
+            throw (RuntimeException) t;
+        }
     }
 
 }

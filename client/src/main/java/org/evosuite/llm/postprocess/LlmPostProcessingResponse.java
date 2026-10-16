@@ -190,6 +190,18 @@ public class LlmPostProcessingResponse {
             this(assertionId, kind, expected, actual, delta, purpose, null, null);
         }
 
+        /**
+         * Creates an assertion proposal.
+         *
+         * @param assertionId the id of the assertion
+         * @param kind the kind of the assertion
+         * @param expected the expected expression
+         * @param actual the actual expression
+         * @param delta the delta for floating-point comparisons, may be null
+         * @param purpose the purpose of the assertion
+         * @param intent the intent of the assertion, may be null
+         * @param candidateId the id of the selected candidate, may be null
+         */
         public AssertionProposal(String assertionId, AssertionKind kind, String expected,
                                  String actual, String delta, String purpose,
                                  String intent, String candidateId) {

@@ -28,10 +28,14 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.testcase.variable.FieldReference;
+import org.evosuite.utils.generic.GenericField;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -53,6 +57,18 @@ class TestParserTest {
     void tearDown() {
         Properties.TARGET_CLASS = "";
         Properties.resetTargetClass();
+    }
+
+    @Test
+    void staticFieldReadWithoutSourceObjectIsNotAnOrphan() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        FieldReference maxValue = new FieldReference(tc,
+                new GenericField(Integer.class.getField("MAX_VALUE"), Integer.class));
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(Integer.class.getMethod("toString", int.class), Integer.class),
+                null, Collections.singletonList(maxValue)));
+
+        assertEquals(Collections.emptyList(), TestParser.findOrphanedVariableReferences(tc));
     }
 
     @Test

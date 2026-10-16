@@ -27,6 +27,8 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import static org.evosuite.llm.postprocess.LlmPostProcessingExpressionUtils.allowedFields;
+
 /**
  * Safety and type-matching policy for callable expressions in post-processing
  * assertions.
@@ -152,15 +154,10 @@ final class PostProcessingCallablePolicy {
     }
 
     boolean isCallableMethod(String receiverId, String ownerType, MethodCallExpr call) {
+        String canonicalOwner = ExprType.canonicalRawName(ownerType);
         for (LlmPostProcessingResponseParser.CallableMethod method : context.callableMethods()) {
-            if (!java.util.Objects.equals(receiverId, method.receiverId())
-                    || (ownerType != null && !java.util.Objects.equals(
-                    canonicalOwnerType(ownerType), canonicalOwnerType(method.ownerType())))
-                    || !java.util.Objects.equals(call.getNameAsString(), method.methodName())
-                    || call.getArguments().size() != method.argumentCount()) {
-                continue;
-            }
-            if (argumentsMatchDescriptor(call, method.signatureDescriptor())) {
+            if (matchesCallSite(method, receiverId, canonicalOwner, call)
+                    && argumentsMatchDescriptor(call, method.signatureDescriptor())) {
                 return true;
             }
         }
@@ -168,14 +165,11 @@ final class PostProcessingCallablePolicy {
     }
 
     String callableReturnType(String receiverId, String ownerType, MethodCallExpr call) {
+        String canonicalOwner = ExprType.canonicalRawName(ownerType);
         String selectedReturnType = null;
         int selectedScore = Integer.MAX_VALUE;
         for (LlmPostProcessingResponseParser.CallableMethod method : context.callableMethods()) {
-            if (!java.util.Objects.equals(receiverId, method.receiverId())
-                    || (ownerType != null && !java.util.Objects.equals(
-                    canonicalOwnerType(ownerType), canonicalOwnerType(method.ownerType())))
-                    || !java.util.Objects.equals(call.getNameAsString(), method.methodName())
-                    || call.getArguments().size() != method.argumentCount()) {
+            if (!matchesCallSite(method, receiverId, canonicalOwner, call)) {
                 continue;
             }
             int score = descriptorMatchScore(call, method.signatureDescriptor());
@@ -185,6 +179,17 @@ final class PostProcessingCallablePolicy {
             }
         }
         return selectedReturnType;
+    }
+
+    /**
+     * A null {@code canonicalOwner} matches any owner type.
+     */
+    private static boolean matchesCallSite(LlmPostProcessingResponseParser.CallableMethod method,
+                                           String receiverId, String canonicalOwner, MethodCallExpr call) {
+        return java.util.Objects.equals(receiverId, method.receiverId())
+                && (canonicalOwner == null || canonicalOwner.equals(method.canonicalOwnerType()))
+                && java.util.Objects.equals(call.getNameAsString(), method.methodName())
+                && call.getArguments().size() == method.argumentCount();
     }
 
     ExprType staticMethodReturnType(String owner, MethodCallExpr call) {
@@ -429,13 +434,27 @@ final class PostProcessingCallablePolicy {
 
     private String unboxedNumericType(String typeName) {
         String canonical = canonicalType(typeName);
-        if ("java.lang.Byte".equals(canonical)) return "byte";
-        if ("java.lang.Short".equals(canonical)) return "short";
-        if ("java.lang.Character".equals(canonical)) return "char";
-        if ("java.lang.Integer".equals(canonical)) return "int";
-        if ("java.lang.Long".equals(canonical)) return "long";
-        if ("java.lang.Float".equals(canonical)) return "float";
-        if ("java.lang.Double".equals(canonical)) return "double";
+        if ("java.lang.Byte".equals(canonical)) {
+            return "byte";
+        }
+        if ("java.lang.Short".equals(canonical)) {
+            return "short";
+        }
+        if ("java.lang.Character".equals(canonical)) {
+            return "char";
+        }
+        if ("java.lang.Integer".equals(canonical)) {
+            return "int";
+        }
+        if ("java.lang.Long".equals(canonical)) {
+            return "long";
+        }
+        if ("java.lang.Float".equals(canonical)) {
+            return "float";
+        }
+        if ("java.lang.Double".equals(canonical)) {
+            return "double";
+        }
         return isNumericPrimitiveOrChar(canonical) ? canonical : null;
     }
 
@@ -447,12 +466,24 @@ final class PostProcessingCallablePolicy {
     }
 
     private int numericRank(String primitive) {
-        if ("byte".equals(primitive)) return 0;
-        if ("short".equals(primitive)) return 1;
-        if ("int".equals(primitive)) return 2;
-        if ("long".equals(primitive)) return 3;
-        if ("float".equals(primitive)) return 4;
-        if ("double".equals(primitive)) return 5;
+        if ("byte".equals(primitive)) {
+            return 0;
+        }
+        if ("short".equals(primitive)) {
+            return 1;
+        }
+        if ("int".equals(primitive)) {
+            return 2;
+        }
+        if ("long".equals(primitive)) {
+            return 3;
+        }
+        if ("float".equals(primitive)) {
+            return 4;
+        }
+        if ("double".equals(primitive)) {
+            return 5;
+        }
         return -1;
     }
 
@@ -529,7 +560,7 @@ final class PostProcessingCallablePolicy {
 
         private static StaticAllowlistEntry parse(String entry, boolean builtIn) {
             int separator = entry.indexOf('#');
-            String owner = canonicalOwnerType(entry.substring(0, separator));
+            String owner = ExprType.canonicalRawName(entry.substring(0, separator));
             String member = entry.substring(separator + 1);
             if ("*".equals(member)) {
                 return new StaticAllowlistEntry(owner, null, null, true, builtIn, false);
@@ -561,22 +592,6 @@ final class PostProcessingCallablePolicy {
             return java.util.Objects.hash(owner, method,
                     signature == null ? null : signature.descriptor(), varargs);
         }
-    }
-
-    private static Set<String> allowedFields(String... fields) {
-        Set<String> result = new LinkedHashSet<>();
-        Collections.addAll(result, fields);
-        return Collections.unmodifiableSet(result);
-    }
-
-    private static String canonicalOwnerType(String typeName) {
-        if (typeName == null) {
-            return null;
-        }
-        String trimmed = typeName.trim();
-        int genericStart = trimmed.indexOf('<');
-        String raw = genericStart < 0 ? trimmed : trimmed.substring(0, genericStart);
-        return ExprType.canonicalName(raw);
     }
 
     private static String canonicalType(String typeName) {

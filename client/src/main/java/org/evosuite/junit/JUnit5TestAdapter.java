@@ -92,7 +92,6 @@ public class JUnit5TestAdapter implements UnitTestAdapter {
         }
         imports += "import static org.junit.jupiter.api.Assertions.*;\n";
         imports += "import org.junit.jupiter.api.Timeout;\n";
-        imports += "import java.util.concurrent.TimeUnit;\n";
 
         return imports;
     }
@@ -108,7 +107,7 @@ public class JUnit5TestAdapter implements UnitTestAdapter {
 
     public String getTimeoutAnnotation() {
         return "@Timeout(value = " + Properties.TIMEOUT
-                + " , unit = TimeUnit.MILLISECONDS)";
+                + " , unit = java.util.concurrent.TimeUnit.MILLISECONDS)";
     }
 
     /**

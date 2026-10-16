@@ -19,19 +19,19 @@
  */
 package org.evosuite.testparser;
 
+import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.CastExpr;
 import com.github.javaparser.ast.expr.ClassExpr;
 import com.github.javaparser.ast.expr.EnclosedExpr;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
-import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
-import com.github.javaparser.StaticJavaParser;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.runtime.mock.StaticReplacementMock;
@@ -631,7 +631,8 @@ class MockitoPatternParser {
 
         Method method;
         try {
-            method = parser.getOverloadResolver().resolveMethod(targetClass, innerMethodCall.getNameAsString(), argTypes);
+            method = parser.getOverloadResolver().resolveMethod(
+                    targetClass, innerMethodCall.getNameAsString(), argTypes);
         } catch (NoSuchMethodException e) {
             return null;
         }
@@ -1131,9 +1132,10 @@ class MockitoPatternParser {
         return "doThrow".equals(doThrowCall.getNameAsString());
     }
 
-    private List<VariableReference> ensureStubbingValuesAvailableBeforeMock(VariableReference mockRef,
-                                                                            List<VariableReference> values,
-                                                                            com.github.javaparser.ast.Node diagnosticNode) {
+    private List<VariableReference> ensureStubbingValuesAvailableBeforeMock(
+            VariableReference mockRef,
+            List<VariableReference> values,
+            com.github.javaparser.ast.Node diagnosticNode) {
         int mockPos = mockRef.getStPosition();
         List<VariableReference> adjusted = new ArrayList<>(values.size());
         Map<VariableReference, VariableReference> hoisted = new IdentityHashMap<>();
@@ -1169,7 +1171,9 @@ class MockitoPatternParser {
                                     + " reordered; substituted a typed default value. Declare the value variable"
                                     + " before the mock it is returned from.");
                 }
-                adjusted.add(parser.createTypedFallbackValue(valueRef.getType()));
+                // At the mock's position, not appended: the mock uses the value.
+                adjusted.add(parser.createTypedFallbackValue(valueRef.getType(), mockPos));
+                mockPos++;
             } else {
                 adjusted.add(valueRef);
             }

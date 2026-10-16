@@ -40,8 +40,8 @@ import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.LineNumberNode;
 import org.objectweb.asm.tree.LookupSwitchInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.TableSwitchInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
@@ -52,6 +52,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Modifier;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Create a minimized control flow graph for the method and store it. In
@@ -79,7 +80,11 @@ public class CFGMethodAdapter extends MethodVisitor {
      * The set of all methods which can be used during test case generation This
      * excludes e.g. synthetic, initializers, private and deprecated methods.
      */
-    private static Map<ClassLoader, Map<String, Set<String>>> methods = new HashMap<>();
+    private static final Map<ClassLoader, Map<String, Set<String>>> methods = new ConcurrentHashMap<>();
+
+    private static Map<String, Set<String>> methodsOf(ClassLoader classLoader) {
+        return methods.getOrDefault(classLoader, Collections.emptyMap());
+    }
 
     /**
      * Clears the stored methods.
@@ -89,6 +94,15 @@ public class CFGMethodAdapter extends MethodVisitor {
             methods.get(cl).clear();
         }
         methods.clear();
+    }
+
+    /**
+     * Forgets the methods recorded while the given class loader instrumented classes.
+     *
+     * @param classLoader the class loader that is no longer needed
+     */
+    public static void release(ClassLoader classLoader) {
+        methods.remove(classLoader);
     }
 
     /**
@@ -141,9 +155,7 @@ public class CFGMethodAdapter extends MethodVisitor {
         this.plainName = name;
         this.classLoader = classLoader;
 
-        if (!methods.containsKey(classLoader)) {
-            methods.put(classLoader, new HashMap<>());
-        }
+        methods.computeIfAbsent(classLoader, k -> new ConcurrentHashMap<>());
     }
 
     /* (non-Javadoc)
@@ -227,9 +239,12 @@ public class CFGMethodAdapter extends MethodVisitor {
                 logger.info("Created CFG for method " + methodName);
 
                 if (DependencyAnalysis.shouldInstrument(className, methodName)) {
-                    if (!methods.get(classLoader).containsKey(className)) {
-                        methods.get(classLoader).put(className, new HashSet<>());
-                    }
+                    // Resolved here and not through the loader's entry in methods: a class
+                    // loaded from another thread (e.g. the Swing event queue of the SUT) can be
+                    // instrumented while the generation clears or releases that entry.
+                    Set<String> classMethods = methods
+                            .computeIfAbsent(classLoader, k -> new ConcurrentHashMap<>())
+                            .computeIfAbsent(className, k -> ConcurrentHashMap.newKeySet());
 
                     // add the actual instrumentation
                     logger.info("Instrumenting method " + methodName + " in class "
@@ -241,7 +256,7 @@ public class CFGMethodAdapter extends MethodVisitor {
                     handleBranchlessMethods();
                     String id = className + "." + methodName;
                     if (isUsable()) {
-                        methods.get(classLoader).get(className).add(id);
+                        classMethods.add(id);
                         logger.debug("Counting: " + id);
                     }
                 }
@@ -451,10 +466,10 @@ public class CFGMethodAdapter extends MethodVisitor {
             return targetMethods;
         }
 
-        for (String currentClass : methods.get(classLoader).keySet()) {
+        for (String currentClass : methodsOf(classLoader).keySet()) {
             if (currentClass.equals(className)
                     || currentClass.startsWith(className + "$")) {
-                targetMethods.addAll(methods.get(classLoader).get(currentClass));
+                targetMethods.addAll(methodsOf(classLoader).get(currentClass));
             }
         }
 
@@ -482,8 +497,8 @@ public class CFGMethodAdapter extends MethodVisitor {
             return targetMethods;
         }
 
-        for (String currentClass : methods.get(classLoader).keySet()) {
-            targetMethods.addAll(methods.get(classLoader).get(currentClass));
+        for (String currentClass : methodsOf(classLoader).keySet()) {
+            targetMethods.addAll(methodsOf(classLoader).get(currentClass));
         }
 
         return targetMethods;
@@ -513,9 +528,9 @@ public class CFGMethodAdapter extends MethodVisitor {
             return matchingMethods;
         }
 
-        for (String name : methods.get(classLoader).keySet()) {
+        for (String name : methodsOf(classLoader).keySet()) {
             if (name.startsWith(className)) {
-                matchingMethods.addAll(methods.get(classLoader).get(name));
+                matchingMethods.addAll(methodsOf(classLoader).get(name));
             }
         }
 
@@ -545,9 +560,9 @@ public class CFGMethodAdapter extends MethodVisitor {
             return num;
         }
 
-        for (String name : methods.get(classLoader).keySet()) {
+        for (String name : methodsOf(classLoader).keySet()) {
             if (name.startsWith(className)) {
-                num += methods.get(classLoader).get(name).size();
+                num += methodsOf(classLoader).get(name).size();
             }
         }
 
@@ -575,8 +590,8 @@ public class CFGMethodAdapter extends MethodVisitor {
             return num;
         }
 
-        for (String name : methods.get(classLoader).keySet()) {
-            num += methods.get(classLoader).get(name).size();
+        for (String name : methodsOf(classLoader).keySet()) {
+            num += methodsOf(classLoader).get(name).size();
         }
 
         return num;
@@ -605,9 +620,9 @@ public class CFGMethodAdapter extends MethodVisitor {
             return num;
         }
 
-        for (String name : methods.get(classLoader).keySet()) {
+        for (String name : methodsOf(classLoader).keySet()) {
             if (name.equals(className) || name.startsWith(className + "$")) {
-                num += methods.get(classLoader).get(name).size();
+                num += methodsOf(classLoader).get(name).size();
             }
         }
 

@@ -81,6 +81,40 @@ class MockitoPatternParserTest {
     }
 
     @Test
+    void typedFallbackForUnhoistableStubbingValueIsDefinedBeforeTheMock() {
+        // The shape of an LLM test from SF110 freemind: stubbing controller.iterator() with view
+        // moves the controller mock after view, so view can no longer move after nodeView, and
+        // the alias nodeView cannot be hoisted either -- the parser substitutes a typed default.
+        String body = "List controller = mock(List.class);\n"
+                + "Iterator view = mock(Iterator.class);\n"
+                + "Object selected = null;\n"
+                + "Object nodeView = selected;\n"
+                + "when(controller.iterator()).thenReturn(view);\n"
+                + "when(view.next()).thenReturn(nodeView);\n"
+                + "controller.size();\n";
+        TestParser parser = new TestParser(getClass().getClassLoader());
+        parser.setMarkParsedFromLlm(true);
+        TestCase tc = parser.parseTestMethodBody(body, MOCKITO_IMPORTS).getTestCase();
+
+        boolean sawStubbedMock = false;
+        for (int i = 0; i < tc.size(); i++) {
+            if (!(tc.getStatement(i) instanceof FunctionalMockStatement)) {
+                continue;
+            }
+            for (VariableReference used : tc.getStatement(i).getVariableReferences()) {
+                if (used == tc.getStatement(i).getReturnValue()) {
+                    continue;
+                }
+                sawStubbedMock = true;
+                assertTrue(used.getStPosition() < i,
+                        "mock at " + i + " uses a value defined at " + used.getStPosition() + ":\n"
+                                + tc.toCode());
+            }
+        }
+        assertTrue(sawStubbedMock, tc.toCode());
+    }
+
+    @Test
     void parseMockCreation() {
         Fixture fixture = fixture("List mockList = mock(List.class);", MOCKITO_IMPORTS, false);
 
@@ -109,6 +143,26 @@ class MockitoPatternParserTest {
         assertNotNull(mockStmt, "Should produce FunctionalMockStatement:\n" + fixture.testCase.toCode());
         assertEquals(List.class, mockStmt.getTargetClass());
         assertEquals(1, mockStmt.getMockedMethods().size(), "Should have 1 mocked method");
+        assertEquals("size", mockStmt.getMockedMethods().get(0).getMethodName());
+    }
+
+    @Test
+    void parseRenderedStubOnlyMockWithInvocationLimit() {
+        Fixture fixture = fixture(
+                "List mockList = mock(List.class, withSettings().stubOnly()"
+                        + ".invocationListeners(new MockInvocationLimit())"
+                        + ".defaultAnswer(new ViolatedAssumptionAnswer()));\n"
+                        + "doReturn(42).when(mockList).size();",
+                MOCKITO_IMPORTS,
+                false);
+
+        int consumed = fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 0), fixture.astStatements, 0);
+
+        assertEquals(2, consumed);
+        assertFalse(fixture.result.hasErrors(), "Errors: " + fixture.result.getDiagnostics());
+        FunctionalMockStatement mockStmt = findFunctionalMockStatement(fixture.testCase);
+        assertNotNull(mockStmt, "Should produce FunctionalMockStatement:\n" + fixture.testCase.toCode());
         assertEquals("size", mockStmt.getMockedMethods().get(0).getMethodName());
     }
 

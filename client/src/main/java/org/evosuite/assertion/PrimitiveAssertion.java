@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.NumberFormatter;
 
 public class PrimitiveAssertion extends Assertion {
@@ -43,9 +44,8 @@ public class PrimitiveAssertion extends Assertion {
         } else if (source.getVariableClass().equals(double.class)) {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
-        } else if (value.getClass().isEnum()) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + ");";
+        } else if (NumberFormatter.isEnum(value)) {
+            return EnumAssertionCodeRenderer.getEnumAssertionCode(value, source.getName());
         } else if (source.isWrapperType()) {
             if (source.getVariableClass().equals(Float.class)) {
                 return "assertEquals(" + NumberFormatter.getNumberString(value)
@@ -53,19 +53,38 @@ public class PrimitiveAssertion extends Assertion {
             } else if (source.getVariableClass().equals(Double.class)) {
                 return "assertEquals(" + NumberFormatter.getNumberString(value)
                         + ", (double)" + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
-            } else if (value.getClass().isEnum()) {
-                return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                        + source.getName() + ");";
+            } else if (NumberFormatter.isEnum(value)) {
+                return EnumAssertionCodeRenderer.getEnumAssertionCode(value, source.getName());
             } else {
                 return "assertEquals(" + NumberFormatter.getNumberString(value) + ", ("
                         + NumberFormatter.getBoxedClassName(value) + ")"
                         + source.getName() + ");";
             }
+        } else if (needsUnboxingCast(source, value)) {
+            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", ("
+                    + NumberFormatter.getBoxedClassName(value) + ")" + source.getName() + ");";
         } else {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + ");";
         }
 
+    }
+
+    /**
+     * Whether a bare {@code assertEquals(value, source)} would be ambiguous: the source is
+     * a primitive-class variable (eg long) whose declared type may be a different wrapper
+     * (eg an Integer constructor owner), so {@code assertEquals(int, Integer)} matches both
+     * {@code (long, long)} and {@code (Object, Object)}. The value's own boxed cast resolves it.
+     */
+    public static boolean needsUnboxingCast(VariableReference source, Object value) {
+        Class<?> sourceClass = source.getVariableClass();
+        if (!sourceClass.isPrimitive()) {
+            return false;
+        }
+        if (!org.apache.commons.lang3.ClassUtils.isPrimitiveWrapper(value.getClass()) || value instanceof Boolean) {
+            return false;
+        }
+        return !org.apache.commons.lang3.ClassUtils.primitiveToWrapper(sourceClass).equals(value.getClass());
     }
 
     /**

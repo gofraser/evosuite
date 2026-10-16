@@ -395,8 +395,12 @@ public class TestParser {
             return false;
         }
         int size = testCase.size();
-        if (ref instanceof ConstantValue) {
-            // ConstantValue resolves when referenced as a parameter by some statement.
+        boolean staticFieldWithoutSource = ref instanceof FieldReference
+                && ((FieldReference) ref).getSource() == null;
+        if (ref instanceof ConstantValue || staticFieldWithoutSource) {
+            // ConstantValue resolves when referenced as a parameter by some statement. So does a
+            // static field read with no source object (eg Integer.MAX_VALUE passed as an
+            // argument): FieldReference.getStPosition falls back to the statement using it.
             for (int i = 0; i < size; i++) {
                 try {
                     if (testCase.getStatement(i).references(ref)) {
@@ -475,12 +479,18 @@ public class TestParser {
             }
             org.evosuite.testcase.statements.AssignmentStatement as =
                     (org.evosuite.testcase.statements.AssignmentStatement) stmt;
+            // The value is copied like the retval: a field or array element value is
+            // looked up through its source object or array, never by its own position.
             VariableReference param = as.getValue();
-            if (param != null && !hasDefiningStatementBefore(param, testCase, p)) {
-                issues.add(describeUnsafeRef(p, stmt, param, "parameter"));
+            VariableReference paramLookup = copyLookupReference(param);
+            if (paramLookup != null && !hasDefiningStatementBefore(paramLookup, testCase, p)) {
+                String label = (paramLookup == param) ? "parameter" :
+                        (param instanceof ArrayIndex ? "array source of parameter"
+                                : "source of parameter field");
+                issues.add(describeUnsafeRef(p, stmt, paramLookup, label));
             }
             VariableReference retval = stmt.getReturnValue();
-            VariableReference resolvable = retvalLookupReference(retval);
+            VariableReference resolvable = copyLookupReference(retval);
             if (resolvable != null && !hasDefiningStatementBefore(resolvable, testCase, p)) {
                 String label = (resolvable == retval) ? "retval" :
                         (retval instanceof ArrayIndex ? "array source of retval"
@@ -493,21 +503,18 @@ public class TestParser {
 
     /**
      * Returns the reference whose {@code getStPosition()} drives the
-     * destination lookup inside {@code retval.copy()}. ArrayIndex and
-     * FieldReference delegate to their underlying array/source position; a
-     * plain VariableReference is consulted directly.
+     * destination lookup inside {@code ref.copy()}. ArrayIndex and
+     * FieldReference delegate to their underlying array/source position,
+     * repeatedly for a chain such as {@code a.b.c}; a plain VariableReference
+     * is consulted directly. Returns null when nothing is looked up, as for
+     * a static field.
      */
-    private static VariableReference retvalLookupReference(VariableReference retval) {
-        if (retval == null) {
-            return null;
+    private static VariableReference copyLookupReference(VariableReference ref) {
+        while (ref instanceof ArrayIndex || ref instanceof FieldReference) {
+            ref = (ref instanceof ArrayIndex) ? ((ArrayIndex) ref).getArray()
+                    : ((FieldReference) ref).getSource();
         }
-        if (retval instanceof ArrayIndex) {
-            return ((ArrayIndex) retval).getArray();
-        }
-        if (retval instanceof FieldReference) {
-            return ((FieldReference) retval).getSource();
-        }
-        return retval;
+        return ref;
     }
 
     private static boolean hasDefiningStatementBefore(VariableReference ref,

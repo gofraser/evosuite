@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -88,6 +89,16 @@ public final class VirtualFileSystem {
     private final Set<String> accessedFiles;
 
     /**
+     * The most distinct paths remembered as accessed.
+     *
+     * <p>Every executed test copies this set into its own accessed environment, so a SUT that
+     * probes a new file name in each iteration of a loop (the loop cap still allows thousands)
+     * would hand each of the many tests a copy that large. The paths only serve as candidates
+     * for file name values in later tests, for which a few hundred are plenty.</p>
+     */
+    static final int MAX_ACCESSED_FILES = 1000;
+
+    /**
      * Check if all operations in this VFS should throw IOException.
      */
     private volatile boolean shouldAllThrowIOException;
@@ -109,7 +120,7 @@ public final class VirtualFileSystem {
      */
     private VirtualFileSystem() {
         tmpFileCounter = new AtomicInteger(0);
-        accessedFiles = new CopyOnWriteArraySet<>(); //we only add during test execution, and read after
+        accessedFiles = ConcurrentHashMap.newKeySet(); //added to by the SUT's threads during test execution, read after
         leakingResources = new CopyOnWriteArraySet<>();
         classesThatShouldThrowIOException = new CopyOnWriteArraySet<>(); //should only contain very few values
         root = new VFolder(null, null);
@@ -305,7 +316,9 @@ public final class VirtualFileSystem {
             return;
         }
 
-        accessedFiles.add(path);
+        if (accessedFiles.size() < MAX_ACCESSED_FILES) {
+            accessedFiles.add(path);
+        }
     }
 
     /**
@@ -585,6 +598,7 @@ public final class VirtualFileSystem {
                     path = name;
                 }
                 folder = new VFolder(path, parent);
+                parent.addChild(folder);
             } else {
                 FSObject child = parent.getChild(name);
                 if (child == null) {
@@ -596,7 +610,6 @@ public final class VirtualFileSystem {
                 folder = (VFolder) child;
             }
 
-            parent.addChild(folder);
             parent = folder;
         }
 

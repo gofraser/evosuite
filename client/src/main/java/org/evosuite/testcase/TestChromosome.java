@@ -33,6 +33,8 @@ import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.ConcolicMutation;
 import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTrace;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
@@ -44,14 +46,18 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
+
 import static java.util.stream.Collectors.toCollection;
 
 /**
@@ -127,6 +133,16 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     public static final int DESCENT_LINEAGE_CAP = 4;
 
     /**
+     * Drops the per-invocation method-call records from the cached execution result,
+     * keeping the aggregated coverage data. See {@link ExecutionTrace#withoutMethodCalls()}.
+     */
+    public void discardMethodCallTraces() {
+        if (lastExecutionResult != null && lastExecutionResult.getTrace() != null) {
+            lastExecutionResult.setTrace(lastExecutionResult.getTrace().withoutMethodCalls());
+        }
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -154,7 +170,11 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         return this;
     }
 
-    /** @return the injection source, or null if this chromosome originated from the GA itself. */
+    /**
+     * Returns where this chromosome was injected from.
+     *
+     * @return the injection source, or null if this chromosome originated from the GA itself
+     */
     public InjectionSource getInjectionSource() {
         return injectionSource;
     }
@@ -188,10 +208,20 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         this.incubatorEligible = incubatorEligible;
     }
 
+    /**
+     * Returns the problem card types attached to this chromosome.
+     *
+     * @return the diagnostic card types, possibly empty
+     */
     public List<ProblemCardType> getDiagnosticCardTypes() {
         return diagnosticCardTypes;
     }
 
+    /**
+     * Sets the problem card types attached to this chromosome.
+     *
+     * @param types the card types; duplicates are dropped, and null or empty clears them
+     */
     public void setDiagnosticCardTypes(Collection<ProblemCardType> types) {
         if (types == null || types.isEmpty()) {
             this.diagnosticCardTypes = Collections.emptyList();
@@ -208,16 +238,29 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                 : Collections.unmodifiableList(new ArrayList<>(uniqueTypes));
     }
 
-    /** @return the blend channel, or null for ordinary GA offspring. */
+    /**
+     * Returns the blend channel this chromosome was produced on.
+     *
+     * @return the blend channel, or null for ordinary GA offspring
+     */
     public BlendChannel getBlendChannel() {
         return blendChannel;
     }
 
+    /**
+     * Sets the blend channel this chromosome was produced on.
+     *
+     * @param blendChannel the blend channel, or null for ordinary GA offspring
+     */
     public void setBlendChannel(BlendChannel blendChannel) {
         this.blendChannel = blendChannel;
     }
 
-    /** @return the injected lineages this chromosome descends from (never null). */
+    /**
+     * Returns the injected lineages this chromosome descends from.
+     *
+     * @return the descent lineage ids (never null)
+     */
     public Set<Long> getDescentLineageIds() {
         return descentLineageIds;
     }
@@ -226,6 +269,8 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * Merges the given lineage ids into this chromosome's descent marks, enforcing {@link
      * #DESCENT_LINEAGE_CAP} by keeping the lowest (oldest) ids so long-lived lineages remain
      * traceable.
+     *
+     * @param lineageIds the lineage ids to add; null and negative ids are ignored
      */
     public void addDescentLineages(Collection<Long> lineageIds) {
         if (lineageIds == null || lineageIds.isEmpty()) {
@@ -246,8 +291,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * @return descent marks plus this chromosome's own injection lineage when set — the full set of
-     *     lineages whose material this chromosome carries.
+     * Returns the descent marks plus this chromosome's own injection lineage when set.
+     *
+     * @return the full set of lineages whose material this chromosome carries
      */
     public Set<Long> effectiveLineages() {
         if (injectionLineageId < 0L) {
@@ -446,7 +492,123 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         test.forEach(Statement::isValid);
     }
 
-    private boolean mockChange() {
+    /**
+     * Updates the stubs of the functional mocks from the last execution. A stub added in one
+     * pass can make the code under test reach calls that no earlier execution observed (for
+     * instance a mock returned by a new stub is itself called), so the test is re-executed and
+     * updated again, up to {@link Properties#FUNCTIONAL_MOCK_COMPLETION_ROUNDS} passes in
+     * total, while the previous pass added stubs and each further pass is drawn with
+     * {@link Properties#FUNCTIONAL_MOCK_COMPLETION_CONTINUE_PROBABILITY}.
+     */
+    boolean mockChange() {
+        return mockChange(this::mockChangePass, this::anyMockNeedsUpdate);
+    }
+
+    /**
+     * Whether a pass of {@link #mockChangePass(boolean[])} has anything to do, which it has
+     * only if some functional mock observed calls its stubs do not yet cover. This only reads
+     * the state of the mocks, so it is cheap and does not change the test.
+     */
+    private boolean anyMockNeedsUpdate() {
+        for (Statement statement : test) {
+            if (statement instanceof FunctionalMockStatement
+                    && ((FunctionalMockStatement) statement).doesNeedToUpdateInputs()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Runs the completion passes of {@link #mockChange()} with the given pass, which updates the
+     * stubs, reports through its argument whether it added any, and returns whether it changed
+     * anything.
+     */
+    boolean mockChange(Predicate<boolean[]> pass) {
+        return mockChange(pass, () -> true);
+    }
+
+    /**
+     * Runs the completion passes with the given pass. From the second pass on, a pass is only
+     * run, and the test only copied so that the pass can be undone, if {@code mayChange} reports
+     * that the pass may change the test; the last pass of a chain, which finds nothing to
+     * complete, therefore costs no copy.
+     */
+    boolean mockChange(Predicate<boolean[]> pass, BooleanSupplier mayChange) {
+        boolean changed = false;
+        final int rounds = Math.max(1, Properties.FUNCTIONAL_MOCK_COMPLETION_ROUNDS);
+        for (int round = 1; round <= rounds; round++) {
+            // Everything a later pass adds can be undone: a pass that fills a stub with values
+            // the test cannot construct must not replace the test of the previous pass, which
+            // may already run to completion.
+            if (round > 1 && !mayChange.getAsBoolean()) {
+                break;
+            }
+            final TestCase backup = round > 1 ? test.clone() : null;
+            final Set<Statement> existing = round > 1 ? identitySetOf(test) : null;
+            final ExecutionResult resultBefore = lastExecutionResult;
+            boolean[] addedStubs = new boolean[1];
+            if (pass.test(addedStubs)) {
+                changed = true;
+            }
+            if (!addedStubs[0] || rounds == 1) {
+                break;
+            }
+            // Each further pass happens only with some probability, so that some mutations keep
+            // the shorter chain: that test is evaluated as it is, and may already reach code a
+            // longer chain no longer reaches when its stub values fail to build.
+            boolean another = round < rounds
+                    && Randomness.nextDouble() < Properties.FUNCTIONAL_MOCK_COMPLETION_CONTINUE_PROBABILITY;
+            if (round == 1 && !another) {
+                break;
+            }
+            try {
+                ExecutionResult result = TestCaseExecutor.runTest(test);
+                if (round > 1 && throwsInNewStatement(result, existing)) {
+                    // The values this pass added to the stubs fail to build, which aborts the
+                    // test before the code under test runs. Keep the test of the previous
+                    // pass: it works with the stubs completed so far, and the search completes
+                    // the remaining ones in a later mutation, as it does with a single round.
+                    test = backup;
+                    if (resultBefore != null) {
+                        // The result describes the test before the pass, which the pass has
+                        // changed in place; that test is now the restored copy.
+                        resultBefore.setTest(backup);
+                    }
+                    this.lastExecutionResult = resultBefore;
+                    break;
+                }
+                this.lastExecutionResult = result;
+            } catch (Throwable t) {
+                logger.debug("Re-execution after mock completion failed: {}", t.toString());
+                break;
+            }
+            if (!another) {
+                break;
+            }
+        }
+        return changed;
+    }
+
+    private static Set<Statement> identitySetOf(TestCase testCase) {
+        Set<Statement> statements = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Statement statement : testCase) {
+            statements.add(statement);
+        }
+        return statements;
+    }
+
+    /**
+     * Whether the execution was aborted by a statement that did not exist before, that is by a
+     * statement a mock completion pass has just inserted to build a stub value.
+     */
+    private boolean throwsInNewStatement(ExecutionResult result, Set<Statement> existing) {
+        Integer position = result.getFirstPositionOfThrownException();
+        return position != null && position >= 0 && position < test.size()
+                && !existing.contains(test.getStatement(position));
+    }
+
+    boolean mockChangePass(boolean[] addedStubs) {
 
         /*
             Be sure to update the mocked values if there has been any change in
@@ -491,12 +653,19 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                     refs = createMockFallbacks(test, missing, st.getPosition());
                 }
                 fms.addMissingInputs(refs);
+                if (!missing.isEmpty()) {
+                    addedStubs[0] = true;
+                }
             } catch (Exception e) {
                 String msg = "Functional mock problem for " + fms.getReturnType()
                         + ": " + e.getClass().getSimpleName() + ": " + e.getMessage();
                 AtMostOnceLogger.warn(logger, msg);
                 fms.fillWithNullRefs();
-                return changed;
+                // Only this mock is beyond saving. Returning abandoned every functional mock
+                // after it in the same test, leaving those with their inputs unset for a
+                // failure that had nothing to do with them.
+                i += test.size() - preLength;
+                continue;
             }
             changed = true;
 

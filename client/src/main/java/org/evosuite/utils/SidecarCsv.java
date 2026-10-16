@@ -20,13 +20,17 @@
 package org.evosuite.utils;
 
 import org.evosuite.Properties;
+import org.slf4j.Logger;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 /**
  * The conventions every per-run sidecar CSV shares: the file lives in a
  * report directory as {@code <prefix>_<sanitized target class>.csv}, and
- * free-text fields are quoted RFC-4180 style. Kept in one place so the
+ * free-text fields are quoted RFC-4180 style. Files are written in one go as a header line followed by one line per row. Kept in one place so the
  * sidecars written by different recorders stay byte-compatible for offline
  * joins on their shared columns (goal descriptions, ids).
  */
@@ -67,5 +71,34 @@ public final class SidecarCsv {
     /** NaN renders as the empty field. */
     public static String formatDouble(double v) {
         return Double.isNaN(v) ? "" : String.valueOf(v);
+    }
+
+    /**
+     * Writes {@code header} and then each of {@code lines} to {@code path}, each followed by the
+     * platform line separator, replacing any existing file and creating the parent directory if
+     * needed. Failures are logged as warnings on {@code logger}, naming the file as {@code what}.
+     *
+     * @return true if the file was written completely
+     */
+    public static boolean write(String path, String header, Iterable<String> lines,
+                                Logger logger, String what) {
+        File file = new File(path);
+        File dir = file.getParentFile();
+        if (dir != null && !dir.exists() && !dir.mkdirs()) {
+            logger.warn("Could not create directory {} for {}", dir, file.getName());
+            return false;
+        }
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+            writer.write(header);
+            writer.newLine();
+            for (String line : lines) {
+                writer.write(line);
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            logger.warn("Failed to write {}: {}", what, e.getMessage());
+            return false;
+        }
+        return true;
     }
 }

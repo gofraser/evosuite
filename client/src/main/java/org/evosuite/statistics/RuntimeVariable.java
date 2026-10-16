@@ -340,6 +340,31 @@ public enum RuntimeVariable {
     MutationCoverageBitString,
 
     /**
+     * Whether the post-search coverage/mutation analysis ({@code CoverageCriteriaAnalyzer})
+     * finished evaluating every goal of every criterion analyzed in this run. False if the
+     * per-goal loop for a criterion, or the per-criteria loop itself, had to stop early because
+     * {@code TimeController} ran out of budget; false also if a criterion's goal loop was cut
+     * short by an {@link OutOfMemoryError}, or if setup (target/classpath initialization) failed
+     * before any criterion was even attempted. The goals already evaluated keep their real
+     * result, but a coverage/mutation score published for an incomplete criterion is then a lower
+     * bound over a non-random (sorted) subset of its goals, not a full measurement — see
+     * {@link #CoverageAnalysisGoalsChecked} and {@link #CoverageAnalysisGoalsTotal}.
+     */
+    CoverageAnalysisComplete,
+
+    /**
+     * Cumulative number of coverage goals actually evaluated across all criteria analyzed in this
+     * run, for comparison against {@link #CoverageAnalysisGoalsTotal}.
+     */
+    CoverageAnalysisGoalsChecked,
+
+    /**
+     * Cumulative number of coverage goals across all criteria analyzed in this run (the
+     * denominator for {@link #CoverageAnalysisGoalsChecked}).
+     */
+    CoverageAnalysisGoalsTotal,
+
+    /**
      * The total time EvoSuite spent generating the test cases.
      */
     Total_Time,
@@ -431,6 +456,23 @@ public enum RuntimeVariable {
      * Number of unstable tests in the generated JUnit files.
      */
     NumUnstableTests,
+
+    /**
+     * Whether at least one JUnit check round (the compile filter, an instability check, or the
+     * order-sensitivity probe) during this run had to be abandoned before completing — e.g. the
+     * check runner did not respond to a watchdog interrupt, javac's own infrastructure failed, or
+     * the JUnit-check time budget ran out mid-check. The suite is kept in every one of these
+     * cases (see {@code org.evosuite.junit.JUnitAnalyzer}); this flag only reports that the check
+     * meant to validate it did not fully run, so a suite that was never actually checked cannot be
+     * mistaken for one that passed.
+     */
+    JUnit_Check_Incomplete,
+
+    /**
+     * Number of distinct JUnit check rounds (see {@link #JUnit_Check_Incomplete}) that were
+     * abandoned before completing during this run.
+     */
+    JUnit_Check_Incomplete_Rounds,
 
     /**
      * An estimate (ie not precise) of the maximum number of threads running at the same time in the

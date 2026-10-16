@@ -44,7 +44,8 @@ import java.util.function.LongSupplier;
  */
 public final class LlmWaitBudget {
 
-    private LlmWaitBudget() {}
+    private LlmWaitBudget() {
+    }
 
     /**
      * Worst-case wall-clock wait in seconds, unclamped. Suitable for callers

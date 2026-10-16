@@ -99,6 +99,34 @@ public class OtherVariableWrapperTest {
                 "the observation must not precede a mapped argument");
     }
 
+    public static int lookup(String key, String fallback) {
+        return 0;
+    }
+
+    @Test
+    public void keepsGeneratedArgumentWhenGraphVariableDoesNotFitTheParameter() throws Exception {
+        TestCase test = new DefaultTestCase();
+        VariableReference key = test.addStatement(new StringPrimitiveStatement(test, "key"));
+        VariableReference fallback = test.addStatement(new StringPrimitiveStatement(test, "other"));
+        VariableReference number = test.addStatement(
+                new org.evosuite.testcase.statements.numeric.IntPrimitiveStatement(test, 3));
+        VariableReference replacement = test.addStatement(new StringPrimitiveStatement(test, "graph"));
+        MethodStatement call = new MethodStatement(test,
+                new org.evosuite.utils.generic.GenericMethod(
+                        OtherVariableWrapperTest.class.getMethod("lookup", String.class, String.class),
+                        OtherVariableWrapperTest.class),
+                null, java.util.Arrays.asList(key, fallback));
+        test.addStatement(call);
+
+        java.util.Map<Integer, VariableReference> graph = new java.util.HashMap<>();
+        graph.put(0, number);       // an int where the String key goes: refused
+        graph.put(1, replacement);  // a String where the String fallback goes: taken
+        OtherVariableWrapper.applyGraphArguments(call, 0, graph, new java.util.HashMap<>());
+
+        assertEquals(key, call.getParameterReferences().get(0));
+        assertEquals(replacement, call.getParameterReferences().get(1));
+    }
+
     @Test
     public void distinguishesQueriesFromStateChangingCalls() throws Exception {
         assertTrue(OtherVariableWrapper.isPureObservation(
@@ -144,6 +172,66 @@ public class OtherVariableWrapperTest {
             }
         }
         assertEquals(1, builderCalls);
+    }
+
+    @Test
+    public void collectionMutationsExcludeNonPublicMethodsOfOtherPackages() {
+        String previous = org.evosuite.Properties.CLASS_PREFIX;
+        try {
+            // The tests are generated into a package that is not the receiver's own.
+            org.evosuite.Properties.CLASS_PREFIX = "com.example.elsewhere";
+            List<String> names = new ArrayList<>();
+            for (Method m : OtherVariableWrapper.collectionMutationCandidates(Registry.class)) {
+                names.add(m.getName());
+            }
+            assertEquals(Collections.singletonList("addPublic"), names);
+
+            // In the receiver's own package the package-private method is callable.
+            org.evosuite.Properties.CLASS_PREFIX = Registry.class.getPackage().getName();
+            names.clear();
+            for (Method m : OtherVariableWrapper.collectionMutationCandidates(Registry.class)) {
+                names.add(m.getName());
+            }
+            assertTrue(names.contains("addHidden") && names.contains("addPublic"), names.toString());
+        } finally {
+            org.evosuite.Properties.CLASS_PREFIX = previous;
+        }
+    }
+
+    @Test
+    public void callInstructionOnProtectedMethodOfOtherPackageIsNotSourceCallable() {
+        String previous = org.evosuite.Properties.CLASS_PREFIX;
+        try {
+            org.evosuite.Properties.CLASS_PREFIX =
+                    org.evosuite.testcase.accessfixture.TableBase.class.getPackage().getName();
+            Class<?>[] none = new Class<?>[0];
+
+            // Protected in a class of another package: javac says "has protected access".
+            assertNull(OtherVariableWrapper.findSourceCallableMethod(
+                    org.evosuite.testcase.accessfixture.other.Exposer.class, "protectedCount", none));
+            // Public: always callable.
+            assertNotNull(OtherVariableWrapper.findSourceCallableMethod(
+                    org.evosuite.testcase.accessfixture.other.Exposer.class, "hiddenMap", none));
+            // Protected, but declared in the test's own package.
+            assertNotNull(OtherVariableWrapper.findSourceCallableMethod(
+                    org.evosuite.testcase.accessfixture.TableBase.class, "rows", none));
+        } finally {
+            org.evosuite.Properties.CLASS_PREFIX = previous;
+        }
+    }
+
+    public static final class Registry {
+        public boolean addPublic(String s) {
+            return true;
+        }
+
+        boolean addHidden(String s) {
+            return true;
+        }
+
+        protected boolean putProtected(String s) {
+            return true;
+        }
     }
 
     public static final class Element {

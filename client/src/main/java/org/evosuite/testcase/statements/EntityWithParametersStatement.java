@@ -20,8 +20,10 @@
 package org.evosuite.testcase.statements;
 
 import org.evosuite.Properties;
+import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
@@ -43,6 +45,23 @@ import java.util.*;
 public abstract class EntityWithParametersStatement extends AbstractStatement {
 
     private static final long serialVersionUID = 2971944785047056480L;
+
+    /**
+     * Message carried by the {@link TooManyResourcesException} that the allocation guards of
+     * constructor and method calls raise. Refusing a call because its arguments would allocate
+     * an absurd amount of memory is a resource decision of ours, not the execution watchdog
+     * firing, so it must not be reported as {@code TestCaseExecutor.TimeoutExceeded}: that
+     * inflates the timeout statistics, trips the "disable functional mocking after N consecutive
+     * timeouts" heuristic, and makes the JUnit re-check drop the test as unstable.
+     */
+    private static final String ALLOCATION_REJECTED =
+            "EvoSuite refused this call: its arguments would allocate an excessive amount of memory";
+
+    /** The exception an allocation guard throws to refuse a call. */
+    protected static CodeUnderTestException allocationRejected() {
+        return new CodeUnderTestException(new TooManyResourcesException(ALLOCATION_REJECTED));
+    }
+
     protected final List<VariableReference> parameters;
     protected final Annotation[][] parameterAnnotations;
     protected final Annotation[] annotations;
@@ -124,23 +143,68 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
      * {@inheritDoc}
      */
     @Override
-    public void replace(VariableReference var1, VariableReference var2) {
+    public boolean acceptsReplacement(VariableReference var1, VariableReference var2) {
+        return parametersAfterReplacing(var1, var2) != null;
+    }
 
-        if (retval.equals(var1)) {
-            retval = var2;
-            // TODO: Notify listener?
-        }
-
-        for (int i = 0; i < parameters.size(); i++) {
-
-            if (parameters.get(i).equals(var1)) {
-                parameters.set(i, var2);
-            } else {
-                parameters.get(i).replaceAdditionalVariableReference(var1, var2);
-            }
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Subclasses that hold further references extend {@link #acceptsReplacement} and
+     * {@link #applyReplacement} rather than this method.
+     */
+    @Override
+    public final void replace(VariableReference var1, VariableReference var2) {
+        if (acceptsReplacement(var1, var2)) {
+            applyReplacement(var1, var2);
         }
     }
 
+    /**
+     * Replaces {@code var1} by {@code var2}; called only once {@link #acceptsReplacement} has
+     * accepted the replacement.
+     *
+     * @param var1 the variable to be replaced
+     * @param var2 its replacement
+     */
+    protected void applyReplacement(VariableReference var1, VariableReference var2) {
+        List<VariableReference> replaced = parametersAfterReplacing(var1, var2);
+        if (retval.equals(var1)) {
+            retval = var2;
+        }
+        for (int i = 0; i < parameters.size(); i++) {
+            parameters.set(i, replaced.get(i));
+        }
+    }
+
+    /**
+     * The arguments this statement would have with {@code var2} in place of {@code var1}, or
+     * null if one of them refuses. An argument that is {@code var1} itself becomes
+     * {@code var2}, as chosen by the caller. An argument that uses {@code var1} inside itself,
+     * such as the element "var1[0]" or the field "var1.f", is replaced by the same element or
+     * field of {@code var2}; that argument refuses if it cannot be rebound, or if its type
+     * changes to one that does not fit where the original argument was passed. Changes nothing.
+     */
+    private List<VariableReference> parametersAfterReplacing(VariableReference var1,
+                                                             VariableReference var2) {
+        List<VariableReference> replaced = new ArrayList<>(parameters.size());
+        for (VariableReference parameter : parameters) {
+            if (parameter == null || parameter.equals(var1)) {
+                replaced.add(parameter == null ? null : var2);
+                continue;
+            }
+            VariableReference rebound = parameter.withReplacement(var1, var2);
+            if (rebound == null) {
+                return null;
+            }
+            if (rebound != parameter && !rebound.getType().equals(parameter.getType())
+                    && !GenericClassUtils.isAssignable(parameter.getType(), rebound.getType())) {
+                return null;
+            }
+            replaced.add(rebound);
+        }
+        return replaced;
+    }
 
     @Override
     public List<VariableReference> getUniqueVariableReferences() {
@@ -277,11 +341,16 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         // we consider adding an instance
         if (getNumParametersOfType(parameter.getVariableClass()) + 1 > objects.size()) {
             Statement originalStatement = test.getStatement(parameter.getStPosition());
-            copy = originalStatement.clone(test);
-            if (originalStatement instanceof PrimitiveStatement<?>) {
-                ((PrimitiveStatement<?>) copy).delta();
+            // Only a statement that declares the parameter can be copied in front of this call.
+            // For a field or element read (x.f, a[i]) getStPosition() is the first assignment to
+            // it, which may come after this call: the copy would assign a value defined later.
+            if (originalStatement.getReturnValue() == parameter) {
+                copy = originalStatement.clone(test);
+                if (originalStatement instanceof PrimitiveStatement<?>) {
+                    ((PrimitiveStatement<?>) copy).delta();
+                }
+                objects.add(copy.getReturnValue());
             }
-            objects.add(copy.getReturnValue());
         }
 
         // Guard against false positives in candidate discovery for generics/owner types.

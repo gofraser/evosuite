@@ -1,0 +1,4 @@
+goal_id,class_name,method_name,description
+0,com.example.Foo,bar(II)V,Branch 1 IFEQ L12 - true
+1,com.example.Foo,baz(Ljava/lang/String;)V,"a,b ""quoted"""
+2,,m,

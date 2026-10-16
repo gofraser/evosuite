@@ -325,7 +325,29 @@ public interface Statement {
     void removeAssertions();
 
     /**
-     * Replace a VariableReference with another one.
+     * Whether {@link #replace} would substitute {@code newVar} for every use of {@code oldVar}
+     * in this statement, the uses nested in a field or element reference included, and leave
+     * a statement that still fits together. A statement that does not use {@code oldVar}
+     * accepts. Changes nothing.
+     *
+     * <p>The decision depends only on {@code newVar} and on what this statement currently
+     * holds, and {@link #replace} of another statement never changes what this statement
+     * holds, so the answers of all statements of a test can be collected before any of them
+     * is changed.
+     *
+     * @param oldVar The old variable
+     * @param newVar The new variable
+     * @return true if {@link #replace} would apply the replacement
+     */
+    default boolean acceptsReplacement(VariableReference oldVar, VariableReference newVar) {
+        return true;
+    }
+
+    /**
+     * Replace a VariableReference with another one, completely or not at all: if this statement
+     * does not accept the replacement ({@link #acceptsReplacement}), it is left unchanged.
+     * Element and field references that use {@code oldVar} are replaced by new references
+     * rather than changed in place, as other statements may share them.
      *
      * @param oldVar The old variable
      * @param newVar The new variable

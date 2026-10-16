@@ -68,9 +68,29 @@ public class Failure implements Serializable {
         this.className = Properties.TARGET_CLASS;
         this.methodName = getMethodName(test, position);
         this.exceptionName = t.getClass().getName();
-        this.exceptionMessage = t.getMessage();
+        this.exceptionMessage = messageOf(t);
         this.stackTrace = t.getStackTrace();
         this.lineNo = position;
+    }
+
+    /**
+     * Reads the message of an exception raised by the class under test.
+     *
+     * <p>{@code getMessage()} is the SUT's own code: it can throw, and it runs
+     * on the client thread with the loop counter still active from the test
+     * executions that precede code generation. Nothing resets the counter
+     * between tests on that thread, so a message that is built by a loop -
+     * jackson-databind's {@code JsonMappingException} walks its reference
+     * path - accumulates iterations across every failing test of the suite
+     * until {@link org.evosuite.runtime.TooManyResourcesException} fires,
+     * which aborted the whole write of a 1000-test TokenBuffer suite.</p>
+     */
+    private static String messageOf(Throwable t) {
+        try {
+            return t.getMessage();
+        } catch (Throwable messageFailure) {
+            return null;
+        }
     }
 
     private String getMethodName(TestCase test, int position) {

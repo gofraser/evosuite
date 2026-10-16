@@ -186,6 +186,10 @@ public class RuntimeInstrumentation {
         ClassVisitor cv = writer;
 
         if (!skipInstrumentation) {
+            // Innermost, so the rethrow is written straight to the writer. Without it a replay
+            // with only the runtime lets a catch (Throwable) swallow what the search let through.
+            cv = new TimeoutExceededRethrowClassAdapter(cv);
+
             if (RuntimeSettings.resetStaticState && !retransformingMode) {
                 /*
                  * FIXME: currently reset does add a new method, but that does no work
@@ -206,6 +210,10 @@ public class RuntimeInstrumentation {
 
             if (RuntimeSettings.maxNumberOfIterationsPerLoop >= 0) {
                 cv = new LoopCounterClassAdapter(cv);
+            }
+
+            if (RuntimeSettings.maxCumulativeArrayBytes >= 0) {
+                cv = new ArrayAllocationClassAdapter(cv);
             }
         }
         ClassNode cn = new AnnotatedClassNode();

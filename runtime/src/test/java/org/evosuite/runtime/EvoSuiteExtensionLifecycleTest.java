@@ -192,6 +192,27 @@ public class EvoSuiteExtensionLifecycleTest {
     }
 
     @Test
+    public void shouldNotStackStreamWrappersAcrossTests() {
+        EvoSuiteExtension extension = new EvoSuiteExtension(Annotated_ESTest.class);
+        java.io.PrintStream out = java.lang.System.out;
+        java.io.PrintStream err = java.lang.System.err;
+        try {
+            for (int i = 0; i < 4; i++) {
+                extension.beforeEach(null);
+                java.lang.System.setOut(new RedirectingStream(java.lang.System.out));
+                java.lang.System.setErr(new RedirectingStream(java.lang.System.err));
+                Assertions.assertEquals(1, RedirectingStream.depth(java.lang.System.out));
+                extension.afterEach(null);
+                Assertions.assertSame(out, java.lang.System.out);
+                Assertions.assertSame(err, java.lang.System.err);
+            }
+        } finally {
+            java.lang.System.setOut(out);
+            java.lang.System.setErr(err);
+        }
+    }
+
+    @Test
     public void shouldRunFullLifecycleWithStaticResetEnabled() {
         EvoSuiteExtension extension = new EvoSuiteExtension(Resetting_ESTest.class);
 

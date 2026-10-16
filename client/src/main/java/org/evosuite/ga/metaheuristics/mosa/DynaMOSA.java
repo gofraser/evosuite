@@ -156,8 +156,7 @@ public class DynaMOSA extends AbstractMOSA {
             publishCurrentGoals();
 
             // Compute the fitness for each population member, update the coverage information and
-            // the
-            // set of goals to cover. Finally, update the archive.
+            // the set of goals to cover. Finally, update the archive.
 
             // this.calculateFitness(); // Not required, already done by
             // this.initializePopulation();
@@ -165,8 +164,7 @@ public class DynaMOSA extends AbstractMOSA {
             // Calculate dominance ranks and crowding distance. This is required to decide which
 
             // individuals should be used for mutation and crossover in the first iteration of the
-            // main
-            // search loop.
+            // main search loop.
             this.rankingFunction.computeRankingAssignment(
                     this.population, this.goalsManager.getCurrentGoals());
             for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
@@ -175,8 +173,7 @@ public class DynaMOSA extends AbstractMOSA {
             }
 
             // Evolve the population generation by generation until all gaols have been covered or
-            // the
-            // search budget has been consumed.
+            // the search budget has been consumed.
             while (!isFinished() && this.goalsManager.getUncoveredGoals().size() > 0) {
                 this.evolve();
                 // Stagnation injection now happens inside evolve() in the union/ranking path

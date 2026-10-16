@@ -42,7 +42,6 @@ import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.numeric.*;
 import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
@@ -333,13 +332,13 @@ public class StatementParser {
             if (!declarator.getInitializer().isPresent()) {
                 Type declaredType;
                 try {
-                declaredType = typeResolver.resolveType(declarator.getType());
-            } catch (ClassNotFoundException e) {
-                if (markParsedFromLlm) {
-                    declaredType = mockitoPatternParser.tryResolveDemockedDeclaredType(declarator.getType());
-                    if (declaredType == null) {
-                        declaredType = Object.class;
-                        int line = declarator.getBegin().map(p -> p.line).orElse(0);
+                    declaredType = typeResolver.resolveType(declarator.getType());
+                } catch (ClassNotFoundException e) {
+                    if (markParsedFromLlm) {
+                        declaredType = mockitoPatternParser.tryResolveDemockedDeclaredType(declarator.getType());
+                        if (declaredType == null) {
+                            declaredType = Object.class;
+                            int line = declarator.getBegin().map(p -> p.line).orElse(0);
                             result.addDiagnostic(new ParseDiagnostic(
                                     ParseDiagnostic.Severity.WARNING,
                                     "Cannot resolve type for declaration without initializer: "
@@ -410,7 +409,8 @@ public class StatementParser {
             }
 
             if (markParsedFromLlm && assertionParser.shouldPreserveAssertionReturningDeclaration(initializer)) {
-                Expression preservedInitializer = assertionParser.normalizeAssertionExpressionForPreservation(initializer);
+                Expression preservedInitializer =
+                        assertionParser.normalizeAssertionExpressionForPreservation(initializer);
                 String code = getFallbackTypeName(declaredType) + " " + emittedVarName
                         + " = " + preservedInitializer + ";";
                 VariableReference preserved = addStatement(
@@ -1403,18 +1403,18 @@ public class StatementParser {
                     method = fallback.method;
                     argRefs = fallback.argRefs;
                 } else {
-                DiagnosticMessage diagnostic =
-                        DiagnosticMessage.categorized(DiagnosticKind.NO_MATCHING_METHOD, e.getMessage());
-                VariableReference preserved = preserveUnresolvedTopLevelChainedMethodCall(
-                        expr, declaredType, targetVarName, expressionCheckpoint, diagnostic);
-                if (preserved != null) {
-                    return preserved;
-                }
-                return failOrTypedFallbackWithRollback(expr, declaredType,
-                        inferFallbackMethodReturnType(methodTargetClass, methodName, declaredType),
-                        targetVarName,
-                        expressionCheckpoint,
-                        diagnostic);
+                    DiagnosticMessage diagnostic =
+                            DiagnosticMessage.categorized(DiagnosticKind.NO_MATCHING_METHOD, e.getMessage());
+                    VariableReference preserved = preserveUnresolvedTopLevelChainedMethodCall(
+                            expr, declaredType, targetVarName, expressionCheckpoint, diagnostic);
+                    if (preserved != null) {
+                        return preserved;
+                    }
+                    return failOrTypedFallbackWithRollback(expr, declaredType,
+                            inferFallbackMethodReturnType(methodTargetClass, methodName, declaredType),
+                            targetVarName,
+                            expressionCheckpoint,
+                            diagnostic);
                 }
             }
 
@@ -1803,7 +1803,8 @@ public class StatementParser {
                                 + " due to argument mismatch: " + mismatch.render());
                 return false;
             }
-            argRefs = normalizeVarArgsArguments(argRefs, reflectedMethod.getParameterTypes(), reflectedMethod.isVarArgs());
+            argRefs = normalizeVarArgsArguments(
+                    argRefs, reflectedMethod.getParameterTypes(), reflectedMethod.isVarArgs());
 
             Class<?> reflectedOwner = reflectedMethod.getDeclaringClass();
             boolean isStatic = Modifier.isStatic(reflectedMethod.getModifiers());
@@ -2558,11 +2559,25 @@ public class StatementParser {
         if (raw == void.class || raw == Void.class) {
             return addStatement(createUninterpretedStatement(new NameExpr("fallback"), ";"));
         }
+        return addStatement(typedFallbackStatement(expectedType));
+    }
+
+    /**
+     * Like {@link #createTypedFallbackValue(Type)}, but inserts the value at {@code position}
+     * instead of appending it, for a caller whose user of the value sits earlier in the test (eg a
+     * mock stubbed with it): an appended value would be a forward reference, which later edits
+     * that only look for uses after a definition turn into an orphan.
+     */
+    VariableReference createTypedFallbackValue(Type expectedType, int position) {
+        return addStatement(typedFallbackStatement(expectedType), position);
+    }
+
+    private Statement typedFallbackStatement(Type expectedType) {
         Statement primitiveFallback = defaultPrimitiveStatement(testCase, expectedType);
         if (primitiveFallback != null) {
-            return addStatement(primitiveFallback);
+            return primitiveFallback;
         }
-        return addStatement(new NullStatement(testCase, accessibleNullType(expectedType)));
+        return new NullStatement(testCase, accessibleNullType(expectedType));
     }
 
     private com.github.javaparser.ast.type.ClassOrInterfaceType parseClassOrInterfaceType(String typeName) {
@@ -2955,7 +2970,7 @@ public class StatementParser {
         return Object.class;
     }
 
-    /**
+    /*
      * Validate that resolved arguments are type-compatible with method/constructor parameters.
      * Checks for:
      * <ul>
@@ -4090,12 +4105,16 @@ public class StatementParser {
         }
     }
 
+    /**
+     * Completes a parse by reporting stranded declarations, package corrections and captured stubbing diagnostics.
+     */
     public void finalizeParse() {
         for (PendingLlmDeclaration pendingDeclaration : pendingLlmDeclarations.values()) {
             String details = "declared variable `" + pendingDeclaration.getVariableName()
                     + "` of type `" + pendingDeclaration.getDeclaredTypeText()
                     + "` was never assigned; either remove the declaration or assign a value before use.";
-            addFinalizeDiagnostic(pendingDeclaration.getDeclarationNode(), DiagnosticKind.STRANDED_DECLARATION, details);
+            addFinalizeDiagnostic(
+                    pendingDeclaration.getDeclarationNode(), DiagnosticKind.STRANDED_DECLARATION, details);
         }
         pendingLlmDeclarations.clear();
 
@@ -4846,7 +4865,8 @@ public class StatementParser {
                 int line = resource.getBegin().map(p -> p.line).orElse(0);
                 result.addDiagnostic(new ParseDiagnostic(
                         ParseDiagnostic.Severity.WARNING,
-                        "Failed to parse try-with-resources declaration in LLM try-block; preserving as UninterpretedStatement: "
+                        "Failed to parse try-with-resources declaration in LLM try-block; "
+                                + "preserving as UninterpretedStatement: "
                                 + t.getClass().getSimpleName()
                                 + (t.getMessage() == null ? "" : (": " + t.getMessage())),
                         line,

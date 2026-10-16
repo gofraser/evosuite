@@ -26,6 +26,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.postprocess.LlmPostProcessingResponse;
 import org.evosuite.llm.prompt.DecompiledContextProvider;
 import org.evosuite.llm.prompt.StaticPromptContext;
 import org.evosuite.setup.TestCluster;
@@ -34,13 +35,12 @@ import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.runtime.FalsePositiveException;
-import org.evosuite.assertion.CodeAssertion;
+import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
@@ -997,7 +997,7 @@ class TestRepairLoopTest {
     }
 
     @Test
-    void keepAssertionPolicySkipsAssertionStrippingSalvage() {
+    void keepAssertionPolicyCannotSalvageTestFailingAtFirstStatement() {
         LlmService llmService = mock(LlmService.class);
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
         TestParser parser = new TestParser(getClass().getClassLoader()) {
@@ -1031,7 +1031,7 @@ class TestRepairLoopTest {
 
         assertFalse(result.isSuccess());
         assertTrue(result.getDiagnostics().stream().anyMatch(
-                d -> d.contains("Skipped assertion-stripping brute-force salvage")));
+                d -> d.contains("Salvaged 0 of 1 failing candidate test(s)")));
     }
 
     @Test
@@ -1048,12 +1048,8 @@ class TestRepairLoopTest {
                 DefaultTestCase testCase = new DefaultTestCase();
                 IntPrimitiveStatement stmt = new IntPrimitiveStatement(testCase, 1);
                 testCase.addStatement(stmt);
-                TestCodeVisitor visitor = new TestCodeVisitor();
-                testCase.accept(visitor);
-                String varName = visitor.getVariableName(stmt.getReturnValue());
                 int expected = parseCalls.getAndIncrement() == 0 ? 2 : 1;
-                CodeAssertion assertion = new CodeAssertion(
-                        "assertEquals(" + expected + ", " + varName + ");");
+                TemplateCodeAssertion assertion = intEqualsAssertion(expected);
                 assertion.setSource(stmt.getReturnValue());
                 stmt.addAssertion(assertion);
                 return Collections.singletonList(new ParseResult(testCase, "test"));
@@ -1145,10 +1141,7 @@ class TestRepairLoopTest {
                 DefaultTestCase testCase = new DefaultTestCase();
                 IntPrimitiveStatement stmt = new IntPrimitiveStatement(testCase, 1);
                 testCase.addStatement(stmt);
-                TestCodeVisitor visitor = new TestCodeVisitor();
-                testCase.accept(visitor);
-                String varName = visitor.getVariableName(stmt.getReturnValue());
-                CodeAssertion assertion = new CodeAssertion("assertEquals(2, " + varName + ");");
+                TemplateCodeAssertion assertion = intEqualsAssertion(2);
                 assertion.setSource(stmt.getReturnValue());
                 stmt.addAssertion(assertion);
                 return Collections.singletonList(new ParseResult(testCase, "test"));
@@ -2963,22 +2956,16 @@ class TestRepairLoopTest {
     }
 
     @Test
-    void shadedRuntimeMockExceptionsAreRecognized() {
-        // Synthesize a class name under the shaded mock package via a stub
-        // exception class — we cannot easily instantiate one of the real
-        // shaded classes from a unit test without pulling in the runtime, so
-        // we check the helper directly on the canonical name path.
-        assertTrue(TestRepairLoop.errorMentionsShadedRuntimeMockException(
+    void mockRuntimeExceptionsAreRecognized() {
+        assertTrue(TestRepairLoop.errorMentionsMockRuntimeException(
                 "Execution error in test 'x': "
-                        + "shaded.org.evosuite.runtime.mock.java.lang.MockIllegalStateException "
+                        + TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "java.lang.MockIllegalStateException "
                         + "- Workspace is closed."));
-        assertFalse(TestRepairLoop.errorMentionsShadedRuntimeMockException(
+        assertFalse(TestRepairLoop.errorMentionsMockRuntimeException(
                 "Execution error in test 'x': java.lang.NullPointerException - foo"));
-        assertFalse(TestRepairLoop.errorMentionsShadedRuntimeMockException(null));
-        // isShadedRuntimeMockException walks the superclass chain; a plain
-        // RuntimeException is NOT under the shaded prefix.
-        assertFalse(TestRepairLoop.isShadedRuntimeMockException(new RuntimeException("not mock")));
-        assertFalse(TestRepairLoop.isShadedRuntimeMockException(null));
+        assertFalse(TestRepairLoop.errorMentionsMockRuntimeException(null));
+        assertFalse(TestRepairLoop.isRaisedByEvoSuiteRuntime(new RuntimeException("not mock")));
+        assertFalse(TestRepairLoop.isRaisedByEvoSuiteRuntime(null));
     }
 
     @Test
@@ -2991,13 +2978,13 @@ class TestRepairLoopTest {
         assertTrue(hintForShadedMock.contains("Change the assertThrows expectation"));
         assertTrue(hintForShadedMock.contains("Replace the test"));
         assertTrue(hintForShadedMock.contains("Remove the test"));
-        assertTrue(hintForShadedMock.contains("shaded.org.evosuite.runtime.mock"));
+        assertTrue(hintForShadedMock.contains(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "*"));
 
         String hintForPlainError = TestRepairLoop.buildIdenticalErrorEscalationHint(
                 "Execution error in test 'x': java.lang.NullPointerException - foo");
         assertTrue(hintForPlainError.contains("STOP"));
         // No shaded-mock note when no such marker is present in the error.
-        assertFalse(hintForPlainError.contains("shaded.org.evosuite.runtime.mock.*"));
+        assertFalse(hintForPlainError.contains(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "*"));
     }
 
     @Test
@@ -5095,4 +5082,12 @@ class TestRepairLoopTest {
         void declaresChecked(String value) throws java.io.IOException;
     }
 
+
+    /**
+     * An end-of-test assertion that the int at statement 0 equals {@code expected}.
+     */
+    private static TemplateCodeAssertion intEqualsAssertion(int expected) {
+        return new TemplateCodeAssertion("a0", LlmPostProcessingResponse.AssertionKind.EQUALS,
+                String.valueOf(expected), "v0", null, Collections.singletonMap("v0", 0), null);
+    }
 }

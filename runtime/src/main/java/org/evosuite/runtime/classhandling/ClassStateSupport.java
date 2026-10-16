@@ -56,6 +56,17 @@ public class ClassStateSupport {
      * This method will usually be called in a @BeforeClass initialization
      * </p>
      *
+     * <p>Classes loaded while the JVM verifies a test, before the agent is active,
+     * can only have their method bodies retransformed. The JVM cannot add the
+     * InstrumentedClass interface or __STATIC_RESET method at that point. Their
+     * static mutations therefore survive resetClasses calls and can make tests
+     * depend on execution order. A scaffolding static initializer or initialization
+     * list cannot undo this: verification may load SUT classes before the scaffolding
+     * is initialized. Load through the InstrumentingClassLoader with static reset
+     * enabled, or configure static-reset instrumentation and activate the agent at
+     * JVM startup before loading the tests. Agent activation alone does not enable
+     * RuntimeSettings.resetStaticState, which defaults to false.</p>
+     *
      * @param classLoader the class loader to use
      * @param classNames  the names of the classes to load
      * @return true if there was a problem loading any class, false otherwise
@@ -73,17 +84,15 @@ public class ClassStateSupport {
 
         if (RuntimeSettings.isUsingAnyMocking() || RuntimeSettings.resetStaticState) {
 
+            List<Class<?>> notInstrumented = new ArrayList<>();
             for (Class<?> clazz : classes) {
 
                 if (clazz.isInterface()) {
-                    /*
-                        FIXME: once we ll start to support Java 8, in which interfaces can have code,
-                        we ll need to instrument them as well
-                     */
                     continue;
                 }
 
                 if (!InstrumentedClass.class.isAssignableFrom(clazz)) {
+                    notInstrumented.add(clazz);
                     String msg = "Class " + clazz.getName() + " was not instrumented by EvoSuite. "
                             + "This can happen during the initial JUnit verification pass with "
                             + "NonInstrumentingClassLoader and breaks EvoSuite features that depend on "
@@ -94,11 +103,19 @@ public class ClassStateSupport {
                     problem = true;
                 }
             }
+            /*
+             * A class that the JVM loaded before the agent was active (typically while
+             * verifying the test class, whose bytecode passes a SUT value where a
+             * superclass is expected) stays uninstrumented, so its file, network and
+             * System.exit calls would reach the real JDK. Re-instrument what can still be
+             * re-instrumented: method bodies are rewritten, the class shape is not.
+             */
+            if (!notInstrumented.isEmpty() && RuntimeSettings.isUsingAnyMocking()) {
+                retransformIfNeeded(notInstrumented);
+            }
         }
 
         return problem;
-
-        //retransformIfNeeded(classes); // cannot do it, as retransformation does not really work :(
     }
 
     /**
@@ -257,8 +274,6 @@ public class ClassStateSupport {
     }
 
 
-    // deprecated ---------------------------------
-
     /**
      * If any of the loaded class was not instrumented yet, then re-instrument them.
      * Note: re-instrumentation is more limited, as cannot change class signature
@@ -266,7 +281,6 @@ public class ClassStateSupport {
      * @param classLoader the class loader to use
      * @param classNames  the names of the classes to re-transform
      */
-    @Deprecated
     public static void retransformIfNeeded(ClassLoader classLoader, String... classNames) {
         List<Class<?>> classes = new ArrayList<>();
         for (String name : classNames) {
@@ -285,7 +299,6 @@ public class ClassStateSupport {
      *
      * @param classes the list of classes to re-transform
      */
-    @Deprecated
     public static void retransformIfNeeded(List<Class<?>> classes) {
 
         if (classes == null || classes.isEmpty()) {
@@ -293,26 +306,6 @@ public class ClassStateSupport {
         }
 
         List<Class<?>> classToReInstrument = new ArrayList<>();
-
-        /*
-        InstrumentingAgent.activate();
-        for(Class<?> cl : classes){
-
-            try{
-                InstrumentingAgent.getInstumentation().retransformClasses(cl);
-            } catch(UnsupportedOperationException e){
-                / *
-                 * this happens if class was already loaded by JUnit (eg the abstract class problem)
-                 * and re-instrumentation do change the signature
-                 * /
-                classToReInstument.add(cl);
-            } catch(Exception | Error e){
-                //this shouldn't really happen
-                java.lang.System.err.println("Could not instrument "+cl.getName()+". Exception "+e.toString());
-            }
-
-        }
-        */
 
         TransformerForTests transformer;
         try {
@@ -353,10 +346,15 @@ public class ClassStateSupport {
             if (!classToReInstrument.isEmpty()) {
                 instrumentation.retransformClasses(
                         classToReInstrument.toArray(new Class<?>[0]));
+                for (Class<?> clazz : classToReInstrument) {
+                    if (!InstrumentedClass.class.isAssignableFrom(clazz)) {
+                        logger.warn("Class {} was retransformed for mocking but does not have InstrumentedClass "
+                                + "interface; static state cannot be reset between tests", clazz.getName());
+                    }
+                }
             }
         } catch (UnmodifiableClassException e) {
-            //this shouldn't really happen, as already checked in previous loop
-            java.lang.System.err.println("Could not re-instrument classes");
+            logger.error("Could not re-instrument classes", e);
         } catch (UnsupportedOperationException e) {
             //if this happens, then it is a bug in EvoSuite :(
             logger.error("EvoSuite wrong re-instrumentation: " + e.getMessage());

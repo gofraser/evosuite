@@ -73,6 +73,11 @@ public class InstrumentingClassLoader extends ClassLoader {
         logger.debug("STANDARD classloader running now");
     }
 
+    /**
+     * Creates a classloader that instruments classes with a default {@link BytecodeInstrumentation}.
+     *
+     * @param parent the parent classloader that loads classes which are not instrumented
+     */
     public InstrumentingClassLoader(ClassLoader parent) {
         this(new BytecodeInstrumentation(), parent);
         setClassAssertionStatus(Properties.TARGET_CLASS, true);
@@ -125,6 +130,9 @@ public class InstrumentingClassLoader extends ClassLoader {
 
             logger.info("Loaded class " + fullyQualifiedTargetClass + " directly from " + fileName);
             return result;
+        } catch (VirtualMachineError e) {
+            // See instrumentClass: never turn an exhausted stack into a cached NoClassDefFoundError.
+            throw e;
         } catch (Throwable t) {
             logger.error("Error while loading class " + fullyQualifiedTargetClass + " : " + t.getMessage(), t);
             throw new ClassNotFoundException(t.getMessage(), t);
@@ -302,6 +310,18 @@ public class InstrumentingClassLoader extends ClassLoader {
 
             logger.info("Loaded class: " + fullyQualifiedTargetClass);
             return result;
+        } catch (VirtualMachineError e) {
+            // A StackOverflowError here is not a property of the class. Code like Jackson's
+            // BeanSerializerBase catches StackOverflowError and resolves its exception class
+            // inside the handler, with a few frames of stack left; the JVM's own loader copes,
+            // but instrumentation needs far more. Wrapping the error in ClassNotFoundException
+            // turns it into a NoClassDefFoundError, which HotSpot records for that constant-pool
+            // entry (JVMS 5.4.3), so every later use of the class from the same site fails even
+            // with a full stack. VirtualMachineErrors are not recorded, so rethrowing lets the
+            // next attempt, one frame up in the Jackson case, succeed exactly as it would
+            // uninstrumented. Not logged: building a logging event on an exhausted stack can
+            // fail inside logback's static initialisers, and that failure is permanent too.
+            throw e;
         } catch (Throwable t) {
             // We catch Throwable here because instrumentation or class definition might fail with
             // LinkageError or other unexpected errors, which we want to wrap as ClassNotFoundException
@@ -426,6 +446,53 @@ public class InstrumentingClassLoader extends ClassLoader {
         return collectResourcesFromTargetClasspath(name, false);
     }
 
+    /**
+     * Resolving one resource used to stat every classpath entry anew - several hundred of them
+     * for a SUT like 108_liferay - and frame computation asks for hundreds of classes while
+     * instrumenting a single one. Remember which entries exist and what kind they are, keyed by
+     * the classpath string so a change still takes effect, and remember the answers.
+     */
+    private volatile String cachedClasspath;
+    private volatile List<ClasspathEntry> cachedClasspathEntries = Collections.emptyList();
+    private final Map<String, List<URL>> firstResourceCache = new ConcurrentHashMap<>();
+
+    /** A classpath entry that can hold resources: a directory, or a jar/war archive. */
+    private static final class ClasspathEntry {
+        final File file;
+        final boolean directory;
+
+        ClasspathEntry(File file, boolean directory) {
+            this.file = file;
+            this.directory = directory;
+        }
+    }
+
+    private List<ClasspathEntry> targetClasspathEntries(String targetClasspath) {
+        List<ClasspathEntry> entries = cachedClasspathEntries;
+        if (targetClasspath.equals(cachedClasspath)) {
+            return entries;
+        }
+        List<ClasspathEntry> fresh = new ArrayList<>();
+        for (String entry : targetClasspath.split(File.pathSeparator)) {
+            if (entry == null || entry.isEmpty()) {
+                continue;
+            }
+            File cpEntry = new File(entry);
+            if (cpEntry.isDirectory()) {
+                fresh.add(new ClasspathEntry(cpEntry, true));
+            } else if (cpEntry.exists()) {
+                String lower = cpEntry.getName().toLowerCase(Locale.ROOT);
+                if (lower.endsWith(".jar") || lower.endsWith(".war")) {
+                    fresh.add(new ClasspathEntry(cpEntry, false));
+                }
+            }
+        }
+        cachedClasspathEntries = fresh;
+        cachedClasspath = targetClasspath;
+        firstResourceCache.clear();
+        return fresh;
+    }
+
     private List<URL> collectResourcesFromTargetClasspath(String name, boolean firstMatchOnly) {
         String targetClasspath;
         try {
@@ -438,17 +505,18 @@ public class InstrumentingClassLoader extends ClassLoader {
             return Collections.emptyList();
         }
 
-        LinkedHashSet<URL> resources = new LinkedHashSet<>();
-        for (String entry : targetClasspath.split(File.pathSeparator)) {
-            if (entry == null || entry.isEmpty()) {
-                continue;
+        List<ClasspathEntry> entries = targetClasspathEntries(targetClasspath);
+        if (firstMatchOnly) {
+            List<URL> cached = firstResourceCache.get(name);
+            if (cached != null) {
+                return cached;
             }
-            File cpEntry = new File(entry);
-            if (!cpEntry.exists()) {
-                continue;
-            }
+        }
 
-            if (cpEntry.isDirectory()) {
+        LinkedHashSet<URL> resources = new LinkedHashSet<>();
+        for (ClasspathEntry entry : entries) {
+            File cpEntry = entry.file;
+            if (entry.directory) {
                 File resourceFile = new File(cpEntry, name);
                 if (resourceFile.isFile()) {
                     try {
@@ -457,27 +525,22 @@ public class InstrumentingClassLoader extends ClassLoader {
                         // Best-effort fallback.
                     }
                 }
-                if (firstMatchOnly && !resources.isEmpty()) {
-                    break;
+            } else if (entryNamesOf(cpEntry).contains(name)) {
+                try {
+                    resources.add(new URL("jar:" + cpEntry.toURI().toURL() + "!/" + name));
+                } catch (Exception ignored) {
+                    // Best-effort fallback.
                 }
-                continue;
             }
-
-            String lower = cpEntry.getName().toLowerCase(Locale.ROOT);
-            if (lower.endsWith(".jar") || lower.endsWith(".war")) {
-                if (entryNamesOf(cpEntry).contains(name)) {
-                    try {
-                        resources.add(new URL("jar:" + cpEntry.toURI().toURL() + "!/" + name));
-                    } catch (Exception ignored) {
-                        // Best-effort fallback.
-                    }
-                }
-                if (firstMatchOnly && !resources.isEmpty()) {
-                    break;
-                }
+            if (firstMatchOnly && !resources.isEmpty()) {
+                break;
             }
         }
-        return new ArrayList<>(resources);
+        List<URL> result = new ArrayList<>(resources);
+        if (firstMatchOnly) {
+            firstResourceCache.put(name, result);
+        }
+        return result;
     }
 
     private static void addEnumeration(Set<URL> sink, Enumeration<URL> enumeration) {

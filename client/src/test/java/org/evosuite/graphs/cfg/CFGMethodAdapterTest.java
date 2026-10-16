@@ -19,6 +19,11 @@
  */
 package org.evosuite.graphs.cfg;
 
+import org.evosuite.Properties;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -53,5 +58,38 @@ public class CFGMethodAdapterTest {
 
         assertEquals(0, CFGMethodAdapter.getNumMethods(cl), "Should have 0 methods after clear");
         assertTrue(methods.isEmpty(), "Map should be empty");
+    }
+
+    public static class Sample {
+        public int twice(int x) {
+            return x * 2;
+        }
+    }
+
+    @Test
+    public void testMethodIsInstrumentedWhenItsLoaderIsReleasedMidway() throws Exception {
+        // A class loaded from another thread (e.g. the Swing event queue of the SUT) can still
+        // be under instrumentation when the generation releases the loader's entry.
+        ClassLoader cl = CFGMethodAdapterTest.class.getClassLoader();
+        String target = Sample.class.getName();
+        String oldTarget = Properties.TARGET_CLASS;
+        Properties.TARGET_CLASS = target;
+        try {
+            ClassReader reader = new ClassReader(target);
+            reader.accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override
+                public MethodVisitor visitMethod(int access, String name, String desc,
+                                                 String signature, String[] exceptions) {
+                    MethodVisitor adapter = new CFGMethodAdapter(cl, target, access, name, desc,
+                            signature, exceptions, new MethodVisitor(Opcodes.ASM9) {});
+                    CFGMethodAdapter.release(cl);
+                    return adapter;
+                }
+            }, 0);
+            assertTrue(CFGMethodAdapter.getNumMethods(cl) > 0);
+        } finally {
+            Properties.TARGET_CLASS = oldTarget;
+            CFGMethodAdapter.clear();
+        }
     }
 }

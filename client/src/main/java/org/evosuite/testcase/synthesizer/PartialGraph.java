@@ -1,5 +1,6 @@
 package org.evosuite.testcase.synthesizer;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
@@ -22,8 +23,8 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,7 @@ import java.util.Set;
 
 public class PartialGraph {
     Map<DepVariableWrapper, DepVariableWrapper> allRelevantNodes =
-            new HashMap<DepVariableWrapper, DepVariableWrapper>();
+            new LinkedHashMap<DepVariableWrapper, DepVariableWrapper>();
 
     /**
      * Provides a defensive copy of references to all the nodes in the graph.
@@ -344,22 +345,11 @@ public class PartialGraph {
             return input != String.class
                     && input != Class.class
                     && !input.isEnum()
-                    && !isBoxedPrimitive(input);
+                    && !ClassUtils.isPrimitiveWrapper(input)
+                    && input != Void.class;
         } catch (Throwable ignored) {
             return false;
         }
-    }
-
-    private static boolean isBoxedPrimitive(Class<?> type) {
-        return type == Boolean.class
-                || type == Byte.class
-                || type == Character.class
-                || type == Short.class
-                || type == Integer.class
-                || type == Long.class
-                || type == Float.class
-                || type == Double.class
-                || type == Void.class;
     }
 
     private static boolean isWritableStaticField(DepVariable variable) {
@@ -429,59 +419,49 @@ public class PartialGraph {
      * In the original computation graph, multiple node can represent the same variable. Therefore,
      * we need to merge those nodes when generating the partial graph.
      *
-     * @param var
-     * @return
+     * @param var the variable to look up or add
+     * @return the wrapper that represents the variable in this graph
      */
     public DepVariableWrapper fetchAndMerge(DepVariable var) {
         DepVariableWrapper tempWrapper = DepVariableWrapperFactory.createWrapperInstance(var);
-
-        if (var.toString().contains("ALOAD")) {
-            //            System.currentTimeMillis();
-        }
-
         DepVariableWrapper wrapper = allRelevantNodes.get(tempWrapper);
         if (wrapper == null) {
-            wrapper = DepVariableWrapperFactory.createWrapperInstance(var);
-            allRelevantNodes.put(wrapper, wrapper);
-        } else {
-            for (int i = 0; i < wrapper.var.getRelations().length; i++) {
-                List<DepVariable> list = wrapper.var.getRelations()[i];
-                List<DepVariable> list0 = var.getRelations()[i];
-
-                if (list0 != null) {
-                    if (list == null) list = new ArrayList<>();
-
-                    for (DepVariable v : list0) {
-                        if (!list.contains(v)) {
-                            list.add(v);
-                        }
-                    }
-                }
-
-                wrapper.var.getRelations()[i] = list;
-            }
-
-            for (int i = 0; i < wrapper.var.getReverseRelations().length; i++) {
-                List<DepVariable> list = wrapper.var.getReverseRelations()[i];
-                List<DepVariable> list0 = var.getReverseRelations()[i];
-
-                if (list0 != null) {
-                    if (list == null) list = new ArrayList<>();
-
-                    for (DepVariable v : list0) {
-                        if (!list.contains(v)) {
-                            list.add(v);
-                        }
-                    }
-                }
-
-                wrapper.var.getReverseRelations()[i] = list;
-            }
+            allRelevantNodes.put(tempWrapper, tempWrapper);
+            return tempWrapper;
         }
-
+        mergeRelations(wrapper.var.getRelations(), var.getRelations());
+        mergeRelations(wrapper.var.getReverseRelations(), var.getReverseRelations());
         return wrapper;
     }
 
+    /**
+     * Adds to each operand slot of {@code into} the variables of {@code from} it does not hold yet.
+     */
+    private static void mergeRelations(List<DepVariable>[] into, List<DepVariable>[] from) {
+        for (int i = 0; i < into.length; i++) {
+            List<DepVariable> list = into[i];
+            List<DepVariable> list0 = from[i];
+
+            if (list0 != null) {
+                if (list == null) {
+                    list = new ArrayList<>();
+                }
+
+                for (DepVariable v : list0) {
+                    if (!list.contains(v)) {
+                        list.add(v);
+                    }
+                }
+            }
+
+            into[i] = list;
+        }
+    }
+
+    /**
+     * Returns the nodes without parents.
+     * @return the top-layer nodes
+     */
     public List<DepVariableWrapper> getTopLayer() {
         List<DepVariableWrapper> list = new ArrayList<DepVariableWrapper>();
         for (DepVariableWrapper node : allRelevantNodes.values()) {
@@ -493,6 +473,10 @@ public class PartialGraph {
         return list;
     }
 
+    /**
+     * Returns the nodes without children.
+     * @return the leaf nodes
+     */
     public List<DepVariableWrapper> getLeaves() {
         List<DepVariableWrapper> list = new ArrayList<DepVariableWrapper>();
         for (DepVariableWrapper node : allRelevantNodes.values()) {
@@ -514,65 +498,4 @@ public class PartialGraph {
         return this.targetBranch;
     }
 
-    //    /**
-    //     *
-    //     * @param map
-    //     * @param node
-    //     * @param test
-    //     */
-    //    public void taint(Map<DepVariableWrapper, List<VariableReference>> map,
-    //            DepVariableWrapper node, TestCase test, VariableReference callerObject) {
-    //        node.processed = true;
-    //
-    //        List<DepVariableWrapper> leaves = getLeaves();
-    //        for(DepVariableWrapper leaf: leaves) {
-    //            if(map.containsKey(leaf)) {
-    //                leaf.processed = true;
-    //            }
-    //            else {
-    //                DepVariableWrapper taintedParent = leaf.findTaintedParent();
-    //                if(taintedParent != null && map.containsKey(taintedParent)) {
-    //
-    //                    /**
-    //                     * cannot use this, aaload
-    //                     */
-    //                    VariableReference callerObj = map.get(taintedParent).get(0);
-
-    //                    List<VariableReference> varList = leaf.findCorrespondingVariables(test,
-    // true, callerObj, map);
-    //
-    //                    if(!varList.isEmpty()) {
-    //                        leaf.processed = true;
-    //                    }
-    //
-    //                }
-    //            }
-    //        }
-    //
-    //        propagateTaint();
-    //    }
-
-    //    private void propagateTaint() {
-    //        boolean change = true;
-    //
-    //        while(change) {
-    //            change = false;
-    //            for(DepVariableWrapper node: allRelevantNodes.keySet()) {
-    //                if(!node.processed && !node.children.isEmpty()) {
-    //                    boolean isAllChildrenTaint = true;
-    //                    for(DepVariableWrapper child: node.children) {
-    //                        if(!child.processed) {
-    //                            isAllChildrenTaint = false;
-    //                            break;
-    //                        }
-    //                    }
-    //
-    //                    if(isAllChildrenTaint) {
-    //                        node.processed = true;
-    //                        change = true;
-    //                    }
-    //                }
-    //            }
-    //        }
-    //    }
 }

@@ -23,6 +23,7 @@ import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.setup.TestClusterUtils;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
@@ -65,6 +66,8 @@ public class AssignmentStatement extends AbstractStatement {
      */
     public AssignmentStatement(TestCase tc, VariableReference var, VariableReference value) {
         super(tc, var);
+        rejectFinalFieldTarget(var);
+        rejectNullForPrimitiveTarget(tc, var, value);
         this.parameter = value;
 
         // TODO:
@@ -72,6 +75,123 @@ public class AssignmentStatement extends AbstractStatement {
         // the target class, as we then attempt generating a superclass and try to case
         // down to the actual class
         //
+    }
+
+    /**
+     * Refuses to let an assignment statement target a final field.
+     *
+     * <p>
+     * A direct write to a final field is never legal Java, whether or not EvoSuite's
+     * instrumentation has stripped {@code ACC_FINAL} from the bytecode to support the
+     * bytecode-level {@code __STATIC_RESET()} static-state machinery: that machinery
+     * never has to compile as Java source, but a generated test statement does. This is
+     * the single choke point for statement construction: {@link StatementFactory} and
+     * DMoN's field selectors ({@code DmonInjectionDiscovery},
+     * {@code DmonPromotionOperator}) already screen their own generation paths before
+     * doing the (possibly expensive) work of building the callee/value, but several
+     * other callers (test carving, symbolic-execution test building, the test parser,
+     * object-construction synthesis) construct {@code AssignmentStatement}s directly
+     * and have no such pre-check, so this backstop still matters.
+     * </p>
+     *
+     * <p>
+     * Also reused by {@link #setRetval(VariableReference)}, which repoints an
+     * already-constructed statement's target and so needs the identical check: here
+     * {@code retval} is unambiguously the assignment target (unlike, say,
+     * {@code FieldStatement}'s retval, which is a freshly declared local that merely
+     * holds the value read from a field), so guarding it narrowly in this subclass is
+     * safe without touching {@link AbstractStatement#setRetval}, which other statement
+     * types also use and whose retval does not always mean "assignment target".
+     * </p>
+     *
+     * @param target the statement's assignment target
+     */
+    /**
+     * Whether {@code value} is a null that would be written into the primitive {@code target}.
+     * Such a write cannot be compiled ("&lt;nulltype&gt; cannot be converted to boolean") and
+     * fails at run time (Field.set of null into a primitive field throws), so no assignment
+     * statement may combine them.
+     *
+     * @param tc     the test case, used to look up the statement defining {@code value}
+     * @param target the assignment target
+     * @param value  the assigned value
+     * @return true if a null would be assigned to a primitive
+     */
+    public static boolean isNullForPrimitiveTarget(TestCase tc, VariableReference target,
+                                                   VariableReference value) {
+        if (target == null || value == null || !target.isPrimitive()) {
+            return false;
+        }
+        if (value instanceof NullReference
+                || (value instanceof ConstantValue && ((ConstantValue) value).getValue() == null)) {
+            return true;
+        }
+        if (tc == null || value instanceof ArrayIndex || value instanceof FieldReference) {
+            return false;
+        }
+        try {
+            int position = value.getStPosition();
+            return position >= 0 && position < tc.size()
+                    && tc.getStatement(position) instanceof NullStatement;
+        } catch (AssertionError e) {
+            // The value is not (yet) defined by a statement of this test.
+            return false;
+        }
+    }
+
+    private static void rejectNullForPrimitiveTarget(TestCase tc, VariableReference target,
+                                                     VariableReference value) {
+        if (isNullForPrimitiveTarget(tc, target, value)) {
+            String message = "Refusing to construct an assignment statement that writes null into "
+                    + "the primitive " + target.getType();
+            logger.error(message);
+            throw new IllegalArgumentException(message);
+        }
+    }
+
+    private static void rejectFinalFieldTarget(VariableReference target) {
+        GenericField field = finalFieldTarget(target);
+        if (field == null) {
+            return;
+        }
+        String message = "Refusing to construct an assignment statement targeting final field "
+                + field.getDeclaringClass().getName() + "." + field.getName()
+                + "; direct writes to final fields are never legal Java";
+        logger.error(message);
+        throw new IllegalArgumentException(message);
+    }
+
+    /**
+     * Returns the final field {@code target} writes to, or null if it is not a final field.
+     *
+     * @param target an assignment target
+     * @return the final field, or null
+     */
+    private static GenericField finalFieldTarget(VariableReference target) {
+        if (!(target instanceof FieldReference)) {
+            return null;
+        }
+        GenericField field = ((FieldReference) target).getField();
+        return field != null && field.isFinal() ? field : null;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>
+     * Closes the gap the constructor guard alone leaves open: {@link #setRetval} is a
+     * public API that can repoint an already-constructed statement's target without
+     * ever going through {@link #AssignmentStatement(TestCase, VariableReference,
+     * VariableReference) the constructor}, so it needs the same
+     * {@link #rejectFinalFieldTarget(VariableReference)} check, thrown the same way
+     * (logged at ERROR, {@link IllegalArgumentException}) for the same reason: a direct
+     * write to a final field is never legal Java.
+     * </p>
+     */
+    @Override
+    public void setRetval(VariableReference newRetVal) {
+        rejectFinalFieldTarget(newRetVal);
+        super.setRetval(newRetVal);
     }
 
     /**
@@ -104,6 +224,18 @@ public class AssignmentStatement extends AbstractStatement {
             // FIXXME: Return value should always be an existing variable
             newTarget = retval.copy(newTestCase, offset);
 
+            // If retval is already an illegal final-field target (it should never be -
+            // both known creation paths, StatementFactory and DMoN promotion, are
+            // guarded, and a deserialized offender is rejected at the classloader-
+            // reattachment boundary in changeClassLoader() before it can reach a live
+            // population), this constructor call rethrows via rejectFinalFieldTarget()
+            // and is deliberately NOT caught/softened here: DefaultTestCase.clone()
+            // explicitly relies on AssignmentStatement.copy() preserving retval's
+            // identity with the pre-seeded placeholder at the defining position (see
+            // its comment about "wrong position N, total N"), so synthesizing some
+            // other statement in its place to avoid the crash would risk silently
+            // corrupting the clone's statement graph instead - a loud, unconditional
+            // failure here is safer than a quiet, wrong one.
             AssignmentStatement copy = new AssignmentStatement(newTestCase, newTarget,
                     newParam);
             copyProvenanceFrom(copy, this);
@@ -217,19 +349,60 @@ public class AssignmentStatement extends AbstractStatement {
      */
 
     @Override
+    public boolean acceptsReplacement(VariableReference var1, VariableReference var2) {
+        return replacementOf(var1, var2) != null;
+    }
+
+    @Override
     public void replace(VariableReference var1, VariableReference var2) {
-        if (retval.equals(var1)) {
-            if (isAssignable(var2, parameter)) {
-                retval = var2;
-            }
+        VariableReference[] replaced = replacementOf(var1, var2);
+        if (replaced != null) {
+            retval = replaced[0];
+            parameter = replaced[1];
         }
-        if (parameter.equals(var1)) {
-            if (isAssignable(retval, var2)) {
-                parameter = var2;
-            }
-        } else {
-            parameter.replaceAdditionalVariableReference(var1, var2);
+    }
+
+    /**
+     * The target and the value this assignment would have with {@code var2} in place of
+     * {@code var1}, including uses of {@code var1} inside them (the owner of a field target
+     * "var1.f", the array of an element value "var1[i]"), or null if the assignment refuses the
+     * replacement as a whole and keeps using {@code var1}. It refuses if either side declines
+     * the rebinding, if the value would no longer fit the target (a String into the field of a
+     * {@code Box<Integer>} owner, null into a primitive), and if both sides would become one
+     * variable: "x = x" is a no-op that, were x defined by this very statement, also leaves x
+     * without a declaration. Changes nothing.
+     */
+    private VariableReference[] replacementOf(VariableReference var1, VariableReference var2) {
+        VariableReference newRetval = retval.withReplacement(var1, var2);
+        VariableReference newParameter = parameter.withReplacement(var1, var2);
+        if (newRetval == null || newParameter == null) {
+            return null;
         }
+        if (newRetval == retval && newParameter == parameter) {
+            return new VariableReference[]{retval, parameter};
+        }
+        if (aliasesItself(newRetval, newParameter)) {
+            return null;
+        }
+        boolean typesChange = !newRetval.getType().equals(retval.getType())
+                || !newParameter.getType().equals(parameter.getType());
+        if (typesChange && !isAssignable(newRetval, newParameter)) {
+            return null;
+        }
+        if (isNullForPrimitiveTarget(tc, newRetval, newParameter)) {
+            return null;
+        }
+        return new VariableReference[]{newRetval, newParameter};
+    }
+
+    /**
+     * Whether an assignment of {@code value} to {@code target} writes a variable into itself.
+     * Fields and array elements are excluded: two references to the same element can be
+     * written by distinct expressions.
+     */
+    private static boolean aliasesItself(VariableReference target, VariableReference value) {
+        return !(target instanceof FieldReference) && !(target instanceof ArrayIndex)
+                && (target == value || target.equals(value));
     }
 
     /**
@@ -286,6 +459,9 @@ public class AssignmentStatement extends AbstractStatement {
     @Override
     public boolean isValid() {
         assert (super.isValid());
+        if (isNullForPrimitiveTarget(tc, retval, parameter)) {
+            return false;
+        }
         if (retval instanceof ArrayIndex) {
             ArrayIndex arrayIndex = (ArrayIndex) retval;
             ArrayReference arrayRef = arrayIndex.getArray();
@@ -389,7 +565,7 @@ public class AssignmentStatement extends AbstractStatement {
                     // runtime ArrayReference length, which Scope.setObject() can corrupt
                     // during test execution (e.g. via array reassignment).
                     int length = getStructuralArrayLength((ArrayReference) value);
-                    for (int index = 0; index < length; index++) {
+                    for (int index : ArrayReference.getCandidateIndices(length)) {
                         variables.add(new ArrayIndex(tc, (ArrayReference) value, index));
                     }
                 }
@@ -402,7 +578,8 @@ public class AssignmentStatement extends AbstractStatement {
                 if (!value.isPrimitive() && !(value instanceof NullReference)) {
                     // add fields of this object to list
                     for (Field field : TestClusterUtils.getAccessibleFields(value.getVariableClass())) {
-                        if (TestClusterGenerator.isFinalField(field)) {
+                        if (!TestUsageChecker.isCallableFromTestPackage(field)
+                                || TestClusterGenerator.isFinalField(field)) {
                             continue;
                         }
                         FieldReference f = new FieldReference(tc, new GenericField(field,
@@ -450,7 +627,8 @@ public class AssignmentStatement extends AbstractStatement {
                 // Need to double check, because we might try to replace e.g.
                 // a long with an int, which is assignable
                 // but if the long is assigned to a Long field, then it is not!
-                if (GenericClassUtils.isAssignable(newRetVal.getType(), parameter.getType())) {
+                if (GenericClassUtils.isAssignable(newRetVal.getType(), parameter.getType())
+                        && !isNullForPrimitiveTarget(tc, newRetVal, parameter)) {
 
                     // Need to check array status because commons lang
                     // is sometimes confused about what is assignable
@@ -482,7 +660,8 @@ public class AssignmentStatement extends AbstractStatement {
             objects.remove(parameter);
             if (!objects.isEmpty()) {
                 VariableReference choice = Randomness.choice(objects);
-                if (GenericClassUtils.isAssignable(retval.getType(), choice.getType())) {
+                if (GenericClassUtils.isAssignable(retval.getType(), choice.getType())
+                        && !isNullForPrimitiveTarget(tc, retval, choice)) {
 
                     // Need special care if it is a wrapper class
                     if (retval.getGenericClass().isWrapperType()) {
@@ -502,6 +681,40 @@ public class AssignmentStatement extends AbstractStatement {
         }
 
         return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>
+     * {@link GenericField#readObject} re-resolves its target {@link Field} from the
+     * archived declaring-class name and field name on every deserialization, but never
+     * re-checks finality: the field it resolves to may now be final even though the
+     * live field was not when this statement was constructed (or may always have been
+     * final, if this statement reached a serialized artifact by some path other than
+     * the guarded constructor). {@link #changeClassLoader} is where every deserialized
+     * test case gets its statements reattached to a concrete classloader (see
+     * {@code TestSuiteSerialization#loadTests} and the replay rebind in
+     * {@code TestSuiteGenerator}), so it is the natural choke point to revalidate a
+     * reconstructed field-write statement: fail loudly here rather than let the
+     * renderer silently rebuild an illegal direct assignment. The caller
+     * ({@code TestSuiteSerialization#loadTests}) already catches a
+     * {@link RuntimeException} per test case and drops just that one, so one corrupted
+     * statement costs a single test rather than the whole stream.
+     * </p>
+     */
+    @Override
+    public void changeClassLoader(ClassLoader loader) {
+        super.changeClassLoader(loader);
+        GenericField field = finalFieldTarget(retval);
+        if (field != null) {
+            String message = "Rejecting a reconstructed assignment statement that targets "
+                    + "final field " + field.getDeclaringClass().getName() + "."
+                    + field.getName() + " after a classloader change; direct writes to "
+                    + "final fields are never legal Java";
+            logger.error(message);
+            throw new IllegalStateException(message);
+        }
     }
 
     /**

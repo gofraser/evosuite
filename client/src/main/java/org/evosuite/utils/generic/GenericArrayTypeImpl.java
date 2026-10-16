@@ -28,6 +28,12 @@ public class GenericArrayTypeImpl implements GenericArrayType {
 
     private final Type componentType;
 
+    /**
+     * Creates an array class with the given component class.
+     *
+     * @param componentType the component class, or null for {@code Object[]}
+     * @return the array class
+     */
     public static Class<?> createArrayType(Class<?> componentType) {
         if (componentType == null) {
             return Object[].class;

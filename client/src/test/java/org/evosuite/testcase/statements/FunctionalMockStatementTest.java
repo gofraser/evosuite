@@ -138,6 +138,12 @@ public class FunctionalMockStatementTest {
         }
     }
 
+    public static void readStringTimes(Foo foo, int x) {
+        for (int i = 0; i < x; i++) {
+            foo.getString();
+        }
+    }
+
     private Scope execute(TestCase tc) throws Exception {
         Scope scope = new Scope();
         for (Statement st : tc) {
@@ -765,4 +771,37 @@ public class FunctionalMockStatementTest {
         assertTrue(mockStmt.methodParameters.containsKey(md.getID()));
     }
 
+
+    @Test
+    public void testCallBeyondTheStubbedValuesRepeatsTheLastValue() throws Exception {
+        TestCase tc = new DefaultTestCase();
+
+        IntPrimitiveStatement calls = new IntPrimitiveStatement(tc, 1);
+        VariableReference callCount = tc.addStatement(calls);
+        VariableReference stubbed = tc.addStatement(new StringPrimitiveStatement(tc, "stubbed"));
+        VariableReference ref = new VariableReferenceImpl(tc, Foo.class);
+        FunctionalMockStatement mockStmt = new FunctionalMockStatement(tc, ref, GenericClassFactory.get(Foo.class));
+        VariableReference mock = tc.addStatement(mockStmt);
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(this.getClass().getDeclaredMethod("readStringTimes", Foo.class, int.class),
+                        FunctionalMockStatementTest.class),
+                null, Arrays.asList(mock, callCount)));
+
+        execute(tc);
+        mockStmt.updateMockedMethods();
+        mockStmt.addMissingInputs(Arrays.asList(stubbed));
+
+        // The code under test now calls the stubbed method once more than it was stubbed for.
+        calls.setValue(2);
+        Scope scope = execute(tc);
+
+        mockStmt.updateMockedMethods();
+        mockStmt.fillWithNullRefs();
+
+        List<VariableReference> values = mockStmt.getParameterReferences();
+        assertEquals(2, values.size());
+        assertSame(stubbed, values.get(0));
+        assertEquals("stubbed", values.get(1).getObject(scope),
+                "the second call is rendered with the value it returned when observed");
+    }
 }

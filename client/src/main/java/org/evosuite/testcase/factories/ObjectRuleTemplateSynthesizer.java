@@ -49,6 +49,15 @@ class ObjectRuleTemplateSynthesizer {
     private static final double NO_PAYOFF_SYNTHESIS_BUDGET_FRACTION = 0.05;
     private static final int NO_PAYOFF_MAX_CONSECUTIVE_ATTEMPTS = 30;
     private static final int NO_PAYOFF_MIN_ATTEMPTS = 1;
+    // Log the synthesis-timeout fallback once per class rather than once per attempt: a class
+    // whose construction genuinely needs more than the budget would otherwise log on every
+    // generation.
+    private static final Set<String> TIMEOUT_WARNED_CLASSES =
+            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
+    static void resetSynthesisTimeoutWarnings() {
+        TIMEOUT_WARNED_CLASSES.clear();
+    }
 
     private final ObjectRuleGenerationCoordinator owner;
 
@@ -91,28 +100,31 @@ class ObjectRuleTemplateSynthesizer {
         if (b == null) {
             return owner.fallbackToDefault(size, stateBeforeAttempt);
         }
-        TestCase synthesisTest = Objects.requireNonNull(test, "test");
-        Branch synthesisBranch = Objects.requireNonNull(b, "branch");
 
         long synthesisStart = System.currentTimeMillis();
         boolean reachedTargetCall = false;
         boolean producedUsableTemplate = false;
-        boolean freshSynthesisStarted = false;
         boolean immediateCoveredWorkingGoal = false;
         boolean improvedWorkingGoal = false;
         boolean benefitedWorkingGoal = false;
 
-        int originalStatementCount = synthesisTest.size();
+        int originalStatementCount = test.size();
 
         try {
             session.freshSyntheses++;
-
-            freshSynthesisStarted = true;
             ConstructionPathSynthesizer synthesizer = owner.newConstructionPathSynthesizer();
-            boolean previousSynthesisConstruction =
-                    org.evosuite.TestGenerationContext.getInstance()
-                            .getObjectRuleRuntime()
-                            .setSynthesisConstruction(true);
+            org.evosuite.testcase.factories.ObjectRuleRuntime runtime =
+                    org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime();
+            boolean previousSynthesisConstruction = runtime.setSynthesisConstruction(true);
+            long synthesisTimeoutMillis = Properties.OBJECT_RULE_SYNTHESIS_TIMEOUT;
+            // Bounds the graph-construction/statement-correspondence phase, which is where the
+            // interprocedural field-setter search (DataDependencyUtil/UsedReferenceSearcher) can
+            // recurse deeply into a large dependency; without this a single pathological class can
+            // stall the whole GA thread instead of falling back to a plain random test.
+            runtime.beginSynthesisAttempt(
+                    synthesisTimeoutMillis > 0
+                            ? System.nanoTime() + synthesisTimeoutMillis * 1_000_000L
+                            : 0L);
             try {
                 org.evosuite.testcase.synthesizer.PartialGraph preparedGraph =
                         owner.preparedGraph(b);
@@ -121,11 +133,19 @@ class ObjectRuleTemplateSynthesizer {
                 }
                 preparedGraph = Objects.requireNonNull(preparedGraph, "partial graph");
                 synthesizer.buildNodeStatementCorrespondence(
-                        synthesisTest, synthesisBranch, allowNullValue, preparedGraph, size);
+                        test, b, allowNullValue, preparedGraph, size);
             } finally {
-                org.evosuite.TestGenerationContext.getInstance()
-                        .getObjectRuleRuntime()
-                        .setSynthesisConstruction(previousSynthesisConstruction);
+                if (runtime.synthesisAttemptTimedOut()) {
+                    String targetClass = org.evosuite.testcase.synthesizer.TargetContext.activeClassName();
+                    if (targetClass != null && !targetClass.isEmpty()
+                            && TIMEOUT_WARNED_CLASSES.add(targetClass)) {
+                        logger.warn("EvoObj synthesis for {} exceeded the {} ms synthesis budget; "
+                                        + "falling back to ordinary generation for this attempt",
+                                targetClass, synthesisTimeoutMillis);
+                    }
+                }
+                runtime.endSynthesisAttempt();
+                runtime.setSynthesisConstruction(previousSynthesisConstruction);
             }
 
             // A graph whose required parameter root is still null (or is not the exact target
@@ -282,7 +302,7 @@ class ObjectRuleTemplateSynthesizer {
                 if (!acceptedSetupProposal) {
                     FirstShotClassification classification = classifyFirstShot(test, result);
                     immediateCoveredWorkingGoal = classification.immediateCoverage;
-                    improvedWorkingGoal = classification.improvedWorkingGoal;
+                    improvedWorkingGoal = classification.immediateCoverage;
                 }
             } else {
                 return owner.fallbackToDefault(size, stateBeforeAttempt);
@@ -321,28 +341,23 @@ class ObjectRuleTemplateSynthesizer {
         } finally {
             long elapsed = System.currentTimeMillis() - synthesisStart;
             session.templateSynthesisTimeMs += elapsed;
-            if (freshSynthesisStarted) {
-                if (reachedTargetCall) {
-                    session.consecutiveTargetUnreached = 0;
-                    session.constructionTimeAtLastTargetReachMs = session.synthesisTimeMs;
-                } else {
-                    session.consecutiveTargetUnreached++;
-                }
-                if (benefitedWorkingGoal) {
-                    session.consecutiveUnbeneficialSyntheses = 0;
-                    session.constructionTimeAtLastBenefitMs = session.synthesisTimeMs;
-                } else {
-                    session.consecutiveUnbeneficialSyntheses++;
-                }
+            if (reachedTargetCall) {
+                session.consecutiveTargetUnreached = 0;
+                session.constructionTimeAtLastTargetReachMs = session.synthesisTimeMs;
+            } else {
+                session.consecutiveTargetUnreached++;
+            }
+            if (benefitedWorkingGoal) {
+                session.consecutiveUnbeneficialSyntheses = 0;
+                session.constructionTimeAtLastBenefitMs = session.synthesisTimeMs;
+            } else {
+                session.consecutiveUnbeneficialSyntheses++;
             }
 
             // Feed the outcome back to the branch selector's negative cache.
-            if (freshSynthesisStarted) {
-
-                branchSelector()
-                        .recordSynthesisAttempt(
-                                b, producedUsableTemplate, immediateCoveredWorkingGoal);
-            }
+            branchSelector()
+                    .recordSynthesisAttempt(
+                            b, producedUsableTemplate, immediateCoveredWorkingGoal);
         }
 
         return test;
@@ -361,12 +376,6 @@ class ObjectRuleTemplateSynthesizer {
                 session.synthesisTimeMs - session.constructionTimeAtLastTargetReachMs,
                 session.consecutiveUnbeneficialSyntheses,
                 session.synthesisTimeMs - session.constructionTimeAtLastBenefitMs);
-    }
-
-    static boolean shouldStopSynthesisForNoPayoff(
-            int consecutiveUnreached, long constructionTimeSinceReachMs) {
-        return shouldStopSynthesisForNoPayoff(
-                consecutiveUnreached, constructionTimeSinceReachMs, 0, 0);
     }
 
     static boolean shouldStopSynthesisForNoPayoff(
@@ -412,10 +421,10 @@ class ObjectRuleTemplateSynthesizer {
         }
         Boolean jumpTaken = null;
         for (BranchCoverageTestFitness goal : session().getWorkingGoals()) {
-                if (goal != null && branch.equals(goal.getBranch())) {
-                    jumpTaken = goal.getValue();
-                    break;
-                }
+            if (goal != null && branch.equals(goal.getBranch())) {
+                jumpTaken = goal.getValue();
+                break;
+            }
         }
         if (jumpTaken == null) {
             return null;
@@ -543,11 +552,9 @@ class ObjectRuleTemplateSynthesizer {
 
     static final class FirstShotClassification {
         final boolean immediateCoverage;
-        final boolean improvedWorkingGoal;
 
         private FirstShotClassification(boolean immediateCoverage) {
             this.immediateCoverage = immediateCoverage;
-            this.improvedWorkingGoal = immediateCoverage;
         }
     }
 

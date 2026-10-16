@@ -24,6 +24,7 @@ import org.evosuite.Properties;
 import org.evosuite.annotations.EvoSuiteTest;
 import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.graphs.GraphPool;
+import org.evosuite.instrumentation.OriginalFieldVisibility;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.mock.MockList;
@@ -32,12 +33,20 @@ import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.utils.Java9InvisiblePackage;
 import org.evosuite.utils.LoggingUtils;
 import org.junit.*;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileDescriptor;
+import java.io.InputStream;
 import java.lang.reflect.*;
+import java.net.JarURLConnection;
+import java.net.URL;
+import java.security.CodeSource;
 import java.text.MessageFormat;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -139,6 +148,11 @@ public class TestUsageChecker {
             return false;
         }
 
+        if (isProtectedMemberOfOtherPackage(c.getDeclaringClass())) {
+            logger.debug("Skipping constructor of protected member class {}", c.getName());
+            return false;
+        }
+
         if (!Properties.USE_DEPRECATED && c.isAnnotationPresent(Deprecated.class)
                 && !isExemptFromDeprecationFilter(c.getDeclaringClass())) {
             logger.debug("Excluding deprecated constructor " + c.getName());
@@ -146,6 +160,11 @@ public class TestUsageChecker {
         }
 
         if (isForbiddenNonDeterministicCall(c)) {
+            return false;
+        }
+
+        // A public constructor is as unusable as a method when it takes a source-private type
+        if (hasSourcePrivateParameterType(c.getParameterTypes())) {
             return false;
         }
 
@@ -228,6 +247,14 @@ public class TestUsageChecker {
                         "This is likely due to a missing dependency used as annotation: "
                                 + "https://bugs.java.com/view_bug.do?bug_id=JDK-7183985");
                 return false;
+            } catch (LinkageError e) {
+                // Reading the annotations initialises every enum an annotation member defaults
+                // to, and that static initialiser belongs to the subject under test. When it
+                // throws (ExceptionInInitializerError, then NoClassDefFoundError on every later
+                // read) the class cannot be inspected, so it cannot be used; it must not abort
+                // the whole generation from inside cluster analysis.
+                logger.debug("Cannot read the annotations of {}: {}", c.getName(), e.toString());
+                return false;
             }
         }
 
@@ -239,7 +266,15 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (!TestClusterUtils.checkIfCanUse(c.getName())) {
+        // javac refuses any mention of a class whose package its named module does not export
+        // (java.awt.peer.ComponentPeer, sun.security.validator.*): a method returning or taking one
+        // cannot even be called from a test, so it must not enter the cluster.
+        if (isInUnexportedPackage(c)) {
+            logger.debug("Skipping class in a package its module does not export: {}", c.getName());
+            return false;
+        }
+
+        if (!TestClusterUtils.checkIfCanUse(c.getName(), c)) {
             return false;
         }
 
@@ -253,7 +288,19 @@ public class TestUsageChecker {
             return true;
         }
 
-        if (TestClusterUtils.isEvoSuiteClass(c) && !MockList.isAMockClass(c.getCanonicalName())) {
+        // The configured target class (or a member nested inside it) is exempt from the
+        // "reject EvoSuite's own classes" rule below, for the same reason checkIfCanUse()
+        // above already exempts it from the package-exclusion check: if the class under test
+        // itself happens to live under org.evosuite (dogfooding EvoSuite against its own
+        // code, or - as here - a unit test using a nested class of itself as a stand-in SUT),
+        // then rejecting the target class' own members as "EvoSuite-internal" makes every
+        // generic-bound parameter typed on one of them permanently unconstructible: nothing
+        // can ever satisfy the bound, no matter how the search proceeds. No real-world class
+        // under test lives under org.evosuite, so this bypass cannot change behaviour for the
+        // ordinary case; it only stops EvoSuite from refusing to use the very class it was
+        // told to target.
+        if (TestClusterUtils.isEvoSuiteClass(c) && !MockList.isAMockClass(c.getCanonicalName())
+                && !TestClusterUtils.isConfiguredTargetClassOrPackage(c.getName())) {
             return false;
         }
 
@@ -361,24 +408,173 @@ public class TestUsageChecker {
     /**
      * Whether a class comes from the JDK itself rather than from the code under test.
      *
-     * <p>Platform classes are loaded by the bootstrap loader, so they have no defining
-     * class loader; anything the SUT brings with it is loaded by EvoSuite's own loader.
+     * <p>Since Java 9 the JDK's named modules are not all loaded the same way: a module
+     * such as {@code java.base} or {@code jdk.unsupported} can still be defined by the
+     * bootstrap loader (a null {@code getClassLoader()}), while another such as
+     * {@code java.sql} is defined by the <em>platform</em> loader instead. Loader
+     * identity alone is therefore insufficient to recognise JDK classes.
+     *
+     * <p>We classify by module origin, not by module name or loader identity: a module's
+     * name is just a string the code that built it chose, and a module placed on
+     * {@code --module-path} and named in {@code --add-modules} at JVM <em>startup</em>
+     * resolves into the same boot layer, and can be defined by the same loader, as genuine
+     * JDK code -- so neither a {@code java.}/{@code jdk.}-prefixed name nor loader identity
+     * proves JDK provenance. {@link JavaModuleLookup#isFromSystemImage} is the authoritative
+     * per-class check; see its documentation for the actual reference-origin contract
+     * (including why it still accepts a genuine, system-image module that the ordinary
+     * system/application loader defines, such as {@code jdk.jdi}, and rejects a same-named
+     * user module such as a spoofed {@code jdk.hotspot.agent}).
+     *
+     * <p>{@code Class#getModule()} is Java 9+, and this module's main source compiles against
+     * the Java 8 API (see {@code runtime}'s own Java 8 floor, enforced on this module the same
+     * way), so it is looked up reflectively via the shared {@link JavaModuleLookup}, which also
+     * backs {@code TestClusterUtils#isJdkClass} for the module half of the identical
+     * constraint; on an actual Java 8 JVM the module lookup itself fails (there is no module
+     * system yet) and this falls back to the old bootstrap-loader check, which is exactly
+     * correct there, since Java 8 predates both named modules and the boot layer entirely.
+     *
+     * <p>A user class loaded the ordinary way (app class loader, classpath) is always in
+     * an <em>unnamed</em> module, which fails the {@code isNamed()} check regardless of
+     * its package name -- except that a {@code java.}-prefixed package is also
+     * independently blocked there ({@code SecurityException: Prohibited package name}).
+     * Neither restriction applies to a module built and loaded the way the spoofs above
+     * do, which is why the system-module check is also needed.
      *
      * <p>This matters for the {@code USE_DEPRECATED} filter. That option exists to stop
      * us generating tests for API the project itself has deprecated, but several JDK
      * types picked up a {@code @Deprecated} annotation after Java 8 -- {@code
      * java.util.Observable} in Java 9, {@code org.xml.sax.AttributeList} long before
-     * that. Excluding those does not spare anyone a test of obsolete API: it makes the
-     * SUT's own undeprecated methods uncallable, because a method whose parameter type
-     * we refuse to use is dropped from the test cluster entirely. So a class like
-     * {@code nu.staldal.xmlutil.ContentHandlerAdapter}, whose whole contract is
-     * {@code startElement(String, AttributeList)}, loses the branches that matter.
+     * that, and (depending on the running JDK) platform-loaded types such as {@code
+     * java.sql.SQLPermission}. Excluding those does not spare anyone a test of obsolete
+     * API: it makes the SUT's own undeprecated methods uncallable, because a method
+     * whose parameter type we refuse to use is dropped from the test cluster entirely.
+     * So a class like {@code nu.staldal.xmlutil.ContentHandlerAdapter}, whose whole
+     * contract is {@code startElement(String, AttributeList)}, loses the branches that
+     * matter.
      *
      * @param c the class to check
      * @return true if {@code c} is a JDK platform class
      */
-    private static boolean isPlatformClass(Class<?> c) {
-        return c.getClassLoader() == null;
+    static boolean isPlatformClass(Class<?> c) {
+        JavaModuleLookup.Result result = JavaModuleLookup.lookupModule(c);
+        if (result.isUnavailable()) {
+            return c.getClassLoader() == null;
+        }
+        return JavaModuleLookup.isSystemImageJdkModule(result);
+    }
+
+    /**
+     * Whether {@code c} is declared in a package its named module does not export to everyone
+     * (e.g. {@code java.awt.peer}, {@code sun.security.validator}). Generated tests cannot import
+     * or name such a class: javac reports "package ... is not visible".
+     *
+     * @param c the class to check
+     * @return true if generated source cannot refer to {@code c} by name
+     */
+    public static boolean isInUnexportedPackage(Class<?> c) {
+        return JavaModuleLookup.isInUnexportedPackage(c);
+    }
+
+    /**
+     * Whether generated test code, which lives in the package of the class under test
+     * ({@code Properties.CLASS_PREFIX}) and is not a subclass of anything, can call {@code member}
+     * (or a constructor or field): public members always, package-private and protected ones only when
+     * their declaring class is in that same package. A protected method inherited from a class
+     * in another package is not callable from the test, however deep in the hierarchy it is
+     * found by {@code getDeclaredMethods()}.
+     *
+     * @param member the method, constructor or field to check
+     * @return true if javac accepts a call to it from the generated test
+     */
+    public static boolean isCallableFromTestPackage(java.lang.reflect.Member member) {
+        int modifiers = member instanceof Field
+                ? getOriginalFieldModifiers((Field) member) : member.getModifiers();
+        return isCallableFromTestPackage(member.getDeclaringClass(), modifiers);
+    }
+
+    private static boolean isCallableFromTestPackage(Class<?> declaringClass, int modifiers) {
+        if (Modifier.isPrivate(modifiers)) {
+            return false;
+        }
+        if (Modifier.isPublic(modifiers)) {
+            return true;
+        }
+        return ClassUtils.getPackageName(declaringClass).equals(Properties.CLASS_PREFIX);
+    }
+
+    private static final Map<Class<?>, Integer> SOURCE_MEMBER_MODIFIERS =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
+    /**
+     * The modifiers javac attributes to {@code type}. For a member class javac reads the access
+     * flags from the InnerClasses table of the enclosing class, while reflection reads them from
+     * the member's own class file; the two disagree for some older libraries (xerces'
+     * {@code protected class ScannedEntity} reflects as public). The enclosing table wins.
+     */
+    public static int getSourceModifiers(Class<?> type) {
+        int reflected = type.getModifiers();
+        Class<?> enclosing = getDeclaringClassSafely(type);
+        if (enclosing == null || enclosing == UNRESOLVABLE_OWNER_CLASS) {
+            return reflected;
+        }
+        Integer cached = SOURCE_MEMBER_MODIFIERS.get(type);
+        if (cached == null) {
+            cached = readEnclosingInnerClassAccess(type, enclosing, reflected);
+            SOURCE_MEMBER_MODIFIERS.put(type, cached);
+        }
+        return cached;
+    }
+
+    private static int readEnclosingInnerClassAccess(Class<?> type, Class<?> enclosing,
+                                                     int reflected) {
+        ClassLoader loader = enclosing.getClassLoader();
+        String resource = enclosing.getName().replace('.', '/') + ".class";
+        String internalName = type.getName().replace('.', '/');
+        int[] found = {reflected};
+        try (InputStream input = loader == null
+                ? ClassLoader.getSystemResourceAsStream(resource)
+                : loader.getResourceAsStream(resource)) {
+            if (input != null) {
+                new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitInnerClass(String name, String outerName, String innerName,
+                                                int access) {
+                        if (internalName.equals(name) && outerName != null) {
+                            // A promoted (instrumented) class reflects as more visible than its
+                            // original; only the access levels are taken over from the table.
+                            int levels = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE;
+                            found[0] = (reflected & ~levels) | (access & levels);
+                        }
+                    }
+                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            }
+        } catch (java.io.IOException | RuntimeException e) {
+            logger.debug("Cannot read the InnerClasses table of {}", enclosing.getName(), e);
+        }
+        return found[0];
+    }
+
+    /**
+     * Whether {@code type} is, or sits inside, a protected member class of a package other than the
+     * generated test's. JLS 6.6.2 admits such a class only in subclasses of its enclosing class, so
+     * the test can neither name it nor call its constructor.
+     */
+    public static boolean isProtectedMemberOfOtherPackage(Class<?> type) {
+        for (Class<?> current = type; current != null; current = getDeclaringClassSafely(current)) {
+            if (current == UNRESOLVABLE_OWNER_CLASS) {
+                return false;
+            }
+            if (Modifier.isProtected(getSourceModifiers(current))
+                    && !ClassUtils.getPackageName(current).equals(Properties.CLASS_PREFIX)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Field modifiers as javac sees them, before accessibility instrumentation promotes them. */
+    public static int getOriginalFieldModifiers(Field field) {
+        return OriginalFieldVisibility.getModifiers(field);
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {
@@ -479,27 +675,22 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (Modifier.isPublic(f.getModifiers())) {
-            // It may still be the case that the field is defined in a non-visible superclass of the class
-            // we already know we can use. In that case, the compiler would be fine with accessing the
-            // field, but reflection would start complaining about IllegalAccess!
-            // Therefore, we set the field accessible to be on the safe side
+        int modifiers = getOriginalFieldModifiers(f);
+        if (!isCallableFromTestPackage(f.getDeclaringClass(), modifiers)) {
+            return false;
+        }
+        if (Modifier.isPublic(modifiers)) {
+            // Reflection may still need access to a public field declared in a hidden superclass.
             TestClusterUtils.makeAccessible(f);
             return true;
         }
 
-        // If default access rights, then check if this class is in the same package as the target class
-        if (!Modifier.isPrivate(f.getModifiers())) {
-            // && !Modifier.isProtected(f.getModifiers())) {
-            String packageName = ClassUtils.getPackageName(ownerClass);
-
-            String declaredPackageName = ClassUtils.getPackageName(f.getDeclaringClass());
-
-            if (packageName.equals(Properties.CLASS_PREFIX)
-                    && packageName.equals(declaredPackageName)) {
-                TestClusterUtils.makeAccessible(f);
-                return true;
-            }
+        // A package-private field is not inherited by an owner in a different package.
+        // FieldStatement renders owner.field directly, without a cast to the declaring type.
+        if (ClassUtils.getPackageName(ownerClass).equals(
+                ClassUtils.getPackageName(f.getDeclaringClass()))) {
+            TestClusterUtils.makeAccessible(f);
+            return true;
         }
 
         return false;
@@ -547,6 +738,255 @@ public class TestUsageChecker {
     }
 
     /**
+     * Whether {@code ownerClass} has a public, non-abstract, non-static method with the same
+     * name, parameter types and return type (the JVM descriptor, so a compiler-generated bridge
+     * counts) as {@code abstractMethod}, i.e. whether invoking the abstract
+     * declaration on an instance of {@code ownerClass} reaches an implementation.
+     */
+    private static boolean hasConcreteImplementation(Class<?> ownerClass, Method abstractMethod) {
+        try {
+            for (Method candidate : ownerClass.getMethods()) {
+                if (matchesDescriptor(candidate, abstractMethod) && isConcretePublicMethod(candidate)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Throwable t) {
+            // A missing type in an unrelated signature can prevent getMethods() from linking
+            // the whole hierarchy. Individual superclass declarations may still be inspectable.
+            logger.debug("Cannot enumerate methods of " + ownerClass.getName() + ": " + t);
+        }
+        for (Class<?> current = ownerClass; current != null; current = current.getSuperclass()) {
+            Method[] declared = getDeclaredMethodsOrNull(current);
+            if (declared != null) {
+                for (Method candidate : declared) {
+                    if (matchesDescriptor(candidate, abstractMethod)) {
+                        // Stop at the nearest declaration: an abstract override must not expose
+                        // a concrete implementation which it hides farther up the hierarchy.
+                        return isConcretePublicMethod(candidate);
+                    }
+                }
+            } else {
+                Boolean implementation = inspectClassfileImplementation(current, abstractMethod);
+                if (implementation != null) {
+                    return implementation;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Declared methods of a class, or null if its signatures cannot be linked. A failure is
+     * remembered per class: a failing lookup is not free, because every attempt makes the
+     * instrumenting class loader load and instrument the types in the signatures again, and this
+     * is asked once per abstract method of every analysed class.
+     */
+    private static Method[] getDeclaredMethodsOrNull(Class<?> clazz) {
+        synchronized (unlinkableDeclaredMethods) {
+            if (unlinkableDeclaredMethods.contains(clazz)) {
+                return null;
+            }
+        }
+        try {
+            return clazz.getDeclaredMethods();
+        } catch (Throwable t) {
+            logger.debug("Cannot enumerate declared methods of " + clazz.getName() + ": " + t);
+            synchronized (unlinkableDeclaredMethods) {
+                unlinkableDeclaredMethods.add(clazz);
+            }
+            return null;
+        }
+    }
+
+    /** Weakly held, and only failures: a cached Method[] would keep its class alive. */
+    private static final Set<Class<?>> unlinkableDeclaredMethods =
+            Collections.newSetFromMap(new WeakHashMap<>());
+
+    /** Null means the verified class file has no matching declaration; false also covers unreadable metadata. */
+    private static Boolean inspectClassfileImplementation(Class<?> owner, Method method) {
+        Map<String, Integer> declarations = getClassfileMethods(owner);
+        if (declarations == UNREADABLE_CLASSFILE) {
+            return false;
+        }
+        Integer access = declarations.get(method.getName() + Type.getMethodDescriptor(method));
+        if (access == null) {
+            return null;
+        }
+        return Modifier.isPublic(access) && !Modifier.isAbstract(access)
+                && !Modifier.isStatic(access) && descriptorTypesMatch(owner, method);
+    }
+
+    /**
+     * Method name plus descriptor mapped to the access flags of the verified class file of
+     * {@code owner}, or {@link #UNREADABLE_CLASSFILE}. Parsed once per class: this runs for every
+     * abstract method of every class whose reflective method table cannot be linked, and a
+     * hierarchy such as Xerces' HTML DOM has hundreds of those, each with a large class file.
+     * Values are plain integers, so the weak keys are not kept alive by the cache.
+     */
+    private static Map<String, Integer> getClassfileMethods(Class<?> owner) {
+        synchronized (classfileMethodsCache) {
+            Map<String, Integer> cached = classfileMethodsCache.get(owner);
+            if (cached != null) {
+                return cached;
+            }
+        }
+        Map<String, Integer> result = readClassfileMethods(owner);
+        synchronized (classfileMethodsCache) {
+            classfileMethodsCache.put(owner, result);
+        }
+        return result;
+    }
+
+    private static final Map<String, Integer> UNREADABLE_CLASSFILE = Collections.unmodifiableMap(new HashMap<>());
+
+    private static final Map<Class<?>, Map<String, Integer>> classfileMethodsCache = new WeakHashMap<>();
+
+    private static Map<String, Integer> readClassfileMethods(Class<?> owner) {
+        String resourceName = owner.getName().replace('.', '/') + ".class";
+        try {
+            URL resource = owner.getResource("/" + resourceName);
+            if (resource == null || !matchesDefiningSource(owner, resource, resourceName)) {
+                return UNREADABLE_CLASSFILE;
+            }
+            try (InputStream stream = resource.openStream()) {
+                ClassReader reader = new ClassReader(stream);
+                if (!reader.getClassName().equals(owner.getName().replace('.', '/'))) {
+                    return UNREADABLE_CLASSFILE;
+                }
+                final Map<String, Integer> declarations = new HashMap<>();
+                reader.accept(new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public MethodVisitor visitMethod(int access, String name, String desc,
+                                                     String signature, String[] exceptions) {
+                        declarations.put(name + desc, access);
+                        return null;
+                    }
+                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                return declarations;
+            }
+        } catch (Throwable t) {
+            logger.debug("Cannot inspect classfile methods of " + owner.getName() + ": " + t);
+            return UNREADABLE_CLASSFILE;
+        }
+    }
+
+    private static boolean matchesDefiningSource(Class<?> owner, URL resource, String resourceName)
+            throws java.io.IOException {
+        CodeSource source = owner.getProtectionDomain().getCodeSource();
+        if (source == null || source.getLocation() == null) {
+            return false;
+        }
+        String location = source.getLocation().toExternalForm();
+        // InstrumentingClassLoader records the exact class resource; URLClassLoader records its root.
+        if (location.equals(resource.toExternalForm())) {
+            return true;
+        }
+        if ("jar".equals(resource.getProtocol())) {
+            JarURLConnection connection = (JarURLConnection) resource.openConnection();
+            return location.equals(connection.getJarFileURL().toExternalForm());
+        }
+        return "file".equals(resource.getProtocol()) && "file".equals(source.getLocation().getProtocol())
+                && location.endsWith("/")
+                && new URL(source.getLocation(), resourceName).toExternalForm().equals(resource.toExternalForm());
+    }
+
+    private static boolean descriptorTypesMatch(Class<?> owner, Method method) {
+        try {
+            if (!descriptorTypeMatches(owner, method.getReturnType())) {
+                return false;
+            }
+            for (Class<?> parameter : method.getParameterTypes()) {
+                if (!descriptorTypeMatches(owner, parameter)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (ClassNotFoundException | LinkageError e) {
+            return false;
+        }
+    }
+
+    private static boolean descriptorTypeMatches(Class<?> owner, Class<?> type) throws ClassNotFoundException {
+        return type.isPrimitive() || Class.forName(type.getName(), false, owner.getClassLoader()) == type;
+    }
+
+    private static boolean isConcretePublicMethod(Method method) {
+        int modifiers = method.getModifiers();
+        return Modifier.isPublic(modifiers) && !Modifier.isAbstract(modifiers)
+                && !Modifier.isStatic(modifiers);
+    }
+
+    private static boolean matchesDescriptor(Method candidate, Method method) {
+        return candidate.getName().equals(method.getName())
+                && candidate.getReturnType().equals(method.getReturnType())
+                && Arrays.equals(candidate.getParameterTypes(), method.getParameterTypes());
+    }
+
+    /** First class-file major version whose source level allows static interface method calls (Java 8). */
+    static final int JAVA_8_CLASS_FILE_MAJOR = 52;
+
+    private static Integer targetMajorVersionOverride;
+    private static String cachedTargetMajorClass;
+    private static int cachedTargetMajor = -1;
+
+    static void setTargetClassFileMajorVersionForTesting(Integer major) {
+        targetMajorVersionOverride = major;
+    }
+
+    /**
+     * Reads the class-file major version of the class under test, or -1 if it cannot be determined.
+     * Suites for projects compiled for an older source level (for example Defects4J builds at
+     * -source 6) are compiled at that level, where a call to a static interface method is an error.
+     */
+    static int targetClassFileMajorVersion() {
+        if (targetMajorVersionOverride != null) {
+            return targetMajorVersionOverride;
+        }
+        String target = Properties.TARGET_CLASS;
+        if (target == null || target.isEmpty()) {
+            return -1;
+        }
+        synchronized (TestUsageChecker.class) {
+            if (target.equals(cachedTargetMajorClass)) {
+                return cachedTargetMajor;
+            }
+            int major = -1;
+            try {
+                major = readClassFileMajorVersion(
+                        org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT(), target);
+            } catch (Throwable t) {
+                logger.debug("Cannot determine class-file version of " + target + ": " + t);
+            }
+            cachedTargetMajorClass = target;
+            cachedTargetMajor = major;
+            return major;
+        }
+    }
+
+    static int readClassFileMajorVersion(ClassLoader loader, String className) throws java.io.IOException {
+        try (InputStream in = loader.getResourceAsStream(className.replace('.', '/') + ".class")) {
+            if (in == null) {
+                return -1;
+            }
+            java.io.DataInputStream data = new java.io.DataInputStream(in);
+            if (data.readInt() != 0xCAFEBABE) {
+                return -1;
+            }
+            data.readUnsignedShort();
+            return data.readUnsignedShort();
+        }
+    }
+
+    private static boolean isStaticInterfaceMethodBeyondTargetLevel(Method m) {
+        if (!m.getDeclaringClass().isInterface() || !Modifier.isStatic(m.getModifiers())) {
+            return false;
+        }
+        int major = targetClassFileMajorVersion();
+        return major > 0 && major < JAVA_8_CLASS_FILE_MAJOR;
+    }
+
+    /**
      * Determine if a method can be used for testing.
      *
      * @param m the method to check
@@ -584,6 +1024,11 @@ public class TestUsageChecker {
 
         if (isCompilerGeneratedEnumMethod(m)) {
             logger.debug("Excluding compiler-generated enum method: " + m);
+            return false;
+        }
+
+        if (isStaticInterfaceMethodBeyondTargetLevel(m)) {
+            logger.debug("Excluding static interface method, which a pre-Java-8 target cannot call: " + m);
             return false;
         }
 
@@ -727,6 +1172,26 @@ public class TestUsageChecker {
         }
         */
 
+        // A class compiled against a leaner version of an interface than the one it is now
+        // loaded against can have its method list contain that interface's own abstract
+        // declaration as if it were a method of the concrete class: nothing in the hierarchy
+        // actually implements it, so invoking it would throw AbstractMethodError. But an abstract
+        // Method object on a concrete ownerClass is not by itself proof of that: the cluster's
+        // TestClusterUtils.getMethods lets an interface's declaration replace an implementation
+        // inherited from a superclass (class C extends Base implements I, with Base.m()
+        // implementing I.m()). Such a Method is still invocable, because the call dispatches
+        // virtually to Base.m(). So reject only when the owner's public methods contain no
+        // concrete method with this name and parameter types. On an interface or abstract
+        // ownerClass an abstract method is legitimately usable (mocked, or routed to a concrete
+        // subtype).
+        if (Modifier.isAbstract(m.getModifiers())
+                && ownerClass != null
+                && !ownerClass.isInterface()
+                && !Modifier.isAbstract(ownerClass.getModifiers())
+                && !hasConcreteImplementation(ownerClass, m)) {
+            return false;
+        }
+
         // If default or
         if (Modifier.isPublic(m.getModifiers())) {
             TestClusterUtils.makeAccessible(m);
@@ -738,9 +1203,13 @@ public class TestUsageChecker {
             // && !Modifier.isProtected(m.getModifiers())) {
             String packageName = ClassUtils.getPackageName(ownerClass);
             String declaredPackageName = ClassUtils.getPackageName(m.getDeclaringClass());
+            // A default-access abstract method is only skipped for ordinary classes, where the
+            // implementation may live in a subclass outside the package. The constants of an
+            // enum with constant-specific bodies are nested in the enum itself, and such an
+            // abstract method is often its only entry point (Jsoup's TokeniserState).
             if (packageName.equals(Properties.CLASS_PREFIX)
                     && packageName.equals(declaredPackageName)
-                    && !Modifier.isAbstract(m.getModifiers())) {
+                    && (!Modifier.isAbstract(m.getModifiers()) || m.getDeclaringClass().isEnum())) {
                 TestClusterUtils.makeAccessible(m);
                 return true;
             }
@@ -811,6 +1280,41 @@ public class TestUsageChecker {
         return m.getName().equals("valueOf")
                 && m.getParameterCount() == 1
                 && m.getParameterTypes()[0].equals(String.class);
+    }
+
+    /**
+     * Whether javac cannot resolve the method from source: bridges, synthetic members (access$NNN
+     * stubs, lambda bodies) and accessor stubs whose modifiers instrumentation may have widened.
+     * Such a method must never be rendered, whatever its visibility. So must a method with a
+     * parameter of a source-private type (or an array of one): no argument for it can be written,
+     * because a test can neither name the type nor cast to it.
+     */
+    public static boolean isNotCallableFromSource(Method m) {
+        return m.isSynthetic() || m.isBridge()
+                || COMPILER_ACCESSOR_NAME.matcher(m.getName()).matches()
+                || hasSourcePrivateParameterType(m);
+    }
+
+    private static boolean hasSourcePrivateParameterType(Method m) {
+        return hasSourcePrivateParameterType(m.getParameterTypes());
+    }
+
+    private static boolean hasSourcePrivateParameterType(Class<?>[] parameterTypes) {
+        for (Class<?> parameter : parameterTypes) {
+            Class<?> element = parameter;
+            while (element.isArray()) {
+                element = element.getComponentType();
+            }
+            for (Class<?> current = element; current != null; current = getDeclaringClassSafely(current)) {
+                if (current == UNRESOLVABLE_OWNER_CLASS) {
+                    break;
+                }
+                if (Modifier.isPrivate(getSourceModifiers(current))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

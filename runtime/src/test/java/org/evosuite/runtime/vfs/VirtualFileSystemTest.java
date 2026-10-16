@@ -74,6 +74,17 @@ public class VirtualFileSystemTest {
     }
 
     @Test
+    public void testAccessedFilesStayBoundedWhenTheSutProbesManyNames() {
+        VirtualFileSystem vfs = VirtualFileSystem.getInstance();
+        String first = new File("probe-0").getAbsolutePath();
+        for (int i = 0; i < 20 * VirtualFileSystem.MAX_ACCESSED_FILES; i++) {
+            vfs.registerAccessedFile("probe-" + i);
+        }
+        Assertions.assertEquals(VirtualFileSystem.MAX_ACCESSED_FILES, vfs.getAccessedFiles().size());
+        Assertions.assertTrue(vfs.getAccessedFiles().contains(first));
+    }
+
+    @Test
     public void testCreateFolderAfterResetBeforeInitDoesNotThrow() {
         VirtualFileSystem.getInstance().resetSingleton();
 
@@ -259,6 +270,74 @@ public class VirtualFileSystemTest {
         deleted = folder.delete();
         Assertions.assertTrue(deleted);
         Assertions.assertFalse(folder.exists());
+    }
+
+    @Test
+    public void testCreatingAnExistingFolderDoesNotDuplicateIt() {
+        String base = System.getProperty("user.dir") + File.separator + "dup_check";
+        String nested = base + File.separator + "inner";
+
+        Assertions.assertTrue(VirtualFileSystem.getInstance().createFolder(nested));
+        // mkdirs on an existing path walks the same folders again
+        Assertions.assertTrue(VirtualFileSystem.getInstance().createFolder(nested));
+        Assertions.assertTrue(VirtualFileSystem.getInstance().createFolder(base));
+
+        MockFile baseFolder = new MockFile(base);
+        Assertions.assertTrue(baseFolder.exists());
+        String[] children = baseFolder.list();
+        Assertions.assertNotNull(children);
+        Assertions.assertEquals(1, children.length,
+                "a folder walked several times must not list its children more than once: "
+                        + Arrays.toString(children));
+        Assertions.assertEquals("inner", children[0]);
+
+        // a duplicate would also survive its own deletion, because removeChild drops one match
+        Assertions.assertTrue(new MockFile(nested).delete());
+        Assertions.assertEquals(0, baseFolder.list().length);
+    }
+
+    @Test
+    public void testListWithFilenameFilterOnExistingEmptyDirectoryIsNeverNull() throws IOException {
+        // Pin the contract: if a MockFile reports exists()==true and isDirectory()==true,
+        // then every listing method must be consistent with that and return a (possibly
+        // empty) array, never null. java.io.File.list()/listFiles() only return null for a
+        // path that is not an existing directory.
+        //
+        // This specifically covers list(FilenameFilter) and listFiles(FilenameFilter), the
+        // two overloads that on a real JDK (9+) go through File's private normalizedList()
+        // helper instead of the public, overridable list(). That helper calls straight into
+        // the real filesystem, so unless MockFile builds these two overloads on top of its
+        // own mocked list(), they silently query the real disk for a directory that only
+        // exists in the VFS - which is exactly how Lucene's FSDirectory.listAll(File) (via
+        // File.list(FilenameFilter)) observed a directory that "exists and is a directory,
+        // but cannot be listed: list() returned null".
+        MockFile dir = new MockFile("empty_dir_" + java.lang.System.nanoTime());
+        Assertions.assertTrue(dir.mkdir());
+        Assertions.assertTrue(dir.exists());
+        Assertions.assertTrue(dir.isDirectory());
+
+        Assertions.assertNotNull(dir.list());
+        Assertions.assertNotNull(dir.list((java.io.FilenameFilter) null));
+        Assertions.assertNotNull(dir.list((name, s) -> true));
+        Assertions.assertNotNull(dir.listFiles());
+        Assertions.assertNotNull(dir.listFiles((java.io.FileFilter) null));
+        Assertions.assertNotNull(dir.listFiles((java.io.FilenameFilter) null));
+        Assertions.assertNotNull(dir.listFiles((f, name) -> true));
+
+        Assertions.assertEquals(0, dir.list().length);
+        Assertions.assertEquals(0, dir.list((name, s) -> true).length);
+        Assertions.assertEquals(0, dir.listFiles((f, name) -> true).length);
+
+        MockFile child = new MockFile(dir, "child.txt");
+        Assertions.assertTrue(child.createNewFile());
+
+        Assertions.assertArrayEquals(new String[]{"child.txt"}, dir.list());
+        Assertions.assertArrayEquals(new String[]{"child.txt"}, dir.list((name, s) -> true));
+        Assertions.assertEquals(0, dir.list((name, s) -> false).length);
+
+        File[] filtered = dir.listFiles((f, name) -> name.equals("child.txt"));
+        Assertions.assertEquals(1, filtered.length);
+        Assertions.assertEquals("child.txt", filtered[0].getName());
     }
 
     @Test

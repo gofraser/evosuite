@@ -880,31 +880,53 @@ public class LlmService implements AutoCloseable {
                     .dependencySummaryMetadata(options.dependencySummaryMetadata)
                     .build());
         } catch (Throwable traceFailure) {
-            logger.warn("LLM trace recording failed; continuing without trace for this call: {}",
-                    traceFailure.getClass().getSimpleName());
-            logger.debug("LLM trace recording failure details", traceFailure);
+            logTraceFailure("call", traceFailure);
         }
     }
 
+    /** A trace is best effort: log a failure to record one and carry on. */
+    private static void logTraceFailure(String what, Throwable traceFailure) {
+        logger.warn("LLM {} trace recording failed; continuing without trace: {}",
+                what, traceFailure.getClass().getSimpleName());
+        logger.debug("LLM {} trace recording failure details", what, traceFailure);
+    }
+
+    /**
+     * Whether trace records are written, so that callers can skip building them otherwise.
+     *
+     * @return true when tracing is enabled
+     */
+    public boolean isTraceEnabled() {
+        return traceRecorder.isTraceEnabled();
+    }
+
+    /**
+     * Records an assertion diagnostic of post-processing in the trace; a failure to write the trace is logged and
+     * does not propagate.
+     *
+     * @param record the diagnostic to record
+     */
     public void recordPostProcessingAssertionDiagnostic(
             LlmTraceRecorder.PostProcessingAssertionDiagnosticRecord record) {
         try {
             traceRecorder.recordPostProcessingAssertionDiagnostic(record);
         } catch (Throwable traceFailure) {
-            logger.warn("LLM post-processing diagnostic trace recording failed; continuing without trace: {}",
-                    traceFailure.getClass().getSimpleName());
-            logger.debug("LLM post-processing diagnostic trace failure details", traceFailure);
+            logTraceFailure("post-processing diagnostic", traceFailure);
         }
     }
 
+    /**
+     * Records an assertion lifecycle event of post-processing in the trace; a failure to write the trace is logged
+     * and does not propagate.
+     *
+     * @param record the lifecycle event to record
+     */
     public void recordPostProcessingAssertionLifecycle(
             LlmTraceRecorder.PostProcessingAssertionLifecycleRecord record) {
         try {
             traceRecorder.recordPostProcessingAssertionLifecycle(record);
         } catch (Throwable traceFailure) {
-            logger.warn("LLM post-processing lifecycle trace recording failed; continuing without trace: {}",
-                    traceFailure.getClass().getSimpleName());
-            logger.debug("LLM post-processing lifecycle trace failure details", traceFailure);
+            logTraceFailure("post-processing lifecycle", traceFailure);
         }
     }
 

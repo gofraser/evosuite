@@ -85,23 +85,128 @@ public class Sandbox {
      */
     private static volatile int counter;
 
+    /**
+     * Threads that were given up on while they may still be running SUT or
+     * scaffolding code (e.g. the JUnit check runner after a timeout). The sandbox
+     * state is process-global, so once the lock of such a thread has been
+     * reclaimed for somebody else, whatever the orphan does to that state when it
+     * eventually unwinds would corrupt the state of the thread that is legitimately
+     * using the sandbox now. State-changing calls from these threads are ignored.
+     */
+    private static final Set<Thread> abandonedThreads =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(
+                    new java.util.WeakHashMap<Thread, Boolean>()));
+
+    /**
+     * Marks a thread as abandoned and reclaims the sandbox lock it may hold. From
+     * now on its calls that would change the global sandbox state are no-ops.
+     *
+     * @param lostOwner the thread that was given up on, may be null
+     * @return true if a leaked lock was reclaimed
+     */
+    public static boolean abandonThread(Thread lostOwner) {
+        if (lostOwner == null) {
+            return false;
+        }
+        abandonedThreads.add(lostOwner);
+        return reclaimSandboxLockOwnedBy(lostOwner);
+    }
+
+    /**
+     * Lifts the abandonment of a thread that is about to be used again, e.g. a
+     * pooled worker that starts a new test after having timed out on an earlier
+     * one. Its state-changing sandbox calls take effect again.
+     *
+     * @param thread the thread to reinstate, may be null
+     */
+    public static void reinstateThread(Thread thread) {
+        if (thread != null && !abandonedThreads.isEmpty()) {
+            abandonedThreads.remove(thread);
+        }
+    }
+
+    private static boolean isCurrentThreadAbandoned(String call) {
+        if (abandonedThreads.isEmpty() || !abandonedThreads.contains(Thread.currentThread())) {
+            return false;
+        }
+        logger.debug("Ignoring Sandbox.{}() from abandoned thread '{}'", call,
+                Thread.currentThread().getName());
+        return true;
+    }
+
     private static boolean checkForInitialization = false;
     /**
      * Tracks per-thread temporary privilege downgrades while executing SUT code.
      * A value > 0 means the current thread was privileged and has been switched to
      * sandboxed checks via {@link MSecurityManager#goingToExecuteUnsafeCodeOnSameThread()}.
      */
-    private static final ThreadLocal<Integer> privilegedDowngradeDepth =
-            ThreadLocal.withInitial(() -> 0);
+    private static final java.util.Map<Thread, Integer> privilegedDowngradeDepth =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
+     * Kept per thread in a map of its own rather than in a {@link ThreadLocal}: SUT code that
+     * clears the thread locals of every thread (Liferay's ClearThreadLocalUtil does, through
+     * reflection) would reset the depth to 0, so the thread would never be restored to its
+     * privileged state and could not write the generated tests afterwards.
+     */
+    private static int downgradeDepthOf(Thread t) {
+        Integer depth = privilegedDowngradeDepth.get(t);
+        return depth == null ? 0 : depth;
+    }
+
+    private static void setDowngradeDepth(Thread t, int depth) {
+        if (depth <= 0) {
+            privilegedDowngradeDepth.remove(t);
+        } else {
+            privilegedDowngradeDepth.put(t, depth);
+        }
+    }
 
     public static void setCheckForInitialization(boolean checkForInitialization) {
         Sandbox.checkForInitialization = checkForInitialization;
     }
 
     /**
+     * While set, no thread may exit the JVM, privileged or not, and taking the sandbox down
+     * leaves a manager in place that refuses just that, instead of the manager the sandbox
+     * replaced.
+     *
+     * <p>This is for running generated tests in the process that generated them (the JUnit
+     * check). That takes the sandbox down for the run, and a generated test brings up its own
+     * only between its class set-up and clean-up, which makes every thread alive at that moment
+     * privileged. SUT threads left over from earlier tests keep running all along, and once a
+     * test has turned the mock framework off their {@code System.exit} calls are no longer
+     * replaced: one that came while no manager was installed ended the process, and the suite
+     * it had generated was lost.
+     *
+     * @param refused whether exiting the JVM is refused
+     */
+    public static synchronized void setJvmExitRefused(boolean refused) {
+        MSecurityManager.setJvmExitRefused(refused);
+        if (refused) {
+            return;
+        }
+        SecurityManager current = System.getSecurityManager();
+        if (current instanceof ExitRefusingSecurityManager) {
+            try {
+                System.setSecurityManager(((ExitRefusingSecurityManager) current).getReplacedManager());
+            } catch (SecurityException | UnsupportedOperationException e) {
+                logger.warn("Cannot remove the manager that refused to exit the JVM: {}", e.toString());
+            }
+        }
+    }
+
+    public static boolean isJvmExitRefused() {
+        return MSecurityManager.isJvmExitRefused();
+    }
+
+    /**
      * Create and initialize security manager for SUT.
      */
     public static synchronized void initializeSecurityManagerForSUT(Set<Thread> privileged) {
+        if (isCurrentThreadAbandoned("initializeSecurityManagerForSUT")) {
+            return;
+        }
         if (!SECURITY_MANAGER_SUPPORTED) {
             // On Java 24+, Security Manager is not supported.
             // We still increment counter to maintain symmetry with resetDefaultSecurityManager()
@@ -174,6 +279,9 @@ public class Sandbox {
      *     if then we want to reactivate the security manager with the same priviliged threads.
      */
     public static synchronized Set<Thread> resetDefaultSecurityManager() {
+        if (isCurrentThreadAbandoned("resetDefaultSecurityManager")) {
+            return null;
+        }
 
         Set<Thread> privileged = null;
         if (manager != null) {
@@ -193,9 +301,11 @@ public class Sandbox {
                 try {
                     oldManager.restoreDefaultManager();
                 } catch (SecurityException e) {
+                    manager = oldManager;
+                    counter++;
                     SecurityManager currentManager = System.getSecurityManager();
                     logger.warn("Cannot restore default SecurityManager; current JVM manager is {}. "
-                                    + "Sandbox internal state was cleared for recovery.",
+                                    + "Sandbox internal state was retained for recovery.",
                             currentManager == null ? "null" : currentManager.getClass().getName(), e);
                 }
             }
@@ -217,6 +327,9 @@ public class Sandbox {
      * Call before starting executing SUT code.
      */
     public static void goingToExecuteSUTCode() {
+        if (isCurrentThreadAbandoned("goingToExecuteSUTCode")) {
+            return;
+        }
         if (!isSecurityManagerInitialized()) {
             if (checkForInitialization && SECURITY_MANAGER_SUPPORTED) {
                 logger.error("Sandbox is not initialized!");
@@ -232,7 +345,8 @@ public class Sandbox {
              */
             manager.goingToExecuteUnsafeCodeOnSameThread();
             downgraded = true;
-            privilegedDowngradeDepth.set(privilegedDowngradeDepth.get() + 1);
+            Thread self = Thread.currentThread();
+            setDowngradeDepth(self, downgradeDepthOf(self) + 1);
         } catch (SecurityException ignored) {
             // Non-privileged threads are already sandboxed.
         } catch (IllegalStateException e) {
@@ -253,6 +367,9 @@ public class Sandbox {
      * Call after finishing executing SUT code.
      */
     public static void doneWithExecutingSUTCode() {
+        if (isCurrentThreadAbandoned("doneWithExecutingSUTCode")) {
+            return;
+        }
         if (!isSecurityManagerInitialized()) {
             if (checkForInitialization && SECURITY_MANAGER_SUPPORTED) {
                 logger.error("Sandbox is not initialized!");
@@ -312,12 +429,13 @@ public class Sandbox {
     }
 
     private static void restorePrivilegedThreadIfDowngraded() {
-        int depth = privilegedDowngradeDepth.get();
+        Thread self = Thread.currentThread();
+        int depth = downgradeDepthOf(self);
         if (depth <= 0) {
             return;
         }
         if (manager == null) {
-            privilegedDowngradeDepth.remove();
+            setDowngradeDepth(self, 0);
             return;
         }
         try {
@@ -325,12 +443,7 @@ public class Sandbox {
         } catch (SecurityException | IllegalStateException e) {
             logger.debug("Ignoring sandbox privilege restore race: {}", e.getMessage());
         } finally {
-            int updated = depth - 1;
-            if (updated <= 0) {
-                privilegedDowngradeDepth.remove();
-            } else {
-                privilegedDowngradeDepth.set(updated);
-            }
+            setDowngradeDepth(self, depth - 1);
         }
     }
 
@@ -354,7 +467,7 @@ public class Sandbox {
      */
     public static void goingToExecuteUnsafeCodeOnSameThread() throws SecurityException,
             IllegalStateException {
-        if (!isSecurityManagerInitialized()) {
+        if (!isSecurityManagerInitialized() || isCurrentThreadAbandoned("goingToExecuteUnsafeCodeOnSameThread")) {
             return;
         }
         manager.goingToExecuteUnsafeCodeOnSameThread();
@@ -368,7 +481,7 @@ public class Sandbox {
      */
     public static void doneWithExecutingUnsafeCodeOnSameThread()
             throws SecurityException, IllegalStateException {
-        if (!isSecurityManagerInitialized()) {
+        if (!isSecurityManagerInitialized() || isCurrentThreadAbandoned("doneWithExecutingUnsafeCodeOnSameThread")) {
             return;
         }
         manager.doneWithExecutingUnsafeCodeOnSameThread();

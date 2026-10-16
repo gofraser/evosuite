@@ -22,7 +22,9 @@ package org.evosuite.testcase.dmon;
 import org.evosuite.Properties;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -36,6 +38,14 @@ public class DmonNpeAnalyzerTest {
         static Runnable dep;
 
         public AsmFallbackTarget() {
+            dep.run();
+        }
+    }
+
+    public static class AsmFallbackMethodTarget {
+        static Runnable dep;
+
+        public static void trigger() {
             dep.run();
         }
     }
@@ -106,6 +116,54 @@ public class DmonNpeAnalyzerTest {
             Properties.DMON_ASM_FALLBACK = oldAsm;
             Properties.TARGET_CLASS = oldTargetClass;
             AsmFallbackTarget.dep = null;
+        }
+    }
+
+    @Test
+    public void asmFallbackInfersFieldAndTypeForMethodStatementWhenHelpfulNpeParsingIsDisabled() throws Exception {
+        // Analogue of asmFallbackInfersFieldAndTypeWhenHelpfulNpeParsingIsDisabled() for a
+        // MethodStatement failure site. Before the method-invocation generalisation,
+        // DmonNpeAnalyzer had no analyzeMethodNpe entry point and the Method-specific branch
+        // of analyzeWithAsmFallback (Type.getMethodDescriptor) did not exist.
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldHelpful = Properties.DMON_HELPFUL_NPE_PARSE;
+        boolean oldAsm = Properties.DMON_ASM_FALLBACK;
+        String oldTargetClass = Properties.TARGET_CLASS;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_HELPFUL_NPE_PARSE = false;
+            Properties.DMON_ASM_FALLBACK = true;
+            Properties.TARGET_CLASS = AsmFallbackMethodTarget.class.getCanonicalName();
+
+            AsmFallbackMethodTarget.dep = null;
+            NullPointerException npe = captureMethodNpe();
+            Assert.assertNotNull(npe);
+
+            DefaultTestCase test = new DefaultTestCase();
+            GenericMethod gm = new GenericMethod(
+                    AsmFallbackMethodTarget.class.getMethod("trigger"), AsmFallbackMethodTarget.class);
+            MethodStatement statement = new MethodStatement(test, gm, null, Collections.emptyList());
+
+            DmonNpeAnalyzer analyzer = new DmonNpeAnalyzer();
+            Optional<DmonPromotionPlan> maybePlan = analyzer.analyzeMethodNpe(statement, npe);
+
+            Assert.assertTrue(maybePlan.isPresent());
+            DmonPromotionPlan plan = maybePlan.get();
+            Assert.assertEquals(DmonFailureSiteKind.METHOD_INVOCATION, plan.getFailureSite().getKind());
+            Assert.assertTrue("ASM fallback should infer a member token", plan.getMemberToken().isPresent());
+            Assert.assertTrue("ASM fallback should infer dependency type",
+                    plan.getInferredMissingTypeName().isPresent());
+            Assert.assertTrue("ASM fallback inferred type should be a reference type",
+                    plan.getInferredMissingTypeName().get().contains("."));
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_HELPFUL_NPE_PARSE = oldHelpful;
+            Properties.DMON_ASM_FALLBACK = oldAsm;
+            Properties.TARGET_CLASS = oldTargetClass;
+            AsmFallbackMethodTarget.dep = null;
         }
     }
 
@@ -213,6 +271,17 @@ public class DmonNpeAnalyzerTest {
                             "DmonNpeAnalyzerTest.java",
                             37)
             });
+            return npe;
+        }
+    }
+
+    private static NullPointerException captureMethodNpe() {
+        try {
+            AsmFallbackMethodTarget.trigger();
+            return null;
+        } catch (NullPointerException npe) {
+            // Use the actual stack trace, so the line number matches the compiled
+            // bytecode of trigger() exactly (no need to hardcode a source line).
             return npe;
         }
     }

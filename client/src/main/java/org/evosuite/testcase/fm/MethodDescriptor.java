@@ -21,14 +21,20 @@ package org.evosuite.testcase.fm;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericMethod;
 import org.mockito.Mockito;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.GenericDeclaration;
@@ -40,11 +46,13 @@ import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 
 
@@ -160,6 +168,11 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         return resolved;
     }
 
+    /**
+     * Checks whether a parameter type of the method is a type variable or wildcard.
+     * @param method the method to inspect
+     * @return true if at least one generic parameter type is unresolved
+     */
     public static boolean hasUnresolvedGenericParameterTypes(Method method) {
         for (Type type : method.getGenericParameterTypes()) {
             if (type instanceof TypeVariable || type instanceof WildcardType) {
@@ -304,9 +317,16 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
             return "anyCollection()";
         } else if (type.equals(Iterable.class)) {
             return "anyIterable()";
-        } else if (type.equals(Object.class)) {
-            return "any()";
         } else {
+            // Includes Object.class: a bare any() returns an unconstrained <T> T, which
+            // javac cannot use to disambiguate an overload set like format(X, Y, Object)
+            // vs. format(X, Y, Object[]) vs. format(X, Y, SomeType). Every other branch
+            // above already renders a matcher whose return type is fixed (anyInt(),
+            // anyString(), anyList(), ...); route Object (and everything else that is not
+            // specially handled) through the same nullable(ActualType.class) form so the
+            // matcher's static type matches the declared parameter type exactly. This is
+            // also what executeMatcher already falls back to for Object.class, so source
+            // and live execution agree.
             String name = type.getCanonicalName();
             if (name == null) {
                 name = type.getName();
@@ -326,6 +346,141 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
     }
 
     /**
+     * The method a synthetic bridge forwards to: the non-bridge method of the bridge's class
+     * with the same name and arity whose parameter and return types are subtypes of the
+     * bridge's. Source code naming the method binds to that method, so matchers have to be
+     * built from its parameter types, not from the bridge's erased ones.
+     *
+     * @param method a method, possibly a bridge
+     * @return the bridged method, or {@code method} if it is no bridge or the target is not unique
+     */
+    public static Method resolveBridgedMethod(Method method) {
+        if (method == null || !method.isBridge()) {
+            return method;
+        }
+        Class<?>[] bridgeParameters = method.getParameterTypes();
+        Method target = null;
+        try {
+            for (Method candidate : method.getDeclaringClass().getDeclaredMethods()) {
+                if (candidate.isBridge() || Modifier.isStatic(candidate.getModifiers())
+                        || !candidate.getName().equals(method.getName())
+                        || candidate.getParameterCount() != bridgeParameters.length
+                        || !method.getReturnType().isAssignableFrom(candidate.getReturnType())) {
+                    continue;
+                }
+                Class<?>[] candidateParameters = candidate.getParameterTypes();
+                boolean narrower = true;
+                for (int i = 0; i < bridgeParameters.length && narrower; i++) {
+                    narrower = bridgeParameters[i].isAssignableFrom(candidateParameters[i]);
+                }
+                if (!narrower) {
+                    continue;
+                }
+                if (target != null) {
+                    return method;
+                }
+                target = candidate;
+            }
+        } catch (LinkageError e) {
+            return method;
+        }
+        return target == null ? method : target;
+    }
+
+    /**
+     * Whether a functional mock can usefully stub {@code method} at all: it returns a value, is
+     * not one of the identity methods, is not private, and was not final in the original
+     * bytecode.
+     */
+    public static boolean isStubbable(Method method) {
+        if (method.getReturnType().equals(Void.TYPE)
+                || method.getName().equals("equals")
+                || method.getName().equals("hashCode")
+                || method.getName().equals("toString")
+                || Modifier.isPrivate(method.getModifiers())) {
+            return false;
+        }
+        // Final in the original bytecode. Stubbing it works during the search only
+        // because InstrumentingClassLoader stripped the modifier; the generated test's
+        // JVM usually loads the class unstripped (the verifier resolves it before the
+        // runtime agent is active, and retransformation cannot change modifiers), and
+        // there Mockito's subclass mock maker runs the real method instead of the
+        // stub. Leave it unstubbed so search and test see the same default answer.
+        return !wasOriginallyFinal(method);
+    }
+
+    /**
+     * Whether {@code method} was final before InstrumentingClassLoader stripped the modifier,
+     * as far as the generated test's JVM is concerned. With use_separate_classloader the test
+     * JVM instruments the class as well, so nothing counts as originally final.
+     */
+    public static boolean wasOriginallyFinal(Method method) {
+        return !Properties.USE_SEPARATE_CLASSLOADER && RemoveFinalClassAdapter.isFinalMethod(method);
+    }
+
+    /**
+     * The class-level counterpart of {@link #wasOriginallyFinal(Method)}.
+     */
+    public static boolean wasOriginallyFinal(Class<?> clazz) {
+        if (Properties.USE_SEPARATE_CLASSLOADER) {
+            return false;
+        }
+        if (RemoveFinalClassAdapter.finalClasses.contains(clazz.getName())) {
+            return true;
+        }
+        // The set only knows classes whose definition went through an instrumenting adapter
+        // since the last reset. A class defined earlier, by another loader, or on a path that
+        // does not record finality would otherwise be admitted as mockable although the test
+        // JVM loads it final. Ask the original class file.
+        return !clazz.isPrimitive() && !clazz.isArray() && classFileIsFinal(clazz);
+    }
+
+    private static final Map<Class<?>, Boolean> CLASS_FILE_FINAL =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
+    /**
+     * Whether the class file of {@code clazz} declares ACC_FINAL (including the InnerClasses
+     * entry for member classes). Unreadable class files count as not final.
+     */
+    private static boolean classFileIsFinal(Class<?> clazz) {
+        Boolean cached = CLASS_FILE_FINAL.get(clazz);
+        if (cached != null) {
+            return cached;
+        }
+        boolean[] found = {false};
+        String resource = clazz.getName().replace('.', '/') + ".class";
+        String internalName = clazz.getName().replace('.', '/');
+        ClassLoader loader = clazz.getClassLoader();
+        try (InputStream input = loader == null
+                ? ClassLoader.getSystemResourceAsStream(resource)
+                : loader.getResourceAsStream(resource)) {
+            if (input != null) {
+                new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visit(int version, int access, String name, String signature,
+                                      String superName, String[] interfaces) {
+                        if (name.equals(internalName) && (access & Opcodes.ACC_FINAL) != 0) {
+                            found[0] = true;
+                        }
+                    }
+
+                    @Override
+                    public void visitInnerClass(String name, String outerName, String innerName,
+                                                int access) {
+                        if (name.equals(internalName) && (access & Opcodes.ACC_FINAL) != 0) {
+                            found[0] = true;
+                        }
+                    }
+                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            }
+        } catch (IOException | RuntimeException e) {
+            logger.debug("Cannot read the class file of {}", clazz.getName(), e);
+        }
+        CLASS_FILE_FINAL.put(clazz, found[0]);
+        return found[0];
+    }
+
+    /**
      * For example, do not mock methods with no return value.
      *
      * @return .
@@ -334,12 +489,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
 
         int modifiers = method.getMethod().getModifiers();
 
-        if (method.getReturnType().equals(Void.TYPE)
-                || method.getName().equals("equals")
-                || method.getName().equals("hashCode")
-                || method.getName().equals("toString")
-                || Modifier.isPrivate(modifiers)) {
-
+        if (!isStubbable(method.getMethod())) {
             return false;
         }
 

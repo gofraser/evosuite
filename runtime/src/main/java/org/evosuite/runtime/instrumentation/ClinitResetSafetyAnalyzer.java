@@ -198,26 +198,37 @@ public final class ClinitResetSafetyAnalyzer {
      * @param reader a fresh {@link ClassReader} over the original,
      *               uninstrumented bytecode
      * @return true if {@code __STATIC_RESET()} should not be generated for
-     * this class
+     *     this class
      */
     public static boolean isUnsafeToReplayClinit(ClassReader reader) {
+        // Field and method declarations decide most classes; only parse code when they pass.
+        ClassNode skeleton = new ClassNode();
+        reader.accept(skeleton, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        if (!passesDeclarationFilter(skeleton)) {
+            return false;
+        }
         ClassNode cn = new ClassNode();
         reader.accept(cn, ClassReader.SKIP_FRAMES);
-        return isUnsafeToReplayClinit(cn);
+        return clinitReachesResourceScan(cn);
     }
 
     static boolean isUnsafeToReplayClinit(ClassNode cn) {
-        if (NEVER_SKIP_EXACT_CLASSES.contains(cn.name.replace('/', '.'))) {
-            return false;
-        }
+        return passesDeclarationFilter(cn) && clinitReachesResourceScan(cn);
+    }
+
+    /**
+     * The checks that need only the class's declarations: not exempted, has a {@code <clinit>},
+     * and has the fields of a registry.
+     */
+    private static boolean passesDeclarationFilter(ClassNode cn) {
+        return !NEVER_SKIP_EXACT_CLASSES.contains(cn.name.replace('/', '.'))
+                && findMethod(cn, "<clinit>", null) != null
+                && hasRegistryFieldSignal(cn);
+    }
+
+    private static boolean clinitReachesResourceScan(ClassNode cn) {
         MethodNode clinit = findMethod(cn, "<clinit>", null);
-        if (clinit == null || clinit.instructions == null) {
-            return false;
-        }
-        if (!hasRegistryFieldSignal(cn)) {
-            return false;
-        }
-        return reachesResourceScanCall(cn, clinit);
+        return clinit != null && clinit.instructions != null && reachesResourceScanCall(cn, clinit);
     }
 
     private static boolean hasRegistryFieldSignal(ClassNode cn) {

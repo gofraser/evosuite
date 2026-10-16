@@ -23,6 +23,9 @@ import org.evosuite.utils.ParameterizedTypeImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
+import org.mockito.invocation.DescribedInvocation;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.listeners.MethodInvocationReport;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
@@ -73,6 +76,50 @@ public class EvoInvocationListenerTest {
 
         List<MethodDescriptor> list = listener.getCopyOfMethodDescriptors();
         Assertions.assertEquals(1, list.size());
+    }
+
+    @Test
+    public void testRepeatedCallsOfResolvedGenericMethodBuildOneDescriptor() {
+        // The descriptor of genericAsInput is stored under its resolved matcher (String), while
+        // Mockito reports the erased parameter (Object); repeated calls must still hit the cache.
+        ParameterizedTypeImpl type = new ParameterizedTypeImpl(AGenericClass.class, new Type[]{String.class}, null);
+        EvoInvocationListener listener = new EvoInvocationListener(type);
+        AGenericClass<String> aGenericClass = (AGenericClass<String>) mock(AGenericClass.class, withSettings().invocationListeners(listener));
+        listener.activate();
+
+        aGenericClass.genericAsInput("foo");
+        aGenericClass.genericAsInput("bar");
+        aGenericClass.genericAsInput("baz");
+
+        List<MethodDescriptor> list = listener.getCopyOfMethodDescriptors();
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertEquals(3, list.get(0).getCounter());
+        Assertions.assertEquals(1, listener.getDescriptorsBuiltForTests());
+    }
+
+    public abstract static class AnAbstractClass {
+        public abstract int abstractMethod();
+
+        public int concreteMethod() {
+            return 0;
+        }
+    }
+
+    @Test
+    public void testRepeatedCallsOfIgnoredConcreteMethodBuildOneDescriptor() {
+        EvoInvocationListener listener = new EvoAbstractMethodInvocationListener(AnAbstractClass.class);
+        AnAbstractClass mock = mock(AnAbstractClass.class, withSettings().invocationListeners(listener));
+        listener.activate();
+
+        mock.concreteMethod();
+        mock.concreteMethod();
+        mock.abstractMethod();
+        mock.abstractMethod();
+
+        List<MethodDescriptor> list = listener.getCopyOfMethodDescriptors();
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertEquals(2, list.get(0).getCounter());
+        Assertions.assertEquals(2, listener.getDescriptorsBuiltForTests());
     }
 
     @Test
@@ -136,5 +183,52 @@ public class EvoInvocationListenerTest {
 
         list = listener.getCopyOfMethodDescriptors();
         Assertions.assertEquals(4, list.size());
+    }
+
+    /**
+     * A SUT thread left over from an earlier execution may keep invoking a mock while the
+     * search thread reads the listener. Readers must not trip over the writers.
+     */
+    @Test
+    public void testReadingWhileInvocationsAreReported() throws Exception {
+        List<Method> methods = new java.util.ArrayList<>();
+        for (Method m : java.util.Arrays.class.getMethods()) {
+            methods.add(m);
+        }
+        java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        for (int round = 0; round < 200 && failure.get() == null; round++) {
+            EvoInvocationListener listener = new EvoInvocationListener(Object.class);
+            listener.activate();
+            java.util.concurrent.atomic.AtomicBoolean done =
+                    new java.util.concurrent.atomic.AtomicBoolean(false);
+            Thread writer = new Thread(() -> {
+                try {
+                    for (Method m : methods) {
+                        InvocationOnMock invocation = mock(InvocationOnMock.class,
+                                withSettings().extraInterfaces(DescribedInvocation.class));
+                        when(invocation.getMethod()).thenReturn(m);
+                        MethodInvocationReport report = mock(MethodInvocationReport.class);
+                        when(report.getInvocation()).thenReturn((DescribedInvocation) invocation);
+                        listener.reportInvocation(report);
+                    }
+                } catch (Throwable t) {
+                    failure.compareAndSet(null, t);
+                } finally {
+                    done.set(true);
+                }
+            });
+            writer.start();
+            try {
+                while (!done.get()) {
+                    listener.getCopyOfMethodDescriptors();
+                    listener.changeClassLoader(getClass().getClassLoader());
+                }
+            } catch (Throwable t) {
+                failure.compareAndSet(null, t);
+            }
+            writer.join();
+        }
+        assertEquals(null, failure.get());
     }
 }

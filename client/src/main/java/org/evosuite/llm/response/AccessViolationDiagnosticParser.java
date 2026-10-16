@@ -52,6 +52,13 @@ public final class AccessViolationDiagnosticParser {
         private final String accessLevel;
         private final String declaringClass;
 
+        /**
+         * Creates a record of one access violation reported by the compiler.
+         *
+         * @param memberName the member that could not be accessed
+         * @param accessLevel the access level of the member, "private" or "protected"
+         * @param declaringClass the class declaring the member
+         */
         public AccessViolation(String memberName, String accessLevel, String declaringClass) {
             this.memberName = memberName;
             this.accessLevel = accessLevel;
@@ -85,8 +92,12 @@ public final class AccessViolationDiagnosticParser {
 
         @Override
         public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
             AccessViolation that = (AccessViolation) o;
             return memberName.equals(that.memberName)
                     && accessLevel.equals(that.accessLevel)
@@ -106,12 +117,14 @@ public final class AccessViolationDiagnosticParser {
     // or: "fieldName has protected access in DeclaringClass"
     // The member name may include parameter types in parentheses for methods.
     private static final Pattern ACCESS_IN_PATTERN = Pattern.compile(
-            "([A-Za-z_][A-Za-z0-9_$]*(?:\\([^)]*\\))?)\\s+has\\s+(private|protected)\\s+access\\s+in\\s+([A-Za-z_][A-Za-z0-9_$.]*)",
+            "([A-Za-z_][A-Za-z0-9_$]*(?:\\([^)]*\\))?)\\s+has\\s+(private|protected)\\s+access\\s+in"
+                    + "\\s+([A-Za-z_][A-Za-z0-9_$.]*)",
             Pattern.CASE_INSENSITIVE);
 
     // javac diagnostic: "SomeType is not public in package.name; cannot be accessed from outside package"
     private static final Pattern NOT_PUBLIC_IN_PACKAGE_PATTERN = Pattern.compile(
-            "([A-Za-z_][A-Za-z0-9_$.]*)\\s+is\\s+not\\s+public\\s+in\\s+([A-Za-z_][A-Za-z0-9_$.]*);\\s*cannot\\s+be\\s+accessed\\s+from\\s+outside\\s+package",
+            "([A-Za-z_][A-Za-z0-9_$.]*)\\s+is\\s+not\\s+public\\s+in\\s+([A-Za-z_][A-Za-z0-9_$.]*);"
+                    + "\\s*cannot\\s+be\\s+accessed\\s+from\\s+outside\\s+package",
             Pattern.CASE_INSENSITIVE);
 
     /**

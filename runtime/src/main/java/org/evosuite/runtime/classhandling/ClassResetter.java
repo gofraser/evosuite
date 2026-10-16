@@ -126,6 +126,25 @@ public class ClassResetter {
         this.loader = loader;
     }
 
+    /**
+     * Forgets everything cached for the given class loader. The cached reset methods belong to
+     * classes defined by that loader, so as long as they are cached the loader, and every class
+     * it defined, stays reachable. If the loader is the current one it is dropped as well; the
+     * next reset then needs a new {@link #setClassLoader(ClassLoader)} call.
+     *
+     * @param classLoader the class loader that is no longer used
+     */
+    public synchronized void releaseClassLoader(ClassLoader classLoader) {
+        if (classLoader == null) {
+            return;
+        }
+        resetMethodCache.remove(classLoader);
+        poisonedClasses.remove(classLoader);
+        if (loader == classLoader) {
+            loader = null;
+        }
+    }
+
 
     /**
      * Only log once for a class.

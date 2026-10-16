@@ -114,6 +114,11 @@ public final class StagnationLlmHelper {
     private final AtomicLong stagnationResponsesReceived = new AtomicLong();
     private final AtomicLong stagnationTestsPublished = new AtomicLong();
 
+    /**
+     * Creates a helper using the configured stagnation mode and budget guard.
+     * @param detector detects stagnation and builds prompts
+     * @param remainingBudgetSecondsSupplier supplies the remaining search budget in seconds
+     */
     public StagnationLlmHelper(StagnationDetector detector,
                                LongSupplier remainingBudgetSecondsSupplier) {
         this(detector,
@@ -270,6 +275,8 @@ public final class StagnationLlmHelper {
             case ASYNC:
                 runAsync(prompt);
                 break;
+            default:
+                break;
         }
     }
 
@@ -367,32 +374,18 @@ public final class StagnationLlmHelper {
             future.cancel(true);
             // Wall-clock timeout: the call never produced a response — don't penalize
             // the repeated-injection cooldown for what is effectively a non-delivery.
-            if (hardShutdown) {
-                return;
-            }
-            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            traceOutcome("timeout:sync", coveredCount, uncoveredSize, targetCount, elapsedMs, 0);
+            recordSyncNonResponse(registration, false, "timeout:sync", t0, coveredCount, uncoveredSize, targetCount);
             return;
         } catch (CancellationException e) {
             // Cancelled before completion — treat as non-delivery.
-            if (hardShutdown) {
-                return;
-            }
-            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            traceOutcome("cancelled:sync", coveredCount, uncoveredSize, targetCount, elapsedMs, 0);
+            recordSyncNonResponse(registration, false, "cancelled:sync", t0, coveredCount, uncoveredSize, targetCount);
             return;
         } catch (InterruptedException e) {
             future.cancel(true);
             Thread.currentThread().interrupt();
             // Interrupt during the wait — non-delivery.
-            if (hardShutdown) {
-                return;
-            }
-            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            traceOutcome("interrupted:sync", coveredCount, uncoveredSize, targetCount, elapsedMs, 0);
+            recordSyncNonResponse(registration, false, "interrupted:sync", t0, coveredCount, uncoveredSize,
+                    targetCount);
             return;
         } catch (ExecutionException e) {
             // Worker raised an exception while executing the call — the call was
@@ -401,12 +394,7 @@ public final class StagnationLlmHelper {
             Throwable cause = e.getCause();
             logger.debug("Sync stagnation call failed: {}",
                     cause == null ? e.toString() : cause.toString());
-            if (hardShutdown) {
-                return;
-            }
-            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            traceOutcome("error:sync", coveredCount, uncoveredSize, targetCount, elapsedMs, 0);
+            recordSyncNonResponse(registration, true, "error:sync", t0, coveredCount, uncoveredSize, targetCount);
             return;
         }
         synchronized (lifecycleLock) {
@@ -420,6 +408,25 @@ public final class StagnationLlmHelper {
             traceOutcome("completed:sync", coveredCount, uncoveredSize, targetCount, elapsedMs, produced);
             publishTests(tests, prompt, registration);
         }
+    }
+
+    /**
+     * Settles a sync call that produced no tests. Only a delivered call ({@code delivered}) counts
+     * against the repeated-injection cooldown; a non-delivery just releases its attempt.
+     */
+    private void recordSyncNonResponse(RepeatedInjectionMemory.PromptAttemptRegistration registration,
+                                       boolean delivered, String label, long t0,
+                                       int coveredCount, int uncoveredSize, int targetCount) {
+        if (hardShutdown) {
+            return;
+        }
+        if (delivered) {
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+        } else {
+            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
+        }
+        long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+        traceOutcome(label, coveredCount, uncoveredSize, targetCount, elapsedMs, 0);
     }
 
     private long computeSyncWaitSeconds() {
@@ -587,6 +594,11 @@ public final class StagnationLlmHelper {
         return candidate == null ? Collections.<ProblemCardType>emptyList() : candidate.getDiagnosticCardTypes();
     }
 
+    /**
+     * Removes and returns the metadata of the injection attempt that produced a candidate.
+     * @param candidate the candidate test, may be null
+     * @return the attempt metadata, or null if there is none
+     */
     public InjectionAttemptMetadata consumeAttemptMetadata(TestChromosome candidate) {
         if (candidate == null) {
             return null;
@@ -642,9 +654,9 @@ public final class StagnationLlmHelper {
      *
      * <pre>stagnation outcome={x} mode={SYNC|ASYNC} covered={n} uncovered={n} targets={n} latencyMs={n} tests={n}</pre>
      *
-     * {@code uncovered} is the true count of goals not yet covered; {@code targets} is how many
-     * of them the prompt listed (DynaMOSA narrows this to its frontier). Cheap (single SLF4J
-     * call, guarded by isDebugEnabled).
+     * <p>{@code uncovered} is the true count of goals not yet covered; {@code targets} is how many
+     * of them the prompt listed (DynaMOSA narrows this to its frontier). Cheap (single SLF4J call,
+     * guarded by isDebugEnabled).
      */
     private void traceOutcome(String outcome, int coveredCount, int uncoveredSize, int targetCount,
                               long latencyMs, int testsProduced) {

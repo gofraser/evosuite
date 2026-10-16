@@ -107,7 +107,10 @@ public class Reflection {
      */
     public static int getModifiers(Class<?> clazz) {
         int modifier = clazz.getModifiers();
-        if (RemoveFinalClassAdapter.finalClasses.contains(clazz.getCanonicalName())) {
+        // finalClasses is keyed by binary name (nested classes use '$', as produced by
+        // the ASM internal name with '/' replaced by '.'); getCanonicalName() would use
+        // '.' for nested classes too and so never match them.
+        if (RemoveFinalClassAdapter.finalClasses.contains(clazz.getName())) {
             modifier = modifier | Modifier.FINAL;
         }
         return modifier;

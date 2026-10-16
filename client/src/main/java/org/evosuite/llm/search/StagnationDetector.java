@@ -24,8 +24,8 @@ import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
-import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
@@ -449,6 +449,16 @@ public class StagnationDetector {
                 bestFitnessPerGoal, false);
     }
 
+    /**
+     * Builds the stagnation prompt in the configured mode.
+     * @param uncoveredGoals the goals that are not yet covered
+     * @param currentPopulation the current population
+     * @param totalGoals total number of goals
+     * @param coveredGoalCount number of covered goals
+     * @param bestFitnessPerGoal best fitness value seen per goal
+     * @param suppressInFlightRepeats whether targets with an attempt in flight are suppressed
+     * @return the prompt and its metadata
+     */
     public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                     List<TestChromosome> currentPopulation,
                                     int totalGoals, int coveredGoalCount,
@@ -565,6 +575,12 @@ public class StagnationDetector {
         return targets;
     }
 
+    /**
+     * Registers the repeated-injection targets of a prompt before it is sent.
+     * @param prompt the prompt, may be null
+     * @param asyncInFlight whether the attempt runs asynchronously
+     * @return the registration, empty if there is nothing to track
+     */
     public RepeatedInjectionMemory.PromptAttemptRegistration registerRepeatedAttempt(PromptResult prompt,
                                                                                      boolean asyncInFlight) {
         if (prompt == null) {
@@ -591,6 +607,11 @@ public class StagnationDetector {
         return registration;
     }
 
+    /**
+     * Reports the outcome of a registered prompt attempt.
+     * @param attemptId identifier of the attempt, ignored if null or blank
+     * @param gainedGoals number of goals the attempt newly covered
+     */
     public void recordRepeatedAttemptOutcome(String attemptId, int gainedGoals) {
         if (repeatedInjectionMemory == null || attemptId == null || attemptId.trim().isEmpty()) {
             return;

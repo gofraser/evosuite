@@ -715,6 +715,7 @@ public class MockSocket extends Socket implements OverrideMock {
         }
         getImpl().shutdownInput();
         shutIn = true;
+        org.evosuite.runtime.vnet.VirtualNetwork.getInstance().signalStateChange();
     }
 
     @Override
@@ -730,6 +731,7 @@ public class MockSocket extends Socket implements OverrideMock {
         }
         getImpl().shutdownOutput();
         shutOut = true;
+        org.evosuite.runtime.vnet.VirtualNetwork.getInstance().signalStateChange();
     }
 
     @Override

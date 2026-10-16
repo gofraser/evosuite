@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase;
 
+import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
@@ -40,10 +41,12 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -104,7 +107,7 @@ public class VariableResolver {
      * @return the variable reference
      * @throws ConstructionFailedException if construction fails
      */
-    public VariableReference resolveVariableInternal(TestCase test, Type parameterType,
+    private VariableReference resolveVariableInternal(TestCase test, Type parameterType,
                                                       int position, GenerationContext context,
                                                       VariableResolutionConfig config)
             throws ConstructionFailedException {
@@ -321,7 +324,10 @@ public class VariableResolver {
                                 + parameterType);
             }
             assert config.isCanUseMocks()
-                    || !(test.getStatement(reference.getStPosition()) instanceof FunctionalMockStatement);
+                    || !(test.getStatement(reference.getStPosition()) instanceof FunctionalMockStatement)
+                    : "Functional mock " + reference + " at position " + reference.getStPosition()
+                    + " (requested at " + position + ", test size " + test.size() + ") for "
+                    + parameterType.getTypeName() + " where mocks are not allowed";
 
             return reference;
         }
@@ -386,10 +392,8 @@ public class VariableResolver {
                         ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, usageCount);
                         return test.getStatement(returnPos).getReturnValue();
                     } catch (Exception e) {
-                        // Roll back any partially inserted statements
-                        while (test.size() > originalSize) {
-                            test.remove(test.size() - 1);
-                        }
+                        // Roll back the partially inserted statements, which start at position
+                        rollbackInsertedStatements(test, originalSize, position);
                         logger.trace("Object pool sequence insertion failed, falling through: {}", e.getMessage());
                     }
                 }
@@ -488,12 +492,26 @@ public class VariableResolver {
         boolean isDeepInterfaceOrAbstract = context.getDepth() > 0
                 && (clazz.getRawClass().isInterface() || clazz.isAbstract());
         boolean isDeepPlainInterfaceOrAbstract = isDeepInterfaceOrAbstract && !isDeepFunctionalInterface;
+        // A mock of this type is inert - every method the search could otherwise stub is
+        // either void, equals/hashCode/toString, or final in the original bytecode (see
+        // FunctionalMockStatement.hasUsefulMockSurface) - so a mock can never let the search
+        // steer this dependency. Only skip the mock boost for it, though, when a real
+        // generator is actually available: an inert mock is still better than
+        // ConstructionFailedException when it is the only way to get an instance at all.
+        //
+        // And only for the project's own types. A library type whose methods are all void is
+        // still best served by a mock: it is a null-safe stand-in the SUT can paint on or
+        // notify. weka.gui.beans.BeanVisual passes Graphics2D around, and preferring the
+        // concrete PostscriptGraphics over a mock took it from 0.98 to 0.57 branch coverage.
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
         boolean bypassTimeGate = false;
         if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {
             effectiveMockProb = 1.0;
             bypassTimeGate = true;
-        } else if (isDeepPlainInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR) {
+        } else if (isDeepPlainInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR
+                && !(DependencyAnalysis.isTargetProject(clazz.getRawClass().getName())
+                && !FunctionalMockStatement.hasUsefulMockSurface(clazz.getRawClass())
+                && TestCluster.getInstance().hasGenerator(type))) {
             effectiveMockProb = Math.max(effectiveMockProb,
                     context.isConcreteChain() ? CHAIN_MOCK_BOOST : DEEP_MOCK_BOOST);
             bypassTimeGate = true;
@@ -588,46 +606,53 @@ public class VariableResolver {
     }
 
     private static boolean isFunctionalInterface(Class<?> rawClass) {
-        if (rawClass == null || !rawClass.isInterface()) {
-            return false;
-        }
-        try {
-            if (rawClass.isAnnotationPresent(FunctionalInterface.class)) {
-                return true;
-            }
+        return rawClass != null && rawClass.isInterface() && FUNCTIONAL_INTERFACES.get(rawClass);
+    }
 
-            int abstractMethods = 0;
-            for (Method method : rawClass.getMethods()) {
-                if (!Modifier.isAbstract(method.getModifiers())) {
-                    continue;
-                }
-                try {
-                    Object.class.getMethod(method.getName(), method.getParameterTypes());
-                    continue;
-                } catch (NoSuchMethodException ignored) {
-                    // Not an Object method.
-                }
-                abstractMethods++;
-                if (abstractMethods > 1) {
-                    return false;
-                }
-            }
-            return abstractMethods == 1;
-        } catch (LinkageError e) {
-            return false;
+    /**
+     * Public methods of {@code Object}, as name plus parameter types.
+     */
+    private static final Set<List<Object>> OBJECT_METHOD_SIGNATURES = new HashSet<>();
+
+    static {
+        for (Method method : Object.class.getMethods()) {
+            OBJECT_METHOD_SIGNATURES.add(methodSignature(method));
         }
     }
 
-    private static boolean isPreferredConcreteFactoryType(Class<?> type) {
-        if (type == null) {
-            return false;
-        }
-        String name = type.getName();
-        return "java.nio.file.Path".equals(name)
-                || "java.nio.charset.Charset".equals(name)
-                || "java.net.URI".equals(name)
-                || "java.io.File".equals(name);
+    private static List<Object> methodSignature(Method method) {
+        List<Object> signature = new ArrayList<>();
+        signature.add(method.getName());
+        signature.addAll(Arrays.asList(method.getParameterTypes()));
+        return signature;
     }
+
+    /** Asked for every deep interface dependency, so the reflection scan is kept per class. */
+    private static final ClassValue<Boolean> FUNCTIONAL_INTERFACES = new ClassValue<Boolean>() {
+        @Override
+        protected Boolean computeValue(Class<?> rawClass) {
+            try {
+                if (rawClass.isAnnotationPresent(FunctionalInterface.class)) {
+                    return true;
+                }
+
+                int abstractMethods = 0;
+                for (Method method : rawClass.getMethods()) {
+                    if (!Modifier.isAbstract(method.getModifiers())
+                            || OBJECT_METHOD_SIGNATURES.contains(methodSignature(method))) {
+                        continue;
+                    }
+                    abstractMethods++;
+                    if (abstractMethods > 1) {
+                        return false;
+                    }
+                }
+                return abstractMethods == 1;
+            } catch (LinkageError e) {
+                return false;
+            }
+        }
+    };
 
     /**
      * Constructs the small set of value/environment types for which a stable public factory is more
@@ -936,10 +961,21 @@ public class VariableResolver {
         }
         int originalSize = test.size();
         try {
+            // Bind the implementation's type variables to the requested arguments up front
+            // (LinkedHashSet<E> -> LinkedHashSet<String> for Set<String>). A no-arg constructor
+            // gets no owner binding in addConstructor, and an unbound LinkedHashSet<E> passes
+            // the isAssignableTo check below for any element type.
+            Type ownerType = implementation;
+            if (requestedType.getType() instanceof ParameterizedType
+                    && implementation.getTypeParameters().length
+                        == ((ParameterizedType) requestedType.getType()).getActualTypeArguments().length) {
+                ownerType = TypeUtils.parameterize(implementation,
+                        ((ParameterizedType) requestedType.getType()).getActualTypeArguments());
+            }
             GenericConstructor constructor = new GenericConstructor(
-                    implementation.getConstructor(), implementation);
+                    implementation.getConstructor(), ownerType);
             VariableReference result = testFactory.addConstructor(
-                    test, constructor, implementation, position, context);
+                    test, constructor, ownerType, position, context);
             if (result != null && result.isAssignableTo(requestedType.getType())) {
                 return result;
             }
@@ -1070,6 +1106,26 @@ public class VariableResolver {
         if (choice.isString()) {
             return resolveVariable(test, String.class, position, context,
                     new VariableResolutionConfig.Builder().withAllowNull(allowNull).withCanUseMocks(false).build());
+        }
+        if (choice.isObject()) {
+            // java.lang.Object is unconditionally in "classes" above (it is the universal
+            // fallback for an unconstrained cast), but unlike every other entry it never has a
+            // registered generator to look up: TestCluster indexes generators by the concrete
+            // type they produce, and nothing in a dependency graph declares a method or
+            // constructor that returns bare Object. Routing it through the generator lookup
+            // below throws "No generators of type java.lang.Object" instead of falling back, so
+            // construct the plain object directly via its public no-arg constructor instead -
+            // the same thing a registered generator would have done had one existed.
+            try {
+                GenericConstructor objectConstructor =
+                        new GenericConstructor(Object.class.getConstructor(), Object.class);
+                VariableReference ret = testFactory.addConstructor(test, objectConstructor, position,
+                        context.deeper());
+                ret.setDistance(context.getDepth() + 1);
+                return ret;
+            } catch (NoSuchMethodException e) {
+                throw new ConstructionFailedException("Cannot construct java.lang.Object");
+            }
         }
 
         GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(choice);

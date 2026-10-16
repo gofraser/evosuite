@@ -31,7 +31,8 @@ import java.util.Map;
  */
 final class ProblemCardLabels {
 
-    private ProblemCardLabels() {}
+    private ProblemCardLabels() {
+    }
 
     static void incrementLabel(Map<String, Integer> counts, String label) {
         if (counts == null || label == null || label.isEmpty()) {

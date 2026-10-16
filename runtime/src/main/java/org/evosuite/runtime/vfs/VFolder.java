@@ -65,9 +65,18 @@ public class VFolder extends FSObject {
     /**
      * Adds a child object to this folder.
      *
+     * <p>A folder cannot hold two children of the same name, so adding one that is already
+     * there is ignored rather than duplicated: {@link #getChildrenNames()} feeds
+     * {@code File.list()}, where a repeated name would make a SUT see the same entry twice,
+     * and {@link #removeChild(String)} drops only the first match, so a duplicate would also
+     * survive its own deletion.</p>
+     *
      * @param child the child object to add
      */
     public void addChild(FSObject child) {
+        if (child == null || hasChild(child.getName())) {
+            return;
+        }
         children.add(child);
     }
 

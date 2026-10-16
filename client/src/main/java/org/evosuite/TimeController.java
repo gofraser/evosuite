@@ -62,6 +62,12 @@ public class TimeController {
     private volatile long currentPhaseStartTime;
 
     /**
+     * When the current phase was started on the monotonic clock, which unlike the wall clock
+     * cannot step backwards while a phase is running.
+     */
+    private volatile long currentPhaseStartNanos;
+
+    /**
      * Leftover time.
      */
     private volatile long timeLeftFromPreviousPhases;
@@ -209,6 +215,7 @@ public class TimeController {
 
         state = newState;
         currentPhaseStartTime = System.currentTimeMillis();
+        currentPhaseStartNanos = System.nanoTime();
 
         if (state.equals(ClientState.STARTED)) {
             clientStartTime = currentPhaseStartTime;
@@ -243,12 +250,28 @@ public class TimeController {
      * @return the total expected runtime in seconds
      */
     public int calculateForHowLongClientWillRunInSeconds() {
-        int time = Properties.EXTRA_TIMEOUT;
+        return totalPlannedSeconds(plannedBudgetsInSeconds());
+    }
 
-        for (ClientState phase : ClientState.values()) {
-            time += getPlannedBudgetInSeconds(phase);
+    private static final ClientState[] PHASES = ClientState.values();
+
+    /**
+     * The planned budget of every phase, indexed by {@link ClientState#ordinal()}. Computed once
+     * per time check, since a time check needs both the total and the share of later phases.
+     */
+    private int[] plannedBudgetsInSeconds() {
+        int[] budgets = new int[PHASES.length];
+        for (ClientState phase : PHASES) {
+            budgets[phase.ordinal()] = getPlannedBudgetInSeconds(phase);
         }
+        return budgets;
+    }
 
+    private static int totalPlannedSeconds(int[] budgets) {
+        int time = Properties.EXTRA_TIMEOUT;
+        for (int budget : budgets) {
+            time += budget;
+        }
         return time;
     }
 
@@ -296,11 +319,11 @@ public class TimeController {
      *
      * @return the reserved time in milliseconds
      */
-    private long getBudgetReservedForLaterPhases() {
+    private long getBudgetReservedForLaterPhases(int[] budgets) {
         long reserved = 0;
-        for (ClientState phase : ClientState.values()) {
+        for (ClientState phase : PHASES) {
             if (phase.getNumPhase() > state.getNumPhase()) {
-                reserved += 1000L * getPlannedBudgetInSeconds(phase);
+                reserved += 1000L * budgets[phase.ordinal()];
             }
         }
         return reserved;
@@ -308,14 +331,14 @@ public class TimeController {
 
     /**
      * How much time is left for a phase that has no timeout of its own.
-     * <p>
-     * The master kills the client once the overall budget is up, so whatever one phase spends is
+     *
+     * <p>The master kills the client once the overall budget is up, so whatever one phase spends is
      * taken away from everything that follows it. A phase with a timeout is bounded by it; a
      * phase without one - inlining, value minimization, coverage analysis - is bounded by nothing
      * and is free to spend the budget that was planned for minimization, assertion generation and
      * writing the tests out. Holding that budget back is what turns the plan into a limit.
-     * <p>
-     * Deliberately not applied to the phases that do have a timeout: reserving there would take
+     *
+     * <p>Deliberately not applied to the phases that do have a timeout: reserving there would take
      * an earlier phase's overrun out of the phase that follows it, which for a slow
      * initialization means taking it out of the search - the opposite of what is wanted. Those
      * phases keep spending against the overall budget in the order they run, so the search still
@@ -323,8 +346,8 @@ public class TimeController {
      *
      * @return the remaining time in milliseconds
      */
-    private long getLeftTimeBeforeEndOfUntimedPhase() {
-        return getLeftTimeBeforeEnd() - getBudgetReservedForLaterPhases();
+    private long getLeftTimeBeforeEndOfUntimedPhase(long leftTimeBeforeEnd, int[] budgets) {
+        return leftTimeBeforeEnd - getBudgetReservedForLaterPhases(budgets);
     }
 
     private int getLlmPostProcessingTimeoutInSeconds() {
@@ -369,7 +392,8 @@ public class TimeController {
         }
 
         //all time values are in milliseconds
-        long left = getLeftTimeBeforeEnd();
+        int[] budgets = plannedBudgetsInSeconds();
+        long left = getLeftTimeBeforeEnd(budgets);
 
         if (ms > left) {
             return false;
@@ -387,7 +411,7 @@ public class TimeController {
             return ms <= phaseLeft;
         }
 
-        return ms <= getLeftTimeBeforeEndOfUntimedPhase();
+        return ms <= getLeftTimeBeforeEndOfUntimedPhase(left, budgets);
     }
 
     /**
@@ -399,14 +423,15 @@ public class TimeController {
         if (state.equals(ClientState.NOT_STARTED)) {
             return Long.MAX_VALUE;
         }
-        long left = getLeftTimeBeforeEnd();
+        int[] budgets = plannedBudgetsInSeconds();
+        long left = getLeftTimeBeforeEnd(budgets);
         if (currentPhaseHasTimeout()) {
             long timeoutInMs = getCurrentPhaseTimeout();
             long timeSincePhaseStarted = System.currentTimeMillis() - currentPhaseStartTime;
             long phaseLeft = timeoutInMs - timeSincePhaseStarted + timeLeftFromPreviousPhases;
             left = Math.min(left, phaseLeft);
         } else {
-            left = getLeftTimeBeforeEndOfUntimedPhase();
+            left = getLeftTimeBeforeEndOfUntimedPhase(left, budgets);
         }
         return Math.max(0, left);
     }
@@ -417,8 +442,12 @@ public class TimeController {
      * @return the remaining time in milliseconds
      */
     private long getLeftTimeBeforeEnd() {
+        return getLeftTimeBeforeEnd(plannedBudgetsInSeconds());
+    }
+
+    private long getLeftTimeBeforeEnd(int[] budgets) {
         long timeSinceStart = System.currentTimeMillis() - clientStartTime;
-        long totalTimeLimit = 1000L * calculateForHowLongClientWillRunInSeconds();
+        long totalTimeLimit = 1000L * totalPlannedSeconds(budgets);
         return totalTimeLimit - timeSinceStart;
     }
 
@@ -430,10 +459,14 @@ public class TimeController {
     public double getPhasePercentage() {
         if (currentPhaseHasTimeout()) {
             long timeoutInMs = getCurrentPhaseTimeout();
-            long timeSincePhaseStarted = System.currentTimeMillis() - currentPhaseStartTime;
+            if (timeoutInMs <= 0) {
+                // A phase without any time has used it all (and 0/0 is not a ratio)
+                return 1;
+            }
+            long timeSincePhaseStarted =
+                    Math.max(0, (System.nanoTime() - currentPhaseStartNanos) / 1_000_000L);
             double ratio = (double) timeSincePhaseStarted / (double) timeoutInMs;
-            assert ratio >= 0; // but could become >1 due to timer
-            return Math.min(ratio, 1);
+            return Math.min(ratio, 1); // can exceed 1 due to timer
         } else {
             return -1;
         }

@@ -42,12 +42,23 @@ public class CallContext implements Serializable {
 
     private static final long serialVersionUID = 8650619230188403356L;
 
-    private final List<Call> context;
+    /**
+     * The calls, root first. A context derived on method entry starts out as a {@link Node}
+     * chain only and the list is built when it is first read: the tracer only hashes and
+     * compares such contexts, and building the list on every entry costs time linear in the
+     * depth of the stack.
+     */
+    private volatile List<Call> context;
+
+    /**
+     * The calls of a context derived on method entry, until {@link #context} is built.
+     */
+    private transient Node node;
 
     private final int hcode;
 
     public boolean isEmpty() {
-        return context.isEmpty();
+        return size() == 0;
     }
 
     /**
@@ -58,8 +69,6 @@ public class CallContext implements Serializable {
      * @param stackTrace an array of {@link java.lang.StackTraceElement} objects.
      */
     public CallContext(StackTraceElement[] stackTrace) {
-        addJUnitExcludes();
-
         int startPos = stackTrace.length - 1;
         int endPos = 0;
         List<Call> context = new ArrayList<>();
@@ -100,24 +109,39 @@ public class CallContext implements Serializable {
      * @param stackTrace the stack trace
      */
     public CallContext(LinkedList<MethodCall> stackTrace) {
-        addJUnitExcludes();
+        MethodCall top = stackTrace.peekFirst();
+        if (top != null && top.contextState != null) {
+            Node last = top.contextState.atLastKept;
+            if (last == null) {
+                this.context = new ArrayList<>();
+            } else {
+                this.node = last;
+            }
+            hcode = last == null ? EMPTY_HASH : last.hash;
+            return;
+        }
 
-        int startPos = stackTrace.size() - 1;
+        // A LinkedList is walked by index in O(n) per access; every method entry builds a
+        // context, so a deeply recursive method (caloriecount's IntComparator, which calls
+        // itself until the stack overflows) took cubic time in the depth and every test
+        // that called it ran into the timeout.
+        MethodCall[] calls = stackTrace.toArray(new MethodCall[0]);
+        int startPos = calls.length - 1;
         int endPos = 0;
         List<Call> context = new ArrayList<>();
 
-        while (startPos >= 0 && shouldSkipEntry(stackTrace.get(startPos).className)) {
+        while (startPos >= 0 && shouldSkipEntry(calls[startPos].className)) {
             startPos--;
         }
 
-        while (endPos < stackTrace.size() && shouldSkipEntry(stackTrace.get(endPos).className)) {
+        while (endPos < calls.length && shouldSkipEntry(calls[endPos].className)) {
             endPos++;
         }
 
         for (int i = startPos; i >= endPos; i--) {
-            MethodCall element = stackTrace.get(i);
+            MethodCall element = calls[i];
 
-            Call newCall = new Call(element.className, element.methodName);
+            Call newCall = element.asContextCall();
 
             boolean skip = false;
             if (context.size() >= 2) { // Need at least a sequence of three for this check to make sense
@@ -142,8 +166,6 @@ public class CallContext implements Serializable {
      * @param methodName the method name
      */
     public CallContext(String className, String methodName) {
-        addJUnitExcludes();
-
         List<Call> context = new ArrayList<>();
         context.add(new Call(className, methodName));
         this.context = context;
@@ -154,8 +176,6 @@ public class CallContext implements Serializable {
      * Default constructor for CallContext.
      */
     public CallContext() {
-        addJUnitExcludes();
-
         this.context = new ArrayList<>();
         hcode = this.context.hashCode();
     }
@@ -166,41 +186,165 @@ public class CallContext implements Serializable {
      * @param contextt the collection of calls
      */
     public CallContext(Collection<Call> contextt) {
-        addJUnitExcludes();
-
         this.context = new ArrayList<>(contextt);
         hcode = this.context.hashCode();
     }
 
     public int size() {
-        return context.size();
-
+        Node chain = node;
+        return chain != null ? chain.size : calls().size();
     }
 
-    private String[] excludedPackages = new String[]{"java", "sun", PackageInfo.getEvoSuitePackage()};
+    /** The calls, built from the node chain the first time they are needed. */
+    private List<Call> calls() {
+        List<Call> calls = context;
+        if (calls == null) {
+            calls = toList(node);
+            context = calls;
+        }
+        return calls;
+    }
+
+    private void writeObject(java.io.ObjectOutputStream out) throws java.io.IOException {
+        calls();
+        out.defaultWriteObject();
+    }
 
     /**
-     * If we are using -measureCoverage then we need to also exclude the junit tests.
+     * A call of a context with the calls before it, so that the context of a stack
+     * can be derived from the context of the stack without its top call.
      */
-    private void addJUnitExcludes() {
-        if (Properties.JUNIT.isEmpty()) {
-            return;
+    private static final class Node {
+        final Call call;
+        final Node prev;
+        final int size;
+        /**
+         * {@link List#hashCode()} of the calls up to this one, so a context is hashed once.
+         */
+        final int hash;
+
+        Node(Call call, Node prev) {
+            this.call = call;
+            this.prev = prev;
+            this.size = prev == null ? 1 : prev.size + 1;
+            this.hash = 31 * (prev == null ? EMPTY_HASH : prev.hash) + call.hashCode();
         }
-        List<String> values = new ArrayList<>(Arrays.asList(excludedPackages));
-        values.add("org.junit");
-        for (String junitClass : Properties.JUNIT.split(":")) {
-            values.add(junitClass);
-        }
-        excludedPackages = new String[values.size()];
-        excludedPackages = values.toArray(excludedPackages);
     }
 
-    private boolean shouldSkipEntry(String entry) {
+    /**
+     * {@link List#hashCode()} of an empty list.
+     */
+    private static final int EMPTY_HASH = 1;
+
+    /**
+     * The context of the stack that ends in a call: {@code deduped} holds the calls from the
+     * first frame that is not skipped up to this one, with a third repeat of the same call
+     * left out, and {@code atLastKept} the same up to the last frame that is not skipped,
+     * which is the context itself.
+     */
+    public static final class State {
+        private final Node deduped;
+        private final Node atLastKept;
+
+        private State(Node deduped, Node atLastKept) {
+            this.deduped = deduped;
+            this.atLastKept = atLastKept;
+        }
+    }
+
+    /**
+     * Derives the state of {@code child}, about to be pushed on top of {@code parent}.
+     * Every method entry needs the context of the stack, and building it from the whole
+     * stack costs time linear in the depth, so a method that recurses until the stack
+     * overflows (78_caloriecount's IntComparator) kept the test running into the timeout.
+     *
+     * @param parent         the call on top of the stack, null if the stack is empty
+     * @param child          the call that is pushed
+     * @param parentIsBottom whether the parent is the only call on the stack
+     */
+    public static void extend(MethodCall parent, MethodCall child, boolean parentIsBottom) {
+        if (parent == null) {
+            return;
+        }
+        State parentState = parent.contextState;
+        if (parentState == null && parentIsBottom) {
+            parentState = next(null, parent);
+            parent.contextState = parentState;
+        }
+        if (parentState != null) {
+            child.contextState = next(parentState, child);
+        }
+    }
+
+    private static State next(State previous, MethodCall call) {
+        boolean skip = shouldSkipEntry(call.className);
+        Node previousDeduped = previous == null ? null : previous.deduped;
+        Node deduped;
+        if (previousDeduped == null) {
+            deduped = skip ? null : new Node(call.asContextCall(), null);
+        } else {
+            Call newCall = call.asContextCall();
+            if (previousDeduped.size >= 2 && previousDeduped.call.equals(newCall)
+                    && previousDeduped.prev.call.equals(newCall)) {
+                deduped = previousDeduped;
+            } else {
+                deduped = new Node(newCall, previousDeduped);
+            }
+        }
+        Node atLastKept = skip ? (previous == null ? null : previous.atLastKept) : deduped;
+        return new State(deduped, atLastKept);
+    }
+
+    private static List<Call> toList(Node node) {
+        int size = node == null ? 0 : node.size;
+        Call[] calls = new Call[size];
+        for (Node n = node; n != null; n = n.prev) {
+            calls[n.size - 1] = n.call;
+        }
+        return new ArrayList<>(Arrays.asList(calls));
+    }
+
+    /**
+     * The excluded prefixes and the value of {@link Properties#JUNIT} they were derived from.
+     */
+    private static final class Excludes {
+        final String junit;
+        final String[] prefixes;
+
+        Excludes(String junit) {
+            this.junit = junit;
+            List<String> values = new ArrayList<>(Arrays.asList("java", "sun", PackageInfo.getEvoSuitePackage()));
+            // When measuring the coverage of existing JUnit tests, leave out the tests and JUnit
+            if (!junit.isEmpty()) {
+                values.add("org.junit");
+                values.addAll(Arrays.asList(junit.split(":")));
+            }
+            this.prefixes = values.toArray(new String[0]);
+        }
+    }
+
+    private static volatile Excludes excludes;
+
+    /**
+     * The class name prefixes left out of a context. Contexts are built on every method
+     * entry, so the prefixes are derived from {@link Properties#JUNIT} only when it changes.
+     */
+    static String[] excludedPrefixes() {
+        String junit = Properties.JUNIT;
+        Excludes current = excludes;
+        if (current == null || !current.junit.equals(junit)) {
+            current = new Excludes(junit);
+            excludes = current;
+        }
+        return current.prefixes;
+    }
+
+    private static boolean shouldSkipEntry(String entry) {
         if (entry.isEmpty()) {
             return true;
         }
-        for (String excludedPackage : excludedPackages) {
-            if (entry.startsWith(excludedPackage)) {
+        for (String excludedPrefix : excludedPrefixes()) {
+            if (entry.startsWith(excludedPrefix)) {
                 return true;
             }
         }
@@ -224,7 +368,7 @@ public class CallContext implements Serializable {
      * @return a {@link java.lang.String} object.
      */
     public String getRootClassName() {
-        return context.get(0).getClassName();
+        return calls().get(0).getClassName();
     }
 
     /**
@@ -235,7 +379,7 @@ public class CallContext implements Serializable {
      * @return a {@link java.lang.String} object.
      */
     public String getRootMethodName() {
-        return context.get(0).getMethodName();
+        return calls().get(0).getMethodName();
     }
 
     /*
@@ -249,12 +393,8 @@ public class CallContext implements Serializable {
      */
     @Override
     public String toString() {
-        if (context == null) {
-            return "";
-        }
-
         StringBuilder builder = new StringBuilder();
-        for (Call call : context) {
+        for (Call call : calls()) {
             builder.append(call.toString());
             builder.append(" ");
         }
@@ -289,15 +429,17 @@ public class CallContext implements Serializable {
      * @return true if they match
      */
     public boolean oldMatches(CallContext other) {
-        if (context.size() != other.context.size()) {
+        List<Call> calls = calls();
+        List<Call> otherCalls = other.calls();
+        if (calls.size() != otherCalls.size()) {
             return false;
         }
         if (other.hcode == hcode) {
             return true;
         }
-        for (int i = 0; i < context.size(); i++) {
-            Call call1 = context.get(i);
-            Call call2 = other.context.get(i);
+        for (int i = 0; i < calls.size(); i++) {
+            Call call1 = calls.get(i);
+            Call call2 = otherCalls.get(i);
             if (!call1.matches(call2)) {
                 return false;
             }
@@ -308,12 +450,12 @@ public class CallContext implements Serializable {
 
     //A empty context matches with everything.
     public boolean matches(CallContext other) {
-        return context.isEmpty() || other.context.isEmpty() || other.hcode == hcode;
+        return isEmpty() || other.isEmpty() || other.hcode == hcode;
     }
 
 
     public List<Call> getContext() {
-        return context;
+        return calls();
     }
     // ----------------
     // CALL class

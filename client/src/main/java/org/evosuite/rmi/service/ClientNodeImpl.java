@@ -24,6 +24,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.NoSuchParameterException;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.ClassStatisticsPrinter;
+import org.evosuite.coverage.CoverageCriteriaAnalyzer;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.junit.CoverageAnalysis;
@@ -32,6 +33,7 @@ import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
 import org.evosuite.runtime.sandbox.Sandbox;
+import org.evosuite.testcase.execution.ClientSandbox;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.statistics.RuntimeVariable;
@@ -47,7 +49,6 @@ import java.rmi.RemoteException;
 import java.rmi.registry.Registry;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ClientNodeImpl<T extends Chromosome<T>>
         implements ClientNodeLocal<T>, ClientNodeRemote<T> {
@@ -102,6 +103,48 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     private Thread statisticsThread;
 
+    /**
+     * Runs the best-effort remote actions (state notifications, result export). Guarded by
+     * {@link #remoteActionLock}; created on first use, and replaced when an action does not
+     * finish in time, as its thread may then be stuck in RMI I/O.
+     */
+    private ExecutorService remoteActionExecutor;
+
+    /**
+     * The thread of {@link #remoteActionExecutor}, once it has been created.
+     */
+    private volatile Thread remoteActionThread;
+
+    private final Object remoteActionLock = new Object();
+
+    /**
+     * Test-only override for the {@code CoverageAnalysis.analyzeCoverage()} call in {@link
+     * #doCoverageAnalysis()}. {@code null} in production. {@code doCoverageAnalysis()} always
+     * runs that call on a dedicated {@link #searchExecutor} worker thread, where Mockito's
+     * {@code mockStatic} of {@code CoverageAnalysis} cannot reach it -- static mocking only
+     * intercepts calls made from the thread that registered the mock. This is a plain static field
+     * read directly by that worker thread instead, so it works regardless of which thread performs
+     * the read, letting a test make the call throw (e.g. to drive the backstop in the surrounding
+     * {@code catch (Throwable t)}) without forcing a real failure through genuine memory pressure
+     * or classpath breakage.
+     */
+    static Runnable COVERAGE_ANALYSIS_FOR_TESTING = null;
+
+    /**
+     * Test-only replacement for {@code new TestSuiteGenerator().generateTestSuite()} in {@link
+     * #startNewSearch()}. {@code null} in production. Like {@link #COVERAGE_ANALYSIS_FOR_TESTING}
+     * it is read by the search worker thread, so it works where a static mock would not.
+     */
+    static java.util.function.Supplier<TestGenerationResult> SEARCH_FOR_TESTING = null;
+
+    /**
+     * Written to stderr when the search task could not even report its own failure. Built once,
+     * so that printing it needs no allocation: the failure it reports may well be heap exhaustion.
+     */
+    private static final String SEARCH_TASK_ABORTED_MESSAGE =
+            "EvoSuite client: the search task aborted while handling its own failure; "
+                    + "releasing the client so that it exits instead of waiting for the master's timeout";
+
     //only for testing
     protected ClientNodeImpl() {
     }
@@ -152,24 +195,44 @@ public class ClientNodeImpl<T extends Chromosome<T>>
          * function call until end of the search, even if it is on remote process
          */
         searchExecutor.submit(() -> {
+            try {
+                runSearchTask();
+            } finally {
+                /*
+                 * The executor swallows whatever a task throws, and the main thread of the client
+                 * process sits in waitUntilDone() until this latch opens. The failure handling in
+                 * runSearchTask() allocates (log records, messages), so when the search died of
+                 * heap exhaustion it can die in turn before it reaches the DONE transition, and the
+                 * client would then hang, silently, until the master's timeout. Opening the latch
+                 * here needs no allocation, and lets the process shut down.
+                 */
+                if (doneLatch.getCount() > 0) {
+                    doneLatch.countDown();
+                    safePrintToStderr(SEARCH_TASK_ABORTED_MESSAGE);
+                }
+            }
+        });
+    }
+
+    private void runSearchTask() {
             List<TestGenerationResult> results = null;
             try {
                 changeState(ClientState.STARTED);
 
                 //Before starting search, let's activate the sandbox
                 if (Properties.SANDBOX) {
-                    Sandbox.initializeSecurityManagerForSUT();
-                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
-                            .registerCompilationThreadAsPrivileged();
-                    org.evosuite.llm.response.TestRepairLoop
-                            .registerParseCompileThreadAsPrivileged();
+                    ClientSandbox.activate();
                 }
                 results = new ArrayList<>();
 
                 try {
                     // Starting a new search
-                    TestSuiteGenerator generator = new TestSuiteGenerator();
-                    results.add(generator.generateTestSuite());
+                    if (SEARCH_FOR_TESTING != null) {
+                        results.add(SEARCH_FOR_TESTING.get());
+                    } else {
+                        TestSuiteGenerator generator = new TestSuiteGenerator();
+                        results.add(generator.generateTestSuite());
+                    }
                     // TODO: Why?
                     // GeneticAlgorithm<?> ga = generator.getEmployedGeneticAlgorithm();
                 } catch (Throwable t) {
@@ -187,7 +250,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 try {
                     changeState(ClientState.DONE);
                 } catch (Throwable t) {
-                    java.lang.System.err.println("Failed to change client state to DONE: " + t);
+                    safePrintToStderr("Failed to change client state to DONE: ", t);
                 }
 
                 if (Properties.SANDBOX) {
@@ -197,7 +260,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     try {
                         Sandbox.resetDefaultSecurityManager();
                     } catch (Throwable t) {
-                        java.lang.System.err.println("Failed to reset sandbox security manager: " + t);
+                        safePrintToStderr("Failed to reset sandbox security manager: ", t);
                     }
                 }
             }
@@ -211,7 +274,23 @@ public class ClientNodeImpl<T extends Chromosome<T>>
              *  system test cases after the search
              */
             //org.evosuite.runtime.System.fullReset();
-        });
+    }
+
+    private static void safePrintToStderr(String message) {
+        try {
+            java.lang.System.err.println(message);
+        } catch (Throwable ignored) {
+            // nothing left to report to
+        }
+    }
+
+    private static void safePrintToStderr(String message, Throwable cause) {
+        try {
+            java.lang.System.err.println(message + cause);
+        } catch (Throwable ignored) {
+            // cause.toString() may itself fail; the message alone is still worth printing
+            safePrintToStderr(message);
+        }
     }
 
     private void safeLogSearchFailure(Throwable t) {
@@ -221,10 +300,10 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     + Randomness.getSeed() + ". Configuration id : "
                     + Properties.CONFIGURATION_ID, t);
         } catch (Throwable ignored) {
-            java.lang.System.err.println("Error when generating tests for: "
+            safePrintToStderr("Error when generating tests for: "
                     + Properties.TARGET_CLASS + " with seed "
                     + Randomness.getSeed() + ". Configuration id : "
-                    + Properties.CONFIGURATION_ID + ". Cause: " + t);
+                    + Properties.CONFIGURATION_ID + ". Cause: ", t);
         }
     }
 
@@ -294,22 +373,25 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     @Override
     public void changeState(ClientState state, ClientStateInformation information) {
-        if (this.state != state) {
-            logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client changing state from "
-                    + this.state + " to " + state);
-        }
-
+        ClientState previous = this.state;
         this.state = state;
 
-        TimeController.getInstance().updateState(state);
-
-        if (this.state.equals(ClientState.DONE)) {
+        // Release the waiters first: logging and the phase bookkeeping below can fail, and the
+        // client process waits on these latches to know when it may shut down.
+        if (state.equals(ClientState.DONE)) {
             doneLatch.countDown();
         }
 
-        if (this.state.equals(ClientState.FINISHED)) {
+        if (state.equals(ClientState.FINISHED)) {
             finishedLatch.countDown();
         }
+
+        if (previous != state) {
+            logger.info(ClientProcess.getPrettyPrintIdentifier() + "Client changing state from "
+                    + previous + " to " + state);
+        }
+
+        TimeController.getInstance().updateState(state);
 
         notifyMasterOfStateChangeBestEffort(state, information);
     }
@@ -333,6 +415,35 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         }
     }
 
+    /**
+     * Delivers one queued output variable: releases a barrier, sends a value to the master, or,
+     * with the client on a thread and no master, records it locally.
+     *
+     * @return false if delivery has to stop, because the master is gone or refused the value
+     */
+    private boolean deliverOutputVariable(OutputVariable ov, String masterUnavailableMessage,
+                                          String exportErrorPrefix) {
+        if (ov.isBarrier()) {
+            ov.acknowledgement.countDown();
+            return true;
+        }
+        if (!ensureMasterNode()) {
+            if (Properties.CLIENT_ON_THREAD) {
+                fallbackSetOutputVariable(ov.variable, ov.value);
+                return true;
+            }
+            logger.warn(masterUnavailableMessage);
+            return false;
+        }
+        try {
+            masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
+            return true;
+        } catch (RemoteException e) {
+            logger.error(exportErrorPrefix + ov.variable + "=" + ov.value, e);
+            return false;
+        }
+    }
+
     @Override
     public void flushStatisticsForClassChange() {
         logger.info("Flushing output variables to master process");
@@ -341,22 +452,9 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             List<OutputVariable> vars = new ArrayList<>();
             outputVariableQueue.drainTo(vars);
             for (OutputVariable ov : vars) {
-                if (ov.isBarrier()) {
-                    ov.acknowledgement.countDown();
-                    continue;
-                }
-                if (!ensureMasterNode()) {
-                    if (Properties.CLIENT_ON_THREAD) {
-                        fallbackSetOutputVariable(ov.variable, ov.value);
-                        continue;
-                    }
-                    logger.warn("Master node is not available; skipping statistics flush on class change");
-                    break;
-                }
-                try {
-                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
-                } catch (RemoteException e) {
-                    logger.error("Error when exporting statistics: " + ov.variable + "=" + ov.value, e);
+                if (!deliverOutputVariable(ov,
+                        "Master node is not available; skipping statistics flush on class change",
+                        "Error when exporting statistics: ")) {
                     break;
                 }
             }
@@ -523,22 +621,9 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 if (ov == POISON_PILL) {
                     continue;
                 }
-                if (ov.isBarrier()) {
-                    ov.acknowledgement.countDown();
-                    continue;
-                }
-                if (!ensureMasterNode()) {
-                    if (Properties.CLIENT_ON_THREAD) {
-                        fallbackSetOutputVariable(ov.variable, ov.value);
-                        continue;
-                    }
-                    logger.warn("Master node is not available; skipping statistics flush on stop");
-                    break;
-                }
-                try {
-                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
-                } catch (RemoteException e) {
-                    logger.error("Error when exporting statistics on stop: " + ov.variable + "=" + ov.value, e);
+                if (!deliverOutputVariable(ov,
+                        "Master node is not available; skipping statistics flush on stop",
+                        "Error when exporting statistics on stop: ")) {
                     break;
                 }
             }
@@ -564,29 +649,18 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 @Override
                 public void run() {
                     while (true) {
-                        OutputVariable ov = null;
+                        OutputVariable ov;
                         try {
                             ov = outputVariableQueue.take(); //this is blocking
-                            if (ov == POISON_PILL) {
-                                break; // clean exit after all real items have been sent
-                            }
-                            if (ov.isBarrier()) {
-                                ov.acknowledgement.countDown();
-                                continue;
-                            }
-                            if (!ensureMasterNode()) {
-                                if (Properties.CLIENT_ON_THREAD) {
-                                    fallbackSetOutputVariable(ov.variable, ov.value);
-                                    continue;
-                                }
-                                logger.warn("Master node is not available; stopping statistics sender thread");
-                                break;
-                            }
-                            masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
                         } catch (InterruptedException e) {
                             break;
-                        } catch (RemoteException e) {
-                            logger.error("Error when exporting statistics: " + ov.variable + "=" + ov.value, e);
+                        }
+                        if (ov == POISON_PILL) {
+                            break; // clean exit after all real items have been sent
+                        }
+                        if (!deliverOutputVariable(ov,
+                                "Master node is not available; stopping statistics sender thread",
+                                "Error when exporting statistics: ")) {
                             break;
                         }
                     }
@@ -631,41 +705,90 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     }
 
     private boolean runRemoteActionBestEffort(String actionName, long timeoutMs, RemoteAction action) {
-        final AtomicBoolean completed = new AtomicBoolean(false);
-        Thread remoteActionThread = new Thread(() -> {
-            try {
-                action.execute();
-                completed.set(true);
-            } catch (RemoteException e) {
-                logger.error("Cannot complete remote action: " + actionName, e);
-            } catch (Throwable t) {
-                logger.error("Unexpected error during remote action: " + actionName, t);
-            }
-        }, "RMI ClientNodeRemoteAction-" + actionName);
-        remoteActionThread.setDaemon(true);
-        // RMI calls are EvoSuite infrastructure; mark this helper thread as privileged
-        // so sandbox checks do not treat it as SUT-originated network access.
+        ExecutorService executor = remoteActionExecutor();
+        Future<Boolean> future;
         try {
-            Sandbox.addPrivilegedThread(remoteActionThread);
-        } catch (SecurityException e) {
-            logger.debug("Could not mark remote action thread as privileged; relying on RMI allowlist", e);
+            future = executor.submit(() -> {
+                try {
+                    action.execute();
+                    return true;
+                } catch (RemoteException e) {
+                    logger.error("Cannot complete remote action: " + actionName, e);
+                } catch (Throwable t) {
+                    logger.error("Unexpected error during remote action: " + actionName, t);
+                }
+                return false;
+            });
+        } catch (RejectedExecutionException e) {
+            logger.debug("Remote action executor is shut down; skipping remote action {}", actionName);
+            return false;
         }
-        remoteActionThread.start();
 
         try {
-            remoteActionThread.join(timeoutMs);
+            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;
-        }
-
-        if (remoteActionThread.isAlive()) {
+        } catch (ExecutionException e) {
+            logger.error("Unexpected error during remote action: " + actionName, e.getCause());
+            return false;
+        } catch (TimeoutException e) {
             logger.warn("Remote action {} did not finish within {} ms; continuing locally.",
                     actionName, timeoutMs);
-            remoteActionThread.interrupt();
+            future.cancel(true);
+            discardRemoteActionExecutor(executor);
             return false;
         }
-        return completed.get();
+    }
+
+    /**
+     * Returns the executor for remote actions. Status notifications are sent for every goal
+     * during minimization, and this used to start (and register as privileged) a new thread
+     * for each of them; tens of thousands of dead threads then accumulated in the sandbox's
+     * privileged set. A single daemon thread serves them all now.
+     */
+    private ExecutorService remoteActionExecutor() {
+        ExecutorService executor;
+        synchronized (remoteActionLock) {
+            if (remoteActionExecutor == null) {
+                remoteActionExecutor = Executors.newSingleThreadExecutor(r -> {
+                    Thread t = new Thread(r, "RMI ClientNodeRemoteAction");
+                    t.setDaemon(true);
+                    // The factory runs on the submitting thread, before the new thread starts.
+                    markRemoteActionThreadPrivileged(t);
+                    remoteActionThread = t;
+                    return t;
+                });
+            }
+            executor = remoteActionExecutor;
+        }
+        // The sandbox may have been re-initialized since the thread was created (the JUnit
+        // check does this), so make sure it is still privileged.
+        Thread existing = remoteActionThread;
+        if (existing != null) {
+            markRemoteActionThreadPrivileged(existing);
+        }
+        return executor;
+    }
+
+    private static void markRemoteActionThreadPrivileged(Thread t) {
+        // RMI calls are EvoSuite infrastructure; mark the helper thread as privileged so
+        // sandbox checks do not treat it as SUT-originated network access.
+        try {
+            Sandbox.addPrivilegedThread(t);
+        } catch (SecurityException e) {
+            logger.debug("Could not mark remote action thread as privileged; relying on RMI allowlist", e);
+        }
+    }
+
+    private void discardRemoteActionExecutor(ExecutorService executor) {
+        synchronized (remoteActionLock) {
+            if (remoteActionExecutor == executor) {
+                remoteActionExecutor = null;
+                remoteActionThread = null;
+            }
+        }
+        executor.shutdownNow();
     }
 
     private void notifyMasterOfStateChangeBestEffort(ClientState state, ClientStateInformation information) {
@@ -768,18 +891,31 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 }
             }
 
-            if (coverage >= 0.0) {
-                masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Coverage, coverage);
+            final double summaryCoverage = coverage;
+            final TestGenerationResult.Status summaryStatus = status;
+            final int summaryCoveredGoals = coveredGoals;
+            final int summaryTotalGoals = totalGoals;
+            // Same bounded path as the full and lightweight exports: a master that stopped
+            // answering must not hang the calling (search) thread here.
+            boolean sent = runRemoteActionBestEffort("collectCoverageSummary", RMI_RESULT_NOTIFY_TIMEOUT_MS, () -> {
+                if (summaryCoverage >= 0.0) {
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Coverage,
+                            summaryCoverage);
+                }
+                if (summaryStatus != null) {
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier,
+                            RuntimeVariable.Test_Generation_Status, summaryStatus.name());
+                }
+                if (summaryCoveredGoals >= 0 && summaryTotalGoals >= 0) {
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Covered_Goals,
+                            summaryCoveredGoals);
+                    masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Total_Goals,
+                            summaryTotalGoals);
+                }
+            });
+            if (sent) {
+                logger.warn("Full TestGenerationResult export failed; sent lightweight coverage summary instead");
             }
-            if (status != null) {
-                masterNode.evosuite_collectStatistics(clientRmiIdentifier,
-                        RuntimeVariable.Test_Generation_Status, status.name());
-            }
-            if (coveredGoals >= 0 && totalGoals >= 0) {
-                masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Covered_Goals, coveredGoals);
-                masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Total_Goals, totalGoals);
-            }
-            logger.warn("Full TestGenerationResult export failed; sent lightweight coverage summary instead");
         } catch (Throwable t) {
             logger.warn("Failed to export lightweight coverage summary after result export failure", t);
         }
@@ -865,19 +1001,22 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 changeState(ClientState.STARTED);
                 //Before starting search, let's activate the sandbox
                 if (Properties.SANDBOX) {
-                    Sandbox.initializeSecurityManagerForSUT();
-                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
-                            .registerCompilationThreadAsPrivileged();
-                    org.evosuite.llm.response.TestRepairLoop
-                            .registerParseCompileThreadAsPrivileged();
+                    ClientSandbox.activate();
                 }
 
+                // Reset before each attempt so a previous call's outcome (measurement finished
+                // or not) can never leak into this one's backstop decision below.
+                CoverageAnalysis.resetMeasurementFinished();
                 try {
                     // We have to deactivate the archive when measuring coverage
                     // otherwise it would complain about unknown goals
                     boolean archive = Properties.TEST_ARCHIVE;
                     Properties.TEST_ARCHIVE = false;
-                    CoverageAnalysis.analyzeCoverage();
+                    if (COVERAGE_ANALYSIS_FOR_TESTING != null) {
+                        COVERAGE_ANALYSIS_FOR_TESTING.run();
+                    } else {
+                        CoverageAnalysis.analyzeCoverage();
+                    }
                     Properties.TEST_ARCHIVE = archive;
 
                 } catch (Throwable t) {
@@ -885,6 +1024,18 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                             + Properties.TARGET_CLASS + " with seed "
                             + Randomness.getSeed() + ". Configuration id : "
                             + Properties.CONFIGURATION_ID, t);
+                    // Backstop for whatever stage of CoverageAnalysis.analyzeCoverage() this
+                    // escaped from: an earlier criterion in its direct (SELECTED_JUNIT) sweep may
+                    // already have published CoverageAnalysisComplete=true, which would otherwise
+                    // stand unrevised for a sweep that did not actually finish. But if measurement
+                    // already finished before this failure (e.g. a statistics-export, writer or
+                    // COVERAGE_MATRIX failure in the output phase that follows it),
+                    // CoverageCriteriaAnalyzer already holds the correct, final completeness
+                    // verdict for the sweep that did finish, and must not be overwritten just
+                    // because unrelated output work failed afterward.
+                    if (!CoverageAnalysis.isMeasurementFinished()) {
+                        CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
+                    }
                 }
 
                 changeState(ClientState.DONE);
@@ -959,11 +1110,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             public void run() {
                 changeState(ClientState.STARTED);
                 if (Properties.SANDBOX) {
-                    Sandbox.initializeSecurityManagerForSUT();
-                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
-                            .registerCompilationThreadAsPrivileged();
-                    org.evosuite.llm.response.TestRepairLoop
-                            .registerParseCompileThreadAsPrivileged();
+                    ClientSandbox.activate();
                 }
 
                 try {

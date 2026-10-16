@@ -49,6 +49,12 @@ public final class MockCodeSource {
     private MockCodeSource() {
     }
 
+    /**
+     * Replacement for {@link CodeSource#getLocation()} that supplies a fallback location while mocks are enabled.
+     *
+     * @param source the code source the call was made on
+     * @return the location of the source, or the fallback location if the source has none
+     */
     public static URL replacement_getLocation(CodeSource source) {
         if (source == null) {
             throw new NullPointerException();

@@ -41,6 +41,23 @@ public class KillSwitchHandler implements KillSwitch {
         this.kill = kill;
     }
 
+    private static volatile boolean stoppingLeftoverThreads;
+
+    /**
+     * Set by {@link ThreadStopper} while a finished test waits for its leftover threads to
+     * terminate. Independent of the kill switch itself, which a client may implement differently.
+     */
+    static void setStoppingLeftoverThreads(boolean stopping) {
+        stoppingLeftoverThreads = stopping;
+    }
+
+    /**
+     * Whether a finished test is waiting for its leftover threads to terminate.
+     */
+    public static boolean isStoppingLeftoverThreads() {
+        return stoppingLeftoverThreads;
+    }
+
     /**
      * Throw an exception if kill switch is on.
      *

@@ -14,6 +14,11 @@ public final class LlmPostProcessingProtocol {
     public static final String PARSER_VERSION = "postprocessing-parser-v4";
     public static final String PRODUCTION_PROMPT_VERSION = "postprocessing-production-v2";
 
+    /** Prompt markers the renderer emits when it truncates internal context. */
+    public static final String OBSERVATIONS_TRUNCATED_MARKER = "truncated=true";
+    public static final String CALLABLE_TYPES_TRUNCATED_MARKER = "truncatedCallableTypes=";
+    public static final String CANDIDATES_TRUNCATED_MARKER = "truncatedCandidates=";
+
     private LlmPostProcessingProtocol() {
         // Utility class.
     }

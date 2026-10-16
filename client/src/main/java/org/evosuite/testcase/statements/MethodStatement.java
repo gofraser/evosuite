@@ -27,7 +27,6 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.EvosuiteError;
-import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.UncompilableCodeException;
 import org.evosuite.testcase.variable.ArrayIndex;
@@ -501,17 +500,6 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * Message carried by the {@link TooManyResourcesException} that the allocation guards below
-     * raise. Refusing a call because its arguments would allocate an absurd amount of memory is
-     * a resource decision of ours, not the execution watchdog firing, so it must not be reported
-     * as {@code TestCaseExecutor.TimeoutExceeded}: that inflates the timeout statistics, trips
-     * the "disable functional mocking after N consecutive timeouts" heuristic, and makes the
-     * JUnit re-check drop the test as unstable.
-     */
-    private static final String ALLOCATION_REJECTED =
-            "EvoSuite refused this call: its arguments would allocate an excessive amount of memory";
-
-    /**
      * Sanity check for method calls on allocation-sensitive classes: rejects
      * individual int args ≥ ABSURD_INT_THRESHOLD, and rejects when the product
      * of all positive int args exceeds the threshold. Only applies to classes
@@ -528,14 +516,14 @@ public class MethodStatement extends EntityWithParametersStatement {
         long product = 1;
         boolean hasPositiveInt = false;
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val >= ABSURD_INT_THRESHOLD || val <= -ABSURD_INT_THRESHOLD) {
                     logger.info("Rejecting method {}.{} with absurd int arg {} = {}",
                             method.getMethod().getDeclaringClass().getName(),
                             method.getName(), i, val);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
                 if (val > 0) {
                     product *= val;
@@ -547,8 +535,7 @@ public class MethodStatement extends EntityWithParametersStatement {
             logger.info("Rejecting method {}.{}: product of int args = {} exceeds {}",
                     method.getMethod().getDeclaringClass().getName(),
                     method.getName(), product, ABSURD_INT_THRESHOLD);
-            throw new CodeUnderTestException(
-                    new TooManyResourcesException(ALLOCATION_REJECTED));
+            throw allocationRejected();
         }
     }
 
@@ -568,19 +555,20 @@ public class MethodStatement extends EntityWithParametersStatement {
         }
         Class<?>[] paramTypes = method.getMethod().getParameterTypes();
         int limit = Properties.COLLECTION_CAPACITY_LIMIT;
+        int argLimit = TableModelAllocation.dimensionLimit(declaringClass, limit);
         String methodName = method.getName();
 
         // Check individual args and compute product
         long product = 1;
         boolean hasPositiveInt = false;
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
-                if (val > limit || val < -limit) {
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
+                if (val > argLimit || val < -argLimit) {
                     logger.info("Rejecting method {}.{}: int arg {} = {} exceeds limit {}",
-                            declaringClass.getName(), methodName, i, val, limit);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                            declaringClass.getName(), methodName, i, val, argLimit);
+                    throw allocationRejected();
                 }
                 if (val > 0) {
                     product *= val;
@@ -592,37 +580,19 @@ public class MethodStatement extends EntityWithParametersStatement {
             rejectWithLog(declaringClass, methodName, "product of int args", product, limit);
         }
 
-        // For resize methods, check the product with the object's current dimensions
-        if (hasPositiveInt && calleeObject instanceof javax.swing.table.DefaultTableModel) {
-            javax.swing.table.DefaultTableModel model =
-                    (javax.swing.table.DefaultTableModel) calleeObject;
-            int intArg = firstPositiveIntArg(paramTypes, inputs);
-            long effectiveSize = 0;
-            if ("setColumnCount".equals(methodName)) {
-                effectiveSize = (long) model.getRowCount() * intArg;
-            } else if ("setRowCount".equals(methodName)) {
-                effectiveSize = (long) model.getColumnCount() * intArg;
-            }
-            if (effectiveSize > limit) {
+        // Resizing a table model allocates rows x columns slots, and the two dimensions come
+        // from the argument, the model's current state or the vectors passed in
+        if (calleeObject instanceof javax.swing.table.DefaultTableModel) {
+            long cells = TableModelAllocation.estimateCells(
+                    (javax.swing.table.DefaultTableModel) calleeObject, methodName, inputs);
+            if (cells > limit) {
                 rejectWithLog(declaringClass, methodName,
-                        "effective allocation (existing dimension × arg)", effectiveSize, limit);
+                        "resulting table size (rows x columns)", cells, limit);
             }
         }
     }
 
-    private int firstPositiveIntArg(Class<?>[] paramTypes, Object[] inputs) {
-        for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
-                if (val > 0) {
-                    return val;
-                }
-            }
-        }
-        return 0;
-    }
-
-    /**
+    /*
      * Rejects method calls whose int args exceed a dynamically learned threshold.
      * The threshold is set after a previous OOM from the same method, starting at
      * half the smallest arg that caused OOM, and halving on each subsequent OOM.
@@ -654,8 +624,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     logger.info("Rejecting allocation-sensitive {}.{}: byte[] arg {} "
                             + "length {} exceeds limit {}",
                             className, methodName, i, len, byteLimit);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
             } else if (stringLimit > 0 && arg instanceof String) {
                 int len = ((String) arg).length();
@@ -663,8 +632,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     logger.info("Rejecting allocation-sensitive {}.{}: String arg {} "
                             + "length {} exceeds limit {}",
                             className, methodName, i, len, stringLimit);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
             } else if (byteLimit > 0 && arg instanceof java.io.InputStream) {
                 try {
@@ -673,8 +641,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                         logger.info("Rejecting allocation-sensitive {}.{}: InputStream "
                                 + "arg {} available {} exceeds byte limit {}",
                                 className, methodName, i, available, byteLimit);
-                        throw new CodeUnderTestException(
-                                new TooManyResourcesException(ALLOCATION_REJECTED));
+                        throw allocationRejected();
                     }
                 } catch (java.io.IOException ignored) {
                     // can't bound it — let the method try
@@ -693,13 +660,13 @@ public class MethodStatement extends EntityWithParametersStatement {
         }
         Class<?>[] paramTypes = method.getMethod().getParameterTypes();
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val > threshold) {
                     logger.info("Rejecting {}.{}: int arg {} = {} exceeds learned threshold {}",
                             className, methodName, i, val, threshold);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
             }
         }
@@ -709,7 +676,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                                long value, int limit) throws CodeUnderTestException {
         logger.info("Rejecting {}.{}: {} = {} exceeds limit {}",
                 cls.getName(), methodName, reason, value, limit);
-        throw new CodeUnderTestException(new TooManyResourcesException(ALLOCATION_REJECTED));
+        throw allocationRejected();
     }
 
     /**
@@ -793,24 +760,36 @@ public class MethodStatement extends EntityWithParametersStatement {
      * {@inheritDoc}
      */
     @Override
-    public void replace(VariableReference oldVar, VariableReference newVar) {
-        super.replace(oldVar, newVar);
+    public boolean acceptsReplacement(VariableReference oldVar, VariableReference newVar) {
+        return super.acceptsReplacement(oldVar, newVar)
+                && (!isInstanceMethod() || calleeAfterReplacing(oldVar, newVar) != null);
+    }
 
+    @Override
+    protected void applyReplacement(VariableReference oldVar, VariableReference newVar) {
+        super.applyReplacement(oldVar, newVar);
         if (isInstanceMethod()) {
-            if (callee.equals(oldVar)) {
-                if (newVar != null
-                        && !isCompatibleCalleeType(method, newVar.getType())) {
-                    logger.debug("Skipping incompatible callee {} for method {}.{}",
-                            newVar.getVariableClass().getCanonicalName(),
-                            method.getDeclaringClass().getCanonicalName(),
-                            method.getName());
-                    return;
-                }
-                callee = newVar;
-            } else {
-                callee.replaceAdditionalVariableReference(oldVar, newVar);
-            }
+            callee = calleeAfterReplacing(oldVar, newVar);
         }
+    }
+
+    /**
+     * The callee with {@code newVar} in place of {@code oldVar}, either the callee itself or a
+     * use inside it ("oldVar[0].m()", "oldVar.f.m()"), or null if the result is not a receiver
+     * of a type that has this method. Changes nothing.
+     */
+    private VariableReference calleeAfterReplacing(VariableReference oldVar,
+                                                   VariableReference newVar) {
+        VariableReference rebound = callee.withReplacement(oldVar, newVar);
+        if (rebound == callee) {
+            return callee;
+        }
+        if (rebound == null || !isCompatibleCalleeType(method, rebound.getType())) {
+            logger.debug("Skipping incompatible callee for method {}.{}",
+                    method.getDeclaringClass().getCanonicalName(), method.getName());
+            return null;
+        }
+        return rebound;
     }
 
 

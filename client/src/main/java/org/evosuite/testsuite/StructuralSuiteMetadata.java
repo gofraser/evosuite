@@ -63,6 +63,12 @@ public class StructuralSuiteMetadata {
         return metadata;
     }
 
+    /**
+     * Restores the minimization result recorded in this metadata.
+     *
+     * @return the recorded minimization result
+     * @throws IllegalArgumentException if the recorded status or stop cause is invalid
+     */
     public MinimizationResult toMinimizationResult() {
         try {
             return new MinimizationResult(

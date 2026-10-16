@@ -29,6 +29,7 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
@@ -166,6 +167,15 @@ public class CoverageArchive extends Archive {
                             + (e.getMessage() == null ? "" : ": " + e.getMessage())
                             + "). Solution code:\n" + code);
             return;
+        }
+        if (!ExecutionTracer.coverageRequiresMethodCallTraces()) {
+            // The archive keeps a result only for the goals it covers, which the
+            // aggregated maps answer. The per-call records exist to compute approach
+            // levels for goals the population has *not* reached, and on call-heavy
+            // targets (jackson's TokenBuffer: thousands of calls per test) they are
+            // the bulk of the heap -- the clone above shares them until the
+            // population member is replaced, then holds them alone.
+            clone.discardMethodCallTraces();
         }
         this.uncovered.remove(target);
         this.covered.put(target, clone);

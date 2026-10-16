@@ -51,6 +51,8 @@ public class TemplateCodeAssertion extends Assertion {
 
     private static final long serialVersionUID = 1L;
 
+    private static final Pattern EXCEPTION_ID = Pattern.compile("\\be0\\b");
+
     public enum Placement {
         END_OF_TEST,
         BEFORE_TRY,
@@ -66,7 +68,23 @@ public class TemplateCodeAssertion extends Assertion {
     private final Map<String, Integer> bindings;
     private final String purpose;
     private final Placement placement;
+    /**
+     * Cached {@link #operandShape(String)} of the expected and actual expressions.
+     */
+    private transient Object expectedShape;
+    private transient Object actualShape;
 
+    /**
+     * Creates an assertion that is placed at the end of the test.
+     *
+     * @param assertionId        the identifier of the assertion
+     * @param kind               the kind of assertion
+     * @param expectedExpression the expression for the expected value
+     * @param actualExpression   the expression for the actual value
+     * @param deltaExpression    the expression for the delta, may be null
+     * @param bindings           the symbolic variable bindings
+     * @param purpose            the purpose of the assertion
+     */
     public TemplateCodeAssertion(String assertionId,
                                  Enum<?> kind,
                                  String expectedExpression,
@@ -78,6 +96,18 @@ public class TemplateCodeAssertion extends Assertion {
                 purpose, Placement.END_OF_TEST);
     }
 
+    /**
+     * Creates an assertion with an explicit placement.
+     *
+     * @param assertionId        the identifier of the assertion
+     * @param kind               the kind of assertion
+     * @param expectedExpression the expression for the expected value
+     * @param actualExpression   the expression for the actual value
+     * @param deltaExpression    the expression for the delta, may be null
+     * @param bindings           the symbolic variable bindings
+     * @param purpose            the purpose of the assertion
+     * @param placement          where the assertion is placed in the test, null for the end of the test
+     */
     public TemplateCodeAssertion(String assertionId,
                                  Enum<?> kind,
                                  String expectedExpression,
@@ -124,17 +154,30 @@ public class TemplateCodeAssertion extends Assertion {
         return render(null);
     }
 
+    /**
+     * Renders the assertion as source code.
+     *
+     * @param visitor the visitor that resolves variable names
+     * @return the assertion source code
+     */
     public String render(TestCodeVisitor visitor) {
         return render(visitor, null);
     }
 
+    /**
+     * Renders the assertion as source code, resolving exception identifiers against a catch variable.
+     *
+     * @param visitor           the visitor that resolves variable names
+     * @param catchVariableName the name of the catch variable standing in for the exception, may be null
+     * @return the assertion source code
+     */
     public String render(TestCodeVisitor visitor, String catchVariableName) {
         String actual = resolveExceptionId(resolveExpression(actualExpression, visitor), catchVariableName);
         String expected = resolveExceptionId(resolveExpression(expectedExpression, visitor), catchVariableName);
         String delta = resolveExceptionId(resolveExpression(deltaExpression, visitor), catchVariableName);
         boolean arrayEquality = kind == TemplateAssertionKind.EQUALS
                 && delta == null
-                && (isArrayOperand(expectedExpression) || isArrayOperand(actualExpression));
+                && (isArrayOperand(expectedShape()) || isArrayOperand(actualShape()));
         return CanonicalAssertionRenderer.forConfiguredFormat().render(kind, expected, actual, delta, arrayEquality);
     }
 
@@ -216,10 +259,6 @@ public class TemplateCodeAssertion extends Assertion {
                 && placement == other.placement;
     }
 
-    public static Set<String> extractSymbolicVariables(String expression) {
-        return SymbolicExpressionUtils.extractSymbolicVariables(expression);
-    }
-
     private static TemplateAssertionKind toTemplateKind(Enum<?> kind) {
         return kind == null ? null : TemplateAssertionKind.valueOf(kind.name());
     }
@@ -258,30 +297,56 @@ public class TemplateCodeAssertion extends Assertion {
         if (expression == null || catchVariableName == null) {
             return expression;
         }
-        return expression.replaceAll("\\be0\\b", Matcher.quoteReplacement(catchVariableName));
+        return EXCEPTION_ID.matcher(expression).replaceAll(Matcher.quoteReplacement(catchVariableName));
     }
 
-    private boolean isArrayOperand(String expression) {
-        if (expression == null || expression.trim().isEmpty()) {
-            return false;
+    private boolean isArrayOperand(Object shape) {
+        if (shape instanceof Boolean) {
+            return (Boolean) shape;
+        }
+        Integer position = bindings.get((String) shape);
+        if (position != null && statement != null && statement.getTestCase() != null
+                && position >= 0 && position < statement.getTestCase().size()) {
+            VariableReference variable = statement.getTestCase().getStatement(position).getReturnValue();
+            return variable != null && variable.getVariableClass().isArray();
+        }
+        return false;
+    }
+
+    private Object expectedShape() {
+        if (expectedShape == null) {
+            expectedShape = operandShape(expectedExpression);
+        }
+        return expectedShape;
+    }
+
+    private Object actualShape() {
+        if (actualShape == null) {
+            actualShape = operandShape(actualExpression);
+        }
+        return actualShape;
+    }
+
+    /**
+     * What parsing an operand tells about array equality, independent of the test it is bound
+     * to: {@code Boolean} when that settles it, or the name a bare variable operand refers to.
+     */
+    private static Object operandShape(String expression) {
+        if (expression == null || expression.isEmpty()) {
+            return Boolean.FALSE;
         }
         try {
             Expression parsed = StaticJavaParser.parseExpression(expression);
             if (parsed instanceof ArrayCreationExpr) {
-                return true;
+                return Boolean.TRUE;
             }
             if (parsed instanceof NameExpr) {
-                Integer position = bindings.get(((NameExpr) parsed).getNameAsString());
-                if (position != null && statement != null && statement.getTestCase() != null
-                        && position >= 0 && position < statement.getTestCase().size()) {
-                    VariableReference variable = statement.getTestCase().getStatement(position).getReturnValue();
-                    return variable != null && variable.getVariableClass().isArray();
-                }
+                return ((NameExpr) parsed).getNameAsString();
             }
+            return Boolean.FALSE;
         } catch (RuntimeException ignored) {
             return expression.trim().startsWith("new ") && expression.contains("[]");
         }
-        return false;
     }
 
     private Map<String, VariableReference> resolveBindings(TestCase testCase) {

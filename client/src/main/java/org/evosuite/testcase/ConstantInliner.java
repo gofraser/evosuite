@@ -21,6 +21,7 @@ package org.evosuite.testcase;
 
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.evosuite.Properties;
+import org.evosuite.TimeController;
 import org.evosuite.testcase.execution.*;
 import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.MethodStatement;
@@ -78,7 +79,20 @@ public class ConstantInliner extends ExecutionObserver {
      * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     public void inline(TestSuiteChromosome suite) {
+        // Inlining re-executes every test, and this phase has no timeout of its
+        // own: on jackson-databind TokenBuffer a 958-test archive suite took 70 s
+        // here after a 60 s search, and whatever it spends beyond the slack in
+        // the overall budget pushes minimization and writing past the deadline
+        // at which the master kills the client. Tests left un-inlined are merely
+        // less readable, so stop once the overall budget leaves no room for a test.
+        int inlined = 0;
         for (TestChromosome test : suite.getTestChromosomes()) {
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                logger.warn("Inlining stopped after {} of {} tests: no time left for "
+                        + "executing a test case", inlined, suite.size());
+                break;
+            }
+            inlined++;
             final int old_test_size = test.size();
             inline(test);
             final int new_test_size = test.size();

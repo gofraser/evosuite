@@ -154,31 +154,13 @@ public final class FunctionalMockSetupCoordinator {
     }
 
     /**
-     * Materializes every currently observed missing stub into an already-cloned candidate. The
-     * clone retains the read-only invocation listener from the preceding execution.
-     */
-    public static RepairToken applyObservedSetup(TestCase candidate) {
-        return applyObservedSetup(candidate, true, null);
-    }
-
-    /**
-     * Materializes observed stubs, optionally seeding boolean returns with the non-default
-     * direction. Functional mocks and Java primitives otherwise overwhelmingly produce false,
-     * making a missing true branch effectively invisible to setup repair.
-     */
-    public static synchronized RepairToken applyObservedSetup(TestCase candidate,
-                                                 boolean preferNonDefaultBooleans) {
-        return applyObservedSetup(candidate, preferNonDefaultBooleans, null);
-    }
-
-    /**
      * Materializes observed stubs with an optional value inferred from the active branch
      * comparison. Without a hint, numeric returns use small deterministic values rather than
      * unrestricted constant-pool values such as {@link Integer#MAX_VALUE}.
      */
-    public static RepairToken applyObservedSetup(TestCase candidate,
-                                                 boolean preferNonDefaultBooleans,
-                                                 Number numericHint) {
+    private static RepairToken applyObservedSetup(TestCase candidate,
+                                                  boolean preferNonDefaultBooleans,
+                                                  Number numericHint) {
         if (!enabled() || candidate == null) {
             return null;
         }
@@ -285,12 +267,21 @@ public final class FunctionalMockSetupCoordinator {
         }
     }
 
+    /**
+     * Counts one extra test execution spent on a repair proposal.
+     * @param proposal the proposal that was executed, ignored if null
+     */
     public static void recordExtraExecution(RepairProposal proposal) {
         if (proposal != null) {
             recordExtraExecution();
         }
     }
 
+    /**
+     * Records that a repair proposal made the test succeed.
+     * @param proposal the successful proposal, ignored if null
+     * @param cacheForProactiveUse whether the repair recipe is remembered for proactive use on later tests
+     */
     public static void recordSuccess(
             RepairProposal proposal, boolean cacheForProactiveUse) {
         if (proposal != null) {
@@ -298,6 +289,10 @@ public final class FunctionalMockSetupCoordinator {
         }
     }
 
+    /**
+     * Records that a repair proposal did not help.
+     * @param proposal the failed proposal, ignored if null
+     */
     public static void recordFailure(RepairProposal proposal) {
         if (proposal != null) {
             recordFailure(proposal.token);
@@ -405,23 +400,18 @@ public final class FunctionalMockSetupCoordinator {
         List<VariableReference> values = new ArrayList<>();
         for (Type returnType : returnTypes) {
             int insertion = boundaryMock == null ? test.size() : boundaryMock.getPosition();
-            VariableReference primitive = createStablePrimitiveReturn(
-                    test, returnType, insertion, numericHint);
+            VariableReference primitive = returnType == boolean.class
+                    || returnType == Boolean.class
+                    ? test.addStatement(
+                            new BooleanPrimitiveStatement(test, preferNonDefaultBooleans), insertion)
+                    : createStablePrimitiveReturn(test, returnType, insertion, numericHint);
             values.add(primitive != null
                     ? primitive
                     : createMockReturnValue(test, returnType, insertion, config));
         }
         for (int i = 0; i < returnTypes.size() && i < values.size(); i++) {
-            Type type = returnTypes.get(i);
-            if (type == boolean.class || type == Boolean.class) {
-                int definition = definitionPosition(test, values.get(i));
-                if (definition >= 0
-                        && test.getStatement(definition) instanceof BooleanPrimitiveStatement) {
-                    ((BooleanPrimitiveStatement) test.getStatement(definition))
-                            .setValue(preferNonDefaultBooleans);
-                }
-            }
-            materializeReturnedContainer(test, values.get(i), type, boundaryMock, config);
+            materializeReturnedContainer(
+                    test, values.get(i), returnTypes.get(i), boundaryMock, config);
         }
         return values;
     }
@@ -477,12 +467,24 @@ public final class FunctionalMockSetupCoordinator {
     }
 
     private static Object convertNumber(Number value, Class<?> primitive) {
-        if (primitive == byte.class) return value.byteValue();
-        if (primitive == short.class) return value.shortValue();
-        if (primitive == int.class) return value.intValue();
-        if (primitive == long.class) return value.longValue();
-        if (primitive == float.class) return value.floatValue();
-        if (primitive == double.class) return value.doubleValue();
+        if (primitive == byte.class) {
+            return value.byteValue();
+        }
+        if (primitive == short.class) {
+            return value.shortValue();
+        }
+        if (primitive == int.class) {
+            return value.intValue();
+        }
+        if (primitive == long.class) {
+            return value.longValue();
+        }
+        if (primitive == float.class) {
+            return value.floatValue();
+        }
+        if (primitive == double.class) {
+            return value.doubleValue();
+        }
         throw new IllegalArgumentException("Unsupported numeric primitive " + primitive);
     }
 
@@ -546,15 +548,11 @@ public final class FunctionalMockSetupCoordinator {
                 test, type, position, GenerationContext.fromDepth(2), config);
     }
 
-    private static int definitionPosition(TestCase test, VariableReference reference) {
-        for (int position = 0; position < test.size(); position++) {
-            if (test.getStatement(position).getReturnValue() == reference) {
-                return position;
-            }
-        }
-        return -1;
-    }
-
+    /**
+     * Checks whether a functional mock lacks a stub for a method that returns a boolean.
+     * @param test the test case to inspect
+     * @return true if some mock has an observed invocation of a boolean method that needs a stub
+     */
     public static boolean hasObservedBooleanSetup(TestCase test) {
         if (!enabled() || test == null) {
             return false;
@@ -658,6 +656,9 @@ public final class FunctionalMockSetupCoordinator {
         return true;
     }
 
+    /**
+     * Clears the remembered repair recipes and all counters.
+     */
     public static synchronized void reset() {
         SUCCESSFUL_RECIPES.clear();
         FAILED_RECIPES.clear();
@@ -672,13 +673,39 @@ public final class FunctionalMockSetupCoordinator {
         blacklistedRecipes = 0;
     }
 
-    public static synchronized int getOpportunities() { return opportunities; }
-    public static synchronized int getMethodsObserved() { return methodsObserved; }
-    public static synchronized int getStubsAdded() { return stubsAdded; }
-    public static synchronized int getAttempts() { return attempts; }
-    public static synchronized int getSuccesses() { return successes; }
-    public static synchronized int getProactiveUses() { return proactiveUses; }
-    public static synchronized int getExtraExecutions() { return extraExecutions; }
-    public static synchronized int getNegativeCacheHits() { return negativeCacheHits; }
-    public static synchronized int getBlacklistedRecipes() { return blacklistedRecipes; }
+    public static synchronized int getOpportunities() {
+        return opportunities;
+    }
+
+    public static synchronized int getMethodsObserved() {
+        return methodsObserved;
+    }
+
+    public static synchronized int getStubsAdded() {
+        return stubsAdded;
+    }
+
+    public static synchronized int getAttempts() {
+        return attempts;
+    }
+
+    public static synchronized int getSuccesses() {
+        return successes;
+    }
+
+    public static synchronized int getProactiveUses() {
+        return proactiveUses;
+    }
+
+    public static synchronized int getExtraExecutions() {
+        return extraExecutions;
+    }
+
+    public static synchronized int getNegativeCacheHits() {
+        return negativeCacheHits;
+    }
+
+    public static synchronized int getBlacklistedRecipes() {
+        return blacklistedRecipes;
+    }
 }

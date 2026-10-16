@@ -99,8 +99,10 @@ public class VariableReferenceImpl implements VariableReference {
             if (stPosition == null) {
                 StringBuilder msg = new StringBuilder("VariableReference not found in TestCase\n");
                 msg.append("Test case has ").append(testCase.size()).append(" function calls \n");
+                // Name the statement kinds only: rendering them with getCode() would re-enter
+                // TestCodeVisitor and rewrite functional mocks in place.
                 for (int i = 0; i < testCase.size(); i++) {
-                    msg.append(testCase.getStatement(i).getCode(null)).append("\n");
+                    msg.append(testCase.getStatement(i).getClass().getSimpleName()).append("\n");
                 }
                 msg.append("failed to find type ").append(this.type.getTypeName()).append("\n");
 
@@ -530,15 +532,6 @@ public class VariableReferenceImpl implements VariableReference {
     @Override
     public void setAdditionalVariableReference(VariableReference var) {
         // Do nothing by default
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void replaceAdditionalVariableReference(VariableReference var1,
-                                                   VariableReference var2) {
-        // no op
     }
 
     /**

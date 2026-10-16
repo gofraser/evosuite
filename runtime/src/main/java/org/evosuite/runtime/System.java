@@ -22,6 +22,9 @@ package org.evosuite.runtime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 
@@ -219,6 +222,14 @@ public class System {
     }
 
     /**
+     * Replacement function for System.gc: a full collection is of no use to a test and
+     * costs the search a stop-the-world pause per call.
+     */
+    public static void gc() {
+        // do nothing
+    }
+
+    /**
      * Replacement function for System.exit.
      *
      * @param status a int.
@@ -282,7 +293,42 @@ public class System {
         return currentTime;
     }
 
-    private static final Map<Integer, Integer> hashKeys = new HashMap<>();
+    /**
+     * Mocked identity hash codes, keyed by the real identity hash of the object. An object
+     * keeps its mocked value for as long as it is reachable: SUT code stores such objects as
+     * keys of {@code HashMap}s that live in static state across many tests (110_firebird's
+     * {@code GDSFactory.typeToPluginMap} is keyed by {@code GDSType}, which defines no
+     * {@code hashCode()}), and a key whose hash changes after {@code put()} is searched for in
+     * the wrong bucket and never found again. The entries are weak so that objects that died
+     * with their test do not accumulate over a run; {@link #resetRuntime()} only restarts the
+     * counter, so the objects a test creates still get the same small, deterministic values
+     * every time the test runs.
+     */
+    private static final Map<Integer, List<HashKey>> hashKeys = new HashMap<>();
+    private static final ReferenceQueue<Object> deadHashKeys = new ReferenceQueue<>();
+    private static int nextHashKey = 1;
+
+    private static final class HashKey extends WeakReference<Object> {
+        private final int realId;
+        private final int mockedId;
+
+        HashKey(Object referent, int realId, int mockedId) {
+            super(referent, deadHashKeys);
+            this.realId = realId;
+            this.mockedId = mockedId;
+        }
+    }
+
+    private static void expungeDeadHashKeys() {
+        Reference<?> ref;
+        while ((ref = deadHashKeys.poll()) != null) {
+            HashKey dead = (HashKey) ref;
+            List<HashKey> entries = hashKeys.get(dead.realId);
+            if (entries != null && entries.remove(dead) && entries.isEmpty()) {
+                hashKeys.remove(dead.realId);
+            }
+        }
+    }
 
     /**
      * Registers an object to ensure it has a stable mocked identity hash code.
@@ -305,17 +351,53 @@ public class System {
         }
 
         synchronized (hashKeys) {
-            Integer realId = java.lang.System.identityHashCode(o);
-            if (!hashKeys.containsKey(realId)) {
-                hashKeys.put(realId, hashKeys.size() + 1);
+            expungeDeadHashKeys();
+            int realId = java.lang.System.identityHashCode(o);
+            List<HashKey> entries = hashKeys.computeIfAbsent(realId, k -> new ArrayList<>(1));
+            for (HashKey entry : entries) {
+                if (entry.get() == o) {
+                    return entry.mockedId;
+                }
             }
-
-            return hashKeys.get(realId);
+            int mockedId = nextHashKey++;
+            entries.add(new HashKey(o, realId, mockedId));
+            return mockedId;
         }
     }
 
     /**
-     * Replacement for {@link Object#toString()} that uses the stable mocked identity hash code.
+     * Replacement for a call to {@link Object#hashCode()}.
+     *
+     * <p>The instrumentation replaces every {@code invokevirtual Object.hashCode()} it
+     * sees, and it sees one wherever the receiver's static type is {@code Object} - a
+     * generic {@code K key} erases to exactly that. The receiver at run time is usually
+     * something else: a String, an Integer, a value class. Answering with the mocked
+     * identity id for those made two equal keys hash differently, so any hash table in
+     * instrumented code stopped finding its own entries. Guava's {@code RegularImmutableMap}
+     * inside Closure lost "desc" that way: {@code putAll} copied the entry, {@code
+     * containsKey("desc")} on another String instance said no, and the builder threw
+     * "duplicate key". Only an object whose class leaves {@code hashCode()} to
+     * {@code Object} gets the deterministic id; everything else gets its own.</p>
+     *
+     * @param o the receiver of the call
+     * @return the receiver's hash code
+     * @throws NullPointerException if the receiver is null, as the original call would
+     */
+    public static int hashCode(Object o) {
+        if (o == null) {
+            throw new NullPointerException();
+        }
+        if (overridesObjectMethod(o.getClass(), "hashCode")) {
+            return o.hashCode();
+        }
+        return identityHashCode(o);
+    }
+
+    /**
+     * Replacement for a call to {@link Object#toString()}: the receiver's own
+     * {@code toString()} when its class defines one, otherwise the default form with the
+     * stable mocked identity hash code in place of the JVM's. See {@link #hashCode(Object)}
+     * for why the dynamic type has to decide.
      *
      * @param o the object to get the string representation for
      * @return the string representation
@@ -325,8 +407,45 @@ public class System {
         if (o == null) {
             throw new NullPointerException();
         }
+        if (overridesObjectMethod(o.getClass(), "toString")) {
+            return o.toString();
+        }
 
         return o.getClass().getName() + "@" + String.format("%010d", identityHashCode(o));
+    }
+
+    /*
+     * ClassValue associates its values with the Class object itself (effectively a weak key
+     * managed by the JVM), so an entry here does not keep a disposable JUnit-check class
+     * loader's classes reachable: once nothing else references the Class, both it and this
+     * cached Boolean can be collected together. A plain Map<Class<?>, Boolean> would hold the
+     * Class strongly forever, which is what pinned whole SUT class graphs loaded through
+     * temporary loaders. No explicit clearing from resetRuntime()/fullReset() is needed.
+     */
+    private static final ClassValue<Boolean> overridesHashCode = new ClassValue<Boolean>() {
+        @Override
+        protected Boolean computeValue(Class<?> clazz) {
+            return declaresObjectMethod(clazz, "hashCode");
+        }
+    };
+    private static final ClassValue<Boolean> overridesToString = new ClassValue<Boolean>() {
+        @Override
+        protected Boolean computeValue(Class<?> clazz) {
+            return declaresObjectMethod(clazz, "toString");
+        }
+    };
+
+    private static boolean declaresObjectMethod(Class<?> clazz, String methodName) {
+        try {
+            return clazz.getMethod(methodName).getDeclaringClass() != Object.class;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
+    private static boolean overridesObjectMethod(Class<?> clazz, String methodName) {
+        ClassValue<Boolean> cache = "hashCode".equals(methodName) ? overridesHashCode : overridesToString;
+        return cache.get(clazz);
     }
 
     /**
@@ -404,7 +523,11 @@ public class System {
     public static void resetRuntime() {
         currentTime = 1392409281320L; // 2014-02-14, 20:21
         wasTimeAccessed = false;
-        hashKeys.clear();
+        synchronized (hashKeys) {
+            // Objects that survive the test keep their mocked hash (see hashKeys); only
+            // the numbering of objects created from now on starts over.
+            nextHashKey = 1;
+        }
         restoreProperties();
         needToRestoreProperties = false;
         //readProperties.clear(); //we cannot reset read properties here

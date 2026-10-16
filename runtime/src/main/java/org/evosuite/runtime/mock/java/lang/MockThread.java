@@ -77,21 +77,103 @@ public class MockThread extends Thread implements OverrideMock {
     /**
      * Maximum number of {@link #sleep(long)} calls allowed per test execution
      * before {@link #sleep(long)} gives up and throws {@link TooManyResourcesException}.
-     *
-     * <p>{@code sleep(long)} no longer really sleeps for (close to) the requested
-     * duration: it advances the mocked clock (see {@link org.evosuite.runtime.System#advanceCurrentTimeMillis(long)})
-     * and returns almost immediately, so a SUT polling loop that calls
-     * {@code sleep()} costs virtually no wall-clock time per call. Because of
-     * that, a budget expressed in (virtual or real) milliseconds no longer says
-     * anything about how expensive the loop actually is to execute — it is the
-     * number of calls, not their nominal duration, that determines how long the
-     * search spends in it. We therefore cap the number of calls instead, using
-     * the same order of magnitude as {@link org.evosuite.runtime.LoopCounter}'s
-     * default iteration cap, so an uninstrumented polling loop that sleeps once
-     * per iteration is stopped at roughly the same point an instrumented one
-     * would be.
+     * It exists for uninstrumented library code (e.g. HSQLDB {@code Server.start()})
+     * that the {@link org.evosuite.runtime.LoopCounter} cannot reach, so that such a
+     * loop cannot spin forever even if it somehow escapes EvoSuite's per-test
+     * timeout.
      */
     private static final long MAX_SLEEP_CALLS_PER_TEST = 10_000L;
+
+    /**
+     * Upper bound (in real milliseconds) on the genuine {@link Thread#sleep(long)}
+     * that a mocked {@link #sleep(long)} performs on a thread the SUT started.
+     *
+     * <p>{@code sleep(long)} never waits for the requested time; it advances the mocked
+     * clock instead. What it does in real time depends on who calls it:
+     *
+     * <ul>
+     * <li>A thread the SUT started (a {@code MockThread}) pauses for real,
+     * {@code min(requested, 50)} ms on every call. Such a thread runs alongside the
+     * test, so the pause costs the search nothing, and it must not be shorter: a
+     * background loop that calls {@code sleep()} on every iteration (e.g. 104_vuze's
+     * {@code TRTrackerServerImpl.timerLoop()}, which sleeps 60 s and then holds a
+     * static {@code AEMonitor} for ~10 ms) would otherwise spin and starve the test
+     * thread that waits for the same monitor, until that thread is declared stuck and
+     * force-stopped while it holds a lock the stop cannot release.</li>
+     * <li>The test's own thread only yields. A real pause there is paid on every
+     * evaluation of the test: a polling loop that never ends (gangup's
+     * {@code Kernel.run()}, HSQLDB's {@code Server.start()}) lasted several seconds
+     * under 200 ms of real sleep per test, and the search saw a handful of
+     * generations. The call cap below ends such a loop.</li>
+     * </ul>
+     */
+    private static final long MAX_REAL_SLEEP_PER_CALL_MS = 50L;
+
+    /**
+     * Real pause of a leftover thread's mocked sleep() or wait() while its test's
+     * threads are being stopped: long enough that a catch-all loop is not a hot
+     * spin and a monitor gets released, short enough that a join sees the thread
+     * end well within ThreadStopper's window (at least 200 ms).
+     */
+    public static final long STOPPING_REAL_PAUSE_MS = 2L;
+
+    /** A real, interruptible pause: a sleep or a wait. */
+    interface RealPause {
+        void run() throws InterruptedException;
+    }
+
+    /**
+     * Ends a leftover thread's sleep() or wait() once its test's threads are being stopped,
+     * after a brief real {@code pause}. ThreadStopper has interrupted the thread: with the flag
+     * still set the real pause would throw at once and a loop that swallows the exception would
+     * spin. So the flag is cleared around the pause and set again for the loop to see.
+     *
+     * @return the exception to throw
+     */
+    static TooManyResourcesException pauseThenStopLeftover(RealPause pause, String message) {
+        boolean wasInterrupted = Thread.interrupted();
+        try {
+            pause.run();
+        } catch (InterruptedException e) {
+            wasInterrupted = true;
+        }
+        if (wasInterrupted) {
+            Thread.currentThread().interrupt();
+        }
+        return new TooManyResourcesException(message);
+    }
+
+    /**
+     * A real {@code pause} (a sleep or a wait) on a thread the SUT started. Once its test's
+     * threads are being stopped, the brief {@code stoppingPause} is taken instead and the thread
+     * is ended with {@code stopMessage}; see {@link #pauseThenStopLeftover}.
+     *
+     * <p>The interrupt that ends a leftover thread's real pause is the one that tells its loop to
+     * stop: LoopCounter ends a loop whose thread is still flagged as interrupted. A SUT loop that
+     * swallows the exception would otherwise find the flag cleared and go on until the iteration
+     * cap, tens of milliseconds of busy looping that the finished test's join has to wait for, for
+     * every test that started such a thread (27_gangup's Kernel). So the flag is set again before
+     * the exception is rethrown.
+     *
+     * @param stoppingPause the brief pause taken when the thread is being stopped
+     * @param pause the pause taken otherwise
+     * @param stopMessage message of the exception that stops a leftover thread
+     * @throws InterruptedException if the pause is interrupted
+     */
+    static void pauseOnSutThread(RealPause stoppingPause, RealPause pause, String stopMessage)
+            throws InterruptedException {
+        if (org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
+            throw pauseThenStopLeftover(stoppingPause, stopMessage);
+        }
+        try {
+            pause.run();
+        } catch (InterruptedException e) {
+            if (org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
+                Thread.currentThread().interrupt();
+            }
+            throw e;
+        }
+    }
 
     public static void reset() {
         threadMap.clear();
@@ -163,41 +245,73 @@ public class MockThread extends Thread implements OverrideMock {
      */
     @EvoSuiteExclude
     public static void sleep(long millis) throws InterruptedException {
-        // We no longer really sleep (see below), so a thread blocked in a
-        // sleep() loop would otherwise never observe an interrupt: preserve
-        // that contract explicitly, since ThreadStopper.killAndJoinClientThreads()
-        // relies on Thread.interrupt() to break SUT threads out of such loops.
-        if (Thread.interrupted()) {
-            throw new InterruptedException();
-        }
-
         // Uninstrumented library code (e.g., HSQLDB Server.start()) may sit in
         // a polling loop calling Thread.sleep(). The LoopCounter can't break
         // these loops because no checkLoop() was inserted. We therefore cap
         // the number of sleep() calls a test is allowed to make; once the cap
         // is hit we throw to break out of the loop.
-        if (millis > 0) {
-            long calls = sleepCallCount.incrementAndGet();
-            if (calls > MAX_SLEEP_CALLS_PER_TEST) {
-                // Throw an unchecked exception.  InterruptedException won't
-                // work here because server-style loops (like HSQLDB
-                // Server.start()) typically catch InterruptedException and
-                // keep looping.  TooManyResourcesException is already used by
-                // LoopCounter for the same purpose — breaking infinite loops
-                // that EvoSuite cannot otherwise terminate.
-                throw new TooManyResourcesException(
-                        "MockThread: exceeded " + MAX_SLEEP_CALLS_PER_TEST
-                                + " sleep() calls in a single test");
-            }
-        }
+        boolean overCap = millis > 0 && sleepCallCount.incrementAndGet() > MAX_SLEEP_CALLS_PER_TEST;
 
         // Advance the mocked clock by the requested amount so that SUT code
         // observing System.currentTimeMillis()/nanoTime() before and after the
         // sleep sees time having passed, without EvoSuite actually waiting
-        // that long. We do not really sleep: at most we yield, so that other
-        // SUT threads get a chance to run.
+        // that long.
         org.evosuite.runtime.System.advanceCurrentTimeMillis(millis);
-        Thread.yield();
+
+        if (millis <= 0) {
+            // Nothing was really requested; let the real Thread.sleep(millis)
+            // handle the millis == 0 (near no-op) / millis < 0
+            // (IllegalArgumentException) cases exactly like the real method.
+            Thread.sleep(millis);
+            return;
+        }
+
+        if (Thread.currentThread() instanceof MockThread) {
+            // A thread the SUT started runs alongside the test, so a real pause
+            // costs the search nothing, and a short one is harmful: a periodic
+            // background loop that "sleeps" 60 s and then holds a lock for a few
+            // milliseconds (vuze's TrackerServer timer loop, which holds
+            // ConfigurationManager's AEMonitor for ~10 ms per iteration) would,
+            // with a pause of 1 ms or just a yield, keep that lock almost
+            // continuously while the test thread constructing a second server
+            // waited for it, was declared stuck and force-stopped with a
+            // ReentrantLock in hand.
+            // Once the test has ended and its leftover threads are being asked to
+            // stop, a thread that keeps looping must not keep pausing: each pause
+            // keeps the join waiting, so every later test would pay the whole
+            // timeout for it (78_caloriecount's NewScheduler thread).
+            // The pause stays, but only a brief one: a loop that swallows the exception
+            // (it catches RuntimeException or Throwable) would otherwise spin without
+            // pausing for the whole stop window, and ThreadStopper keeps that window
+            // open for at least 200 ms.
+            pauseOnSutThread(() -> Thread.sleep(Math.min(millis, STOPPING_REAL_PAUSE_MS)),
+                    () -> Thread.sleep(Math.min(millis, MAX_REAL_SLEEP_PER_CALL_MS)),
+                    "MockThread: thread kept sleeping after its test ended");
+        } else {
+            // The test's own thread only ever sleeps in a polling loop that runs into
+            // the call cap (27_gangup's Kernel.run(), HSQLDB's Server.start() in
+            // 57_hft-bomberman's classes), and that happens on every evaluation of
+            // such a test, so any real pause adds up: 200 ms of them per test left the
+            // search with a handful of generations. Yield instead; Thread.sleep(0)
+            // also observes interrupts. Threads the SUT started, which are the ones
+            // that starve others, always take the branch above.
+            Thread.sleep(0L);
+        }
+
+        // Break out of a loop that has sleep()ed too often. InterruptedException
+        // won't work here because server-style loops (like HSQLDB Server.start())
+        // typically catch InterruptedException and keep looping;
+        // TooManyResourcesException is already used by LoopCounter for the same
+        // purpose. The real pause above deliberately happens first: a loop that
+        // also swallows this exception (vuze's TRTrackerServerImpl timer loop
+        // catches Throwable) would otherwise turn into a busy loop the moment
+        // the cap is reached, and a busy loop holding a monitor starves every
+        // other thread that needs it.
+        if (overCap) {
+            throw new TooManyResourcesException(
+                    "MockThread: exceeded " + MAX_SLEEP_CALLS_PER_TEST
+                            + " sleep() calls in a single test");
+        }
     }
 
     @EvoSuiteExclude

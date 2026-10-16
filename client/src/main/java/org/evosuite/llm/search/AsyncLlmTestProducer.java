@@ -97,6 +97,7 @@ public class AsyncLlmTestProducer {
     private static final int CONFIRMED_EMPTY_SNAPSHOTS_BEFORE_STOP = 3;
     private static final int MIN_SNAPSHOT_RETRY_DELAY_MS = 10;
     private static final int MAX_SNAPSHOT_RETRY_DELAY_MS = 1000;
+    private static final long QUEUE_FULL_WAIT_MS = 100L;
 
     public enum StopReason {
         NONE,
@@ -140,6 +141,16 @@ public class AsyncLlmTestProducer {
         this(uncoveredGoalsSupplier, populationSupplier, llmService, queueSize, refreshInterval, delayMs, null);
     }
 
+    /**
+     * Creates a producer that also records the outcome of each injection attempt in the given memory.
+     * @param uncoveredGoalsSupplier supplies the currently uncovered goals, may be null
+     * @param populationSupplier supplies the current population
+     * @param llmService the service used to query the model
+     * @param queueSize capacity of the queue of produced tests
+     * @param refreshInterval number of tests generated before the prompt context is refreshed
+     * @param delayMs delay between generations in milliseconds
+     * @param repeatedInjectionMemory memory of earlier attempts, may be null
+     */
     public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
                                 Supplier<List<TestChromosome>> populationSupplier,
                                 LlmService llmService,
@@ -189,10 +200,18 @@ public class AsyncLlmTestProducer {
         List<TestChromosome> tests = new ArrayList<>();
         synchronized (publicationLock) {
             testQueue.drainTo(tests);
+            if (!tests.isEmpty()) {
+                publicationLock.notifyAll();
+            }
         }
         return tests;
     }
 
+    /**
+     * Removes and returns the metadata of the injection attempt that produced a candidate.
+     * @param candidate the candidate test, may be null
+     * @return the attempt metadata, or null if there is none
+     */
     public InjectionAttemptMetadata consumeAttemptMetadata(TestChromosome candidate) {
         if (candidate == null) {
             return null;
@@ -200,6 +219,11 @@ public class AsyncLlmTestProducer {
         return attemptMetadataByCandidate.remove(candidate);
     }
 
+    /**
+     * Reports how many goals an earlier injection attempt covered, so repeated attempts can be prioritised.
+     * @param attemptId identifier of the attempt, ignored if null or blank
+     * @param gainedGoals number of goals the attempt newly covered
+     */
     public void reportAttemptOutcome(String attemptId, int gainedGoals) {
         if (repeatedInjectionMemory == null || attemptId == null || attemptId.trim().isEmpty()) {
             return;
@@ -293,7 +317,6 @@ public class AsyncLlmTestProducer {
             try {
                 List<TestChromosome> candidates = requestCandidates(prompt, repairLoop);
                 if (!candidates.isEmpty()) {
-                    boolean producedAny = false;
                     int published = 0;
                     for (TestChromosome chromosome : candidates) {
                         if (!cardTypes.isEmpty()) {
@@ -307,19 +330,12 @@ public class AsyncLlmTestProducer {
                                             : new ArrayList<>(cardTypes),
                                     attemptTargetGoals));
                         if (!publishedCandidate) {
-                            if (!running) {
-                                return;
-                            }
-                            // Bounded queue is full. Drop this candidate and let
-                            // the next producer iteration observe fresh goals.
-                            continue;
+                            // Publishing only fails once stop() has been requested.
+                            return;
                         }
-                        producedAny = true;
                         published++;
                     }
-                    if (!producedAny && repeatedInjectionMemory != null && !registration.isEmpty()) {
-                        repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
-                    } else if (published > 0 && !cardTypes.isEmpty()) {
+                    if (!cardTypes.isEmpty()) {
                         LlmStatistics.recordDiagnosticCandidatesPublished(cardTypes, published);
                     }
                 } else if (repeatedInjectionMemory != null && !registration.isEmpty()) {
@@ -364,31 +380,47 @@ public class AsyncLlmTestProducer {
     /**
      * Publishes one candidate together with its attribution.  Holding the
      * same lock in drainAvailable() closes the otherwise observable interval
-     * between queue insertion and metadata insertion.  stop() changes
-     * running before interrupting this thread; the final check retracts a
-     * candidate that raced with that stop request before any consumer can see
-     * it.
+     * between queue insertion and metadata insertion.  When the queue is full
+     * the producer waits for the consumer instead of dropping the candidate,
+     * which also keeps it from issuing further LLM calls whose results would
+     * have nowhere to go.  stop() changes running before interrupting this
+     * thread; the final check retracts a candidate that raced with that stop
+     * request before any consumer can see it.
+     *
+     * @return false only once the producer is stopping
      */
     private boolean publishCandidate(TestChromosome chromosome,
                                      InjectionAttemptMetadata metadata) {
         synchronized (publicationLock) {
-            if (!running) {
-                return false;
-            }
-            attemptMetadataByCandidate.put(chromosome, metadata);
-            // Never block while holding publicationLock: drainAvailable() uses
-            // the same lock, so a blocking put into a full queue would prevent
-            // the only consumer from making space.
-            if (!testQueue.offer(chromosome)) {
+            while (running) {
+                attemptMetadataByCandidate.put(chromosome, metadata);
+                if (testQueue.offer(chromosome)) {
+                    if (running) {
+                        return true;
+                    }
+                    testQueue.remove(chromosome);
+                    attemptMetadataByCandidate.remove(chromosome);
+                    return false;
+                }
                 attemptMetadataByCandidate.remove(chromosome);
-                return false;
+                awaitQueueSpace();
             }
-            if (!running) {
-                testQueue.remove(chromosome);
-                attemptMetadataByCandidate.remove(chromosome);
-                return false;
-            }
-            return true;
+            return false;
+        }
+    }
+
+    /**
+     * Waits for drainAvailable() to make space.  wait() releases
+     * publicationLock, so the consumer is never blocked by a full queue; the
+     * timeout bounds how long a missed notification can delay a stop check.
+     */
+    private void awaitQueueSpace() {
+        try {
+            publicationLock.wait(QUEUE_FULL_WAIT_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            recordStopReason(StopReason.INTERRUPTED);
+            running = false;
         }
     }
 

@@ -10,9 +10,9 @@ import org.evosuite.graphs.interprocedural.var.DepVariable;
  */
 public class OCGInterestedNodeFilter implements IInterestedNodeFilter {
 
-	@Override
-	public boolean isInterested(DepVariable node) {
-		return node.isStateVariable();
-	}
+    @Override
+    public boolean isInterested(DepVariable node) {
+        return node.isStateVariable();
+    }
 
 }

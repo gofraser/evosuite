@@ -35,100 +35,6 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
     private static final Logger logger = LoggerFactory.getLogger(DefaultSpeciesPolicy.class);
 
     @Override
-    public List<TestChromosome> applySurvivalCaps(
-            List<TestChromosome> rankedSurvivors,
-            Map<Integer, List<TestChromosome>> speciesMap,
-            int targetSize,
-            double survivalCap) {
-
-        if (speciesMap.isEmpty() || survivalCap >= 1.0) {
-            // No capping needed
-            return rankedSurvivors.size() <= targetSize
-                    ? new ArrayList<>(rankedSurvivors)
-                    : new ArrayList<>(rankedSurvivors.subList(0, targetSize));
-        }
-
-        int maxPerSpecies = Math.max(1, (int) Math.ceil(targetSize * survivalCap));
-
-        // Build identity map for fast species lookup
-        Map<TestChromosome, Integer> individualToSpecies = new IdentityHashMap<>();
-        for (Map.Entry<Integer, List<TestChromosome>> entry : speciesMap.entrySet()) {
-            for (TestChromosome tc : entry.getValue()) {
-                individualToSpecies.put(tc, entry.getKey());
-            }
-        }
-
-        // First pass: accept individuals respecting per-species cap
-        Map<Integer, Integer> speciesCount = new HashMap<>();
-        List<TestChromosome> accepted = new ArrayList<>(targetSize);
-        List<TestChromosome> overflow = new ArrayList<>();
-
-        for (TestChromosome individual : rankedSurvivors) {
-            Integer species = individualToSpecies.get(individual);
-            if (species == null) {
-                // Unassigned individual (should not normally happen); accept it
-                accepted.add(individual);
-                continue;
-            }
-            int count = speciesCount.getOrDefault(species, 0);
-            if (count < maxPerSpecies) {
-                accepted.add(individual);
-                speciesCount.put(species, count + 1);
-            } else {
-                overflow.add(individual);
-            }
-        }
-
-        // Second pass: if accepted < targetSize, fill from overflow while still
-        // enforcing the cap. An individual from overflow is admitted only if its
-        // species has not yet reached maxPerSpecies in the *current* accepted set.
-        // If no overflow individual can be admitted under the cap, we fall back to
-        // accepting the highest-ranked remaining overflow individuals regardless of
-        // species (deterministic, preserves ranked order) so the population does not
-        // shrink unexpectedly.
-        if (accepted.size() < targetSize && !overflow.isEmpty()) {
-            List<TestChromosome> secondPassSkipped = new ArrayList<>();
-            for (TestChromosome individual : overflow) {
-                if (accepted.size() >= targetSize) {
-                    break;
-                }
-                Integer species = individualToSpecies.get(individual);
-                int count = speciesCount.getOrDefault(species, 0);
-                if (count < maxPerSpecies) {
-                    accepted.add(individual);
-                    speciesCount.put(species, count + 1);
-                } else {
-                    secondPassSkipped.add(individual);
-                }
-            }
-            // Deterministic fallback: if still under target, fill from remaining
-            // overflow in ranked order without cap checks. This ensures population
-            // size is maintained even when strict capping leaves too few candidates.
-            for (TestChromosome individual : secondPassSkipped) {
-                if (accepted.size() >= targetSize) {
-                    break;
-                }
-                accepted.add(individual);
-            }
-        }
-
-        // Truncate to target in case more were accumulated than needed
-        if (accepted.size() > targetSize) {
-            accepted = new ArrayList<>(accepted.subList(0, targetSize));
-        }
-
-        logger.debug("Survival cap: kept {} individuals (cap={} per species, {} species)",
-                accepted.size(), maxPerSpecies, speciesMap.size());
-        return accepted;
-    }
-
-    @Override
-    public void applyFitnessSharing(List<TestChromosome> front,
-                                    Map<Integer, List<TestChromosome>> speciesMap) {
-        applyFitnessSharing(front, speciesMap, null);
-    }
-
-    @Override
     public void applyFitnessSharing(List<TestChromosome> front,
                                     Map<Integer, List<TestChromosome>> speciesMap,
                                     SpeciesProtectionStats stats) {
@@ -170,21 +76,6 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
                 stats.incrementSharingAdjusted();
             }
         }
-    }
-
-    @Override
-    public List<TestChromosome> applyProtectedSurvival(
-            List<TestChromosome> rankedSurvivors,
-            Map<Integer, List<TestChromosome>> speciesMap,
-            int targetSize,
-            double survivalCap,
-            int currentGeneration,
-            int minSurvivorsPerSpecies,
-            int newbornProtectionGenerations,
-            Map<Integer, Integer> speciesBirthGeneration) {
-        return applyProtectedSurvival(rankedSurvivors, speciesMap, targetSize, survivalCap,
-                currentGeneration, minSurvivorsPerSpecies, newbornProtectionGenerations,
-                speciesBirthGeneration, null);
     }
 
     @Override

@@ -78,14 +78,16 @@ public abstract class MockSocketImpl extends SocketImpl implements OverrideMock 
 
     @Override
     protected void shutdownInput() throws IOException {
-        //throw new IOException("Method not implemented!");
-        super.shutdownInput();
+        // MockSocket records the half-close state after this hook returns. The
+        // real SocketImpl implementation has no virtual-network state to update
+        // and throws on JDKs where the operation is not supported by SocketImpl.
     }
 
     @Override
     protected void shutdownOutput() throws IOException {
-        //throw new IOException("Method not implemented!");
-        super.shutdownOutput();
+        // MockSocket records the half-close state after this hook returns. The
+        // real SocketImpl implementation has no virtual-network state to update
+        // and throws on JDKs where the operation is not supported by SocketImpl.
     }
 
     @Override

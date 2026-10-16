@@ -90,6 +90,10 @@ public enum ProblemCardType {
         return actionHint;
     }
 
+    /**
+     * Returns the family a card of this type belongs to unless the extractor assigns another.
+     * @return the default family
+     */
     public ProblemCardFamily getDefaultFamily() {
         switch (this) {
             case INDIRECT_REACHABILITY_BARRIER:

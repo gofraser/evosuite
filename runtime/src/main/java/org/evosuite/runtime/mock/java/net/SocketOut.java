@@ -23,6 +23,7 @@ import org.evosuite.runtime.vnet.NativeTcp;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.SocketException;
 
 /**
  * Class used to create an OutputStream for a virtual socket connection.
@@ -43,6 +44,12 @@ public class SocketOut extends OutputStream {
      */
     private final boolean isLocal;
 
+    /**
+     * The owning socket, when this stream was obtained from a MockSocket. This
+     * lets a stream that was cached before shutdown observe a later half-close.
+     */
+    private final MockSocket owner;
+
     private volatile boolean closed;
 
     /**
@@ -52,9 +59,14 @@ public class SocketOut extends OutputStream {
      * @param isLocal whether this stream is for the local socket
      */
     public SocketOut(NativeTcp tcp, boolean isLocal) {
+        this(tcp, isLocal, null);
+    }
+
+    SocketOut(NativeTcp tcp, boolean isLocal, MockSocket owner) {
         super();
         this.tcp = tcp;
         this.isLocal = isLocal;
+        this.owner = owner;
         closed = false;
     }
 
@@ -92,6 +104,9 @@ public class SocketOut extends OutputStream {
     private void checkClosed() throws IOException {
         if (closed) {
             throw new IOException("Closed stream");
+        }
+        if (owner != null && owner.isOutputShutdown()) {
+            throw new SocketException("Socket output is shutdown");
         }
     }
 }

@@ -28,6 +28,9 @@ import com.examples.with.different.packagename.test.DowncastExample;
 import org.apache.commons.io.FileUtils;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.coverage.branch.BranchPool;
+import org.evosuite.graphs.GraphPool;
+import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.NonInstrumentingClassLoader;
 import org.evosuite.runtime.sandbox.Sandbox;
@@ -399,6 +402,86 @@ public class JUnitAnalyzerTest {
         } finally {
             FileUtils.deleteDirectory(dir);
         }
+    }
+
+    @Test
+    public void testMemoryExhaustionSkipsChecksAndKeepsTests() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.TARGET_CLASS = DowncastExample.class.getCanonicalName();
+        TestCaseBuilder builder = new TestCaseBuilder();
+        builder.appendConstructor(DowncastExample.class.getConstructor());
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(builder.getDefaultTestCase());
+
+        java.lang.reflect.Field flag = JUnitAnalyzer.class.getDeclaredField("MEMORY_EXHAUSTED_DURING_CHECK");
+        flag.setAccessible(true);
+        // Counts the suites rendered for compilation.
+        java.lang.reflect.Field compiled = JUnitAnalyzer.class.getDeclaredField("NUM");
+        compiled.setAccessible(true);
+        flag.set(null, true);
+        try {
+            Assertions.assertTrue(JUnitAnalyzer.isMemoryExhaustedDuringCheck());
+            int compiledBefore = compiled.getInt(null);
+            JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
+            Assertions.assertEquals(0, JUnitAnalyzer.handleTestsThatAreUnstable(tests));
+            Assertions.assertTrue(JUnitAnalyzer.analyzeOrderSensitivity(
+                    Arrays.asList(tests.get(0), tests.get(0).clone())).getForwardFailures().isEmpty());
+            Assertions.assertEquals(compiledBefore, compiled.getInt(null), "no further checks may run");
+            Assertions.assertEquals(1, tests.size(), "unchecked tests must be kept");
+            // Running out of memory is not a javac infrastructure failure.
+            Assertions.assertFalse(JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure());
+        } finally {
+            JUnitAnalyzer.resetMemoryExhaustion();
+        }
+        Assertions.assertFalse(JUnitAnalyzer.isMemoryExhaustedDuringCheck());
+    }
+
+    @Test
+    public void testWatchdogBudgetIsBoundedByTheRemainingPhaseTime() {
+        long configured = 1_200_000L;
+        Assertions.assertEquals(configured, JUnitAnalyzer.computeWatchdogBudgetMs(configured, Long.MAX_VALUE));
+        Assertions.assertEquals(configured, JUnitAnalyzer.computeWatchdogBudgetMs(configured, 2_000_000L));
+        Assertions.assertEquals(45_000L, JUnitAnalyzer.computeWatchdogBudgetMs(configured, 45_000L));
+        // A phase that is over still leaves the check a short budget rather than none.
+        Assertions.assertEquals(JUnitAnalyzer.MIN_WATCHDOG_BUDGET_MS,
+                JUnitAnalyzer.computeWatchdogBudgetMs(configured, 0L));
+    }
+
+    @Test
+    public void testJUnitChecksDoNotAccumulateClassLoadersInPools() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.REPLACE_CALLS = true;
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH};
+        Properties.TARGET_CLASS = DowncastExample.class.getCanonicalName();
+
+        TestCaseBuilder builder = new TestCaseBuilder();
+        VariableReference receiver = builder.appendConstructor(DowncastExample.class.getConstructor());
+        VariableReference value = builder.appendIntPrimitive(42);
+        builder.appendMethod(receiver, DowncastExample.class.getMethod("getANumber", int.class), value);
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(builder.getDefaultTestCase());
+
+        int graphPools = poolCount(GraphPool.class);
+        int branchPools = poolCount(BranchPool.class);
+        int instructionPools = poolCount(BytecodeInstructionPool.class);
+
+        // Each check runs the tests on classes instrumented by a fresh class loader.
+        JUnitAnalyzer.handleTestsThatAreUnstable(tests);
+        JUnitAnalyzer.handleTestsThatAreUnstable(tests);
+        JUnitAnalyzer.analyzeOrderSensitivity(Arrays.asList(tests.get(0), tests.get(0).clone()));
+        Assertions.assertEquals(1, tests.size());
+
+        Assertions.assertEquals(graphPools, poolCount(GraphPool.class));
+        Assertions.assertEquals(branchPools, poolCount(BranchPool.class));
+        Assertions.assertEquals(instructionPools, poolCount(BytecodeInstructionPool.class));
+    }
+
+    private static int poolCount(Class<?> pool) throws Exception {
+        java.lang.reflect.Field field = pool.getDeclaredField("instanceMap");
+        field.setAccessible(true);
+        return ((Map<?, ?>) field.get(null)).size();
     }
 
     @Test

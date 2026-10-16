@@ -163,9 +163,18 @@ public class Properties {
     public static int COMPUTATION_GRAPH_METHOD_CALL_DEPTH = 5;
 
     @Parameter(key = "object_rule_analysis_timeout", group = "Test Creation",
-            description = "Maximum milliseconds spent analyzing one entry method on demand in whole-class EvoObj mode (0 disables the limit)")
+            description = "Maximum milliseconds spent analyzing one entry method on demand in whole-class EvoObj mode "
+                    + "(0 disables the limit)")
     @IntValue(min = 0)
     public static int OBJECT_RULE_ANALYSIS_TIMEOUT = 2000;
+
+    @Parameter(key = "object_rule_synthesis_timeout", group = "Test Creation",
+            description = "Maximum milliseconds spent on one whole-class EvoObj template synthesis attempt "
+                    + "(covers every field/setter search the attempt performs, not just a single entry "
+                    + "method); the attempt aborts and falls back to ordinary random generation once this "
+                    + "elapses (0 disables the limit)")
+    @IntValue(min = 0)
+    public static int OBJECT_RULE_SYNTHESIS_TIMEOUT = 5000;
 
     /**
      * Depth of the intra-class call-chain search when looking for a field's setter during EvoObj
@@ -330,7 +339,8 @@ public class Properties {
     public static long ADAPTIVE_SEEDED_CONSTANT_INITIAL_LIMIT = 8192L;
 
     @Parameter(key = "adaptive_seeded_constant_min_limit", group = "Test Creation",
-            description = "Minimum absolute cap when adaptively tightening seeded numeric constants after repeated OOMs")
+            description = "Minimum absolute cap when adaptively tightening seeded numeric constants "
+                    + "after repeated OOMs")
     public static long ADAPTIVE_SEEDED_CONSTANT_MIN_LIMIT = 64L;
 
     @Parameter(key = "restrict_pool", group = "Test Creation",
@@ -429,6 +439,30 @@ public class Properties {
     @Parameter(key = "headless_mode", group = "Test Generation", description = "Run Java in AWT Headless mode")
     public static boolean HEADLESS_MODE = true;
 
+    @Parameter(key = "headless_filter_jdk_gui_generators", group = "Test Generation",
+            description = "In headless mode, never use constructors/methods declared on JDK java.awt/javax.swing "
+                    + "Component classes (e.g. JTable) to create objects. Typed parameters of such a type are "
+                    + "then served by a mock, which can be stubbed to the state the code under test needs; a "
+                    + "real default component cannot")
+    public static boolean HEADLESS_FILTER_JDK_GUI_GENERATORS = true;
+
+    @Parameter(key = "headless_filter_jdk_gui_cast_generators", group = "Test Generation",
+            description = "Like headless_filter_jdk_gui_generators, but for the random cast class that stands in "
+                    + "for an Object. Turning this off lets a cast of an Object to a Swing type be satisfied "
+                    + "with a real component. Defaults to on only on macOS, where constructing such a component "
+                    + "can load the Aqua look-and-feel and abort the JVM")
+    public static boolean HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS =
+            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+
+    @Parameter(key = "headless_allow_jdk_gui_wrapping_constructors", group = "Test Generation",
+            description = "Exempt from headless_filter_jdk_gui_generators the JDK Swing/AWT constructors that take "
+                    + "an existing Component, such as JScrollPane(Component). They wrap an object rather than stand "
+                    + "in for a typed parameter, and give it a real parent such as a JViewport. Defaults to on "
+                    + "except on macOS, where constructing such a component can load the Aqua look-and-feel and "
+                    + "abort the JVM")
+    public static boolean HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS =
+            !System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+
     @Parameter(key = "headless_filter_cut_calls", group = "Test Generation",
             description = "If true, filter out headless-incompatible constructors/methods of the class under test")
     public static boolean HEADLESS_FILTER_CUT_CALLS = false;
@@ -450,6 +484,12 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double P_FUNCTIONAL_MOCKING = 0.0; // Optimal value: 0.8
 
+    @Parameter(key = "concrete_class_widen_abstract_only_band", group = "Test Creation",
+            description = "When the nearest package-distance band of subclasses of an abstract type holds only "
+                    + "abstract classes with a static generator, keep looking in farther bands for real "
+                    + "concrete classes")
+    public static boolean CONCRETE_CLASS_WIDEN_ABSTRACT_ONLY_BAND = true;
+
     @Parameter(key = "mock_if_no_generator", group = "Test Creation",
             description = "Allow mock objects if there are no generators")
     public static boolean MOCK_IF_NO_GENERATOR = true;
@@ -466,6 +506,21 @@ public class Properties {
                     + "Calls after the last will just re-use the last specified value")
     @DoubleValue(min = 1)
     public static int FUNCTIONAL_MOCKING_INPUT_LIMIT = 5;
+
+    @Parameter(key = "functional_mock_completion_rounds", group = "Test Creation",
+            description = "When the stubs of a functional mock are updated after an execution, the test is "
+                    + "re-executed and the mocks are updated again (as long as new stubs were added) up to "
+                    + "this many update passes, so that calls reachable only through new stubs are also "
+                    + "stubbed. 1 updates once without re-executing")
+    @IntValue(min = 1)
+    public static int FUNCTIONAL_MOCK_COMPLETION_ROUNDS = 3;
+
+    @Parameter(key = "functional_mock_completion_continue_probability", group = "Test Creation",
+            description = "Probability of each further mock update pass after the first, up to "
+                    + "functional_mock_completion_rounds; mutations that stop early keep the shorter stub "
+                    + "chain, which is evaluated as it is")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double FUNCTIONAL_MOCK_COMPLETION_CONTINUE_PROBABILITY = 0.5;
 
     public enum FunctionalMockingFailoverMode {
         OFF,
@@ -494,7 +549,10 @@ public class Properties {
     public static boolean DMON_ENABLED = true;
 
     @Parameter(key = "dmon_only_target_class_constructor", group = "Test Creation",
-            description = "Restrict DMoN detection to constructors declared in the target class")
+            description = "Restrict DMoN's promotable-candidate detection to statements that directly call the "
+                    + "target class (its constructors, and, since method-call NPEs were added, its methods too); "
+                    + "the NPE itself may still occur deeper in the call stack. Does not restrict the relaxed "
+                    + "ephemeral-assist analysis used mid-execution to chase cascading dependencies")
     public static boolean DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
 
     @Parameter(key = "dmon_helpful_npe_parse", group = "Test Creation",
@@ -518,8 +576,9 @@ public class Properties {
     public static boolean DMON_PROMOTE_IN_PLACE = true;
 
     @Parameter(key = "dmon_validate_promoted_once", group = "Test Creation",
-            description = "Immediately re-run once with DMoN disabled after promotion")
-    public static boolean DMON_VALIDATE_PROMOTED_ONCE = false;
+            description = "Immediately re-run once with DMoN disabled after promotion, and roll the promotion back "
+                    + "if the test now throws at an earlier statement, or still hits the null but fails differently")
+    public static boolean DMON_VALIDATE_PROMOTED_ONCE = true;
 
     @Parameter(key = "dmon_max_ephemeral_retries", group = "Test Creation",
             description = "Maximum number of DMoN assist+retry attempts for constructor NPEs within one execution")
@@ -529,6 +588,11 @@ public class Properties {
     @Parameter(key = "num_parallel_clients", group = "Test Creation",
             description = "Number of EvoSuite clients to run in parallel")
     public static int NUM_PARALLEL_CLIENTS = 1;
+
+    @Parameter(key = "client_connection_timeout_ms", group = "Test Creation",
+            description = "How long the master waits (in milliseconds) for all clients to connect via RMI "
+                    + "before giving up and aborting the run")
+    public static long CLIENT_CONNECTION_TIMEOUT_MS = 60000;
 
     @Parameter(key = "migrants_iteration_frequency", group = "Test Creation",
             description = "Determines amount of iterations between sending migrants to other client "
@@ -617,8 +681,7 @@ public class Properties {
     public static boolean CHECK_PARENTS_LENGTH = false; // note, based on STVR experiments
 
     // @Parameter(key = "check_rank_length", group = "Search Algorithm", description = "Use length
-    // in
-    // rank selection")
+    // in rank selection")
     // public static boolean CHECK_RANK_LENGTH = false;
 
     @Parameter(key = "parent_check", group = "Search Algorithm",
@@ -739,10 +802,9 @@ public class Properties {
     }
 
     // NOTE (ilebrero): This is the current method name being explored. This is NOT a good practice,
-    // but it's
-    //         the only way I can imagine to get the current method name for saving the
+    // but it's the only way I can imagine to get the current method name for saving the
     // bytecodeLogging info in a file.
-    //         TODO: Is there a better way of doing this?
+    // TODO: Is there a better way of doing this?
     public static String CURRENT_TARGET_METHOD = "";
 
     // NOTE: by default we use the sage implementation of the algorithm
@@ -1481,9 +1543,7 @@ public class Properties {
     public static String JUNIT_FAILED_SUFFIX = "_Failed_ESTest";
 
     // WARN: do not change this value, as had to be hardcoded in quite a few places :( if really
-    // need
-    // to change it,
-    // all that code has to be changed as well
+    // need to change it, all that code has to be changed as well
 
     /**
      * Suffix used to specify scaffolding files.
@@ -2064,6 +2124,9 @@ public class Properties {
                 LLM_ENRICH_OBJECT_POOL = true;
                 LLM_SEED_INITIAL_POPULATION = true;
                 LLM_TEST_FACTORY = true;
+                break;
+            default:
+                break;
         }
     }
 
@@ -2649,7 +2712,8 @@ public class Properties {
     public static int LLM_REPAIR_ATTEMPTS = 4;
 
     @Parameter(key = "llm_include_dependency_code_on_repair", group = "LLM",
-            description = "Inline decompiled/bytecode excerpts of non-CUT classes whose code triggered a repair-blocking exception")
+            description = "Inline decompiled/bytecode excerpts of non-CUT classes whose code triggered "
+                    + "a repair-blocking exception")
     public static boolean LLM_INCLUDE_DEPENDENCY_CODE_ON_REPAIR = true;
 
     @Parameter(key = "llm_repair_hints_enabled", group = "LLM",
@@ -3345,12 +3409,18 @@ public class Properties {
             description = "Hard limit on array allocation in the code")
     public static int ARRAY_LIMIT = 1000000;
 
-    @Parameter(key = "cumulative_array_limit", group = "Test Execution",
-            description = "Hard limit on the total number of array elements a single test execution may "
-                    + "allocate across all NEWARRAY/ANEWARRAY sites in the analysed classes. Catches a loop "
-                    + "that allocates many individually-legal-sized arrays (each under array_limit) before "
-                    + "it can exhaust the heap. A negative value disables the check.")
-    public static long CUMULATIVE_ARRAY_LIMIT = 50_000_000L;
+    @Parameter(key = "cumulative_array_limit_bytes", group = "Test Execution",
+            description = "Hard limit, in bytes, on the total size of arrays a single test execution may "
+                    + "allocate across all NEWARRAY/ANEWARRAY/MULTIANEWARRAY sites in the analysed classes. "
+                    + "Catches a loop that allocates many individually-legal-sized arrays (each under "
+                    + "array_limit) before it can exhaust the heap. Counted in bytes, not elements, so the "
+                    + "budget is uniform across element types instead of implicitly depending on which "
+                    + "primitive type happens to be allocated. The default (400,000,000, i.e. 400MB) is NOT a "
+                    + "tuned value: it is the widest effective allowance any element type had before this "
+                    + "counted bytes (what a long[]/double[] could already reach), chosen so the fix is purely "
+                    + "corrective and refuses nothing that was previously allowed. A negative value disables "
+                    + "the check.")
+    public static long CUMULATIVE_ARRAY_LIMIT_BYTES = 400_000_000L;
 
     @Parameter(key = "collection_capacity_limit", group = "Test Execution",
             description = "Hard limit on collection constructor capacity in the code")
@@ -3585,7 +3655,7 @@ public class Properties {
 
     @Parameter(key = "ignore_threads", group = "Runtime",
             description = "Do not attempt to kill threads matching this prefix")
-    public static String[] IGNORE_THREADS = new String[]{};
+    public static String[] IGNORE_THREADS = new String[]{"Image Fetcher"};
 
     @Parameter(key = "min_free_mem", group = "Runtime", description = "Minimum amount of available memory")
     public static int MIN_FREE_MEM = 50 * 1000 * 1000;

@@ -85,7 +85,9 @@ public class ObjectRuleBranchSelector {
     /** Branches that have been eligible at least once in this run. */
     private final Set<Branch> everEligible = new LinkedHashSet<>();
 
-    /** How many branches the last {@link #prepareEligibility(Collection)} call left unclassified. */
+    /**
+     * How many branches the last {@link #prepareEligibility(Collection)} call left unclassified.
+     */
     private int skippedForBudget;
 
     /**
@@ -201,11 +203,7 @@ public class ObjectRuleBranchSelector {
         try {
             return evaluateConstructibleObjectGraph(branch, context);
         } finally {
-            if (previous == null) {
-                TargetContext.clearActive();
-            } else {
-                TargetContext.setActive(previous);
-            }
+            TargetContext.setActive(previous);
         }
     }
 
@@ -221,10 +219,6 @@ public class ObjectRuleBranchSelector {
             }
         }
         return false;
-    }
-
-    private boolean hasConstructibleObjectGraph(Branch branch) {
-        return evaluateConstructibleObjectGraph(branch, TargetContext.getActive());
     }
 
     private boolean evaluateConstructibleObjectGraph(Branch branch, TargetContext context) {
@@ -333,13 +327,6 @@ public class ObjectRuleBranchSelector {
             }
         }
         return false;
-    }
-
-    /**
-     * Backwards-compatible feedback for callers which only know whether the template was useful.
-     */
-    public void recordSynthesisAttempt(Branch branch, boolean producedUsableTemplate) {
-        recordSynthesisAttempt(branch, producedUsableTemplate, producedUsableTemplate);
     }
 
     /**

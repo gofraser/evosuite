@@ -231,9 +231,9 @@ public class ObjectRuleStatisticsTest {
                 .map(java.util.Map.Entry::getKey).findFirst().orElse(null);
         assertTrue(branch != null);
         selector.isEligible(branch);
-        selector.recordSynthesisAttempt(branch, false);
-        selector.recordSynthesisAttempt(branch, false);
-        selector.recordSynthesisAttempt(branch, false);
+        selector.recordSynthesisAttempt(branch, false, false);
+        selector.recordSynthesisAttempt(branch, false, false);
+        selector.recordSynthesisAttempt(branch, false, false);
         TargetContext.forBranch(null);
         assertTrue(selector.getBlacklistedCount() > 0);
         org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().reset();

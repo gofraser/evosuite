@@ -24,7 +24,9 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.dse.VMError;
 import org.evosuite.runtime.GuiSupport;
+import org.evosuite.runtime.StandardStreams;
 import org.evosuite.runtime.System.SystemExitException;
+import org.evosuite.runtime.UnmockableTypes;
 import org.evosuite.runtime.jvm.ShutdownHookHandler;
 import org.evosuite.runtime.thread.KillSwitch;
 import org.evosuite.runtime.thread.ThreadStopper;
@@ -55,6 +57,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -75,6 +78,32 @@ public class TestRunnable implements InterfaceTestRunnable {
     private final Scope scope;
 
     protected volatile boolean runFinished;
+
+    /**
+     * Set by the thread that waited for this run as soon as it starts handling the timeout.
+     * The worker keeps going afterwards, but its result is discarded and the sandbox is no
+     * longer its own. This only silences observers and sandbox writes; who restores the
+     * streams is decided by {@link #streamsHandedBack}.
+     */
+    private volatile boolean resultDiscarded;
+
+    /**
+     * The streams this run has to hand back, taken at the start of {@link #call()}; null
+     * before that.
+     */
+    private volatile StandardStreams.Snapshot standardStreams;
+
+    /** Whether this run muted the streams and so has to unmute them. */
+    private volatile boolean streamsMuted;
+
+    /**
+     * Set by whichever side hands the streams back first: the worker when it unwinds, or the
+     * waiting thread when it gives up on a worker that does not.
+     */
+    private final AtomicBoolean streamsHandedBack = new AtomicBoolean(true);
+
+    /** The thread currently inside {@link #call()}, or null; guarded by {@code this}. */
+    private Thread worker;
 
     /**
      * Map a thrown exception ('value') with the the position ('key') in the
@@ -260,6 +289,9 @@ public class TestRunnable implements InterfaceTestRunnable {
      * @param s the statement to execute
      */
     protected void informObservers_before(Statement s) {
+        if (resultDiscarded) {
+            return; // the result of this run is discarded
+        }
         ExecutionTracer.disable();
         try {
             observers.forEach(o -> o.beforeStatement(s, scope));
@@ -276,6 +308,9 @@ public class TestRunnable implements InterfaceTestRunnable {
      *                        be null)
      */
     protected void informObservers_after(Statement s, Throwable exceptionThrown) {
+        if (resultDiscarded) {
+            return; // the result of this run is discarded
+        }
         ExecutionTracer.disable();
         try {
             observers.forEach(o -> o.afterStatement(s, scope, exceptionThrown));
@@ -285,6 +320,9 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     protected void informObservers_finished(ExecutionResult result) {
+        if (resultDiscarded) {
+            return; // the result of this run is discarded
+        }
         ExecutionTracer.disable();
         try {
             observers.forEach(o -> o.testExecutionFinished(result, scope));
@@ -307,6 +345,12 @@ public class TestRunnable implements InterfaceTestRunnable {
             Thread.currentThread().setContextClassLoader(TestGenerationContext.getInstance().getClassLoaderForSUT());
         }
 
+        synchronized (this) {
+            // A pooled thread that timed out on an earlier test is in use again.
+            worker = Thread.currentThread();
+            org.evosuite.runtime.sandbox.Sandbox.reinstateThread(worker);
+        }
+
         exceptionsThrown.clear();
 
         runFinished = false;
@@ -316,6 +360,15 @@ public class TestRunnable implements InterfaceTestRunnable {
         //        Runtime.getInstance().resetRuntime();
         ExecutionTracer.enable();
 
+        // The code under test may replace System.out/err (a logger that wraps them on
+        // construction); they are handed back below whether or not print_to_system is set,
+        // or one wrapper would be stacked per execution.
+        // Taken from LoggingUtils: an earlier, timed-out execution may still have the streams
+        // muted, and System would then hand back the discarding stream.
+        PrintStream[] unmuted = LoggingUtils.currentUnmutedOutAndErrStream();
+        streamsMuted = !Properties.PRINT_TO_SYSTEM;
+        standardStreams = StandardStreams.of(unmuted[0], unmuted[1]);
+        streamsHandedBack.set(false);
         PrintStream out = (Properties.PRINT_TO_SYSTEM ? System.out : new PrintStream(byteStream));
         byteStream.reset();
 
@@ -338,7 +391,9 @@ public class TestRunnable implements InterfaceTestRunnable {
 
             executeStatements(result, out, num);
         } catch (ThreadDeath e) { // can't stop these guys
-            logger.info("Found error in " + test.toCode(), e);
+            // Not rendered: this thread is being stopped, and rendering a live test can
+            // initialise classes (left unusable if the stop lands there) and repairs mocks.
+            logger.info("Thread stopped at statement {} of {}", num.get(), test.size(), e);
             throw e; // this needs to be propagated
         } catch (TimeoutException | TestCaseExecutor.TimeoutExceeded e) {
             logger.info("Test timed out!");
@@ -375,19 +430,22 @@ public class TestRunnable implements InterfaceTestRunnable {
                 result.setDmonContaminated(true);
             }
             resetMockitoProgressStateBestEffort();
-            if (!Properties.PRINT_TO_SYSTEM) {
-                LoggingUtils.restorePreviousOutAndErrStream();
-            }
+            // A no-op if the thread that gave up on this run has already handed them back:
+            // whatever executes next may be muting them by now.
+            handBackStreams();
             if (Properties.REPLACE_CALLS) {
                 /*
                  * For simplicity, we call it here. Ideally, we could call it among the
                  * statements, with "non-safe" version, to check if any exception is thrown.
                  * But that would be quite a bit of work, which maybe is not really warranted
                  */
-                ShutdownHookHandler.getInstance().safeExecuteAddedHooks();
+                ShutdownHookHandler.getInstance().safeExecuteAddedHooks(this::isResultDiscarded);
             }
 
             runFinished = true;
+            synchronized (this) {
+                worker = null;
+            }
         }
 
         result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
@@ -446,7 +504,7 @@ public class TestRunnable implements InterfaceTestRunnable {
             currentStatement = s;
 
             if (Thread.currentThread().isInterrupted() || Thread.interrupted()) {
-                logger.info("Thread interrupted at statement " + num + ": " + s.getCode());
+                logger.info("Thread interrupted at statement {}: {}", num, s.getClass().getSimpleName());
                 throw new TimeoutException();
             }
 
@@ -531,9 +589,11 @@ public class TestRunnable implements InterfaceTestRunnable {
                     }
                     if (className != null) {
                         org.evosuite.testcase.StatementFactory.addAllocationSensitiveClass(className);
-                        logger.warn("OOM in {} at statement {}/{}: {}\nFull test case:\n{}",
-                                s.getClass().getSimpleName(), num.get(), test.size(),
-                                s.getCode(), test.toCode());
+                        // Not rendered: this thread can be stopped by the timeout at any point,
+                        // and a stop that lands in a class initialiser run by the rendering
+                        // leaves that class unusable for the rest of the run.
+                        logger.warn("OOM in {} at statement {}/{} of {}",
+                                s.getClass().getSimpleName(), num.get(), test.size(), className);
                     }
 
                     ConstantPoolManager.AdaptiveSeedLimitUpdate update =
@@ -647,11 +707,44 @@ public class TestRunnable implements InterfaceTestRunnable {
         return args;
     }
 
+    /**
+     * Dispatches to the DmonCoordinator's constructor- or method-failure analysis, whichever
+     * matches the statement kind. DMoN's repair is driven by the NPE's stack trace, not by the
+     * kind of statement that triggered it — see DmonNpeAnalyzer.
+     */
+    private static Optional<DmonPromotionPlan> analyzeDmonFailure(Statement statement, Throwable throwable) {
+        if (statement instanceof ConstructorStatement) {
+            return DmonCoordinator.getInstance()
+                    .analyzeConstructorFailure((ConstructorStatement) statement, throwable);
+        }
+        if (statement instanceof MethodStatement) {
+            return DmonCoordinator.getInstance()
+                    .analyzeMethodFailure((MethodStatement) statement, throwable);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Dispatches to the DmonCoordinator's relaxed (no target-class restriction) analysis used
+     * for cascading ephemeral assist. See {@link #analyzeDmonFailure(Statement, Throwable)}.
+     */
+    private static Optional<DmonPromotionPlan> analyzeDmonEphemeralAssist(Statement statement, Throwable throwable) {
+        if (statement instanceof ConstructorStatement) {
+            return DmonCoordinator.getInstance()
+                    .analyzeForEphemeralAssist((ConstructorStatement) statement, throwable);
+        }
+        if (statement instanceof MethodStatement) {
+            return DmonCoordinator.getInstance()
+                    .analyzeForEphemeralAssist((MethodStatement) statement, throwable);
+        }
+        return Optional.empty();
+    }
+
     private static void maybeRecordDmonCandidate(ExecutionResult result, Statement statement, Throwable throwable) {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
             return;
         }
-        if (!(statement instanceof ConstructorStatement)) {
+        if (!(statement instanceof ConstructorStatement) && !(statement instanceof MethodStatement)) {
             return;
         }
         if (!(throwable instanceof NullPointerException)) {
@@ -661,9 +754,7 @@ public class TestRunnable implements InterfaceTestRunnable {
             logger.trace("DMoN runtime: candidate already recorded for this execution");
             return;
         }
-        ConstructorStatement constructorStatement = (ConstructorStatement) statement;
-        Optional<DmonPromotionPlan> plan = DmonCoordinator.getInstance()
-                .analyzeConstructorFailure(constructorStatement, throwable);
+        Optional<DmonPromotionPlan> plan = analyzeDmonFailure(statement, throwable);
         if (plan.isPresent()) {
             result.setDmonPromotionPlan(plan.get());
             DmonFailureSite fs = plan.get().getFailureSite();
@@ -684,11 +775,10 @@ public class TestRunnable implements InterfaceTestRunnable {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
             return throwable;
         }
-        if (!(statement instanceof ConstructorStatement)) {
+        if (!(statement instanceof ConstructorStatement) && !(statement instanceof MethodStatement)) {
             return throwable;
         }
 
-        ConstructorStatement constructorStatement = (ConstructorStatement) statement;
         Throwable lastThrown = throwable;
         NullPointerException currentNpe = extractNpe(throwable);
         if (currentNpe == null) {
@@ -698,20 +788,28 @@ public class TestRunnable implements InterfaceTestRunnable {
 
         for (int attempt = 0; attempt < maxRetries; attempt++) {
             maybeRecordDmonCandidate(result, statement, currentNpe);
-            Optional<DmonPromotionPlan> analyzedPlan = DmonCoordinator.getInstance()
-                    .analyzeConstructorFailure(constructorStatement, currentNpe);
+            Optional<DmonPromotionPlan> analyzedPlan = analyzeDmonFailure(statement, currentNpe);
             if (!analyzedPlan.isPresent()) {
-                // For non-target-class constructors, try relaxed analysis for ephemeral
-                // assist only (not recorded for promotion).
-                analyzedPlan = DmonCoordinator.getInstance()
-                        .analyzeForEphemeralAssist(constructorStatement, currentNpe);
+                // For non-target-class constructors/methods, try relaxed analysis for
+                // ephemeral assist only (not recorded for promotion).
+                analyzedPlan = analyzeDmonEphemeralAssist(statement, currentNpe);
             }
             if (!analyzedPlan.isPresent()) {
                 logger.debug("DMoN runtime: cascading assist stopped [attempt={}, reason=NO_PLAN]",
                         attempt + 1);
                 return lastThrown;
             }
-            if (!tryEphemeralInjection(constructorStatement, analyzedPlan.get())) {
+            boolean injected;
+            try {
+                injected = tryEphemeralInjection(statement, analyzedPlan.get());
+            } catch (LinkageError e) {
+                // Reflection over a SUT class links the types it mentions; a missing one
+                // only makes this assist impossible.
+                logger.debug("DMoN runtime: ephemeral injection abandoned, SUT class cannot be linked: {}",
+                        e.toString());
+                injected = false;
+            }
+            if (!injected) {
                 logger.debug("DMoN runtime: cascading assist stopped [attempt={}, reason=INJECTION_FAILED]",
                         attempt + 1);
                 return lastThrown;
@@ -792,8 +890,8 @@ public class TestRunnable implements InterfaceTestRunnable {
         }
     }
 
-    private boolean tryEphemeralInjection(ConstructorStatement constructorStatement, DmonPromotionPlan plan) {
-        Class<?> ownerClass = resolveOwnerClassForEphemeral(constructorStatement, plan);
+    private boolean tryEphemeralInjection(Statement statement, DmonPromotionPlan plan) {
+        Class<?> ownerClass = resolveOwnerClassForEphemeral(statement, plan);
         if (ownerClass == null) {
             return false;
         }
@@ -852,8 +950,7 @@ public class TestRunnable implements InterfaceTestRunnable {
         return tryEphemeralInstanceInjection(ownerClass, instanceField, dependencyType, fieldName);
     }
 
-    private static Class<?> resolveOwnerClassForEphemeral(
-            ConstructorStatement constructorStatement, DmonPromotionPlan plan) {
+    private static Class<?> resolveOwnerClassForEphemeral(Statement statement, DmonPromotionPlan plan) {
         String ownerName = plan.getFailureSite() == null ? null : plan.getFailureSite().getOwnerClass();
         ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
         if (ownerName != null && !ownerName.trim().isEmpty()) {
@@ -862,7 +959,13 @@ public class TestRunnable implements InterfaceTestRunnable {
             } catch (ClassNotFoundException expected) {
             }
         }
-        return constructorStatement.getConstructor().getConstructor().getDeclaringClass();
+        if (statement instanceof ConstructorStatement) {
+            return ((ConstructorStatement) statement).getConstructor().getConstructor().getDeclaringClass();
+        }
+        if (statement instanceof MethodStatement) {
+            return ((MethodStatement) statement).getMethod().getMethod().getDeclaringClass();
+        }
+        return null;
     }
 
     private boolean tryEphemeralSetterInjection(Class<?> ownerClass, Class<?> dependencyType, String fieldName) {
@@ -1021,6 +1124,38 @@ public class TestRunnable implements InterfaceTestRunnable {
         }
     }
 
+    /** Number of rollback failures per site that are reported at WARN before demoting to DEBUG. */
+    static final int DMON_ROLLBACK_WARNINGS_PER_SITE = 3;
+
+    private static final java.util.concurrent.ConcurrentMap<String, java.util.concurrent.atomic.AtomicInteger>
+            DMON_ROLLBACK_FAILURES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * A rollback that keeps failing at one site fails on every execution of every test that
+     * injects there (hundreds of thousands of times in a run), so only the first few failures per
+     * site are warnings; later ones are counted and logged at DEBUG.
+     */
+    static boolean shouldWarnAboutDmonRollbackFailure(String site) {
+        return DMON_ROLLBACK_FAILURES.computeIfAbsent(site,
+                k -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet()
+                <= DMON_ROLLBACK_WARNINGS_PER_SITE;
+    }
+
+    static void resetDmonRollbackFailureCounts() {
+        DMON_ROLLBACK_FAILURES.clear();
+    }
+
+    private static void logDmonRollbackFailure(String site, Throwable t) {
+        String reason = t.getClass().getName() + (t.getMessage() == null ? "" : ": " + t.getMessage());
+        if (shouldWarnAboutDmonRollbackFailure(site)) {
+            logger.warn("DMoN rollback failed for {}: {}{}", site, reason,
+                    DMON_ROLLBACK_FAILURES.get(site).get() == DMON_ROLLBACK_WARNINGS_PER_SITE
+                            ? " (further failures at this site are logged at DEBUG)" : "");
+        } else {
+            logger.debug("DMoN rollback failed for {}: {}", site, reason);
+        }
+    }
+
     private boolean rollbackDmonWrites(ExecutionResult result) {
         boolean ok = true;
         while (!dmonRollbackLog.isEmpty()) {
@@ -1029,7 +1164,7 @@ public class TestRunnable implements InterfaceTestRunnable {
                 write.rollback();
             } catch (Throwable t) {
                 ok = false;
-                logger.warn("DMoN rollback failed for {}: {}", write.describe(), t.getMessage());
+                logDmonRollbackFailure(write.describe(), t);
             }
         }
         if (!ok && result != null) {
@@ -1039,10 +1174,18 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     private static Object createEphemeralMock(Class<?> type) {
+        if (UnmockableTypes.isUnmockable(type)) {
+            // every injection site treats an exception as "cannot inject"
+            throw new IllegalArgumentException("Cannot create an ephemeral mock of " + type.getName());
+        }
         return Mockito.mock(type, invocation -> createEphemeralReturnValue(invocation.getMethod().getReturnType()));
     }
 
     private static Object createEphemeralReturnValue(Class<?> returnType) {
+        return createEphemeralReturnValue(returnType, 0);
+    }
+
+    private static Object createEphemeralReturnValue(Class<?> returnType, int chain) {
         if (returnType == null || returnType.equals(Void.TYPE)) {
             return null;
         }
@@ -1065,9 +1208,17 @@ public class TestRunnable implements InterfaceTestRunnable {
                 && returnType.getName().startsWith("java.lang.")) {
             return null;
         }
+        if (UnmockableTypes.isUnmockable(returnType)) {
+            return null;
+        }
+        // An accessor like getParent() hands out a fresh mock on every call, so bound how many
+        // mocks may hang off one another or a loop up that chain never ends.
+        if (chain >= org.evosuite.testcase.statements.FunctionalMockStatement.MAX_LENIENT_MOCK_CHAIN) {
+            return null;
+        }
         try {
             return Mockito.mock(returnType, invocation ->
-                    createEphemeralReturnValue(invocation.getMethod().getReturnType()));
+                    createEphemeralReturnValue(invocation.getMethod().getReturnType(), chain + 1));
         } catch (Throwable expected) {
             return null;
         }
@@ -1169,6 +1320,48 @@ public class TestRunnable implements InterfaceTestRunnable {
     @Override
     public boolean isRunFinished() {
         return runFinished;
+    }
+
+    /**
+     * Records that the thread waiting for this run timed out and is handling it. The result
+     * is discarded from here on; the streams stay as they are until {@link #handBackStreams()}.
+     */
+    public void markResultDiscarded() {
+        resultDiscarded = true;
+        /*
+         * The worker goes on running this test, but the sandbox state is global
+         * and now belongs to whatever executes next: whatever the worker's
+         * observers or hooks do to it from here on must not take effect.
+         */
+        synchronized (this) {
+            if (worker != null) {
+                org.evosuite.runtime.sandbox.Sandbox.abandonThread(worker);
+            }
+        }
+    }
+
+    /**
+     * @return true if the thread waiting for this run timed out and its result is discarded
+     */
+    public boolean isResultDiscarded() {
+        return resultDiscarded;
+    }
+
+    /**
+     * Unmutes the streams if this run muted them and restores the snapshot taken when it
+     * started. Called by the worker when it unwinds and by the waiting thread when it gives
+     * up on a worker that does not; only the first call does anything, so a late worker
+     * cannot clobber the streams of whatever executes next.
+     */
+    public void handBackStreams() {
+        StandardStreams.Snapshot snapshot = standardStreams;
+        if (snapshot == null || !streamsHandedBack.compareAndSet(false, true)) {
+            return;
+        }
+        if (streamsMuted) {
+            LoggingUtils.restorePreviousOutAndErrStream();
+        }
+        snapshot.restore();
     }
 
 }

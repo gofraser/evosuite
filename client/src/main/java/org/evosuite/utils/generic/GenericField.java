@@ -155,7 +155,15 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
      */
     public Type getFieldType() {
         try {
-            return GenericTypeReflector.getExactFieldType(field, owner.getType());
+            // Same as GenericTypeReflector.getExactFieldType, but resolving the declaring type
+            // through the workaround for static nested classes of generic outer classes.
+            Type exactDeclaringType = GenericUtils.getExactSuperType(
+                    GenericTypeReflector.capture(owner.getType()), field.getDeclaringClass());
+            if (exactDeclaringType == null) {
+                throw new IllegalArgumentException("The field " + field
+                        + " is not a member of type " + owner.getType());
+            }
+            return mapTypeParameters(field.getGenericType(), exactDeclaringType);
         } catch (IllegalArgumentException e) {
             // Cross-classloader fallback: the reflected Field and owner type may
             // have the same name but come from different classloaders.
@@ -166,6 +174,17 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
             try {
                 return field.getGenericType();
             } catch (GenericSignatureFormatError ignored) {
+                return field.getType();
+            }
+        } catch (TypeNotPresentException e) {
+            // The owner (or one of its superclasses) mentions a class that cannot be loaded in
+            // its generic signature, so the field's exact type cannot be resolved. Keep the
+            // declared type instead, as the method counterpart does.
+            logger.debug("Falling back to declared field type for {} due to missing type: {}",
+                    field, e.toString());
+            try {
+                return field.getGenericType();
+            } catch (GenericSignatureFormatError | TypeNotPresentException ignored) {
                 return field.getType();
             }
         }
@@ -368,17 +387,17 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
 
     @Override
     public boolean isPublic() {
-        return Modifier.isPublic(field.getModifiers());
+        return Modifier.isPublic(TestUsageChecker.getOriginalFieldModifiers(field));
     }
 
     @Override
     public boolean isPrivate() {
-        return Modifier.isPrivate(field.getModifiers());
+        return Modifier.isPrivate(TestUsageChecker.getOriginalFieldModifiers(field));
     }
 
     @Override
     public boolean isProtected() {
-        return Modifier.isProtected(field.getModifiers());
+        return Modifier.isProtected(TestUsageChecker.getOriginalFieldModifiers(field));
     }
 
     @Override

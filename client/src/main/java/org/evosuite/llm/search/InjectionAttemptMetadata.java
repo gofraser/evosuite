@@ -19,12 +19,12 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.testcase.TestFitnessFunction;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-
-import org.evosuite.testcase.TestFitnessFunction;
 
 /**
  * Candidate-side attribution metadata for one prompt attempt.
@@ -39,6 +39,12 @@ public final class InjectionAttemptMetadata {
         this(attemptId, diagnosticCardTypes, null);
     }
 
+    /**
+     * Creates metadata describing one injection attempt.
+     * @param attemptId identifier of the attempt, null is treated as empty
+     * @param diagnosticCardTypes the types of the cards in the prompt
+     * @param targetGoals the uncovered goals the prompt targeted
+     */
     public InjectionAttemptMetadata(String attemptId, List<ProblemCardType> diagnosticCardTypes,
                                     Collection<TestFitnessFunction> targetGoals) {
         this.attemptId = attemptId == null ? "" : attemptId.trim();
@@ -58,7 +64,11 @@ public final class InjectionAttemptMetadata {
         return diagnosticCardTypes;
     }
 
-    /** @return the uncovered goals the prompt targeted (possibly empty, never null). */
+    /**
+     * Returns the uncovered goals the prompt targeted.
+     *
+     * @return the goals, possibly empty, never null
+     */
     public List<TestFitnessFunction> getTargetGoals() {
         return targetGoals;
     }

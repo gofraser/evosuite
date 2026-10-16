@@ -22,11 +22,11 @@ package org.evosuite.testcase.statements;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
 import org.evosuite.dse.VM;
+import org.evosuite.runtime.GuiSupport;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.EvosuiteError;
-import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.UncompilableCodeException;
 import org.evosuite.testcase.variable.VariableReference;
@@ -34,8 +34,6 @@ import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.objectweb.asm.Type;
-
-import org.evosuite.runtime.GuiSupport;
 
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
@@ -285,17 +283,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * Message carried by the {@link TooManyResourcesException} that the allocation guards below
-     * raise. Refusing a call because its arguments would allocate an absurd amount of memory is
-     * a resource decision of ours, not the execution watchdog firing, so it must not be reported
-     * as {@code TestCaseExecutor.TimeoutExceeded}: that inflates the timeout statistics, trips
-     * the "disable functional mocking after N consecutive timeouts" heuristic, and makes the
-     * JUnit re-check drop the test as unstable.
-     */
-    private static final String ALLOCATION_REJECTED =
-            "EvoSuite refused this call: its arguments would allocate an excessive amount of memory";
-
-    /**
      * Sanity check for constructors of allocation-sensitive classes: rejects
      * individual int args ≥ ABSURD_INT_THRESHOLD, and rejects when the product
      * of all positive int args exceeds the threshold. Only applies to classes
@@ -313,13 +300,13 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         long product = 1;
         boolean hasPositiveInt = false;
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val >= ABSURD_INT_THRESHOLD || val <= -ABSURD_INT_THRESHOLD) {
                     logger.info("Rejecting constructor {} with absurd int arg {} = {}",
                             constructor.getDeclaringClass().getName(), i, val);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
                 if (val > 0) {
                     product *= val;
@@ -330,8 +317,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         if (hasPositiveInt && product > ABSURD_INT_THRESHOLD) {
             logger.info("Rejecting constructor {}: product of int args = {} exceeds {}",
                     constructor.getDeclaringClass().getName(), product, ABSURD_INT_THRESHOLD);
-            throw new CodeUnderTestException(
-                    new TooManyResourcesException(ALLOCATION_REJECTED));
+            throw allocationRejected();
         }
     }
 
@@ -350,6 +336,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         }
         Class<?>[] paramTypes = constructor.getConstructor().getParameterTypes();
         int limit = Properties.COLLECTION_CAPACITY_LIMIT;
+        int argLimit = TableModelAllocation.dimensionLimit(constructor.getRawGeneratedType(), limit);
 
         // Compute effective allocation size as the product of all dimension factors:
         // - int args contribute their value
@@ -359,14 +346,14 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         boolean hasFactor = false;
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
             long factor = 0;
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
-                if (val > limit || val < -limit) {
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
+                if (val > argLimit || val < -argLimit) {
                     logger.info("Rejecting allocation-sensitive constructor {}: "
                             + "int arg {} = {} exceeds limit {}",
-                            constructor.getDeclaringClass().getName(), i, val, limit);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                            constructor.getDeclaringClass().getName(), i, val, argLimit);
+                    throw allocationRejected();
                 }
                 if (val > 0) {
                     factor = val;
@@ -391,19 +378,24 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         for (int i = 0; i < inputs.length; i++) {
             if (inputs[i] instanceof javax.swing.table.TableModel) {
                 javax.swing.table.TableModel model = (javax.swing.table.TableModel) inputs[i];
+                long rows;
+                long cols;
                 try {
-                    long rows = model.getRowCount();
-                    long cols = model.getColumnCount();
-                    logger.debug("TableModel guard: rows={}, cols={}, limit={}", rows, cols, limit);
-                    if (rows > limit || cols > limit) {
-                        rejectConstructor("TableModel dimension", Math.max(rows, cols), limit);
-                    }
-                    if (rows > 0 && cols > 0 && rows * cols > limit) {
-                        rejectConstructor("TableModel size (rows × cols)", rows * cols, limit);
-                    }
+                    rows = model.getRowCount();
+                    cols = model.getColumnCount();
                 } catch (Throwable e) {
+                    // Unknown dimensions: allow the call. Only the query is guarded here, so
+                    // that the rejections below are not swallowed with it.
                     logger.warn("TableModel dimension query failed for {}: {}",
                             inputs[i].getClass().getName(), e.toString());
+                    continue;
+                }
+                logger.debug("TableModel guard: rows={}, cols={}, limit={}", rows, cols, limit);
+                if (rows > limit || cols > limit) {
+                    rejectConstructor("TableModel dimension", Math.max(rows, cols), limit);
+                }
+                if (rows > 0 && cols > 0 && rows * cols > limit) {
+                    rejectConstructor("TableModel size (rows × cols)", rows * cols, limit);
                 }
             } else if (inputs[i] != null) {
                 // Check if the input implements TableModel via a different classloader
@@ -424,12 +416,12 @@ public class ConstructorStatement extends EntityWithParametersStatement {
             throws CodeUnderTestException {
         logger.info("Rejecting allocation-sensitive constructor {}: {} = {} exceeds limit {}",
                 constructor.getDeclaringClass().getName(), reason, value, limit);
-        throw new CodeUnderTestException(new TooManyResourcesException(ALLOCATION_REJECTED));
+        throw allocationRejected();
     }
 
-    /**
+    /*
      * Rejects constructor calls whose int args exceed a dynamically learned threshold.
-     * Uses the same mechanism as MethodStatement — the key is className.&lt;init&gt;.
+     * Uses the same mechanism as MethodStatement - the key is className.<init>.
      */
     /**
      * Rejects constructor calls whose non-int inputs (byte[], String, InputStream)
@@ -457,16 +449,14 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                 if (len > byteLimit) {
                     logger.info("Rejecting allocation-sensitive constructor {}: byte[] arg {} "
                             + "length {} exceeds limit {}", className, i, len, byteLimit);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
             } else if (stringLimit > 0 && arg instanceof String) {
                 int len = ((String) arg).length();
                 if (len > stringLimit) {
                     logger.info("Rejecting allocation-sensitive constructor {}: String arg {} "
                             + "length {} exceeds limit {}", className, i, len, stringLimit);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
             } else if (byteLimit > 0 && arg instanceof java.io.InputStream) {
                 // Best-effort: only inspect streams that cheaply report their length.
@@ -478,8 +468,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                         logger.info("Rejecting allocation-sensitive constructor {}: InputStream "
                                 + "arg {} available {} exceeds byte limit {}",
                                 className, i, available, byteLimit);
-                        throw new CodeUnderTestException(
-                                new TooManyResourcesException(ALLOCATION_REJECTED));
+                        throw allocationRejected();
                     }
                 } catch (java.io.IOException ignored) {
                     // can't bound it — let the constructor try
@@ -497,13 +486,13 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         }
         Class<?>[] paramTypes = constructor.getConstructor().getParameterTypes();
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
+            Integer arg = paramTypes[i].equals(int.class) ? IntArguments.widened(inputs[i]) : null;
+            if (arg != null) {
+                int val = arg;
                 if (val > threshold) {
                     logger.info("Rejecting constructor {}: int arg {} = {} exceeds learned threshold {}",
                             className, i, val, threshold);
-                    throw new CodeUnderTestException(
-                            new TooManyResourcesException(ALLOCATION_REJECTED));
+                    throw allocationRejected();
                 }
             }
         }

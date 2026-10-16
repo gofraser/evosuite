@@ -1,0 +1,307 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.testcase;
+
+import org.apache.commons.lang3.reflect.TypeUtils;
+import org.evosuite.Properties;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.StringPrimitiveStatement;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
+import org.evosuite.utils.generic.JavacScratchCompiler;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Observed on Vuze's {@code BDecoder.print(Object)}: EvoSuite declared a list as
+ * {@code ArrayList<IOException>} and then added a plain {@code Object} to it, because the call's
+ * own method model leaves the element type unresolved. javac checks the call against the
+ * receiver's declared type, so such a call must go through a raw receiver.
+ */
+public class HeapPollutionCallCompileTest {
+
+    private String originalTargetClass;
+
+    @BeforeEach
+    public void setUp() {
+        originalTargetClass = Properties.TARGET_CLASS;
+        Properties.TARGET_CLASS = HeapPollutionCallCompileTest.class.getName();
+        Properties.resetTargetClass();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        Properties.TARGET_CLASS = originalTargetClass;
+        Properties.resetTargetClass();
+    }
+
+    @Test
+    public void testAddOfObjectToConcretelyTypedListCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type listType = TypeUtils.parameterize(ArrayList.class, IOException.class);
+        VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(ArrayList.class.getConstructor(), listType),
+                Arrays.asList()));
+        VariableReference object = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(Object.class.getConstructor(), Object.class),
+                Arrays.asList()));
+
+        // The method model as the search sees it: owner ArrayList<E>, parameter E unresolved.
+        GenericMethod add = new GenericMethod(ArrayList.class.getMethod("add", Object.class),
+                ArrayList.class);
+        tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(object)));
+
+        assertCompiles(tc);
+    }
+
+    @Test
+    public void testAddOfStringLiteralToConcretelyTypedListCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type listType = TypeUtils.parameterize(ArrayList.class, IOException.class);
+        VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(ArrayList.class.getConstructor(), listType),
+                Arrays.asList()));
+        VariableReference value = tc.addStatement(new StringPrimitiveStatement(tc, "value"));
+        GenericMethod add = new GenericMethod(ArrayList.class.getMethod("add", Object.class),
+                ArrayList.class);
+        tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(value)));
+
+        assertCompiles(tc);
+    }
+
+    @Test
+    public void testAddOfStringConstantToConcretelyTypedListCompiles() throws Exception {
+        for (Type constantType : new Type[] {String.class, Object.class}) {
+            TestCase tc = new DefaultTestCase();
+            Type listType = TypeUtils.parameterize(ArrayList.class, IOException.class);
+            VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(ArrayList.class.getConstructor(), listType),
+                    Arrays.asList()));
+            VariableReference value = new org.evosuite.testcase.variable.ConstantValue(
+                    tc, org.evosuite.utils.generic.GenericClassFactory.get(constantType), "value");
+            GenericMethod add = new GenericMethod(ArrayList.class.getMethod("add", Object.class),
+                    ArrayList.class);
+            tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(value)));
+
+            assertCompiles(tc);
+        }
+    }
+
+    @Test
+    public void testAddToListWhoseModelIsAlreadyResolvedCompiles() throws Exception {
+        for (Class<?> owner : new Class<?>[] {ArrayList.class, java.util.List.class,
+                java.util.Collection.class, java.util.AbstractList.class}) {
+            for (Type constantType : new Type[] {String.class, Object.class}) {
+                TestCase tc = new DefaultTestCase();
+                Type listType = TypeUtils.parameterize(ArrayList.class, IOException.class);
+                VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                        new GenericConstructor(ArrayList.class.getConstructor(), listType),
+                        Arrays.asList()));
+                VariableReference value = new org.evosuite.testcase.variable.ConstantValue(tc,
+                        org.evosuite.utils.generic.GenericClassFactory.get(constantType),
+                        "value");
+                GenericMethod add = new GenericMethod(owner.getMethod("add", Object.class),
+                        TypeUtils.parameterize(owner, IOException.class));
+                tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(value)));
+
+                try {
+                    assertCompiles(tc);
+                } catch (AssertionError e) {
+                    throw new AssertionError(owner + " / " + constantType + ": " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * Defects4J Chart-2: the declaration is rendered from the constructor's owner type
+     * (ArrayList&lt;File&gt;), but the variable itself can carry a different type, so the
+     * receiver check must judge the call by the declared type.
+     */
+    @Test
+    public void testAddOfStringToListWhoseVariableTypeDiffersFromDeclarationCompiles()
+            throws Exception {
+        Type[] variableTypes = new Type[] {ArrayList.class,
+                TypeUtils.parameterize(java.util.List.class, Comparable.class),
+                TypeUtils.parameterize(ArrayList.class, Comparable.class),
+                TypeUtils.parameterize(ArrayList.class, TypeUtils.wildcardType().build())};
+        for (Type variableType : variableTypes) {
+            TestCase tc = new DefaultTestCase();
+            Type listType = TypeUtils.parameterize(ArrayList.class, java.io.File.class);
+            VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(ArrayList.class.getConstructor(), listType),
+                    Arrays.asList()));
+            list.setType(variableType);
+            VariableReference value = tc.addStatement(new StringPrimitiveStatement(tc, "value"));
+            GenericMethod add = new GenericMethod(ArrayList.class.getMethod("add", Object.class),
+                    ArrayList.class);
+            tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(value)));
+            try {
+                assertCompiles(tc);
+            } catch (AssertionError e) {
+                throw new AssertionError(variableType + ": " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Defects4J Collections-3: the list is declared {@code ArrayList<Object>} from the constructor's
+     * owner type, while the call is modelled on the variable's {@code ArrayList<File>}; the
+     * returned iterator must be cast, javac sees {@code ListIterator<Object>}.
+     */
+    @Test
+    public void testListIteratorOfListWhoseDeclarationDiffersFromVariableCompiles()
+            throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(ArrayList.class.getConstructor(),
+                        TypeUtils.parameterize(ArrayList.class, Object.class)),
+                Arrays.asList()));
+        list.setType(TypeUtils.parameterize(ArrayList.class, java.io.File.class));
+        GenericMethod listIterator = new GenericMethod(ArrayList.class.getMethod("listIterator"),
+                TypeUtils.parameterize(ArrayList.class, java.io.File.class));
+        VariableReference iterator = tc.addStatement(
+                new MethodStatement(tc, listIterator, list, Arrays.asList()));
+        tc.addStatement(new MethodStatement(tc, new GenericMethod(
+                java.util.ListIterator.class.getMethod("hasNext"),
+                java.util.ListIterator.class), iterator, Arrays.asList()));
+        assertCompiles(tc);
+    }
+
+    /**
+     * Defects4J Collections-6: {@code Comparator<Object> c = Map.Entry.comparingByValue();} has no
+     * type that javac can infer, so the static generic call needs a raw cast.
+     */
+    @Test
+    public void testZeroArgumentStaticGenericCallWithUnrelatedVariableTypeCompiles()
+            throws Exception {
+        for (Type variableType : new Type[] {
+                TypeUtils.parameterize(java.util.Comparator.class, Object.class),
+                TypeUtils.parameterize(java.util.Comparator.class, String.class),
+                TypeUtils.parameterize(java.util.Comparator.class,
+                        TypeUtils.parameterize(java.util.Map.Entry.class, String.class,
+                                Integer.class))}) {
+            TestCase tc = new DefaultTestCase();
+            GenericMethod comparing = new GenericMethod(
+                    java.util.Map.Entry.class.getMethod("comparingByValue"),
+                    java.util.Map.Entry.class);
+            VariableReference comparator = tc.addStatement(
+                    new MethodStatement(tc, comparing, null, Arrays.asList()));
+            comparator.setType(variableType);
+            tc.addStatement(new MethodStatement(tc, new GenericMethod(
+                    java.util.Comparator.class.getMethod("reversed"),
+                    java.util.Comparator.class), comparator, Arrays.asList()));
+            try {
+                assertCompiles(tc);
+            } catch (AssertionError e) {
+                throw new AssertionError(variableType + ": " + e.getMessage());
+            }
+        }
+    }
+
+    public static class BoundedBox<E extends Comparable<E>> {
+        public java.util.List<E> values() {
+            return new ArrayList<E>();
+        }
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static class RawComparable implements Comparable {
+        @Override
+        public int compareTo(Object o) {
+            return 0;
+        }
+    }
+
+    /**
+     * SF110 summa: {@code MemoryPool<E extends Comparable<E>>} was instantiated with {@code UURI},
+     * which implements only the raw {@code Comparable}; javac rejects {@code MemoryPool<UURI>}
+     * ("not within bounds of type-variable E"). The receiver is rendered raw instead.
+     */
+    @Test
+    public void testTypeArgumentOutsideOfBoundIsRenderedRaw() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type boxType = TypeUtils.parameterize(BoundedBox.class, RawComparable.class);
+        VariableReference box = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(BoundedBox.class.getConstructor(), boxType),
+                Arrays.asList()));
+        GenericMethod values = new GenericMethod(BoundedBox.class.getMethod("values"), boxType);
+        VariableReference list = tc.addStatement(
+                new MethodStatement(tc, values, box, Arrays.asList()));
+        tc.addStatement(new MethodStatement(tc, new GenericMethod(
+                java.util.List.class.getMethod("size"), java.util.List.class), list,
+                Arrays.asList()));
+        assertCompiles(tc);
+    }
+
+    @Test
+    public void testPutOfObjectToStringStringMapCompiles()throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type mapType = TypeUtils.parameterize(LinkedHashMap.class, String.class, String.class);
+        VariableReference map = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(LinkedHashMap.class.getConstructor(), mapType),
+                Arrays.asList()));
+        VariableReference key = tc.addStatement(new StringPrimitiveStatement(tc, "H%"));
+        VariableReference object = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(Object.class.getConstructor(), Object.class),
+                Arrays.asList()));
+        GenericMethod put = new GenericMethod(
+                LinkedHashMap.class.getMethod("put", Object.class, Object.class),
+                LinkedHashMap.class);
+        tc.addStatement(new MethodStatement(tc, put, map, Arrays.asList(key, object)));
+        assertCompiles(tc);
+    }
+
+    private void assertCompiles(TestCase tc) throws IOException {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        StringBuilder source = new StringBuilder("package org.evosuite.testcase;\n");
+        for (Class<?> imported : visitor.getImports()) {
+            String canonical = imported.getCanonicalName();
+            if (canonical != null) {
+                source.append("import ").append(canonical).append(";\n");
+            }
+        }
+        String className = "HeapPollutionProbe" + System.nanoTime();
+        source.append("public class ").append(className).append(" {\n")
+                .append("    public static void run() throws Throwable {\n");
+        for (String line : code.split("\\R")) {
+            source.append("        ").append(line).append("\n");
+        }
+        source.append("    }\n}\n");
+
+        JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
+                "evosuite-heap-pollution", className, source.toString());
+        assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+    }
+}
