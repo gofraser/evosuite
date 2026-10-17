@@ -571,7 +571,7 @@ public class DataDependencyUtil {
     }
 
     static boolean isConstructorSetterCandidate(Constructor<?> constructor) {
-        return TestUsageChecker.isCallableFromTestPackage(constructor) && !constructor.isSynthetic();
+        return TestUsageChecker.isSynthesisCallable(constructor);
     }
 
     private static long effectiveSetterAnalysisTimeoutMillis() {
