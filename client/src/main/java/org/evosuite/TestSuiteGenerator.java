@@ -87,6 +87,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 
 /**
@@ -831,15 +832,14 @@ public class TestSuiteGenerator {
         if (Properties.MINIMIZE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
             // progressMonitor.setCurrentPhase("Minimizing test cases");
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()
-                    || isMemoryTooLowForPhase("minimization")) {
-                MinimizationStopCause stopCause = TimeController.getInstance().hasTimeToExecuteATestCase()
+            PhaseSkipCause skipCause = checkPhase("minimization",
+                    TimeController.getInstance()::hasTimeToExecuteATestCase);
+            if (skipCause != PhaseSkipCause.NONE) {
+                MinimizationStopCause stopCause = skipCause == PhaseSkipCause.LOW_MEMORY
                         ? MinimizationStopCause.LOW_MEMORY
                         : MinimizationStopCause.TIMEOUT;
                 minimizationResult = MinimizationResult.preflightAborted(testSuite, stopCause);
-                if (TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                    // Time is available but memory is low — already logged by the check
-                } else {
+                if (skipCause == PhaseSkipCause.TIMEOUT) {
                     LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                             + "Skipping minimization because not enough time is left");
                 }
@@ -951,12 +951,12 @@ public class TestSuiteGenerator {
         }
 
         if (Properties.FILTER_SANDBOX_TESTS) {
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            PhaseSkipCause skipCause = checkPhase("sandbox test filtering",
+                    TimeController.getInstance()::hasTimeToExecuteATestCase);
+            if (skipCause == PhaseSkipCause.TIMEOUT) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping sandbox test filtering because not enough time is left");
-            } else if (isMemoryTooLowForPhase("sandbox test filtering")) {
-                // skip — message already logged by the check
-            } else {
+            } else if (skipCause == PhaseSkipCause.NONE) {
                 for (TestChromosome test : testSuite.getTestChromosomes()) {
                     // delete all statements leading to security exceptions
                     ExecutionResult result = test.getLastExecutionResult();
@@ -1025,12 +1025,12 @@ public class TestSuiteGenerator {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
             // progressMonitor.setCurrentPhase("Generating assertions");
             ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            PhaseSkipCause skipCause = checkPhase("assertion generation",
+                    TimeController.getInstance()::hasTimeToExecuteATestCase);
+            if (skipCause == PhaseSkipCause.TIMEOUT) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping assertion generation because not enough time is left");
-            } else if (isMemoryTooLowForPhase("assertion generation")) {
-                // skip — message already logged by the check
-            } else {
+            } else if (skipCause == PhaseSkipCause.NONE) {
                 TestSuiteGeneratorHelper.addAssertions(testSuite);
             }
             StatisticsSender.sendIndividualToMaster(testSuite); // FIXME: can we
@@ -1056,12 +1056,14 @@ public class TestSuiteGenerator {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Running unified LLM post-processing");
             ClientServices.getInstance().getClientNode().changeState(ClientState.LLM_POSTPROCESSING);
-            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            PhaseSkipCause skipCause = checkPhase("unified LLM post-processing",
+                    TimeController.getInstance()::isThereStillTimeInThisPhase);
+            if (skipCause == PhaseSkipCause.TIMEOUT) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping unified LLM post-processing because not enough time is left");
                 activeLlmPostProcessor.publishSkippedPostProcessingMetrics(
                         postProcessingContext, "timeout", minimizationResult);
-            } else if (isMemoryTooLowForPhase("unified LLM post-processing")) {
+            } else if (skipCause == PhaseSkipCause.LOW_MEMORY) {
                 activeLlmPostProcessor.publishSkippedPostProcessingMetrics(
                         postProcessingContext, "low_memory", minimizationResult);
             } else {
@@ -1266,11 +1268,12 @@ public class TestSuiteGenerator {
             return;
         }
         String reason = context == null ? "unknown" : context.getTerminalReason();
-        if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+        PhaseSkipCause skipCause = checkPhase("standard assertion fallback after LLM " + reason,
+                TimeController.getInstance()::isThereStillTimeInThisPhase);
+        if (skipCause == PhaseSkipCause.TIMEOUT) {
             logger.warn("Cannot apply standard assertion fallback after LLM {}: no phase time remains", reason);
-            return;
         }
-        if (isMemoryTooLowForPhase("standard assertion fallback after LLM " + reason)) {
+        if (skipCause != PhaseSkipCause.NONE) {
             return;
         }
         TestSuiteChromosome missingOracles = new TestSuiteChromosome();
@@ -1402,6 +1405,32 @@ public class TestSuiteGenerator {
      * instead, and must reset it to {@code null} afterwards.
      */
     static LongSupplier freeMemoryBytesForTesting = null;
+
+    /** Why a post-search phase is skipped, if it is. */
+    enum PhaseSkipCause {
+        NONE,
+        TIMEOUT,
+        LOW_MEMORY
+    }
+
+    /**
+     * Decides whether a post-search phase that re-executes tests can start: it needs time left,
+     * as the given predicate measures it, and then enough free memory. A low-memory skip is
+     * logged here; reporting a timeout is left to the caller.
+     *
+     * @param phaseName human-readable name for log messages
+     * @param hasTime   whether the phase has time left
+     * @return why the phase must be skipped, or {@link PhaseSkipCause#NONE}
+     */
+    PhaseSkipCause checkPhase(String phaseName, BooleanSupplier hasTime) {
+        if (!hasTime.getAsBoolean()) {
+            return PhaseSkipCause.TIMEOUT;
+        }
+        if (isMemoryTooLowForPhase(phaseName)) {
+            return PhaseSkipCause.LOW_MEMORY;
+        }
+        return PhaseSkipCause.NONE;
+    }
 
     /**
      * Check whether free memory is too low to safely enter a post-search phase
