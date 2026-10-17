@@ -131,7 +131,10 @@ public class MethodDescriptorTypeMatcherTest {
             MethodDescriptor descriptor = new MethodDescriptor(Target.class.getMethod("take", type),
                     org.evosuite.utils.generic.GenericClassFactory.get(Target.class));
             assertEquals(MethodDescriptor.matcherStringForType(type), descriptor.getInputParameterMatchers());
-            ArgumentMatcher<?> live = recorded(() -> descriptor.executeMatcher(0));
+            MethodDescriptor.StubTarget target = descriptor.getStubTarget(Target.class,
+                    org.evosuite.utils.generic.GenericClassFactory.get(Target.class));
+            assertEquals(descriptor.getInputParameterMatchers(), target.getMatchers());
+            ArgumentMatcher<?> live = recorded(() -> target.executeMatcher(0));
             ArgumentMatcher<?> fromSource = recorded(() -> ArgumentMatchers.nullable(type));
             assertSameMatcher(fromSource, live);
         }

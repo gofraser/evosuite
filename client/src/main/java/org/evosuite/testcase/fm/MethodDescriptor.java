@@ -667,21 +667,6 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         return method.getNumParameters();
     }
 
-    /**
-     * Executes the matcher for the parameter at the given index.
-     *
-     * @param i the index of the parameter
-     * @return the result of the matcher execution
-     * @throws IllegalArgumentException if the index is invalid
-     */
-    public Object executeMatcher(int i) throws IllegalArgumentException {
-        if (i < 0 || i >= getNumberOfInputParameters()) {
-            throw new IllegalArgumentException("Invalid index: " + i);
-        }
-
-        return executeMatcher(matcherParameterTypes[i], i, className, methodName);
-    }
-
     private static Object executeMatcher(Class<?> type, int i, String className, String methodName) {
         try {
             TypeMatcher matcher = TypeMatcher.of(type);
