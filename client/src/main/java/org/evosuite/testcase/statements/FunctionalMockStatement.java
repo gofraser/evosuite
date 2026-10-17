@@ -25,6 +25,7 @@ import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.coverage.mutation.MutationObserver;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.runtime.LenientMockAnswer;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.UnmockableTypes;
 import org.evosuite.runtime.instrumentation.InstrumentedClass;
@@ -55,9 +56,7 @@ import org.mockito.stubbing.OngoingStubbing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
 import java.io.PrintStream;
-import java.io.Reader;
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -1272,7 +1271,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // triggering an internal AssertionError in MockUtil.getMockHandlerOrNull.
         MockSettings settings = withSettings().stubOnly().invocationListeners(listener);
         Answer<Object> defaultAnswer = useLenientDefaultAnswer
-                ? FunctionalMockStatement::lenientDefaultAnswer
+                ? SEARCH_LENIENT_ANSWER
                 : Mockito.RETURNS_DEFAULTS;
         if (!Properties.USE_SEPARATE_CLASSLOADER) {
             defaultAnswer = callRealMethodIfOriginallyFinal(defaultAnswer);
@@ -1300,128 +1299,39 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     /**
-     * Lenient default answer that returns sensible non-null values for all
-     * return types.  Mirrors the behavior of the ephemeral mocks created by
-     * DMoN during the search: empty strings, zero for numerics, empty
-     * collections, and recursively mocked objects for other types.
+     * The lenient default answer of a mock during the search. It is the {@link LenientMockAnswer}
+     * of the generated test, so that a DMoN-promoted mock answers the same in both, except that it
+     * does not hand out mocks of classes that were final in the original bytecode: the test JVM
+     * usually loads those unstripped, where they cannot be mocked. The ephemeral mocks DMoN uses
+     * to probe a failure (TestRunnable) answer differently on purpose.
      */
-    private static final int MAX_LENIENT_MOCK_DEPTH = 3;
-    private static final ThreadLocal<Integer> lenientMockDepth = ThreadLocal.withInitial(() -> 0);
+    static final class SearchLenientAnswer extends LenientMockAnswer {
 
-    @SuppressWarnings("unchecked")
-    static Object lenientDefaultAnswer(InvocationOnMock invocation) {
-        return lenientDefaultAnswer(invocation, 0);
+        SearchLenientAnswer() {
+            super(0);
+        }
+
+        private SearchLenientAnswer(int chain) {
+            super(chain);
+        }
+
+        @Override
+        protected LenientMockAnswer forMockAt(int chain) {
+            return new SearchLenientAnswer(chain);
+        }
+
+        @Override
+        protected boolean canMock(Class<?> type) {
+            // getModifiers() no longer shows final once the class is instrumented
+            return super.canMock(type) && !MethodDescriptor.wasOriginallyFinal(type);
+        }
     }
 
-    /**
-     * Number of mocks that may hang off one another through unstubbed accessors. A
-     * {@code getParent()} that always hands out a fresh mock has no end, so SUT or JDK code that
-     * recurses or loops up the chain (JOptionPane.getDesktopPaneForComponent) would never return.
-     */
-    public static final int MAX_LENIENT_MOCK_CHAIN = 16;
+    private static final Answer<Object> SEARCH_LENIENT_ANSWER = new SearchLenientAnswer();
 
-    @SuppressWarnings("unchecked")
-    static Object lenientDefaultAnswer(InvocationOnMock invocation, int chain) {
-        if (isEofReadMethod(invocation)) {
-            // Unstubbed Reader/InputStream read() returning 0 can create
-            // non-progress loops. Default to EOF; explicit stubs still win.
-            return -1;
-        }
-        Class<?> returnType = invocation.getMethod().getReturnType();
-        if (returnType == void.class || returnType == Void.class) {
-            return null;
-        }
-        if (returnType == String.class || returnType == CharSequence.class) {
-            return "";
-        }
-        if (returnType == boolean.class || returnType == Boolean.class) {
-            return false;
-        }
-        if (returnType == byte.class || returnType == Byte.class) {
-            return (byte) 0;
-        }
-        if (returnType == short.class || returnType == Short.class) {
-            return (short) 0;
-        }
-        if (returnType == int.class || returnType == Integer.class) {
-            return 0;
-        }
-        if (returnType == long.class || returnType == Long.class) {
-            return 0L;
-        }
-        if (returnType == float.class || returnType == Float.class) {
-            return 0.0f;
-        }
-        if (returnType == double.class || returnType == Double.class) {
-            return 0.0;
-        }
-        if (returnType == char.class || returnType == Character.class) {
-            return '\0';
-        }
-        if (returnType == Optional.class) {
-            return Optional.empty();
-        }
-        // Check collection/map types by verifying the return type IS a collection,
-        // not just that a collection could be assigned to it (which would match Object,
-        // Serializable, etc. and cause ClassCastExceptions downstream).
-        if (List.class.isAssignableFrom(returnType)
-                || returnType == Collection.class
-                || returnType == Iterable.class) {
-            return new ArrayList<>();
-        }
-        if (Set.class.isAssignableFrom(returnType)) {
-            return new HashSet<>();
-        }
-        if (Map.class.isAssignableFrom(returnType)) {
-            return new HashMap<>();
-        }
-        if (returnType.isArray()) {
-            return java.lang.reflect.Array.newInstance(returnType.getComponentType(), 0);
-        }
-        // For other object types, try to create a sub-mock with the same lenient answer.
-        // Skip Object and other overly-broad supertypes — mocking them produces opaque
-        // proxy objects that cause ClassCastExceptions when the SUT casts to a concrete type.
-        // Limit recursion depth to avoid stack overflow from fluent/builder patterns
-        // where a method returns its own type (e.g., Builder.withX() → Builder).
-        int depth = lenientMockDepth.get();
-        if (depth < MAX_LENIENT_MOCK_DEPTH
-                && chain < MAX_LENIENT_MOCK_CHAIN
-                && returnType != Object.class
-                && returnType != java.io.Serializable.class
-                && returnType != Comparable.class
-                && returnType != Cloneable.class
-                && !Modifier.isFinal(returnType.getModifiers())
-                // getModifiers() no longer shows final once the class is instrumented
-                && !MethodDescriptor.wasOriginallyFinal(returnType)
-                && !returnType.isPrimitive()
-                && !UnmockableTypes.isUnmockable(returnType)) {
-            try {
-                lenientMockDepth.set(depth + 1);
-                final int subMockChain = chain + 1;
-                return Mockito.mock(returnType,
-                        (org.mockito.stubbing.Answer<?>) inv -> lenientDefaultAnswer(inv, subMockChain));
-            } catch (Exception ignored) {
-                // Cannot mock (e.g., final class, sealed) — fall through to null.
-            } finally {
-                lenientMockDepth.set(depth);
-            }
-        }
-        return null;
-    }
-
-    private static boolean isEofReadMethod(InvocationOnMock invocation) {
-        Method method = invocation.getMethod();
-        if (!"read".equals(method.getName())) {
-            return false;
-        }
-        Class<?> returnType = method.getReturnType();
-        if (!(returnType == int.class || returnType == Integer.class)) {
-            return false;
-        }
-        Class<?> owner = method.getDeclaringClass();
-        return Reader.class.isAssignableFrom(owner)
-                || InputStream.class.isAssignableFrom(owner)
-                || java.nio.channels.ReadableByteChannel.class.isAssignableFrom(owner);
+    /** The answer of a mock with the lenient default answer during the search. */
+    static Object lenientDefaultAnswer(InvocationOnMock invocation) throws Throwable {
+        return SEARCH_LENIENT_ANSWER.answer(invocation);
     }
 
     private static boolean hasCause(Throwable throwable, Class<? extends Throwable> expectedType) {
