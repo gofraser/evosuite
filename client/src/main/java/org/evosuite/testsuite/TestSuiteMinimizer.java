@@ -19,6 +19,7 @@
  */
 package org.evosuite.testsuite;
 
+import org.evosuite.PhaseMemoryGuard;
 import org.evosuite.Properties;
 import org.evosuite.Properties.SecondaryObjective;
 import org.evosuite.TestGenerationContext;
@@ -804,8 +805,7 @@ public class TestSuiteMinimizer {
 
     /**
      * Check whether free heap has dropped below the safety threshold used for
-     * post-processing phases.  Mirrors {@code TestSuiteGenerator#isMemoryTooLowForPhase}
-     * so the minimizer can self-abort instead of waiting for an OOM to be
+     * post-processing phases, so the minimizer can self-abort instead of waiting for an OOM to be
      * caught by the caller — by which point the phase budget is typically
      * blown by minutes (GC thrashing makes the cooperative time checks fire
      * far too late).
@@ -815,19 +815,12 @@ public class TestSuiteMinimizer {
      * preserving partial results.
      */
     private boolean isMemoryCritical() {
-        Runtime runtime = Runtime.getRuntime();
-        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-        long threshold = Properties.MIN_FREE_MEM * 2L;
-        if (freeMem >= threshold) {
-            return false;
-        }
-        System.gc();
-        freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-        if (freeMem >= threshold) {
+        PhaseMemoryGuard guard = PhaseMemoryGuard.oneShot(Properties.MIN_FREE_MEM * 2L);
+        if (!guard.isExhausted()) {
             return false;
         }
         logger.warn("Minimization aborting: free memory {} MB below threshold {} MB",
-                freeMem / 1024 / 1024, threshold / 1024 / 1024);
+                guard.getLastFreeBytes() / 1024 / 1024, guard.getThresholdBytes() / 1024 / 1024);
         return true;
     }
 

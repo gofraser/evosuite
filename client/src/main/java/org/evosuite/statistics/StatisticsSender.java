@@ -19,6 +19,7 @@
  */
 package org.evosuite.statistics;
 
+import org.evosuite.PhaseMemoryGuard;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
@@ -169,8 +170,7 @@ public class StatisticsSender {
     // -------- private methods ------------------------
 
     /**
-     * Mirrors the policy in {@code TestSuiteGenerator#isMemoryTooLowForPhase}: compares
-     * free heap against {@code MIN_FREE_MEM * 2}, with a single GC retry. Returns true
+     * Compares free heap against {@code MIN_FREE_MEM * 2}, with a single GC retry. Returns true
      * if memory is still below the threshold and the caller should skip the work.
      */
     static boolean isMemoryTooLowForReExecution() {
@@ -183,14 +183,7 @@ public class StatisticsSender {
      * through the int-capped {@link Properties#MIN_FREE_MEM}.
      */
     static boolean isMemoryBelowThreshold(long threshold) {
-        Runtime runtime = Runtime.getRuntime();
-        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-        if (freeMem >= threshold) {
-            return false;
-        }
-        System.gc();
-        freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-        return freeMem < threshold;
+        return PhaseMemoryGuard.oneShot(threshold).isExhausted();
     }
 
     private static void sendExceptionInfo(TestSuiteChromosome testSuite) {

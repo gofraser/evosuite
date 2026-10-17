@@ -54,7 +54,6 @@ import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.TestIdentifier;
-import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.runner.JUnitCore;
@@ -98,6 +97,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -111,6 +111,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -132,6 +134,9 @@ public abstract class JUnitAnalyzer {
     private static final String JAVA = ".java";
     private static final String CLASS = ".class";
     private static final Map<String, String> SANITIZED_COMPILER_CLASSPATH_ENTRIES = new HashMap<>();
+    private static String cachedCompilerClasspath = null;
+    private static String cachedCompilerClasspathEvoSuiteInput = null;
+    private static String cachedCompilerClasspathTargetInput = null;
     private static final int MAX_STORED_COMPILER_DIAGNOSTICS = 100;
     private static final int MAX_LOGGED_SOURCE_EXCERPT_LINES_PER_FILE = 200;
     private static final int MAX_LOGGED_SOURCE_EXCERPT_CHARS_TOTAL = 20_000;
@@ -325,12 +330,12 @@ public abstract class JUnitAnalyzer {
             try {
                 List<TestCase> singleList = new ArrayList<>();
                 singleList.add(test);
-                List<File> generated = compileTests(singleList, dir);
-                if (generated == null) {
+                CompileOutcome compiled = compileTests(singleList, dir);
+                if (compiled.isRejected()) {
                     iter.remove();
                     String code = test.toCode();
                     logger.error("Failed to compile test case:\n" + code);
-                } else if (checksSuspended()) {
+                } else if (compiled.isNotJudged()) {
                     return;
                 }
             } finally {
@@ -360,79 +365,85 @@ public abstract class JUnitAnalyzer {
      */
     public static int handleTestsThatAreUnstable(List<TestCase> tests) {
 
-        int numUnstable = 0;
         logger.info("Going to execute: handleTestsThatAreUnstable");
 
         if (tests == null || tests.isEmpty()) { //nothing to do
-            return numUnstable;
+            return 0;
         }
-        if (checksSuspended()) {
-            logCompileDependentExecutionSkippedIfNeeded();
+        return withCompiledSuite(tests, new InstabilityCheck(tests));
+    }
+
+    /**
+     * The instability check of {@link #handleTestsThatAreUnstable(List)}: it counts the unstable
+     * tests, and marks or removes them in the list it checks.
+     */
+    private static final class InstabilityCheck extends CompiledSuiteCheck<Integer> {
+
+        private final List<TestCase> tests;
+        private int numUnstable = 0;
+
+        private InstabilityCheck(List<TestCase> tests) {
+            this.tests = tests;
+        }
+
+        @Override
+        Integer notRun() {
             return numUnstable;
         }
 
-        File dir = createNewTmpDir();
-        if (dir == null) {
+        @Override
+        Integer noTmpDir() {
             logger.error("Failed to create tmp dir");
             // Infrastructure setup failure: the test(s) are kept unchecked, exactly as the
-            // compile filter's own tmp-dir failure above does, so record it the same way.
+            // compile filter's own tmp-dir failure does, so record it the same way.
             recordCheckIncomplete("instability check: failed to create tmp dir; test(s) kept unchecked");
             return numUnstable;
         }
-        logger.debug("Created tmp folder: " + dir.getAbsolutePath());
 
-        try {
-            List<File> generated = compileTests(tests, dir);
-            if (generated == null) {
-                /*
-                 * By this point each test already passed the single-test compile filter
-                 * individually, so this is not that filter's ordinary "rejected test" verdict:
-                 * it means the whole-suite compile unit (or the writer output it depends on)
-                 * failed in a way the per-test filter never saw. The suite is kept unchecked,
-                 * so record that this round never actually validated it, same as the
-                 * tmp-dir/time-budget give-ups above. Infrastructure failures that compileTests
-                 * already recorded itself (OOM, javac crashes, etc.) return a non-null
-                 * "generated" instead and are not re-recorded here.
-                 */
-                logger.warn("Failed to compile the test cases ");
-                recordCheckIncomplete(
-                        "instability check: whole-suite compile failed unexpectedly; test(s) kept unchecked");
-                return numUnstable;
-            }
-            if (shouldSkipCompileDependentExecutionAfterCompile()) {
-                return numUnstable;
-            }
+        @Override
+        Integer rejected() {
+            /*
+             * By this point each test already passed the single-test compile filter
+             * individually, so this is not that filter's ordinary "rejected test" verdict:
+             * it means the whole-suite compile unit (or the writer output it depends on)
+             * failed in a way the per-test filter never saw. The suite is kept unchecked,
+             * so record that this round never actually validated it, same as the
+             * tmp-dir/time-budget give-ups. Infrastructure failures that compileTests
+             * already recorded itself (OOM, javac crashes, etc.) are not judged rather than
+             * rejected, and are not re-recorded here.
+             */
+            logger.warn("Failed to compile the test cases ");
+            recordCheckIncomplete(
+                    "instability check: whole-suite compile failed unexpectedly; test(s) kept unchecked");
+            return numUnstable;
+        }
 
+        @Override
+        Integer beforeLoading() {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.error("Ran out of time while checking tests");
                 recordCheckIncomplete("ran out of time before running the instability check");
                 return numUnstable;
             }
+            return null;
+        }
 
-            // Create a new classloader so that each test gets freshly loaded classes.
-            // Start with a NonInstrumentingClassLoader to avoid duplicate type
-            // identities across loader boundaries during JUnit recheck. If we
-            // detect instrumentation/GUI mismatch signals, runTests() retries
-            // once with InstrumentingClassLoader.
-            loader = createInitialJUnitClassLoader(tests);
-            Class<?>[] testClasses = loadTests(generated);
+        @Override
+        Integer notLoaded() {
+            // Compilation already succeeded here, so this is an unexpected loading failure,
+            // not an ordinary compile rejection: the suite is kept unchecked and the round
+            // never validated it.
+            logger.error("Found no classes for compiled tests");
+            recordCheckIncomplete(
+                    "instability check: failed to load compiled test classes; test(s) kept unchecked");
+            return numUnstable;
+        }
 
-            if (testClasses == null) {
-                // Compilation already succeeded here, so this is an unexpected loading failure,
-                // not an ordinary compile rejection: the suite is kept unchecked and the round
-                // never validated it.
-                logger.error("Found no classes for compiled tests");
-                recordCheckIncomplete(
-                        "instability check: failed to load compiled test classes; test(s) kept unchecked");
-                return numUnstable;
-            }
-
-            JUnitResult result = runTests(testClasses, dir, generated);
-
+        @Override
+        Integer judge(JUnitResult result, Class<?>[] testClasses) {
             if (result.wasSuccessful()) {
                 return numUnstable; //everything is OK
             }
-
 
             AtomicBoolean watchdogCulpritSeen = new AtomicBoolean(false);
             // Test names are positional (and zero-padded by list size), so they are only valid
@@ -577,25 +588,21 @@ public abstract class JUnitAnalyzer {
                     }
                 }
             }
-        } catch (Exception e) {
-            logger.error("" + e, e);
+
+            //if we arrive here, then it means at least one test was unstable
             return numUnstable;
-        } finally {
-            releaseCheckLoader();
-            //let's be sure we clean up all what we wrote on disk
-
-            if (dir != null) {
-                try {
-                    FileUtils.deleteDirectory(dir);
-                } catch (Exception e) {
-                    logger.warn("Cannot delete tmp dir: " + dir.getName(), e);
-                }
-            }
-
         }
 
-        //if we arrive here, then it means at least one test was unstable
-        return numUnstable;
+        @Override
+        Integer failed(Exception e) {
+            logger.error("" + e, e);
+            return numUnstable;
+        }
+
+        @Override
+        void notDeleted(File dir, Exception e) {
+            logger.warn("Cannot delete tmp dir: " + dir.getName(), e);
+        }
     }
 
     /**
@@ -1635,58 +1642,58 @@ public abstract class JUnitAnalyzer {
     }
 
     private static Set<String> executeAndCollectUnexpectedFailures(List<TestCase> tests) {
-        if (checksSuspended()) {
-            logCompileDependentExecutionSkippedIfNeeded();
-            return Collections.emptySet();
-        }
-        File dir = createNewTmpDir();
-        if (dir == null) {
-            // Same contract as the compile filter and instability check above: the
-            // order-sensitivity probe never actually ran, so record it as abandoned rather than
-            // let the caller's infrastructure-failure heuristic on "tmp-dir-error" be the only
-            // trace of it.
-            recordCheckIncomplete("order-sensitivity analysis: failed to create tmp dir");
-            return Collections.singleton("tmp-dir-error");
-        }
-        try {
-            List<File> generated = compileTests(tests, dir);
-            if (generated == null) {
+        return withCompiledSuite(tests, new CompiledSuiteCheck<Set<String>>() {
+            @Override
+            Set<String> notRun() {
+                return Collections.emptySet();
+            }
+
+            @Override
+            Set<String> noTmpDir() {
+                // Same contract as the compile filter and instability check: the
+                // order-sensitivity probe never actually ran, so record it as abandoned rather
+                // than let the caller's infrastructure-failure heuristic on "tmp-dir-error" be the
+                // only trace of it.
+                recordCheckIncomplete("order-sensitivity analysis: failed to create tmp dir");
+                return Collections.singleton("tmp-dir-error");
+            }
+
+            @Override
+            Set<String> rejected() {
                 // Same reasoning as the instability check: these tests already passed the
-                // per-test compile filter, so a null here is the whole-suite compile unit (or
-                // its writer output) failing in a way that filter never saw, not an ordinary
-                // rejected-test verdict. compileTests itself already records incompleteness for
-                // the infrastructure failures that return non-null "generated" instead.
+                // per-test compile filter, so a rejection here is the whole-suite compile unit
+                // (or its writer output) failing in a way that filter never saw, not an ordinary
+                // rejected-test verdict.
                 recordCheckIncomplete("order-sensitivity analysis: whole-suite compile failed unexpectedly");
                 return Collections.singleton("compilation-error");
             }
-            if (shouldSkipCompileDependentExecutionAfterCompile()) {
-                return Collections.emptySet();
-            }
-            loader = createInitialJUnitClassLoader(tests);
-            Class<?>[] testClasses = loadTests(generated);
-            if (testClasses == null) {
+
+            @Override
+            Set<String> notLoaded() {
                 recordCheckIncomplete("order-sensitivity analysis: failed to load compiled test classes");
                 return Collections.singleton("load-error");
             }
-            JUnitResult result = runTests(testClasses, dir, generated);
-            if (result.wasSuccessful()) {
-                return Collections.emptySet();
-            }
-            return mapUnexpectedFailureNames(result, tests);
-        } catch (Exception e) {
-            logger.warn("Order-sensitivity analysis failed: {}", e.getMessage());
-            recordCheckIncomplete("order-sensitivity analysis: unexpected exception during execution: " + e);
-            return Collections.singleton("execution-error");
-        } finally {
-            releaseCheckLoader();
-            if (dir != null) {
-                try {
-                    FileUtils.deleteDirectory(dir);
-                } catch (Exception e) {
-                    logger.warn("Cannot delete tmp dir in order-sensitivity analysis: {}", dir.getName(), e);
+
+            @Override
+            Set<String> judge(JUnitResult result, Class<?>[] testClasses) {
+                if (result.wasSuccessful()) {
+                    return Collections.emptySet();
                 }
+                return mapUnexpectedFailureNames(result, tests);
             }
-        }
+
+            @Override
+            Set<String> failed(Exception e) {
+                logger.warn("Order-sensitivity analysis failed: {}", e.getMessage());
+                recordCheckIncomplete("order-sensitivity analysis: unexpected exception during execution: " + e);
+                return Collections.singleton("execution-error");
+            }
+
+            @Override
+            void notDeleted(File dir, Exception e) {
+                logger.warn("Cannot delete tmp dir in order-sensitivity analysis: {}", dir.getName(), e);
+            }
+        });
     }
 
     private static Set<String> mapUnexpectedFailureNames(JUnitResult result, List<TestCase> tests) {
@@ -1730,7 +1737,71 @@ public abstract class JUnitAnalyzer {
     // EvoSuite classloader, and thus cannot easily be re-loaded
     private static int NUM = 0;
 
-    private static List<File> compileTests(List<TestCase> tests, File dir) {
+    /** Why javac gave no verdict on the tests it was asked to compile. */
+    enum NotJudgedReason {
+        /** Compile checks are off for the rest of the run after a javac infrastructure failure. */
+        COMPILE_CHECK_DISABLED,
+        /** The heap, which javac shares with this client, ran out. */
+        OUT_OF_MEMORY
+    }
+
+    /**
+     * The result of compiling generated tests for a JUnit check: they compiled, javac rejected
+     * them, or javac could not judge them. Tests that were not judged are kept unchecked, and so
+     * are all tests checked after them, as the conditions that stop javac judging last for the
+     * rest of the phase (out of memory) or the run (infrastructure failure).
+     */
+    static final class CompileOutcome {
+
+        static final CompileOutcome REJECTED = new CompileOutcome(null, null);
+
+        private final List<File> files;
+        private final NotJudgedReason notJudgedReason;
+
+        private CompileOutcome(List<File> files, NotJudgedReason notJudgedReason) {
+            this.files = files;
+            this.notJudgedReason = notJudgedReason;
+        }
+
+        static CompileOutcome compiled(List<File> files) {
+            return new CompileOutcome(files, null);
+        }
+
+        static CompileOutcome notJudged(NotJudgedReason reason) {
+            return new CompileOutcome(null, reason);
+        }
+
+        /**
+         * Not judged, unless the failure came before the test sources were written: that case
+         * has always been reported as a rejection.
+         */
+        private static CompileOutcome notJudgedOnceWritten(List<File> written, NotJudgedReason reason) {
+            return written == null ? REJECTED : notJudged(reason);
+        }
+
+        boolean isCompiled() {
+            return files != null;
+        }
+
+        boolean isRejected() {
+            return this == REJECTED;
+        }
+
+        boolean isNotJudged() {
+            return notJudgedReason != null;
+        }
+
+        NotJudgedReason getNotJudgedReason() {
+            return notJudgedReason;
+        }
+
+        /** The written source files, which javac compiled into class files next to them. */
+        List<File> getFiles() {
+            return files;
+        }
+    }
+
+    private static CompileOutcome compileTests(List<TestCase> tests, File dir) {
 
         TestSuiteWriter suite = new TestSuiteWriter();
         // Rendering performs output-only normalization (for example, removing
@@ -1760,7 +1831,7 @@ public abstract class JUnitAnalyzer {
                 if (!file.exists()) {
                     logger.error("Supposed to generate " + file
                             + " but it does not exist");
-                    return null;
+                    return CompileOutcome.REJECTED;
                 }
             }
 
@@ -1768,37 +1839,26 @@ public abstract class JUnitAnalyzer {
             JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
             if (compiler == null) {
                 logger.error("No Java compiler is available");
-                return null;
+                return CompileOutcome.REJECTED;
             }
             if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
                 logCompileCheckDisabledIfNeeded();
-                return generated;
+                return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
 
             Locale locale = Locale.getDefault();
             Charset charset = StandardCharsets.UTF_8;
-            String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
-            if (JarPathing.containsAPathingJar(evosuiteCP)) {
-                evosuiteCP = JarPathing.expandPathingJars(evosuiteCP);
-            }
+            compilerClasspath = compilerClasspathForGeneratedTests();
 
-            String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
-            if (JarPathing.containsAPathingJar(targetProjectCP)) {
-                targetProjectCP = JarPathing.expandPathingJars(targetProjectCP);
-            }
-
-            String classpath = targetProjectCP + File.pathSeparator + evosuiteCP;
-            classpath = sanitizeClasspathForCompiler(classpath);
-            compilerClasspath = classpath;
-
-            CompilerAttemptResult attempt = runCompilerAttempt(compiler, generated, classpath, locale, charset);
+            CompilerAttemptResult attempt =
+                    runCompilerAttempt(compiler, generated, compilerClasspath, locale, charset);
             if (attempt.hasInfrastructureFailure()) {
                 if (isOutOfMemory(attempt.getInfrastructureFailure())) {
                     stopChecksDueToMemoryExhaustion(tests.size(), attempt.getInfrastructureFailure());
-                    return generated;
+                    return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
                 }
                 disableCompileCheckDueToInfrastructure(attempt.getInfrastructureFailure(), compilerClasspath);
-                return generated;
+                return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
 
             if (!attempt.isCompiled()) {
@@ -1809,18 +1869,16 @@ public abstract class JUnitAnalyzer {
                     // never judged, and what is exhausted is the heap, not javac.
                     stopChecksDueToMemoryExhaustion(tests.size(),
                             new OutOfMemoryError("javac: " + firstLine(compilerOutput)));
-                    return generated;
+                    return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
                 }
                 logger.error("Compilation failed on {} generated test file(s)", generated.size());
                 logger.error("Classpath: {}", compilerClasspath);
-                // TODO remove
-                logger.error("evosuiteCP: {}", evosuiteCP);
 
                 if (diagnostics.sawErrorWhileWriting()) {
                     disableCompileCheckDueToInfrastructure(
                             new IllegalStateException("javac could not write compiled test artifacts"),
                             compilerClasspath);
-                    return generated;
+                    return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
                 }
 
                 for (Diagnostic<?> diagnostic : diagnostics.getErrorDiagnostics()) {
@@ -1857,50 +1915,79 @@ public abstract class JUnitAnalyzer {
                     disableCompileCheckDueToInfrastructure(
                             new IllegalStateException("javac crashed: " + firstLine(compilerOutput)),
                             compilerClasspath);
-                    return generated;
+                    return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
                 }
 
                 logGeneratedSourceExcerptsOnCompilationFailure(generated);
-                return null;
+                return CompileOutcome.REJECTED;
             }
             if (!hasCompiledClassFilesForGeneratedSources(generated)) {
                 disableCompileCheckDueToInfrastructure(
                         new IllegalStateException(
                                 "javac reported success but produced no .class files for generated tests"),
                         compilerClasspath);
-                return generated;
+                return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
-            return generated;
+            return CompileOutcome.compiled(generated);
 
         } catch (OutOfMemoryError e) {
             // Not a verdict on the tests: reporting them as not compiling would delete them.
             stopChecksDueToMemoryExhaustion(tests.size(), e);
-            return generated;
+            return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.OUT_OF_MEMORY);
         } catch (IOException e) {
             logger.error("" + e, e);
-            return null;
+            return CompileOutcome.REJECTED;
         } catch (RuntimeException e) {
             if (isOutOfMemory(e)) {
                 stopChecksDueToMemoryExhaustion(tests.size(), e);
-                return generated;
+                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.OUT_OF_MEMORY);
             }
             if (isJavacInfrastructureFailure(e)) {
                 disableCompileCheckDueToInfrastructure(e, compilerClasspath);
-                return generated;
+                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
             logger.error("Unexpected runtime exception while compiling generated tests", e);
-            return null;
+            return CompileOutcome.REJECTED;
         } catch (Error e) {
             if (isOutOfMemory(e)) {
                 stopChecksDueToMemoryExhaustion(tests.size(), e);
-                return generated;
+                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.OUT_OF_MEMORY);
             }
             if (isJavacInfrastructureFailure(e)) {
                 disableCompileCheckDueToInfrastructure(e, compilerClasspath);
-                return generated;
+                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
             throw e;
         }
+    }
+
+    /**
+     * The classpath javac compiles the generated tests against: the project classpath followed by
+     * EvoSuite's own, with pathing jars expanded and malformed jars sanitized. It is computed
+     * again only when the classpaths it is built from change.
+     */
+    static synchronized String compilerClasspathForGeneratedTests() {
+        String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
+        String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        if (cachedCompilerClasspath != null
+                && Objects.equals(evosuiteCP, cachedCompilerClasspathEvoSuiteInput)
+                && Objects.equals(targetProjectCP, cachedCompilerClasspathTargetInput)) {
+            return cachedCompilerClasspath;
+        }
+        String expandedEvoSuiteCP = evosuiteCP;
+        if (JarPathing.containsAPathingJar(expandedEvoSuiteCP)) {
+            expandedEvoSuiteCP = JarPathing.expandPathingJars(expandedEvoSuiteCP);
+        }
+        String expandedTargetProjectCP = targetProjectCP;
+        if (JarPathing.containsAPathingJar(expandedTargetProjectCP)) {
+            expandedTargetProjectCP = JarPathing.expandPathingJars(expandedTargetProjectCP);
+        }
+        String classpath = sanitizeClasspathForCompiler(
+                expandedTargetProjectCP + File.pathSeparator + expandedEvoSuiteCP);
+        cachedCompilerClasspathEvoSuiteInput = evosuiteCP;
+        cachedCompilerClasspathTargetInput = targetProjectCP;
+        cachedCompilerClasspath = classpath;
+        return classpath;
     }
 
     private static CompilerAttemptResult runCompilerAttempt(JavaCompiler compiler,
@@ -2042,9 +2129,10 @@ public abstract class JUnitAnalyzer {
      * (or the specific tests involved) is kept — that decision is made at each call site, same as
      * before this method existed.
      *
-     * <p>Also called by {@code TestSuiteGenerator} for the rounds abandoned before this analyzer is
-     * reached at all — the phase skipped for low memory, its time budget expired, its per-test loop
-     * exited early, an order probe skipped, or its memory guard tripped. Those exits used to be
+     * <p>Also called by {@code TestSuiteGenerator} and its {@code JUnitCheckBudget} for the rounds
+     * abandoned before this analyzer is reached at all — the phase skipped for low memory, its time
+     * budget expired, its per-test loop exited early, an order probe skipped, or its memory guard
+     * tripped. Those exits used to be
      * invisible outside the log, which is indistinguishable from a validated suite.
      *
      * @param reason short description of what was abandoned, for the debug log
@@ -2104,12 +2192,10 @@ public abstract class JUnitAnalyzer {
                 + "after a javac infrastructure failure.");
     }
 
-    private static boolean shouldSkipCompileDependentExecutionAfterCompile() {
-        if (!checksSuspended()) {
-            return false;
+    private static void logCompileDependentExecutionSkippedIfNeeded(CompileOutcome compiled) {
+        if (compiled.getNotJudgedReason() == NotJudgedReason.COMPILE_CHECK_DISABLED) {
+            logCompileDependentExecutionSkippedIfNeeded();
         }
-        logCompileDependentExecutionSkippedIfNeeded();
-        return true;
     }
 
     private static boolean hasCompiledClassFilesForGeneratedSources(List<File> generated) {
@@ -2833,77 +2919,168 @@ public abstract class JUnitAnalyzer {
             //nothing to compile or run
             return true;
         }
-        if (checksSuspended()) {
-            logCompileDependentExecutionSkippedIfNeeded();
-            return true;
-        }
-
-        File dir = createNewTmpDir();
-        if (dir == null) {
-            logger.warn("Failed to create tmp dir");
-            recordCheckIncomplete("verifyCompilationAndExecution: failed to create tmp dir");
-            return false;
-        }
-
-        try {
-            List<File> generated = compileTests(tests, dir);
-            if (generated == null) {
-                logger.warn("Failed to compile the test cases ");
-                return false;
-            }
-            if (shouldSkipCompileDependentExecutionAfterCompile()) {
+        // Unlike the instability check, this is a verdict on the tests: a suite that does not
+        // compile or load fails it, and is not a check left incomplete.
+        return withCompiledSuite(tests, new CompiledSuiteCheck<Boolean>() {
+            @Override
+            Boolean notRun() {
                 return true;
             }
 
-            //as last step, execute the generated/compiled test cases
+            @Override
+            Boolean noTmpDir() {
+                logger.warn("Failed to create tmp dir");
+                recordCheckIncomplete("verifyCompilationAndExecution: failed to create tmp dir");
+                return false;
+            }
 
-            loader = createInitialJUnitClassLoader(tests);
-            Class<?>[] testClasses = loadTests(generated);
+            @Override
+            Boolean rejected() {
+                logger.warn("Failed to compile the test cases ");
+                return false;
+            }
 
-            if (testClasses == null) {
+            @Override
+            Boolean notLoaded() {
                 logger.error("Found no classes for compiled tests");
                 return false;
             }
 
-            JUnitResult result = runTests(testClasses, dir, generated);
-
-            if (!result.wasSuccessful()) {
-                logger.error("" + result.getFailureCount() + " test cases failed");
-                for (JUnitFailure failure : result.getFailures()) {
-                    logger.error("Failure " + failure.getExceptionClassName() + ": "
-                            + failure.getMessage() + "\n" + failure.getTrace());
+            @Override
+            Boolean judge(JUnitResult result, Class<?>[] testClasses) {
+                if (!result.wasSuccessful()) {
+                    logger.error("" + result.getFailureCount() + " test cases failed");
+                    for (JUnitFailure failure : result.getFailures()) {
+                        logger.error("Failure " + failure.getExceptionClassName() + ": "
+                                + failure.getMessage() + "\n" + failure.getTrace());
+                    }
+                    return false;
                 }
-                return false;
-            } else {
                 /*
                  * OK, it was successful, but was there any test case at all?
                  *
-                 * Here we just log (and not return false), as it might be that EvoSuite is just not able to generate
-                 * any test case for this SUT
+                 * Here we just log (and not return false), as it might be that EvoSuite is just not able to
+                 * generate any test case for this SUT
                  */
                 if (result.getRunCount() == 0) {
                     logger.warn("There was no test to run");
                 }
+                logger.debug("Successfully compiled and run test cases generated for "
+                        + Properties.TARGET_CLASS);
+                return true;
             }
 
+            @Override
+            Boolean failed(Exception e) {
+                logger.error("" + e, e);
+                return false;
+            }
+
+            @Override
+            void notDeleted(File dir, Exception e) {
+                logger.warn("Cannot delete tmp dir: " + dir.getName(), e);
+            }
+        });
+    }
+
+    /**
+     * A check that compiles a whole suite into a fresh directory, loads it with a fresh check
+     * loader and runs it; see {@link #withCompiledSuite(List, CompiledSuiteCheck)}. Each way of
+     * not getting as far as running the suite is handed to the check, which decides what it
+     * means and whether the check is left incomplete.
+     *
+     * @param <R> what the check returns
+     */
+    private abstract static class CompiledSuiteCheck<R> {
+
+        /** Checks are suspended, or javac could not judge the suite. */
+        abstract R notRun();
+
+        /** No directory to compile into could be created. */
+        abstract R noTmpDir();
+
+        /** javac rejected the suite. */
+        abstract R rejected();
+
+        /**
+         * Called once the suite has compiled, before it is loaded.
+         *
+         * @return what to return without running the suite, or null to go on
+         */
+        R beforeLoading() {
+            return null;
+        }
+
+        /** The compiled suite could not be loaded. */
+        abstract R notLoaded();
+
+        /** Judges the result of running the suite. */
+        abstract R judge(JUnitResult result, Class<?>[] testClasses) throws Exception;
+
+        /** Compiling, loading, running or judging the suite threw. */
+        abstract R failed(Exception e);
+
+        /** The directory the suite was compiled into could not be deleted afterwards. */
+        abstract void notDeleted(File dir, Exception e);
+    }
+
+    /**
+     * Compiles the tests into a fresh directory, loads them with a fresh check loader and runs
+     * them, and hands each outcome to the check. The loader is released and the directory
+     * deleted afterwards.
+     *
+     * @param tests the suite to check
+     * @param check what to make of each outcome
+     * @param <R>   what the check returns
+     * @return what the check made of the outcome
+     */
+    private static <R> R withCompiledSuite(List<TestCase> tests, CompiledSuiteCheck<R> check) {
+        if (checksSuspended()) {
+            logCompileDependentExecutionSkippedIfNeeded();
+            return check.notRun();
+        }
+        File dir = createNewTmpDir();
+        if (dir == null) {
+            return check.noTmpDir();
+        }
+        logger.debug("Created tmp folder: " + dir.getAbsolutePath());
+
+        try {
+            CompileOutcome compiled = compileTests(tests, dir);
+            if (compiled.isRejected()) {
+                return check.rejected();
+            }
+            if (compiled.isNotJudged()) {
+                logCompileDependentExecutionSkippedIfNeeded(compiled);
+                return check.notRun();
+            }
+            R withoutRunning = check.beforeLoading();
+            if (withoutRunning != null) {
+                return withoutRunning;
+            }
+
+            // Create a new classloader so that each test gets freshly loaded classes.
+            // Start with a NonInstrumentingClassLoader to avoid duplicate type
+            // identities across loader boundaries during JUnit recheck. If we
+            // detect instrumentation/GUI mismatch signals, runTests() retries
+            // once with InstrumentingClassLoader.
+            loader = createInitialJUnitClassLoader(tests);
+            Class<?>[] testClasses = loadTests(compiled.getFiles());
+            if (testClasses == null) {
+                return check.notLoaded();
+            }
+            return check.judge(runTests(testClasses, dir, compiled.getFiles()), testClasses);
         } catch (Exception e) {
-            logger.error("" + e, e);
-            return false;
+            return check.failed(e);
         } finally {
             releaseCheckLoader();
             //let's be sure we clean up all what we wrote on disk
-            if (dir != null) {
-                try {
-                    FileUtils.deleteDirectory(dir);
-                } catch (IOException e) {
-                    logger.warn("Cannot delete tmp dir: " + dir.getName(), e);
-                }
+            try {
+                FileUtils.deleteDirectory(dir);
+            } catch (Exception e) {
+                check.notDeleted(dir, e);
             }
         }
-
-        logger.debug("Successfully compiled and run test cases generated for "
-                + Properties.TARGET_CLASS);
-        return true;
     }
 
     /**
@@ -3055,73 +3232,10 @@ public abstract class JUnitAnalyzer {
     private static class JUnit4Analyzing extends VersionDependentAnalyzing {
         @Override
         JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses, JUnitCheckProgress progress) {
-
             JUnitCore runner = new JUnitCore();
             runner.addListener(progress.junit4Listener());
-
-            /*
-             * Why deactivating the sandbox? This is pretty tricky.
-             * The JUnitCore runner will execute the test cases on a new
-             * thread, which might not be privileged. If the test cases need
-             * the JavaAgent, then they will fail due to the sandbox :(
-             * Note: if the test cases need a sandbox, they will have code
-             * to do that by their self. When they do it, the initialization
-             * will be after the agent is already loaded.
-             */
-            boolean wasSandboxOn = Sandbox.isSecurityManagerInitialized();
-
-            Set<Thread> privileged = null;
-            if (wasSandboxOn) {
-                privileged = Sandbox.resetDefaultSecurityManager();
-            }
-            try {
-                Result result = null;
-                ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
-                boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
-                boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
-                        || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
-                boolean disabledHeadless = false;
-
-                // Skip agent self-attachment during the in-process JUnit check.
-                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
-                try {
-                    if (shouldEnableMockFramework) {
-                        MockFramework.enable();
-                    }
-                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                        // Align JUnit recheck with search-time constructor execution:
-                        // ConstructorStatement temporarily disables headless mode for GUI
-                        // constructors, but JUnit executes plain Java source directly.
-                        // Without this, GUI-heavy tests can fail only in recheck.
-                        GuiSupport.disableHeadlessForMockConstruction();
-                        disabledHeadless = true;
-                    }
-                    TestGenerationContext.getInstance().goingToExecuteSUTCode();
-                    Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
-                    // be sure we reset it here, otherwise "init" in the test case
-                    // would take current changed state
-                    JDKClassResetter.reset();
-                    result = runner.run(testClasses);
-                } finally {
-                    Thread.currentThread().setContextClassLoader(currentLoader);
-                    TestGenerationContext.getInstance().doneWithExecutingSUTCode();
-                    org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
-                    if (disabledHeadless) {
-                        GuiSupport.restoreHeadlessAfterMockConstruction();
-                    }
-                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                    }
-                    if (!wasMockFrameworkEnabled) {
-                        MockFramework.disable();
-                    }
-                }
-                JUnitResultBuilder builder = new JUnitResultBuilder();
-                return builder.build(result);
-            } finally {
-                restoreSandboxStateAfterJUnitRun(wasSandboxOn, privileged);
-            }
+            return runInCheckEnvironment(testClasses, () -> runner.run(testClasses),
+                    result -> new JUnitResultBuilder().build(result));
         }
     }
 
@@ -3133,69 +3247,94 @@ public abstract class JUnitAnalyzer {
 
         @Override
         JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses, JUnitCheckProgress progress) {
+            List<Pair<TestIdentifier, TestExecutionResult>> result = new CopyOnWriteArrayList<>();
+            return runInCheckEnvironment(testClasses, () -> {
+                LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                        .selectors(Arrays.stream(testClasses).map(DiscoverySelectors::selectClass)
+                                .collect(Collectors.toList()))
+                        .build();
+                Launcher launcher = LauncherFactory.create();
+                launcher.registerTestExecutionListeners(progress.junit5Listener(result));
+                launcher.execute(request);
+                return result;
+            }, executed -> new JUnitResultBuilder().build(executed));
+        }
+    }
 
-            boolean wasSandboxOn = Sandbox.isSecurityManagerInitialized();
+    /**
+     * Runs the given test classes on the current thread in the environment the JUnit check
+     * needs, and restores the previous environment afterwards.
+     *
+     * @param testClasses the test classes to run
+     * @param run         runs the classes and returns the runner's raw result
+     * @param toResult    converts the raw result once the mock framework, headless mode and
+     *                    context class loader have been restored
+     */
+    private static <T> JUnitResult runInCheckEnvironment(Class<?>[] testClasses, Supplier<T> run,
+                                                         Function<T, JUnitResult> toResult) {
+        /*
+         * Why deactivating the sandbox? This is pretty tricky.
+         * The JUnit runner will execute the test cases on a new
+         * thread, which might not be privileged. If the test cases need
+         * the JavaAgent, then they will fail due to the sandbox :(
+         * Note: if the test cases need a sandbox, they will have code
+         * to do that by their self. When they do it, the initialization
+         * will be after the agent is already loaded.
+         */
+        boolean wasSandboxOn = Sandbox.isSecurityManagerInitialized();
 
-            Set<Thread> privileged = null;
-            if (wasSandboxOn) {
-                privileged = Sandbox.resetDefaultSecurityManager();
-            }
+        Set<Thread> privileged = null;
+        if (wasSandboxOn) {
+            privileged = Sandbox.resetDefaultSecurityManager();
+        }
+        try {
+            T result;
+            ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
+            boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
+            boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
+                    || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+            boolean disabledHeadless = false;
+
+            // Skip agent self-attachment during the in-process JUnit check.
+            // Classes are already instrumented by InstrumentingClassLoader, and
+            // ByteBuddyAgent.attach() can hang on some JDK/OS combinations.
+            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
             try {
-                List<Pair<TestIdentifier, TestExecutionResult>> result = new CopyOnWriteArrayList<>();
-                ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
-                boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
-                boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
-                        || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
-                boolean disabledHeadless = false;
-
-
-                // Skip agent self-attachment during the in-process JUnit check.
-                // Classes are already instrumented by InstrumentingClassLoader, and
-                // ByteBuddyAgent.attach() can hang on some JDK/OS combinations.
-                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
-                try {
-                    if (shouldEnableMockFramework) {
-                        MockFramework.enable();
-                    }
-                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                        // Keep JUnit recheck behavior aligned with search-time execution.
-                        GuiSupport.disableHeadlessForMockConstruction();
-                        disabledHeadless = true;
-                    }
-                    TestGenerationContext.getInstance().goingToExecuteSUTCode();
-                    Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
-                    // be sure we reset it here, otherwise "init" in the test case
-                    // would take current changed state
-                    JDKClassResetter.reset();
-                    LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                            .selectors(Arrays.stream(testClasses).map(DiscoverySelectors::selectClass)
-                                    .collect(Collectors.toList()))
-                            .build();
-                    Launcher launcher = LauncherFactory.create();
-                    TestPlan testPlan = launcher.discover(request);
-                    launcher.registerTestExecutionListeners(progress.junit5Listener(result));
-
-                    launcher.execute(request);
-                } finally {
-                    Thread.currentThread().setContextClassLoader(currentLoader);
-                    TestGenerationContext.getInstance().doneWithExecutingSUTCode();
-                    org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
-                    if (disabledHeadless) {
-                        GuiSupport.restoreHeadlessAfterMockConstruction();
-                    }
-                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                    }
-                    if (!wasMockFrameworkEnabled) {
-                        MockFramework.disable();
-                    }
+                if (shouldEnableMockFramework) {
+                    MockFramework.enable();
                 }
-                JUnitResultBuilder builder = new JUnitResultBuilder();
-                return builder.build(result);
+                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+                    // Align JUnit recheck with search-time constructor execution:
+                    // ConstructorStatement temporarily disables headless mode for GUI
+                    // constructors, but JUnit executes plain Java source directly.
+                    // Without this, GUI-heavy tests can fail only in recheck.
+                    GuiSupport.disableHeadlessForMockConstruction();
+                    disabledHeadless = true;
+                }
+                TestGenerationContext.getInstance().goingToExecuteSUTCode();
+                Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
+                // be sure we reset it here, otherwise "init" in the test case
+                // would take current changed state
+                JDKClassResetter.reset();
+                result = run.get();
             } finally {
-                restoreSandboxStateAfterJUnitRun(wasSandboxOn, privileged);
+                Thread.currentThread().setContextClassLoader(currentLoader);
+                TestGenerationContext.getInstance().doneWithExecutingSUTCode();
+                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
+                if (disabledHeadless) {
+                    GuiSupport.restoreHeadlessAfterMockConstruction();
+                }
+                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+                }
+                if (!wasMockFrameworkEnabled) {
+                    MockFramework.disable();
+                }
             }
+            return toResult.apply(result);
+        } finally {
+            restoreSandboxStateAfterJUnitRun(wasSandboxOn, privileged);
         }
     }
 

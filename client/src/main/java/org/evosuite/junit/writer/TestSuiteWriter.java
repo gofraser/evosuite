@@ -19,6 +19,7 @@
  */
 package org.evosuite.junit.writer;
 
+import org.evosuite.PhaseMemoryGuard;
 import org.evosuite.Properties;
 import org.evosuite.Properties.OutputGranularity;
 import org.evosuite.TimeController;
@@ -218,25 +219,18 @@ public class TestSuiteWriter implements Opcodes {
         LoopCounter.getInstance().setActive(true);
 
         List<ExecutionResult> results = new ArrayList<>();
-        // Once memory is found critical, it stays critical for the rest of this write, and the
-        // heap is collected at most once per write: collecting before every remaining test cost
-        // one full GC of the whole heap per test when memory ran low.
-        boolean memoryCritical = false;
-        boolean collectedForWrite = false;
+        // When the writer is invoked after a post-processing failure the JVM may already be near
+        // OOM, and re-executing more tests here can push it over the edge.
+        PhaseMemoryGuard memoryGuard =
+                new PhaseMemoryGuard(this::freeHeapBytes, this::collectGarbage, Properties.MIN_FREE_MEM * 2L);
         for (TestCase test : testCases) {
             boolean budgetExhausted = !TimeController.getInstance().hasTimeToExecuteATestCase();
-            if (!budgetExhausted && !memoryCritical && isBelowWriteMemoryThreshold()) {
-                if (!collectedForWrite) {
-                    collectedForWrite = true;
-                    collectGarbage();
-                }
-                memoryCritical = isBelowWriteMemoryThreshold();
-                if (memoryCritical) {
-                    logger.warn("Test execution during JUnit write skipped: free memory below {} MB threshold; "
-                                    + "falling back to cached results to avoid OOM",
-                            (Properties.MIN_FREE_MEM * 2L) / 1024 / 1024);
-                }
+            if (!budgetExhausted && !memoryGuard.isExhaustedAlready() && memoryGuard.isExhausted()) {
+                logger.warn("Test execution during JUnit write skipped: free memory below {} MB threshold; "
+                                + "falling back to cached results to avoid OOM",
+                        memoryGuard.getThresholdBytes() / 1024 / 1024);
             }
+            boolean memoryCritical = memoryGuard.isExhaustedAlready();
             if (budgetExhausted || memoryCritical) {
                 // Try to use a cached result; if none exists, fall back to placeholder
                 boolean added = false;
@@ -433,21 +427,9 @@ public class TestSuiteWriter implements Opcodes {
         return builder.toString();
     }
 
-    /**
-     * Check whether free heap has dropped below the safety threshold used for
-     * post-processing.  When the writer is invoked after a postProcess failure
-     * the JVM may already be near OOM; re-executing more tests here can push
-     * it over the edge.  Mirrors {@code TestSuiteGenerator#isMemoryTooLowForPhase}
-     * but kept inline to avoid a cross-module dependency.
-     */
-    private boolean isBelowWriteMemoryThreshold() {
-        return freeHeapBytes() < Properties.MIN_FREE_MEM * 2L;
-    }
-
     /** Free heap, including the part the JVM has not claimed from the OS yet. */
     long freeHeapBytes() {
-        java.lang.Runtime runtime = java.lang.Runtime.getRuntime();
-        return runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        return PhaseMemoryGuard.currentFreeHeapBytes();
     }
 
     void collectGarbage() {

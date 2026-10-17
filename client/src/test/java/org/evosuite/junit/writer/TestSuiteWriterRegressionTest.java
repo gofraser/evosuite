@@ -376,6 +376,50 @@ public class TestSuiteWriterRegressionTest {
         deleteTempDir(tempDir);
     }
 
+    /** Free heap that reads low and high in turn, so that only a single reading decides. */
+    private static final class FlickeringMemoryWriter extends TestSuiteWriter {
+        int readings = 0;
+        int collections = 0;
+        int executions = 0;
+
+        @Override
+        long freeHeapBytes() {
+            return readings++ % 2 == 0 ? 0L : Long.MAX_VALUE;
+        }
+
+        @Override
+        void collectGarbage() {
+            collections++;
+        }
+
+        @Override
+        protected ExecutionResult runTest(TestCase test) {
+            executions++;
+            return super.runTest(test);
+        }
+    }
+
+    @Test
+    public void testLowMemoryAfterTheOneCollectionStopsExecutionForTheRestOfTheWrite() throws Exception {
+        Path tempDir = Files.createTempDirectory("evosuite-low-memory-");
+        configureDefaults();
+
+        FlickeringMemoryWriter writer = new FlickeringMemoryWriter();
+        for (int i = 0; i < 5; i++) {
+            TestCaseBuilder builder = new TestCaseBuilder();
+            builder.appendIntPrimitive(i);
+            writer.insertTest(builder.getDefaultTestCase());
+        }
+        writer.writeTestSuite("FlickeringMemoryTest", tempDir.toString(), Collections.emptyList());
+
+        // The first low reading is collected away; the next one, with no collection left,
+        // ends test execution for the write.
+        Assertions.assertEquals(1, writer.collections);
+        Assertions.assertEquals(1, writer.executions);
+        Assertions.assertTrue(Files.exists(tempDir.resolve("FlickeringMemoryTest.java")));
+        deleteTempDir(tempDir);
+    }
+
     private static String readFile(Path path) throws Exception {
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }

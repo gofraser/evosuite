@@ -336,7 +336,6 @@ public class JUnitAnalyzerTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void testCompileChecksInExtensionModeUseTargetClassForInitOrder() throws Exception {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
         Properties.TEST_SCAFFOLDING = false;
@@ -352,9 +351,11 @@ public class JUnitAnalyzerTest {
 
             List<TestCase> tests = new ArrayList<>();
             tests.add(new DefaultTestCase());
-            List<File> generated = (List<File>) compileTests.invoke(null, tests, dir);
+            JUnitAnalyzer.CompileOutcome compiled =
+                    (JUnitAnalyzer.CompileOutcome) compileTests.invoke(null, tests, dir);
 
-            Assertions.assertNotNull(generated);
+            Assertions.assertTrue(compiled.isCompiled());
+            List<File> generated = compiled.getFiles();
             File javaFile = generated.stream()
                     .filter(file -> file.getName().endsWith(".java"))
                     .findFirst()
@@ -370,7 +371,6 @@ public class JUnitAnalyzerTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void testCompileCheckRenderingDoesNotMutateInputTests() throws Exception {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
         Properties.TEST_SCAFFOLDING = false;
@@ -393,10 +393,10 @@ public class JUnitAnalyzerTest {
             Method compileTests = JUnitAnalyzer.class.getDeclaredMethod(
                     "compileTests", List.class, File.class);
             compileTests.setAccessible(true);
-            List<File> generated = (List<File>) compileTests.invoke(
+            JUnitAnalyzer.CompileOutcome compiled = (JUnitAnalyzer.CompileOutcome) compileTests.invoke(
                     null, Collections.singletonList(test), dir);
 
-            Assertions.assertNotNull(generated);
+            Assertions.assertTrue(compiled.isCompiled());
             Assertions.assertEquals(Integer.class, test.getStatement(2).getReturnClass());
             Assertions.assertEquals(before, test.toCode());
         } finally {
@@ -757,7 +757,7 @@ public class JUnitAnalyzerTest {
     }
 
     @Test
-    public void testShouldSkipCompileDependentExecutionAfterCompileReflectsInfraFlag() throws Exception {
+    public void testSkippedCompileDependentExecutionIsLoggedOnceForADisabledCompileCheck() throws Exception {
         java.lang.reflect.Field disabledField = JUnitAnalyzer.class.getDeclaredField(
                 "COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE");
         disabledField.setAccessible(true);
@@ -765,26 +765,26 @@ public class JUnitAnalyzerTest {
                 "COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED");
         skippedLoggedField.setAccessible(true);
 
-        Method shouldSkip = JUnitAnalyzer.class.getDeclaredMethod(
-                "shouldSkipCompileDependentExecutionAfterCompile");
-        shouldSkip.setAccessible(true);
+        Method logSkipped = JUnitAnalyzer.class.getDeclaredMethod(
+                "logCompileDependentExecutionSkippedIfNeeded", JUnitAnalyzer.CompileOutcome.class);
+        logSkipped.setAccessible(true);
+        JUnitAnalyzer.CompileOutcome outOfMemory =
+                JUnitAnalyzer.CompileOutcome.notJudged(JUnitAnalyzer.NotJudgedReason.OUT_OF_MEMORY);
+        JUnitAnalyzer.CompileOutcome disabled =
+                JUnitAnalyzer.CompileOutcome.notJudged(JUnitAnalyzer.NotJudgedReason.COMPILE_CHECK_DISABLED);
 
         boolean previousDisabled = disabledField.getBoolean(null);
         boolean previousSkippedLogged = skippedLoggedField.getBoolean(null);
         try {
             disabledField.setBoolean(null, false);
             skippedLoggedField.setBoolean(null, false);
-            Assertions.assertFalse((boolean) shouldSkip.invoke(null));
+            logSkipped.invoke(null, outOfMemory);
             Assertions.assertFalse(skippedLoggedField.getBoolean(null));
 
             disabledField.setBoolean(null, true);
-            skippedLoggedField.setBoolean(null, false);
-            Assertions.assertTrue((boolean) shouldSkip.invoke(null));
+            logSkipped.invoke(null, disabled);
             Assertions.assertTrue(skippedLoggedField.getBoolean(null));
-
-            skippedLoggedField.setBoolean(null, true);
-            Assertions.assertTrue((boolean) shouldSkip.invoke(null));
-            Assertions.assertTrue(skippedLoggedField.getBoolean(null));
+            logSkipped.invoke(null, disabled);
 
             List<ILoggingEvent> skipWarnings = eventsContaining(analyzerLogAppender,
                     Level.WARN, "Skipping compile-dependent JUnit execution checks");

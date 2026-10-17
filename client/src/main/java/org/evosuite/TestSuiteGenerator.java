@@ -87,6 +87,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 
 /**
@@ -372,8 +373,7 @@ public class TestSuiteGenerator {
             // tests of its own, and surface the diagnostic state to the log so we
             // can see how much budget we have left going into the write.
             if (postProcessFailed) {
-                Runtime rt = Runtime.getRuntime();
-                long freeMb = (rt.maxMemory() - rt.totalMemory() + rt.freeMemory()) / 1024 / 1024;
+                long freeMb = PhaseMemoryGuard.currentFreeHeapBytes() / 1024 / 1024;
                 long phaseMsLeft = TimeController.getInstance().getRemainingTimeInPhaseMs();
                 LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Proceeding to write with degraded state: freeMem=" + freeMb
@@ -832,15 +832,14 @@ public class TestSuiteGenerator {
         if (Properties.MINIMIZE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
             // progressMonitor.setCurrentPhase("Minimizing test cases");
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()
-                    || isMemoryTooLowForPhase("minimization")) {
-                MinimizationStopCause stopCause = TimeController.getInstance().hasTimeToExecuteATestCase()
+            PhaseSkipCause skipCause = checkPhase("minimization",
+                    TimeController.getInstance()::hasTimeToExecuteATestCase);
+            if (skipCause != PhaseSkipCause.NONE) {
+                MinimizationStopCause stopCause = skipCause == PhaseSkipCause.LOW_MEMORY
                         ? MinimizationStopCause.LOW_MEMORY
                         : MinimizationStopCause.TIMEOUT;
                 minimizationResult = MinimizationResult.preflightAborted(testSuite, stopCause);
-                if (TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                    // Time is available but memory is low — already logged by the check
-                } else {
+                if (skipCause == PhaseSkipCause.TIMEOUT) {
                     LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                             + "Skipping minimization because not enough time is left");
                 }
@@ -952,12 +951,12 @@ public class TestSuiteGenerator {
         }
 
         if (Properties.FILTER_SANDBOX_TESTS) {
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            PhaseSkipCause skipCause = checkPhase("sandbox test filtering",
+                    TimeController.getInstance()::hasTimeToExecuteATestCase);
+            if (skipCause == PhaseSkipCause.TIMEOUT) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping sandbox test filtering because not enough time is left");
-            } else if (isMemoryTooLowForPhase("sandbox test filtering")) {
-                // skip — message already logged by the check
-            } else {
+            } else if (skipCause == PhaseSkipCause.NONE) {
                 for (TestChromosome test : testSuite.getTestChromosomes()) {
                     // delete all statements leading to security exceptions
                     ExecutionResult result = test.getLastExecutionResult();
@@ -1026,12 +1025,12 @@ public class TestSuiteGenerator {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
             // progressMonitor.setCurrentPhase("Generating assertions");
             ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            PhaseSkipCause skipCause = checkPhase("assertion generation",
+                    TimeController.getInstance()::hasTimeToExecuteATestCase);
+            if (skipCause == PhaseSkipCause.TIMEOUT) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping assertion generation because not enough time is left");
-            } else if (isMemoryTooLowForPhase("assertion generation")) {
-                // skip — message already logged by the check
-            } else {
+            } else if (skipCause == PhaseSkipCause.NONE) {
                 TestSuiteGeneratorHelper.addAssertions(testSuite);
             }
             StatisticsSender.sendIndividualToMaster(testSuite); // FIXME: can we
@@ -1057,12 +1056,14 @@ public class TestSuiteGenerator {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Running unified LLM post-processing");
             ClientServices.getInstance().getClientNode().changeState(ClientState.LLM_POSTPROCESSING);
-            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            PhaseSkipCause skipCause = checkPhase("unified LLM post-processing",
+                    TimeController.getInstance()::isThereStillTimeInThisPhase);
+            if (skipCause == PhaseSkipCause.TIMEOUT) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping unified LLM post-processing because not enough time is left");
                 activeLlmPostProcessor.publishSkippedPostProcessingMetrics(
                         postProcessingContext, "timeout", minimizationResult);
-            } else if (isMemoryTooLowForPhase("unified LLM post-processing")) {
+            } else if (skipCause == PhaseSkipCause.LOW_MEMORY) {
                 activeLlmPostProcessor.publishSkippedPostProcessingMetrics(
                         postProcessingContext, "low_memory", minimizationResult);
             } else {
@@ -1267,11 +1268,12 @@ public class TestSuiteGenerator {
             return;
         }
         String reason = context == null ? "unknown" : context.getTerminalReason();
-        if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+        PhaseSkipCause skipCause = checkPhase("standard assertion fallback after LLM " + reason,
+                TimeController.getInstance()::isThereStillTimeInThisPhase);
+        if (skipCause == PhaseSkipCause.TIMEOUT) {
             logger.warn("Cannot apply standard assertion fallback after LLM {}: no phase time remains", reason);
-            return;
         }
-        if (isMemoryTooLowForPhase("standard assertion fallback after LLM " + reason)) {
+        if (skipCause != PhaseSkipCause.NONE) {
             return;
         }
         TestSuiteChromosome missingOracles = new TestSuiteChromosome();
@@ -1404,6 +1406,32 @@ public class TestSuiteGenerator {
      */
     static LongSupplier freeMemoryBytesForTesting = null;
 
+    /** Why a post-search phase is skipped, if it is. */
+    enum PhaseSkipCause {
+        NONE,
+        TIMEOUT,
+        LOW_MEMORY
+    }
+
+    /**
+     * Decides whether a post-search phase that re-executes tests can start: it needs time left,
+     * as the given predicate measures it, and then enough free memory. A low-memory skip is
+     * logged here; reporting a timeout is left to the caller.
+     *
+     * @param phaseName human-readable name for log messages
+     * @param hasTime   whether the phase has time left
+     * @return why the phase must be skipped, or {@link PhaseSkipCause#NONE}
+     */
+    PhaseSkipCause checkPhase(String phaseName, BooleanSupplier hasTime) {
+        if (!hasTime.getAsBoolean()) {
+            return PhaseSkipCause.TIMEOUT;
+        }
+        if (isMemoryTooLowForPhase(phaseName)) {
+            return PhaseSkipCause.LOW_MEMORY;
+        }
+        return PhaseSkipCause.NONE;
+    }
+
     /**
      * Check whether free memory is too low to safely enter a post-search phase
      * that re-executes tests (minimization, assertion generation, JUnit check).
@@ -1500,10 +1528,7 @@ public class TestSuiteGenerator {
                     removedByCompileFilter, beforeCompileFilter);
         }
 
-        // Each check compiles the tests and runs them on freshly loaded classes, which is
-        // expensive in memory; stop checking, and keep the tests not checked yet, rather than
-        // run the client out of heap.
-        PhaseMemoryGuard memoryGuard = new PhaseMemoryGuard();
+        JUnitCheckBudget budget = new JUnitCheckBudget(new PhaseMemoryGuard());
 
         // compile and run each test one at a time. and keep track of total time
         long start = java.lang.System.currentTimeMillis();
@@ -1511,18 +1536,7 @@ public class TestSuiteGenerator {
         int removedInSingleTestChecks = 0;
         int checkedInSingleTestChecks = 0;
         while (iter.hasNext()) {
-            if (JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()) {
-                logger.warn("Aborting remaining per-test JUnit checks due to prior javac infrastructure failure");
-                break;
-            }
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                JUnitAnalyzer.recordCheckIncomplete(
-                        "ran out of time before finishing the per-test JUnit checks; "
-                                + (testCases.size() - checkedInSingleTestChecks + removedInSingleTestChecks)
-                                + " test(s) left unchecked");
-                break;
-            }
-            if (isMemoryExhaustedForJUnitCheck(memoryGuard, "the remaining per-test JUnit checks",
+            if (!budget.mayRun(JUnitCheckBudget.Step.PER_TEST,
                     testCases.size() - checkedInSingleTestChecks + removedInSingleTestChecks)) {
                 break;
             }
@@ -1551,24 +1565,19 @@ public class TestSuiteGenerator {
         // What running the whole suite once costs; the per-test total is an upper bound
         // until the whole-suite check has actually been timed.
         long suiteRunMs = delta;
-        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()
-                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the whole-suite JUnit check", 0)) {
-            if (hasTimeForWholeSuiteCheck(delta)) {
-                long suiteCheckStart = java.lang.System.currentTimeMillis();
-                numUnstable += JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
-                suiteRunMs = Math.min(suiteRunMs, java.lang.System.currentTimeMillis() - suiteCheckStart);
-            } else {
-                JUnitAnalyzer.recordCheckIncomplete("ran out of time before the whole-suite JUnit check");
-            }
+        budget.setPerTestChecksMs(delta);
+        if (budget.mayRun(JUnitCheckBudget.Step.WHOLE_SUITE, 0)) {
+            long suiteCheckStart = java.lang.System.currentTimeMillis();
+            numUnstable += JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
+            suiteRunMs = Math.min(suiteRunMs, java.lang.System.currentTimeMillis() - suiteCheckStart);
         }
 
         // second passage on reverse order, this is to spot dependencies among
         // tests
-        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure() && testCases.size() > 1
-                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the reverse-order JUnit check", 0)) {
+        if (testCases.size() > 1 && budget.mayRun(JUnitCheckBudget.Step.REVERSE_ORDER, 0)) {
             Collections.reverse(testCases);
             try {
-                numUnstable += checkAllTestsIfTime(testCases, delta);
+                numUnstable += JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
             } finally {
                 // The reverse traversal is only a probe for order sensitivity;
                 // it must not silently become the emitted suite order.
@@ -1577,9 +1586,9 @@ public class TestSuiteGenerator {
         }
 
         chromosome.setExtensionInitializationOrder(
-                isMemoryExhaustedForJUnitCheck(memoryGuard, "the order-sensitivity analysis", 0)
-                        ? Collections.<String>emptyList()
-                        : resolveExtensionInitializationOrderIfNeeded(testCases, delta, suiteRunMs));
+                budget.mayRun(JUnitCheckBudget.Step.ORDER_SENSITIVITY, 0)
+                        ? resolveExtensionInitializationOrderIfNeeded(testCases, budget, suiteRunMs)
+                        : Collections.<String>emptyList());
 
         chromosome.clearTests(); // remove all tests
         for (TestCase testCase : testCases) {
@@ -1602,62 +1611,8 @@ public class TestSuiteGenerator {
 
     }
 
-    /**
-     * Checks the memory guard of the JUnit check phase, and logs (once) that the remaining
-     * checks are skipped when memory has run out.
-     *
-     * @param guard     the guard of the phase
-     * @param what      the checks that would be skipped, for the log
-     * @param unchecked number of tests that stay unchecked, or 0 if not relevant
-     * @return true if the checks must be skipped
-     */
-    private static boolean isMemoryExhaustedForJUnitCheck(PhaseMemoryGuard guard, String what, int unchecked) {
-        boolean wasExhausted = guard.isExhaustedAlready();
-        String cause;
-        // Whether this call is the first to see *this guard's own* JVM-level free-memory check
-        // trip, as opposed to it tripping because JUnitAnalyzer already hit an internal OOM
-        // (which that analyzer already records as incomplete itself).
-        boolean ownGuardTrippedNow = false;
-        if (!wasExhausted && JUnitAnalyzer.isMemoryExhaustedDuringCheck()) {
-            // A check (e.g. javac, which shares this heap) ran out of memory.
-            guard.markExhausted();
-            cause = "a check ran out of memory";
-        } else if (guard.isExhausted()) {
-            ownGuardTrippedNow = !wasExhausted;
-            cause = (guard.getLastFreeBytes() / 1024 / 1024) + " MB free, need "
-                    + (guard.getThresholdBytes() / 1024 / 1024) + " MB";
-        } else {
-            return false;
-        }
-        if (!wasExhausted) {
-            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Low memory during JUnit check (" + cause + "); skipping "
-                    + what + " and all later checks, keeping the suite"
-                    + (unchecked > 0 ? " (" + unchecked + " test(s) left unchecked)" : ""));
-            if (ownGuardTrippedNow) {
-                // Only this branch is unrecorded elsewhere: it is this generator-level guard's own
-                // JVM-free-memory reading, independent of anything JUnitAnalyzer observed.
-                JUnitAnalyzer.recordCheckIncomplete(
-                        "low free JVM memory during JUnit check; skipping " + what + " and all later checks");
-            }
-        }
-        return true;
-    }
-
-    private static int checkAllTestsIfTime(List<TestCase> testCases, long delta) {
-        if (hasTimeForWholeSuiteCheck(delta)) {
-            return JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
-        }
-        JUnitAnalyzer.recordCheckIncomplete("ran out of time before the reverse-order JUnit check");
-        return 0;
-    }
-
-    private static boolean hasTimeForWholeSuiteCheck(long delta) {
-        return TimeController.getInstance().hasTimeToExecuteATestCase()
-                && TimeController.getInstance().isThereStillTimeInThisPhase(delta);
-    }
-
-    private static List<String> resolveExtensionInitializationOrderIfNeeded(List<TestCase> testCases, long delta,
+    private static List<String> resolveExtensionInitializationOrderIfNeeded(List<TestCase> testCases,
+                                                                            JUnitCheckBudget budget,
                                                                             long suiteRunMs) {
         if (Properties.TEST_FORMAT != Properties.OutputFormat.JUNIT5
                 || !Properties.TEST_EXTENSION_MODE
@@ -1667,7 +1622,7 @@ public class TestSuiteGenerator {
             return Collections.emptyList();
         }
 
-        if (!hasTimeForWholeSuiteCheck(delta)) {
+        if (!budget.hasTimeForWholeSuiteCheck()) {
             JUnitAnalyzer.recordCheckIncomplete(
                     "ran out of time before the extension initialization order could be resolved");
             return Collections.emptyList();

@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.postprocess;
 
+import org.evosuite.PhaseMemoryGuard;
 import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.AssertionGenerator;
@@ -983,15 +984,7 @@ public class LlmPostProcessor {
 
         @Override
         public boolean isLowMemory(long minimumFreeMemoryBytes) {
-            Runtime runtime = Runtime.getRuntime();
-            long threshold = Math.max(0L, minimumFreeMemoryBytes) * 2L;
-            long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-            if (freeMem >= threshold) {
-                return false;
-            }
-            System.gc();
-            freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-            return freeMem < threshold;
+            return PhaseMemoryGuard.oneShot(Math.max(0L, minimumFreeMemoryBytes) * 2L).isExhausted();
         }
     }
 

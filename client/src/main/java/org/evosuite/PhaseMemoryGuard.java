@@ -27,8 +27,11 @@ import java.util.function.LongSupplier;
  * been found exhausted the answer stays so for the rest of the phase: collecting a nearly full
  * heap before every step of a long phase just trades an out-of-memory error for a GC death
  * spiral.
+ *
+ * <p>A check that stands on its own, rather than being one step of a longer phase, uses a fresh
+ * guard each time (see {@link #oneShot(long)}), so each such check may collect the heap once.
  */
-final class PhaseMemoryGuard {
+public final class PhaseMemoryGuard {
 
     private final LongSupplier freeHeapBytes;
     private final Runnable collectGarbage;
@@ -37,14 +40,24 @@ final class PhaseMemoryGuard {
     private boolean exhausted = false;
     private long lastFreeBytes = -1;
 
-    PhaseMemoryGuard() {
+    public PhaseMemoryGuard() {
         this(PhaseMemoryGuard::currentFreeHeapBytes, System::gc, Properties.MIN_FREE_MEM * 2L);
     }
 
-    PhaseMemoryGuard(LongSupplier freeHeapBytes, Runnable collectGarbage, long thresholdBytes) {
+    public PhaseMemoryGuard(LongSupplier freeHeapBytes, Runnable collectGarbage, long thresholdBytes) {
         this.freeHeapBytes = freeHeapBytes;
         this.collectGarbage = collectGarbage;
         this.thresholdBytes = thresholdBytes;
+    }
+
+    /**
+     * Returns a guard on the current heap for a single check against the given threshold.
+     *
+     * @param thresholdBytes the free heap below which memory counts as exhausted
+     * @return a new guard that has not collected the heap yet
+     */
+    public static PhaseMemoryGuard oneShot(long thresholdBytes) {
+        return new PhaseMemoryGuard(PhaseMemoryGuard::currentFreeHeapBytes, System::gc, thresholdBytes);
     }
 
     /**
@@ -53,7 +66,7 @@ final class PhaseMemoryGuard {
      *
      * @return true if the phase should stop because memory is exhausted
      */
-    boolean isExhausted() {
+    public boolean isExhausted() {
         if (exhausted) {
             return true;
         }
@@ -74,24 +87,25 @@ final class PhaseMemoryGuard {
     }
 
     /** Marks memory as exhausted for the rest of the phase, e.g. after an OutOfMemoryError. */
-    void markExhausted() {
+    public void markExhausted() {
         exhausted = true;
     }
 
     /** Returns whether memory has already been found exhausted, without checking again. */
-    boolean isExhaustedAlready() {
+    public boolean isExhaustedAlready() {
         return exhausted;
     }
 
-    long getLastFreeBytes() {
+    public long getLastFreeBytes() {
         return lastFreeBytes;
     }
 
-    long getThresholdBytes() {
+    public long getThresholdBytes() {
         return thresholdBytes;
     }
 
-    static long currentFreeHeapBytes() {
+    /** Free heap, including the part the JVM has not claimed from the OS yet. */
+    public static long currentFreeHeapBytes() {
         Runtime runtime = Runtime.getRuntime();
         return runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
     }

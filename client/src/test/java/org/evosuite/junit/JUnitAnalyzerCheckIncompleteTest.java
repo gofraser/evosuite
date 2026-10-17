@@ -352,16 +352,16 @@ public class JUnitAnalyzerCheckIncompleteTest {
 
     // ---- Retained-suite give-ups: the whole-suite compile/load and order-probe sentinels that
     // the per-test compile filter never saw, because by this point every test already passed
-    // that filter individually. A null here is not the filter's ordinary "this generated test
+    // that filter individually. A rejection here is not the filter's ordinary "this generated test
     // does not compile" verdict (that case is pinned below as a non-regression), but an
     // unexpected failure of the writer/compiler/loader on a suite the filter already approved.
 
     /**
-     * Forces {@code compileTests} to return null from inside the real
+     * Forces {@code compileTests} to reject the suite from inside the real
      * {@link JUnitAnalyzer#handleTestsThatAreUnstable(List)} call by making the mocked
      * {@link TestSuiteWriter} claim it generated a source file that was never written:
      * {@code compileTests} checks {@code file.exists()} on each entry of the writer's own
-     * returned list and gives up with {@code null} if one is missing.
+     * returned list and rejects the suite if one is missing.
      */
     @Test
     public void handleTestsThatAreUnstableRecordsIncompleteWhenWholeSuiteCompileFails() throws Exception {
@@ -489,7 +489,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
 
     // ---- Non-regression: the per-test compile filter's ordinary rejected-test verdict must stay
     // a plain removal, not an incomplete-check give-up, even though it shares compileTests()'s
-    // null return with the paths above. ----
+    // rejection with the paths above. ----
 
     @Test
     public void removeTestsThatDoNotCompileLeavesCheckIncompleteFalseWhenWriterLosesGeneratedSource() throws Exception {
