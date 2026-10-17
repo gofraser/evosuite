@@ -213,9 +213,9 @@ class TestUsageCheckerTest {
         Method accessor = CompilerAccessorNameFallbackFixture.class.getDeclaredMethod("access$600");
         Method userVisibleMethod = CompilerAccessorNameFallbackFixture.class.getDeclaredMethod("userVisibleMethod");
 
-        Assertions.assertTrue(TestUsageChecker.isCompilerGeneratedAccessorMethod(accessor));
+        Assertions.assertTrue(TestUsageChecker.isNotCallableFromSource(accessor));
         Assertions.assertFalse(TestUsageChecker.canUse(accessor, CompilerAccessorNameFallbackFixture.class));
-        Assertions.assertFalse(TestUsageChecker.isCompilerGeneratedAccessorMethod(userVisibleMethod));
+        Assertions.assertFalse(TestUsageChecker.isNotCallableFromSource(userVisibleMethod));
         Assertions.assertTrue(TestUsageChecker.canUse(userVisibleMethod, CompilerAccessorNameFallbackFixture.class));
     }
 

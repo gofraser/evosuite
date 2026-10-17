@@ -989,23 +989,13 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (m.isBridge()) {
-            logger.debug("Excluding bridge method: " + m);
+        if (isNotCallableFromSource(m)) {
+            logger.debug("Excluding method that source code cannot call: " + m);
             return false;
         }
 
         if (!isValidJavaIdentifier(m.getName())) {
             logger.debug("Excluding method with non-Java identifier name: " + m.getName());
-            return false;
-        }
-
-        if (isCompilerGeneratedAccessorMethod(m)) {
-            logger.debug("Excluding compiler-generated accessor method: " + m);
-            return false;
-        }
-
-        if (m.isSynthetic()) {
-            logger.debug("Excluding synthetic method: " + m);
             return false;
         }
 
@@ -1296,20 +1286,6 @@ public class TestUsageChecker {
             }
         }
         return false;
-    }
-
-    /**
-     * Detect package-private accessor stubs emitted by older bytecode targets.
-     * Some instrumented class-loading paths can drop the synthetic flag while
-     * keeping the compiler-assigned accessor name.
-     */
-    public static boolean isCompilerGeneratedAccessorMethod(Method m) {
-        int modifiers = m.getModifiers();
-        return Modifier.isStatic(modifiers)
-                && !Modifier.isPublic(modifiers)
-                && !Modifier.isProtected(modifiers)
-                && !Modifier.isPrivate(modifiers)
-                && COMPILER_ACCESSOR_NAME.matcher(m.getName()).matches();
     }
 
 
