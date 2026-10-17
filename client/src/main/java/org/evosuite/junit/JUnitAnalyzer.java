@@ -1814,8 +1814,6 @@ public abstract class JUnitAnalyzer {
                 }
                 logger.error("Compilation failed on {} generated test file(s)", generated.size());
                 logger.error("Classpath: {}", compilerClasspath);
-                // TODO remove
-                logger.error("evosuiteCP: {}", evosuiteCP);
 
                 if (diagnostics.sawErrorWhileWriting()) {
                     disableCompileCheckDueToInfrastructure(
