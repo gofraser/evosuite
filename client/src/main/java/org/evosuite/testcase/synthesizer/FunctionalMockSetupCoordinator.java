@@ -9,6 +9,7 @@ package org.evosuite.testcase.synthesizer;
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.GenerationContext;
+import org.evosuite.testcase.StatementCheckpoint;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.VariableResolutionConfig;
@@ -129,8 +130,7 @@ public final class FunctionalMockSetupCoordinator {
                     || hasCompatibleStub(mock, recipe.observations)) {
                 continue;
             }
-            int originalSize = test.size();
-            int insertionStart = mock.getPosition();
+            StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
             try {
                 int added = materializeCachedObservations(test, mock, recipe.observations,
                         recipe.preferNonDefaultBooleans, recipe.numericHint);
@@ -140,11 +140,9 @@ public final class FunctionalMockSetupCoordinator {
                 }
             } catch (ConstructionFailedException | RuntimeException failure) {
                 // Cached setup is best-effort. Leave this mock untouched and let execution
-                // rediscover the requirement through its invocation listener.
-                while (test.size() > originalSize
-                        && insertionStart >= 0 && insertionStart < test.size()) {
-                    test.remove(insertionStart);
-                }
+                // rediscover the requirement through its invocation listener. The stubs are
+                // attached only after all values exist, so removing the values is enough.
+                checkpoint.rollback();
             }
         }
         if (changed) {
