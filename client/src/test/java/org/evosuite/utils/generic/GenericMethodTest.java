@@ -22,6 +22,9 @@ package org.evosuite.utils.generic;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
@@ -135,5 +138,49 @@ public class GenericMethodTest {
 
         Class<?> upper = (Class<?>) wt.getUpperBounds()[0];
         Assertions.assertEquals(Object.class, upper);
+    }
+
+    /**
+     * Defines {@code class MissingArgumentSubclass extends B<NoSuchType>}, where {@code NoSuchType}
+     * cannot be loaded, so its generic superclass throws {@link TypeNotPresentException}.
+     */
+    private static Class<?> loadSubclassOfBWithMissingArgument() throws ClassNotFoundException {
+        String ownerName = "org/evosuite/utils/generic/MissingArgumentSubclass";
+        String baseName = B.class.getName().replace('.', '/');
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, ownerName,
+                "L" + baseName + "<Lorg/evosuite/utils/generic/NoSuchType;>;", baseName, null);
+        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, baseName, "<init>", "()V", false);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(1, 1);
+        mv.visitEnd();
+        cw.visitEnd();
+        byte[] bytes = cw.toByteArray();
+        ClassLoader loader = new ClassLoader(GenericMethodTest.class.getClassLoader()) {
+            @Override
+            protected Class<?> findClass(String name) throws ClassNotFoundException {
+                if (name.equals(ownerName.replace('/', '.'))) {
+                    return defineClass(name, bytes, 0, bytes.length);
+                }
+                throw new ClassNotFoundException(name);
+            }
+        };
+        Class<?> owner = loader.loadClass(ownerName.replace('/', '.'));
+        Assertions.assertThrows(TypeNotPresentException.class, owner::getGenericSuperclass);
+        return owner;
+    }
+
+    @Test
+    public void testExactTypesFallBackToErasureWhenOwnerSuperclassMentionsMissingType() throws Exception {
+        Class<?> owner = loadSubclassOfBWithMissingArgument();
+        Method m = B.class.getDeclaredMethod("bar", Object.class);
+
+        GenericMethod gm = new GenericMethod(m, owner);
+
+        Assertions.assertEquals(Object.class, gm.getExactReturnType(m, owner));
+        Assertions.assertArrayEquals(new Type[]{Object.class}, gm.getExactParameterTypes(m, owner));
     }
 }

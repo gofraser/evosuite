@@ -19,7 +19,6 @@
  */
 package org.evosuite.utils.generic;
 
-import com.googlecode.gentyref.GenericTypeReflector;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -159,33 +158,10 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
      */
     public Type getExactReturnType(Method m, Type type) {
         Type returnType = m.getGenericReturnType();
-        // capture(type) is not a subtype of m.getDeclaringClass()
-        // logger.info("The method " + m + " is not a member of type " + type
-        //        + " - declared in " + m.getDeclaringClass());
-        Type exactDeclaringType = null;
-        try {
-            exactDeclaringType = GenericUtils.getExactSuperType(GenericTypeReflector.capture(type),
-                    m.getDeclaringClass());
-        } catch (java.lang.TypeNotPresentException e) {
-            // May happen in completely intransparent circumstances when there are dependency issues with annotations:
-            // https://bugs.java.com/view_bug.do?bug_id=JDK-7183985
-        }
-
-        if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
-            Class<?> rawType = getRawClass(type);
-            if (isAssignableToDeclaringClass(rawType, m.getDeclaringClass())) {
-                logger.info("The method " + m + " is not a member of type " + type
-                        + " - declared in " + m.getDeclaringClass()
-                        + " [unexpected, rawType=" + rawType + "]");
-            }
+        Type exactDeclaringType = getExactDeclaringType(m, type);
+        if (exactDeclaringType == null) {
             return m.getReturnType();
         }
-
-        // if (exactDeclaringType.equals(type)) {
-        //     logger.debug("Returntype: " + returnType + ", " + exactDeclaringType);
-        //     return returnType;
-        // }
-
         return mapTypeParameters(returnType, exactDeclaringType);
     }
 
@@ -198,15 +174,8 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
      */
     public Type[] getExactParameterTypes(Method m, Type type) {
         Type[] parameterTypes = m.getGenericParameterTypes();
-        Type exactDeclaringType = GenericUtils.getExactSuperType(GenericTypeReflector.capture(type),
-                m.getDeclaringClass());
-        if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
-            Class<?> rawType = getRawClass(type);
-            if (isAssignableToDeclaringClass(rawType, m.getDeclaringClass())) {
-                logger.info("The method " + m + " is not a member of type " + type
-                        + " - declared in " + m.getDeclaringClass()
-                        + " [unexpected, rawType=" + rawType + "]");
-            }
+        Type exactDeclaringType = getExactDeclaringType(m, type);
+        if (exactDeclaringType == null) {
             return m.getParameterTypes();
         }
 
@@ -271,27 +240,6 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         }
 
         return false;
-    }
-
-    /**
-     * Guard to reduce noise: only log when the owner type should be assignable
-     * to the declaring class, yet generic resolution still failed.
-     */
-    private boolean isAssignableToDeclaringClass(Class<?> rawType, Class<?> declaringClass) {
-        return rawType != null && declaringClass.isAssignableFrom(rawType);
-    }
-
-    private Class<?> getRawClass(Type type) {
-        if (type instanceof Class<?>) {
-            return (Class<?>) type;
-        }
-        if (type instanceof java.lang.reflect.ParameterizedType) {
-            Type raw = ((java.lang.reflect.ParameterizedType) type).getRawType();
-            if (raw instanceof Class<?>) {
-                return (Class<?>) raw;
-            }
-        }
-        return null;
     }
 
     @Override
