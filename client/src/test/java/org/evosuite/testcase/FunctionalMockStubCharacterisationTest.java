@@ -372,4 +372,59 @@ public class FunctionalMockStubCharacterisationTest {
         }
         assertEquals("second", result.getObject(scope));
     }
+
+    // ------------------------------------------------------------------ stubbing a method again
+
+    private static TestCase stubbedTwice() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference first = tc.addStatement(new StringPrimitiveStatement(tc, "first"));
+        VariableReference second = tc.addStatement(new StringPrimitiveStatement(tc, "second"));
+        VariableReference third = tc.addStatement(new StringPrimitiveStatement(tc, "third"));
+        FunctionalMockStatement mock = new FunctionalMockStatement(tc, Service.class,
+                GenericClassFactory.get(Service.class));
+        VariableReference ref = tc.addStatement(mock);
+        stub(mock, "name", new Class<?>[0], 1, first);
+        stub(mock, "name", new Class<?>[0], 1, second, third);
+        // one call of name()
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(Service.class.getMethod("name"), Service.class), ref,
+                new ArrayList<>()));
+        return tc;
+    }
+
+    @Test
+    public void stubbingAMethodAgainReplacesItsValues() throws Exception {
+        TestCase tc = stubbedTwice();
+        FunctionalMockStatement mock = mockOf(tc);
+
+        assertEquals(Arrays.asList("name x1"), stubIds(mock));
+        assertEquals(Arrays.asList(1, 2), valuePositions(mock));
+        assertFalse(mock.getVariableReferences().contains(tc.getStatement(0).getReturnValue()),
+                "the replaced value is no input of the mock");
+        assertEquals(lines(
+                "String string0 = \"first\";",
+                "String string1 = \"second\";",
+                "String string2 = \"third\";",
+                S + " " + SV + " = mock(" + S + ".class, " + MOCK_SETTINGS + ");",
+                "doReturn(string1, string2).when(" + SV + ").name();",
+                SV + ".name();"), render(tc));
+    }
+
+    /**
+     * The descriptor of a replaced stub was made for other values: the values are brought in
+     * line with the calls of the next execution even if it observes as many calls as the
+     * descriptor counted.
+     */
+    @Test
+    public void aReplacedStubIsUpdatedAfterTheNextExecution() throws Exception {
+        TestCase tc = stubbedTwice();
+        TestCaseExecutor.runTest(tc);
+        FunctionalMockStatement mock = mockOf(tc);
+
+        assertTrue(mock.doesNeedToUpdateInputs());
+        assertTrue(mock.updateMockedMethods().isEmpty());
+        assertEquals(Arrays.asList("name x1"), stubIds(mock));
+        assertEquals(Arrays.asList(1), valuePositions(mock));
+        assertFalse(mock.doesNeedToUpdateInputs());
+    }
 }
