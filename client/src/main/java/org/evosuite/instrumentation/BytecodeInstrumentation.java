@@ -48,6 +48,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * The bytecode transformer - transforms bytecode depending on package and
@@ -407,6 +411,7 @@ public class BytecodeInstrumentation {
         TransformationStatistics.reset();
 
         Step step = new Step(Profile.FULL, Ladder.FRAME);
+        Attempts attempts = new Attempts(classNameWithDots);
         Throwable firstFailure = null;
         Throwable sizeFailure = null;
         while (true) {
@@ -418,8 +423,8 @@ public class BytecodeInstrumentation {
                 if (firstFailure == null) {
                     firstFailure = t;
                 }
-                Step next = skipInapplicable(next(profile, failure, step.ladder), failure, classNameWithDots,
-                        reader);
+                attempts.failed(profile);
+                Step next = skipInapplicable(next(profile, failure, step.ladder), failure, attempts, reader);
                 if (next == null) {
                     throw t;
                 }
@@ -434,31 +439,73 @@ public class BytecodeInstrumentation {
 
     /**
      * Skip the profiles that cannot help this class: COMPUTE_MAXS for a class file that needs
-     * StackMapTable frames, and dropping a loop counter that is not there.
+     * StackMapTable frames, and any profile that would repeat an attempt that already failed.
      */
-    private Step skipInapplicable(Step step, FailureKind failure, String classNameWithDots, ClassReader reader) {
-        while (step != null && !applies(step.profile, classNameWithDots, reader)) {
+    private Step skipInapplicable(Step step, FailureKind failure, Attempts attempts, ClassReader reader) {
+        while (step != null && !applies(step.profile, attempts, reader)) {
             step = next(step.profile, failure, step.ladder);
         }
         return step;
     }
 
-    private boolean applies(Profile profile, String classNameWithDots, ClassReader reader) {
-        switch (profile) {
-            case FULL_MAXS:
-                if (isLegacyClassFile(reader)) {
-                    return true;
-                }
-                // Modern class files require StackMapTable frames, and COMPUTE_MAXS can
-                // produce verifier-invalid bytecode (VerifyError: expecting stackmap frame).
-                logger.warn("Skipping COMPUTE_MAXS fallback for {} (class file major version {}) "
-                                + "because StackMapTable frames are required",
-                        classNameWithDots, getClassFileMajorVersion(reader));
-                return false;
-            case NO_LOOP_COUNTER:
-                return config.maxLoopIterations() >= 0;
-            default:
-                return true;
+    private boolean applies(Profile profile, Attempts attempts, ClassReader reader) {
+        if (attempts.repeats(profile)) {
+            logger.debug("Skipping profile {} for {}: same instrumentation as a failed attempt",
+                    profile, attempts.classNameWithDots);
+            return false;
+        }
+        if (profile == Profile.FULL_MAXS && !isLegacyClassFile(reader)) {
+            // Modern class files require StackMapTable frames, and COMPUTE_MAXS can
+            // produce verifier-invalid bytecode (VerifyError: expecting stackmap frame).
+            logger.warn("Skipping COMPUTE_MAXS fallback for {} (class file major version {}) "
+                            + "because StackMapTable frames are required",
+                    attempts.classNameWithDots, getClassFileMajorVersion(reader));
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * The instrumentation that the failed attempts on one class really applied.  Two profiles
+     * apply the same instrumentation when they differ only in flags that have no effect on the
+     * class: no loop counter to drop, or no testability transformation to skip.
+     */
+    private final class Attempts {
+        private final String classNameWithDots;
+        private final List<List<Object>> failed = new ArrayList<>();
+        private Boolean testabilityApplies;
+
+        Attempts(String classNameWithDots) {
+            this.classNameWithDots = classNameWithDots;
+        }
+
+        void failed(Profile profile) {
+            failed.add(instrumentation(profile));
+        }
+
+        boolean repeats(Profile profile) {
+            return failed.contains(instrumentation(profile));
+        }
+
+        private List<Object> instrumentation(Profile profile) {
+            if (profile == Profile.BARE || profile == Profile.RAW) {
+                return Collections.singletonList(profile);
+            }
+            return Arrays.asList(profile.writerFlags,
+                    profile.loopCounter && config.maxLoopIterations() >= 0,
+                    profile.testability && testabilityApplies(),
+                    profile.targetChain,
+                    profile.timeoutRethrow,
+                    profile.staticAccess && config.resetStaticFields(),
+                    profile.purity && config.pureInspectors(),
+                    profile.classReset && config.resetStaticFields());
+        }
+
+        private boolean testabilityApplies() {
+            if (testabilityApplies == null) {
+                testabilityApplies = shouldApplyTestabilityTransformation(classNameWithDots);
+            }
+            return testabilityApplies;
         }
     }
 

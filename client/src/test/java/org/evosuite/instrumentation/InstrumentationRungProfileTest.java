@@ -211,6 +211,53 @@ public class InstrumentationRungProfileTest {
         Assertions.assertEquals(Arrays.asList(FULL, SKIP_TT, MINIMAL), ladder.calls);
     }
 
+    /**
+     * A class outside the project prefix gets no testability transformation, so dropping it
+     * would repeat the attempt without the loop counter.
+     */
+    @Test
+    public void frameLadderSkipsTheRepeatedAttemptForADependencyWithoutTestability() {
+        Properties.TARGET_CLASS = "sample.Other";
+        Properties.PROJECT_PREFIX = "proj";
+        Ladder ladder = new Ladder(rung -> Failure.FRAME);
+
+        ladder.run(CUT_RESOURCE, Opcodes.V1_8);
+
+        Assertions.assertEquals(Arrays.asList(FULL, NO_LOOP, MINIMAL), ladder.calls);
+    }
+
+    @Test
+    public void tooLargeLadderSkipsDroppingWhatTheFirstAttemptDidNotHave() {
+        Properties.MAX_LOOP_ITERATIONS = -1;
+        Properties.TARGET_CLASS = "sample.Other";
+        Properties.PROJECT_PREFIX = "proj";
+        Ladder ladder = new Ladder(rung -> Failure.TOO_LARGE);
+
+        ladder.run(CUT_RESOURCE, Opcodes.V1_8);
+
+        Assertions.assertEquals(Arrays.asList(FULL, MINIMAL), ladder.calls);
+    }
+
+    @Test
+    public void tooLargeAfterDroppingTestabilityDoesNotRepeatThatAttempt() {
+        Properties.TARGET_CLASS = "sample.Other";
+        Ladder ladder = new Ladder(rung -> rung.equals(SKIP_TT) ? Failure.TOO_LARGE
+                : rung.equals(MINIMAL) ? null : Failure.FRAME);
+
+        Assertions.assertArrayEquals(SENTINEL, ladder.run(CUT_RESOURCE, Opcodes.V1_8));
+        Assertions.assertEquals(Arrays.asList(FULL, NO_LOOP, SKIP_TT, MINIMAL), ladder.calls);
+    }
+
+    @Test
+    public void classUnderTestWithTestabilityKeepsEveryAttempt() {
+        Properties.TARGET_CLASS = CUT;
+        Properties.PROJECT_PREFIX = "sample";
+        Ladder ladder = new Ladder(rung -> rung.equals(SKIP_TT) ? null : Failure.FRAME);
+
+        Assertions.assertArrayEquals(SENTINEL, ladder.run(CUT_RESOURCE, Opcodes.V1_8));
+        Assertions.assertEquals(Arrays.asList(FULL, NO_LOOP, SKIP_TT), ladder.calls);
+    }
+
     @Test
     public void unsupportedJsrCopiesTheOriginalBytesAfterOneAttempt() {
         Properties.TARGET_CLASS = "sample.Other";
