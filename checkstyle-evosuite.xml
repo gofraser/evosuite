@@ -321,5 +321,17 @@
             <message key="name.invalidPattern"
                      value="'ID' should be written as 'Id'."/>
         </module>
+
+        <!-- gentyref treats a static nested class of a generic outer class as raw and erases its
+             supertypes. GenericUtils.getExactSuperType corrects that and is the only caller. -->
+        <module name="RegexpSinglelineJava">
+            <property name="id" value="gentyrefExactSuperType"/>
+            <property name="severity" value="error"/>
+            <property name="format"
+                      value="GenericTypeReflector\s*(\.|::)\s*getExact(SuperType|FieldType|ReturnType|ParameterTypes)\b"/>
+            <property name="ignoreComments" value="true"/>
+            <property name="message"
+                      value="Use GenericUtils.getExactSuperType: gentyref erases the supertypes of static nested classes of generic classes."/>
+        </module>
     </module>
 </module>
