@@ -19,7 +19,6 @@
  */
 package org.evosuite.utils.generic;
 
-import com.googlecode.gentyref.GenericTypeReflector;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
@@ -165,18 +164,8 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
      */
     public Type[] getExactParameterTypes(Constructor<?> m, Type type) {
         Type[] parameterTypes = m.getGenericParameterTypes();
-        Type exactDeclaringType = null;
-        try {
-            exactDeclaringType = GenericUtils.getExactSuperType(GenericTypeReflector.capture(type),
-                    m.getDeclaringClass());
-        } catch (java.lang.TypeNotPresentException e) {
-            // May happen with dependency issues involving annotations:
-            // https://bugs.java.com/view_bug.do?bug_id=JDK-7183985
-        }
+        Type exactDeclaringType = getExactDeclaringType(m, type);
         if (exactDeclaringType == null) {
-            // This can happen when 'type' and the declaring class are loaded by
-            // different classloaders (same name, different Class objects).
-            // Fall back to erased parameter types.
             return m.getParameterTypes();
         }
 

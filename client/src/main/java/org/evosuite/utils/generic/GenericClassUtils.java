@@ -20,7 +20,6 @@
 package org.evosuite.utils.generic;
 
 import com.googlecode.gentyref.CaptureType;
-import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.slf4j.Logger;
@@ -108,7 +107,7 @@ public class GenericClassUtils {
 
         Type exactSuperType;
         try {
-            exactSuperType = GenericTypeReflector.getExactSuperType(rhsType, lhsRawClass);
+            exactSuperType = GenericUtils.getExactSuperType(rhsType, lhsRawClass);
         } catch (RuntimeException e) {
             // gentyref rejects types it cannot erase (wildcards nested in
             // arrays or bounds); not assignable is the safe answer.
@@ -124,8 +123,10 @@ public class GenericClassUtils {
             // checking Modifier.isStatic, so a static nested class of a generic outer class
             // (DOMDeserializer<T>.DocumentDeserializer) counts as raw and its whole supertype
             // chain is erased: the "exact" supertype comes back as the raw JsonDeserializer
-            // class, which commons-lang3 would then accept for JsonDeserializer<Object>. The
-            // rhs is not raw by the static-aware definition below, so do not trust the erased
+            // class, which commons-lang3 would then accept for JsonDeserializer<Object>.
+            // GenericUtils.getExactSuperType recomputes the answer for the static nested class
+            // itself, but not for a class that only extends one, which still comes back erased.
+            // The rhs is not raw by the static-aware definition below, so do not trust the erased
             // result; the caller's commons-lang3 check resolves the type arguments correctly.
             return false;
         }

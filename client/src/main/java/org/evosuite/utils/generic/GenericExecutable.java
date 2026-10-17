@@ -19,12 +19,14 @@
  */
 package org.evosuite.utils.generic;
 
+import com.googlecode.gentyref.GenericTypeReflector;
 import org.evosuite.testcase.ConstraintHelper;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 
 import java.lang.reflect.Executable;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
 
@@ -53,6 +55,52 @@ public abstract class GenericExecutable<T extends GenericExecutable<T, U>, U ext
     public abstract Type getReturnType();
 
     abstract Type[] getExactParameterTypes(final U m, final Type type);
+
+    /**
+     * Returns the parameterization of the class declaring {@code m} as seen from {@code type},
+     * which the declared generic return and parameter types of {@code m} are mapped through.
+     *
+     * @param m    the executable
+     * @param type the type the executable is accessed on
+     * @return the exact declaring type, or {@code null} if it cannot be resolved, in which case
+     *         the caller falls back to the erased types
+     */
+    static Type getExactDeclaringType(Executable m, Type type) {
+        Class<?> declaringClass = m.getDeclaringClass();
+        Type exactDeclaringType;
+        try {
+            exactDeclaringType = GenericUtils.getExactSuperType(GenericTypeReflector.capture(type),
+                    declaringClass);
+        } catch (TypeNotPresentException e) {
+            // May happen with dependency issues involving annotations:
+            // https://bugs.java.com/view_bug.do?bug_id=JDK-7183985
+            logger.debug("Cannot resolve the declaring type of {} in {}: {}", m, type, e.toString());
+            return null;
+        }
+        if (exactDeclaringType == null) {
+            // Expected when 'type' and the declaring class are loaded by different classloaders
+            // (same name, different Class objects); only an assignable raw type is unexpected.
+            Class<?> rawType = getRawClass(type);
+            if (rawType != null && declaringClass.isAssignableFrom(rawType)) {
+                logger.debug("The executable {} is not a member of type {} - declared in {}"
+                        + " [unexpected, rawType={}]", m, type, declaringClass, rawType);
+            }
+        }
+        return exactDeclaringType;
+    }
+
+    private static Class<?> getRawClass(Type type) {
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType) {
+            Type raw = ((ParameterizedType) type).getRawType();
+            if (raw instanceof Class<?>) {
+                return (Class<?>) raw;
+            }
+        }
+        return null;
+    }
 
     public abstract Type[] getParameterTypes();
 

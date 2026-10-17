@@ -3812,7 +3812,7 @@ public class TestCodeVisitor extends TestVisitor {
                 }
                 Class<?> boundClass = GenericTypeReflector.erase(bound);
                 if (boundClass.isAssignableFrom(argumentClass)
-                        && GenericTypeReflector.getExactSuperType(arguments[i], boundClass)
+                        && GenericUtils.getExactSuperType(arguments[i], boundClass)
                         instanceof Class<?>) {
                     return rawClass;
                 }
@@ -3874,7 +3874,7 @@ public class TestCodeVisitor extends TestVisitor {
                 || !declaringClass.isAssignableFrom(receiverClass)) {
             return false;
         }
-        return !(GenericTypeReflector.getExactSuperType(receiverClass, declaringClass)
+        return !(GenericUtils.getExactSuperType(receiverClass, declaringClass)
                 instanceof ParameterizedType);
     }
 

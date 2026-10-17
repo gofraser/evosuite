@@ -163,6 +163,22 @@ public class GenericClassUtilsTest {
     }
 
     @Test
+    public void testSubclassOfStaticNestedClassInGenericOuterIsNotAssignableToWrongTypeArgument() {
+        // A class that is not itself a member class but extends one: GenericUtils.getExactSuperType
+        // only recomputes the supertype of the static nested class itself, so for this subclass
+        // gentyref's erased answer still comes back and must not be trusted.
+        class LeafSubclass extends GenericOuter.NestedLeaf {
+        }
+        Type wrongTypeArgument = new org.evosuite.utils.ParameterizedTypeImpl(
+                GenericOuter.class, new Type[]{Object.class}, null);
+        Type actualTypeArgument = new org.evosuite.utils.ParameterizedTypeImpl(
+                GenericOuter.class, new Type[]{String.class}, null);
+
+        Assertions.assertFalse(GenericClassUtils.isAssignable(wrongTypeArgument, LeafSubclass.class));
+        Assertions.assertTrue(GenericClassUtils.isAssignable(actualTypeArgument, LeafSubclass.class));
+    }
+
+    @Test
     public void testStaticNestedClassMultiLevelChainIsAssignableToItsActualTypeArgument() {
         Type actualTypeArgument = new org.evosuite.utils.ParameterizedTypeImpl(
                 GenericBase.class, new Type[]{String.class}, null);

@@ -22,9 +22,12 @@ package org.evosuite.testcase;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
 import org.evosuite.utils.generic.JavacScratchCompiler;
 import org.junit.jupiter.api.AfterEach;
@@ -34,6 +37,8 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,6 +49,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * an {@code ArrayList<AceAssembledReadAdapter>} was passed to it. The call is checked against
  * the receiver's (inherited) parameterization, {@code Iterable<AssembledRead>}, which is
  * invariant in its element type.
+ *
+ * <p>The other cases pin how members inherited through such a class, and such a class as a type
+ * argument, are rendered.
  */
 public class InheritedTypeArgumentCallCompileTest {
 
@@ -52,9 +60,42 @@ public class InheritedTypeArgumentCallCompileTest {
         }
     }
 
+    public static class Value<V> {
+        public V value;
+
+        public V get() {
+            return value;
+        }
+    }
+
     public static class Holder<T> {
         // A static nested class of a generic outer: gentyref treats it as raw.
         public static class Derived extends Base<CharSequence> {
+        }
+
+        public static class Named extends Value<String> {
+        }
+
+        public static class Key implements Comparable<Key> {
+            @Override
+            public int compareTo(Key other) {
+                return 0;
+            }
+        }
+    }
+
+    public static class BoundedBox<E extends Comparable<E>> {
+        public List<E> values() {
+            return new ArrayList<>();
+        }
+
+        public E first() {
+            return null;
+        }
+    }
+
+    public static class StringConsumer {
+        public StringConsumer(String value) {
         }
     }
 
@@ -88,6 +129,102 @@ public class InheritedTypeArgumentCallCompileTest {
                 Holder.Derived.class);
         tc.addStatement(new MethodStatement(tc, addAll, derived, Arrays.asList(list)));
 
+        assertCompiles(tc);
+    }
+
+    private static VariableReference addNamed(TestCase tc) throws Exception {
+        return tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(Holder.Named.class.getConstructor(), Holder.Named.class),
+                Collections.emptyList()));
+    }
+
+    private static void addStringConsumer(TestCase tc, VariableReference value) throws Exception {
+        tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(StringConsumer.class.getConstructor(String.class), StringConsumer.class),
+                Collections.singletonList(value)));
+    }
+
+    @Test
+    public void inheritedMethodReturnThroughStaticNestedReceiverCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference named = addNamed(tc);
+        VariableReference value = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(Value.class.getMethod("get"), Holder.Named.class), named,
+                Collections.emptyList()));
+        addStringConsumer(tc, value);
+
+        // javac sees the members Named inherits from Value<String> unerased: no cast.
+        String code = assertCompiles(tc);
+        assertTrue(code.contains("String string0 = inheritedTypeArgumentCallCompileTest_Holder_Named0.get();"),
+                code);
+    }
+
+    @Test
+    public void inheritedFieldReadThroughStaticNestedReceiverCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference named = addNamed(tc);
+        VariableReference value = tc.addStatement(new FieldStatement(tc,
+                new GenericField(Value.class.getField("value"), Holder.Named.class), named));
+        addStringConsumer(tc, value);
+
+        String code = assertCompiles(tc);
+        assertTrue(code.contains("String string0 = inheritedTypeArgumentCallCompileTest_Holder_Named0.value;"),
+                code);
+    }
+
+    @Test
+    public void inheritedFieldReferenceThroughStaticNestedReceiverCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference named = addNamed(tc);
+        FieldReference value = new FieldReference(tc,
+                new GenericField(Value.class.getField("value"), Holder.Named.class), named);
+        addStringConsumer(tc, value);
+
+        String code = assertCompiles(tc);
+        assertTrue(code.contains(
+                "StringConsumer(inheritedTypeArgumentCallCompileTest_Holder_Named0.value);"), code);
+    }
+
+    @Test
+    public void staticNestedTypeArgumentOfParameterizedBoundCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type boxType = TypeUtils.parameterize(BoundedBox.class, Holder.Key.class);
+        VariableReference box = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(BoundedBox.class.getConstructor(), boxType),
+                Collections.emptyList()));
+        VariableReference values = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(BoundedBox.class.getMethod("values"), boxType), box,
+                Collections.emptyList()));
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(List.class.getMethod("size"), List.class), values,
+                Collections.emptyList()));
+
+        // Holder.Key implements Comparable<Key>, so it is within the bound of E.
+        String code = assertCompiles(tc);
+        String boxOfKey = "InheritedTypeArgumentCallCompileTest.BoundedBox"
+                + "<InheritedTypeArgumentCallCompileTest.Holder.Key>";
+        assertTrue(code.contains(boxOfKey + " inheritedTypeArgumentCallCompileTest_BoundedBox0 = new "
+                + boxOfKey + "();"), code);
+    }
+
+    @Test
+    public void elementOfStaticNestedTypeArgumentOfParameterizedBoundCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type boxType = TypeUtils.parameterize(BoundedBox.class, Holder.Key.class);
+        VariableReference box = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(BoundedBox.class.getConstructor(), boxType),
+                Collections.emptyList()));
+        VariableReference key = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(BoundedBox.class.getMethod("first"), boxType), box,
+                Collections.emptyList()));
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(Holder.Key.class.getMethod("compareTo", Holder.Key.class), Holder.Key.class),
+                key, Collections.singletonList(key)));
+
+        assertCompiles(tc);
+    }
+
+    private static String assertCompiles(TestCase tc) throws Exception {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
         String code = visitor.getCode();
@@ -110,5 +247,6 @@ public class InheritedTypeArgumentCallCompileTest {
         JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
                 "evosuite-inherited-arg", className, source.toString());
         assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+        return code;
     }
 }

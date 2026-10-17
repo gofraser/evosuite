@@ -519,6 +519,9 @@ public class GenericUtils {
      * AbstractContigBuilder<AssembledRead, ...>} it answers the erased
      * {@code AbstractContigBuilder}, and every parameter that mentions the superclass's type
      * variable ({@code Iterable<P>}) is erased with it.
+     *
+     * <p>Every exact-supertype lookup goes through here; checkstyle rejects direct calls to
+     * gentyref's {@code getExactSuperType} and the member-type lookups built on it.
      */
     public static Type getExactSuperType(Type type, Class<?> searchClass) {
         Type exact = GenericTypeReflector.getExactSuperType(type, searchClass);

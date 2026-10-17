@@ -103,7 +103,7 @@ public class GenericTypeInference extends TestVisitor {
         for (VariableReference var : typeMap.get(type)) {
             ParameterizedType currentType = (ParameterizedType) var.getType();
             logger.info("Assigned variable of type: " + currentType);
-            Type candidateType = GenericTypeReflector.getExactSuperType(currentType,
+            Type candidateType = GenericUtils.getExactSuperType(currentType,
                     rawClass);
             logger.info("Resulting type: " + candidateType);
             if (TypeUtils.isAssignable(candidateType, exactType)) {
