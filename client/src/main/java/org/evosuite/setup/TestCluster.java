@@ -1589,8 +1589,7 @@ public class TestCluster {
         } catch (Throwable t) {
             return false;
         }
-        String name = clazz.getName();
-        return name.startsWith("java.awt.") || name.startsWith("javax.swing.");
+        return ClassOrigin.isJdkGuiName(clazz.getName());
     }
 
     /**
@@ -1664,8 +1663,7 @@ public class TestCluster {
     }
 
     private static boolean isJdkType(Class<?> type) {
-        String name = type.getName();
-        return name.startsWith("java.") || name.startsWith("javax.");
+        return ClassOrigin.isJavaApiName(type.getName());
     }
 
     /**

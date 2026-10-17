@@ -210,7 +210,7 @@ public class TestClusterUtils {
         if (excluded == null) {
             return true;
         }
-        return AMBIGUOUS_JDK_PREFIXES.contains(excluded) && clazz != null && !isJdkClass(clazz);
+        return AMBIGUOUS_JDK_PREFIXES.contains(excluded) && clazz != null && !ClassOrigin.isJdkOrJavaFx(clazz);
     }
 
     /**
@@ -218,54 +218,6 @@ public class TestClusterUtils {
      */
     private static final Set<String> AMBIGUOUS_JDK_PREFIXES = Collections.unmodifiableSet(
             new LinkedHashSet<>(Arrays.asList("com.sun.", "com.oracle.")));
-
-    /**
-     * Whether the class comes from the JDK itself rather than from the project's classpath.
-     *
-     * <p>A {@code java.}/{@code jdk.}-named module is additionally required to be one
-     * {@link JavaModuleLookup#isFromSystemImage the running JDK's own install image actually
-     * resolved this class's module from}, not merely named that way or named like a module that
-     * exists somewhere in the image: a user module can call itself {@code java.fake}, or reuse the
-     * name of a real image module that the default boot layer does not include (such as
-     * {@code jdk.hotspot.agent}), and export an arbitrary package from it. Without this check,
-     * such a module made every class it exports -- including one in an otherwise-ambiguous
-     * package like {@code com.sun.} -- look like JDK code to {@link #checkIfCanUse(String, Class)}
-     * 's ambiguous-prefix exception, silently rejecting a genuine user-library class for a reason
-     * unrelated to its own package.
-     *
-     * <p>{@code javafx.}, and the bare module names {@code "java"}/{@code "jdk"}, are
-     * deliberately exempt from that image check: unlike {@code java.}/{@code jdk.}-named
-     * modules, a genuine {@code javafx.*} module (OpenJFX) is an ordinary external dependency
-     * resolved from the project's own module/classpath, not part of every running JDK's image,
-     * so requiring image membership there would reject genuine JavaFX classes, not just spoofs.
-     *
-     * @param clazz the loaded class
-     * @return true if the class belongs to a JDK module or was loaded by the boot/platform loader
-     */
-    private static boolean isJdkClass(final Class<?> clazz) {
-        ClassLoader loader = clazz.getClassLoader();
-        if (loader == null) {
-            return true; // boot loader: JDK
-        }
-        // The module system is only available from Java 9 on, and this module is compiled
-        // against Java 8, so ask for the module reflectively (see JavaModuleLookup). On Java 8
-        // there are no modules and a class that was loaded at all came from the classpath.
-        JavaModuleLookup.Result result = JavaModuleLookup.lookupModule(clazz);
-        if (result.isUnavailable()) {
-            // No module system, or it refused to answer: fall back to the old, conservative
-            // behaviour of treating the prefix as a JDK package.
-            return true;
-        }
-        if (!result.isNamed()) {
-            return false;
-        }
-        // Prefix alone is not provenance (see the Javadoc above): a java.* or jdk.* module counts
-        // only if it was actually resolved from the running JDK's image, not merely named like
-        // one that exists somewhere in it. The other names below never carry those prefixes.
-        String name = result.moduleName();
-        return JavaModuleLookup.isSystemImageJdkModule(result)
-                || name.startsWith("javafx.") || name.equals("java") || name.equals("jdk");
-    }
 
     /**
      * Package-visible so {@link TestUsageChecker#canUse(Class)} can apply the same bypass to its

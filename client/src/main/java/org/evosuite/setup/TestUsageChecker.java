@@ -220,7 +220,9 @@ public class TestUsageChecker {
 
         if (!Properties.USE_DEPRECATED) {
             try {
-                if (c.isAnnotationPresent(Deprecated.class) && !isPlatformClass(c)
+                // JDK types deprecated after Java 8 (Observable, AttributeList) stay usable:
+                // refusing them would drop every SUT method that takes one.
+                if (c.isAnnotationPresent(Deprecated.class) && !ClassOrigin.isJdk(c)
                         && !isExemptFromDeprecationFilter(c)) {
                     logger.debug("Skipping deprecated class " + c.getName());
                     return false;
@@ -380,64 +382,6 @@ public class TestUsageChecker {
             return false;
         }
         return declaringClass.equals(targetClass) || targetClass.isAnnotationPresent(Deprecated.class);
-    }
-
-    /**
-     * Whether a class comes from the JDK itself rather than from the code under test.
-     *
-     * <p>Since Java 9 the JDK's named modules are not all loaded the same way: a module
-     * such as {@code java.base} or {@code jdk.unsupported} can still be defined by the
-     * bootstrap loader (a null {@code getClassLoader()}), while another such as
-     * {@code java.sql} is defined by the <em>platform</em> loader instead. Loader
-     * identity alone is therefore insufficient to recognise JDK classes.
-     *
-     * <p>We classify by module origin, not by module name or loader identity: a module's
-     * name is just a string the code that built it chose, and a module placed on
-     * {@code --module-path} and named in {@code --add-modules} at JVM <em>startup</em>
-     * resolves into the same boot layer, and can be defined by the same loader, as genuine
-     * JDK code -- so neither a {@code java.}/{@code jdk.}-prefixed name nor loader identity
-     * proves JDK provenance. {@link JavaModuleLookup#isFromSystemImage} is the authoritative
-     * per-class check; see its documentation for the actual reference-origin contract
-     * (including why it still accepts a genuine, system-image module that the ordinary
-     * system/application loader defines, such as {@code jdk.jdi}, and rejects a same-named
-     * user module such as a spoofed {@code jdk.hotspot.agent}).
-     *
-     * <p>{@code Class#getModule()} is Java 9+, and this module's main source compiles against
-     * the Java 8 API (see {@code runtime}'s own Java 8 floor, enforced on this module the same
-     * way), so it is looked up reflectively via the shared {@link JavaModuleLookup}, which also
-     * backs {@code TestClusterUtils#isJdkClass} for the module half of the identical
-     * constraint; on an actual Java 8 JVM the module lookup itself fails (there is no module
-     * system yet) and this falls back to the old bootstrap-loader check, which is exactly
-     * correct there, since Java 8 predates both named modules and the boot layer entirely.
-     *
-     * <p>A user class loaded the ordinary way (app class loader, classpath) is always in
-     * an <em>unnamed</em> module, which fails the {@code isNamed()} check regardless of
-     * its package name -- except that a {@code java.}-prefixed package is also
-     * independently blocked there ({@code SecurityException: Prohibited package name}).
-     * Neither restriction applies to a module built and loaded the way the spoofs above
-     * do, which is why the system-module check is also needed.
-     *
-     * <p>This matters for the {@code USE_DEPRECATED} filter. That option exists to stop
-     * us generating tests for API the project itself has deprecated, but several JDK
-     * types picked up a {@code @Deprecated} annotation after Java 8 -- {@code
-     * java.util.Observable} in Java 9, {@code org.xml.sax.AttributeList} long before
-     * that, and (depending on the running JDK) platform-loaded types such as {@code
-     * java.sql.SQLPermission}. Excluding those does not spare anyone a test of obsolete
-     * API: it makes the SUT's own undeprecated methods uncallable, because a method
-     * whose parameter type we refuse to use is dropped from the test cluster entirely.
-     * So a class like {@code nu.staldal.xmlutil.ContentHandlerAdapter}, whose whole
-     * contract is {@code startElement(String, AttributeList)}, loses the branches that
-     * matter.
-     *
-     * @param c the class to check
-     * @return true if {@code c} is a JDK platform class
-     */
-    static boolean isPlatformClass(Class<?> c) {
-        JavaModuleLookup.Result result = JavaModuleLookup.lookupModule(c);
-        if (result.isUnavailable()) {
-            return c.getClassLoader() == null;
-        }
-        return JavaModuleLookup.isSystemImageJdkModule(result);
     }
 
     /**
@@ -1200,7 +1144,7 @@ public class TestUsageChecker {
         }
 
         String className = declaringClass.getName();
-        if (!className.startsWith("java.awt.") && !className.startsWith("javax.swing.")) {
+        if (!ClassOrigin.isJdkGuiName(className)) {
             return false;
         }
 

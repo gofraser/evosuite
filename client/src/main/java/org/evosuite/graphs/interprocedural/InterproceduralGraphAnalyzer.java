@@ -13,6 +13,7 @@ import org.evosuite.graphs.interprocedural.interestednode.IInterestedNodeFilter;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.graphs.interprocedural.var.DepVariableFactory;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
+import org.evosuite.setup.ClassOrigin;
 import org.evosuite.setup.ConcreteClassAnalyzer;
 import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.Type;
@@ -635,7 +636,7 @@ public class InterproceduralGraphAnalyzer {
     }
 
     static boolean isPlatformImplementationClass(String className) {
-        return ObjectConstructionBoundary.isPlatformClass(className);
+        return ClassOrigin.isJdkName(className);
     }
 
     private boolean isAbstractDispatch(BytecodeInstruction instruction) {

@@ -25,7 +25,7 @@ package jdk.evosuitetestfixture;
  * <p>Unlike {@code java.}-prefixed packages, the JVM does not reserve {@code jdk.}
  * for the platform: a class here loads normally through the application class
  * loader. {@link org.evosuite.setup.TestUsageCheckerPlatformClassTest} uses this
- * fixture to pin that {@code TestUsageChecker.isPlatformClass} is not fooled by
+ * fixture to pin that {@code ClassOrigin.isJdk} is not fooled by
  * the package name alone -- the class lands in an <em>unnamed</em> module, which
  * is what actually tells it apart from a real {@code jdk.*} platform module.
  */

@@ -331,16 +331,8 @@ public class ConcreteClassAnalyzer {
         AtMostOnceLogger.warn(logger, message);
     }
 
-    private static boolean isLikelyJdkClass(final String className) {
-        return className.startsWith("java.")
-                || className.startsWith("javax.")
-                || className.startsWith("jdk.")
-                || className.startsWith("sun.")
-                || className.startsWith("com.sun.");
-    }
-
     private static boolean isLikelyStaleCachedJdkEntry(final String className) {
-        return !Properties.INHERITANCE_FILE.isEmpty() && isLikelyJdkClass(className);
+        return !Properties.INHERITANCE_FILE.isEmpty() && ClassOrigin.isJdkName(className);
     }
 
     private static TestGenerationContext testGenerationContext() {
