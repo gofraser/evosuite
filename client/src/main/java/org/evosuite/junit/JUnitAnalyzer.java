@@ -2131,9 +2131,10 @@ public abstract class JUnitAnalyzer {
      * (or the specific tests involved) is kept — that decision is made at each call site, same as
      * before this method existed.
      *
-     * <p>Also called by {@code TestSuiteGenerator} for the rounds abandoned before this analyzer is
-     * reached at all — the phase skipped for low memory, its time budget expired, its per-test loop
-     * exited early, an order probe skipped, or its memory guard tripped. Those exits used to be
+     * <p>Also called by {@code TestSuiteGenerator} and its {@code JUnitCheckBudget} for the rounds
+     * abandoned before this analyzer is reached at all — the phase skipped for low memory, its time
+     * budget expired, its per-test loop exited early, an order probe skipped, or its memory guard
+     * tripped. Those exits used to be
      * invisible outside the log, which is indistinguishable from a validated suite.
      *
      * @param reason short description of what was abandoned, for the debug log

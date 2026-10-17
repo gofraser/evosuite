@@ -177,19 +177,19 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
     }
 
-    // ---- isMemoryExhaustedForJUnitCheck: the generator's own JVM-memory guard ----
+    // ---- JUnitCheckBudget.isMemoryExhausted: the generator's own JVM-memory guard ----
 
     @Test
     public void ownMemoryGuardTripRecordsIncompleteOnlyOnce() throws Exception {
         PhaseMemoryGuard guard = new PhaseMemoryGuard(() -> 0L, () -> { }, 100L);
 
         assertFalse(JUnitAnalyzer.isCheckIncomplete());
-        assertTrue(invokeIsMemoryExhaustedForJUnitCheck(guard, "the test checks", 2));
+        assertTrue(isMemoryExhausted(guard, 2));
         assertTrue(JUnitAnalyzer.isCheckIncomplete());
         assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
 
         // Already-exhausted guard: same give-up, not a new one.
-        assertTrue(invokeIsMemoryExhaustedForJUnitCheck(guard, "the test checks", 2));
+        assertTrue(isMemoryExhausted(guard, 2));
         assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
     }
 
@@ -205,7 +205,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         // This guard has not seen anything itself; it only learns of the OOM through
         // JUnitAnalyzer.isMemoryExhaustedDuringCheck(), which that call already recorded.
         PhaseMemoryGuard guard = new PhaseMemoryGuard(() -> 1_000_000L, () -> { }, 100L);
-        assertTrue(invokeIsMemoryExhaustedForJUnitCheck(guard, "the test checks", 0));
+        assertTrue(isMemoryExhausted(guard, 0));
 
         assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds(),
                 "must not double-count a give-up JUnitAnalyzer already recorded");
@@ -215,20 +215,18 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
     public void healthyMemoryGuardRecordsNothing() throws Exception {
         PhaseMemoryGuard guard = new PhaseMemoryGuard(() -> 1_000_000_000L, () -> { }, 100L);
 
-        assertFalse(invokeIsMemoryExhaustedForJUnitCheck(guard, "the test checks", 0));
+        assertFalse(isMemoryExhausted(guard, 0));
         assertFalse(JUnitAnalyzer.isCheckIncomplete());
         assertEquals(0, JUnitAnalyzer.getIncompleteCheckRounds());
     }
 
-    // ---- checkAllTestsIfTime: the reverse-order probe's own time skip ----
+    // ---- JUnitCheckBudget.mayRun: the reverse-order probe's own time skip ----
 
     @Test
-    public void checkAllTestsIfTimeSkipRecordsIncomplete() throws Exception {
+    public void reverseOrderCheckTimeSkipRecordsIncomplete() throws Exception {
         JUnitAnalyzerTestSupport.forceNoTimeLeftInJUnitCheckPhase();
-        List<TestCase> tests = new ArrayList<>();
-        tests.add(trivialTestCase());
 
-        assertEquals(0, invokeCheckAllTestsIfTime(tests, 0L));
+        assertFalse(healthyBudget().mayRun(JUnitCheckBudget.Step.REVERSE_ORDER, 0));
         assertTrue(JUnitAnalyzer.isCheckIncomplete());
         assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
     }
@@ -246,7 +244,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         tests.add(trivialTestCase());
         tests.add(trivialTestCase());
 
-        List<String> result = invokeResolveExtensionInitializationOrderIfNeeded(tests, 0L, 0L);
+        List<String> result = invokeResolveExtensionInitializationOrderIfNeeded(tests, 0L);
 
         assertTrue(result.isEmpty());
         assertTrue(JUnitAnalyzer.isCheckIncomplete());
@@ -273,7 +271,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         tests.add(trivialTestCase());
         tests.add(trivialTestCase());
 
-        List<String> result = invokeResolveExtensionInitializationOrderIfNeeded(tests, 0L, 3_000L);
+        List<String> result = invokeResolveExtensionInitializationOrderIfNeeded(tests, 3_000L);
 
         assertTrue(result.isEmpty());
         assertTrue(JUnitAnalyzer.isCheckIncomplete());
@@ -288,7 +286,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         tests.add(trivialTestCase());
         tests.add(trivialTestCase());
 
-        List<String> result = invokeResolveExtensionInitializationOrderIfNeeded(tests, 0L, 0L);
+        List<String> result = invokeResolveExtensionInitializationOrderIfNeeded(tests, 0L);
 
         assertTrue(result.isEmpty());
         assertFalse(JUnitAnalyzer.isCheckIncomplete());
@@ -318,28 +316,21 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         m.invoke(new TestSuiteGenerator(), suite, null);
     }
 
-    private static boolean invokeIsMemoryExhaustedForJUnitCheck(
-            PhaseMemoryGuard guard, String what, int unchecked) throws Exception {
-        Method m = TestSuiteGenerator.class.getDeclaredMethod(
-                "isMemoryExhaustedForJUnitCheck", PhaseMemoryGuard.class, String.class, int.class);
-        m.setAccessible(true);
-        return (boolean) m.invoke(null, guard, what, unchecked);
+    private static boolean isMemoryExhausted(PhaseMemoryGuard guard, int unchecked) {
+        return new JUnitCheckBudget(guard).isMemoryExhausted(JUnitCheckBudget.Step.PER_TEST, unchecked);
     }
 
-    @SuppressWarnings("unchecked")
-    private static int invokeCheckAllTestsIfTime(List<TestCase> tests, long delta) throws Exception {
-        Method m = TestSuiteGenerator.class.getDeclaredMethod("checkAllTestsIfTime", List.class, long.class);
-        m.setAccessible(true);
-        return (int) m.invoke(null, tests, delta);
+    private static JUnitCheckBudget healthyBudget() {
+        return new JUnitCheckBudget(new PhaseMemoryGuard(() -> 1_000_000_000L, () -> { }, 100L));
     }
 
     @SuppressWarnings("unchecked")
     private static List<String> invokeResolveExtensionInitializationOrderIfNeeded(
-            List<TestCase> tests, long delta, long suiteRunMs) throws Exception {
+            List<TestCase> tests, long suiteRunMs) throws Exception {
         Method m = TestSuiteGenerator.class.getDeclaredMethod(
-                "resolveExtensionInitializationOrderIfNeeded", List.class, long.class, long.class);
+                "resolveExtensionInitializationOrderIfNeeded", List.class, JUnitCheckBudget.class, long.class);
         m.setAccessible(true);
-        return (List<String>) m.invoke(null, tests, delta, suiteRunMs);
+        return (List<String>) m.invoke(null, tests, healthyBudget(), suiteRunMs);
     }
 
 }

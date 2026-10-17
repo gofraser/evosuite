@@ -121,6 +121,31 @@ public class JUnitCheckIncompleteReasonsTest {
         assertEquals(Arrays.asList("skipped the whole JUnit check phase due to low memory"), recordedReasons());
     }
 
+    @Test
+    public void lowMemoryDuringThePhaseRecordsTheFirstSkippedCheckOnly() {
+        JUnitCheckBudget budget = new JUnitCheckBudget(new PhaseMemoryGuard(() -> 0L, () -> { }, 100L));
+        TimeController.getInstance().updateState(ClientState.STARTED);
+        TimeController.getInstance().updateState(ClientState.JUNIT_CHECK);
+
+        budget.mayRun(JUnitCheckBudget.Step.PER_TEST, 2);
+        budget.mayRun(JUnitCheckBudget.Step.WHOLE_SUITE, 0);
+        budget.mayRun(JUnitCheckBudget.Step.REVERSE_ORDER, 0);
+        budget.mayRun(JUnitCheckBudget.Step.ORDER_SENSITIVITY, 0);
+
+        assertEquals(Arrays.asList("low free JVM memory during JUnit check; "
+                + "skipping the remaining per-test JUnit checks and all later checks"), recordedReasons());
+    }
+
+    @Test
+    public void timeRunningOutBeforeTheReverseOrderCheckRecordsIt() {
+        startJUnitCheckPhaseWithTooLittleTimeForATest();
+        JUnitCheckBudget budget = new JUnitCheckBudget(new PhaseMemoryGuard(() -> 1_000L, () -> { }, 100L));
+
+        budget.mayRun(JUnitCheckBudget.Step.REVERSE_ORDER, 0);
+
+        assertEquals(Arrays.asList("ran out of time before the reverse-order JUnit check"), recordedReasons());
+    }
+
     private static void startJUnitCheckPhaseWithTooLittleTimeForATest() {
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXTIME;
         Properties.JUNIT_CHECK_TIMEOUT = 1;
