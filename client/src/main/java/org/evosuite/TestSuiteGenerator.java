@@ -372,8 +372,7 @@ public class TestSuiteGenerator {
             // tests of its own, and surface the diagnostic state to the log so we
             // can see how much budget we have left going into the write.
             if (postProcessFailed) {
-                Runtime rt = Runtime.getRuntime();
-                long freeMb = (rt.maxMemory() - rt.totalMemory() + rt.freeMemory()) / 1024 / 1024;
+                long freeMb = PhaseMemoryGuard.currentFreeHeapBytes() / 1024 / 1024;
                 long phaseMsLeft = TimeController.getInstance().getRemainingTimeInPhaseMs();
                 LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Proceeding to write with degraded state: freeMem=" + freeMb

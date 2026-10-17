@@ -70,4 +70,11 @@ public class PhaseMemoryGuardTest {
         assertEquals(1, collections.get());
         assertEquals(10L, guard.getLastFreeBytes());
     }
+
+    @Test
+    public void oneShotGuardsMeasureTheHeapAgainEachTime() {
+        assertTrue(PhaseMemoryGuard.oneShot(Long.MAX_VALUE).isExhausted());
+        assertFalse(PhaseMemoryGuard.oneShot(0L).isExhausted());
+        assertTrue(PhaseMemoryGuard.oneShot(Long.MAX_VALUE).isExhausted());
+    }
 }
