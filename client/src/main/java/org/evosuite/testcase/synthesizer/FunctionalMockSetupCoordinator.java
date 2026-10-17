@@ -194,12 +194,9 @@ public final class FunctionalMockSetupCoordinator {
             recipes.put(key, copyObservations(observations));
             failureKeys.add(failureKey);
             try {
-                List<Type> missingTypes = mock.updateMockedMethods();
-                List<VariableReference> values = synthesizeReturnValues(
+                added += mock.completeStubs(missingTypes -> synthesizeReturnValues(
                         candidate, mock, missingTypes,
-                        preferNonDefaultBooleans, numericHint);
-                mock.addMissingInputs(values);
-                added += values.size();
+                        preferNonDefaultBooleans, numericHint)).size();
             } catch (ConstructionFailedException | RuntimeException failure) {
                 logger.debug("Could not materialize functional-mock setup for {}", key, failure);
                 return null;

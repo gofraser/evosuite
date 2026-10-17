@@ -20,6 +20,7 @@
 package org.evosuite.testcase;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.fm.MethodDescriptor;
@@ -29,6 +30,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -239,6 +241,80 @@ public class FunctionalMockStubCharacterisationTest {
         assertEquals(4, values.size());
         assertSame(first, values.get(2));
         assertSame(second, values.get(3));
+    }
+
+    /** name() stubbed with three values; the use calls it twice and count() and label(int) once. */
+    private static TestCase partlyStubbedAndExecuted() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference first = tc.addStatement(new StringPrimitiveStatement(tc, "first"));
+        VariableReference second = tc.addStatement(new StringPrimitiveStatement(tc, "second"));
+        VariableReference third = tc.addStatement(new StringPrimitiveStatement(tc, "third"));
+        FunctionalMockStatement mock = new FunctionalMockStatement(tc, Service.class,
+                GenericClassFactory.get(Service.class));
+        VariableReference ref = tc.addStatement(mock);
+        stub(mock, "name", new Class<?>[0], 3, first, second, third);
+        use(tc, ref);
+        TestCaseExecutor.runTest(tc);
+        return tc;
+    }
+
+    @Test
+    public void completingTheStubsSetsTheCreatedValuesInTheOrderOfTheStubs() throws Exception {
+        TestCase tc = partlyStubbedAndExecuted();
+        FunctionalMockStatement mock = mockOf(tc);
+        List<java.lang.reflect.Type> requested = new ArrayList<>();
+
+        List<VariableReference> added = mock.completeStubs(types -> {
+            requested.addAll(types);
+            assertEquals(Arrays.asList(null, null, tc.getStatement(0).getReturnValue(),
+                    tc.getStatement(1).getReturnValue()), mock.getParameterReferences(),
+                    "the calls without a value are placeholders while the values are created");
+            VariableReference label = tc.addStatement(new StringPrimitiveStatement(tc, "lbl"), 0);
+            VariableReference count = tc.addStatement(new IntPrimitiveStatement(tc, 4), 0);
+            return Arrays.asList(count, label);
+        });
+
+        assertEquals(Arrays.asList(int.class, String.class), requested);
+        assertEquals(2, added.size());
+        assertEquals(Arrays.asList("count x1", "label x1", "name x2"), stubIds(mock));
+        assertEquals(Arrays.asList(0, 1, 2, 3), valuePositions(mock));
+        assertFalse(mock.doesNeedToUpdateInputs());
+    }
+
+    @Test
+    public void whenTheValuesCannotBeCreatedTheCallsAreAnsweredWithNull() throws Exception {
+        TestCase tc = partlyStubbedAndExecuted();
+        FunctionalMockStatement mock = mockOf(tc);
+
+        org.junit.jupiter.api.Assertions.assertThrows(ConstructionFailedException.class,
+                () -> mock.completeStubs(types -> {
+                    throw new ConstructionFailedException("no values");
+                }));
+
+        assertEquals(Arrays.asList("count x1", "label x1", "name x2"), stubIds(mock));
+        List<VariableReference> values = mock.getParameterReferences();
+        assertEquals(4, values.size());
+        assertTrue(values.get(0) instanceof ConstantValue);
+        assertEquals(0, ((ConstantValue) values.get(0)).getValue());
+        assertTrue(values.get(1) instanceof ConstantValue);
+        assertEquals(null, ((ConstantValue) values.get(1)).getValue());
+        assertSame(tc.getStatement(0).getReturnValue(), values.get(2));
+        assertFalse(mock.doesNeedToUpdateInputs());
+    }
+
+    @Test
+    public void tooFewCreatedValuesFailAndLeaveTheStubsComplete() throws Exception {
+        TestCase tc = partlyStubbedAndExecuted();
+        FunctionalMockStatement mock = mockOf(tc);
+        VariableReference count = tc.addStatement(new IntPrimitiveStatement(tc, 4), 0);
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> mock.completeStubs(types -> Arrays.asList(count)));
+
+        List<VariableReference> values = mock.getParameterReferences();
+        assertSame(count, values.get(0));
+        assertTrue(values.get(1) instanceof ConstantValue);
+        assertFalse(values.contains(null));
     }
 
     @Test

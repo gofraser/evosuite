@@ -862,7 +862,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         if (doesNeedToUpdateInputs()) {
             stubReplacedSinceUpdate = false;
             completePendingStubsWithNulls(stubs);
-            refreshParameters();
         }
     }
 
@@ -882,11 +881,78 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     private void completePendingStubsWithNulls(List<Stub> stubs) {
         try {
-            updateStubs(stubs);
-        } catch (Exception e) {
+            completeStubs(stubs, null);
+        } catch (ConstructionFailedException | RuntimeException e) {
             // A return type that cannot be resolved leaves the stubs as far as they were updated
         }
+    }
+
+    /**
+     * Creates the values of the calls that a stub has no value for yet.
+     */
+    @FunctionalInterface
+    public interface StubValueFactory {
+        /**
+         * Creates the values; it may add statements in front of the mock to do so.
+         *
+         * @param types the return types of the calls without a value, in the order of the stubs;
+         *              possibly empty
+         * @return one value for each type, in the same order
+         * @throws ConstructionFailedException if the values cannot be created
+         */
+        List<VariableReference> create(List<Type> types) throws ConstructionFailedException;
+    }
+
+    /**
+     * Brings the stubs in line with the last execution, as {@link #updateMockedMethods()} does,
+     * and gives each call that has no value yet the value that {@code values} creates for it. If
+     * that fails, the calls still without a value are answered as in
+     * {@link #completePendingStubsWithNulls()} before the failure is passed on, so the stubs are
+     * complete either way.
+     *
+     * @param values creates the values of the calls that have none
+     * @return the values that were added
+     * @throws ConstructionFailedException if a return type cannot be resolved or the values cannot
+     *                                     be created
+     */
+    public List<VariableReference> completeStubs(StubValueFactory values) throws ConstructionFailedException {
+        Inputs.checkNull(values);
+        stubReplacedSinceUpdate = false;
+        return completeStubs(stubs, values);
+    }
+
+    /**
+     * Completes the given stubs, which are either this statement's own or a copy of them.
+     *
+     * @param values creates the missing values; if null, a call without a value returns the value
+     *               of the previous call of its method, or null
+     */
+    private List<VariableReference> completeStubs(List<Stub> stubs, StubValueFactory values)
+            throws ConstructionFailedException {
+        boolean own = stubs == this.stubs;
+        List<VariableReference> created = Collections.emptyList();
+        try {
+            List<Type> missing = updateStubs(stubs);
+            if (values != null) {
+                if (own) {
+                    // the placeholders are inputs of this statement while the values are created
+                    refreshParameters();
+                }
+                created = values.create(missing);
+                setMissingValues(stubs, created);
+            }
+        } catch (ConstructionFailedException | RuntimeException e) {
+            fillWithNullRefs(stubs);
+            if (own) {
+                refreshParameters();
+            }
+            throw e;
+        }
         fillWithNullRefs(stubs);
+        if (own) {
+            refreshParameters();
+        }
+        return created;
     }
 
     /**
@@ -1048,37 +1114,48 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * @throws IllegalArgumentException if inputs is null or mismatch
      */
     public void addMissingInputs(List<VariableReference> inputs) throws IllegalArgumentException {
+        try {
+            setMissingValues(stubs, inputs);
+        } finally {
+            refreshParameters();
+        }
+    }
+
+    private static void setMissingValues(List<Stub> stubs, List<VariableReference> inputs)
+            throws IllegalArgumentException {
         Inputs.checkNull(inputs);
 
         logger.debug("Adding {} missing values", inputs.size());
 
-        if (inputs.size() > parameters.size()) {
+        int size = 0;
+        for (Stub stub : stubs) {
+            size += stub.values.size();
+        }
+        if (inputs.size() > size) {
             //first quick check
             throw new IllegalArgumentException("Not enough parameter place holders");
         }
 
         Iterator<VariableReference> next = inputs.iterator();
-        try {
-            for (Stub stub : stubs) {
-                for (int i = 0; i < stub.values.size() && next.hasNext(); i++) {
-                    if (stub.values.get(i) == null) {
-                        VariableReference ref = next.next();
-                        assert ref.isAssignableTo(stub.method.getMethod().getReturnType());
-                        stub.values.set(i, ref);
-                    }
+        for (Stub stub : stubs) {
+            for (int i = 0; i < stub.values.size() && next.hasNext(); i++) {
+                if (stub.values.get(i) == null) {
+                    VariableReference ref = next.next();
+                    assert ref.isAssignableTo(stub.method.getMethod().getReturnType());
+                    stub.values.set(i, ref);
                 }
             }
-        } finally {
-            refreshParameters();
         }
         if (next.hasNext()) {
             throw new IllegalArgumentException("Not enough parameter place holders");
         }
 
         //check if all "holes" have been filled
-        if (parameters.contains(null)) {
-            throw new IllegalArgumentException("Functional mock not fully set with all"
-                    + " needed missing inputs");
+        for (Stub stub : stubs) {
+            if (stub.values.contains(null)) {
+                throw new IllegalArgumentException("Functional mock not fully set with all"
+                        + " needed missing inputs");
+            }
         }
     }
 

@@ -48,7 +48,6 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -556,27 +555,15 @@ public final class DmonPromotionOperator {
                 continue;
             }
             try {
-                List<Type> missing = fms.updateMockedMethods();
-                List<VariableReference> refs;
-                try {
-                    refs = factory.satisfyParameters(test, null, missing, null,
-                            st.getPosition(), 1, false, false, true);
-                } catch (Exception e) {
-                    // Keep the mock structurally valid even if value synthesis fails.
-                    fms.fillWithNullRefs();
-                    logger.debug("DMoN mock materialization fallback to null refs for {}: {}",
-                            fms.getTargetClass(), e.getMessage());
-                    changed = true;
-                    continue;
-                }
-                fms.addMissingInputs(refs);
-                changed = true;
+                fms.completeStubs(missing -> factory.satisfyParameters(test, null, missing, null,
+                        st.getPosition(), 1, false, false, true));
             } catch (Exception e) {
-                logger.debug("DMoN mock materialization failed for {}: {}",
+                // The mock stays structurally valid: the calls without a value are answered
+                // with null.
+                logger.debug("DMoN mock materialization fallback to null refs for {}: {}",
                         fms.getTargetClass(), e.getMessage(), e);
-                fms.fillWithNullRefs();
-                changed = true;
             }
+            changed = true;
         }
         return changed;
     }
