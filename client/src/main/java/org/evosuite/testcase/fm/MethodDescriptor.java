@@ -80,6 +80,9 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
     private String id; //derived field
     private final Class<?>[] matcherParameterTypes;
 
+    /** The last result of {@link #getStubTarget}, which is asked once for each stub and render. */
+    private transient volatile StubTarget stubTarget;
+
 
     /**
      * Summary.
@@ -104,7 +107,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         this.matcherParameterTypes = matcherParameterTypes;
     }
 
-    private String initMatchers(Class<?>[] paramTypes) {
+    private static String initMatchers(Class<?>[] paramTypes) {
 
         StringJoiner matchers = new StringJoiner(", ");
         for (Class<?> type : paramTypes) {
@@ -383,6 +386,72 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
      */
     public void changeClassLoader(ClassLoader loader) {
         method.changeClassLoader(loader);
+        stubTarget = null;
+    }
+
+    /**
+     * The method that a stub of this descriptor names on a mock, with the matchers for its
+     * parameters. The source code of a stub, {@code when(mock).method(matchers)}, binds to the
+     * method of the mocked class with this descriptor's name and parameter types or, if that is a
+     * synthetic bridge, to the method the bridge forwards to; see
+     * {@link #resolveBridgedMethod(Method)}. Its matchers are built from that method's parameter
+     * types, as seen from the type of the mock.
+     */
+    public static final class StubTarget {
+        private final Class<?> targetClass;
+        private final GenericClass<?> owner;
+        private final Method method;
+        private final Class<?>[] matcherTypes;
+        private final String matchers;
+
+        private StubTarget(Class<?> targetClass, GenericClass<?> owner, Method method) {
+            this.targetClass = targetClass;
+            this.owner = owner;
+            this.method = method;
+            this.matcherTypes = determineMatcherParameterTypes(new GenericMethod(method, owner));
+            this.matchers = initMatchers(matcherTypes);
+        }
+
+        /** @return the stubbed method */
+        public Method getMethod() {
+            return method;
+        }
+
+        /** @return the matchers of the parameters as source code, separated by commas */
+        public String getMatchers() {
+            return matchers;
+        }
+    }
+
+    /**
+     * The method that a stub of this descriptor names on a mock of {@code targetClass}.
+     *
+     * @param targetClass the mocked class
+     * @param owner       the type of the mock
+     * @return the stubbed method and its matchers
+     */
+    public StubTarget getStubTarget(Class<?> targetClass, GenericClass<?> owner) {
+        StubTarget target = stubTarget;
+        if (target != null && target.targetClass == targetClass && target.owner.equals(owner)) {
+            return target;
+        }
+        Method stubbed = getMethod();
+        try {
+            // Mockito sometimes intercepts methods on the generated proxy class.
+            // To resolve generic type parameters correctly, we need the method
+            // from the original target interface/class.
+            stubbed = targetClass.getMethod(methodName, getMethod().getParameterTypes());
+            // The erased signature of a generic interface method (Comparable.compareTo(T))
+            // finds the bridge compareTo(Object) of a class implementing Comparable<Self>.
+            // Its Object parameter yields nullable(Object.class), which javac cannot
+            // infer against the real compareTo(Self).
+            stubbed = resolveBridgedMethod(stubbed);
+        } catch (Exception e) {
+            // the recorded method
+        }
+        target = new StubTarget(targetClass, owner, stubbed);
+        stubTarget = target;
+        return target;
     }
 
     /**
