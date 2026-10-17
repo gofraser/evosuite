@@ -795,6 +795,70 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     /**
+     * One stubbed method of a rendered mock and the values its successive calls return.
+     */
+    public static final class Stub {
+        private final MethodDescriptor method;
+        private final int[] range;
+        private final List<VariableReference> parameters;
+
+        private Stub(MethodDescriptor method, int[] range, List<VariableReference> parameters) {
+            this.method = method;
+            this.range = range;
+            this.parameters = parameters;
+        }
+
+        public MethodDescriptor getMethod() {
+            return method;
+        }
+
+        public List<VariableReference> getValues() {
+            List<VariableReference> values = new ArrayList<>();
+            for (int i = range[0]; i <= range[1]; i++) {
+                values.add(parameters.get(i));
+            }
+            return values;
+        }
+    }
+
+    /**
+     * The stubs of the generated code: every mocked method that returns a value, with its values.
+     * A mock whose stubs lag behind its last execution is shown as
+     * {@link #completePendingStubsWithNulls()} would leave it, but that completion is done on
+     * a copy of the stubs, so this statement is not changed.
+     *
+     * @return the stubs in the order they are declared
+     */
+    public List<Stub> getStubsToRender() {
+        List<MethodDescriptor> methods = mockedMethods;
+        Map<String, int[]> ranges = methodParameters;
+        List<VariableReference> values = parameters;
+        if (doesNeedToUpdateInputs()) {
+            methods = new ArrayList<>(mockedMethods);
+            ranges = new LinkedHashMap<>();
+            for (Map.Entry<String, int[]> entry : methodParameters.entrySet()) {
+                int[] range = entry.getValue();
+                ranges.put(entry.getKey(), range == null ? null : range.clone());
+            }
+            values = new ArrayList<>(parameters);
+            completePendingStubsWithNulls(methods, ranges, values);
+        }
+
+        List<Stub> stubs = new ArrayList<>();
+        for (MethodDescriptor md : methods) {
+            if (!md.shouldBeMocked()) {
+                continue;
+            }
+            int[] range = ranges.get(md.getID());
+            if (range == null) {
+                continue;
+            }
+            stubs.add(new Stub(md, range, values));
+        }
+        return stubs;
+    }
+
+    /**
      * Brings the stubs in line with the last execution, as the generated test declares them:
      * a call that has no value yet returns the value of the previous call of the same method, or
      * null (a default value for a primitive). The search instead generates values for those

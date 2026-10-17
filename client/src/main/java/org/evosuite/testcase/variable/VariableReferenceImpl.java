@@ -100,7 +100,7 @@ public class VariableReferenceImpl implements VariableReference {
                 StringBuilder msg = new StringBuilder("VariableReference not found in TestCase\n");
                 msg.append("Test case has ").append(testCase.size()).append(" function calls \n");
                 // Name the statement kinds only: rendering them with getCode() would re-enter
-                // TestCodeVisitor and rewrite functional mocks in place.
+                // TestCodeVisitor, which looks up the positions of variables such as this one.
                 for (int i = 0; i < testCase.size(); i++) {
                     msg.append(testCase.getStatement(i).getClass().getSimpleName()).append("\n");
                 }

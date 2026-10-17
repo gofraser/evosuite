@@ -37,7 +37,6 @@ import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Type;
@@ -53,12 +52,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Characterisation of the text generated for tests with functional mocks, before rendering is
- * made free of side effects on the model.
+ * Characterisation of the text generated for tests with functional mocks, and of rendering
+ * leaving the model unchanged.
  *
- * <p>The mocks here are "already repaired": their stubs are complete, so the
- * repair that rendering performs today has nothing left to do. Their rendering must stay
- * byte-identical when {@code getCode}/{@code toCode} become pure.
+ * <p>Most mocks here are "already repaired": their stubs are complete, so their text does not
+ * depend on how pending stubs are rendered. An executed mock whose stubs were never completed is
+ * rendered with null answers, and rendering it must not complete its stubs.
  */
 public class MockRenderingCharacterisationTest {
 
@@ -439,9 +438,8 @@ public class MockRenderingCharacterisationTest {
         assertEquals(first, second);
     }
 
-    /** Rendering today completes the pending stubs of the mock it renders. */
+    /** Rendering must not complete the pending stubs of the mock it renders. */
     @Test
-    @Disabled("package 1: rendering still mutates")
     public void renderingAnUnrepairedTestLeavesTheMockUntouched() throws Exception {
         TestCase tc = executedUnrepairedMock();
         List<String> before = modelState(tc);
@@ -454,7 +452,6 @@ public class MockRenderingCharacterisationTest {
 
     /** The same for the code of one statement (AbstractStatement#getCode). */
     @Test
-    @Disabled("package 1: rendering still mutates")
     public void renderingAnUnrepairedStatementLeavesTheMockUntouched() throws Exception {
         TestCase tc = executedUnrepairedMock();
         List<String> before = modelState(tc);
