@@ -36,12 +36,12 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Pins a related provenance gap in {@code TestClusterUtils}'s private {@code isJdkClass(Class)},
+ * Pins a related provenance gap in {@link ClassOrigin#isJdkOrJavaFx(Class)},
  * which backs {@link TestClusterUtils#checkIfCanUse(String, Class)}'s ambiguous-prefix exception
  * for prefixes such as {@code com.sun.} that both the JDK and ordinary libraries use (see that
  * method's own Javadoc for why the exception exists at all).
  *
- * <p>{@code isJdkClass} classified a class as JDK-provenance whenever its module's name started
+ * <p>{@code isJdkOrJavaFx} classified a class as JDK-provenance whenever its module's name started
  * with {@code java.}/{@code jdk.}, with no check that the module actually came from the running
  * JDK. A module named {@code java.fake} that exports an unrelated, genuinely ambiguous package
  * (for example {@code com.sun.example}) made every class in that package look like JDK code,
@@ -50,7 +50,7 @@ import java.util.Set;
  * class's own package.
  *
  * <p>This is the same class of defect {@link TestUsageCheckerPlatformClassTest} pins for
- * {@link TestUsageChecker#isPlatformClass(Class)}, and the fix reuses the same signal
+ * {@link ClassOrigin#isJdk(Class)}, and the fix reuses the same signal
  * ({@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)}): a {@code java.}/{@code jdk.}-named module
  * must also be one the running JDK's own install image actually ships.
  */

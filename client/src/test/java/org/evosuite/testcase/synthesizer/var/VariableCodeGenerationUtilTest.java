@@ -89,6 +89,36 @@ public class VariableCodeGenerationUtilTest {
         assertFalse(VariableCodeGenerationUtil.isFreshlyConstructedReceiver(test, receiver));
     }
 
+    @Test
+    public void elementAddMethodIsNotTheErasedBridge() {
+        String previous = org.evosuite.Properties.CLASS_PREFIX;
+        try {
+            org.evosuite.Properties.CLASS_PREFIX = NameBag.class.getPackage().getName();
+            // javac ignores the add(Object) bridge, so a call to it with an Object does not compile.
+            Method add = VariableCodeGenerationUtil.findElementAddMethod(NameBag.class);
+            assertEquals(String.class, add.getParameterTypes()[0], add.toString());
+        } finally {
+            org.evosuite.Properties.CLASS_PREFIX = previous;
+        }
+    }
+
+    public static final class NameBag extends java.util.AbstractCollection<String> {
+        @Override
+        public boolean add(String name) {
+            return true;
+        }
+
+        @Override
+        public java.util.Iterator<String> iterator() {
+            return Collections.emptyIterator();
+        }
+
+        @Override
+        public int size() {
+            return 0;
+        }
+    }
+
     public static class SetterFixture {
         private int value;
 

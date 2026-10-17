@@ -106,6 +106,16 @@ public class HiddenFieldAccessibleFieldsCompileTest {
     }
 
     @Test
+    public void testAccessibleFieldsFollowTheTestPackage() {
+        assertEquals(1, TestClusterUtils.getAccessibleFields(Ret.class).size());
+        // From another package the package-private hiding field is invisible, and the public
+        // field it hides cannot be reached through a Ret reference either.
+        Properties.CLASS_PREFIX = "some.other.pkg";
+        assertEquals(0, TestClusterUtils.getAccessibleFields(Ret.class).size(),
+                TestClusterUtils.getAccessibleFields(Ret.class).toString());
+    }
+
+    @Test
     public void testAssignmentThroughOfferedFieldCompiles() throws Exception {
         Field field = TestClusterUtils.getAccessibleFields(Ret.class).iterator().next();
         TestCase tc = new DefaultTestCase();

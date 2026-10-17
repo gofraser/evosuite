@@ -46,7 +46,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * Pins the fix for {@link TestUsageChecker#isPlatformClass(Class)}: before this fix it
+ * Pins the fix for {@link ClassOrigin#isJdk(Class)}: before this fix it
  * recognised only bootstrap-loaded classes ({@code getClassLoader() == null}) as JDK
  * types, which misses every class the module system moved onto the <em>platform</em>
  * loader since Java 9 (for example {@code java.sql.SQLPermission}). With
@@ -113,7 +113,7 @@ class TestUsageCheckerPlatformClassTest {
         // java.lang.String: classLoader == null, module java.base. True under both
         // the old loader check and the new module check; a baseline sanity check.
         Assertions.assertNull(String.class.getClassLoader());
-        Assertions.assertTrue(TestUsageChecker.isPlatformClass(String.class));
+        Assertions.assertTrue(ClassOrigin.isJdk(String.class));
     }
 
     @Test
@@ -128,7 +128,7 @@ class TestUsageCheckerPlatformClassTest {
         Assertions.assertTrue(SQLPermission.class.getModule().isNamed());
         Assertions.assertTrue(SQLPermission.class.getModule().getName().startsWith("java."));
 
-        Assertions.assertTrue(TestUsageChecker.isPlatformClass(SQLPermission.class));
+        Assertions.assertTrue(ClassOrigin.isJdk(SQLPermission.class));
     }
 
     @Test
@@ -140,7 +140,7 @@ class TestUsageCheckerPlatformClassTest {
         // which the module-based check correctly rejects.
         Assertions.assertFalse(UserClassInJdkPrefixedPackage.class.getModule().isNamed());
 
-        Assertions.assertFalse(TestUsageChecker.isPlatformClass(UserClassInJdkPrefixedPackage.class));
+        Assertions.assertFalse(ClassOrigin.isJdk(UserClassInJdkPrefixedPackage.class));
     }
 
     @Test
@@ -158,7 +158,7 @@ class TestUsageCheckerPlatformClassTest {
         Assertions.assertNotEquals(ClassLoader.getPlatformClassLoader(), jdiPermission.getClassLoader(),
                 "jdk.jdi classes are defined by the system/application loader, not the platform loader");
 
-        Assertions.assertTrue(TestUsageChecker.isPlatformClass(jdiPermission),
+        Assertions.assertTrue(ClassOrigin.isJdk(jdiPermission),
                 "a genuine JDK module must be classified as platform code even when its "
                         + "defining loader is the ordinary system/application class loader");
     }
@@ -178,7 +178,7 @@ class TestUsageCheckerPlatformClassTest {
         loadTarget(LiveAbstractBase.class);
         Properties.USE_DEPRECATED = false;
 
-        // Before the fix, isPlatformClass(SQLPermission.class) was false, so this
+        // Before the fix, isJdk(SQLPermission.class) was false, so this
         // platform-loaded-but-annotated type was treated as ordinary deprecated API
         // and excluded here, even though LiveAbstractBase (the loaded target) does
         // not itself exempt it from the filter.
@@ -191,7 +191,7 @@ class TestUsageCheckerPlatformClassTest {
         // module from calling itself "java.whatever" and defining a class inside it. This
         // compiles and loads exactly such a module through a real ModuleLayer -- the same
         // way a dependency assembled with a custom module descriptor could -- to confirm
-        // isPlatformClass() is not fooled by the name prefix alone.
+        // isJdk() is not fooled by the name prefix alone.
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         Assumptions.assumeTrue(compiler != null,
                 "no system Java compiler available to build the spoofed-module fixture "
@@ -222,9 +222,9 @@ class TestUsageCheckerPlatformClassTest {
             Class<?> spoofed = layer.findLoader(moduleName).loadClass(className);
 
             // Confirm the fixture actually set up the situation the finding describes,
-            // before relying on it to exercise isPlatformClass(). The defining loader is
+            // before relying on it to exercise isJdk(). The defining loader is
             // deliberately not asserted here beyond non-boot/non-platform: the real
-            // distinguishing signal isPlatformClass() relies on is the module's own traced
+            // distinguishing signal isJdk() relies on is the module's own traced
             // reference origin (see JavaModuleLookup#isFromSystemImage) -- see
             // testAppLoadedGenuineJdkModuleIsPlatformClass for why loader identity alone
             // would also reject a genuine JDK tool module, and
@@ -241,7 +241,7 @@ class TestUsageCheckerPlatformClassTest {
                             + "already have failed the now-retired boot-layer check; the startup-resolved "
                             + "case below is the one that check missed)");
 
-            Assertions.assertFalse(TestUsageChecker.isPlatformClass(spoofed),
+            Assertions.assertFalse(ClassOrigin.isJdk(spoofed),
                     "a java.*-named module must not be classified as JDK platform code merely "
                             + "because of its name");
         } finally {
@@ -257,12 +257,12 @@ class TestUsageCheckerPlatformClassTest {
      * interchangeable: a startup-resolved module lands in {@code ModuleLayer.boot()}, so it would
      * have passed the previous (boot-layer-membership) version of this check even though it is
      * ordinary application code with no connection to the running JDK -- see the corrected class
-     * and method Javadoc on {@link TestUsageChecker#isPlatformClass(Class)} and
+     * and method Javadoc on {@link ClassOrigin#isJdk(Class)} and
      * {@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)} for the measured proof. An in-process test
      * cannot create this situation: {@code ModuleLayer.boot()} is fixed before any test method
      * runs, so this launches a real child JVM instead, with the spoofed module pre-declared on
      * its command line exactly the way a dependency assembled that way would be, and reads back
-     * what {@link TestUsageChecker#isPlatformClass(Class)} reports for a class it exports.
+     * what {@link ClassOrigin#isJdk(Class)} reports for a class it exports.
      */
     @Test
     void testStartupResolvedUserModuleNamedLikeAJdkModuleIsNotPlatformClass() throws Exception {
@@ -291,15 +291,14 @@ class TestUsageCheckerPlatformClassTest {
                     "-d", moduleDir.toString(), moduleInfo.toString(), userType.toString());
             Assertions.assertEquals(0, moduleCompileResult, "startup-module fixture must compile");
 
-            // The child JVM's runner must live in the same package as TestUsageChecker to call
-            // its package-private isPlatformClass(Class); compile it against this test's own
-            // classpath so it can resolve that class.
+            // The child JVM's runner calls ClassOrigin.isJdk(Class); compile it against this
+            // test's own classpath so it can resolve that class.
             Path runnerSource = runnerDir.resolve("StartupModulePlatformClassRunner.java");
             Files.writeString(runnerSource, "package org.evosuite.setup;"
                     + " public class StartupModulePlatformClassRunner {"
                     + "   public static void main(String[] args) throws Exception {"
                     + "     Class<?> target = Class.forName(args[0]);"
-                    + "     System.out.println(TestUsageChecker.isPlatformClass(target));"
+                    + "     System.out.println(ClassOrigin.isJdk(target));"
                     + "   }"
                     + " }");
             String testClasspath = System.getProperty("java.class.path");
@@ -338,7 +337,7 @@ class TestUsageCheckerPlatformClassTest {
                 // A module placed on --module-path and named in --add-modules at JVM startup is
                 // resolved into ModuleLayer.boot() -- unlike the runtime-created layer above,
                 // there is no way to construct this situation in-process. Exactly this case
-                // passed the previous (boot-layer-membership) version of isPlatformClass(): the
+                // passed the previous (boot-layer-membership) version of isJdk(): the
                 // measured output there was "true", with the module's layer reported as
                 // ModuleLayer.boot().
                 Assertions.assertEquals("false", output.trim(),
@@ -426,7 +425,7 @@ class TestUsageCheckerPlatformClassTest {
                     "the fixture's module reference must differ from the image's own, or this "
                             + "is not the same-name/different-origin situation the finding describes");
 
-            Assertions.assertFalse(TestUsageChecker.isPlatformClass(duplicate),
+            Assertions.assertFalse(ClassOrigin.isJdk(duplicate),
                     "a module merely reusing the name of a real image module, resolved from "
                             + "somewhere other than the image itself, must not be classified as "
                             + "JDK platform code");
@@ -460,7 +459,7 @@ class TestUsageCheckerPlatformClassTest {
     void testOrdinaryClasspathLibraryClassIsNotPlatformClass() {
         Assertions.assertFalse(org.apache.commons.lang3.ClassUtils.class.getModule().isNamed(),
                 "commons-lang3 is expected to be an ordinary, non-modular classpath dependency here");
-        Assertions.assertFalse(TestUsageChecker.isPlatformClass(org.apache.commons.lang3.ClassUtils.class));
+        Assertions.assertFalse(ClassOrigin.isJdk(org.apache.commons.lang3.ClassUtils.class));
     }
 
     private static void deleteRecursively(Path root) throws IOException {

@@ -115,11 +115,10 @@ public class TestUsageChecker {
      */
     public static boolean canUse(Constructor<?> c) {
 
-        if (c.isSynthetic()) {
+        if (isNotCallableFromSource(c)) {
             return false;
         }
 
-        // synthetic constructors are OK
         if (Modifier.isAbstract(c.getDeclaringClass().getModifiers())) {
             return false;
         }
@@ -164,33 +163,19 @@ public class TestUsageChecker {
             return false;
         }
 
-        // A public constructor is as unusable as a method when it takes a source-private type
-        if (hasSourcePrivateParameterType(c.getParameterTypes())) {
+        if (!Modifier.isPublic(c.getModifiers())) {
+            for (java.lang.reflect.Type paramType : c.getGenericParameterTypes()) {
+                if (!canUse(paramType)) {
+                    return false;
+                }
+            }
+        }
+
+        if (!isVisibleFromTestPackage(c.getDeclaringClass(), c.getModifiers())) {
             return false;
         }
-
-        if (Modifier.isPublic(c.getModifiers())) {
-            TestClusterUtils.makeAccessible(c);
-            return true;
-        }
-
-        for (java.lang.reflect.Type paramType : c.getGenericParameterTypes()) {
-            if (!canUse(paramType)) {
-                return false;
-            }
-        }
-
-        // If default access rights, then check if this class is in the same package as the target class
-        if (!Modifier.isPrivate(c.getModifiers())) {
-            //                && !Modifier.isProtected(c.getModifiers())) {
-            String packageName = ClassUtils.getPackageName(c.getDeclaringClass());
-            if (packageName.equals(Properties.CLASS_PREFIX)) {
-                TestClusterUtils.makeAccessible(c);
-                return true;
-            }
-        }
-
-        return false;
+        TestClusterUtils.makeAccessible(c);
+        return true;
     }
 
     /**
@@ -235,7 +220,9 @@ public class TestUsageChecker {
 
         if (!Properties.USE_DEPRECATED) {
             try {
-                if (c.isAnnotationPresent(Deprecated.class) && !isPlatformClass(c)
+                // JDK types deprecated after Java 8 (Observable, AttributeList) stay usable:
+                // refusing them would drop every SUT method that takes one.
+                if (c.isAnnotationPresent(Deprecated.class) && !ClassOrigin.isJdk(c)
                         && !isExemptFromDeprecationFilter(c)) {
                     logger.debug("Skipping deprecated class " + c.getName());
                     return false;
@@ -357,17 +344,8 @@ public class TestUsageChecker {
         }
 
 
-        if (Modifier.isPublic(c.getModifiers())) {
+        if (isVisibleFromTestPackage(c, c.getModifiers())) {
             return true;
-        }
-
-        // If default access rights, then check if this class is in the same package as the target class
-        if (!Modifier.isPrivate(c.getModifiers())) {
-            //                && !Modifier.isProtected(c.getModifiers())) {
-            String packageName = ClassUtils.getPackageName(c);
-            if (packageName.equals(Properties.CLASS_PREFIX)) {
-                return true;
-            }
         }
 
         logger.debug("Not public");
@@ -407,64 +385,6 @@ public class TestUsageChecker {
     }
 
     /**
-     * Whether a class comes from the JDK itself rather than from the code under test.
-     *
-     * <p>Since Java 9 the JDK's named modules are not all loaded the same way: a module
-     * such as {@code java.base} or {@code jdk.unsupported} can still be defined by the
-     * bootstrap loader (a null {@code getClassLoader()}), while another such as
-     * {@code java.sql} is defined by the <em>platform</em> loader instead. Loader
-     * identity alone is therefore insufficient to recognise JDK classes.
-     *
-     * <p>We classify by module origin, not by module name or loader identity: a module's
-     * name is just a string the code that built it chose, and a module placed on
-     * {@code --module-path} and named in {@code --add-modules} at JVM <em>startup</em>
-     * resolves into the same boot layer, and can be defined by the same loader, as genuine
-     * JDK code -- so neither a {@code java.}/{@code jdk.}-prefixed name nor loader identity
-     * proves JDK provenance. {@link JavaModuleLookup#isFromSystemImage} is the authoritative
-     * per-class check; see its documentation for the actual reference-origin contract
-     * (including why it still accepts a genuine, system-image module that the ordinary
-     * system/application loader defines, such as {@code jdk.jdi}, and rejects a same-named
-     * user module such as a spoofed {@code jdk.hotspot.agent}).
-     *
-     * <p>{@code Class#getModule()} is Java 9+, and this module's main source compiles against
-     * the Java 8 API (see {@code runtime}'s own Java 8 floor, enforced on this module the same
-     * way), so it is looked up reflectively via the shared {@link JavaModuleLookup}, which also
-     * backs {@code TestClusterUtils#isJdkClass} for the module half of the identical
-     * constraint; on an actual Java 8 JVM the module lookup itself fails (there is no module
-     * system yet) and this falls back to the old bootstrap-loader check, which is exactly
-     * correct there, since Java 8 predates both named modules and the boot layer entirely.
-     *
-     * <p>A user class loaded the ordinary way (app class loader, classpath) is always in
-     * an <em>unnamed</em> module, which fails the {@code isNamed()} check regardless of
-     * its package name -- except that a {@code java.}-prefixed package is also
-     * independently blocked there ({@code SecurityException: Prohibited package name}).
-     * Neither restriction applies to a module built and loaded the way the spoofs above
-     * do, which is why the system-module check is also needed.
-     *
-     * <p>This matters for the {@code USE_DEPRECATED} filter. That option exists to stop
-     * us generating tests for API the project itself has deprecated, but several JDK
-     * types picked up a {@code @Deprecated} annotation after Java 8 -- {@code
-     * java.util.Observable} in Java 9, {@code org.xml.sax.AttributeList} long before
-     * that, and (depending on the running JDK) platform-loaded types such as {@code
-     * java.sql.SQLPermission}. Excluding those does not spare anyone a test of obsolete
-     * API: it makes the SUT's own undeprecated methods uncallable, because a method
-     * whose parameter type we refuse to use is dropped from the test cluster entirely.
-     * So a class like {@code nu.staldal.xmlutil.ContentHandlerAdapter}, whose whole
-     * contract is {@code startElement(String, AttributeList)}, loses the branches that
-     * matter.
-     *
-     * @param c the class to check
-     * @return true if {@code c} is a JDK platform class
-     */
-    static boolean isPlatformClass(Class<?> c) {
-        JavaModuleLookup.Result result = JavaModuleLookup.lookupModule(c);
-        if (result.isUnavailable()) {
-            return c.getClassLoader() == null;
-        }
-        return JavaModuleLookup.isSystemImageJdkModule(result);
-    }
-
-    /**
      * Whether {@code c} is declared in a package its named module does not export to everyone
      * (e.g. {@code java.awt.peer}, {@code sun.security.validator}). Generated tests cannot import
      * or name such a class: javac reports "package ... is not visible".
@@ -490,10 +410,14 @@ public class TestUsageChecker {
     public static boolean isCallableFromTestPackage(java.lang.reflect.Member member) {
         int modifiers = member instanceof Field
                 ? getOriginalFieldModifiers((Field) member) : member.getModifiers();
-        return isCallableFromTestPackage(member.getDeclaringClass(), modifiers);
+        return isVisibleFromTestPackage(member.getDeclaringClass(), modifiers);
     }
 
-    private static boolean isCallableFromTestPackage(Class<?> declaringClass, int modifiers) {
+    /**
+     * Whether a class or member with these modifiers, declared in {@code declaringClass}, is visible
+     * from the package of the generated test: public, or neither private nor in another package.
+     */
+    private static boolean isVisibleFromTestPackage(Class<?> declaringClass, int modifiers) {
         if (Modifier.isPrivate(modifiers)) {
             return false;
         }
@@ -677,7 +601,7 @@ public class TestUsageChecker {
         }
 
         int modifiers = getOriginalFieldModifiers(f);
-        if (!isCallableFromTestPackage(f.getDeclaringClass(), modifiers)) {
+        if (!isVisibleFromTestPackage(f.getDeclaringClass(), modifiers)) {
             return false;
         }
         if (Modifier.isPublic(modifiers)) {
@@ -1003,23 +927,13 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (m.isBridge()) {
-            logger.debug("Excluding bridge method: " + m);
+        if (isNotCallableFromSource(m)) {
+            logger.debug("Excluding method that source code cannot call: " + m);
             return false;
         }
 
         if (!isValidJavaIdentifier(m.getName())) {
             logger.debug("Excluding method with non-Java identifier name: " + m.getName());
-            return false;
-        }
-
-        if (isCompilerGeneratedAccessorMethod(m)) {
-            logger.debug("Excluding compiler-generated accessor method: " + m);
-            return false;
-        }
-
-        if (m.isSynthetic()) {
-            logger.debug("Excluding synthetic method: " + m);
             return false;
         }
 
@@ -1193,30 +1107,24 @@ public class TestUsageChecker {
             return false;
         }
 
-        // If default or
-        if (Modifier.isPublic(m.getModifiers())) {
-            TestClusterUtils.makeAccessible(m);
-            return true;
+        if (!isVisibleFromTestPackage(m.getDeclaringClass(), m.getModifiers())) {
+            return false;
         }
-
-        // If default access rights, then check if this class is in the same package as the target class
-        if (!Modifier.isPrivate(m.getModifiers())) {
-            // && !Modifier.isProtected(m.getModifiers())) {
-            String packageName = ClassUtils.getPackageName(ownerClass);
-            String declaredPackageName = ClassUtils.getPackageName(m.getDeclaringClass());
+        if (!Modifier.isPublic(m.getModifiers())) {
+            // A non-public method is only reachable through an owner in its own package.
+            if (!ClassUtils.getPackageName(ownerClass).equals(ClassUtils.getPackageName(m.getDeclaringClass()))) {
+                return false;
+            }
             // A default-access abstract method is only skipped for ordinary classes, where the
             // implementation may live in a subclass outside the package. The constants of an
             // enum with constant-specific bodies are nested in the enum itself, and such an
             // abstract method is often its only entry point (a state-machine enum, for example).
-            if (packageName.equals(Properties.CLASS_PREFIX)
-                    && packageName.equals(declaredPackageName)
-                    && (!Modifier.isAbstract(m.getModifiers()) || m.getDeclaringClass().isEnum())) {
-                TestClusterUtils.makeAccessible(m);
-                return true;
+            if (Modifier.isAbstract(m.getModifiers()) && !m.getDeclaringClass().isEnum()) {
+                return false;
             }
         }
-
-        return false;
+        TestClusterUtils.makeAccessible(m);
+        return true;
     }
 
     /**
@@ -1236,7 +1144,7 @@ public class TestUsageChecker {
         }
 
         String className = declaringClass.getName();
-        if (!className.startsWith("java.awt.") && !className.startsWith("javax.swing.")) {
+        if (!ClassOrigin.isJdkGuiName(className)) {
             return false;
         }
 
@@ -1296,6 +1204,28 @@ public class TestUsageChecker {
                 || hasSourcePrivateParameterType(m);
     }
 
+    /**
+     * Constructor counterpart of {@link #isNotCallableFromSource(Method)}: a synthetic constructor,
+     * or one taking a parameter of a source-private type.
+     */
+    public static boolean isNotCallableFromSource(Constructor<?> c) {
+        return c.isSynthetic() || hasSourcePrivateParameterType(c.getParameterTypes());
+    }
+
+    /**
+     * Whether a synthesized call to {@code m} compiles in the generated test: the method is
+     * visible from the test package and javac can resolve it. Unlike {@link #canUse(Method)} this
+     * applies none of the cluster's exclusions (deprecation, blocking calls, GUI accessors).
+     */
+    public static boolean isSynthesisCallable(Method m) {
+        return isCallableFromTestPackage(m) && !isNotCallableFromSource(m);
+    }
+
+    /** Constructor counterpart of {@link #isSynthesisCallable(Method)}. */
+    public static boolean isSynthesisCallable(Constructor<?> c) {
+        return isCallableFromTestPackage(c) && !isNotCallableFromSource(c);
+    }
+
     private static boolean hasSourcePrivateParameterType(Method m) {
         return hasSourcePrivateParameterType(m.getParameterTypes());
     }
@@ -1316,20 +1246,6 @@ public class TestUsageChecker {
             }
         }
         return false;
-    }
-
-    /**
-     * Detect package-private accessor stubs emitted by older bytecode targets.
-     * Some instrumented class-loading paths can drop the synthetic flag while
-     * keeping the compiler-assigned accessor name.
-     */
-    public static boolean isCompilerGeneratedAccessorMethod(Method m) {
-        int modifiers = m.getModifiers();
-        return Modifier.isStatic(modifiers)
-                && !Modifier.isPublic(modifiers)
-                && !Modifier.isProtected(modifiers)
-                && !Modifier.isPrivate(modifiers)
-                && COMPILER_ACCESSOR_NAME.matcher(m.getName()).matches();
     }
 
 

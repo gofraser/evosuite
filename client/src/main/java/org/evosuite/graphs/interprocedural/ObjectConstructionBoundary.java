@@ -5,6 +5,7 @@ package org.evosuite.graphs.interprocedural;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.setup.ClassOrigin;
 import org.evosuite.setup.DependencyAnalysis;
 
 import java.util.Map;
@@ -25,7 +26,7 @@ public final class ObjectConstructionBoundary {
      * @return true for platform classes and classes that do not belong to the target artifact
      */
     public static boolean isExternalImplementationClass(String className) {
-        if (isPlatformClass(className)) {
+        if (ClassOrigin.isJdkName(className)) {
             return true;
         }
         Boolean sameArtifact = belongsToTargetArtifact(className);
@@ -34,20 +35,6 @@ public final class ObjectConstructionBoundary {
         }
         return className != null && !DependencyAnalysis.isTargetClassName(className)
                 && !DependencyAnalysis.isTargetProject(className);
-    }
-
-    /**
-     * Checks whether a class belongs to the Java platform.
-     *
-     * @param className the fully qualified class name, may be null
-     * @return true if the name starts with a platform package prefix
-     */
-    public static boolean isPlatformClass(String className) {
-        return className != null && (className.startsWith("java.")
-                || className.startsWith("javax.")
-                || className.startsWith("jdk.")
-                || className.startsWith("sun.")
-                || className.startsWith("com.sun."));
     }
 
     /**

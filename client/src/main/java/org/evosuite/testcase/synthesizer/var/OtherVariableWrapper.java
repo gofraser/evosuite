@@ -133,12 +133,11 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             Class<?> declaringClass, String name, Class<?>[] parameterTypes) {
         try {
             Method found = declaringClass.getMethod(name, parameterTypes);
-            return TestUsageChecker.isNotCallableFromSource(found) ? null : found;
+            return TestUsageChecker.isSynthesisCallable(found) ? found : null;
         } catch (Exception e) {
             try {
                 Method declared = declaringClass.getDeclaredMethod(name, parameterTypes);
-                if (TestUsageChecker.isCallableFromTestPackage(declared)
-                        && !TestUsageChecker.isNotCallableFromSource(declared)) {
+                if (TestUsageChecker.isSynthesisCallable(declared)) {
                     return declared;
                 }
             } catch (Exception ignored) {
@@ -676,11 +675,11 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         List<Method> mutations = new ArrayList<>();
         for (Method candidate : receiverClass.getDeclaredMethods()) {
             String name = candidate.getName();
-            if (!TestUsageChecker.isCallableFromTestPackage(candidate)
-                    || Modifier.isStatic(candidate.getModifiers())
+            if (Modifier.isStatic(candidate.getModifiers())
                     || candidate.getParameterCount() < 1
                     || candidate.getParameterCount() > 2
-                    || !(name.startsWith("add") || name.startsWith("put"))) {
+                    || !(name.startsWith("add") || name.startsWith("put"))
+                    || !TestUsageChecker.isSynthesisCallable(candidate)) {
                 continue;
             }
             mutations.add(candidate);
@@ -881,10 +880,9 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             String name = candidate.getName();
             if (!("add".equals(name) || "put".equals(name) || "set".equals(name))
                     || Modifier.isStatic(candidate.getModifiers())
-                    || candidate.isBridge()
-                    || candidate.isSynthetic()
                     || candidate.getParameterCount() < 1
-                    || candidate.getParameterCount() > 2) {
+                    || candidate.getParameterCount() > 2
+                    || !TestUsageChecker.isSynthesisCallable(candidate)) {
                 continue;
             }
             int observedParameter = valueObservation && candidate.getParameterCount() > 1 ? 1 : 0;
@@ -1011,8 +1009,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             if (!"add".equals(candidate.getName())
                     || candidate.getParameterCount() != 1
                     || Modifier.isStatic(candidate.getModifiers())
-                    || candidate.isBridge()
-                    || candidate.isSynthetic()) {
+                    || !TestUsageChecker.isSynthesisCallable(candidate)) {
                 continue;
             }
             Class<?> parameterType = candidate.getParameterTypes()[0];

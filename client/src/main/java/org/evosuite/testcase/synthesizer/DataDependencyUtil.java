@@ -533,8 +533,7 @@ public class DataDependencyUtil {
                     if (setterAnalysisTimedOut()) {
                         break;
                     }
-                    if (!TestUsageChecker.isCallableFromTestPackage(constructor)
-                            || constructor.isSynthetic()) {
+                    if (!isConstructorSetterCandidate(constructor)) {
                         continue;
                     }
                     String signature = "<init>" + ReflectionUtil.getSignature(constructor);
@@ -567,9 +566,12 @@ public class DataDependencyUtil {
     }
 
     private static boolean isSetterCandidate(Method method) {
-        return TestUsageChecker.isCallableFromTestPackage(method)
-                && !Modifier.isAbstract(method.getModifiers())
-                && !TestUsageChecker.isNotCallableFromSource(method);
+        return TestUsageChecker.isSynthesisCallable(method)
+                && !Modifier.isAbstract(method.getModifiers());
+    }
+
+    static boolean isConstructorSetterCandidate(Constructor<?> constructor) {
+        return TestUsageChecker.isSynthesisCallable(constructor);
     }
 
     private static long effectiveSetterAnalysisTimeoutMillis() {

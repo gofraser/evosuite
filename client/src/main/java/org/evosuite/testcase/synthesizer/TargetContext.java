@@ -197,11 +197,10 @@ public class TargetContext {
     }
 
     static boolean isDirectlyAccessibleEntry(Method method, Class<?> owner) {
-        if (TestUsageChecker.isNotCallableFromSource(method)) {
+        if (!TestUsageChecker.isSynthesisCallable(method)) {
             return false;
         }
-        int modifiers = method.getModifiers();
-        return Modifier.isPublic(modifiers)
+        return Modifier.isPublic(method.getModifiers())
                 || TestUsageChecker.canUse(method, owner);
     }
 

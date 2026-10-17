@@ -25,8 +25,8 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Reflective access to a class's Java 9+ module, shared by {@link TestUsageChecker#isPlatformClass}
- * and {@link TestClusterUtils#isJdkClass}.
+ * Reflective access to a class's Java 9+ module, shared by {@link ClassOrigin#isJdk}
+ * and {@link ClassOrigin#isJdkOrJavaFx}.
  *
  * <p>Both callers need to know which named module (if any) loaded a class, but this module
  * compiles against the Java 8 API ({@code --release 8}, project-wide), so {@code Class#getModule()}
@@ -147,8 +147,8 @@ final class JavaModuleLookup {
      * need to tell them apart: the first means the module system could not be consulted at all
      * (no Java 9+ module system, or the reflective call itself threw), the second means it
      * answered and the class genuinely has no named module (the ordinary case for an
-     * application/classpath class since Java 9). {@link TestClusterUtils#isJdkClass} treats the
-     * first case as "assume JDK"; {@link TestUsageChecker#isPlatformClass} instead falls back to
+     * application/classpath class since Java 9). {@link ClassOrigin#isJdkOrJavaFx} treats the
+     * first case as "assume JDK"; {@link ClassOrigin#isJdk} instead falls back to
      * a bootstrap-loader check -- so collapsing the two into a single {@code null}/boolean would
      * erase that distinction.
      *
