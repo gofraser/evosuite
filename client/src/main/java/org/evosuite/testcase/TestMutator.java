@@ -559,7 +559,7 @@ public class TestMutator {
     public boolean insertRandomCall(TestCase test, int position) {
         String name = "";
         GenerationContext context = new GenerationContext();
-        StatementInserter inserter = new StatementInserter(test, position);
+        StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
         logger.debug("Inserting random call at position {}", position);
         try {
             ReflectionFactory rf = testFactory.getReflectionFactory();
@@ -637,7 +637,7 @@ public class TestMutator {
             return true;
         } catch (ConstructionFailedException e) {
             logger.debug("Inserting statement {} has failed. Rolling back statements: {}", name, e);
-            inserter.rollback();
+            checkpoint.rollback();
             return false;
         }
     }

@@ -16,7 +16,7 @@ import org.evosuite.testcase.statements.Statement;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class StatementInserterTest {
+class StatementCheckpointTest {
 
     @Test
     void rollbackRemovesOnlyStatementsAddedByTheInsertion() {
@@ -26,13 +26,13 @@ class StatementInserterTest {
         test.addStatement(originalFirst);
         test.addStatement(originalSecond);
 
-        StatementInserter inserter = new StatementInserter(test, 1);
+        StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
         Statement dependencyBefore = new StringPrimitiveStatement(test, "before");
         Statement dependencyAfter = new StringPrimitiveStatement(test, "after");
         test.addStatement(dependencyBefore, 0);
         test.addStatement(dependencyAfter);
 
-        inserter.rollback();
+        checkpoint.rollback();
 
         Assertions.assertEquals(2, test.size());
         Assertions.assertSame(originalFirst, test.getStatement(0));
