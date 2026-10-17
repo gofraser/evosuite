@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.evosuite.setup.SourcePrivateMemberFixture;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.ConstructorStatement;
@@ -217,6 +218,65 @@ public class OtherVariableWrapperTest {
                     org.evosuite.testcase.accessfixture.TableBase.class, "rows", none));
         } finally {
             org.evosuite.Properties.CLASS_PREFIX = previous;
+        }
+    }
+
+    @Test
+    public void collectionMutationsExcludeBridges() {
+        String previous = org.evosuite.Properties.CLASS_PREFIX;
+        try {
+            org.evosuite.Properties.CLASS_PREFIX = NameBag.class.getPackage().getName();
+            // javac ignores the erased add(Object) bridge: a call with an Object argument does not
+            // compile against NameBag.
+            List<Method> candidates = OtherVariableWrapper.collectionMutationCandidates(NameBag.class);
+            assertEquals(1, candidates.size(), candidates.toString());
+            assertEquals(String.class, candidates.get(0).getParameterTypes()[0]);
+        } finally {
+            org.evosuite.Properties.CLASS_PREFIX = previous;
+        }
+    }
+
+    @Test
+    public void listInsertionSkipsSourcePrivateParameterTypes() throws Exception {
+        String previous = org.evosuite.Properties.CLASS_PREFIX;
+        try {
+            org.evosuite.Properties.CLASS_PREFIX = SourcePrivateMemberFixture.PACKAGE;
+            SourcePrivateMemberFixture fixture = new SourcePrivateMemberFixture();
+            assertNull(OtherVariableWrapper.findCompatibleListInsertionMethod(
+                    fixture.outer, fixture.inner));
+        } finally {
+            org.evosuite.Properties.CLASS_PREFIX = previous;
+        }
+    }
+
+    @Test
+    public void membershipMutationSkipsSourcePrivateParameterTypes() throws Exception {
+        String previous = org.evosuite.Properties.CLASS_PREFIX;
+        try {
+            org.evosuite.Properties.CLASS_PREFIX = SourcePrivateMemberFixture.PACKAGE;
+            SourcePrivateMemberFixture fixture = new SourcePrivateMemberFixture();
+            assertNull(OtherVariableWrapper.findMembershipMutation(
+                    java.util.Collection.class.getMethod("contains", Object.class),
+                    fixture.outer, fixture.inner));
+        } finally {
+            org.evosuite.Properties.CLASS_PREFIX = previous;
+        }
+    }
+
+    public static final class NameBag extends java.util.AbstractCollection<String> {
+        @Override
+        public boolean add(String name) {
+            return true;
+        }
+
+        @Override
+        public java.util.Iterator<String> iterator() {
+            return Collections.emptyIterator();
+        }
+
+        @Override
+        public int size() {
+            return 0;
         }
     }
 
