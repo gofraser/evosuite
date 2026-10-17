@@ -182,9 +182,13 @@ public class BytecodeInstrumentationTest {
         }
 
         @Override
-        protected byte[] transformBytesInternal(ClassLoader classLoader, String className, String classNameWithDots,
-                                                ClassReader reader, int readFlags, boolean enableLoopCounter,
-                                                int writerFlags) {
+        protected byte[] transform(Profile profile, ClassLoader classLoader, String className,
+                                   String classNameWithDots, ClassReader reader, int readFlags) {
+            if (!profile.testability) {
+                return super.transform(profile, classLoader, className, classNameWithDots, reader, readFlags);
+            }
+            boolean enableLoopCounter = profile.loopCounter;
+            int writerFlags = profile.writerFlags;
             int idx = invocations;
             invocations++;
             if (idx < writerFlagsPerInvocation.length) {
@@ -215,9 +219,11 @@ public class BytecodeInstrumentationTest {
         private int invocations = 0;
 
         @Override
-        protected byte[] transformBytesInternal(ClassLoader classLoader, String className, String classNameWithDots,
-                                                ClassReader reader, int readFlags, boolean enableLoopCounter,
-                                                int writerFlags) {
+        protected byte[] transform(Profile profile, ClassLoader classLoader, String className,
+                                   String classNameWithDots, ClassReader reader, int readFlags) {
+            if (!profile.testability) {
+                return super.transform(profile, classLoader, className, classNameWithDots, reader, readFlags);
+            }
             invocations++;
             throw new RuntimeException("JSR/RET are not supported");
         }

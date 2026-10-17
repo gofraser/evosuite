@@ -193,13 +193,13 @@ public class BytecodeInstrumentation {
      * Abort instead of silently returning bytecode without coverage probes for the class
      * under test.
      *
-     * <p>The fallback rungs that stop emitting probes ({@link #transformBytesMinimal},
-     * {@link #transformBytesBarePassthrough} and {@link #copyOriginalBytecode}) are the
-     * right answer for dependency classes: the run continues and only loses instrumentation
-     * we do not measure anyway.  For the CUT they are the wrong answer: no probes means no
-     * branches and no lines are registered, so the run completes "successfully" while
-     * reporting exactly 0 coverage with nothing in the log marking the result as invalid.
-     * We log at ERROR and fail loudly instead.
+     * <p>The fallback profiles that stop emitting probes ({@link Profile#MINIMAL},
+     * {@link Profile#BARE} and {@link Profile#RAW}) are the right answer for dependency
+     * classes: the run continues and only loses instrumentation we do not measure anyway.
+     * For the CUT they are the wrong answer: no probes means no branches and no lines are
+     * registered, so the run completes "successfully" while reporting exactly 0 coverage with
+     * nothing in the log marking the result as invalid.  We log at ERROR and fail loudly
+     * instead.
      *
      * @param classNameWithDots the class name in binary (dotted) form.
      * @param rung              description of the coverage-free fallback we were about to take.
@@ -218,9 +218,171 @@ public class BytecodeInstrumentation {
     }
 
     /**
+     * The instrumentation configurations that {@link #transformBytes} tries, from the full
+     * instrumentation down to an unchanged copy of the class.  {@link #next} decides which one
+     * follows a failure.
+     *
+     * <p>Every profile with an adapter chain also collects constants for the value pool and adds
+     * the mocking adapters when the agent is needed.  The other adapters are switched by the
+     * flags, each of which additionally depends on its configuration switch:
+     * <ul>
+     *   <li>{@code writerFlags}: the {@code ClassWriter} flags.  Class files from Java 7 on need
+     *       their StackMapTable frames, so only {@link #FULL_MAXS} uses {@code COMPUTE_MAXS}, and
+     *       only for legacy class files.</li>
+     *   <li>{@code loopCounter}: the loop counter ({@code max_loop_iterations >= 0}).</li>
+     *   <li>{@code testability}: the ClassNode roundtrip with the String, Comparison, Container
+     *       and Boolean testability transformations, for the classes that get them.</li>
+     *   <li>{@code targetChain}: the coverage adapters for the classes that are analysed, the
+     *       non-target adapters otherwise.  Without it every class gets the non-target adapters,
+     *       so the class under test loses its coverage probes.</li>
+     *   <li>{@code timeoutRethrow}: the timeout rethrow in the catch handlers of analysed
+     *       classes; the non-target adapters add their own.</li>
+     *   <li>{@code staticAccess}: the probes on GETSTATIC/PUTSTATIC ({@code reset_static_fields}).</li>
+     *   <li>{@code purity}: the cheap purity analysis ({@code pure_inspectors}).</li>
+     *   <li>{@code classReset}: {@code __STATIC_RESET} and the class initialisation callbacks
+     *       ({@code reset_static_fields}).</li>
+     * </ul>
+     */
+    enum Profile {
+        //                                          loop   testab target rethrow static purity reset
+        FULL(ClassWriter.COMPUTE_FRAMES,            true,  true,  true,  true,   true,  true,  true),
+        FULL_MAXS(ClassWriter.COMPUTE_MAXS,         true,  true,  true,  true,   true,  true,  true),
+        NO_LOOP_COUNTER(ClassWriter.COMPUTE_FRAMES, false, true,  true,  true,   true,  true,  true),
+        NO_TESTABILITY(ClassWriter.COMPUTE_FRAMES,  false, false, true,  true,   true,  true,  true),
+        MINIMAL(ClassWriter.COMPUTE_FRAMES,         false, false, false, false,  false, false, true),
+        /**
+         * Only the class-level changes (marker interface, final removed); the method bytecode
+         * and its frames are copied as read.
+         */
+        BARE(0,                                     false, false, false, false,  false, false, false),
+        /** The original bytes, unchanged. */
+        RAW(0,                                      false, false, false, false,  false, false, false);
+
+        final int writerFlags;
+        final boolean loopCounter;
+        final boolean testability;
+        final boolean targetChain;
+        final boolean timeoutRethrow;
+        final boolean staticAccess;
+        final boolean purity;
+        final boolean classReset;
+
+        Profile(int writerFlags, boolean loopCounter, boolean testability, boolean targetChain,
+                boolean timeoutRethrow, boolean staticAccess, boolean purity, boolean classReset) {
+            this.writerFlags = writerFlags;
+            this.loopCounter = loopCounter;
+            this.testability = testability;
+            this.targetChain = targetChain;
+            this.timeoutRethrow = timeoutRethrow;
+            this.staticAccess = staticAccess;
+            this.purity = purity;
+            this.classReset = classReset;
+        }
+    }
+
+    /** What went wrong in an attempt, as far as the choice of the next profile is concerned. */
+    enum FailureKind {
+        /** ASM could not compute the frames or maxima of the instrumented code. */
+        FRAME,
+        /** The instrumented class or one of its methods exceeds a JVM limit. */
+        TOO_LARGE,
+        /** The class uses JSR/RET, which COMPUTE_FRAMES cannot handle. */
+        JSR,
+        /** Anything else; never retried. */
+        OTHER
+    }
+
+    /**
+     * The two fallback ladders.  Once a class has been found too large, it stays on the size
+     * ladder, which only moves on after another "too large".
+     */
+    enum Ladder {
+        FRAME, SIZE
+    }
+
+    /** The profile to try next, and the ladder it belongs to. */
+    static final class Step {
+        final Profile profile;
+        final Ladder ladder;
+
+        Step(Profile profile, Ladder ladder) {
+            this.profile = profile;
+            this.ladder = ladder;
+        }
+    }
+
+    static FailureKind classify(Throwable throwable) {
+        if (isUnsupportedJsrRetFailure(throwable)) {
+            return FailureKind.JSR;
+        }
+        if (isClassOrMethodTooLarge(throwable)) {
+            return FailureKind.TOO_LARGE;
+        }
+        if (isAsmFrameMergeFailure(throwable)) {
+            return FailureKind.FRAME;
+        }
+        return FailureKind.OTHER;
+    }
+
+    /**
+     * The fallback after {@code failed} failed with {@code failure} on {@code ladder}, or null if
+     * the failure is to be rethrown.  Profiles that do not apply to the class are skipped
+     * afterwards (see {@link #transformBytes}).
+     */
+    static Step next(Profile failed, FailureKind failure, Ladder ladder) {
+        if (ladder == Ladder.SIZE) {
+            if (failure != FailureKind.TOO_LARGE) {
+                return null;
+            }
+            switch (failed) {
+                case NO_TESTABILITY:
+                    return new Step(Profile.MINIMAL, Ladder.SIZE);
+                case MINIMAL:
+                    return new Step(Profile.BARE, Ladder.SIZE);
+                default:
+                    return null;
+            }
+        }
+        // The testability transformation is the main source of constant pool inflation
+        // (ClassNode roundtrip + Comparison/String/Container transformations), so a class
+        // that is too large starts the size ladder by dropping it.
+        Step sizeLadder = new Step(Profile.NO_TESTABILITY, Ladder.SIZE);
+        switch (failed) {
+            case FULL:
+                if (failure == FailureKind.JSR) {
+                    return new Step(Profile.RAW, Ladder.FRAME);
+                }
+                return failure == FailureKind.FRAME ? new Step(Profile.FULL_MAXS, Ladder.FRAME)
+                        : failure == FailureKind.TOO_LARGE ? sizeLadder : null;
+            case FULL_MAXS:
+                // The loop counter adds branches that can confuse ASM frame merge.
+                return failure == FailureKind.FRAME ? new Step(Profile.NO_LOOP_COUNTER, Ladder.FRAME)
+                        : failure == FailureKind.TOO_LARGE ? sizeLadder : null;
+            case NO_LOOP_COUNTER:
+                // The ClassNode roundtrip and the testability transformations can produce
+                // bytecode that confuses ASM's frame computation.
+                return failure == FailureKind.FRAME ? new Step(Profile.NO_TESTABILITY, Ladder.FRAME)
+                        : failure == FailureKind.TOO_LARGE ? sizeLadder : null;
+            case NO_TESTABILITY:
+                return failure == FailureKind.FRAME ? new Step(Profile.MINIMAL, Ladder.FRAME)
+                        : failure == FailureKind.TOO_LARGE ? sizeLadder : null;
+            case MINIMAL:
+                return failure == FailureKind.FRAME || failure == FailureKind.TOO_LARGE
+                        ? new Step(Profile.BARE, Ladder.FRAME) : null;
+            case BARE:
+                return failure == FailureKind.JSR ? new Step(Profile.RAW, Ladder.FRAME) : null;
+            default:
+                return null;
+        }
+    }
+
+    /**
      * <p>
      * transformBytes.
      * </p>
+     *
+     * <p>Starts with {@link Profile#FULL} and, as long as the failures are ones a smaller
+     * instrumentation can avoid, falls back along the ladder given by {@link #next}.
      *
      * @param classLoader a {@link java.lang.ClassLoader} object.
      * @param className a {@link java.lang.String} object.
@@ -244,124 +406,158 @@ public class BytecodeInstrumentation {
 
         TransformationStatistics.reset();
 
-        try {
-            return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, true,
-                    ClassWriter.COMPUTE_FRAMES);
-        } catch (RuntimeException | Error t) {
-            if (isUnsupportedJsrRetFailure(t)) {
-                failIfClassUnderTest(classNameWithDots, "raw bytecode passthrough", t);
-                logger.warn("Retrying instrumentation of {} with raw bytecode passthrough "
-                                + "due to unsupported JSR/RET: {}",
-                        classNameWithDots, t.getMessage());
-                return copyOriginalBytecode(reader);
-            }
-            if (isClassOrMethodTooLarge(t)) {
-                return handleClassTooLarge(classLoader, className, classNameWithDots, reader, readFlags, t);
-            }
-            if (!isAsmFrameMergeFailure(t)) {
-                throw t;
-            }
-            // Retry 1: retry with COMPUTE_MAXS only for legacy class files (< Java 7).
-            // Modern class files require StackMapTable frames, and COMPUTE_MAXS can
-            // produce verifier-invalid bytecode (VerifyError: expecting stackmap frame).
-            if (isLegacyClassFile(reader)) {
-                logger.warn("Retrying instrumentation of {} with COMPUTE_MAXS "
-                                + "due to ASM frame merge failure: {}",
-                        classNameWithDots, t.getMessage());
-                try {
-                    return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, true,
-                            ClassWriter.COMPUTE_MAXS);
-                } catch (RuntimeException | Error t2) {
-                    if (isClassOrMethodTooLarge(t2)) {
-                        return handleClassTooLarge(classLoader, className, classNameWithDots, reader, readFlags, t2);
-                    }
-                    if (!isAsmFrameMergeFailure(t2)) {
-                        throw t2;
-                    }
-                }
-            } else {
-                logger.warn("Skipping COMPUTE_MAXS fallback for {} (class file major version {}) "
-                                + "because StackMapTable frames are required",
-                        classNameWithDots, getClassFileMajorVersion(reader));
-            }
-
-            // Retry 2: disable loop counter (if enabled) and retry COMPUTE_FRAMES.
-            // The loop counter adds branches that can confuse ASM frame merge.
-            if (config.maxLoopIterations() >= 0) {
-                logger.warn("Retrying instrumentation of {} without loop counter "
-                                + "due to ASM frame merge failure: {}",
-                        classNameWithDots, t.getMessage());
-                try {
-                    return transformBytesInternal(classLoader, className, classNameWithDots, reader, readFlags, false,
-                            ClassWriter.COMPUTE_FRAMES);
-                } catch (RuntimeException | Error t3) {
-                    if (isClassOrMethodTooLarge(t3)) {
-                        return handleClassTooLarge(classLoader, className, classNameWithDots, reader, readFlags, t3);
-                    }
-                    if (!isAsmFrameMergeFailure(t3)) {
-                        throw t3;
-                    }
-                    // Fall through — testability transformation may be causing the issue.
-                }
-            }
-            // Retry 3: skip testability transformation — the ClassNode roundtrip and
-            // Comparison/String/Container transformations can produce bytecode that
-            // confuses ASM's frame computation.
-            logger.warn("Retrying instrumentation of {} without testability transformation "
-                    + "due to persistent ASM frame merge failure", classNameWithDots);
+        Step step = new Step(Profile.FULL, Ladder.FRAME);
+        Throwable firstFailure = null;
+        Throwable sizeFailure = null;
+        while (true) {
+            Profile profile = step.profile;
             try {
-                return transformBytesSkipTestability(classLoader, className, classNameWithDots, reader, readFlags);
-            } catch (RuntimeException | Error t4) {
-                if (isClassOrMethodTooLarge(t4)) {
-                    return handleClassTooLarge(classLoader, className, classNameWithDots, reader, readFlags, t4);
+                return transform(profile, classLoader, className, classNameWithDots, reader, readFlags);
+            } catch (RuntimeException | Error t) {
+                FailureKind failure = classify(t);
+                if (firstFailure == null) {
+                    firstFailure = t;
                 }
-                if (!isAsmFrameMergeFailure(t4)) {
-                    throw t4;
+                Step next = skipInapplicable(next(profile, failure, step.ladder), failure, classNameWithDots,
+                        reader);
+                if (next == null) {
+                    throw t;
                 }
-            }
-            // Retry 4: minimal (non-target) instrumentation.  From here on the fallbacks
-            // no longer emit coverage probes, so the CUT must not take them.
-            failIfClassUnderTest(classNameWithDots, "minimal (non-target) instrumentation", t);
-            logger.warn("Retrying instrumentation of {} with minimal (non-target) instrumentation "
-                    + "due to persistent ASM frame merge failure",
-                    classNameWithDots);
-            try {
-                return transformBytesMinimal(classLoader, className, classNameWithDots, reader, readFlags);
-            } catch (RuntimeException | Error t5) {
-                if (!isAsmFrameMergeFailure(t5) && !isClassOrMethodTooLarge(t5)) {
-                    throw t5;
+                if (next.ladder == Ladder.SIZE && step.ladder == Ladder.FRAME) {
+                    sizeFailure = t;
                 }
-            }
-            // Retry 5: bare passthrough — only add the InstrumentedClass marker interface
-            // without modifying any method bytecode.  We read with EXPAND_FRAMES to
-            // preserve the original StackMapTable and avoid ASM frame recomputation.
-            failIfClassUnderTest(classNameWithDots, "bare passthrough (marker interface only)", t);
-            logger.warn("Retrying instrumentation of {} with bare passthrough (no method-level changes) "
-                    + "due to persistent ASM failure", classNameWithDots);
-            try {
-                return transformBytesBarePassthrough(className, reader);
-            } catch (RuntimeException | Error t6) {
-                if (isUnsupportedJsrRetFailure(t6)) {
-                    failIfClassUnderTest(classNameWithDots, "raw bytecode passthrough", t6);
-                    logger.warn("Falling back to raw bytecode passthrough for {} "
-                                    + "due to unsupported JSR/RET in bare passthrough: {}",
-                            classNameWithDots, t6.getMessage());
-                    return copyOriginalBytecode(reader);
-                }
-                throw t6;
+                announce(next, profile, classNameWithDots, t, firstFailure, sizeFailure);
+                step = next;
             }
         }
     }
 
-    protected byte[] transformBytesInternal(ClassLoader classLoader, String className, String classNameWithDots,
-                                            ClassReader reader, int readFlags, boolean enableLoopCounter,
-                                            int writerFlags) {
+    /**
+     * Skip the profiles that cannot help this class: COMPUTE_MAXS for a class file that needs
+     * StackMapTable frames, and dropping a loop counter that is not there.
+     */
+    private Step skipInapplicable(Step step, FailureKind failure, String classNameWithDots, ClassReader reader) {
+        while (step != null && !applies(step.profile, classNameWithDots, reader)) {
+            step = next(step.profile, failure, step.ladder);
+        }
+        return step;
+    }
+
+    private boolean applies(Profile profile, String classNameWithDots, ClassReader reader) {
+        switch (profile) {
+            case FULL_MAXS:
+                if (isLegacyClassFile(reader)) {
+                    return true;
+                }
+                // Modern class files require StackMapTable frames, and COMPUTE_MAXS can
+                // produce verifier-invalid bytecode (VerifyError: expecting stackmap frame).
+                logger.warn("Skipping COMPUTE_MAXS fallback for {} (class file major version {}) "
+                                + "because StackMapTable frames are required",
+                        classNameWithDots, getClassFileMajorVersion(reader));
+                return false;
+            case NO_LOOP_COUNTER:
+                return config.maxLoopIterations() >= 0;
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Log the fallback we are about to take, and refuse the coverage-free ones for the class
+     * under test.
+     */
+    private void announce(Step step, Profile failed, String classNameWithDots, Throwable failure,
+                          Throwable firstFailure, Throwable sizeFailure) {
+        boolean size = step.ladder == Ladder.SIZE;
+        switch (step.profile) {
+            case FULL_MAXS:
+                logger.warn("Retrying instrumentation of {} with COMPUTE_MAXS "
+                                + "due to ASM frame merge failure: {}",
+                        classNameWithDots, firstFailure.getMessage());
+                break;
+            case NO_LOOP_COUNTER:
+                logger.warn("Retrying instrumentation of {} without loop counter "
+                                + "due to ASM frame merge failure: {}",
+                        classNameWithDots, firstFailure.getMessage());
+                break;
+            case NO_TESTABILITY:
+                if (size) {
+                    logger.warn("Class {} is too large ({}); retrying without testability transformation",
+                            classNameWithDots, sizeFailure.getMessage());
+                } else {
+                    logger.warn("Retrying instrumentation of {} without testability transformation "
+                            + "due to persistent ASM frame merge failure", classNameWithDots);
+                }
+                break;
+            case MINIMAL:
+                if (size) {
+                    // A class we cannot fit inside the JVM limits is still a class we cannot
+                    // measure, and a silent 0 coverage result is worse than an explicit failure.
+                    failIfClassUnderTest(classNameWithDots,
+                            "minimal (non-target) instrumentation for an over-sized class", sizeFailure);
+                    logger.warn("Class {} is still too large; retrying with minimal (non-target) instrumentation",
+                            classNameWithDots);
+                } else {
+                    failIfClassUnderTest(classNameWithDots, "minimal (non-target) instrumentation", firstFailure);
+                    logger.warn("Retrying instrumentation of {} with minimal (non-target) instrumentation "
+                                    + "due to persistent ASM frame merge failure",
+                            classNameWithDots);
+                }
+                break;
+            case BARE:
+                if (size) {
+                    failIfClassUnderTest(classNameWithDots,
+                            "bare passthrough (marker interface only) for an over-sized class", sizeFailure);
+                    logger.warn("Class {} is still too large; retrying with bare passthrough", classNameWithDots);
+                } else {
+                    failIfClassUnderTest(classNameWithDots, "bare passthrough (marker interface only)",
+                            firstFailure);
+                    logger.warn("Retrying instrumentation of {} with bare passthrough (no method-level changes) "
+                            + "due to persistent ASM failure", classNameWithDots);
+                }
+                break;
+            case RAW:
+                failIfClassUnderTest(classNameWithDots, "raw bytecode passthrough", failure);
+                if (failed == Profile.BARE) {
+                    logger.warn("Falling back to raw bytecode passthrough for {} "
+                                    + "due to unsupported JSR/RET in bare passthrough: {}",
+                            classNameWithDots, failure.getMessage());
+                } else {
+                    logger.warn("Retrying instrumentation of {} with raw bytecode passthrough "
+                                    + "due to unsupported JSR/RET: {}",
+                            classNameWithDots, failure.getMessage());
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Instrument the class with the given profile.
+     *
+     * @param profile           which instrumentation to apply.
+     * @param classLoader       the class loader the class is instrumented for.
+     * @param className         the class name in internal (slashed) form.
+     * @param classNameWithDots the class name in binary (dotted) form.
+     * @param reader            the original bytecode.
+     * @param readFlags         the {@code ClassReader} flags for the profiles with an adapter chain.
+     * @return the instrumented bytecode.
+     */
+    protected byte[] transform(Profile profile, ClassLoader classLoader, String className, String classNameWithDots,
+                               ClassReader reader, int readFlags) {
+        if (profile == Profile.RAW) {
+            return copyOriginalBytecode(reader);
+        }
+        if (profile == Profile.BARE) {
+            return transformBytesBarePassthrough(className, reader);
+        }
         /*
          * To use COMPUTE_FRAMES we need to remove JSR commands. Therefore, we
          * have a JSRInlinerAdapter in NonTargetClassAdapter as well as
          * CFGAdapter.
          */
-        ClassWriter writer = new ComputeClassWriter(writerFlags);
+        ClassWriter writer = new ComputeClassWriter(profile.writerFlags);
 
         ClassVisitor cv = writer;
         if (logger.isDebugEnabled()) {
@@ -370,9 +566,9 @@ public class BytecodeInstrumentation {
             cv = new TraceClassVisitor(cv, new PrintWriter(System.err));
         }
 
-        cv = createAdapterChain(cv, className, classNameWithDots, classLoader, enableLoopCounter, reader);
+        cv = createAdapterChain(profile, cv, className, classNameWithDots, classLoader, reader);
 
-        if (shouldApplyTestabilityTransformation(classNameWithDots)) {
+        if (profile.testability && shouldApplyTestabilityTransformation(classNameWithDots)) {
             return applyTestabilityTransformation(reader, cv, writer, className, classNameWithDots,
                     classLoader, readFlags);
         }
@@ -381,30 +577,32 @@ public class BytecodeInstrumentation {
         return writer.toByteArray();
     }
 
-    private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots,
-                                            ClassLoader classLoader, boolean enableLoopCounter,
+    private ClassVisitor createAdapterChain(Profile profile, ClassVisitor cv, String className,
+                                            String classNameWithDots, ClassLoader classLoader,
                                             ClassReader reader) {
-        if (DependencyAnalysis.shouldAnalyze(classNameWithDots)) {
+        if (profile.timeoutRethrow && DependencyAnalysis.shouldAnalyze(classNameWithDots)) {
             // Innermost, so the injected rethrow is written straight to the writer and
             // never enters the MethodNode buffers of the CFG/testability adapters.
             cv = new TimeoutExceededRethrowClassAdapter(cv);
         }
 
-        if (config.resetStaticFields()) {
+        if (profile.staticAccess && config.resetStaticFields()) {
             cv = new StaticAccessClassAdapter(cv, className);
         }
 
-        if (config.pureInspectors()) {
+        if (profile.purity && config.pureInspectors()) {
             CheapPurityAnalyzer purityAnalyzer = CheapPurityAnalyzer.getInstance();
             cv = new PurityAnalysisClassVisitor(cv, className, purityAnalyzer);
         }
 
-        if (enableLoopCounter && config.maxLoopIterations() >= 0) {
+        if (profile.loopCounter && config.maxLoopIterations() >= 0) {
             cv = new LoopCounterClassAdapter(cv);
         }
 
         // Apply transformations to class under test and its owned classes
-        if (DependencyAnalysis.shouldAnalyze(classNameWithDots)) {
+        if (!profile.targetChain) {
+            cv = addNonTargetTransformationAdapters(cv, className, classNameWithDots, classLoader);
+        } else if (DependencyAnalysis.shouldAnalyze(classNameWithDots)) {
             logger.debug("Applying target transformation to class " + classNameWithDots);
             cv = addTargetTransformationAdapters(cv, className, classLoader);
         } else {
@@ -415,7 +613,7 @@ public class BytecodeInstrumentation {
         // Collect constant values for the value pool
         cv = new PrimitiveClassAdapter(cv, className);
 
-        if (config.resetStaticFields()) {
+        if (profile.classReset && config.resetStaticFields()) {
             cv = handleStaticReset(className, cv, reader);
         }
 
@@ -426,8 +624,7 @@ public class BytecodeInstrumentation {
 
         return cv;
     }
-
-    private boolean isAsmFrameMergeFailure(Throwable throwable) {
+    private static boolean isAsmFrameMergeFailure(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
             if (current instanceof ArrayIndexOutOfBoundsException
@@ -513,106 +710,6 @@ public class BytecodeInstrumentation {
     private static int getClassFileMajorVersion(ClassReader reader) {
         // ClassFile header layout: magic (4), minor (2), major (2)
         return reader.readShort(6);
-    }
-
-    /**
-     * Handle a class/method too large error by skipping testability transformation, which is
-     * the main source of constant pool inflation (ClassNode roundtrip + Comparison/String/Container
-     * transformations). We always keep COMPUTE_FRAMES because modern class files (version >= 51)
-     * require StackMapTable frames — COMPUTE_MAXS would produce bytecode the verifier rejects.
-     */
-    private byte[] handleClassTooLarge(ClassLoader classLoader, String className, String classNameWithDots,
-                                       ClassReader reader, int readFlags, Throwable originalError) {
-        // First try: skip testability transformation (the ClassNode roundtrip and
-        // Comparison/String/Container transformations inflate the constant pool)
-        // but keep the target instrumentation; the loop counter is dropped as well.
-        logger.warn("Class {} is too large ({}); retrying without testability transformation",
-                classNameWithDots, originalError.getMessage());
-        try {
-            return transformBytesSkipTestability(classLoader, className, classNameWithDots, reader, readFlags);
-        } catch (RuntimeException | Error t) {
-            if (!isClassOrMethodTooLarge(t)) {
-                throw t;
-            }
-        }
-
-        // Retry 2: use only the non-target adapter chain (NonTargetClassAdapter + mocking),
-        // which adds far fewer constant pool entries than the target chain.  This drops the
-        // coverage probes, so the CUT must not take this rung: a class we cannot fit inside
-        // the JVM limits is still a class we cannot measure, and a silent 0 coverage result
-        // is worse than an explicit failure.
-        failIfClassUnderTest(classNameWithDots,
-                "minimal (non-target) instrumentation for an over-sized class", originalError);
-        logger.warn("Class {} is still too large; retrying with minimal (non-target) instrumentation",
-                classNameWithDots);
-        try {
-            return transformBytesMinimal(classLoader, className, classNameWithDots, reader, readFlags);
-        } catch (RuntimeException | Error t2) {
-            if (!isClassOrMethodTooLarge(t2)) {
-                throw t2;
-            }
-        }
-
-        // Last resort: bare passthrough with no method-level changes.
-        failIfClassUnderTest(classNameWithDots,
-                "bare passthrough (marker interface only) for an over-sized class", originalError);
-        logger.warn("Class {} is still too large; retrying with bare passthrough", classNameWithDots);
-        return transformBytesBarePassthrough(className, reader);
-    }
-
-    /**
-     * Transform bytes with the regular adapter chain minus the loop counter, and skip the
-     * testability transformation entirely.  This avoids the ClassNode roundtrip and the
-     * Comparison/String/Container transformations that can inflate the constant pool beyond
-     * the JVM limit for very large classes.  For a class that gets no testability
-     * transformation this is the same attempt as {@link #transformBytesInternal} without
-     * the loop counter.
-     */
-    protected byte[] transformBytesSkipTestability(ClassLoader classLoader, String className,
-                                                  String classNameWithDots, ClassReader reader, int readFlags) {
-        ClassWriter writer = new ComputeClassWriter(ClassWriter.COMPUTE_FRAMES);
-
-        ClassVisitor cv = writer;
-        if (logger.isDebugEnabled()) {
-            cv = new TraceClassVisitor(cv, new PrintWriter(System.err));
-        }
-
-        cv = createAdapterChain(cv, className, classNameWithDots, classLoader, false, reader);
-
-        reader.accept(cv, readFlags);
-        return writer.toByteArray();
-    }
-
-    /**
-     * Transform bytes with only the non-target adapter chain (NonTargetClassAdapter + mocking).
-     * This is the most minimal instrumentation that still allows the class to be loaded in
-     * the EvoSuite runtime (InstrumentedClass interface, static reset, method call replacement).
-     */
-    protected byte[] transformBytesMinimal(ClassLoader classLoader, String className,
-                                          String classNameWithDots, ClassReader reader, int readFlags) {
-        ClassWriter writer = new ComputeClassWriter(ClassWriter.COMPUTE_FRAMES);
-
-        ClassVisitor cv = writer;
-        if (logger.isDebugEnabled()) {
-            cv = new TraceClassVisitor(cv, new PrintWriter(System.err));
-        }
-
-        // Use the non-target chain regardless of DependencyAnalysis
-        cv = addNonTargetTransformationAdapters(cv, className, classNameWithDots, classLoader);
-
-        // Collect constant values for the value pool
-        cv = new PrimitiveClassAdapter(cv, className);
-
-        if (config.resetStaticFields()) {
-            cv = handleStaticReset(className, cv, reader);
-        }
-
-        if (TestSuiteWriterUtils.needToUseAgent()) {
-            cv = addMockingAdapters(cv, className);
-        }
-
-        reader.accept(cv, readFlags);
-        return writer.toByteArray();
     }
 
     /**

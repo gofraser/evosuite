@@ -504,30 +504,23 @@ public class InstrumentationRungProfileTest {
         String internal = instrumentedName.replace('.', '/');
         ClassReader reader = new ClassReader(readResource(fixture.replace('.', '/')));
         ClassLoader loader = getClass().getClassLoader();
+        return bi.transform(profile(rung), loader, internal, instrumentedName, reader, ClassReader.SKIP_FRAMES);
+    }
+
+    private static BytecodeInstrumentation.Profile profile(Rung rung) {
         switch (rung) {
             case FULL_RUNG:
-                return bi.transformBytesInternal(loader, internal, instrumentedName, reader, ClassReader.SKIP_FRAMES,
-                        true, ClassWriter.COMPUTE_FRAMES);
+                return BytecodeInstrumentation.Profile.FULL;
             case FULL_MAXS_RUNG:
-                return bi.transformBytesInternal(loader, internal, instrumentedName, reader, ClassReader.SKIP_FRAMES,
-                        true, ClassWriter.COMPUTE_MAXS);
+                return BytecodeInstrumentation.Profile.FULL_MAXS;
             case NO_LOOP_RUNG:
-                return bi.transformBytesInternal(loader, internal, instrumentedName, reader, ClassReader.SKIP_FRAMES,
-                        false, ClassWriter.COMPUTE_FRAMES);
+                return BytecodeInstrumentation.Profile.NO_LOOP_COUNTER;
             case SKIP_TESTABILITY_RUNG:
-                return bi.transformBytesSkipTestability(loader, internal, instrumentedName, reader,
-                        ClassReader.SKIP_FRAMES);
+                return BytecodeInstrumentation.Profile.NO_TESTABILITY;
             case MINIMAL_RUNG:
-                return bi.transformBytesMinimal(loader, internal, instrumentedName, reader, ClassReader.SKIP_FRAMES);
+                return BytecodeInstrumentation.Profile.MINIMAL;
             default:
-                try {
-                    java.lang.reflect.Method bare = BytecodeInstrumentation.class.getDeclaredMethod(
-                            "transformBytesBarePassthrough", String.class, ClassReader.class);
-                    bare.setAccessible(true);
-                    return (byte[]) bare.invoke(bi, internal, reader);
-                } catch (ReflectiveOperationException e) {
-                    throw new AssertionError(e);
-                }
+                return BytecodeInstrumentation.Profile.BARE;
         }
     }
 
@@ -691,24 +684,21 @@ public class InstrumentationRungProfileTest {
         }
 
         @Override
-        protected byte[] transformBytesInternal(ClassLoader classLoader, String className, String classNameWithDots,
-                                                ClassReader reader, int readFlags, boolean enableLoopCounter,
-                                                int writerFlags) {
-            String flags = writerFlags == ClassWriter.COMPUTE_FRAMES ? "FRAMES"
-                    : writerFlags == ClassWriter.COMPUTE_MAXS ? "MAXS" : "other" + writerFlags;
-            return step("internal(loop=" + enableLoopCounter + "," + flags + ")");
-        }
-
-        @Override
-        protected byte[] transformBytesSkipTestability(ClassLoader classLoader, String className,
-                                                       String classNameWithDots, ClassReader reader, int readFlags) {
-            return step(SKIP_TT);
-        }
-
-        @Override
-        protected byte[] transformBytesMinimal(ClassLoader classLoader, String className,
-                                               String classNameWithDots, ClassReader reader, int readFlags) {
-            return step(MINIMAL);
+        protected byte[] transform(Profile profile, ClassLoader classLoader, String className,
+                                   String classNameWithDots, ClassReader reader, int readFlags) {
+            switch (profile) {
+                case NO_TESTABILITY:
+                    return step(SKIP_TT);
+                case MINIMAL:
+                    return step(MINIMAL);
+                case BARE:
+                case RAW:
+                    return super.transform(profile, classLoader, className, classNameWithDots, reader, readFlags);
+                default:
+                    String flags = profile.writerFlags == ClassWriter.COMPUTE_FRAMES ? "FRAMES"
+                            : profile.writerFlags == ClassWriter.COMPUTE_MAXS ? "MAXS" : "other" + profile.writerFlags;
+                    return step("internal(loop=" + profile.loopCounter + "," + flags + ")");
+            }
         }
     }
 }
