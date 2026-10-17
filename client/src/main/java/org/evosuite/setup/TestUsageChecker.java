@@ -169,28 +169,19 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (Modifier.isPublic(c.getModifiers())) {
-            TestClusterUtils.makeAccessible(c);
-            return true;
-        }
-
-        for (java.lang.reflect.Type paramType : c.getGenericParameterTypes()) {
-            if (!canUse(paramType)) {
-                return false;
+        if (!Modifier.isPublic(c.getModifiers())) {
+            for (java.lang.reflect.Type paramType : c.getGenericParameterTypes()) {
+                if (!canUse(paramType)) {
+                    return false;
+                }
             }
         }
 
-        // If default access rights, then check if this class is in the same package as the target class
-        if (!Modifier.isPrivate(c.getModifiers())) {
-            //                && !Modifier.isProtected(c.getModifiers())) {
-            String packageName = ClassUtils.getPackageName(c.getDeclaringClass());
-            if (packageName.equals(Properties.CLASS_PREFIX)) {
-                TestClusterUtils.makeAccessible(c);
-                return true;
-            }
+        if (!isVisibleFromTestPackage(c.getDeclaringClass(), c.getModifiers())) {
+            return false;
         }
-
-        return false;
+        TestClusterUtils.makeAccessible(c);
+        return true;
     }
 
     /**
@@ -357,17 +348,8 @@ public class TestUsageChecker {
         }
 
 
-        if (Modifier.isPublic(c.getModifiers())) {
+        if (isVisibleFromTestPackage(c, c.getModifiers())) {
             return true;
-        }
-
-        // If default access rights, then check if this class is in the same package as the target class
-        if (!Modifier.isPrivate(c.getModifiers())) {
-            //                && !Modifier.isProtected(c.getModifiers())) {
-            String packageName = ClassUtils.getPackageName(c);
-            if (packageName.equals(Properties.CLASS_PREFIX)) {
-                return true;
-            }
         }
 
         logger.debug("Not public");
@@ -490,10 +472,14 @@ public class TestUsageChecker {
     public static boolean isCallableFromTestPackage(java.lang.reflect.Member member) {
         int modifiers = member instanceof Field
                 ? getOriginalFieldModifiers((Field) member) : member.getModifiers();
-        return isCallableFromTestPackage(member.getDeclaringClass(), modifiers);
+        return isVisibleFromTestPackage(member.getDeclaringClass(), modifiers);
     }
 
-    private static boolean isCallableFromTestPackage(Class<?> declaringClass, int modifiers) {
+    /**
+     * Whether a class or member with these modifiers, declared in {@code declaringClass}, is visible
+     * from the package of the generated test: public, or neither private nor in another package.
+     */
+    private static boolean isVisibleFromTestPackage(Class<?> declaringClass, int modifiers) {
         if (Modifier.isPrivate(modifiers)) {
             return false;
         }
@@ -677,7 +663,7 @@ public class TestUsageChecker {
         }
 
         int modifiers = getOriginalFieldModifiers(f);
-        if (!isCallableFromTestPackage(f.getDeclaringClass(), modifiers)) {
+        if (!isVisibleFromTestPackage(f.getDeclaringClass(), modifiers)) {
             return false;
         }
         if (Modifier.isPublic(modifiers)) {
@@ -1193,30 +1179,24 @@ public class TestUsageChecker {
             return false;
         }
 
-        // If default or
-        if (Modifier.isPublic(m.getModifiers())) {
-            TestClusterUtils.makeAccessible(m);
-            return true;
+        if (!isVisibleFromTestPackage(m.getDeclaringClass(), m.getModifiers())) {
+            return false;
         }
-
-        // If default access rights, then check if this class is in the same package as the target class
-        if (!Modifier.isPrivate(m.getModifiers())) {
-            // && !Modifier.isProtected(m.getModifiers())) {
-            String packageName = ClassUtils.getPackageName(ownerClass);
-            String declaredPackageName = ClassUtils.getPackageName(m.getDeclaringClass());
+        if (!Modifier.isPublic(m.getModifiers())) {
+            // A non-public method is only reachable through an owner in its own package.
+            if (!ClassUtils.getPackageName(ownerClass).equals(ClassUtils.getPackageName(m.getDeclaringClass()))) {
+                return false;
+            }
             // A default-access abstract method is only skipped for ordinary classes, where the
             // implementation may live in a subclass outside the package. The constants of an
             // enum with constant-specific bodies are nested in the enum itself, and such an
             // abstract method is often its only entry point (a state-machine enum, for example).
-            if (packageName.equals(Properties.CLASS_PREFIX)
-                    && packageName.equals(declaredPackageName)
-                    && (!Modifier.isAbstract(m.getModifiers()) || m.getDeclaringClass().isEnum())) {
-                TestClusterUtils.makeAccessible(m);
-                return true;
+            if (Modifier.isAbstract(m.getModifiers()) && !m.getDeclaringClass().isEnum()) {
+                return false;
             }
         }
-
-        return false;
+        TestClusterUtils.makeAccessible(m);
+        return true;
     }
 
     /**
