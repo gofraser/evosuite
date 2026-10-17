@@ -28,21 +28,27 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 
 /**
- * Helper to manage atomic statement insertions and rollbacks.
+ * The statements of a test at one point in time, so that a failed insertion can be undone.
+ *
+ * <p>Recursive construction may insert dependencies before or after the requested position, and
+ * nested helpers may append at the end of the test, so neither a positional range nor the tail
+ * reliably identifies the statements an attempt added. A checkpoint therefore records the
+ * statement objects themselves, and {@link #rollback()} removes exactly those that were not part of
+ * the test when the checkpoint was taken, wherever they were inserted.
+ *
+ * <p>A rollback cannot undo changes made in place to statements that existed at the checkpoint.
  *
  * @author Gordon Fraser
  */
-class StatementInserter {
+public final class StatementCheckpoint {
 
-    private static final Logger logger = LoggerFactory.getLogger(StatementInserter.class);
+    private static final Logger logger = LoggerFactory.getLogger(StatementCheckpoint.class);
 
     private final TestCase test;
-    private final int startPosition;
     private final Set<Statement> originalStatements;
 
-    StatementInserter(TestCase test, int position) {
+    private StatementCheckpoint(TestCase test) {
         this.test = test;
-        this.startPosition = position;
         this.originalStatements = Collections.newSetFromMap(new IdentityHashMap<Statement, Boolean>());
         for (Statement statement : test) {
             originalStatements.add(statement);
@@ -50,14 +56,21 @@ class StatementInserter {
     }
 
     /**
-     * Remove all statements added since this inserter was created.
+     * Records the statements currently in the test.
+     *
+     * @param test the test that is about to be extended
+     * @return a checkpoint for {@code test}
      */
-    void rollback() {
+    public static StatementCheckpoint of(TestCase test) {
+        return new StatementCheckpoint(test);
+    }
+
+    /**
+     * Removes all statements added since this checkpoint was taken. The removal runs in reverse
+     * test order, so a statement disappears before the statements it depends on.
+     */
+    public void rollback() {
         int removed = 0;
-        // Recursive construction may insert dependencies before or after the requested
-        // position, so a positional range does not reliably identify the transaction's
-        // statements. Remove precisely the statement objects that did not exist when the
-        // insertion started, in reverse test order so their dependencies disappear last.
         for (int position = test.size() - 1; position >= 0; position--) {
             Statement statement = test.getStatement(position);
             if (!originalStatements.contains(statement)) {
@@ -68,6 +81,6 @@ class StatementInserter {
                 removed++;
             }
         }
-        logger.debug("Rolled back {} inserted statements for insertion at {}", removed, startPosition);
+        logger.debug("Rolled back {} inserted statements", removed);
     }
 }

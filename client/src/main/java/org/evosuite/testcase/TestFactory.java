@@ -140,7 +140,7 @@ public class TestFactory {
 
         logger.trace("addCallFor {}", callee.getName());
 
-        StatementInserter inserter = new StatementInserter(test, position);
+        StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
 
         try {
             if (call.isMethod()) {
@@ -174,7 +174,7 @@ public class TestFactory {
             return true;
         } catch (ConstructionFailedException e) {
             logger.debug("Inserting call {} has failed: {} Rolling back statements", call, e);
-            inserter.rollback();
+            checkpoint.rollback();
             if (logger.isDebugEnabled()) {
                 logger.debug("Test after removal: {}", test.toCode());
             }
@@ -524,7 +524,7 @@ public class TestFactory {
         }
         NullStatement nullStat = (NullStatement) statement;
         Type type = nullStat.getReturnType();
-        StatementInserter inserter = new StatementInserter(test, nullStat.getPosition());
+        StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
 
         VariableReference obj = null;
         try {
@@ -590,7 +590,7 @@ public class TestFactory {
             if (obj != null) {
                 replaceAndDelete(test, nullStat.getPosition(), obj);
             } else {
-                inserter.rollback();
+                checkpoint.rollback();
                 return null;
             }
         } catch (ConstructionFailedException | RuntimeException | AssertionError e) {
@@ -601,7 +601,7 @@ public class TestFactory {
              * only statements introduced by this attempt; the original statement identities and
              * their references remain untouched because replacement happens only after success.
              */
-            inserter.rollback();
+            checkpoint.rollback();
             return null;
         }
 
