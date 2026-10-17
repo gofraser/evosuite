@@ -2776,25 +2776,10 @@ public class TestCodeVisitor extends TestVisitor {
                 //parameterString = "doReturn(" + parameterString.replaceAll(", ", ").doReturn(") + ")";
                 //result += parameterString+".when("+getVariableName(retval)+")";
                 
-                java.lang.reflect.Method originalMethod = md.getMethod();
-                try {
-                    // Mockito sometimes intercepts methods on the generated proxy class.
-                    // To resolve generic type parameters correctly, we need the method
-                    // from the original target interface/class.
-                    originalMethod = st.getTargetClass().getMethod(
-                            md.getMethodName(), md.getMethod().getParameterTypes());
-                    // The erased signature of a generic interface method (Comparable.compareTo(T))
-                    // finds the bridge compareTo(Object) of a class implementing Comparable<Self>.
-                    // Its Object parameter yields nullable(Object.class), which javac cannot
-                    // infer against the real compareTo(Self).
-                    originalMethod = org.evosuite.testcase.fm.MethodDescriptor
-                            .resolveBridgedMethod(originalMethod);
-                } catch (Exception e) {
-                    // Fallback
-                }
-                org.evosuite.testcase.fm.MethodDescriptor updatedMd =
-                        new org.evosuite.testcase.fm.MethodDescriptor(originalMethod, retval.getGenericClass());
-                
+                MethodDescriptor.StubTarget stubTarget =
+                        md.getStubTarget(st.getTargetClass(), retval.getGenericClass());
+                java.lang.reflect.Method originalMethod = stubTarget.getMethod();
+
                 // The variable may be declared wider than the mocked class (Object for an
                 // erased type variable), and the stubbed method must resolve on the receiver.
                 String stubReceiver = getVariableName(retval);
@@ -2815,7 +2800,7 @@ public class TestCodeVisitor extends TestVisitor {
                 result.append("doReturn(").append(parameterString)
                         .append(").when(").append(stubReceiver).append(")");
                 result.append(".").append(md.getMethodName()).append("(")
-                        .append(updatedMd.getInputParameterMatchers()).append(");").append(NEWLINE);
+                        .append(stubTarget.getMatchers()).append(");").append(NEWLINE);
 
             }
 

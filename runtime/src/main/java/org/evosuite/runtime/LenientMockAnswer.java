@@ -36,8 +36,10 @@ import java.util.*;
  * collections, and recursively mocked objects for non-final concrete types.
  *
  * <p>Unlike {@link ViolatedAssumptionAnswer}, this answer never throws on
- * unexpected method calls — it always returns a usable value.  This matches the
- * behavior of the ephemeral mocks used by DMoN during the search phase.
+ * unexpected method calls — it always returns a usable value.  During the search
+ * the promoted mock answers with a subclass of this answer, so that the search and
+ * the generated test see the same values.  The ephemeral mocks that DMoN creates
+ * to probe a failure use an answer of their own, which differs on purpose.
  *
  * <p>Overly-broad supertypes ({@code Object}, {@code Serializable}, etc.) return
  * {@code null} to avoid creating opaque proxy objects that cause
@@ -50,7 +52,7 @@ public class LenientMockAnswer implements Answer<Object> {
      * {@code getParent()} that always hands out a fresh mock has no end, so code that recurses or
      * loops up the chain (JOptionPane.getDesktopPaneForComponent) would never return.
      */
-    static final int MAX_CHAIN = 16;
+    public static final int MAX_CHAIN = 16;
 
     private final int chain;
 
@@ -58,8 +60,28 @@ public class LenientMockAnswer implements Answer<Object> {
         this(0);
     }
 
-    private LenientMockAnswer(int chain) {
+    /**
+     * @param chain the number of mocks that the mock answering with this hangs off
+     */
+    protected LenientMockAnswer(int chain) {
         this.chain = chain;
+    }
+
+    /**
+     * The answer of a mock that this answer hands out.
+     *
+     * @param chain the number of mocks that mock hangs off
+     */
+    protected LenientMockAnswer forMockAt(int chain) {
+        return new LenientMockAnswer(chain);
+    }
+
+    /**
+     * Whether an unstubbed call may return a mock of {@code type}, a reference type that is not
+     * handled otherwise.
+     */
+    protected boolean canMock(Class<?> type) {
+        return !Modifier.isFinal(type.getModifiers()) && !UnmockableTypes.isUnmockable(type);
     }
 
     @Override
@@ -72,7 +94,7 @@ public class LenientMockAnswer implements Answer<Object> {
         return answerForType(invocation.getMethod().getReturnType(), chain);
     }
 
-    private static Object answerForType(Class<?> type, int chain) {
+    private Object answerForType(Class<?> type, int chain) {
         if (type == void.class || type == Void.class) {
             return null;
         }
@@ -128,10 +150,9 @@ public class LenientMockAnswer implements Answer<Object> {
                 || type == Cloneable.class) {
             return null;
         }
-        if (chain < MAX_CHAIN && !Modifier.isFinal(type.getModifiers()) && !type.isPrimitive()
-                && !UnmockableTypes.isUnmockable(type)) {
+        if (chain < MAX_CHAIN && !type.isPrimitive() && canMock(type)) {
             try {
-                return Mockito.mock(type, new LenientMockAnswer(chain + 1));
+                return Mockito.mock(type, forMockAt(chain + 1));
             } catch (Exception expected) {
                 // Ignore
             }

@@ -635,32 +635,30 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             int preLength = test.size();
 
             try {
-                List<Type> missing = fms.updateMockedMethods();
-                int pos = st.getPosition();
-                logger.debug("Generating parameters for mock call");
-
-                List<VariableReference> refs;
-                try {
-                    // Use depth=1 because we are resolving dependencies of an existing
-                    // mock, not generating a top-level object.
-                    refs = TestFactory.getInstance().satisfyParameters(test, null, missing,
-                            null, pos, 1, true, false, true);
-                } catch (Exception e) {
-                    // Concrete generators may fail (e.g. recursion depth exceeded).
-                    // Fall back to directly creating functional mocks for each type.
-                    logger.debug("satisfyParameters failed for mock of {}, creating mock fallbacks",
-                            fms.getReturnType());
-                    refs = createMockFallbacks(test, missing, st.getPosition());
-                }
-                fms.addMissingInputs(refs);
-                if (!missing.isEmpty()) {
+                List<VariableReference> added = fms.completeStubs(missing -> {
+                    int pos = st.getPosition();
+                    logger.debug("Generating parameters for mock call");
+                    try {
+                        // Use depth=1 because we are resolving dependencies of an existing
+                        // mock, not generating a top-level object.
+                        return TestFactory.getInstance().satisfyParameters(test, null, missing,
+                                null, pos, 1, true, false, true);
+                    } catch (Exception e) {
+                        // Concrete generators may fail (e.g. recursion depth exceeded).
+                        // Fall back to directly creating functional mocks for each type.
+                        logger.debug("satisfyParameters failed for mock of {}, creating mock fallbacks",
+                                fms.getReturnType());
+                        return createMockFallbacks(test, missing, st.getPosition());
+                    }
+                });
+                if (!added.isEmpty()) {
                     addedStubs[0] = true;
                 }
             } catch (Exception e) {
+                // the calls without a value are answered with null
                 String msg = "Functional mock problem for " + fms.getReturnType()
                         + ": " + e.getClass().getSimpleName() + ": " + e.getMessage();
                 AtMostOnceLogger.warn(logger, msg);
-                fms.fillWithNullRefs();
                 // Only this mock is beyond saving. Returning abandoned every functional mock
                 // after it in the same test, leaving those with their inputs unset for a
                 // failure that had nothing to do with them.

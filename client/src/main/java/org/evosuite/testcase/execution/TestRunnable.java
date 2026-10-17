@@ -1214,7 +1214,7 @@ public class TestRunnable implements InterfaceTestRunnable {
         }
         // An accessor like getParent() hands out a fresh mock on every call, so bound how many
         // mocks may hang off one another or a loop up that chain never ends.
-        if (chain >= org.evosuite.testcase.statements.FunctionalMockStatement.MAX_LENIENT_MOCK_CHAIN) {
+        if (chain >= org.evosuite.runtime.LenientMockAnswer.MAX_CHAIN) {
             return null;
         }
         try {
