@@ -921,7 +921,7 @@ public class TestCaseExecutor implements ThreadFactory {
                     }
                 }
                 // Not tc.toCode(): the thread is still running the test, and rendering a
-                // functional mock it is observing reads, and repairs, half-updated parameters
+                // functional mock it is observing reads half-updated stubs
                 logger.info("Test with {} statements", tc.size());
 
                 // Re-interrupt in case the first one was swallowed

@@ -795,6 +795,107 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     /**
+     * One stubbed method of a rendered mock and the values its successive calls return.
+     */
+    public static final class Stub {
+        private final MethodDescriptor method;
+        private final int[] range;
+        private final List<VariableReference> parameters;
+
+        private Stub(MethodDescriptor method, int[] range, List<VariableReference> parameters) {
+            this.method = method;
+            this.range = range;
+            this.parameters = parameters;
+        }
+
+        public MethodDescriptor getMethod() {
+            return method;
+        }
+
+        public List<VariableReference> getValues() {
+            List<VariableReference> values = new ArrayList<>();
+            for (int i = range[0]; i <= range[1]; i++) {
+                values.add(parameters.get(i));
+            }
+            return values;
+        }
+    }
+
+    /**
+     * The stubs of the generated code: every mocked method that returns a value, with its values.
+     * A mock whose stubs lag behind its last execution is shown as
+     * {@link #completePendingStubsWithNulls()} would leave it, but that completion is done on
+     * a copy of the stubs, so this statement is not changed.
+     *
+     * @return the stubs in the order they are declared
+     */
+    public List<Stub> getStubsToRender() {
+        List<MethodDescriptor> methods = mockedMethods;
+        Map<String, int[]> ranges = methodParameters;
+        List<VariableReference> values = parameters;
+        if (doesNeedToUpdateInputs()) {
+            methods = new ArrayList<>(mockedMethods);
+            ranges = new LinkedHashMap<>();
+            for (Map.Entry<String, int[]> entry : methodParameters.entrySet()) {
+                int[] range = entry.getValue();
+                ranges.put(entry.getKey(), range == null ? null : range.clone());
+            }
+            values = new ArrayList<>(parameters);
+            completePendingStubsWithNulls(methods, ranges, values);
+        }
+
+        List<Stub> stubs = new ArrayList<>();
+        for (MethodDescriptor md : methods) {
+            if (!md.shouldBeMocked()) {
+                continue;
+            }
+            int[] range = ranges.get(md.getID());
+            if (range == null) {
+                continue;
+            }
+            stubs.add(new Stub(md, range, values));
+        }
+        return stubs;
+    }
+
+    /**
+     * Brings the stubs in line with the last execution, as the generated test declares them:
+     * a call that has no value yet returns the value of the previous call of the same method, or
+     * null (a default value for a primitive). The search instead generates values for those
+     * calls; see {@link #updateMockedMethods()} and {@link #addMissingInputs(List)}.
+     */
+    public void completePendingStubsWithNulls() {
+        if (doesNeedToUpdateInputs()) {
+            completePendingStubsWithNulls(mockedMethods, methodParameters, parameters);
+        }
+    }
+
+    /**
+     * {@link #completePendingStubsWithNulls()} for every functional mock of the test.
+     *
+     * @param test the test whose mocks are completed
+     */
+    public static void completePendingStubsWithNulls(TestCase test) {
+        for (int i = 0; i < test.size(); i++) {
+            Statement statement = test.getStatement(i);
+            if (statement instanceof FunctionalMockStatement) {
+                ((FunctionalMockStatement) statement).completePendingStubsWithNulls();
+            }
+        }
+    }
+
+    private void completePendingStubsWithNulls(List<MethodDescriptor> mockedMethods,
+                                               Map<String, int[]> methodParameters,
+                                               List<VariableReference> parameters) {
+        try {
+            updateMockedMethods(mockedMethods, methodParameters, parameters);
+        } catch (Exception e) {
+            // A return type that cannot be resolved leaves the stubs as far as they were updated
+        }
+        fillWithNullRefs(mockedMethods, methodParameters, parameters);
+    }
+
+    /**
      * Check if the last execution of the test case has led a change in the usage of the mock.
      * This will result in adding/removing variable references.
      *
@@ -874,23 +975,39 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * @throws ConstructionFailedException if construction fails
      */
     public List<Type> updateMockedMethods() throws ConstructionFailedException {
+        return updateMockedMethods(mockedMethods, methodParameters, parameters);
+    }
+
+    /**
+     * Updates the given stub table, which is either this statement's own or a copy of it, from
+     * the last execution.
+     *
+     * @param mockedMethods    the mocked methods, in order
+     * @param methodParameters the range of {@code parameters} that holds the values of each method
+     * @param parameters       the values of all stubs
+     * @return the types of the values that are now missing, which have null placeholders
+     */
+    private List<Type> updateMockedMethods(List<MethodDescriptor> mockedMethods,
+                                           Map<String, int[]> methodParameters,
+                                           List<VariableReference> parameters)
+            throws ConstructionFailedException {
 
         logger.debug("Executing updateMockedMethods. Parameter size: {}", parameters.size());
 
         List<Type> list = new ArrayList<>();
 
-        assert !super.parameters.contains(null);
+        assert !parameters.contains(null);
         if (mockedMethods.size() != methodParameters.size()) {
             logger.debug("Functional mock metadata mismatch before update: mockedMethods={}, methodParameters={}. "
                             + "Normalizing metadata for resilience.",
                     mockedMethods.size(), methodParameters.size());
-            normalizeMethodParameterMetadata();
+            normalizeMethodParameterMetadata(mockedMethods, methodParameters, parameters);
         }
 
-        List<VariableReference> copy = new ArrayList<>(super.parameters);
-        assert copy.size() == super.parameters.size();
+        List<VariableReference> copy = new ArrayList<>(parameters);
+        assert copy.size() == parameters.size();
 
-        super.parameters.clear();
+        parameters.clear();
         mockedMethods.clear(); //important to remove all the no longer used calls
 
         Map<String, int[]> mpCopy = new LinkedHashMap<>();
@@ -948,7 +1065,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             if (existingParameters > 0) {
                 for (int i = minMax[0]; i <= minMax[1]; i++) {
                     //align super class data structure
-                    super.parameters.add(copy.get(i));
+                    parameters.add(copy.get(i));
                     added++;
                 }
             }
@@ -966,7 +1083,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                             retval.getGenericClass());
                     list.add(returnType);
 
-                    super.parameters.add(null); //important place holder for following updates
+                    parameters.add(null); //important place holder for following updates
                     added++;
                 }
             }
@@ -975,7 +1092,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             minMax[0] = mdIndex;
             minMax[1] = (mdIndex + added - 1); //max is inclusive
             assert minMax[1] >= minMax[0] && minMax[0] >= 0; //max >= min
-            assert super.parameters.size() == minMax[1] + 1;
+            assert parameters.size() == minMax[1] + 1;
 
             mpCopy.put(md.getID(), minMax);
             mdIndex += added;
@@ -996,7 +1113,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * Rebuild method-parameter metadata to a consistent, bounded state.
      * Parser-originated mocks can contain duplicate method IDs or stale map entries.
      */
-    private void normalizeMethodParameterMetadata() {
+    private static void normalizeMethodParameterMetadata(List<MethodDescriptor> mockedMethods,
+                                                          Map<String, int[]> methodParameters,
+                                                          List<VariableReference> parameters) {
         Map<String, int[]> normalized = new LinkedHashMap<>();
         for (MethodDescriptor md : mockedMethods) {
             if (md == null) {
@@ -1013,7 +1132,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             }
             int start = range[0];
             int end = range[1];
-            if (start < 0 || end < start || end >= super.parameters.size()) {
+            if (start < 0 || end < start || end >= parameters.size()) {
                 normalized.put(id, null);
             } else {
                 normalized.put(id, new int[]{start, end});
@@ -1049,7 +1168,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                         throw new IllegalArgumentException("Not enough parameter place holders");
                     }
                 }
-                assert ref.isAssignableTo(getExpectedParameterType(index));
+                assert ref.isAssignableTo(getExpectedParameterType(mockedMethods, methodParameters, index));
 
                 parameters.set(index, ref);
             }
@@ -1068,15 +1187,21 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * fillWithNullRefs.
      */
     public void fillWithNullRefs() {
+        fillWithNullRefs(mockedMethods, methodParameters, parameters);
+    }
+
+    private void fillWithNullRefs(List<MethodDescriptor> mockedMethods, Map<String, int[]> methodParameters,
+                                  List<VariableReference> parameters) {
         for (int i = 0; i < parameters.size(); i++) {
             VariableReference ref = parameters.get(i);
             if (ref == null) {
-                VariableReference repeated = previousReturnValueOfSameMethod(i);
+                VariableReference repeated = previousReturnValueOfSameMethod(mockedMethods, methodParameters,
+                        parameters, i);
                 if (repeated != null) {
                     parameters.set(i, repeated);
                     continue;
                 }
-                Class<?> expected = getExpectedParameterType(i);
+                Class<?> expected = getExpectedParameterType(mockedMethods, methodParameters, i);
                 Object value = null;
                 if (expected.isPrimitive()) {
                     //can't fill a primitive with null
@@ -1113,7 +1238,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * @return the value of the previous call, or null if {@code i} is the first call of its
      * method or no previous value is known
      */
-    private VariableReference previousReturnValueOfSameMethod(int i) {
+    private static VariableReference previousReturnValueOfSameMethod(List<MethodDescriptor> mockedMethods,
+                                                                     Map<String, int[]> methodParameters,
+                                                                     List<VariableReference> parameters, int i) {
         for (MethodDescriptor md : mockedMethods) {
             int[] bounds = methodParameters.get(md.getID());
             if (bounds != null && i > bounds[0] && i <= bounds[1]) {
@@ -1129,7 +1256,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * @param i the index
      * @return the expected type
      */
-    private Class<?> getExpectedParameterType(int i) {
+    private static Class<?> getExpectedParameterType(List<MethodDescriptor> mockedMethods,
+                                                     Map<String, int[]> methodParameters, int i) {
 
         for (MethodDescriptor md : mockedMethods) {
             int[] bounds = methodParameters.get(md.getID());

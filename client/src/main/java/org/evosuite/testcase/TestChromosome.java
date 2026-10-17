@@ -989,7 +989,13 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         // make this deliberately not 0
         // because then ordering of results will be random
         // among tests of equal fitness
-        return test.toCode().compareTo((o.test.toCode()));
+        String code = test.toCode();
+        String otherCode = o.test.toCode();
+        // The mocks of both tests then get the stubs their code shows: the suite minimizer sorts
+        // the tests that cover a goal and goes on to execute and minimize the first of them.
+        FunctionalMockStatement.completePendingStubsWithNulls(test);
+        FunctionalMockStatement.completePendingStubsWithNulls(o.test);
+        return code.compareTo(otherCode);
     }
 
     /**

@@ -2696,28 +2696,6 @@ public class TestCodeVisitor extends TestVisitor {
             result.append("(").append(variableType).append(") ");
         }
 
-        /*
-         * Tricky situation. Ideally, we would want to throw assumption error if a non-mocked method
-         * is called, as to avoid false-positives when SUTs evolve.
-         * However, it might well be that a test case is not updated, leaving mocks using the default
-         * "null" return values. This would crash the JUnit check. Activating the  ViolatedAssumptionAnswer
-         * during the search would just make things worse, as negatively effecting the search.
-         * So we could just skip it, but this would effect false-positive preventions
-         */
-        if (st.doesNeedToUpdateInputs()) {
-            try {
-                st.updateMockedMethods();
-            } catch (Exception e) {
-                // ignore
-            }
-            st.fillWithNullRefs();
-
-            // result += "mock(" + rawClassName + ".class);" + NEWLINE;
-        } else {
-            // result += "mock(" + rawClassName + ".class, new "
-            //         + ViolatedAssumptionAnswer.class.getSimpleName() + "());" + NEWLINE;
-        }
-
         // Every rendered mock is stubOnly(), as it is during the search: without it Mockito keeps
         // each invocation in a per-mock list, and a SUT loop that keeps calling a stubbed mock (for
         // instance Scanner over a Readable whose read() always returns 0) retains millions of
@@ -2738,16 +2716,14 @@ public class TestCodeVisitor extends TestVisitor {
         // DMoN lenient mocks: skip doReturn stubs — LenientMockAnswer handles all calls.
         if (!st.isUseLenientDefaultAnswer()) {
 
+            // A mock whose stubs lag behind its last execution is rendered with its pending calls
+            // answered by null, read from a copy so that rendering leaves the test unchanged.
+            // Ideally an unstubbed call would violate an assumption to avoid false positives when
+            // the SUT evolves, but such a test would then fail the JUnit check.
             //when(...).thenReturn(...)
-            for (MethodDescriptor md : st.getMockedMethods()) {
-                if (!md.shouldBeMocked()) {
-                    continue;
-                }
-
-                List<VariableReference> params = st.getParameters(md.getID());
-                if (params == null) {
-                    continue;
-                }
+            for (FunctionalMockStatement.Stub stub : st.getStubsToRender()) {
+                MethodDescriptor md = stub.getMethod();
+                List<VariableReference> params = stub.getValues();
 
                 GenericClass<?> returnType = md.getReturnClass();
 

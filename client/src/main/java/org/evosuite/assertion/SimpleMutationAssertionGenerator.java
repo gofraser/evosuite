@@ -28,6 +28,7 @@ import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -332,6 +333,8 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 
         VariableReference returnValue = lastStatement.getReturnValue();
         logger.info("Last statement return value lacks meaningful assertion: " + test.toCode());
+        // From here on the mocks have the stubs of the written test
+        FunctionalMockStatement.completePendingStubsWithNulls(test);
         logger.info("Assertions to choose from: " + assertions.size());
 
         boolean haveAssertion = findMutationAssertionFromPool(lastStatement, assertions, returnValue);
