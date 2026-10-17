@@ -54,7 +54,6 @@ import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.TestIdentifier;
-import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.runner.JUnitCore;
@@ -111,6 +110,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -3055,73 +3056,10 @@ public abstract class JUnitAnalyzer {
     private static class JUnit4Analyzing extends VersionDependentAnalyzing {
         @Override
         JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses, JUnitCheckProgress progress) {
-
             JUnitCore runner = new JUnitCore();
             runner.addListener(progress.junit4Listener());
-
-            /*
-             * Why deactivating the sandbox? This is pretty tricky.
-             * The JUnitCore runner will execute the test cases on a new
-             * thread, which might not be privileged. If the test cases need
-             * the JavaAgent, then they will fail due to the sandbox :(
-             * Note: if the test cases need a sandbox, they will have code
-             * to do that by their self. When they do it, the initialization
-             * will be after the agent is already loaded.
-             */
-            boolean wasSandboxOn = Sandbox.isSecurityManagerInitialized();
-
-            Set<Thread> privileged = null;
-            if (wasSandboxOn) {
-                privileged = Sandbox.resetDefaultSecurityManager();
-            }
-            try {
-                Result result = null;
-                ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
-                boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
-                boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
-                        || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
-                boolean disabledHeadless = false;
-
-                // Skip agent self-attachment during the in-process JUnit check.
-                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
-                try {
-                    if (shouldEnableMockFramework) {
-                        MockFramework.enable();
-                    }
-                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                        // Align JUnit recheck with search-time constructor execution:
-                        // ConstructorStatement temporarily disables headless mode for GUI
-                        // constructors, but JUnit executes plain Java source directly.
-                        // Without this, GUI-heavy tests can fail only in recheck.
-                        GuiSupport.disableHeadlessForMockConstruction();
-                        disabledHeadless = true;
-                    }
-                    TestGenerationContext.getInstance().goingToExecuteSUTCode();
-                    Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
-                    // be sure we reset it here, otherwise "init" in the test case
-                    // would take current changed state
-                    JDKClassResetter.reset();
-                    result = runner.run(testClasses);
-                } finally {
-                    Thread.currentThread().setContextClassLoader(currentLoader);
-                    TestGenerationContext.getInstance().doneWithExecutingSUTCode();
-                    org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
-                    if (disabledHeadless) {
-                        GuiSupport.restoreHeadlessAfterMockConstruction();
-                    }
-                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                    }
-                    if (!wasMockFrameworkEnabled) {
-                        MockFramework.disable();
-                    }
-                }
-                JUnitResultBuilder builder = new JUnitResultBuilder();
-                return builder.build(result);
-            } finally {
-                restoreSandboxStateAfterJUnitRun(wasSandboxOn, privileged);
-            }
+            return runInCheckEnvironment(testClasses, () -> runner.run(testClasses),
+                    result -> new JUnitResultBuilder().build(result));
         }
     }
 
@@ -3133,69 +3071,94 @@ public abstract class JUnitAnalyzer {
 
         @Override
         JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses, JUnitCheckProgress progress) {
+            List<Pair<TestIdentifier, TestExecutionResult>> result = new CopyOnWriteArrayList<>();
+            return runInCheckEnvironment(testClasses, () -> {
+                LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                        .selectors(Arrays.stream(testClasses).map(DiscoverySelectors::selectClass)
+                                .collect(Collectors.toList()))
+                        .build();
+                Launcher launcher = LauncherFactory.create();
+                launcher.registerTestExecutionListeners(progress.junit5Listener(result));
+                launcher.execute(request);
+                return result;
+            }, executed -> new JUnitResultBuilder().build(executed));
+        }
+    }
 
-            boolean wasSandboxOn = Sandbox.isSecurityManagerInitialized();
+    /**
+     * Runs the given test classes on the current thread in the environment the JUnit check
+     * needs, and restores the previous environment afterwards.
+     *
+     * @param testClasses the test classes to run
+     * @param run         runs the classes and returns the runner's raw result
+     * @param toResult    converts the raw result once the mock framework, headless mode and
+     *                    context class loader have been restored
+     */
+    private static <T> JUnitResult runInCheckEnvironment(Class<?>[] testClasses, Supplier<T> run,
+                                                         Function<T, JUnitResult> toResult) {
+        /*
+         * Why deactivating the sandbox? This is pretty tricky.
+         * The JUnit runner will execute the test cases on a new
+         * thread, which might not be privileged. If the test cases need
+         * the JavaAgent, then they will fail due to the sandbox :(
+         * Note: if the test cases need a sandbox, they will have code
+         * to do that by their self. When they do it, the initialization
+         * will be after the agent is already loaded.
+         */
+        boolean wasSandboxOn = Sandbox.isSecurityManagerInitialized();
 
-            Set<Thread> privileged = null;
-            if (wasSandboxOn) {
-                privileged = Sandbox.resetDefaultSecurityManager();
-            }
+        Set<Thread> privileged = null;
+        if (wasSandboxOn) {
+            privileged = Sandbox.resetDefaultSecurityManager();
+        }
+        try {
+            T result;
+            ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
+            boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
+            boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
+                    || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+            boolean disabledHeadless = false;
+
+            // Skip agent self-attachment during the in-process JUnit check.
+            // Classes are already instrumented by InstrumentingClassLoader, and
+            // ByteBuddyAgent.attach() can hang on some JDK/OS combinations.
+            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
             try {
-                List<Pair<TestIdentifier, TestExecutionResult>> result = new CopyOnWriteArrayList<>();
-                ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
-                boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
-                boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
-                        || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
-                boolean disabledHeadless = false;
-
-
-                // Skip agent self-attachment during the in-process JUnit check.
-                // Classes are already instrumented by InstrumentingClassLoader, and
-                // ByteBuddyAgent.attach() can hang on some JDK/OS combinations.
-                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
-                try {
-                    if (shouldEnableMockFramework) {
-                        MockFramework.enable();
-                    }
-                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                        // Keep JUnit recheck behavior aligned with search-time execution.
-                        GuiSupport.disableHeadlessForMockConstruction();
-                        disabledHeadless = true;
-                    }
-                    TestGenerationContext.getInstance().goingToExecuteSUTCode();
-                    Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
-                    // be sure we reset it here, otherwise "init" in the test case
-                    // would take current changed state
-                    JDKClassResetter.reset();
-                    LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                            .selectors(Arrays.stream(testClasses).map(DiscoverySelectors::selectClass)
-                                    .collect(Collectors.toList()))
-                            .build();
-                    Launcher launcher = LauncherFactory.create();
-                    TestPlan testPlan = launcher.discover(request);
-                    launcher.registerTestExecutionListeners(progress.junit5Listener(result));
-
-                    launcher.execute(request);
-                } finally {
-                    Thread.currentThread().setContextClassLoader(currentLoader);
-                    TestGenerationContext.getInstance().doneWithExecutingSUTCode();
-                    org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
-                    if (disabledHeadless) {
-                        GuiSupport.restoreHeadlessAfterMockConstruction();
-                    }
-                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                    }
-                    if (!wasMockFrameworkEnabled) {
-                        MockFramework.disable();
-                    }
+                if (shouldEnableMockFramework) {
+                    MockFramework.enable();
                 }
-                JUnitResultBuilder builder = new JUnitResultBuilder();
-                return builder.build(result);
+                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+                    // Align JUnit recheck with search-time constructor execution:
+                    // ConstructorStatement temporarily disables headless mode for GUI
+                    // constructors, but JUnit executes plain Java source directly.
+                    // Without this, GUI-heavy tests can fail only in recheck.
+                    GuiSupport.disableHeadlessForMockConstruction();
+                    disabledHeadless = true;
+                }
+                TestGenerationContext.getInstance().goingToExecuteSUTCode();
+                Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
+                // be sure we reset it here, otherwise "init" in the test case
+                // would take current changed state
+                JDKClassResetter.reset();
+                result = run.get();
             } finally {
-                restoreSandboxStateAfterJUnitRun(wasSandboxOn, privileged);
+                Thread.currentThread().setContextClassLoader(currentLoader);
+                TestGenerationContext.getInstance().doneWithExecutingSUTCode();
+                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
+                if (disabledHeadless) {
+                    GuiSupport.restoreHeadlessAfterMockConstruction();
+                }
+                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+                }
+                if (!wasMockFrameworkEnabled) {
+                    MockFramework.disable();
+                }
             }
+            return toResult.apply(result);
+        } finally {
+            restoreSandboxStateAfterJUnitRun(wasSandboxOn, privileged);
         }
     }
 
