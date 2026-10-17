@@ -1207,9 +1207,9 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return the super class
      */
     public GenericClassImpl getSuperClass() {
-        Type superType = GenericTypeReflector.getExactSuperType(type, rawClass.getSuperclass());
+        Type superType = GenericUtils.getExactSuperType(type, rawClass.getSuperclass());
         if (superType == null) {
-            superType = GenericTypeReflector.getExactSuperType(type, (Class<?>) rawClass.getGenericSuperclass());
+            superType = GenericUtils.getExactSuperType(type, (Class<?>) rawClass.getGenericSuperclass());
         }
         return superType != null ? new GenericClassImpl(superType) : new GenericClassImpl(this);
     }
@@ -2052,7 +2052,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 if (GenericTypeReflector.erase(boundType).isAssignableFrom(getRawClass())) {
                     //logger.debug("Raw classes are assignable: " + boundType + ", "
                     //        + getRawClass());
-                    Type instanceType = GenericTypeReflector.getExactSuperType(boundType,
+                    Type instanceType = GenericUtils.getExactSuperType(boundType,
                             getRawClass());
                     if (instanceType == null) {
                         // This happens when the raw class is not a supertype
@@ -2137,7 +2137,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                     break;
                 }
                 if (GenericTypeReflector.erase(type).isAssignableFrom(getRawClass())) {
-                    Type instanceType = GenericTypeReflector.getExactSuperType(type,
+                    Type instanceType = GenericUtils.getExactSuperType(type,
                             getRawClass());
                     if (instanceType == null) {
                         // This happens when the raw class is not a supertype
@@ -2173,7 +2173,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                         continue;
                     }
                     if (GenericTypeReflector.erase(type).isAssignableFrom(getRawClass())) {
-                        Type instanceType = GenericTypeReflector.getExactSuperType(type,
+                        Type instanceType = GenericUtils.getExactSuperType(type,
                                 getRawClass());
                         if (instanceType == null) {
                             // This happens when the raw class is not a supertype
@@ -2204,7 +2204,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
 
         Class<?> boundRawClass = GenericTypeReflector.erase(boundType);
-        Type candidateAsBoundRaw = GenericTypeReflector.getExactSuperType(candidateType, boundRawClass);
+        Type candidateAsBoundRaw = GenericUtils.getExactSuperType(candidateType, boundRawClass);
         if (!(candidateAsBoundRaw instanceof ParameterizedType)) {
             return false;
         }

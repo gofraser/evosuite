@@ -19,6 +19,7 @@
  */
 package org.evosuite.utils.generic;
 
+import org.apache.commons.lang3.reflect.TypeUtils;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * gentyref treats a static nested class of a generic outer class as raw and erases its
  * supertypes. {@link GenericUtils#getExactSuperType} works around that for methods; an inherited
- * field typed by the superclass's type variable must resolve the same way.
+ * field typed by the superclass's type variable, and the superclass itself, must resolve the
+ * same way.
  */
 public class GenericFieldStaticNestedSuperTypeTest {
 
@@ -54,5 +56,11 @@ public class GenericFieldStaticNestedSuperTypeTest {
         GenericField value = new GenericField(Base.class.getField("value"), Outer.Child.class);
         assertEquals(String.class, value.getFieldType(),
                 "the inherited field must be typed like the inherited getter, not erased");
+    }
+
+    @Test
+    public void superClassKeepsTheTypeArgument() {
+        GenericClass<?> superClass = GenericClassFactory.get(Outer.Child.class).getSuperClass();
+        assertEquals(TypeUtils.parameterize(Base.class, String.class), superClass.getType());
     }
 }

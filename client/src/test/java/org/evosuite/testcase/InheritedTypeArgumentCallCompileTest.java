@@ -88,6 +88,10 @@ public class InheritedTypeArgumentCallCompileTest {
         public List<E> values() {
             return new ArrayList<>();
         }
+
+        public E first() {
+            return null;
+        }
     }
 
     public static class StringConsumer {
@@ -149,8 +153,9 @@ public class InheritedTypeArgumentCallCompileTest {
                 Collections.emptyList()));
         addStringConsumer(tc, value);
 
+        // javac sees the members Named inherits from Value<String> unerased: no cast.
         String code = assertCompiles(tc);
-        assertTrue(code.contains("String string0 = (String)inheritedTypeArgumentCallCompileTest_Holder_Named0.get();"),
+        assertTrue(code.contains("String string0 = inheritedTypeArgumentCallCompileTest_Holder_Named0.get();"),
                 code);
     }
 
@@ -163,7 +168,7 @@ public class InheritedTypeArgumentCallCompileTest {
         addStringConsumer(tc, value);
 
         String code = assertCompiles(tc);
-        assertTrue(code.contains("String string0 = (String)inheritedTypeArgumentCallCompileTest_Holder_Named0.value;"),
+        assertTrue(code.contains("String string0 = inheritedTypeArgumentCallCompileTest_Holder_Named0.value;"),
                 code);
     }
 
@@ -177,7 +182,7 @@ public class InheritedTypeArgumentCallCompileTest {
 
         String code = assertCompiles(tc);
         assertTrue(code.contains(
-                "StringConsumer(((String) inheritedTypeArgumentCallCompileTest_Holder_Named0.value));"), code);
+                "StringConsumer(inheritedTypeArgumentCallCompileTest_Holder_Named0.value);"), code);
     }
 
     @Test
@@ -194,10 +199,29 @@ public class InheritedTypeArgumentCallCompileTest {
                 new GenericMethod(List.class.getMethod("size"), List.class), values,
                 Collections.emptyList()));
 
+        // Holder.Key implements Comparable<Key>, so it is within the bound of E.
         String code = assertCompiles(tc);
-        assertTrue(code.contains("InheritedTypeArgumentCallCompileTest.BoundedBox "
-                + "inheritedTypeArgumentCallCompileTest_BoundedBox0 = "
-                + "new InheritedTypeArgumentCallCompileTest.BoundedBox();"), code);
+        String boxOfKey = "InheritedTypeArgumentCallCompileTest.BoundedBox"
+                + "<InheritedTypeArgumentCallCompileTest.Holder.Key>";
+        assertTrue(code.contains(boxOfKey + " inheritedTypeArgumentCallCompileTest_BoundedBox0 = new "
+                + boxOfKey + "();"), code);
+    }
+
+    @Test
+    public void elementOfStaticNestedTypeArgumentOfParameterizedBoundCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type boxType = TypeUtils.parameterize(BoundedBox.class, Holder.Key.class);
+        VariableReference box = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(BoundedBox.class.getConstructor(), boxType),
+                Collections.emptyList()));
+        VariableReference key = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(BoundedBox.class.getMethod("first"), boxType), box,
+                Collections.emptyList()));
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(Holder.Key.class.getMethod("compareTo", Holder.Key.class), Holder.Key.class),
+                key, Collections.singletonList(key)));
+
+        assertCompiles(tc);
     }
 
     private static String assertCompiles(TestCase tc) throws Exception {

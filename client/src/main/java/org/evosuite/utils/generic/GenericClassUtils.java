@@ -20,7 +20,6 @@
 package org.evosuite.utils.generic;
 
 import com.googlecode.gentyref.CaptureType;
-import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.slf4j.Logger;
@@ -108,7 +107,7 @@ public class GenericClassUtils {
 
         Type exactSuperType;
         try {
-            exactSuperType = GenericTypeReflector.getExactSuperType(rhsType, lhsRawClass);
+            exactSuperType = GenericUtils.getExactSuperType(rhsType, lhsRawClass);
         } catch (RuntimeException e) {
             // gentyref rejects types it cannot erase (wildcards nested in
             // arrays or bounds); not assignable is the safe answer.
