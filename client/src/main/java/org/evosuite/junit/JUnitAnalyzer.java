@@ -365,81 +365,85 @@ public abstract class JUnitAnalyzer {
      */
     public static int handleTestsThatAreUnstable(List<TestCase> tests) {
 
-        int numUnstable = 0;
         logger.info("Going to execute: handleTestsThatAreUnstable");
 
         if (tests == null || tests.isEmpty()) { //nothing to do
-            return numUnstable;
+            return 0;
         }
-        if (checksSuspended()) {
-            logCompileDependentExecutionSkippedIfNeeded();
+        return withCompiledSuite(tests, new InstabilityCheck(tests));
+    }
+
+    /**
+     * The instability check of {@link #handleTestsThatAreUnstable(List)}: it counts the unstable
+     * tests, and marks or removes them in the list it checks.
+     */
+    private static final class InstabilityCheck extends CompiledSuiteCheck<Integer> {
+
+        private final List<TestCase> tests;
+        private int numUnstable = 0;
+
+        private InstabilityCheck(List<TestCase> tests) {
+            this.tests = tests;
+        }
+
+        @Override
+        Integer notRun() {
             return numUnstable;
         }
 
-        File dir = createNewTmpDir();
-        if (dir == null) {
+        @Override
+        Integer noTmpDir() {
             logger.error("Failed to create tmp dir");
             // Infrastructure setup failure: the test(s) are kept unchecked, exactly as the
-            // compile filter's own tmp-dir failure above does, so record it the same way.
+            // compile filter's own tmp-dir failure does, so record it the same way.
             recordCheckIncomplete("instability check: failed to create tmp dir; test(s) kept unchecked");
             return numUnstable;
         }
-        logger.debug("Created tmp folder: " + dir.getAbsolutePath());
 
-        try {
-            CompileOutcome compiled = compileTests(tests, dir);
-            if (compiled.isRejected()) {
-                /*
-                 * By this point each test already passed the single-test compile filter
-                 * individually, so this is not that filter's ordinary "rejected test" verdict:
-                 * it means the whole-suite compile unit (or the writer output it depends on)
-                 * failed in a way the per-test filter never saw. The suite is kept unchecked,
-                 * so record that this round never actually validated it, same as the
-                 * tmp-dir/time-budget give-ups above. Infrastructure failures that compileTests
-                 * already recorded itself (OOM, javac crashes, etc.) are not judged rather than
-                 * rejected, and are not re-recorded here.
-                 */
-                logger.warn("Failed to compile the test cases ");
-                recordCheckIncomplete(
-                        "instability check: whole-suite compile failed unexpectedly; test(s) kept unchecked");
-                return numUnstable;
-            }
-            if (compiled.isNotJudged()) {
-                logCompileDependentExecutionSkippedIfNeeded(compiled);
-                return numUnstable;
-            }
-            List<File> generated = compiled.getFiles();
+        @Override
+        Integer rejected() {
+            /*
+             * By this point each test already passed the single-test compile filter
+             * individually, so this is not that filter's ordinary "rejected test" verdict:
+             * it means the whole-suite compile unit (or the writer output it depends on)
+             * failed in a way the per-test filter never saw. The suite is kept unchecked,
+             * so record that this round never actually validated it, same as the
+             * tmp-dir/time-budget give-ups. Infrastructure failures that compileTests
+             * already recorded itself (OOM, javac crashes, etc.) are not judged rather than
+             * rejected, and are not re-recorded here.
+             */
+            logger.warn("Failed to compile the test cases ");
+            recordCheckIncomplete(
+                    "instability check: whole-suite compile failed unexpectedly; test(s) kept unchecked");
+            return numUnstable;
+        }
 
+        @Override
+        Integer beforeLoading() {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.error("Ran out of time while checking tests");
                 recordCheckIncomplete("ran out of time before running the instability check");
                 return numUnstable;
             }
+            return null;
+        }
 
-            // Create a new classloader so that each test gets freshly loaded classes.
-            // Start with a NonInstrumentingClassLoader to avoid duplicate type
-            // identities across loader boundaries during JUnit recheck. If we
-            // detect instrumentation/GUI mismatch signals, runTests() retries
-            // once with InstrumentingClassLoader.
-            loader = createInitialJUnitClassLoader(tests);
-            Class<?>[] testClasses = loadTests(generated);
+        @Override
+        Integer notLoaded() {
+            // Compilation already succeeded here, so this is an unexpected loading failure,
+            // not an ordinary compile rejection: the suite is kept unchecked and the round
+            // never validated it.
+            logger.error("Found no classes for compiled tests");
+            recordCheckIncomplete(
+                    "instability check: failed to load compiled test classes; test(s) kept unchecked");
+            return numUnstable;
+        }
 
-            if (testClasses == null) {
-                // Compilation already succeeded here, so this is an unexpected loading failure,
-                // not an ordinary compile rejection: the suite is kept unchecked and the round
-                // never validated it.
-                logger.error("Found no classes for compiled tests");
-                recordCheckIncomplete(
-                        "instability check: failed to load compiled test classes; test(s) kept unchecked");
-                return numUnstable;
-            }
-
-            JUnitResult result = runTests(testClasses, dir, generated);
-
+        @Override
+        Integer judge(JUnitResult result, Class<?>[] testClasses) {
             if (result.wasSuccessful()) {
                 return numUnstable; //everything is OK
             }
-
 
             AtomicBoolean watchdogCulpritSeen = new AtomicBoolean(false);
             // Test names are positional (and zero-padded by list size), so they are only valid
@@ -584,25 +588,21 @@ public abstract class JUnitAnalyzer {
                     }
                 }
             }
-        } catch (Exception e) {
-            logger.error("" + e, e);
+
+            //if we arrive here, then it means at least one test was unstable
             return numUnstable;
-        } finally {
-            releaseCheckLoader();
-            //let's be sure we clean up all what we wrote on disk
-
-            if (dir != null) {
-                try {
-                    FileUtils.deleteDirectory(dir);
-                } catch (Exception e) {
-                    logger.warn("Cannot delete tmp dir: " + dir.getName(), e);
-                }
-            }
-
         }
 
-        //if we arrive here, then it means at least one test was unstable
-        return numUnstable;
+        @Override
+        Integer failed(Exception e) {
+            logger.error("" + e, e);
+            return numUnstable;
+        }
+
+        @Override
+        void notDeleted(File dir, Exception e) {
+            logger.warn("Cannot delete tmp dir: " + dir.getName(), e);
+        }
     }
 
     /**
@@ -1642,60 +1642,58 @@ public abstract class JUnitAnalyzer {
     }
 
     private static Set<String> executeAndCollectUnexpectedFailures(List<TestCase> tests) {
-        if (checksSuspended()) {
-            logCompileDependentExecutionSkippedIfNeeded();
-            return Collections.emptySet();
-        }
-        File dir = createNewTmpDir();
-        if (dir == null) {
-            // Same contract as the compile filter and instability check above: the
-            // order-sensitivity probe never actually ran, so record it as abandoned rather than
-            // let the caller's infrastructure-failure heuristic on "tmp-dir-error" be the only
-            // trace of it.
-            recordCheckIncomplete("order-sensitivity analysis: failed to create tmp dir");
-            return Collections.singleton("tmp-dir-error");
-        }
-        try {
-            CompileOutcome compiled = compileTests(tests, dir);
-            if (compiled.isRejected()) {
+        return withCompiledSuite(tests, new CompiledSuiteCheck<Set<String>>() {
+            @Override
+            Set<String> notRun() {
+                return Collections.emptySet();
+            }
+
+            @Override
+            Set<String> noTmpDir() {
+                // Same contract as the compile filter and instability check: the
+                // order-sensitivity probe never actually ran, so record it as abandoned rather
+                // than let the caller's infrastructure-failure heuristic on "tmp-dir-error" be the
+                // only trace of it.
+                recordCheckIncomplete("order-sensitivity analysis: failed to create tmp dir");
+                return Collections.singleton("tmp-dir-error");
+            }
+
+            @Override
+            Set<String> rejected() {
                 // Same reasoning as the instability check: these tests already passed the
                 // per-test compile filter, so a rejection here is the whole-suite compile unit
                 // (or its writer output) failing in a way that filter never saw, not an ordinary
-                // rejected-test verdict. compileTests itself already records incompleteness for
-                // the infrastructure failures, which leave the tests not judged instead.
+                // rejected-test verdict.
                 recordCheckIncomplete("order-sensitivity analysis: whole-suite compile failed unexpectedly");
                 return Collections.singleton("compilation-error");
             }
-            if (compiled.isNotJudged()) {
-                logCompileDependentExecutionSkippedIfNeeded(compiled);
-                return Collections.emptySet();
-            }
-            List<File> generated = compiled.getFiles();
-            loader = createInitialJUnitClassLoader(tests);
-            Class<?>[] testClasses = loadTests(generated);
-            if (testClasses == null) {
+
+            @Override
+            Set<String> notLoaded() {
                 recordCheckIncomplete("order-sensitivity analysis: failed to load compiled test classes");
                 return Collections.singleton("load-error");
             }
-            JUnitResult result = runTests(testClasses, dir, generated);
-            if (result.wasSuccessful()) {
-                return Collections.emptySet();
-            }
-            return mapUnexpectedFailureNames(result, tests);
-        } catch (Exception e) {
-            logger.warn("Order-sensitivity analysis failed: {}", e.getMessage());
-            recordCheckIncomplete("order-sensitivity analysis: unexpected exception during execution: " + e);
-            return Collections.singleton("execution-error");
-        } finally {
-            releaseCheckLoader();
-            if (dir != null) {
-                try {
-                    FileUtils.deleteDirectory(dir);
-                } catch (Exception e) {
-                    logger.warn("Cannot delete tmp dir in order-sensitivity analysis: {}", dir.getName(), e);
+
+            @Override
+            Set<String> judge(JUnitResult result, Class<?>[] testClasses) {
+                if (result.wasSuccessful()) {
+                    return Collections.emptySet();
                 }
+                return mapUnexpectedFailureNames(result, tests);
             }
-        }
+
+            @Override
+            Set<String> failed(Exception e) {
+                logger.warn("Order-sensitivity analysis failed: {}", e.getMessage());
+                recordCheckIncomplete("order-sensitivity analysis: unexpected exception during execution: " + e);
+                return Collections.singleton("execution-error");
+            }
+
+            @Override
+            void notDeleted(File dir, Exception e) {
+                logger.warn("Cannot delete tmp dir in order-sensitivity analysis: {}", dir.getName(), e);
+            }
+        });
     }
 
     private static Set<String> mapUnexpectedFailureNames(JUnitResult result, List<TestCase> tests) {
@@ -2921,79 +2919,168 @@ public abstract class JUnitAnalyzer {
             //nothing to compile or run
             return true;
         }
-        if (checksSuspended()) {
-            logCompileDependentExecutionSkippedIfNeeded();
-            return true;
-        }
+        // Unlike the instability check, this is a verdict on the tests: a suite that does not
+        // compile or load fails it, and is not a check left incomplete.
+        return withCompiledSuite(tests, new CompiledSuiteCheck<Boolean>() {
+            @Override
+            Boolean notRun() {
+                return true;
+            }
 
-        File dir = createNewTmpDir();
-        if (dir == null) {
-            logger.warn("Failed to create tmp dir");
-            recordCheckIncomplete("verifyCompilationAndExecution: failed to create tmp dir");
-            return false;
-        }
+            @Override
+            Boolean noTmpDir() {
+                logger.warn("Failed to create tmp dir");
+                recordCheckIncomplete("verifyCompilationAndExecution: failed to create tmp dir");
+                return false;
+            }
 
-        try {
-            CompileOutcome compiled = compileTests(tests, dir);
-            if (compiled.isRejected()) {
+            @Override
+            Boolean rejected() {
                 logger.warn("Failed to compile the test cases ");
                 return false;
             }
-            if (compiled.isNotJudged()) {
-                logCompileDependentExecutionSkippedIfNeeded(compiled);
-                return true;
-            }
-            List<File> generated = compiled.getFiles();
 
-            //as last step, execute the generated/compiled test cases
-
-            loader = createInitialJUnitClassLoader(tests);
-            Class<?>[] testClasses = loadTests(generated);
-
-            if (testClasses == null) {
+            @Override
+            Boolean notLoaded() {
                 logger.error("Found no classes for compiled tests");
                 return false;
             }
 
-            JUnitResult result = runTests(testClasses, dir, generated);
-
-            if (!result.wasSuccessful()) {
-                logger.error("" + result.getFailureCount() + " test cases failed");
-                for (JUnitFailure failure : result.getFailures()) {
-                    logger.error("Failure " + failure.getExceptionClassName() + ": "
-                            + failure.getMessage() + "\n" + failure.getTrace());
+            @Override
+            Boolean judge(JUnitResult result, Class<?>[] testClasses) {
+                if (!result.wasSuccessful()) {
+                    logger.error("" + result.getFailureCount() + " test cases failed");
+                    for (JUnitFailure failure : result.getFailures()) {
+                        logger.error("Failure " + failure.getExceptionClassName() + ": "
+                                + failure.getMessage() + "\n" + failure.getTrace());
+                    }
+                    return false;
                 }
-                return false;
-            } else {
                 /*
                  * OK, it was successful, but was there any test case at all?
                  *
-                 * Here we just log (and not return false), as it might be that EvoSuite is just not able to generate
-                 * any test case for this SUT
+                 * Here we just log (and not return false), as it might be that EvoSuite is just not able to
+                 * generate any test case for this SUT
                  */
                 if (result.getRunCount() == 0) {
                     logger.warn("There was no test to run");
                 }
+                logger.debug("Successfully compiled and run test cases generated for "
+                        + Properties.TARGET_CLASS);
+                return true;
             }
 
+            @Override
+            Boolean failed(Exception e) {
+                logger.error("" + e, e);
+                return false;
+            }
+
+            @Override
+            void notDeleted(File dir, Exception e) {
+                logger.warn("Cannot delete tmp dir: " + dir.getName(), e);
+            }
+        });
+    }
+
+    /**
+     * A check that compiles a whole suite into a fresh directory, loads it with a fresh check
+     * loader and runs it; see {@link #withCompiledSuite(List, CompiledSuiteCheck)}. Each way of
+     * not getting as far as running the suite is handed to the check, which decides what it
+     * means and whether the check is left incomplete.
+     *
+     * @param <R> what the check returns
+     */
+    private abstract static class CompiledSuiteCheck<R> {
+
+        /** Checks are suspended, or javac could not judge the suite. */
+        abstract R notRun();
+
+        /** No directory to compile into could be created. */
+        abstract R noTmpDir();
+
+        /** javac rejected the suite. */
+        abstract R rejected();
+
+        /**
+         * Called once the suite has compiled, before it is loaded.
+         *
+         * @return what to return without running the suite, or null to go on
+         */
+        R beforeLoading() {
+            return null;
+        }
+
+        /** The compiled suite could not be loaded. */
+        abstract R notLoaded();
+
+        /** Judges the result of running the suite. */
+        abstract R judge(JUnitResult result, Class<?>[] testClasses) throws Exception;
+
+        /** Compiling, loading, running or judging the suite threw. */
+        abstract R failed(Exception e);
+
+        /** The directory the suite was compiled into could not be deleted afterwards. */
+        abstract void notDeleted(File dir, Exception e);
+    }
+
+    /**
+     * Compiles the tests into a fresh directory, loads them with a fresh check loader and runs
+     * them, and hands each outcome to the check. The loader is released and the directory
+     * deleted afterwards.
+     *
+     * @param tests the suite to check
+     * @param check what to make of each outcome
+     * @param <R>   what the check returns
+     * @return what the check made of the outcome
+     */
+    private static <R> R withCompiledSuite(List<TestCase> tests, CompiledSuiteCheck<R> check) {
+        if (checksSuspended()) {
+            logCompileDependentExecutionSkippedIfNeeded();
+            return check.notRun();
+        }
+        File dir = createNewTmpDir();
+        if (dir == null) {
+            return check.noTmpDir();
+        }
+        logger.debug("Created tmp folder: " + dir.getAbsolutePath());
+
+        try {
+            CompileOutcome compiled = compileTests(tests, dir);
+            if (compiled.isRejected()) {
+                return check.rejected();
+            }
+            if (compiled.isNotJudged()) {
+                logCompileDependentExecutionSkippedIfNeeded(compiled);
+                return check.notRun();
+            }
+            R withoutRunning = check.beforeLoading();
+            if (withoutRunning != null) {
+                return withoutRunning;
+            }
+
+            // Create a new classloader so that each test gets freshly loaded classes.
+            // Start with a NonInstrumentingClassLoader to avoid duplicate type
+            // identities across loader boundaries during JUnit recheck. If we
+            // detect instrumentation/GUI mismatch signals, runTests() retries
+            // once with InstrumentingClassLoader.
+            loader = createInitialJUnitClassLoader(tests);
+            Class<?>[] testClasses = loadTests(compiled.getFiles());
+            if (testClasses == null) {
+                return check.notLoaded();
+            }
+            return check.judge(runTests(testClasses, dir, compiled.getFiles()), testClasses);
         } catch (Exception e) {
-            logger.error("" + e, e);
-            return false;
+            return check.failed(e);
         } finally {
             releaseCheckLoader();
             //let's be sure we clean up all what we wrote on disk
-            if (dir != null) {
-                try {
-                    FileUtils.deleteDirectory(dir);
-                } catch (IOException e) {
-                    logger.warn("Cannot delete tmp dir: " + dir.getName(), e);
-                }
+            try {
+                FileUtils.deleteDirectory(dir);
+            } catch (Exception e) {
+                check.notDeleted(dir, e);
             }
         }
-
-        logger.debug("Successfully compiled and run test cases generated for "
-                + Properties.TARGET_CLASS);
-        return true;
     }
 
     /**
