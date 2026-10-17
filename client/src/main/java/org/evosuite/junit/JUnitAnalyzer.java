@@ -97,6 +97,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -133,6 +134,9 @@ public abstract class JUnitAnalyzer {
     private static final String JAVA = ".java";
     private static final String CLASS = ".class";
     private static final Map<String, String> SANITIZED_COMPILER_CLASSPATH_ENTRIES = new HashMap<>();
+    private static String cachedCompilerClasspath = null;
+    private static String cachedCompilerClasspathEvoSuiteInput = null;
+    private static String cachedCompilerClasspathTargetInput = null;
     private static final int MAX_STORED_COMPILER_DIAGNOSTICS = 100;
     private static final int MAX_LOGGED_SOURCE_EXCERPT_LINES_PER_FILE = 200;
     private static final int MAX_LOGGED_SOURCE_EXCERPT_CHARS_TOTAL = 20_000;
@@ -1778,21 +1782,10 @@ public abstract class JUnitAnalyzer {
 
             Locale locale = Locale.getDefault();
             Charset charset = StandardCharsets.UTF_8;
-            String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
-            if (JarPathing.containsAPathingJar(evosuiteCP)) {
-                evosuiteCP = JarPathing.expandPathingJars(evosuiteCP);
-            }
+            compilerClasspath = compilerClasspathForGeneratedTests();
 
-            String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
-            if (JarPathing.containsAPathingJar(targetProjectCP)) {
-                targetProjectCP = JarPathing.expandPathingJars(targetProjectCP);
-            }
-
-            String classpath = targetProjectCP + File.pathSeparator + evosuiteCP;
-            classpath = sanitizeClasspathForCompiler(classpath);
-            compilerClasspath = classpath;
-
-            CompilerAttemptResult attempt = runCompilerAttempt(compiler, generated, classpath, locale, charset);
+            CompilerAttemptResult attempt =
+                    runCompilerAttempt(compiler, generated, compilerClasspath, locale, charset);
             if (attempt.hasInfrastructureFailure()) {
                 if (isOutOfMemory(attempt.getInfrastructureFailure())) {
                     stopChecksDueToMemoryExhaustion(tests.size(), attempt.getInfrastructureFailure());
@@ -1900,6 +1893,35 @@ public abstract class JUnitAnalyzer {
             }
             throw e;
         }
+    }
+
+    /**
+     * The classpath javac compiles the generated tests against: the project classpath followed by
+     * EvoSuite's own, with pathing jars expanded and malformed jars sanitized. It is computed
+     * again only when the classpaths it is built from change.
+     */
+    static synchronized String compilerClasspathForGeneratedTests() {
+        String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
+        String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        if (cachedCompilerClasspath != null
+                && Objects.equals(evosuiteCP, cachedCompilerClasspathEvoSuiteInput)
+                && Objects.equals(targetProjectCP, cachedCompilerClasspathTargetInput)) {
+            return cachedCompilerClasspath;
+        }
+        String expandedEvoSuiteCP = evosuiteCP;
+        if (JarPathing.containsAPathingJar(expandedEvoSuiteCP)) {
+            expandedEvoSuiteCP = JarPathing.expandPathingJars(expandedEvoSuiteCP);
+        }
+        String expandedTargetProjectCP = targetProjectCP;
+        if (JarPathing.containsAPathingJar(expandedTargetProjectCP)) {
+            expandedTargetProjectCP = JarPathing.expandPathingJars(expandedTargetProjectCP);
+        }
+        String classpath = sanitizeClasspathForCompiler(
+                expandedTargetProjectCP + File.pathSeparator + expandedEvoSuiteCP);
+        cachedCompilerClasspathEvoSuiteInput = evosuiteCP;
+        cachedCompilerClasspathTargetInput = targetProjectCP;
+        cachedCompilerClasspath = classpath;
+        return classpath;
     }
 
     private static CompilerAttemptResult runCompilerAttempt(JavaCompiler compiler,
