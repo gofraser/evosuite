@@ -246,6 +246,16 @@ public class BytecodeInstrumentation {
      *   <li>{@code classReset}: {@code __STATIC_RESET} and the class initialisation callbacks
      *       ({@code reset_static_fields}).</li>
      * </ul>
+     *
+     * <p>{@link #MINIMAL} keeps {@code classReset} but not {@code staticAccess}.  The class can
+     * still be reset, but its own GETSTATIC and PUTSTATIC instructions are not reported.  After
+     * a test, only the classes whose static fields were seen to be written (or read, with
+     * {@code reset_static_field_gets}) are reset, so a static field that only a minimally
+     * instrumented class writes can keep its value into the next test.  Keeping the probes
+     * would add two constants and a call to every static field access of a profile that exists
+     * because the larger ones failed, a class that is too large would then more often end up
+     * with the bare passthrough, and every class that lands on {@link #MINIMAL} today would be
+     * instrumented differently.  The flag stays off.
      */
     enum Profile {
         //                                          loop   testab target rethrow static purity reset
