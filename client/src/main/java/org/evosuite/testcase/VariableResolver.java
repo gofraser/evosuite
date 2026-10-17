@@ -381,7 +381,7 @@ public class VariableResolver {
             if (Randomness.nextDouble() <= Properties.P_OBJECT_POOL && objectPool.hasSequence(clazz)) {
                 TestCase sequence = objectPool.getRandomSequence(clazz);
                 if (sequence != null) {
-                    int originalSize = test.size();
+                    StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
                     try {
                         VariableReference targetObject = sequence.getLastObject(type);
                         int returnPos = position + targetObject.getStPosition();
@@ -392,8 +392,7 @@ public class VariableResolver {
                         ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, usageCount);
                         return test.getStatement(returnPos).getReturnValue();
                     } catch (Exception e) {
-                        // Roll back the partially inserted statements, which start at position
-                        rollbackInsertedStatements(test, originalSize, position);
+                        checkpoint.rollback();
                         logger.trace("Object pool sequence insertion failed, falling through: {}", e.getMessage());
                     }
                 }
@@ -646,7 +645,7 @@ public class VariableResolver {
     private VariableReference tryCreatePreferredConcreteValue(
             TestCase test, GenericClass<?> requestedType, int position, GenerationContext context) {
         Class<?> type = requestedType.getRawClass();
-        int originalSize = test.size();
+        StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
         int insertionStart = position;
         try {
             VariableReference schemaValue = tryCreateFactoryBackedInterface(
@@ -727,7 +726,7 @@ public class VariableResolver {
             logger.debug("Could not create preferred concrete value for {}", type.getName(), failure);
         }
 
-        rollbackInsertedStatements(test, originalSize, insertionStart);
+        checkpoint.rollback();
         // The specialized factories above advance their local insertion cursor. Once their
         // speculative statements have been removed, all subsequent alternatives must start at
         // the original cursor again.
@@ -767,7 +766,7 @@ public class VariableResolver {
             if (attempts++ >= 4) {
                 break;
             }
-            int attemptSize = test.size();
+            StatementCheckpoint attempt = StatementCheckpoint.of(test);
             try {
                 GenerationContext nextContext = context.withVisited(generator);
                 VariableReference candidate;
@@ -790,7 +789,7 @@ public class VariableResolver {
                 logger.trace("Stable concrete generator {} failed for {}: {}",
                         generator, type.getName(), failure.toString());
             }
-            rollbackInsertedStatements(test, attemptSize, insertionStart);
+            attempt.rollback();
         }
         return null;
     }
@@ -902,7 +901,7 @@ public class VariableResolver {
                     || !requestedType.getRawClass().isAssignableFrom(field.getType())) {
                 continue;
             }
-            int originalSize = test.size();
+            StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
             try {
                 GenericField generator = new GenericField(field, field.getDeclaringClass());
                 // Do not send a known constant back through the normal generator machinery.
@@ -920,7 +919,7 @@ public class VariableResolver {
                 logger.trace("Public constant {} failed for stable entry construction: {}",
                         field, failure.toString());
             }
-            rollbackInsertedStatements(test, originalSize, position);
+            checkpoint.rollback();
         }
         return null;
     }
@@ -942,7 +941,7 @@ public class VariableResolver {
         if (implementation == null || !requestedClass.isAssignableFrom(implementation)) {
             return null;
         }
-        int originalSize = test.size();
+        StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
         try {
             // Bind the implementation's type variables to the requested arguments up front
             // (LinkedHashSet<E> -> LinkedHashSet<String> for Set<String>). A no-arg constructor
@@ -966,7 +965,7 @@ public class VariableResolver {
             logger.trace("Standard container {} failed for {}: {}",
                     implementation.getName(), requestedClass.getName(), failure.toString());
         }
-        rollbackInsertedStatements(test, originalSize, position);
+        checkpoint.rollback();
         return null;
     }
 
@@ -994,15 +993,6 @@ public class VariableResolver {
             return 10 + generator.getNumParameters();
         }
         return 20 + generator.getNumParameters();
-    }
-
-    private static void rollbackInsertedStatements(
-            TestCase test, int originalSize, int insertionStart) {
-        while (test.size() > originalSize) {
-            int removalPosition = insertionStart >= 0 && insertionStart < test.size()
-                    ? insertionStart : test.size() - 1;
-            test.remove(removalPosition);
-        }
     }
 
     private TestClusterGenerator ensureClusterGenerator() {
