@@ -1568,12 +1568,14 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                             continue;
                         }
 
-                        Method method = md.getMethod(); //target method, eg foo.aMethod(...)
-                        method = resolveMethodOnRuntimeClass(method, ret.getClass());
+                        // target method, eg foo.aMethod(...), as the generated test names it
+                        MethodDescriptor.StubTarget stubTarget =
+                                md.getStubTarget(targetClass.getRawClass(), retval.getGenericClass());
+                        Method method = resolveMethodOnRuntimeClass(stubTarget.getMethod(), ret.getClass());
                         if (method == null) {
                             AtMostOnceLogger.warn(logger,
                                     "Skipping mock stub due to classloader/signature mismatch for "
-                                            + md.getMethod().getDeclaringClass().getName()
+                                            + stubTarget.getMethod().getDeclaringClass().getName()
                                             + "." + md.getMethodName());
                             continue;
                         }
@@ -1583,11 +1585,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                         method.setAccessible(true);
 
                         //target inputs
-                        Object[] targetInputs = new Object[md.getNumberOfInputParameters()];
+                        Object[] targetInputs = new Object[stubTarget.getNumberOfParameters()];
                         for (int i = 0; i < targetInputs.length; i++) {
                             logger.debug("Mockito: executing matcher {}/{}", (1 + i),
                                     targetInputs.length);
-                            targetInputs[i] = md.executeMatcher(i);
+                            targetInputs[i] = stubTarget.executeMatcher(i);
                         }
 
                         logger.debug("Mockito: going to invoke method {} with {} matchers",

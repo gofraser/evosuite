@@ -421,6 +421,26 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         public String getMatchers() {
             return matchers;
         }
+
+        public int getNumberOfParameters() {
+            return matcherTypes.length;
+        }
+
+        /**
+         * Executes the matcher for the parameter at the given index, the live form of
+         * {@link #getMatchers()}.
+         *
+         * @param i the index of the parameter
+         * @return the result of the matcher execution
+         * @throws IllegalArgumentException if the index is invalid
+         */
+        public Object executeMatcher(int i) throws IllegalArgumentException {
+            if (i < 0 || i >= matcherTypes.length) {
+                throw new IllegalArgumentException("Invalid index: " + i);
+            }
+            return MethodDescriptor.executeMatcher(matcherTypes[i], i,
+                    method.getDeclaringClass().getName(), method.getName());
+        }
     }
 
     /**
@@ -659,8 +679,10 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
             throw new IllegalArgumentException("Invalid index: " + i);
         }
 
-        Class<?> type = matcherParameterTypes[i];
+        return executeMatcher(matcherParameterTypes[i], i, className, methodName);
+    }
 
+    private static Object executeMatcher(Class<?> type, int i, String className, String methodName) {
         try {
             TypeMatcher matcher = TypeMatcher.of(type);
             return matcher != null ? matcher.live() : Mockito.nullable(type);
