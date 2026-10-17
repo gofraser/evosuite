@@ -344,8 +344,8 @@ public class BytecodeInstrumentation {
      * the failure is to be rethrown.  Profiles that do not apply to the class are skipped
      * afterwards (see {@link #transformBytes}).
      *
-     * @param isClassUnderTest whether the class is the class under test, which never takes a
-     *                         profile without coverage probes.
+     * @param isClassUnderTest whether the class is the class under test, which keeps the frame
+     *                         failure on the size ladder instead of moving on.
      */
     static Step next(Profile failed, FailureKind failure, Ladder ladder, boolean isClassUnderTest) {
         if (ladder == Ladder.SIZE) {
