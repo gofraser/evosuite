@@ -451,7 +451,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                     }
 
                     lastStatement.addAssertion(ass);
-                    logger.debug("Adding trace assertion " + ass.getCode());
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Adding trace assertion " + ass.getCode());
+                    }
                     haveAssertion = true;
                     break;
                 }
@@ -461,7 +463,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 for (Assertion ass : allLastAssertions) {
                     if (ass.getReferencedVariables().contains(returnValue)) {
                         lastStatement.addAssertion(ass);
-                        logger.debug("Adding trace assertion " + ass.getCode());
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Adding trace assertion " + ass.getCode());
+                        }
                         haveAssertion = true;
                         break;
                     }

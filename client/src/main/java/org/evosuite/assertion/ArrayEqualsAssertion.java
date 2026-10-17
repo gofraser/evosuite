@@ -47,14 +47,6 @@ public class ArrayEqualsAssertion extends Assertion {
         return s;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getCode() {
-        return "assertArrayEquals(" + value + ", " + source.getName() + ");";
-    }
-
     private Object[] getArray(Object val) {
         int arrlength = Array.getLength(val);
         Object[] outputArray = new Object[arrlength];

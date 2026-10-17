@@ -43,7 +43,7 @@ public class CompareAssertionTest {
         assertion.value = 0; // Equality
 
         String code = assertion.getCode();
-        assertEquals("assertEquals(var0, var1);", code);
+        assertEquals("assertTrue(var0 == var1);", code);
     }
 
     @Test

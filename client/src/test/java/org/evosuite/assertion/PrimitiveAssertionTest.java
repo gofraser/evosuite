@@ -270,4 +270,18 @@ public class PrimitiveAssertionTest {
 
         assertEquals("assertEquals(5L, long0);", assertion.getCode());
     }
+
+    /** A boolean is asserted with assertTrue/assertFalse, as in a generated test. */
+    @Test
+    public void testGetCodeForBooleanUsesAssertTrue() {
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        VariableReference source = mock(VariableReference.class);
+        doReturn(boolean.class).when(source).getVariableClass();
+        when(source.getName()).thenReturn("boolean0");
+
+        assertion.source = source;
+        assertion.value = Boolean.TRUE;
+
+        assertEquals("assertTrue(boolean0);", assertion.getCode());
+    }
 }

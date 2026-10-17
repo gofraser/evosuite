@@ -21,6 +21,7 @@ package org.evosuite.assertion;
 
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -170,11 +171,15 @@ public abstract class Assertion implements Serializable {
     }
 
     /**
-     * Translates this assertion into Java code and returns it as a String.
+     * Translates this assertion into Java code on its own, as it appears in logs and LLM prompts.
+     * A generated test renders its assertions through {@link TestCodeVisitor}, the same rendering
+     * with the test's variable names.
      *
      * @return a {@link java.lang.String} object.
      */
-    public abstract String getCode();
+    public String getCode() {
+        return TestCodeVisitor.getStandaloneAssertionCode(this);
+    }
 
     /**
      * {@inheritDoc}

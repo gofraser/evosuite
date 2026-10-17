@@ -24,7 +24,6 @@ import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.utils.NumberFormatter;
 
 public class InspectorAssertion extends Assertion {
 
@@ -74,39 +73,6 @@ public class InspectorAssertion extends Assertion {
         s.killedMutants.addAll(killedMutants);
         return s;
 
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getCode() {
-        if (value == null) {
-            return "assertNull(" + source.getName() + "." + inspector.getMethodCall()
-                    + "());";
-        } else if (value.getClass().equals(Long.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + inspector.getMethodCall() + "());";
-        } else if (value.getClass().equals(Float.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + inspector.getMethodCall() + "(), 0.01F);";
-        } else if (value.getClass().equals(Double.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + inspector.getMethodCall() + "(), 0.01D);";
-        } else if (value.getClass().equals(Character.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + inspector.getMethodCall() + "());";
-        } else if (value.getClass().equals(String.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + inspector.getMethodCall() + "());";
-        } else if (NumberFormatter.isEnum(value)) {
-            return EnumAssertionCodeRenderer.getEnumAssertionCode(value,
-                    source.getName() + "." + inspector.getMethodCall() + "()");
-
-        } else {
-            return "assertEquals(" + value + ", " + source.getName() + "."
-                    + inspector.getMethodCall() + "());";
-        }
     }
 
     /**

@@ -69,23 +69,6 @@ public class EqualsAssertion extends Assertion {
      * {@inheritDoc}
      */
     @Override
-    public String getCode() {
-        if ((Boolean) value) {
-            return "assertEquals(" + source.getName() + ", " + dest.getName() + ");";
-        } else {
-            if (source.isPrimitive() && dest.isPrimitive()) {
-                return "assertFalse(" + source.getName() + " == " + dest.getName() + ");";
-            } else {
-                return "assertFalse(" + source.getName() + ".equals((Object)" + dest.getName()
-                        + "));";
-            }
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public boolean evaluate(Scope scope) {
         try {
             if ((Boolean) value) {

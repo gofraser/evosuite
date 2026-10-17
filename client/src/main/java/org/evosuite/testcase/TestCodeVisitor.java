@@ -60,6 +60,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.*;
 import java.net.URLClassLoader;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toCollection;
@@ -122,6 +123,11 @@ public class TestCodeVisitor extends TestVisitor {
     });
 
     protected VariableNameStrategy variableNameStrategy = VariableNameStrategyFactory.get();
+    /**
+     * Names every variable in place of the naming strategy, for an assertion rendered on its own
+     * (see {@link #getStandaloneAssertionCode}); null while rendering a test.
+     */
+    private Function<VariableReference, String> nameResolver = null;
     private boolean customVariableNameStrategy = false;
     private boolean emitAssertions = true;
     private Boolean assertionsEnabledOverride = null;
@@ -763,6 +769,9 @@ public class TestCodeVisitor extends TestVisitor {
      * @return a {@link java.lang.String} object.
      */
     public String getVariableName(VariableReference var) {
+        if (nameResolver != null) {
+            return nameResolver.apply(var);
+        }
         if (var instanceof NullReference
                 || var.getVariableClass().equals(Void.class)
                 || var.getVariableClass().equals(Void.TYPE)) {
@@ -1620,6 +1629,28 @@ public class TestCodeVisitor extends TestVisitor {
             testCode.append("// " + getUnstableTestComment() + ": ");
         }
 
+        visitAssertionOfItsType(assertion);
+        if (assertion.hasComment()) {
+            testCode.append(assertion.getComment());
+        }
+    }
+
+    /**
+     * The code of {@code assertion} on its own, outside a rendered test, as it appears in logs and
+     * LLM prompts: rendered as in a test, but with each variable written as its own
+     * {@link VariableReference#getName() name}, and without the comments a test adds.
+     *
+     * @param assertion the assertion to render
+     * @return the assertion's code
+     */
+    public static String getStandaloneAssertionCode(Assertion assertion) {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        visitor.nameResolver = VariableReference::getName;
+        visitor.visitAssertionOfItsType(assertion);
+        return visitor.testCode.toString();
+    }
+
+    private void visitAssertionOfItsType(Assertion assertion) {
         if (assertion instanceof PrimitiveAssertion) {
             visitPrimitiveAssertion((PrimitiveAssertion) assertion);
         } else if (assertion instanceof PrimitiveFieldAssertion) {
@@ -1644,9 +1675,6 @@ public class TestCodeVisitor extends TestVisitor {
             testCode.append(((TemplateCodeAssertion) assertion).render(this));
         } else {
             throw new RuntimeException("Unknown assertion type: " + assertion);
-        }
-        if (assertion.hasComment()) {
-            testCode.append(assertion.getComment());
         }
     }
 

@@ -19,56 +19,14 @@
  */
 package org.evosuite.assertion;
 
-import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.utils.NumberFormatter;
 
 public class PrimitiveAssertion extends Assertion {
 
     private static final long serialVersionUID = -3394333075511344913L;
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getCode() {
-
-        if (value == null) {
-            return "assertNull(" + source.getName() + ");";
-        } else if (source.getVariableClass().equals(float.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + ", " + Properties.FLOAT_PRECISION + "F);";
-        } else if (source.getVariableClass().equals(double.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
-        } else if (NumberFormatter.isEnum(value)) {
-            return EnumAssertionCodeRenderer.getEnumAssertionCode(value, source.getName());
-        } else if (source.isWrapperType()) {
-            if (source.getVariableClass().equals(Float.class)) {
-                return "assertEquals(" + NumberFormatter.getNumberString(value)
-                        + ", (float)" + source.getName() + ", " + Properties.FLOAT_PRECISION + "F);";
-            } else if (source.getVariableClass().equals(Double.class)) {
-                return "assertEquals(" + NumberFormatter.getNumberString(value)
-                        + ", (double)" + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
-            } else if (NumberFormatter.isEnum(value)) {
-                return EnumAssertionCodeRenderer.getEnumAssertionCode(value, source.getName());
-            } else {
-                return "assertEquals(" + NumberFormatter.getNumberString(value) + ", ("
-                        + NumberFormatter.getBoxedClassName(value) + ")"
-                        + source.getName() + ");";
-            }
-        } else if (needsUnboxingCast(source, value)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", ("
-                    + NumberFormatter.getBoxedClassName(value) + ")" + source.getName() + ");";
-        } else {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + ");";
-        }
-
-    }
 
     /**
      * Whether a bare {@code assertEquals(value, source)} would be ambiguous: the source is

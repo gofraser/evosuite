@@ -23,7 +23,6 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
-import org.evosuite.utils.NumberFormatter;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -49,34 +48,6 @@ public class PrimitiveFieldAssertion extends Assertion {
 
     public void setField(Field field) {
         this.field = field;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getCode() {
-        if (value == null) {
-            return "assertNull(" + source.getName() + "." + field.getName() + ");";
-        } else if (value.getClass().equals(Long.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + field.getName() + ");";
-        } else if (value.getClass().equals(Float.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + field.getName() + ", 0.01F);";
-        } else if (value.getClass().equals(Double.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + field.getName() + ", 0.01D);";
-        } else if (value.getClass().equals(Character.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + field.getName() + ");";
-        } else if (value.getClass().equals(String.class)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + field.getName() + ");";
-        } else {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + source.getName() + "." + field.getName() + ");";
-        }
     }
 
     /**
