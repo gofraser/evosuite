@@ -70,6 +70,8 @@ public class TestClusterUtils {
                     "jdk.jfr.internal."
             ));
     private static final Map<Class<?>, Set<Field>> accessibleFieldCache = new LinkedHashMap<>();
+    /** The test package {@link #accessibleFieldCache} was computed for. */
+    private static String accessibleFieldCachePrefix;
     private static final Map<Class<?>, Set<Method>> methodCache = new LinkedHashMap<>();
 
 
@@ -369,6 +371,11 @@ public class TestClusterUtils {
      * @return the set of accessible fields
      */
     public static Set<Field> getAccessibleFields(final Class<?> clazz) {
+        // Which fields the tests can access depends on the package they are generated into.
+        if (!Properties.CLASS_PREFIX.equals(accessibleFieldCachePrefix)) {
+            accessibleFieldCache.clear();
+            accessibleFieldCachePrefix = Properties.CLASS_PREFIX;
+        }
         return accessibleFieldCache.computeIfAbsent(clazz, TestClusterUtils::computeAccessibleFields);
     }
 
