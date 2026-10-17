@@ -14,6 +14,7 @@ package org.evosuite.testcase.factories;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.GenerationContext;
+import org.evosuite.testcase.StatementCheckpoint;
 import org.evosuite.testcase.StatementFactory;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
@@ -236,7 +237,7 @@ class ObjectRuleEntryBuilder {
                 continue;
             }
             if (isSupportedConditionalCollectionFactory(generator, receiverClass)) {
-                int originalSize = test.size();
+                StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
                 try {
                     VariableReference result = constructConditionalGenericReceiver(
                             test, (GenericMethod) generator, receiverClass);
@@ -247,10 +248,10 @@ class ObjectRuleEntryBuilder {
                 } catch (Throwable t) {
                     logger.trace("Conditional receiver factory {} failed: {}", generator, t.toString());
                 }
-                rollbackToSize(test, originalSize);
+                checkpoint.rollback();
                 continue;
             }
-            int originalSize = test.size();
+            StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
             try {
                 VariableReference result;
                 if (generator instanceof GenericMethod) {
@@ -262,7 +263,7 @@ class ObjectRuleEntryBuilder {
                         result = constructReceiverWithRequiredCollaborators(
                                 test, constructor, requiredFieldDescriptors);
                         if (!producesRuntimeReceiver(test, result, receiverClass)) {
-                            rollbackToSize(test, originalSize);
+                            checkpoint.rollback();
                             result = TestFactory.getInstance().addConstructor(
                                     test, constructor, exactReceiverType, test.size(),
                                     new GenerationContext());
@@ -299,7 +300,7 @@ class ObjectRuleEntryBuilder {
             } catch (Throwable t) {
                 logger.trace("Entry receiver generator {} failed: {}", generator, t.toString());
             }
-            rollbackToSize(test, originalSize);
+            checkpoint.rollback();
         }
         return null;
     }
@@ -539,7 +540,7 @@ class ObjectRuleEntryBuilder {
         });
 
         for (GenericAccessibleObject<?> candidate : ordered) {
-            int originalSize = test.size();
+            StatementCheckpoint checkpoint = StatementCheckpoint.of(test);
             try {
                 VariableReference result;
                 if (candidate instanceof GenericConstructor) {
@@ -564,7 +565,7 @@ class ObjectRuleEntryBuilder {
                 logger.trace("Concrete conditional-factory element generator {} failed: {}",
                         candidate, failure.toString());
             }
-            rollbackToSize(test, originalSize);
+            checkpoint.rollback();
         }
         return null;
     }
@@ -774,12 +775,6 @@ class ObjectRuleEntryBuilder {
             }
         }
         return null;
-    }
-
-    private static void rollbackToSize(TestCase test, int size) {
-        while (test.size() > size) {
-            test.remove(test.size() - 1);
-        }
     }
 
     static ConstructorStatement findConstructorCallStatement(TestCase test, String constructorSignature) {
