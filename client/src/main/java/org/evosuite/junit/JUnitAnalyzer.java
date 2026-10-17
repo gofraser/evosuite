@@ -330,12 +330,12 @@ public abstract class JUnitAnalyzer {
             try {
                 List<TestCase> singleList = new ArrayList<>();
                 singleList.add(test);
-                List<File> generated = compileTests(singleList, dir);
-                if (generated == null) {
+                CompileOutcome compiled = compileTests(singleList, dir);
+                if (compiled.isRejected()) {
                     iter.remove();
                     String code = test.toCode();
                     logger.error("Failed to compile test case:\n" + code);
-                } else if (checksSuspended()) {
+                } else if (compiled.isNotJudged()) {
                     return;
                 }
             } finally {
@@ -387,8 +387,8 @@ public abstract class JUnitAnalyzer {
         logger.debug("Created tmp folder: " + dir.getAbsolutePath());
 
         try {
-            List<File> generated = compileTests(tests, dir);
-            if (generated == null) {
+            CompileOutcome compiled = compileTests(tests, dir);
+            if (compiled.isRejected()) {
                 /*
                  * By this point each test already passed the single-test compile filter
                  * individually, so this is not that filter's ordinary "rejected test" verdict:
@@ -396,17 +396,19 @@ public abstract class JUnitAnalyzer {
                  * failed in a way the per-test filter never saw. The suite is kept unchecked,
                  * so record that this round never actually validated it, same as the
                  * tmp-dir/time-budget give-ups above. Infrastructure failures that compileTests
-                 * already recorded itself (OOM, javac crashes, etc.) return a non-null
-                 * "generated" instead and are not re-recorded here.
+                 * already recorded itself (OOM, javac crashes, etc.) are not judged rather than
+                 * rejected, and are not re-recorded here.
                  */
                 logger.warn("Failed to compile the test cases ");
                 recordCheckIncomplete(
                         "instability check: whole-suite compile failed unexpectedly; test(s) kept unchecked");
                 return numUnstable;
             }
-            if (shouldSkipCompileDependentExecutionAfterCompile()) {
+            if (compiled.isNotJudged()) {
+                logCompileDependentExecutionSkippedIfNeeded(compiled);
                 return numUnstable;
             }
+            List<File> generated = compiled.getFiles();
 
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.error("Ran out of time while checking tests");
@@ -1654,19 +1656,21 @@ public abstract class JUnitAnalyzer {
             return Collections.singleton("tmp-dir-error");
         }
         try {
-            List<File> generated = compileTests(tests, dir);
-            if (generated == null) {
+            CompileOutcome compiled = compileTests(tests, dir);
+            if (compiled.isRejected()) {
                 // Same reasoning as the instability check: these tests already passed the
-                // per-test compile filter, so a null here is the whole-suite compile unit (or
-                // its writer output) failing in a way that filter never saw, not an ordinary
+                // per-test compile filter, so a rejection here is the whole-suite compile unit
+                // (or its writer output) failing in a way that filter never saw, not an ordinary
                 // rejected-test verdict. compileTests itself already records incompleteness for
-                // the infrastructure failures that return non-null "generated" instead.
+                // the infrastructure failures, which leave the tests not judged instead.
                 recordCheckIncomplete("order-sensitivity analysis: whole-suite compile failed unexpectedly");
                 return Collections.singleton("compilation-error");
             }
-            if (shouldSkipCompileDependentExecutionAfterCompile()) {
+            if (compiled.isNotJudged()) {
+                logCompileDependentExecutionSkippedIfNeeded(compiled);
                 return Collections.emptySet();
             }
+            List<File> generated = compiled.getFiles();
             loader = createInitialJUnitClassLoader(tests);
             Class<?>[] testClasses = loadTests(generated);
             if (testClasses == null) {
@@ -1735,7 +1739,71 @@ public abstract class JUnitAnalyzer {
     // EvoSuite classloader, and thus cannot easily be re-loaded
     private static int NUM = 0;
 
-    private static List<File> compileTests(List<TestCase> tests, File dir) {
+    /** Why javac gave no verdict on the tests it was asked to compile. */
+    enum NotJudgedReason {
+        /** Compile checks are off for the rest of the run after a javac infrastructure failure. */
+        COMPILE_CHECK_DISABLED,
+        /** The heap, which javac shares with this client, ran out. */
+        OUT_OF_MEMORY
+    }
+
+    /**
+     * The result of compiling generated tests for a JUnit check: they compiled, javac rejected
+     * them, or javac could not judge them. Tests that were not judged are kept unchecked, and so
+     * are all tests checked after them, as the conditions that stop javac judging last for the
+     * rest of the phase (out of memory) or the run (infrastructure failure).
+     */
+    static final class CompileOutcome {
+
+        static final CompileOutcome REJECTED = new CompileOutcome(null, null);
+
+        private final List<File> files;
+        private final NotJudgedReason notJudgedReason;
+
+        private CompileOutcome(List<File> files, NotJudgedReason notJudgedReason) {
+            this.files = files;
+            this.notJudgedReason = notJudgedReason;
+        }
+
+        static CompileOutcome compiled(List<File> files) {
+            return new CompileOutcome(files, null);
+        }
+
+        static CompileOutcome notJudged(NotJudgedReason reason) {
+            return new CompileOutcome(null, reason);
+        }
+
+        /**
+         * Not judged, unless the failure came before the test sources were written: that case
+         * has always been reported as a rejection.
+         */
+        private static CompileOutcome notJudgedOnceWritten(List<File> written, NotJudgedReason reason) {
+            return written == null ? REJECTED : notJudged(reason);
+        }
+
+        boolean isCompiled() {
+            return files != null;
+        }
+
+        boolean isRejected() {
+            return this == REJECTED;
+        }
+
+        boolean isNotJudged() {
+            return notJudgedReason != null;
+        }
+
+        NotJudgedReason getNotJudgedReason() {
+            return notJudgedReason;
+        }
+
+        /** The written source files, which javac compiled into class files next to them. */
+        List<File> getFiles() {
+            return files;
+        }
+    }
+
+    private static CompileOutcome compileTests(List<TestCase> tests, File dir) {
 
         TestSuiteWriter suite = new TestSuiteWriter();
         // Rendering performs output-only normalization (for example, removing
@@ -1765,7 +1833,7 @@ public abstract class JUnitAnalyzer {
                 if (!file.exists()) {
                     logger.error("Supposed to generate " + file
                             + " but it does not exist");
-                    return null;
+                    return CompileOutcome.REJECTED;
                 }
             }
 
@@ -1773,11 +1841,11 @@ public abstract class JUnitAnalyzer {
             JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
             if (compiler == null) {
                 logger.error("No Java compiler is available");
-                return null;
+                return CompileOutcome.REJECTED;
             }
             if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
                 logCompileCheckDisabledIfNeeded();
-                return generated;
+                return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
 
             Locale locale = Locale.getDefault();
@@ -1789,10 +1857,10 @@ public abstract class JUnitAnalyzer {
             if (attempt.hasInfrastructureFailure()) {
                 if (isOutOfMemory(attempt.getInfrastructureFailure())) {
                     stopChecksDueToMemoryExhaustion(tests.size(), attempt.getInfrastructureFailure());
-                    return generated;
+                    return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
                 }
                 disableCompileCheckDueToInfrastructure(attempt.getInfrastructureFailure(), compilerClasspath);
-                return generated;
+                return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
 
             if (!attempt.isCompiled()) {
@@ -1803,7 +1871,7 @@ public abstract class JUnitAnalyzer {
                     // never judged, and what is exhausted is the heap, not javac.
                     stopChecksDueToMemoryExhaustion(tests.size(),
                             new OutOfMemoryError("javac: " + firstLine(compilerOutput)));
-                    return generated;
+                    return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
                 }
                 logger.error("Compilation failed on {} generated test file(s)", generated.size());
                 logger.error("Classpath: {}", compilerClasspath);
@@ -1812,7 +1880,7 @@ public abstract class JUnitAnalyzer {
                     disableCompileCheckDueToInfrastructure(
                             new IllegalStateException("javac could not write compiled test artifacts"),
                             compilerClasspath);
-                    return generated;
+                    return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
                 }
 
                 for (Diagnostic<?> diagnostic : diagnostics.getErrorDiagnostics()) {
@@ -1849,47 +1917,47 @@ public abstract class JUnitAnalyzer {
                     disableCompileCheckDueToInfrastructure(
                             new IllegalStateException("javac crashed: " + firstLine(compilerOutput)),
                             compilerClasspath);
-                    return generated;
+                    return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
                 }
 
                 logGeneratedSourceExcerptsOnCompilationFailure(generated);
-                return null;
+                return CompileOutcome.REJECTED;
             }
             if (!hasCompiledClassFilesForGeneratedSources(generated)) {
                 disableCompileCheckDueToInfrastructure(
                         new IllegalStateException(
                                 "javac reported success but produced no .class files for generated tests"),
                         compilerClasspath);
-                return generated;
+                return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
-            return generated;
+            return CompileOutcome.compiled(generated);
 
         } catch (OutOfMemoryError e) {
             // Not a verdict on the tests: reporting them as not compiling would delete them.
             stopChecksDueToMemoryExhaustion(tests.size(), e);
-            return generated;
+            return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.OUT_OF_MEMORY);
         } catch (IOException e) {
             logger.error("" + e, e);
-            return null;
+            return CompileOutcome.REJECTED;
         } catch (RuntimeException e) {
             if (isOutOfMemory(e)) {
                 stopChecksDueToMemoryExhaustion(tests.size(), e);
-                return generated;
+                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.OUT_OF_MEMORY);
             }
             if (isJavacInfrastructureFailure(e)) {
                 disableCompileCheckDueToInfrastructure(e, compilerClasspath);
-                return generated;
+                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
             logger.error("Unexpected runtime exception while compiling generated tests", e);
-            return null;
+            return CompileOutcome.REJECTED;
         } catch (Error e) {
             if (isOutOfMemory(e)) {
                 stopChecksDueToMemoryExhaustion(tests.size(), e);
-                return generated;
+                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.OUT_OF_MEMORY);
             }
             if (isJavacInfrastructureFailure(e)) {
                 disableCompileCheckDueToInfrastructure(e, compilerClasspath);
-                return generated;
+                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
             throw e;
         }
@@ -2125,12 +2193,10 @@ public abstract class JUnitAnalyzer {
                 + "after a javac infrastructure failure.");
     }
 
-    private static boolean shouldSkipCompileDependentExecutionAfterCompile() {
-        if (!checksSuspended()) {
-            return false;
+    private static void logCompileDependentExecutionSkippedIfNeeded(CompileOutcome compiled) {
+        if (compiled.getNotJudgedReason() == NotJudgedReason.COMPILE_CHECK_DISABLED) {
+            logCompileDependentExecutionSkippedIfNeeded();
         }
-        logCompileDependentExecutionSkippedIfNeeded();
-        return true;
     }
 
     private static boolean hasCompiledClassFilesForGeneratedSources(List<File> generated) {
@@ -2867,14 +2933,16 @@ public abstract class JUnitAnalyzer {
         }
 
         try {
-            List<File> generated = compileTests(tests, dir);
-            if (generated == null) {
+            CompileOutcome compiled = compileTests(tests, dir);
+            if (compiled.isRejected()) {
                 logger.warn("Failed to compile the test cases ");
                 return false;
             }
-            if (shouldSkipCompileDependentExecutionAfterCompile()) {
+            if (compiled.isNotJudged()) {
+                logCompileDependentExecutionSkippedIfNeeded(compiled);
                 return true;
             }
+            List<File> generated = compiled.getFiles();
 
             //as last step, execute the generated/compiled test cases
 
