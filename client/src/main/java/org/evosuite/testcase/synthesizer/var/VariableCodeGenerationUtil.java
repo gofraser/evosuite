@@ -474,7 +474,7 @@ public class VariableCodeGenerationUtil {
     static Method findElementAddMethod(Class<?> type) {
         for (Method m : type.getDeclaredMethods()) {
             if (m.getName().equals("add") && m.getParameterCount() == 1
-                    && TestUsageChecker.isCallableFromTestPackage(m)) {
+                    && TestUsageChecker.isSynthesisCallable(m)) {
                 return m;
             }
         }
