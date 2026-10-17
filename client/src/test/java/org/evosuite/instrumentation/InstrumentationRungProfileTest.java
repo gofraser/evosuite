@@ -21,6 +21,7 @@ package org.evosuite.instrumentation;
 
 import com.examples.with.different.packagename.StaticCounterHolder;
 import org.evosuite.Properties;
+import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.instrumentation.BytecodeInstrumentation.TargetClassInstrumentationException;
 import org.evosuite.runtime.instrumentation.InstrumentedClass;
 import org.junit.jupiter.api.AfterEach;
@@ -58,8 +59,8 @@ import java.util.function.Function;
  *       example the loop counter, the coverage probes, the static-access probes).</li>
  * </ol>
  *
- * <p>Where the current behaviour looks accidental (the review calls these I2, I3 and I4) the
- * test says so. It documents what happens now; it does not endorse it.
+ * <p>Where the current behaviour looks accidental the test says so. It documents what happens
+ * now; it does not endorse it.
  */
 public class InstrumentationRungProfileTest {
 
@@ -181,7 +182,7 @@ public class InstrumentationRungProfileTest {
     }
 
     /**
-     * I2 in the review: the too-large ladder handles nothing but "too large". A frame-merge
+     * The too-large ladder handles nothing but "too large". A frame-merge
      * failure inside its first rung propagates and aborts the class, whereas the same failure
      * on the frame ladder moves on to the minimal rung. Pinned as it is today.
      */
@@ -198,9 +199,9 @@ public class InstrumentationRungProfileTest {
                 "minimal is not tried after a frame failure in the too-large ladder");
     }
 
-    /** The desired behaviour once the transitions are one table (review I2). */
+    /** The desired behaviour once the transitions are one table. */
     @Test
-    @Disabled("package 9: the too-large ladder does not yet move on after a frame failure")
+    @Disabled("the too-large ladder does not yet move on after a frame failure")
     public void frameFailureInsideTheTooLargeLadderShouldContinueWithMinimal() {
         Properties.TARGET_CLASS = "sample.Other";
         Ladder ladder = new Ladder(rung -> rung.equals(FULL) ? Failure.TOO_LARGE
@@ -255,7 +256,7 @@ public class InstrumentationRungProfileTest {
 
     private static final String FIXTURE = Fixture.class.getName();
 
-    private enum Rung {FULL_RUNG, NO_LOOP_RUNG, SKIP_TESTABILITY_RUNG, MINIMAL_RUNG}
+    private enum Rung {FULL_RUNG, FULL_MAXS_RUNG, NO_LOOP_RUNG, SKIP_TESTABILITY_RUNG, MINIMAL_RUNG, BARE_RUNG}
 
     private static final String BASE = "marker staticReset classInitHooks identityHash";
     private static final String TARGET_PROBES = "branchProbes lineProbes methodProbes returnProbes";
@@ -268,13 +269,16 @@ public class InstrumentationRungProfileTest {
 
         Assertions.assertEquals(BASE + " " + TARGET_PROBES + " staticAccess loopCounter stringTransform",
                 features(bi, Rung.FULL_RUNG));
+        Assertions.assertEquals(BASE + " " + TARGET_PROBES + " staticAccess loopCounter stringTransform",
+                features(bi, Rung.FULL_MAXS_RUNG));
         Assertions.assertEquals(BASE + " " + TARGET_PROBES + " staticAccess stringTransform",
                 features(bi, Rung.NO_LOOP_RUNG));
-        // I3: the "full chain" skip-testability rung also drops the loop counter.
+        // The skip-testability rung also drops the loop counter.
         Assertions.assertEquals(BASE + " " + TARGET_PROBES + " staticAccess",
                 features(bi, Rung.SKIP_TESTABILITY_RUNG));
-        // I3: minimal drops the coverage probes AND the static-access probes, but keeps __STATIC_RESET.
+        // Minimal drops the coverage probes AND the static-access probes, but keeps __STATIC_RESET.
         Assertions.assertEquals(BASE + " killSwitch", features(bi, Rung.MINIMAL_RUNG));
+        Assertions.assertEquals("marker", features(bi, Rung.BARE_RUNG));
     }
 
     @Test
@@ -284,10 +288,12 @@ public class InstrumentationRungProfileTest {
         BytecodeInstrumentation bi = new BytecodeInstrumentation(InstrumentationConfig.fromProperties());
 
         Assertions.assertEquals(BASE + " killSwitch staticAccess loopCounter", features(bi, Rung.FULL_RUNG));
+        Assertions.assertEquals(BASE + " killSwitch staticAccess loopCounter", features(bi, Rung.FULL_MAXS_RUNG));
         Assertions.assertEquals(BASE + " killSwitch staticAccess", features(bi, Rung.NO_LOOP_RUNG));
         Assertions.assertEquals(BASE + " killSwitch staticAccess", features(bi, Rung.SKIP_TESTABILITY_RUNG));
-        // Minimal loses the static-access probes of a dependency as well (I3).
+        // Minimal loses the static-access probes of a dependency as well.
         Assertions.assertEquals(BASE + " killSwitch", features(bi, Rung.MINIMAL_RUNG));
+        Assertions.assertEquals("marker", features(bi, Rung.BARE_RUNG));
     }
 
     /**
@@ -339,7 +345,7 @@ public class InstrumentationRungProfileTest {
     }
 
     /**
-     * I4 in the review: for a dependency without testability transformation, retry 3 (skip
+     * For a dependency without testability transformation, retry 3 (skip
      * testability) repeats retry 2 (no loop counter) byte for byte. For the class under test
      * the two differ.
      */
@@ -369,24 +375,192 @@ public class InstrumentationRungProfileTest {
         }
     }
 
+    @Test
+    public void mockingAdaptersFollowTheAgentSwitch() throws IOException {
+        Properties.TARGET_CLASS = FIXTURE;
+        BytecodeInstrumentation bi = new BytecodeInstrumentation(InstrumentationConfig.fromProperties());
+        for (Rung rung : Rung.values()) {
+            Assertions.assertEquals(rung != Rung.BARE_RUNG, features(bi, rung).contains("identityHash"), rung.name());
+        }
+
+        Properties.REPLACE_CALLS = false;
+        Properties.VIRTUAL_FS = false;
+        Properties.VIRTUAL_NET = false;
+        Properties.REPLACE_GUI = false;
+        Properties.RESET_STATIC_FIELDS = false;
+        for (Rung rung : Rung.values()) {
+            Assertions.assertFalse(features(bi, rung).contains("identityHash"), rung.name());
+        }
+    }
+
+    /**
+     * Writer flags: every rung recomputes the frames except the legacy COMPUTE_MAXS rung (no
+     * StackMapTable at all) and the bare passthrough, which copies the original frames.
+     */
+    @Test
+    public void writerFlagsPerRung() throws IOException {
+        for (String target : Arrays.asList(FIXTURE, "sample.Other")) {
+            Properties.TARGET_CLASS = target;
+            BytecodeInstrumentation bi = new BytecodeInstrumentation(InstrumentationConfig.fromProperties());
+            for (Rung rung : Rung.values()) {
+                byte[] bytes = rungBytes(bi, rung);
+                Assertions.assertEquals(rung != Rung.FULL_MAXS_RUNG, hasFrames(bytes), target + " " + rung);
+            }
+        }
+    }
+
+    /**
+     * The rungs differ in more than the probes: the timeout rethrow in catch handlers and the
+     * purity analysis come from different adapters on different rungs.
+     */
+    @Test
+    public void timeoutRethrowAndPurityPerRung() throws IOException {
+        List<String> cut = new ArrayList<>();
+        List<String> dependency = new ArrayList<>();
+        for (Rung rung : Rung.values()) {
+            cut.add(rung + ": " + catchingFeatures(rung, true));
+            dependency.add(rung + ": " + catchingFeatures(rung, false));
+        }
+        // Minimal keeps the rethrow (the non-target chain has its own) but drops the purity analysis.
+        Assertions.assertEquals(Arrays.asList(
+                "FULL_RUNG: timeoutRethrow purity",
+                "FULL_MAXS_RUNG: timeoutRethrow purity",
+                "NO_LOOP_RUNG: timeoutRethrow purity",
+                "SKIP_TESTABILITY_RUNG: timeoutRethrow purity",
+                "MINIMAL_RUNG: timeoutRethrow",
+                "BARE_RUNG: "), cut);
+        Assertions.assertEquals(cut, dependency);
+    }
+
+    @Test
+    public void purityAnalysisFollowsItsSwitch() throws IOException {
+        Properties.PURE_INSPECTORS = false;
+        for (Rung rung : Rung.values()) {
+            Assertions.assertFalse(catchingFeatures(rung, true).contains("purity"), rung.name());
+            Assertions.assertFalse(catchingFeatures(rung, false).contains("purity"), rung.name());
+        }
+    }
+
+    /**
+     * Instruments {@link CatchingFixture} under a fresh class name, because the purity
+     * analyser is a singleton that never forgets a class.
+     */
+    private String catchingFeatures(Rung rung, boolean asClassUnderTest) throws IOException {
+        String name = "rung.Catching" + (asClassUnderTest ? "Cut" : "Dependency") + rung + (++freshNames);
+        Properties.TARGET_CLASS = asClassUnderTest ? name : "sample.Other";
+        BytecodeInstrumentation bi = new BytecodeInstrumentation(InstrumentationConfig.fromProperties());
+        byte[] bytes = rungBytes(bi, rung, CatchingFixture.class.getName(), name);
+
+        List<String> out = new ArrayList<>();
+        if (calls(bytes).contains("Runtime.rethrowIfTimeout")) {
+            out.add("timeoutRethrow");
+        }
+        if (registeredWithPurityAnalyser(name)) {
+            out.add("purity");
+        }
+        return String.join(" ", out);
+    }
+
+    private static boolean registeredWithPurityAnalyser(String className) {
+        try {
+            java.lang.reflect.Field field = CheapPurityAnalyzer.class.getDeclaredField("methodEntries");
+            field.setAccessible(true);
+            for (Object entry : (Iterable<?>) field.get(CheapPurityAnalyzer.getInstance())) {
+                if (entry.toString().contains("className=" + className + ",")) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static int freshNames;
+
+    public static final class CatchingFixture {
+        public int pureValue() {
+            return 7;
+        }
+
+        public int swallow(Runnable r) {
+            try {
+                r.run();
+                return 0;
+            } catch (Throwable t) {
+                return 1;
+            }
+        }
+    }
+
     // ===================================================================== helpers
 
     private byte[] rungBytes(BytecodeInstrumentation bi, Rung rung) throws IOException {
-        String internal = FIXTURE.replace('.', '/');
-        ClassReader reader = new ClassReader(readResource(internal));
+        return rungBytes(bi, rung, FIXTURE, FIXTURE);
+    }
+
+    private byte[] rungBytes(BytecodeInstrumentation bi, Rung rung, String fixture, String instrumentedName)
+            throws IOException {
+        String internal = instrumentedName.replace('.', '/');
+        ClassReader reader = new ClassReader(readResource(fixture.replace('.', '/')));
         ClassLoader loader = getClass().getClassLoader();
         switch (rung) {
             case FULL_RUNG:
-                return bi.transformBytesInternal(loader, internal, FIXTURE, reader, ClassReader.SKIP_FRAMES,
+                return bi.transformBytesInternal(loader, internal, instrumentedName, reader, ClassReader.SKIP_FRAMES,
                         true, ClassWriter.COMPUTE_FRAMES);
+            case FULL_MAXS_RUNG:
+                return bi.transformBytesInternal(loader, internal, instrumentedName, reader, ClassReader.SKIP_FRAMES,
+                        true, ClassWriter.COMPUTE_MAXS);
             case NO_LOOP_RUNG:
-                return bi.transformBytesInternal(loader, internal, FIXTURE, reader, ClassReader.SKIP_FRAMES,
+                return bi.transformBytesInternal(loader, internal, instrumentedName, reader, ClassReader.SKIP_FRAMES,
                         false, ClassWriter.COMPUTE_FRAMES);
             case SKIP_TESTABILITY_RUNG:
-                return bi.transformBytesSkipTestability(loader, internal, FIXTURE, reader, ClassReader.SKIP_FRAMES);
+                return bi.transformBytesSkipTestability(loader, internal, instrumentedName, reader,
+                        ClassReader.SKIP_FRAMES);
+            case MINIMAL_RUNG:
+                return bi.transformBytesMinimal(loader, internal, instrumentedName, reader, ClassReader.SKIP_FRAMES);
             default:
-                return bi.transformBytesMinimal(loader, internal, FIXTURE, reader, ClassReader.SKIP_FRAMES);
+                try {
+                    java.lang.reflect.Method bare = BytecodeInstrumentation.class.getDeclaredMethod(
+                            "transformBytesBarePassthrough", String.class, ClassReader.class);
+                    bare.setAccessible(true);
+                    return (byte[]) bare.invoke(bi, internal, reader);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
         }
+    }
+
+    private static boolean hasFrames(byte[] bytes) {
+        boolean[] found = new boolean[1];
+        new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override
+            public MethodVisitor visitMethod(int access, String name, String desc, String sig, String[] ex) {
+                return new MethodVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitFrame(int type, int numLocal, Object[] local, int numStack, Object[] stack) {
+                        found[0] = true;
+                    }
+                };
+            }
+        }, 0);
+        return found[0];
+    }
+
+    private static TreeSet<String> calls(byte[] bytes) {
+        TreeSet<String> calls = new TreeSet<>();
+        new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override
+            public MethodVisitor visitMethod(int access, String name, String desc, String sig, String[] ex) {
+                return new MethodVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitMethodInsn(int op, String owner, String n, String d, boolean itf) {
+                        calls.add(owner.substring(owner.lastIndexOf('/') + 1) + "." + n);
+                    }
+                };
+            }
+        }, 0);
+        return calls;
     }
 
     private String features(BytecodeInstrumentation bi, Rung rung) throws IOException {
