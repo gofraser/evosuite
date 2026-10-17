@@ -453,15 +453,7 @@ public class VariableCodeGenerationUtil {
     public static void generateElements(
             Class<?> type, TestCase test, VariableReference usedFieldInTest) {
 
-        Method addMethod = null;
-        for (Method m : type.getDeclaredMethods()) {
-            if (m.getName().equals("add") && m.getParameterCount() == 1
-                    && TestUsageChecker.isCallableFromTestPackage(m)) {
-                addMethod = m;
-                break;
-            }
-        }
-
+        Method addMethod = findElementAddMethod(type);
         if (addMethod != null) {
             int addElementNum = Randomness.nextInt(0, 3);
 
@@ -476,6 +468,17 @@ public class VariableCodeGenerationUtil {
                 }
             }
         }
+    }
+
+    /** The first one-argument {@code add} method {@code type} declares that a test can call. */
+    static Method findElementAddMethod(Class<?> type) {
+        for (Method m : type.getDeclaredMethods()) {
+            if (m.getName().equals("add") && m.getParameterCount() == 1
+                    && TestUsageChecker.isCallableFromTestPackage(m)) {
+                return m;
+            }
+        }
+        return null;
     }
 
     /**
