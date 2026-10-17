@@ -424,6 +424,31 @@ public class EvoSuiteExtensionLifecycleTest {
         }
     }
 
+    /**
+     * initializeClasses already retransforms what it finds uninstrumented, and a second call
+     * cannot load a class whose initializer failed, so a reported problem is not retried.
+     * The retransformation before it stays: it runs before the static initializers.
+     */
+    @Test
+    public void shouldInitializeClassesOnceEvenWhenItReportsAProblem() {
+        EvoSuiteExtension extension = new EvoSuiteExtension(MockingAndResetting_ESTest.class);
+        try (MockedStatic<ClassStateSupport> mockedStateSupport = Mockito.mockStatic(ClassStateSupport.class);
+             MockedStatic<InstrumentingAgent> mockedAgent = Mockito.mockStatic(InstrumentingAgent.class);
+             MockedStatic<Sandbox> mockedSandbox = Mockito.mockStatic(Sandbox.class)) {
+            mockedStateSupport.when(() -> ClassStateSupport.initializeClasses(
+                    Mockito.any(ClassLoader.class), Mockito.<String>any())).thenReturn(true);
+
+            extension.beforeAll(null);
+
+            mockedStateSupport.verify(() -> ClassStateSupport.retransformIfNeeded(
+                    Mockito.any(ClassLoader.class), Mockito.eq(MockingAndResetting.class.getName())),
+                    Mockito.times(1));
+            mockedStateSupport.verify(() -> ClassStateSupport.initializeClasses(
+                    Mockito.any(ClassLoader.class), Mockito.eq(MockingAndResetting.class.getName())),
+                    Mockito.times(1));
+        }
+    }
+
     @Test
     public void shouldContinueCleanupWhenSandboxDoneThrows() {
         EvoSuiteExtension extension = new EvoSuiteExtension(MockingAndResetting_ESTest.class);

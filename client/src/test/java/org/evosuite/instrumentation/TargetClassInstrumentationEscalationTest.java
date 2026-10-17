@@ -289,33 +289,27 @@ public class TargetClassInstrumentationEscalationTest {
         }
 
         @Override
-        protected byte[] transformBytesInternal(ClassLoader classLoader, String className,
-                                                String classNameWithDots, ClassReader reader,
-                                                int readFlags, boolean enableLoopCounter,
-                                                int writerFlags) {
-            throw createFailure();
-        }
-
-        @Override
-        protected byte[] transformBytesSkipTestability(ClassLoader classLoader, String className,
-                                                       String classNameWithDots, ClassReader reader,
-                                                       int readFlags) {
-            skipTestabilityInvocations++;
-            if (failSkipTestability) {
-                throw createFailure();
+        protected byte[] transform(Profile profile, ClassLoader classLoader, String className,
+                                   String classNameWithDots, ClassReader reader, int readFlags) {
+            switch (profile) {
+                case NO_TESTABILITY:
+                    skipTestabilityInvocations++;
+                    if (failSkipTestability) {
+                        throw createFailure();
+                    }
+                    return SKIP_TESTABILITY_BYTES;
+                case MINIMAL:
+                    minimalInvocations++;
+                    if (failMinimal) {
+                        throw createFailure();
+                    }
+                    return MINIMAL_BYTES;
+                case BARE:
+                case RAW:
+                    return super.transform(profile, classLoader, className, classNameWithDots, reader, readFlags);
+                default:
+                    throw createFailure();
             }
-            return SKIP_TESTABILITY_BYTES;
-        }
-
-        @Override
-        protected byte[] transformBytesMinimal(ClassLoader classLoader, String className,
-                                                String classNameWithDots, ClassReader reader,
-                                                int readFlags) {
-            minimalInvocations++;
-            if (failMinimal) {
-                throw createFailure();
-            }
-            return MINIMAL_BYTES;
         }
 
         private RuntimeException createFailure() {

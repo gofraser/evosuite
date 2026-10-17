@@ -322,14 +322,13 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
             return;
         }
         if (RuntimeSettings.isUsingAnyMocking()) {
+            // A class the JVM loaded before the agent was attached (linking the test class to
+            // read its extension field loads the classes it passes as a supertype) has not been
+            // initialized yet. Retransform it now, so that its static initializer runs mocked:
+            // initializeClasses only retransforms after initializing.
             ClassStateSupport.retransformIfNeeded(testClass.getClassLoader(), classesToInitialize);
         }
-        boolean problem = ClassStateSupport.initializeClasses(testClass.getClassLoader(), classesToInitialize);
-        if (problem) {
-            // Recover when SUT classes were loaded before the extension got control.
-            ClassStateSupport.retransformIfNeeded(testClass.getClassLoader(), classesToInitialize);
-            ClassStateSupport.initializeClasses(testClass.getClassLoader(), classesToInitialize);
-        }
+        ClassStateSupport.initializeClasses(testClass.getClassLoader(), classesToInitialize);
     }
 
     private void resetDiscoveredClasses() {
