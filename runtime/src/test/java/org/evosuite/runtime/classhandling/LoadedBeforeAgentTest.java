@@ -55,6 +55,41 @@ public class LoadedBeforeAgentTest {
         Assumptions.assumeTrue(Runtime.version().feature() < 24);
 
         File workDir = Files.createTempDirectory("loaded-before-agent").toFile();
+        String output = runInFreshJvm(workDir, "org.junit.runner.JUnitCore", "latefixture.LateFixture");
+
+        Assertions.assertTrue(output.contains("OK (2 tests)"), output);
+        String retransformationWarning = "does not have InstrumentedClass";
+        Assertions.assertTrue(output.lines().anyMatch(line ->
+                line.startsWith("WARN") && line.contains(retransformationWarning)), output);
+        Assertions.assertFalse(output.lines().anyMatch(line ->
+                line.startsWith("ERROR") && line.contains(retransformationWarning)), output);
+        Assertions.assertFalse(new File(workDir, "late_fixture_output.txt").exists(),
+                "the file was written to the real file system");
+    }
+
+    /**
+     * The same order of events with a JUnit 5 test and {@code EvoSuiteExtension}: Jupiter
+     * initializes the test class to read its extension field, which loads the class under test
+     * before the extension attaches the agent. Its static initializer must still run with the
+     * file system mocked.
+     */
+    @Test
+    public void classLoadedBeforeTheExtensionIsStillMocked() throws Exception {
+        Assumptions.assumeTrue(Runtime.version().feature() < 24);
+
+        File workDir = Files.createTempDirectory("loaded-before-extension").toFile();
+        String output = runInFreshJvm(workDir, "latefixture.JupiterMain", "latefixture.LateJupiterFixture");
+
+        Assertions.assertTrue(output.contains("SUCCEEDED 2 FAILED 0"), output);
+        Assertions.assertTrue(output.lines().anyMatch(line ->
+                line.startsWith("WARN") && line.contains("does not have InstrumentedClass")), output);
+        Assertions.assertFalse(new File(workDir, "static_init_output.txt").exists(),
+                "the static initializer wrote to the real file system");
+        Assertions.assertFalse(new File(workDir, "late_jupiter_output.txt").exists(),
+                "the file was written to the real file system");
+    }
+
+    private static String runInFreshJvm(File workDir, String mainClass, String testClass) throws Exception {
         File agentJar = new File(workDir, "evosuite-agent-for-test.jar");
         Manifest manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
@@ -69,8 +104,8 @@ public class LoadedBeforeAgentTest {
         command.add("-Djava.security.manager=allow");
         command.add("-cp");
         command.add(agentJar.getPath() + File.pathSeparator + System.getProperty("java.class.path"));
-        command.add("org.junit.runner.JUnitCore");
-        command.add("latefixture.LateFixture");
+        command.add(mainClass);
+        command.add(testClass);
 
         Process process = new ProcessBuilder(command)
                 .directory(workDir)
@@ -85,15 +120,7 @@ public class LoadedBeforeAgentTest {
             }
         }
         Assertions.assertTrue(process.waitFor(120, TimeUnit.SECONDS), "child JVM timed out");
-
         Assertions.assertEquals(0, process.exitValue(), output.toString());
-        Assertions.assertTrue(output.toString().contains("OK (2 tests)"), output.toString());
-        String retransformationWarning = "does not have InstrumentedClass";
-        Assertions.assertTrue(output.toString().lines().anyMatch(line ->
-                line.startsWith("WARN") && line.contains(retransformationWarning)), output.toString());
-        Assertions.assertFalse(output.toString().lines().anyMatch(line ->
-                line.startsWith("ERROR") && line.contains(retransformationWarning)), output.toString());
-        Assertions.assertFalse(new File(workDir, "late_fixture_output.txt").exists(),
-                "the file was written to the real file system");
+        return output.toString();
     }
 }
