@@ -115,11 +115,10 @@ public class TestUsageChecker {
      */
     public static boolean canUse(Constructor<?> c) {
 
-        if (c.isSynthetic()) {
+        if (isNotCallableFromSource(c)) {
             return false;
         }
 
-        // synthetic constructors are OK
         if (Modifier.isAbstract(c.getDeclaringClass().getModifiers())) {
             return false;
         }
@@ -161,11 +160,6 @@ public class TestUsageChecker {
         }
 
         if (isForbiddenNonDeterministicCall(c)) {
-            return false;
-        }
-
-        // A public constructor is as unusable as a method when it takes a source-private type
-        if (hasSourcePrivateParameterType(c.getParameterTypes())) {
             return false;
         }
 
@@ -1264,6 +1258,14 @@ public class TestUsageChecker {
         return m.isSynthetic() || m.isBridge()
                 || COMPILER_ACCESSOR_NAME.matcher(m.getName()).matches()
                 || hasSourcePrivateParameterType(m);
+    }
+
+    /**
+     * Constructor counterpart of {@link #isNotCallableFromSource(Method)}: a synthetic constructor,
+     * or one taking a parameter of a source-private type.
+     */
+    public static boolean isNotCallableFromSource(Constructor<?> c) {
+        return c.isSynthetic() || hasSourcePrivateParameterType(c.getParameterTypes());
     }
 
     private static boolean hasSourcePrivateParameterType(Method m) {
