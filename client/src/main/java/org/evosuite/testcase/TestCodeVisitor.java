@@ -3110,48 +3110,9 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
 
-        String returnCastStr = "";
-        boolean requiresReturnCast = !unused
-                && ((!retval.isAssignableFrom(method.getReturnType())
-                || requiresReturnValueCastForRawReceiver(statement, method, retval)
-                || requiresReturnCastDueToRawParameterCast(
-                        isGenericMethod, renderedParameterTypes, parameters, method, retval))
-                || (forceRawReceiverInvocation
-                && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType()))
-                || requiresReturnCastForRawReceiverCast(receiverCastClass, method, retval)
-                || requiresStaticGenericReturnCast(method, retval))
-                && !retval.getVariableClass().isAnonymousClass()
-                // Static generic methods are a special case where we shouldn't add a cast
-                && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic());
-        boolean rawReturnCastForRedeclaredReceiver = !unused
-                && (method.isStatic()
-                ? isGenericMethod && method.getParameterTypes().length == 0
-                && uninferableStaticGenericReturn(method, retval)
-                : returnDependsOnRedeclaredReceiver(statement, method, retval));
-        boolean rawReturnCastForArrayArgument = !unused && !retval.isVoid()
-                && retval.getType() instanceof ParameterizedType
-                && requiresRawReturnCastForArrayArgument(renderedParameterTypes, parameters);
-        if (requiresReturnCast || rawReturnCastForRedeclaredReceiver || rawReturnCastForArrayArgument) {
-            String name = getAccessibleGenericReturnTypeName(method, retval);
-            if (!name.matches(".*\\.\\d+$")) {
-                if (retval.getType() instanceof ParameterizedType
-                        && (rawReturnCastForRedeclaredReceiver
-                        || rawReturnCastForArrayArgument
-                        || returnCastIsInconvertible(retval.getType(),
-                                method.getMethod().getGenericReturnType()))) {
-                    // The declared parameterization is generic-inconvertible with the
-                    // method's return type -- typically a variable typed
-                    // Set<Class<Object>> receiving a raw Set<Class> return (old
-                    // Mockito-internal APIs). "(Set<Class<Object>>) x" does not
-                    // compile; a raw cast is an unchecked but legal conversion that
-                    // still assigns to the parameterized variable.
-                    returnCastStr = "(" + getClassName(
-                            (Class<?>) ((ParameterizedType) retval.getType()).getRawType()) + ")";
-                } else {
-                    returnCastStr = "(" + name + ")";
-                }
-            }
-        }
+        ReturnCast returnCast = unused ? ReturnCast.NONE : returnCastFor(statement, isGenericMethod,
+                forceRawReceiverInvocation, receiverCastClass, renderedParameterTypes);
+        String returnCastStr = returnCast.kind == ReturnCast.Kind.NONE ? "" : "(" + returnCast.typeName + ")";
         calleeStr = returnCastStr + calleeStr;
         if (retval.isVoid()) {
             result += calleeStr + "." + method.getName() + "(" + parameterString + ");";
@@ -3179,6 +3140,78 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    /** The cast in front of a call whose result is assigned to a variable. */
+    private static final class ReturnCast {
+        enum Kind { NONE, TYPED, RAW }
+
+        static final ReturnCast NONE = new ReturnCast(Kind.NONE, null);
+
+        final Kind kind;
+        /** The name written in the cast: the variable's type, or its raw class. */
+        final String typeName;
+
+        ReturnCast(Kind kind, String typeName) {
+            this.kind = kind;
+            this.typeName = typeName;
+        }
+    }
+
+    /**
+     * Whether the result of a call needs a cast to be assigned to its variable, and which. A typed
+     * cast is needed when javac sees a return type the variable's type cannot take without one;
+     * a raw cast, unchecked but legal, when javac sees a parameterization no typed cast converts.
+     * Either can be turned into a raw cast by a return type that is generic-inconvertible with
+     * the variable's type.
+     */
+    private ReturnCast returnCastFor(MethodStatement statement, boolean isGenericMethod,
+                                     boolean forceRawReceiverInvocation, Class<?> receiverCastClass,
+                                     Type[] renderedParameterTypes) {
+        VariableReference retval = statement.getReturnValue();
+        GenericMethod method = statement.getMethod();
+        List<VariableReference> parameters = statement.getParameterReferences();
+        // A cast gives javac no target type to infer a zero-argument static generic call from.
+        boolean zeroArgumentStaticGenericCall = isGenericMethod
+                && method.getParameterTypes().length == 0 && method.isStatic();
+        boolean typedCast = (!retval.isAssignableFrom(method.getReturnType())
+                || requiresReturnValueCastForRawReceiver(statement, method, retval)
+                || requiresReturnCastDueToRawParameterCast(
+                        isGenericMethod, renderedParameterTypes, parameters, method, retval)
+                || (forceRawReceiverInvocation
+                && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType()))
+                || requiresReturnCastForRawReceiverCast(receiverCastClass, method, retval)
+                || requiresStaticGenericReturnCast(method, retval))
+                && !retval.getVariableClass().isAnonymousClass()
+                && !zeroArgumentStaticGenericCall;
+        boolean rawCast = (method.isStatic()
+                ? zeroArgumentStaticGenericCall && uninferableStaticGenericReturn(method, retval)
+                : returnDependsOnRedeclaredReceiver(statement, method, retval))
+                || (!retval.isVoid() && retval.getType() instanceof ParameterizedType
+                && requiresRawReturnCastForArrayArgument(renderedParameterTypes, parameters));
+        if (!typedCast && !rawCast) {
+            return ReturnCast.NONE;
+        }
+        String name = getAccessibleGenericReturnTypeName(method, retval);
+        // An anonymous class (Outer.1) cannot be named in a cast. This tests the rendered name, not
+        // the class: a class rendered as an accessible supertype is cast to that supertype, and a
+        // local class is cast to its rendered name as before.
+        if (name.matches(".*\\.\\d+$")) {
+            return ReturnCast.NONE;
+        }
+        if (retval.getType() instanceof ParameterizedType
+                && (rawCast || returnCastIsInconvertible(retval.getType(),
+                        method.getMethod().getGenericReturnType()))) {
+            // The declared parameterization is generic-inconvertible with the
+            // method's return type -- typically a variable typed
+            // Set<Class<Object>> receiving a raw Set<Class> return (old
+            // Mockito-internal APIs). "(Set<Class<Object>>) x" does not
+            // compile; a raw cast is an unchecked but legal conversion that
+            // still assigns to the parameterized variable.
+            return new ReturnCast(ReturnCast.Kind.RAW, getClassName(
+                    (Class<?>) ((ParameterizedType) retval.getType()).getRawType()));
+        }
+        return new ReturnCast(ReturnCast.Kind.TYPED, name);
     }
 
     /** The class the receiver of an instance call is cast to, and whether a space follows the cast. */
