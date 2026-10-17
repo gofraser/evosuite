@@ -2430,7 +2430,7 @@ public class TestCodeVisitor extends TestVisitor {
         return getTypeName(declaredParamType);
     }
 
-    private boolean requiresRawCastForInconvertibleParameterizedTypes(Type declaredParamType, Type actualParamType) {
+    boolean requiresRawCastForInconvertibleParameterizedTypes(Type declaredParamType, Type actualParamType) {
         if (!(declaredParamType instanceof ParameterizedType)
                 || !(actualParamType instanceof ParameterizedType)) {
             return false;
@@ -4851,18 +4851,25 @@ public class TestCodeVisitor extends TestVisitor {
         if (!(targetType instanceof ParameterizedType) || value == null) {
             return false;
         }
+        return parameterizedCastIsInconvertible(targetType, value.getType(), value.getVariableClass());
+    }
+
+    /** See {@link #parameterizedCastIsInconvertible(Type, VariableReference)}. */
+    boolean parameterizedCastIsInconvertible(Type targetType, Type valueType, Class<?> valueClass) {
+        if (!(targetType instanceof ParameterizedType)) {
+            return false;
+        }
         ParameterizedType parameterizedTarget = (ParameterizedType) targetType;
         if (!(parameterizedTarget.getRawType() instanceof Class<?>)) {
             return false;
         }
         Class<?> rawTarget = (Class<?>) parameterizedTarget.getRawType();
-        Class<?> valueClass = value.getVariableClass();
         if (valueClass == null || !rawTarget.isAssignableFrom(valueClass)) {
             return false;
         }
         Type valueAsTarget;
         try {
-            valueAsTarget = GenericUtils.getExactSuperType(value.getType(), rawTarget);
+            valueAsTarget = GenericUtils.getExactSuperType(valueType, rawTarget);
         } catch (Throwable ignored) {
             return false;
         }
