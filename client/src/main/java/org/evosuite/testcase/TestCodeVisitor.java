@@ -2704,19 +2704,7 @@ public class TestCodeVisitor extends TestVisitor {
          * during the search would just make things worse, as negatively effecting the search.
          * So we could just skip it, but this would effect false-positive preventions
          */
-        if (st.doesNeedToUpdateInputs()) {
-            try {
-                st.updateMockedMethods();
-            } catch (Exception e) {
-                // ignore
-            }
-            st.fillWithNullRefs();
-
-            // result += "mock(" + rawClassName + ".class);" + NEWLINE;
-        } else {
-            // result += "mock(" + rawClassName + ".class, new "
-            //         + ViolatedAssumptionAnswer.class.getSimpleName() + "());" + NEWLINE;
-        }
+        st.completePendingStubsWithNulls();
 
         // Every rendered mock is stubOnly(), as it is during the search: without it Mockito keeps
         // each invocation in a per-mock list, and a SUT loop that keeps calling a stubbed mock (for

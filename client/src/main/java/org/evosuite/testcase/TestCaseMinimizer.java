@@ -24,6 +24,7 @@ import org.evosuite.TimeController;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.SecondaryObjective;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.slf4j.Logger;
@@ -169,6 +170,9 @@ public class TestCaseMinimizer {
             changed = false;
 
             for (int i = c.test.size() - 1; i >= 0; i--) {
+                // A mock is given the stubs its code shows before it is considered for deletion,
+                // and keeps them if it stays
+                completePendingStubs(c.test.getStatement(i));
                 if (isTimeoutReached()) {
                     logger.debug("Timeout reached before minimizing statement {}", c.test.getStatement(i).getCode());
                     return;
@@ -227,6 +231,12 @@ public class TestCaseMinimizer {
             logger.debug(c.test.toCode());
         }
 
+    }
+
+    private static void completePendingStubs(Statement statement) {
+        if (statement instanceof FunctionalMockStatement) {
+            ((FunctionalMockStatement) statement).completePendingStubsWithNulls();
+        }
     }
 
     private static void restoreTestCase(TestChromosome c, TestChromosome copy) {

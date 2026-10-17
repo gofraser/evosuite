@@ -46,6 +46,7 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.junit.platform.engine.TestExecutionResult;
@@ -553,6 +554,8 @@ public abstract class JUnitAnalyzer {
                     if (TestSuiteWriterUtils.getNameOfTest(written, i).equals(testName)) {
                         final TestCase failingTest = written.get(i);
                         logger.warn("Failing test:\n " + failingTest.toCode());
+                        // An unstable test that is kept is written with the stubs its code shows
+                        FunctionalMockStatement.completePendingStubsWithNulls(failingTest);
                         numUnstable++;
                         /*
                          * we have a match. should we remove it or mark as unstable?

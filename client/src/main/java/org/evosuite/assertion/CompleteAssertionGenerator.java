@@ -21,6 +21,7 @@ package org.evosuite.assertion;
 
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,6 +51,8 @@ public class CompleteAssertionGenerator extends AssertionGenerator {
     public void addAssertions(TestCase test) {
         collectCandidates(test);
         logger.debug("Test after adding assertions: " + test.toCode());
+        // From here on the mocks have the stubs of the written test
+        FunctionalMockStatement.completePendingStubsWithNulls(test);
     }
 
     /**

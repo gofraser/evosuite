@@ -40,6 +40,7 @@ import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testsuite.PrefixMergingInserter;
 import org.evosuite.utils.FileIOUtils;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -500,6 +501,9 @@ public class TestSuiteWriter implements Opcodes {
             visitor.clearExceptions();
             visitor.setExceptions(result.getCopyOfExceptionMapping());
             result.test.accept(visitor);
+            // This is the first rendering since the tests were executed above: from here on
+            // their mocks hold the stubs that are written
+            FunctionalMockStatement.completePendingStubsWithNulls(result.test);
             imports.addAll(visitor.getImports());
             accessedClasses.addAll(result.test.getAccessedClasses());
             if (!hasException) {
