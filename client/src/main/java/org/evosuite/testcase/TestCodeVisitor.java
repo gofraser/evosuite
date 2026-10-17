@@ -1802,12 +1802,12 @@ public class TestCodeVisitor extends TestVisitor {
 
         if (statement instanceof StringPrimitiveStatement) {
             if (value == null) {
-                testCode.append(getClassName(retval) + " "
+                testCode.append(declarationTypeName(retval, statement) + " "
                         + getDeclarationVariableName(retval) + " = null;" + NEWLINE);
 
             } else {
                 String escapedString = StringUtil.getEscapedString((String) value);
-                testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
+                testCode.append(declarationTypeName(retval, statement) + " "
                         + getDeclarationVariableName(retval) + " = \"" + escapedString + "\";" + NEWLINE);
             }
             // testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
@@ -1818,7 +1818,7 @@ public class TestCodeVisitor extends TestVisitor {
         } else if (statement instanceof ClassPrimitiveStatement) {
             StringBuilder builder = new StringBuilder();
             Class<?> literalClass = (Class<?>) value;
-            builder.append(getClassLiteralDeclarationTypeName(literalClass));
+            builder.append(declarationTypeName(retval, statement));
             builder.append(" ");
             builder.append(getDeclarationVariableName(retval));
             builder.append(" = ");
@@ -1827,10 +1827,48 @@ public class TestCodeVisitor extends TestVisitor {
             builder.append(NEWLINE);
             testCode.append(builder.toString());
         } else {
-            testCode.append(getClassName(retval) + " " + getDeclarationVariableName(retval) + " = "
-                    + NumberFormatter.getNumberString(value, this) + ";" + NEWLINE);
+            testCode.append(declarationTypeName(retval, statement) + " " + getDeclarationVariableName(retval)
+                    + " = " + NumberFormatter.getNumberString(value, this) + ";" + NEWLINE);
         }
         addAssertions(statement);
+    }
+
+    /**
+     * The type {@code origin} declares its variable {@code retval} with. Each kind of statement
+     * has its own policy:
+     * <ul>
+     *     <li>null: {@code Object} for a class the test cannot access, and for the {@code Void}
+     *     sentinels; otherwise the variable's type;</li>
+     *     <li>constructor: the constructor's owner type, as written after {@code new}; the
+     *     nearest accessible supertype when the class cannot be named; the variable's own type for
+     *     a local that is written again later with a value of that type;</li>
+     *     <li>method: the variable's type; an accessible supertype for a class that cannot be
+     *     named; the erased return type when the resolved return type still depends on the
+     *     method's type parameters;</li>
+     *     <li>class literal: {@code Class<Literal>}, or {@code Class<?>} for a primitive or
+     *     inaccessible literal;</li>
+     *     <li>string literal: {@code String};</li>
+     *     <li>field read, number, enum, array, assignment and mock: the variable's type, even for
+     *     a class the test cannot name.</li>
+     * </ul>
+     */
+    private String declarationTypeName(VariableReference retval, Statement origin) {
+        if (origin instanceof NullStatement) {
+            return getNullDeclarationTypeName(retval);
+        }
+        if (origin instanceof ConstructorStatement) {
+            return getConstructorDeclarationTypeName((ConstructorStatement) origin);
+        }
+        if (origin instanceof MethodStatement) {
+            return getMethodReturnDeclarationType(((MethodStatement) origin).getMethod(), retval);
+        }
+        if (origin instanceof ClassPrimitiveStatement) {
+            return getClassLiteralDeclarationTypeName((Class<?>) ((ClassPrimitiveStatement) origin).getValue());
+        }
+        if (origin instanceof StringPrimitiveStatement && ((StringPrimitiveStatement) origin).getValue() != null) {
+            return ((Class<?>) retval.getType()).getSimpleName();
+        }
+        return getClassName(retval);
     }
 
     private String getClassLiteralDeclarationTypeName(Class<?> literalClass) {
@@ -1889,7 +1927,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         if (exception != null) {
-            builder.append(getClassName(retval));
+            builder.append(declarationTypeName(retval, statement));
             builder.append(" ");
             builder.append(getVariableName(retval));
             // A primitive field (boolean flag = PropsValues.FLAG) cannot be pre-declared as null.
@@ -1900,7 +1938,7 @@ public class TestCodeVisitor extends TestVisitor {
             builder.append(NEWLINE);
             builder.append("    ");
         } else {
-            builder.append(getClassName(retval));
+            builder.append(declarationTypeName(retval, statement));
             builder.append(" ");
         }
         if (!field.isStatic()) {
@@ -2686,7 +2724,7 @@ public class TestCodeVisitor extends TestVisitor {
 
 
         //Foo foo = mock(Foo.class);
-        String variableType = getClassName(retval);
+        String variableType = declarationTypeName(retval, st);
         // Register the declaration: a later assignment to this local must see it as already
         // declared, or it is rendered as a second declaration under a "_1" name.
         result.append(variableType).append(" ").append(getDeclarationVariableName(retval)).append(" = ");
@@ -3048,7 +3086,7 @@ public class TestCodeVisitor extends TestVisitor {
         // underlying Java invocation is still generic and subject to raw-invocation erasure.
         boolean isGenericMethod = method.hasTypeParameters()
                 || method.getMethod().getTypeParameters().length > 0;
-        String declarationTypeName = getMethodReturnDeclarationType(method, retval);
+        String declarationTypeName = declarationTypeName(retval, statement);
         if (exception != null && !statement.isDeclaredException(exception)) {
             result += "// Undeclared exception!" + NEWLINE;
         }
@@ -4446,6 +4484,60 @@ public class TestCodeVisitor extends TestVisitor {
         return getSimpleTypeName(type);
     }
 
+    /** See {@link #declarationTypeName}: the type a constructor's variable is declared with. */
+    private String getConstructorDeclarationTypeName(ConstructorStatement statement) {
+        GenericConstructor constructor = statement.getConstructor();
+        Constructor<?> rawConstructor = constructor.getConstructor();
+        VariableReference retval = statement.getReturnValue();
+        List<VariableReference> parameters = statement.getParameterReferences();
+        boolean isNonStaticMemberClass = rawConstructor.getDeclaringClass().isMemberClass()
+                && !constructor.isStatic()
+                && !Modifier.isStatic(rawConstructor.getDeclaringClass().getModifiers());
+        // Use the constructor's owner type for the LHS declaration so that it
+        // always matches the RHS "new OwnerType(...)".  The retval's variable class
+        // can diverge from the constructor owner (e.g. java.sql.Date retval with a
+        // java.util.Date constructor), and when both simple names collide the import
+        // picks one while the other is fully qualified, producing uncompilable code.
+        //
+        // Whether the CONSTRUCTOR is source-accessible (-> direct "new Owner(...)"
+        // vs. reflective fallback, see visitConstructorStatement) is a different
+        // question from whether the declaring TYPE itself can be named at all. A
+        // private constructor on an otherwise perfectly nameable public class is a
+        // common idiom (factory-method-only construction): the constructor needs
+        // reflection, but the type name is entirely fine to declare and cast to.
+        // Only when the type itself is not nameable (see
+        // isDeclaredTypeNameableInGeneratedTest) does the declared/cast type need to
+        // fall back to the nearest accessible supertype instead.
+        Type constructorDeclarationType = isNonStaticMemberClass
+                ? withEnclosingInstanceOwner(constructor.getOwnerType(), parameters.get(0))
+                : rawIfOutsideOfBounds(constructor.getOwnerType());
+        if (isNonStaticMemberClass
+                && constructorDeclarationType.equals(constructor.getOwnerType())
+                && retval.getVariableClass() == rawConstructor.getDeclaringClass()
+                && (retval.getType() instanceof Class<?>
+                || retval.getGenericClass().hasWildcardOrTypeVariables())
+                && retval.getGenericClass().isAssignableFrom(constructorDeclarationType)) {
+            // A mutation can bind the constructor to Outer<String>.Inner while retaining a
+            // raw or wildcard result variable. Narrowing that declaration changes the types
+            // accepted by later calls, such as a raw inner.set(Integer).
+            constructorDeclarationType = retval.getType();
+        }
+        String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
+                ? getDeclarationTypeName(constructorDeclarationType)
+                : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
+        if (!isNonStaticMemberClass && isReassignedLocal(statement)
+                && rawConstructor.getDeclaringClass() != retval.getVariableClass()
+                && retval.getVariableClass().isAssignableFrom(rawConstructor.getDeclaringClass())
+                && isDeclaredTypeNameableInGeneratedTest(retval.getVariableClass())) {
+            // The variable is written again later, with a value of the variable's own type, not
+            // of the constructor's: java.io.File built by the MockFile constructor, then given a
+            // de.schlichtherle.io.File. Declared as the narrower constructor owner it cannot take
+            // that value.
+            constructorTypeName = getDeclarationTypeName(retval.getType());
+        }
+        return constructorTypeName;
+    }
+
     /** True when a later statement of the test assigns to the local variable this one defines. */
     private boolean isReassignedLocal(Statement definition) {
         if (test == null) {
@@ -4508,49 +4600,8 @@ public class TestCodeVisitor extends TestVisitor {
                 overloadedConstructorCall,
                 startPos);
 
-        // Use the constructor's owner type for the LHS declaration so that it
-        // always matches the RHS "new OwnerType(...)".  The retval's variable class
-        // can diverge from the constructor owner (e.g. java.sql.Date retval with a
-        // java.util.Date constructor), and when both simple names collide the import
-        // picks one while the other is fully qualified, producing uncompilable code.
-        //
-        // Whether the CONSTRUCTOR is source-accessible (-> direct "new Owner(...)"
-        // vs. reflective fallback, see constructorAccessible below) is a different
-        // question from whether the declaring TYPE itself can be named at all. A
-        // private constructor on an otherwise perfectly nameable public class is a
-        // common idiom (factory-method-only construction): the constructor needs
-        // reflection, but the type name is entirely fine to declare and cast to.
-        // Only when the type itself is not nameable (see
-        // isDeclaredTypeNameableInGeneratedTest) does the declared/cast type need to
-        // fall back to the nearest accessible supertype instead.
         boolean constructorAccessible = isSourceAccessibleFromGeneratedTest(rawConstructor);
-        Type constructorDeclarationType = isNonStaticMemberClass
-                ? withEnclosingInstanceOwner(constructor.getOwnerType(), parameters.get(0))
-                : rawIfOutsideOfBounds(constructor.getOwnerType());
-        if (isNonStaticMemberClass
-                && constructorDeclarationType.equals(constructor.getOwnerType())
-                && retval.getVariableClass() == rawConstructor.getDeclaringClass()
-                && (retval.getType() instanceof Class<?>
-                || retval.getGenericClass().hasWildcardOrTypeVariables())
-                && retval.getGenericClass().isAssignableFrom(constructorDeclarationType)) {
-            // A mutation can bind the constructor to Outer<String>.Inner while retaining a
-            // raw or wildcard result variable. Narrowing that declaration changes the types
-            // accepted by later calls, such as a raw inner.set(Integer).
-            constructorDeclarationType = retval.getType();
-        }
-        String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
-                ? getDeclarationTypeName(constructorDeclarationType)
-                : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
-        if (!isNonStaticMemberClass && isReassignedLocal(statement)
-                && rawConstructor.getDeclaringClass() != retval.getVariableClass()
-                && retval.getVariableClass().isAssignableFrom(rawConstructor.getDeclaringClass())
-                && isDeclaredTypeNameableInGeneratedTest(retval.getVariableClass())) {
-            // The variable is written again later, with a value of the variable's own type, not
-            // of the constructor's: java.io.File built by the MockFile constructor, then given a
-            // de.schlichtherle.io.File. Declared as the narrower constructor owner it cannot take
-            // that value.
-            constructorTypeName = getDeclarationTypeName(retval.getType());
-        }
+        String constructorTypeName = declarationTypeName(retval, statement);
 
         // The declaration prefix ("Type ") is prepended at the point where the
         // retval variable is first introduced. In the try-catch path the retval
@@ -4840,14 +4891,14 @@ public class TestCodeVisitor extends TestVisitor {
                 multiDimensions = "" + lengths.get(0);
             }
 
-            testCode.append(getClassName(retval) + " " + declarationVarName + " = ("
+            testCode.append(declarationTypeName(retval, statement) + " " + declarationVarName + " = ("
                     + getClassName(retval) + ") " + getClassName(Array.class)
                     + ".newInstance("
                     + getClassName(retval.getComponentClass()).replaceAll("\\[\\]", "")
                     + ".class, " + multiDimensions + ");" + NEWLINE);
 
         } else {
-            testCode.append(getClassName(retval) + " " + declarationVarName + " = new "
+            testCode.append(declarationTypeName(retval, statement) + " " + declarationVarName + " = new "
                     + type + multiDimensions + ";" + NEWLINE);
         }
         addAssertions(statement);
@@ -5188,7 +5239,7 @@ public class TestCodeVisitor extends TestVisitor {
         boolean needsTypeDeclaration = isLocalTarget && !alreadyNamed;
 
         if (needsTypeDeclaration) {
-            testCode.append(getClassName(retval) + " ");
+            testCode.append(declarationTypeName(retval, statement) + " ");
         }
         testCode.append(declarationVarName);
         testCode.append(" = " + cast + getVariableName(parameter)
@@ -5209,7 +5260,7 @@ public class TestCodeVisitor extends TestVisitor {
     public void visitNullStatement(NullStatement statement) {
         VariableReference retval = statement.getReturnValue();
         String varName = getDeclarationVariableName(retval);
-        String declarationType = getNullDeclarationTypeName(retval);
+        String declarationType = declarationTypeName(retval, statement);
         testCode.append(declarationType + " " + varName + " = null;" + NEWLINE);
     }
 
