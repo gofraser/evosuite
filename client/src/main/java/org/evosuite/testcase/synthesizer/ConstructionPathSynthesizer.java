@@ -14,6 +14,7 @@ import org.evosuite.graphs.interprocedural.DefUseAnalyzer;
 import org.evosuite.graphs.interprocedural.ObjectConstructionBoundary;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.testcase.StatementCheckpoint;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.ConstructorStatement;
@@ -299,7 +300,9 @@ public class ConstructionPathSynthesizer {
         if (test.size() >= maxStatements) {
             return;
         }
-        final Set<Statement> initialStatements = snapshotStatements(test);
+        // Synthesis inserts in front of the target call, so a rollback must remove the inserted
+        // statements by identity; truncating from the end would delete the call instead.
+        final StatementCheckpoint initialStatements = StatementCheckpoint.of(test);
 
         List<DepVariableWrapper> topLayer = partialGraph.getTopLayer();
 
@@ -312,7 +315,7 @@ public class ConstructionPathSynthesizer {
         Map<DepVariableWrapper, VarRelevance> map = new HashMap<>();
         boolean semanticInputHandled = SemanticStringInputSynthesizer.apply(test, partialGraph, b);
         if (test.size() >= maxStatements) {
-            removeStatementsNotIn(test, initialStatements);
+            initialStatements.rollback();
             return;
         }
         bindTargetParameterRoots(test, topLayer, map);
@@ -341,14 +344,14 @@ public class ConstructionPathSynthesizer {
             boolean isValid = checkDependency(node, map);
             if (isValid) {
                 VariableInTest testVariable = getCallerObject(map, node);
-                Set<Statement> statementsBeforeNode = snapshotStatements(test);
+                StatementCheckpoint statementsBeforeNode = StatementCheckpoint.of(test);
                 Map<DepVariableWrapper, VarRelevance> mapBeforeNode = new HashMap<>(map);
                 boolean processedBeforeNode = node.processed;
                 boolean derived =
                         deriveCodeForTest(map, test, testVariable, b, allowNullValue);
 
                 if (test.size() >= maxStatements) {
-                    removeStatementsNotIn(test, statementsBeforeNode);
+                    statementsBeforeNode.rollback();
                     map.clear();
                     map.putAll(mapBeforeNode);
                     node.processed = processedBeforeNode;
@@ -388,26 +391,6 @@ public class ConstructionPathSynthesizer {
         validateRequiredRoots(test, partialGraph);
 
         markObjectRuleSlots(test, map);
-    }
-
-    private static Set<Statement> snapshotStatements(TestCase test) {
-        Set<Statement> statements = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (Statement statement : test) {
-            statements.add(statement);
-        }
-        return statements;
-    }
-
-    /**
-     * Removes the statements that synthesis inserted. They are placed before the target call, so
-     * truncating from the end would delete the call and keep the partial expansion.
-     */
-    private static void removeStatementsNotIn(TestCase test, Set<Statement> keep) {
-        for (int i = test.size() - 1; i >= 0; i--) {
-            if (!keep.contains(test.getStatement(i))) {
-                test.remove(i);
-            }
-        }
     }
 
     /**
