@@ -27,7 +27,6 @@ import org.evosuite.runtime.instrumentation.InstrumentedClass;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -182,33 +181,41 @@ public class InstrumentationRungProfileTest {
     }
 
     /**
-     * The too-large ladder handles nothing but "too large". A frame-merge
-     * failure inside its first rung propagates and aborts the class, whereas the same failure
-     * on the frame ladder moves on to the minimal rung. Pinned as it is today.
+     * A frame-merge failure in the first rung of the too-large ladder continues as on the frame
+     * ladder: with the minimal rung, and from there on the frame ladder.
      */
     @Test
-    public void frameFailureInsideTheTooLargeLadderIsADeadEnd() {
-        Properties.TARGET_CLASS = "sample.Other";
-        Ladder ladder = new Ladder(rung -> rung.equals(FULL) ? Failure.TOO_LARGE
-                : rung.equals(SKIP_TT) ? Failure.FRAME : null);
-
-        Assertions.assertThrows(ArrayIndexOutOfBoundsException.class,
-                () -> ladder.run(CUT_RESOURCE, Opcodes.V1_8));
-
-        Assertions.assertEquals(Arrays.asList(FULL, SKIP_TT), ladder.calls,
-                "minimal is not tried after a frame failure in the too-large ladder");
-    }
-
-    /** The desired behaviour once the transitions are one table. */
-    @Test
-    @Disabled("the too-large ladder does not yet move on after a frame failure")
-    public void frameFailureInsideTheTooLargeLadderShouldContinueWithMinimal() {
+    public void frameFailureInsideTheTooLargeLadderContinuesWithMinimal() {
         Properties.TARGET_CLASS = "sample.Other";
         Ladder ladder = new Ladder(rung -> rung.equals(FULL) ? Failure.TOO_LARGE
                 : rung.equals(SKIP_TT) ? Failure.FRAME : null);
 
         Assertions.assertArrayEquals(SENTINEL, ladder.run(CUT_RESOURCE, Opcodes.V1_8));
         Assertions.assertEquals(Arrays.asList(FULL, SKIP_TT, MINIMAL), ladder.calls);
+    }
+
+    @Test
+    public void frameFailureInsideTheTooLargeLadderThenFollowsTheFrameLadder() {
+        Properties.TARGET_CLASS = "sample.Other";
+        Ladder ladder = new Ladder(rung -> rung.equals(FULL) ? Failure.TOO_LARGE : Failure.FRAME);
+
+        byte[] out = ladder.run(CUT_RESOURCE, Opcodes.V1_8);
+
+        Assertions.assertEquals(Arrays.asList(FULL, SKIP_TT, MINIMAL), ladder.calls);
+        Assertions.assertTrue(implementsInstrumentedClass(out), "bare passthrough after the minimal rung");
+    }
+
+    /** The class under test still gets the frame failure itself, as before. */
+    @Test
+    public void frameFailureInsideTheTooLargeLadderIsRethrownForTheClassUnderTest() {
+        Properties.TARGET_CLASS = CUT;
+        Ladder ladder = new Ladder(rung -> rung.equals(FULL) ? Failure.TOO_LARGE
+                : rung.equals(SKIP_TT) ? Failure.FRAME : null);
+
+        Assertions.assertThrows(ArrayIndexOutOfBoundsException.class,
+                () -> ladder.run(CUT_RESOURCE, Opcodes.V1_8));
+
+        Assertions.assertEquals(Arrays.asList(FULL, SKIP_TT), ladder.calls);
     }
 
     /**

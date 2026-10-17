@@ -297,8 +297,9 @@ public class BytecodeInstrumentation {
     }
 
     /**
-     * The two fallback ladders.  Once a class has been found too large, it stays on the size
-     * ladder, which only moves on after another "too large".
+     * The two fallback ladders.  Once a class has been found too large, it moves to the size
+     * ladder, which only moves on after another "too large", except that a dependency class
+     * with a frame failure in the first rung returns to the frame ladder.
      */
     enum Ladder {
         FRAME, SIZE
@@ -332,9 +333,18 @@ public class BytecodeInstrumentation {
      * The fallback after {@code failed} failed with {@code failure} on {@code ladder}, or null if
      * the failure is to be rethrown.  Profiles that do not apply to the class are skipped
      * afterwards (see {@link #transformBytes}).
+     *
+     * @param isClassUnderTest whether the class is the class under test, which never takes a
+     *                         profile without coverage probes.
      */
-    static Step next(Profile failed, FailureKind failure, Ladder ladder) {
+    static Step next(Profile failed, FailureKind failure, Ladder ladder, boolean isClassUnderTest) {
         if (ladder == Ladder.SIZE) {
+            if (failed == Profile.NO_TESTABILITY && failure == FailureKind.FRAME && !isClassUnderTest) {
+                // Dropping the testability transformation got the class below the size limit
+                // but hit a frame failure; carry on as the frame ladder would.  The class under
+                // test gets the frame failure itself, as it always did.
+                return new Step(Profile.MINIMAL, Ladder.FRAME);
+            }
             if (failure != FailureKind.TOO_LARGE) {
                 return null;
             }
@@ -424,7 +434,8 @@ public class BytecodeInstrumentation {
                     firstFailure = t;
                 }
                 attempts.failed(profile);
-                Step next = skipInapplicable(next(profile, failure, step.ladder), failure, attempts, reader);
+                Step next = skipInapplicable(next(profile, failure, step.ladder, attempts.classUnderTest), failure,
+                        attempts, reader);
                 if (next == null) {
                     throw t;
                 }
@@ -443,7 +454,7 @@ public class BytecodeInstrumentation {
      */
     private Step skipInapplicable(Step step, FailureKind failure, Attempts attempts, ClassReader reader) {
         while (step != null && !applies(step.profile, attempts, reader)) {
-            step = next(step.profile, failure, step.ladder);
+            step = next(step.profile, failure, step.ladder, attempts.classUnderTest);
         }
         return step;
     }
@@ -472,11 +483,13 @@ public class BytecodeInstrumentation {
      */
     private final class Attempts {
         private final String classNameWithDots;
+        private final boolean classUnderTest;
         private final List<List<Object>> failed = new ArrayList<>();
         private Boolean testabilityApplies;
 
         Attempts(String classNameWithDots) {
             this.classNameWithDots = classNameWithDots;
+            this.classUnderTest = isClassUnderTest(classNameWithDots);
         }
 
         void failed(Profile profile) {
