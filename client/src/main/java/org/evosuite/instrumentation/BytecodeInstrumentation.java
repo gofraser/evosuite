@@ -525,7 +525,7 @@ public class BytecodeInstrumentation {
                                        ClassReader reader, int readFlags, Throwable originalError) {
         // First try: skip testability transformation (the ClassNode roundtrip and
         // Comparison/String/Container transformations inflate the constant pool)
-        // but keep the full adapter chain for target instrumentation.
+        // but keep the target instrumentation; the loop counter is dropped as well.
         logger.warn("Class {} is too large ({}); retrying without testability transformation",
                 classNameWithDots, originalError.getMessage());
         try {
@@ -561,9 +561,12 @@ public class BytecodeInstrumentation {
     }
 
     /**
-     * Transform bytes with the full adapter chain but skip the testability transformation entirely.
-     * This avoids the ClassNode roundtrip and the Comparison/String/Container transformations
-     * that can inflate the constant pool beyond the JVM limit for very large classes.
+     * Transform bytes with the regular adapter chain minus the loop counter, and skip the
+     * testability transformation entirely.  This avoids the ClassNode roundtrip and the
+     * Comparison/String/Container transformations that can inflate the constant pool beyond
+     * the JVM limit for very large classes.  For a class that gets no testability
+     * transformation this is the same attempt as {@link #transformBytesInternal} without
+     * the loop counter.
      */
     protected byte[] transformBytesSkipTestability(ClassLoader classLoader, String className,
                                                   String classNameWithDots, ClassReader reader, int readFlags) {
