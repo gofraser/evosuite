@@ -1268,6 +1268,20 @@ public class TestUsageChecker {
         return c.isSynthetic() || hasSourcePrivateParameterType(c.getParameterTypes());
     }
 
+    /**
+     * Whether a synthesized call to {@code m} compiles in the generated test: the method is
+     * visible from the test package and javac can resolve it. Unlike {@link #canUse(Method)} this
+     * applies none of the cluster's exclusions (deprecation, blocking calls, GUI accessors).
+     */
+    public static boolean isSynthesisCallable(Method m) {
+        return isCallableFromTestPackage(m) && !isNotCallableFromSource(m);
+    }
+
+    /** Constructor counterpart of {@link #isSynthesisCallable(Method)}. */
+    public static boolean isSynthesisCallable(Constructor<?> c) {
+        return isCallableFromTestPackage(c) && !isNotCallableFromSource(c);
+    }
+
     private static boolean hasSourcePrivateParameterType(Method m) {
         return hasSourcePrivateParameterType(m.getParameterTypes());
     }

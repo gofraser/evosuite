@@ -567,9 +567,8 @@ public class DataDependencyUtil {
     }
 
     private static boolean isSetterCandidate(Method method) {
-        return TestUsageChecker.isCallableFromTestPackage(method)
-                && !Modifier.isAbstract(method.getModifiers())
-                && !TestUsageChecker.isNotCallableFromSource(method);
+        return TestUsageChecker.isSynthesisCallable(method)
+                && !Modifier.isAbstract(method.getModifiers());
     }
 
     private static long effectiveSetterAnalysisTimeoutMillis() {

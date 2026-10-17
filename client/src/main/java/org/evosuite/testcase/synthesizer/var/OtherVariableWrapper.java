@@ -133,12 +133,11 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             Class<?> declaringClass, String name, Class<?>[] parameterTypes) {
         try {
             Method found = declaringClass.getMethod(name, parameterTypes);
-            return TestUsageChecker.isNotCallableFromSource(found) ? null : found;
+            return TestUsageChecker.isSynthesisCallable(found) ? found : null;
         } catch (Exception e) {
             try {
                 Method declared = declaringClass.getDeclaredMethod(name, parameterTypes);
-                if (TestUsageChecker.isCallableFromTestPackage(declared)
-                        && !TestUsageChecker.isNotCallableFromSource(declared)) {
+                if (TestUsageChecker.isSynthesisCallable(declared)) {
                     return declared;
                 }
             } catch (Exception ignored) {

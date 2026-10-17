@@ -365,16 +365,10 @@ public class VariableCodeGenerationUtil {
         Collections.addAll(methods, fieldDeclaringClass.getDeclaredMethods());
         for (Method method : methods) {
             // EvoSuite emits tests in the CUT package, so package-private/protected accessors are
-            // valid construction APIs. getMethods() silently omitted precisely those accessors
-            // (for example CompoundByteTransition.expand()), leaving a public factory input
-            // disconnected from the private final field it initializes.
-            if (!TestUsageChecker.isCallableFromTestPackage(method)) {
-                continue;
-            }
-            // javac's access$NNN stubs (and bridges) read the field but are not callable from
-            // source: the generated test would not compile. registerAllMethods() gives them a CFG,
-            // so isFieldGetter() would otherwise accept them.
-            if (TestUsageChecker.isNotCallableFromSource(method)) {
+            // valid construction APIs (getMethods() omits them, for example
+            // CompoundByteTransition.expand()). javac's access$NNN stubs and bridges read the
+            // field too, and registerAllMethods() gives them a CFG, but no test can call them.
+            if (!TestUsageChecker.isSynthesisCallable(method)) {
                 continue;
             }
             boolean isValid = DataDependencyUtil.isFieldGetter(method, field);
