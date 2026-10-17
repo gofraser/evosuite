@@ -26,15 +26,10 @@ import org.evosuite.utils.NumberFormatter;
 /**
  * Renders an {@code assertEquals} comparing a known enum constant against the
  * generated-test expression that is expected to yield it. Shared by
- * {@link PrimitiveAssertion} and {@link InspectorAssertion} (via the
- * visitor-less {@link #getEnumAssertionCode(Object, String)}) and by
- * {@link TestCodeVisitor}'s own {@code visitPrimitiveAssertion}/
- * {@code visitInspectorAssertion} (via
- * {@link #getEnumAssertionCode(Object, String, TestCodeVisitor)}), whose enum
- * handling is otherwise identical except for how they compute
+ * {@link TestCodeVisitor}'s {@code visitPrimitiveAssertion} and
+ * {@code visitInspectorAssertion}, which differ only in how they compute
  * {@code actualExpression} (a bare variable name versus an inspector-method
- * call on one) and whether a {@link TestCodeVisitor} is available to track
- * imports and resolve naming conflicts.
+ * call on one).
  */
 public final class EnumAssertionCodeRenderer {
 
@@ -63,23 +58,7 @@ public final class EnumAssertionCodeRenderer {
      * {@code toString()} because an enum may override {@code toString()}, which
      * then need not agree with {@code name()}.
      *
-     * @param value            the enum constant being compared against
-     * @param actualExpression the generated-test expression yielding the actual
-     *                         value
-     * @return the rendered {@code assertEquals} statement
-     */
-    public static String getEnumAssertionCode(Object value, String actualExpression) {
-        return getEnumAssertionCode(value, actualExpression, null);
-    }
-
-    /**
-     * As {@link #getEnumAssertionCode(Object, String)}, but also given the
-     * {@link TestCodeVisitor} rendering the surrounding test, when one is
-     * available ({@link PrimitiveAssertion} and {@link InspectorAssertion}'s own
-     * {@code getCode()} pass {@code null} and get identical behaviour to the
-     * two-argument overload).
-     *
-     * <p>In the nameable branch, the visitor -- when given -- is threaded into
+     * <p>In the nameable branch, the visitor is threaded into
      * {@link NumberFormatter#getNumberString(Object, TestCodeVisitor)}, which
      * gates its own import-registering, conflict-resolving naming on the same
      * {@link GeneratedTestAccess#isEnumConstantNameableInGeneratedTest} check used
@@ -89,7 +68,11 @@ public final class EnumAssertionCodeRenderer {
      * in practice; it is kept only as a defensive safeguard against that
      * invariant changing.
      *
-     * @param visitor the enclosing visitor, or {@code null} outside a visitor pass
+     * @param value            the enum constant being compared against
+     * @param actualExpression the generated-test expression yielding the actual
+     *                         value
+     * @param visitor          the visitor rendering the assertion
+     * @return the rendered {@code assertEquals} statement
      */
     public static String getEnumAssertionCode(Object value, String actualExpression, TestCodeVisitor visitor) {
         Class<?> enumClass = value.getClass();

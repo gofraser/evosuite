@@ -57,16 +57,4 @@ public class NullAssertion extends Assertion {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getCode() {
-        if ((Boolean) value) {
-            return "assertNull(" + source.getName() + ");";
-        } else {
-            return "assertNotNull(" + source.getName() + ");";
-        }
-    }
-
 }

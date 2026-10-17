@@ -27,6 +27,7 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -49,6 +50,7 @@ public class InspectorAssertionTest {
         Object activeStatus = PrivateNestedEnumFixture.activeStatus();
         Inspector inspector = new Inspector(PrivateNestedEnumFixture.class,
                 PrivateNestedEnumFixture.class.getDeclaredMethod("status"));
+        doReturn(PrivateNestedEnumFixture.class).when(source).getVariableClass();
 
         assertion.source = source;
         assertion.inspector = inspector;
@@ -74,6 +76,7 @@ public class InspectorAssertionTest {
         Object activeStatus = PrivateNestedEnumFixture.activeStatus();
         Inspector inspector = new Inspector(PrivateNestedEnumFixture.class,
                 PrivateNestedEnumFixture.class.getDeclaredMethod("status"));
+        doReturn(PrivateNestedEnumFixture.class).when(source).getVariableClass();
 
         assertion.source = source;
         assertion.inspector = inspector;
@@ -100,6 +103,7 @@ public class InspectorAssertionTest {
         Object activeStatus = PrivateNestedEnumFixture.activeStatus();
         Inspector inspector = new Inspector(PrivateNestedEnumFixture.class,
                 PrivateNestedEnumFixture.class.getDeclaredMethod("statusAsEnum"));
+        doReturn(PrivateNestedEnumFixture.class).when(source).getVariableClass();
 
         assertion.source = source;
         assertion.inspector = inspector;
@@ -123,6 +127,7 @@ public class InspectorAssertionTest {
         when(source.getName()).thenReturn("pureEnumFixtureHolder0");
 
         Inspector inspector = new Inspector(Object.class, Object.class.getDeclaredMethod("hashCode"));
+        doReturn(Object.class).when(source).getVariableClass();
 
         assertion.source = source;
         assertion.inspector = inspector;
@@ -147,6 +152,7 @@ public class InspectorAssertionTest {
         Object activeStatus = NestedEnumAccessibilityFixture.activePublicStatus();
         Inspector inspector = new Inspector(NestedEnumAccessibilityFixture.class,
                 NestedEnumAccessibilityFixture.class.getDeclaredMethod("publicStatus"));
+        doReturn(NestedEnumAccessibilityFixture.class).when(source).getVariableClass();
 
         assertion.source = source;
         assertion.inspector = inspector;
@@ -177,6 +183,7 @@ public class InspectorAssertionTest {
             Object activeStatus = NestedEnumAccessibilityFixture.activePackagePrivateStatus();
             Inspector inspector = new Inspector(NestedEnumAccessibilityFixture.class,
                     NestedEnumAccessibilityFixture.class.getDeclaredMethod("packagePrivateStatus"));
+            doReturn(NestedEnumAccessibilityFixture.class).when(source).getVariableClass();
 
             assertion.source = source;
             assertion.inspector = inspector;
@@ -204,6 +211,7 @@ public class InspectorAssertionTest {
         when(source.getName()).thenReturn("pureEnumFixtureHolder0");
 
         Inspector inspector = new Inspector(Object.class, Object.class.getDeclaredMethod("hashCode"));
+        doReturn(Object.class).when(source).getVariableClass();
 
         assertion.source = source;
         assertion.inspector = inspector;
@@ -229,6 +237,7 @@ public class InspectorAssertionTest {
         Object activeStatus = NestedEnumAccessibilityFixture.activePublicStatus();
         Inspector inspector = new Inspector(NestedEnumAccessibilityFixture.class,
                 NestedEnumAccessibilityFixture.class.getDeclaredMethod("publicStatus"));
+        doReturn(NestedEnumAccessibilityFixture.class).when(source).getVariableClass();
 
         assertion.source = source;
         assertion.inspector = inspector;
@@ -256,6 +265,7 @@ public class InspectorAssertionTest {
             Object activeStatus = NestedEnumAccessibilityFixture.activePackagePrivateStatus();
             Inspector inspector = new Inspector(NestedEnumAccessibilityFixture.class,
                     NestedEnumAccessibilityFixture.class.getDeclaredMethod("packagePrivateStatus"));
+            doReturn(NestedEnumAccessibilityFixture.class).when(source).getVariableClass();
 
             assertion.source = source;
             assertion.inspector = inspector;

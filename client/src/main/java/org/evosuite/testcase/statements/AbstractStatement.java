@@ -400,7 +400,9 @@ public abstract class AbstractStatement implements Statement, Serializable {
         if (assertion == null) {
             logger.warn("Trying to add null assertion!");
         } else {
-            logger.debug("Adding assertion " + assertion.getCode());
+            if (logger.isDebugEnabled()) {
+                logger.debug("Adding assertion " + assertion.getCode());
+            }
             assert (assertion.isValid()) : "Invalid assertion detected: "
                     + assertion.getCode() + ", " + assertion.getSource() + ", "
                     + assertion.getValue();

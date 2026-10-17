@@ -44,14 +44,6 @@ public class ArrayLengthAssertion extends Assertion {
         return s;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getCode() {
-        return "assertEquals(" + value + ", " + source.getName() + ".length);";
-    }
-
     /* (non-Javadoc)
      * @see org.evosuite.assertion.Assertion#evaluate(org.evosuite.testcase.Scope)
      */

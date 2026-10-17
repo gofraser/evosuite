@@ -80,29 +80,6 @@ public class CompareAssertion extends Assertion {
     /**
      * {@inheritDoc}
      *
-     * <p>This method returns the Java Code.</p>
-     */
-    @Override
-    public String getCode() {
-        if (value instanceof Integer) {
-            int val = (Integer) value;
-            if (source.getType().equals(Integer.class)) {
-                if (val == 0) {
-                    return "assertEquals(" + source.getName() + ", " + dest.getName() + ");";
-                } else if (val < 0) {
-                    return "assertTrue(" + source.getName() + " < " + dest.getName() + ");";
-                } else {
-                    return "assertTrue(" + source.getName() + " > " + dest.getName() + ");";
-                }
-            }
-        }
-        return "assertEquals(" + source.getName() + ".compareTo(" + dest.getName()
-                + "), " + value + ");";
-    }
-
-    /**
-     * {@inheritDoc}
-     *
      * <p>Determine if assertion holds in current scope.</p>
      */
     @SuppressWarnings("unchecked")

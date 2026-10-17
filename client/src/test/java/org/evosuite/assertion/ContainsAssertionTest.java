@@ -26,7 +26,6 @@ import java.util.Collection;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
@@ -42,6 +41,7 @@ class ContainsAssertionTest {
     private VariableReference variable(Class<?> declaredVariableClass, String name) {
         VariableReference var = mock(VariableReference.class);
         doReturn(declaredVariableClass).when(var).getVariableClass();
+        doReturn(declaredVariableClass).when(var).getType();
         doReturn(name).when(var).getName();
         return var;
     }
@@ -61,9 +61,10 @@ class ContainsAssertionTest {
         ContainsAssertion assertion = new ContainsAssertion();
         assertion.source = variable(List.class, "list0");
         assertion.containedVariable = variable(String.class, "string0");
+        assertion.value = true;
 
         String code = assertion.getCode();
-        assertTrue(code.contains("list0.contains(string0)"), code);
+        assertEquals("assertTrue(list0.contains(string0));", code);
     }
 
     @Test
@@ -71,8 +72,32 @@ class ContainsAssertionTest {
         ContainsAssertion assertion = new ContainsAssertion();
         assertion.source = variable(Collection.class, "collection0");
         assertion.containedVariable = variable(String.class, "string0");
+        assertion.value = true;
 
         String code = assertion.getCode();
-        assertTrue(code.contains("collection0.contains(string0)"), code);
+        assertEquals("assertTrue(collection0.contains(string0));", code);
+    }
+
+    @Test
+    void getCodeRendersAnElementThatIsNotContainedWithAssertFalse() {
+        ContainsAssertion assertion = new ContainsAssertion();
+        assertion.source = variable(List.class, "list0");
+        assertion.containedVariable = variable(String.class, "string0");
+        assertion.value = false;
+
+        assertEquals("assertFalse(list0.contains(string0));", assertion.getCode());
+    }
+
+    /** The rendered declaration decides, not the class the variable was narrowed to at run time. */
+    @Test
+    void getCodeDropsTheAssertionWhenOnlyTheRuntimeClassIsACollection() {
+        ContainsAssertion assertion = new ContainsAssertion();
+        VariableReference source = variable(List.class, "object0");
+        doReturn(Object.class).when(source).getType();
+        assertion.source = source;
+        assertion.containedVariable = variable(String.class, "string0");
+        assertion.value = true;
+
+        assertEquals("", assertion.getCode());
     }
 }

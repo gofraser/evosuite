@@ -60,6 +60,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.*;
 import java.net.URLClassLoader;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toCollection;
@@ -122,6 +123,11 @@ public class TestCodeVisitor extends TestVisitor {
     });
 
     protected VariableNameStrategy variableNameStrategy = VariableNameStrategyFactory.get();
+    /**
+     * Names every variable in place of the naming strategy, for an assertion rendered on its own
+     * (see {@link #getStandaloneAssertionCode}); null while rendering a test.
+     */
+    private Function<VariableReference, String> nameResolver = null;
     private boolean customVariableNameStrategy = false;
     private boolean emitAssertions = true;
     private Boolean assertionsEnabledOverride = null;
@@ -763,6 +769,9 @@ public class TestCodeVisitor extends TestVisitor {
      * @return a {@link java.lang.String} object.
      */
     public String getVariableName(VariableReference var) {
+        if (nameResolver != null) {
+            return nameResolver.apply(var);
+        }
         if (var instanceof NullReference
                 || var.getVariableClass().equals(Void.class)
                 || var.getVariableClass().equals(Void.TYPE)) {
@@ -1620,6 +1629,28 @@ public class TestCodeVisitor extends TestVisitor {
             testCode.append("// " + getUnstableTestComment() + ": ");
         }
 
+        visitAssertionOfItsType(assertion);
+        if (assertion.hasComment()) {
+            testCode.append(assertion.getComment());
+        }
+    }
+
+    /**
+     * The code of {@code assertion} on its own, outside a rendered test, as it appears in logs and
+     * LLM prompts: rendered as in a test, but with each variable written as its own
+     * {@link VariableReference#getName() name}, and without the comments a test adds.
+     *
+     * @param assertion the assertion to render
+     * @return the assertion's code
+     */
+    public static String getStandaloneAssertionCode(Assertion assertion) {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        visitor.nameResolver = VariableReference::getName;
+        visitor.visitAssertionOfItsType(assertion);
+        return visitor.testCode.toString();
+    }
+
+    private void visitAssertionOfItsType(Assertion assertion) {
         if (assertion instanceof PrimitiveAssertion) {
             visitPrimitiveAssertion((PrimitiveAssertion) assertion);
         } else if (assertion instanceof PrimitiveFieldAssertion) {
@@ -1644,9 +1675,6 @@ public class TestCodeVisitor extends TestVisitor {
             testCode.append(((TemplateCodeAssertion) assertion).render(this));
         } else {
             throw new RuntimeException("Unknown assertion type: " + assertion);
-        }
-        if (assertion.hasComment()) {
-            testCode.append(assertion.getComment());
         }
     }
 
@@ -1802,12 +1830,12 @@ public class TestCodeVisitor extends TestVisitor {
 
         if (statement instanceof StringPrimitiveStatement) {
             if (value == null) {
-                testCode.append(getClassName(retval) + " "
+                testCode.append(declarationTypeName(retval, statement) + " "
                         + getDeclarationVariableName(retval) + " = null;" + NEWLINE);
 
             } else {
                 String escapedString = StringUtil.getEscapedString((String) value);
-                testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
+                testCode.append(declarationTypeName(retval, statement) + " "
                         + getDeclarationVariableName(retval) + " = \"" + escapedString + "\";" + NEWLINE);
             }
             // testCode.append(((Class<?>) retval.getType()).getSimpleName() + " "
@@ -1818,7 +1846,7 @@ public class TestCodeVisitor extends TestVisitor {
         } else if (statement instanceof ClassPrimitiveStatement) {
             StringBuilder builder = new StringBuilder();
             Class<?> literalClass = (Class<?>) value;
-            builder.append(getClassLiteralDeclarationTypeName(literalClass));
+            builder.append(declarationTypeName(retval, statement));
             builder.append(" ");
             builder.append(getDeclarationVariableName(retval));
             builder.append(" = ");
@@ -1827,10 +1855,58 @@ public class TestCodeVisitor extends TestVisitor {
             builder.append(NEWLINE);
             testCode.append(builder.toString());
         } else {
-            testCode.append(getClassName(retval) + " " + getDeclarationVariableName(retval) + " = "
-                    + NumberFormatter.getNumberString(value, this) + ";" + NEWLINE);
+            testCode.append(declarationTypeName(retval, statement) + " " + getDeclarationVariableName(retval)
+                    + " = " + NumberFormatter.getNumberString(value, this) + ";" + NEWLINE);
         }
         addAssertions(statement);
+    }
+
+    /**
+     * The type {@code origin} declares its variable {@code retval} with. Each kind of statement
+     * has its own policy:
+     * <ul>
+     *     <li>null: {@code Object} for a class the test cannot access, and for the {@code Void}
+     *     sentinels; otherwise the variable's type;</li>
+     *     <li>constructor: the constructor's owner type, as written after {@code new}; the
+     *     nearest accessible supertype when the class cannot be named; the variable's own type for
+     *     a local that is written again later with a value of that type;</li>
+     *     <li>method: the variable's type; an accessible supertype for a class that cannot be
+     *     named; the erased return type when the resolved return type still depends on the
+     *     method's type parameters;</li>
+     *     <li>class literal: {@code Class<Literal>}, or {@code Class<?>} for a primitive or
+     *     inaccessible literal;</li>
+     *     <li>string literal: {@code String};</li>
+     *     <li>field read and assignment: the variable's type, or the nearest accessible
+     *     supertype when the class cannot be named;</li>
+     *     <li>number, enum, array and mock: the variable's type, even for a class the test cannot
+     *     name, as the value expression names the class as well ({@code new Hidden[1]},
+     *     {@code mock(Hidden.class)}).</li>
+     * </ul>
+     */
+    private String declarationTypeName(VariableReference retval, Statement origin) {
+        if (origin instanceof NullStatement) {
+            return getNullDeclarationTypeName(retval);
+        }
+        if (origin instanceof ConstructorStatement) {
+            return getConstructorDeclarationTypeName((ConstructorStatement) origin);
+        }
+        if (origin instanceof MethodStatement) {
+            return getMethodReturnDeclarationType(((MethodStatement) origin).getMethod(), retval);
+        }
+        if (origin instanceof ClassPrimitiveStatement) {
+            return getClassLiteralDeclarationTypeName((Class<?>) ((ClassPrimitiveStatement) origin).getValue());
+        }
+        if (origin instanceof StringPrimitiveStatement && ((StringPrimitiveStatement) origin).getValue() != null) {
+            return ((Class<?>) retval.getType()).getSimpleName();
+        }
+        if (origin instanceof FieldStatement || origin instanceof AssignmentStatement) {
+            Class<?> variableClass = retval.getVariableClass();
+            if (!variableClass.isPrimitive() && !variableClass.isArray()
+                    && !isDeclaredTypeNameableInGeneratedTest(variableClass)) {
+                return getTypeName(findAccessibleRenderableSupertype(variableClass));
+            }
+        }
+        return getClassName(retval);
     }
 
     private String getClassLiteralDeclarationTypeName(Class<?> literalClass) {
@@ -1872,7 +1948,7 @@ public class TestCodeVisitor extends TestVisitor {
         boolean needsCast = !retval.isAssignableFrom(field.getFieldType())
                 || isFieldReadErasedByRawReceiver(field.getField(), statement.getSource(),
                         retval.getVariableClass());
-        String castTypeName = getClassName(retval);
+        String castTypeName = declarationTypeName(retval, statement);
         // A Class<?> field read into a Class<Object> variable: the model treats the wildcard
         // as assignable, but javac sees Class<capture> and rejects the assignment. A raw cast
         // is an unchecked but legal conversion.
@@ -1889,7 +1965,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         if (exception != null) {
-            builder.append(getClassName(retval));
+            builder.append(declarationTypeName(retval, statement));
             builder.append(" ");
             builder.append(getVariableName(retval));
             // A primitive field (boolean flag = PropsValues.FLAG) cannot be pre-declared as null.
@@ -1900,7 +1976,7 @@ public class TestCodeVisitor extends TestVisitor {
             builder.append(NEWLINE);
             builder.append("    ");
         } else {
-            builder.append(getClassName(retval));
+            builder.append(declarationTypeName(retval, statement));
             builder.append(" ");
         }
         if (!field.isStatic()) {
@@ -2430,7 +2506,7 @@ public class TestCodeVisitor extends TestVisitor {
         return getTypeName(declaredParamType);
     }
 
-    private boolean requiresRawCastForInconvertibleParameterizedTypes(Type declaredParamType, Type actualParamType) {
+    boolean requiresRawCastForInconvertibleParameterizedTypes(Type declaredParamType, Type actualParamType) {
         if (!(declaredParamType instanceof ParameterizedType)
                 || !(actualParamType instanceof ParameterizedType)) {
             return false;
@@ -2686,7 +2762,7 @@ public class TestCodeVisitor extends TestVisitor {
 
 
         //Foo foo = mock(Foo.class);
-        String variableType = getClassName(retval);
+        String variableType = declarationTypeName(retval, st);
         // Register the declaration: a later assignment to this local must see it as already
         // declared, or it is rendered as a second declaration under a "_1" name.
         result.append(variableType).append(" ").append(getDeclarationVariableName(retval)).append(" = ");
@@ -3048,7 +3124,7 @@ public class TestCodeVisitor extends TestVisitor {
         // underlying Java invocation is still generic and subject to raw-invocation erasure.
         boolean isGenericMethod = method.hasTypeParameters()
                 || method.getMethod().getTypeParameters().length > 0;
-        String declarationTypeName = getMethodReturnDeclarationType(method, retval);
+        String declarationTypeName = declarationTypeName(retval, statement);
         if (exception != null && !statement.isDeclaredException(exception)) {
             result += "// Undeclared exception!" + NEWLINE;
         }
@@ -3095,151 +3171,24 @@ public class TestCodeVisitor extends TestVisitor {
                 overloadedMethodCall, 0, parameterRenderingOwnerType,
                 method.getMethod().getGenericParameterTypes());
 
-        String calleeStr = "";
+        String calleeStr;
         // The class the receiver is cast to; written raw, it erases a generic return type.
         Class<?> receiverCastClass = null;
         if (method.isStatic()) {
-            calleeStr += getClassName(method.getMethod().getDeclaringClass());
+            calleeStr = getClassName(method.getMethod().getDeclaringClass());
         } else {
-            VariableReference callee = statement.getCallee();
-            Class<?> bridgeSource;
-            if (forceRawReceiverInvocation) {
-                Class<?> declaringClass = method.getMethod().getDeclaringClass();
-                Class<?> calleeClass = callee.getVariableClass();
-                String calleeName = getVariableName(callee);
-                receiverCastClass = declaringClass;
-                if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
-                    calleeStr += "((" + getTypeName(declaringClass) + ")(Object)" + calleeName + ")";
-                } else {
-                    calleeStr += "((" + getTypeName(declaringClass) + ")" + calleeName + ")";
-                }
-            } else if (!(callee instanceof ConstantValue)
-                    && (bridgeSource = bridgeSourceDeclaringClass(method.getMethod())) != null) {
-                // The search called a synthetic bridge, typically to feed an argument of the
-                // wrong type into a generic override. Source code naming the method binds to the
-                // override with the specific parameter type; viewing the receiver as the generic
-                // declaring class binds to the erased signature the bridge implements.
-                receiverCastClass = bridgeSource;
-                calleeStr += "((" + getClassName(bridgeSource) + ") " + getVariableName(callee) + ")";
-            } else if (!(callee instanceof ConstantValue)
-                    && (bridgeSource = genericDeclaringClassOverriddenByBridge(method.getMethod(),
-                    callee.getVariableClass())) != null) {
-                // The generic method itself was called on a subclass receiver whose override
-                // narrows the parameter type (ResourceTrackerImpl<T>.calculateBytes(T) on a
-                // StringTracker, argument not a String). Source code naming the method on the
-                // subclass binds to the override; the raw generic class binds to this method.
-                receiverCastClass = bridgeSource;
-                calleeStr += "((" + getClassName(bridgeSource) + ") " + getVariableName(callee) + ")";
-            } else if (callee instanceof ConstantValue) {
-                Class<?> declaringClass = method.getMethod().getDeclaringClass();
-                Class<?> calleeClass = callee.getVariableClass();
-                String calleeName = getVariableName(callee);
-                // If the constant is not assignable to the declaring class, add an (Object) cast first
-                // to ensure the generated code compiles (e.g., (Target)(Object)"str").
-                receiverCastClass = declaringClass;
-                if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
-                    calleeStr += "((" + getClassName(declaringClass) + ")(Object)" + calleeName + ")";
-                } else {
-                    calleeStr += "((" + getClassName(declaringClass) + ")" + calleeName + ")";
-                }
-            } else if (isShadowedByInaccessibleOverride(method.getMethod(), callee.getVariableClass())) {
-                // The receiver's static type overrides this protected/package-private method in
-                // another package, where javac resolves the call and finds it inaccessible.
-                // Viewing the receiver as the declaring class (which is in the test's package)
-                // resolves it there; the call still dispatches to the override at run time.
-                receiverCastClass = method.getMethod().getDeclaringClass();
-                calleeStr += "((" + getTypeName(method.getMethod().getDeclaringClass()) + ") "
-                        + getVariableName(callee) + ")";
+            ReceiverCast receiverCast = receiverCastTarget(statement, forceRawReceiverInvocation);
+            if (receiverCast == null) {
+                calleeStr = getVariableName(statement.getCallee());
             } else {
-                boolean calleeDeclaresMethod =
-                        hasMethodBySignatureName(callee.getVariableClass(), method.getMethod());
-                // Only a package-private method can become accessible through this cast. The
-                // declaring package must also be the package of the generated test.
-                if (method.isDefault() && !method.getDeclaringClass().equals(callee.getVariableClass())
-                        && callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
-                    String packageName1 = ClassUtils.getPackageName(method.getDeclaringClass());
-                    String packageName2 = ClassUtils.getPackageName(callee.getVariableClass());
-                    if (packageName1.equals(Properties.CLASS_PREFIX)
-                            && !packageName1.equals(packageName2)) {
-                        receiverCastClass = method.getMethod().getDeclaringClass();
-                        calleeStr += "((" + getClassName(method.getMethod().getDeclaringClass())
-                                + ")" + getVariableName(callee) + ")";
-                    } else {
-                        calleeStr += getVariableName(callee);
-                    }
-                } else if (!calleeDeclaresMethod
-                        || !callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
-                    try {
-                        // If the concrete callee class has that method then it's ok
-                        callee.getVariableClass().getDeclaredMethod(method.getName(), method.getRawParameterTypes());
-                        calleeStr += getVariableName(callee);
-                    } catch (NoSuchMethodException | NoClassDefFoundError e) {
-                        // If not we need to cast to the subtype. If callee is unrelated,
-                        // cast via Object to keep code compilable.
-                        Class<?> declaringClass = method.getMethod().getDeclaringClass();
-                        Class<?> calleeClass = callee.getVariableClass();
-                        receiverCastClass = declaringClass;
-                        if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
-                            calleeStr += "((" + getTypeName(declaringClass) + ")(Object)"
-                                    + getVariableName(callee) + ")";
-                        } else {
-                            calleeStr += "((" + getTypeName(declaringClass) + ") "
-                                    + getVariableName(callee) + ")";
-                        }
-                        // TODO: Here we could check if this is actually possible
-                        // ...but what would we do?
-                        // if(!ClassUtils.getAllSuperclasses(method.getMethod().getDeclaringClass())
-                        // .contains(callee.getVariableClass())) {
-                        //}
-                    }
-                } else {
-                    calleeStr += getVariableName(callee);
-                }
+                receiverCastClass = receiverCast.target;
+                calleeStr = castReceiver(receiverCast, statement.getCallee());
             }
         }
 
-        String returnCastStr = "";
-        boolean requiresReturnCast = !unused
-                && ((!retval.isAssignableFrom(method.getReturnType())
-                || requiresReturnValueCastForRawReceiver(statement, method, retval)
-                || requiresReturnCastDueToRawParameterCast(
-                        isGenericMethod, renderedParameterTypes, parameters, method, retval))
-                || (forceRawReceiverInvocation
-                && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType()))
-                || requiresReturnCastForRawReceiverCast(receiverCastClass, method, retval)
-                || requiresStaticGenericReturnCast(method, retval))
-                && !retval.getVariableClass().isAnonymousClass()
-                // Static generic methods are a special case where we shouldn't add a cast
-                && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic());
-        boolean rawReturnCastForRedeclaredReceiver = !unused
-                && (method.isStatic()
-                ? isGenericMethod && method.getParameterTypes().length == 0
-                && uninferableStaticGenericReturn(method, retval)
-                : returnDependsOnRedeclaredReceiver(statement, method, retval));
-        boolean rawReturnCastForArrayArgument = !unused && !retval.isVoid()
-                && retval.getType() instanceof ParameterizedType
-                && requiresRawReturnCastForArrayArgument(renderedParameterTypes, parameters);
-        if (requiresReturnCast || rawReturnCastForRedeclaredReceiver || rawReturnCastForArrayArgument) {
-            String name = getAccessibleGenericReturnTypeName(method, retval);
-            if (!name.matches(".*\\.\\d+$")) {
-                if (retval.getType() instanceof ParameterizedType
-                        && (rawReturnCastForRedeclaredReceiver
-                        || rawReturnCastForArrayArgument
-                        || returnCastIsInconvertible(retval.getType(),
-                                method.getMethod().getGenericReturnType()))) {
-                    // The declared parameterization is generic-inconvertible with the
-                    // method's return type -- typically a variable typed
-                    // Set<Class<Object>> receiving a raw Set<Class> return (old
-                    // Mockito-internal APIs). "(Set<Class<Object>>) x" does not
-                    // compile; a raw cast is an unchecked but legal conversion that
-                    // still assigns to the parameterized variable.
-                    returnCastStr = "(" + getClassName(
-                            (Class<?>) ((ParameterizedType) retval.getType()).getRawType()) + ")";
-                } else {
-                    returnCastStr = "(" + name + ")";
-                }
-            }
-        }
+        ReturnCast returnCast = unused ? ReturnCast.NONE : returnCastFor(statement, isGenericMethod,
+                forceRawReceiverInvocation, receiverCastClass, renderedParameterTypes);
+        String returnCastStr = returnCast.kind == ReturnCast.Kind.NONE ? "" : "(" + returnCast.typeName + ")";
         calleeStr = returnCastStr + calleeStr;
         if (retval.isVoid()) {
             result += calleeStr + "." + method.getName() + "(" + parameterString + ");";
@@ -3267,6 +3216,173 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    /** The cast in front of a call whose result is assigned to a variable. */
+    private static final class ReturnCast {
+        enum Kind { NONE, TYPED, RAW }
+
+        static final ReturnCast NONE = new ReturnCast(Kind.NONE, null);
+
+        final Kind kind;
+        /** The name written in the cast: the variable's type, or its raw class. */
+        final String typeName;
+
+        ReturnCast(Kind kind, String typeName) {
+            this.kind = kind;
+            this.typeName = typeName;
+        }
+    }
+
+    /**
+     * Whether the result of a call needs a cast to be assigned to its variable, and which. A typed
+     * cast is needed when javac sees a return type the variable's type cannot take without one;
+     * a raw cast, unchecked but legal, when javac sees a parameterization no typed cast converts.
+     * Either can be turned into a raw cast by a return type that is generic-inconvertible with
+     * the variable's type.
+     */
+    private ReturnCast returnCastFor(MethodStatement statement, boolean isGenericMethod,
+                                     boolean forceRawReceiverInvocation, Class<?> receiverCastClass,
+                                     Type[] renderedParameterTypes) {
+        VariableReference retval = statement.getReturnValue();
+        GenericMethod method = statement.getMethod();
+        List<VariableReference> parameters = statement.getParameterReferences();
+        // A cast gives javac no target type to infer a zero-argument static generic call from.
+        boolean zeroArgumentStaticGenericCall = isGenericMethod
+                && method.getParameterTypes().length == 0 && method.isStatic();
+        boolean typedCast = (!retval.isAssignableFrom(method.getReturnType())
+                || requiresReturnValueCastForRawReceiver(statement, method, retval)
+                || requiresReturnCastDueToRawParameterCast(
+                        isGenericMethod, renderedParameterTypes, parameters, method, retval)
+                || (forceRawReceiverInvocation
+                && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType()))
+                || requiresReturnCastForRawReceiverCast(receiverCastClass, method, retval)
+                || requiresStaticGenericReturnCast(method, retval))
+                && !retval.getVariableClass().isAnonymousClass()
+                && !zeroArgumentStaticGenericCall;
+        boolean rawCast = (method.isStatic()
+                ? zeroArgumentStaticGenericCall && uninferableStaticGenericReturn(method, retval)
+                : returnDependsOnRedeclaredReceiver(statement, method, retval))
+                || (!retval.isVoid() && retval.getType() instanceof ParameterizedType
+                && requiresRawReturnCastForArrayArgument(renderedParameterTypes, parameters));
+        if (!typedCast && !rawCast) {
+            return ReturnCast.NONE;
+        }
+        String name = getAccessibleGenericReturnTypeName(method, retval);
+        // An anonymous class (Outer.1) cannot be named in a cast. This tests the rendered name, not
+        // the class: a class rendered as an accessible supertype is cast to that supertype, and a
+        // local class is cast to its rendered name as before.
+        if (name.matches(".*\\.\\d+$")) {
+            return ReturnCast.NONE;
+        }
+        if (retval.getType() instanceof ParameterizedType
+                && (rawCast || returnCastIsInconvertible(retval.getType(),
+                        method.getMethod().getGenericReturnType()))) {
+            // The declared parameterization is generic-inconvertible with the
+            // method's return type -- typically a variable typed
+            // Set<Class<Object>> receiving a raw Set<Class> return (old
+            // Mockito-internal APIs). "(Set<Class<Object>>) x" does not
+            // compile; a raw cast is an unchecked but legal conversion that
+            // still assigns to the parameterized variable.
+            return new ReturnCast(ReturnCast.Kind.RAW, getClassName(
+                    (Class<?>) ((ParameterizedType) retval.getType()).getRawType()));
+        }
+        return new ReturnCast(ReturnCast.Kind.TYPED, name);
+    }
+
+    /** The class the receiver of an instance call is cast to, and whether a space follows the cast. */
+    private static final class ReceiverCast {
+        final Class<?> target;
+        final boolean spaced;
+
+        ReceiverCast(Class<?> target, boolean spaced) {
+            this.target = target;
+            this.spaced = spaced;
+        }
+    }
+
+    /**
+     * {@code ((Target) callee)}, through {@code (Object)} when the callee's class is unrelated to
+     * the target, as javac rejects a direct cast between unrelated classes. The space after the
+     * cast differs between the reasons for the cast, and is kept as it is.
+     */
+    private String castReceiver(ReceiverCast cast, VariableReference callee) {
+        String targetName = getClassName(cast.target);
+        String calleeName = getVariableName(callee);
+        Class<?> calleeClass = callee.getVariableClass();
+        if (calleeClass != null && !cast.target.isAssignableFrom(calleeClass)) {
+            return "((" + targetName + ")(Object)" + calleeName + ")";
+        }
+        return "((" + targetName + ")" + (cast.spaced ? " " : "") + calleeName + ")";
+    }
+
+    /**
+     * The class the receiver of an instance call has to be viewed as for javac to bind the call
+     * to the method the test executed, or null when the receiver is written as it is. The first
+     * reason that applies decides.
+     */
+    private ReceiverCast receiverCastTarget(MethodStatement statement, boolean forceRawReceiverInvocation) {
+        GenericMethod method = statement.getMethod();
+        VariableReference callee = statement.getCallee();
+        Class<?> declaringClass = method.getMethod().getDeclaringClass();
+        Class<?> bridgeSource;
+        if (forceRawReceiverInvocation) {
+            return new ReceiverCast(declaringClass, false);
+        }
+        if (!(callee instanceof ConstantValue)
+                && (bridgeSource = bridgeSourceDeclaringClass(method.getMethod())) != null) {
+            // The search called a synthetic bridge, typically to feed an argument of the
+            // wrong type into a generic override. Source code naming the method binds to the
+            // override with the specific parameter type; viewing the receiver as the generic
+            // declaring class binds to the erased signature the bridge implements.
+            return new ReceiverCast(bridgeSource, true);
+        }
+        if (!(callee instanceof ConstantValue)
+                && (bridgeSource = genericDeclaringClassOverriddenByBridge(method.getMethod(),
+                callee.getVariableClass())) != null) {
+            // The generic method itself was called on a subclass receiver whose override
+            // narrows the parameter type (ResourceTrackerImpl<T>.calculateBytes(T) on a
+            // StringTracker, argument not a String). Source code naming the method on the
+            // subclass binds to the override; the raw generic class binds to this method.
+            return new ReceiverCast(bridgeSource, true);
+        }
+        if (callee instanceof ConstantValue) {
+            // A constant is rendered as its literal, which is viewed as the declaring class
+            // (through Object when unrelated, e.g. (Target)(Object)"str").
+            return new ReceiverCast(declaringClass, false);
+        }
+        if (isShadowedByInaccessibleOverride(method.getMethod(), callee.getVariableClass())) {
+            // The receiver's static type overrides this protected/package-private method in
+            // another package, where javac resolves the call and finds it inaccessible.
+            // Viewing the receiver as the declaring class (which is in the test's package)
+            // resolves it there; the call still dispatches to the override at run time.
+            return new ReceiverCast(declaringClass, true);
+        }
+        // Only a package-private method can become accessible through this cast. The
+        // declaring package must also be the package of the generated test.
+        if (method.isDefault() && !method.getDeclaringClass().equals(callee.getVariableClass())
+                && callee.isAssignableTo(declaringClass)) {
+            String packageName1 = ClassUtils.getPackageName(method.getDeclaringClass());
+            String packageName2 = ClassUtils.getPackageName(callee.getVariableClass());
+            if (packageName1.equals(Properties.CLASS_PREFIX)
+                    && !packageName1.equals(packageName2)) {
+                return new ReceiverCast(declaringClass, false);
+            }
+            return null;
+        }
+        boolean calleeDeclaresMethod = hasMethodBySignatureName(callee.getVariableClass(), method.getMethod());
+        if (calleeDeclaresMethod && callee.isAssignableTo(declaringClass)) {
+            return null;
+        }
+        try {
+            // If the concrete callee class has that method then it's ok
+            callee.getVariableClass().getDeclaredMethod(method.getName(), method.getRawParameterTypes());
+            return null;
+        } catch (NoSuchMethodException | NoClassDefFoundError e) {
+            // If not we need to cast to the declaring class (through Object when the callee is
+            // unrelated, to keep the code compilable).
+            return new ReceiverCast(declaringClass, true);
+        }
     }
 
     /**
@@ -4406,6 +4522,60 @@ public class TestCodeVisitor extends TestVisitor {
         return getSimpleTypeName(type);
     }
 
+    /** See {@link #declarationTypeName}: the type a constructor's variable is declared with. */
+    private String getConstructorDeclarationTypeName(ConstructorStatement statement) {
+        GenericConstructor constructor = statement.getConstructor();
+        Constructor<?> rawConstructor = constructor.getConstructor();
+        VariableReference retval = statement.getReturnValue();
+        List<VariableReference> parameters = statement.getParameterReferences();
+        boolean isNonStaticMemberClass = rawConstructor.getDeclaringClass().isMemberClass()
+                && !constructor.isStatic()
+                && !Modifier.isStatic(rawConstructor.getDeclaringClass().getModifiers());
+        // Use the constructor's owner type for the LHS declaration so that it
+        // always matches the RHS "new OwnerType(...)".  The retval's variable class
+        // can diverge from the constructor owner (e.g. java.sql.Date retval with a
+        // java.util.Date constructor), and when both simple names collide the import
+        // picks one while the other is fully qualified, producing uncompilable code.
+        //
+        // Whether the CONSTRUCTOR is source-accessible (-> direct "new Owner(...)"
+        // vs. reflective fallback, see visitConstructorStatement) is a different
+        // question from whether the declaring TYPE itself can be named at all. A
+        // private constructor on an otherwise perfectly nameable public class is a
+        // common idiom (factory-method-only construction): the constructor needs
+        // reflection, but the type name is entirely fine to declare and cast to.
+        // Only when the type itself is not nameable (see
+        // isDeclaredTypeNameableInGeneratedTest) does the declared/cast type need to
+        // fall back to the nearest accessible supertype instead.
+        Type constructorDeclarationType = isNonStaticMemberClass
+                ? withEnclosingInstanceOwner(constructor.getOwnerType(), parameters.get(0))
+                : rawIfOutsideOfBounds(constructor.getOwnerType());
+        if (isNonStaticMemberClass
+                && constructorDeclarationType.equals(constructor.getOwnerType())
+                && retval.getVariableClass() == rawConstructor.getDeclaringClass()
+                && (retval.getType() instanceof Class<?>
+                || retval.getGenericClass().hasWildcardOrTypeVariables())
+                && retval.getGenericClass().isAssignableFrom(constructorDeclarationType)) {
+            // A mutation can bind the constructor to Outer<String>.Inner while retaining a
+            // raw or wildcard result variable. Narrowing that declaration changes the types
+            // accepted by later calls, such as a raw inner.set(Integer).
+            constructorDeclarationType = retval.getType();
+        }
+        String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
+                ? getDeclarationTypeName(constructorDeclarationType)
+                : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
+        if (!isNonStaticMemberClass && isReassignedLocal(statement)
+                && rawConstructor.getDeclaringClass() != retval.getVariableClass()
+                && retval.getVariableClass().isAssignableFrom(rawConstructor.getDeclaringClass())
+                && isDeclaredTypeNameableInGeneratedTest(retval.getVariableClass())) {
+            // The variable is written again later, with a value of the variable's own type, not
+            // of the constructor's: java.io.File built by the MockFile constructor, then given a
+            // de.schlichtherle.io.File. Declared as the narrower constructor owner it cannot take
+            // that value.
+            constructorTypeName = getDeclarationTypeName(retval.getType());
+        }
+        return constructorTypeName;
+    }
+
     /** True when a later statement of the test assigns to the local variable this one defines. */
     private boolean isReassignedLocal(Statement definition) {
         if (test == null) {
@@ -4468,49 +4638,8 @@ public class TestCodeVisitor extends TestVisitor {
                 overloadedConstructorCall,
                 startPos);
 
-        // Use the constructor's owner type for the LHS declaration so that it
-        // always matches the RHS "new OwnerType(...)".  The retval's variable class
-        // can diverge from the constructor owner (e.g. java.sql.Date retval with a
-        // java.util.Date constructor), and when both simple names collide the import
-        // picks one while the other is fully qualified, producing uncompilable code.
-        //
-        // Whether the CONSTRUCTOR is source-accessible (-> direct "new Owner(...)"
-        // vs. reflective fallback, see constructorAccessible below) is a different
-        // question from whether the declaring TYPE itself can be named at all. A
-        // private constructor on an otherwise perfectly nameable public class is a
-        // common idiom (factory-method-only construction): the constructor needs
-        // reflection, but the type name is entirely fine to declare and cast to.
-        // Only when the type itself is not nameable (see
-        // isDeclaredTypeNameableInGeneratedTest) does the declared/cast type need to
-        // fall back to the nearest accessible supertype instead.
         boolean constructorAccessible = isSourceAccessibleFromGeneratedTest(rawConstructor);
-        Type constructorDeclarationType = isNonStaticMemberClass
-                ? withEnclosingInstanceOwner(constructor.getOwnerType(), parameters.get(0))
-                : rawIfOutsideOfBounds(constructor.getOwnerType());
-        if (isNonStaticMemberClass
-                && constructorDeclarationType.equals(constructor.getOwnerType())
-                && retval.getVariableClass() == rawConstructor.getDeclaringClass()
-                && (retval.getType() instanceof Class<?>
-                || retval.getGenericClass().hasWildcardOrTypeVariables())
-                && retval.getGenericClass().isAssignableFrom(constructorDeclarationType)) {
-            // A mutation can bind the constructor to Outer<String>.Inner while retaining a
-            // raw or wildcard result variable. Narrowing that declaration changes the types
-            // accepted by later calls, such as a raw inner.set(Integer).
-            constructorDeclarationType = retval.getType();
-        }
-        String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
-                ? getDeclarationTypeName(constructorDeclarationType)
-                : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
-        if (!isNonStaticMemberClass && isReassignedLocal(statement)
-                && rawConstructor.getDeclaringClass() != retval.getVariableClass()
-                && retval.getVariableClass().isAssignableFrom(rawConstructor.getDeclaringClass())
-                && isDeclaredTypeNameableInGeneratedTest(retval.getVariableClass())) {
-            // The variable is written again later, with a value of the variable's own type, not
-            // of the constructor's: java.io.File built by the MockFile constructor, then given a
-            // de.schlichtherle.io.File. Declared as the narrower constructor owner it cannot take
-            // that value.
-            constructorTypeName = getDeclarationTypeName(retval.getType());
-        }
+        String constructorTypeName = declarationTypeName(retval, statement);
 
         // The declaration prefix ("Type ") is prepended at the point where the
         // retval variable is first introduced. In the try-catch path the retval
@@ -4800,14 +4929,14 @@ public class TestCodeVisitor extends TestVisitor {
                 multiDimensions = "" + lengths.get(0);
             }
 
-            testCode.append(getClassName(retval) + " " + declarationVarName + " = ("
+            testCode.append(declarationTypeName(retval, statement) + " " + declarationVarName + " = ("
                     + getClassName(retval) + ") " + getClassName(Array.class)
                     + ".newInstance("
                     + getClassName(retval.getComponentClass()).replaceAll("\\[\\]", "")
                     + ".class, " + multiDimensions + ");" + NEWLINE);
 
         } else {
-            testCode.append(getClassName(retval) + " " + declarationVarName + " = new "
+            testCode.append(declarationTypeName(retval, statement) + " " + declarationVarName + " = new "
                     + type + multiDimensions + ";" + NEWLINE);
         }
         addAssertions(statement);
@@ -4851,18 +4980,25 @@ public class TestCodeVisitor extends TestVisitor {
         if (!(targetType instanceof ParameterizedType) || value == null) {
             return false;
         }
+        return parameterizedCastIsInconvertible(targetType, value.getType(), value.getVariableClass());
+    }
+
+    /** See {@link #parameterizedCastIsInconvertible(Type, VariableReference)}. */
+    boolean parameterizedCastIsInconvertible(Type targetType, Type valueType, Class<?> valueClass) {
+        if (!(targetType instanceof ParameterizedType)) {
+            return false;
+        }
         ParameterizedType parameterizedTarget = (ParameterizedType) targetType;
         if (!(parameterizedTarget.getRawType() instanceof Class<?>)) {
             return false;
         }
         Class<?> rawTarget = (Class<?>) parameterizedTarget.getRawType();
-        Class<?> valueClass = value.getVariableClass();
         if (valueClass == null || !rawTarget.isAssignableFrom(valueClass)) {
             return false;
         }
         Type valueAsTarget;
         try {
-            valueAsTarget = GenericUtils.getExactSuperType(value.getType(), rawTarget);
+            valueAsTarget = GenericUtils.getExactSuperType(valueType, rawTarget);
         } catch (Throwable ignored) {
             return false;
         }
@@ -5141,7 +5277,7 @@ public class TestCodeVisitor extends TestVisitor {
         boolean needsTypeDeclaration = isLocalTarget && !alreadyNamed;
 
         if (needsTypeDeclaration) {
-            testCode.append(getClassName(retval) + " ");
+            testCode.append(declarationTypeName(retval, statement) + " ");
         }
         testCode.append(declarationVarName);
         testCode.append(" = " + cast + getVariableName(parameter)
@@ -5162,7 +5298,7 @@ public class TestCodeVisitor extends TestVisitor {
     public void visitNullStatement(NullStatement statement) {
         VariableReference retval = statement.getReturnValue();
         String varName = getDeclarationVariableName(retval);
-        String declarationType = getNullDeclarationTypeName(retval);
+        String declarationType = declarationTypeName(retval, statement);
         testCode.append(declarationType + " " + varName + " = null;" + NEWLINE);
     }
 

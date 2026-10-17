@@ -60,18 +60,6 @@ public class SameAssertion extends Assertion {
      * @see org.evosuite.assertion.Assertion#getCode()
      */
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getCode() {
-        if ((Boolean) value) {
-            return "assertSame(" + source.getName() + ", " + dest.getName() + ");";
-        } else {
-            return "assertNotSame(" + source.getName() + ", " + dest.getName() + ");";
-        }
-    }
-
     /* (non-Javadoc)
      * @see org.evosuite.assertion.Assertion#copy(org.evosuite.testcase.TestCase, int)
      */
