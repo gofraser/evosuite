@@ -1848,8 +1848,11 @@ public class TestCodeVisitor extends TestVisitor {
      *     <li>class literal: {@code Class<Literal>}, or {@code Class<?>} for a primitive or
      *     inaccessible literal;</li>
      *     <li>string literal: {@code String};</li>
-     *     <li>field read, number, enum, array, assignment and mock: the variable's type, even for
-     *     a class the test cannot name.</li>
+     *     <li>field read and assignment: the variable's type, or the nearest accessible
+     *     supertype when the class cannot be named;</li>
+     *     <li>number, enum, array and mock: the variable's type, even for a class the test cannot
+     *     name, as the value expression names the class as well ({@code new Hidden[1]},
+     *     {@code mock(Hidden.class)}).</li>
      * </ul>
      */
     private String declarationTypeName(VariableReference retval, Statement origin) {
@@ -1867,6 +1870,13 @@ public class TestCodeVisitor extends TestVisitor {
         }
         if (origin instanceof StringPrimitiveStatement && ((StringPrimitiveStatement) origin).getValue() != null) {
             return ((Class<?>) retval.getType()).getSimpleName();
+        }
+        if (origin instanceof FieldStatement || origin instanceof AssignmentStatement) {
+            Class<?> variableClass = retval.getVariableClass();
+            if (!variableClass.isPrimitive() && !variableClass.isArray()
+                    && !isDeclaredTypeNameableInGeneratedTest(variableClass)) {
+                return getTypeName(findAccessibleRenderableSupertype(variableClass));
+            }
         }
         return getClassName(retval);
     }
@@ -1910,7 +1920,7 @@ public class TestCodeVisitor extends TestVisitor {
         boolean needsCast = !retval.isAssignableFrom(field.getFieldType())
                 || isFieldReadErasedByRawReceiver(field.getField(), statement.getSource(),
                         retval.getVariableClass());
-        String castTypeName = getClassName(retval);
+        String castTypeName = declarationTypeName(retval, statement);
         // A Class<?> field read into a Class<Object> variable: the model treats the wildcard
         // as assignable, but javac sees Class<capture> and rejects the assignment. A raw cast
         // is an unchecked but legal conversion.
