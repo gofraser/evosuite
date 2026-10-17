@@ -47,12 +47,14 @@ import java.lang.reflect.WildcardType;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.WeakHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 
@@ -290,49 +292,87 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         return declaration.toString();
     }
 
-    static String matcherStringForType(Class<?> type) {
-        if (type.equals(Integer.TYPE) || type.equals(Integer.class)) {
-            return "anyInt()";
-        } else if (type.equals(Long.TYPE) || type.equals(Long.class)) {
-            return "anyLong()";
-        } else if (type.equals(Boolean.TYPE) || type.equals(Boolean.class)) {
-            return "anyBoolean()";
-        } else if (type.equals(Double.TYPE) || type.equals(Double.class)) {
-            return "anyDouble()";
-        } else if (type.equals(Float.TYPE) || type.equals(Float.class)) {
-            return "anyFloat()";
-        } else if (type.equals(Short.TYPE) || type.equals(Short.class)) {
-            return "anyShort()";
-        } else if (type.equals(Character.TYPE) || type.equals(Character.class)) {
-            return "anyChar()";
-        } else if (type.equals(String.class)) {
-            return "anyString()";
-        } else if (type.equals(List.class)) {
-            return "anyList()";
-        } else if (type.equals(Set.class)) {
-            return "anySet()";
-        } else if (type.equals(Map.class)) {
-            return "anyMap()";
-        } else if (type.equals(Collection.class)) {
-            return "anyCollection()";
-        } else if (type.equals(Iterable.class)) {
-            return "anyIterable()";
-        } else {
-            // Includes Object.class: a bare any() returns an unconstrained <T> T, which
-            // javac cannot use to disambiguate an overload set like format(X, Y, Object)
-            // vs. format(X, Y, Object[]) vs. format(X, Y, SomeType). Every other branch
-            // above already renders a matcher whose return type is fixed (anyInt(),
-            // anyString(), anyList(), ...); route Object (and everything else that is not
-            // specially handled) through the same nullable(ActualType.class) form so the
-            // matcher's static type matches the declared parameter type exactly. This is
-            // also what executeMatcher already falls back to for Object.class, so source
-            // and live execution agree.
-            String name = type.getCanonicalName();
-            if (name == null) {
-                name = type.getName();
-            }
-            return "nullable(" + name + ".class)";
+    /**
+     * The Mockito matcher for a parameter of each type that has a dedicated one, in both forms:
+     * the source text of the generated test and the live matcher the search stubs with. The two
+     * must agree, or a stub that matches during the search does not match in the generated test.
+     * Every other type is matched with {@code nullable(Type.class)} in both forms.
+     */
+    enum TypeMatcher {
+        INT("anyInt()", Mockito::anyInt, Integer.TYPE, Integer.class),
+        LONG("anyLong()", Mockito::anyLong, Long.TYPE, Long.class),
+        BOOLEAN("anyBoolean()", Mockito::anyBoolean, Boolean.TYPE, Boolean.class),
+        DOUBLE("anyDouble()", Mockito::anyDouble, Double.TYPE, Double.class),
+        FLOAT("anyFloat()", Mockito::anyFloat, Float.TYPE, Float.class),
+        SHORT("anyShort()", Mockito::anyShort, Short.TYPE, Short.class),
+        CHAR("anyChar()", Mockito::anyChar, Character.TYPE, Character.class),
+        STRING("anyString()", Mockito::anyString, String.class),
+        LIST("anyList()", Mockito::anyList, List.class),
+        SET("anySet()", Mockito::anySet, Set.class),
+        MAP("anyMap()", Mockito::anyMap, Map.class),
+        COLLECTION("anyCollection()", Mockito::anyCollection, Collection.class),
+        ITERABLE("anyIterable()", Mockito::anyIterable, Iterable.class);
+
+        private final String source;
+        private final Supplier<Object> live;
+        private final List<Class<?>> types;
+
+        TypeMatcher(String source, Supplier<Object> live, Class<?>... types) {
+            this.source = source;
+            this.live = live;
+            this.types = Collections.unmodifiableList(Arrays.asList(types));
         }
+
+        String source() {
+            return source;
+        }
+
+        /** Registers the matcher with Mockito, as a call of it in a stubbing does. */
+        Object live() {
+            return live.get();
+        }
+
+        List<Class<?>> types() {
+            return types;
+        }
+
+        /**
+         * @return the matcher for parameters of {@code type}, or null if it is matched with
+         * {@code nullable}
+         */
+        static TypeMatcher of(Class<?> type) {
+            return BY_TYPE.get(type);
+        }
+
+        private static final Map<Class<?>, TypeMatcher> BY_TYPE = new HashMap<>();
+
+        static {
+            for (TypeMatcher matcher : values()) {
+                for (Class<?> type : matcher.types) {
+                    BY_TYPE.put(type, matcher);
+                }
+            }
+        }
+    }
+
+    static String matcherStringForType(Class<?> type) {
+        TypeMatcher matcher = TypeMatcher.of(type);
+        if (matcher != null) {
+            return matcher.source();
+        }
+        // Includes Object.class: a bare any() returns an unconstrained <T> T, which
+        // javac cannot use to disambiguate an overload set like format(X, Y, Object)
+        // vs. format(X, Y, Object[]) vs. format(X, Y, SomeType). Every matcher in
+        // TypeMatcher has a fixed return type (anyInt(), anyString(), anyList(), ...);
+        // route Object (and everything else that is not specially handled) through the
+        // same nullable(ActualType.class) form so the matcher's static type matches the
+        // declared parameter type exactly. This is also what executeMatcher falls back
+        // to, so source and live execution agree.
+        String name = type.getCanonicalName();
+        if (name == null) {
+            name = type.getName();
+        }
+        return "nullable(" + name + ".class)";
     }
 
 
@@ -553,35 +593,8 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         Class<?> type = matcherParameterTypes[i];
 
         try {
-            if (type.equals(Integer.TYPE) || type.equals(Integer.class)) {
-                return Mockito.anyInt();
-            } else if (type.equals(Long.TYPE) || type.equals(Long.class)) {
-                return Mockito.anyLong();
-            } else if (type.equals(Boolean.TYPE) || type.equals(Boolean.class)) {
-                return Mockito.anyBoolean();
-            } else if (type.equals(Double.TYPE) || type.equals(Double.class)) {
-                return Mockito.anyDouble();
-            } else if (type.equals(Float.TYPE) || type.equals(Float.class)) {
-                return Mockito.anyFloat();
-            } else if (type.equals(Short.TYPE) || type.equals(Short.class)) {
-                return Mockito.anyShort();
-            } else if (type.equals(Character.TYPE) || type.equals(Character.class)) {
-                return Mockito.anyChar();
-            } else if (type.equals(String.class)) {
-                return Mockito.anyString();
-            } else if (type.equals(List.class)) {
-                return Mockito.anyList();
-            } else if (type.equals(Set.class)) {
-                return Mockito.anySet();
-            } else if (type.equals(Map.class)) {
-                return Mockito.anyMap();
-            } else if (type.equals(Collection.class)) {
-                return Mockito.anyCollection();
-            } else if (type.equals(Iterable.class)) {
-                return Mockito.anyIterable();
-            } else {
-                return Mockito.nullable(type);
-            }
+            TypeMatcher matcher = TypeMatcher.of(type);
+            return matcher != null ? matcher.live() : Mockito.nullable(type);
         } catch (Exception e) {
             logger.error("Failed to executed Mockito matcher n{} of type {} in {}.{}: {}",
                     i, type, className, methodName, e.getMessage());
