@@ -3979,6 +3979,10 @@ public class TestCodeVisitor extends TestVisitor {
         if (receiverClass == null || declaringClass == null) {
             return false;
         }
+        Class<?> constructedClass = nonGenericConstructedClass(receiver);
+        if (constructedClass != null) {
+            receiverClass = constructedClass;
+        }
         if (receiverClass.getTypeParameters().length > 0) {
             return getClassName(receiver).equals(getClassName(receiverClass))
                     || isReadThroughRawReflectiveCast(receiver)
@@ -3994,6 +3998,38 @@ public class TestCodeVisitor extends TestVisitor {
         }
         return !(GenericUtils.getExactSuperType(receiverClass, declaringClass)
                 instanceof ParameterizedType);
+    }
+
+    /**
+     * The class a constructor's variable is declared with when that is a class without type
+     * parameters other than the variable's own class: a variable the search types as
+     * {@code Hashtable<String, String[]>} is declared as the {@code ProviderList} it is
+     * constructed from, and javac sees that class's members, not the variable's.
+     */
+    private Class<?> nonGenericConstructedClass(VariableReference receiver) {
+        if (receiver instanceof FieldReference || receiver instanceof ArrayIndex) {
+            return null;
+        }
+        TestCase testCase = test != null ? test : receiver.getTestCase();
+        VariableReference normalized = normalizeVariableReference(receiver);
+        int position = testCase != null ? testCase.positionOfReturnValue(normalized) : -1;
+        if (position < 0) {
+            return null;
+        }
+        Statement definition = testCase.getStatement(position);
+        if (!(definition instanceof ConstructorStatement) || definition.getReturnValue() != normalized) {
+            return null;
+        }
+        GenericConstructor constructor = ((ConstructorStatement) definition).getConstructor();
+        Class<?> declaringClass = constructor.getConstructor().getDeclaringClass();
+        if (!(constructor.getOwnerType() instanceof Class<?>)
+                || declaringClass.getTypeParameters().length > 0
+                || (declaringClass.isMemberClass() && !Modifier.isStatic(declaringClass.getModifiers()))
+                || declaringClass == receiver.getVariableClass()
+                || !isDeclaredTypeNameableInGeneratedTest(declaringClass)) {
+            return null;
+        }
+        return declaringClass;
     }
 
     /**
