@@ -62,7 +62,9 @@ public class GenericTypeInference extends TestVisitor {
                 determineExactType((ConstructorStatement) statement);
             }
         }
-        logger.debug("Resulting test: " + test.toCode());
+        if (logger.isDebugEnabled()) {
+            logger.debug("Resulting test: {}", test.toCode());
+        }
     }
 
     private void addVariable(Statement statement) {

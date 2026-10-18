@@ -50,7 +50,9 @@ public class CompleteAssertionGenerator extends AssertionGenerator {
     @Override
     public void addAssertions(TestCase test) {
         collectCandidates(test);
-        logger.debug("Test after adding assertions: " + test.toCode());
+        if (logger.isDebugEnabled()) {
+            logger.debug("Test after adding assertions: {}", test.toCode());
+        }
         // From here on the mocks have the stubs of the written test
         FunctionalMockStatement.completePendingStubsWithNulls(test);
     }
