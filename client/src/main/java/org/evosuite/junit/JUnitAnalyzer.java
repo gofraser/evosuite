@@ -2509,8 +2509,8 @@ public abstract class JUnitAnalyzer {
             }
         }
 
-        boolean hasDotSegmentEntries = containsDotSegmentEntry(jarFile);
-        boolean hasMalformedManifestClassPath = containsMalformedManifestClassPathEntry(jarFile);
+        boolean hasDotSegmentEntries = CompilerClasspath.hasDotSegmentEntry(jarFile);
+        boolean hasMalformedManifestClassPath = CompilerClasspath.hasMalformedManifestClassPath(jarFile);
         if (!hasDotSegmentEntries && !hasMalformedManifestClassPath) {
             synchronized (SANITIZED_COMPILER_CLASSPATH_ENTRIES) {
                 SANITIZED_COMPILER_CLASSPATH_ENTRIES.put(jarFile.getAbsolutePath(), jarFile.getAbsolutePath());
@@ -2518,7 +2518,9 @@ public abstract class JUnitAnalyzer {
             return jarFile.getAbsolutePath();
         }
 
-        String sanitized = extractJarWithoutDotSegmentEntries(jarFile);
+        // Dot-segment names are dropped because javac cannot open such entries.
+        String sanitized = CompilerClasspath.extractJar(jarFile, "evosuite-compiler-cp-",
+                CompilerClasspath::hasDotSegment);
         synchronized (SANITIZED_COMPILER_CLASSPATH_ENTRIES) {
             SANITIZED_COMPILER_CLASSPATH_ENTRIES.put(jarFile.getAbsolutePath(), sanitized);
         }
@@ -2527,120 +2529,6 @@ public abstract class JUnitAnalyzer {
                     jarFile.getAbsolutePath(), sanitized);
         }
         return sanitized;
-    }
-
-    private static boolean containsDotSegmentEntry(File jarFile) {
-        try (JarFile jar = new JarFile(jarFile)) {
-            Enumeration<JarEntry> entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                JarEntry entry = entries.nextElement();
-                if (hasDotSegment(entry.getName())) {
-                    return true;
-                }
-            }
-        } catch (IOException e) {
-            logger.debug("Could not inspect jar {} for compiler sanitization: {}", jarFile, e.getMessage());
-        }
-        return false;
-    }
-
-    private static boolean containsMalformedManifestClassPathEntry(File jarFile) {
-        try (JarFile jar = new JarFile(jarFile)) {
-            java.util.jar.Manifest manifest = jar.getManifest();
-            if (manifest == null) {
-                return false;
-            }
-            Attributes mainAttributes = manifest.getMainAttributes();
-            if (mainAttributes == null) {
-                return false;
-            }
-            String classPath = mainAttributes.getValue(Attributes.Name.CLASS_PATH);
-            if (classPath == null || classPath.trim().isEmpty()) {
-                return false;
-            }
-
-            String[] entries = classPath.trim().split("\\s+");
-            for (String manifestEntry : entries) {
-                if (manifestEntry == null || manifestEntry.isEmpty()) {
-                    continue;
-                }
-                if (manifestEntry.indexOf('\\') >= 0) {
-                    return true;
-                }
-                try {
-                    new URI(manifestEntry);
-                } catch (URISyntaxException e) {
-                    return true;
-                }
-            }
-        } catch (IOException e) {
-            logger.debug("Could not inspect jar manifest {} for compiler sanitization: {}",
-                    jarFile,
-                    e.getMessage());
-        }
-        return false;
-    }
-
-    private static boolean hasDotSegment(String entryName) {
-        if (entryName == null || entryName.isEmpty()) {
-            return false;
-        }
-        String normalized = entryName.startsWith("/") ? entryName.substring(1) : entryName;
-        String[] segments = normalized.split("/");
-        for (String segment : segments) {
-            if (segment.equals(".") || segment.equals("..")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static String extractJarWithoutDotSegmentEntries(File jarFile) {
-        try {
-            File targetDir = Files.createTempDirectory("evosuite-compiler-cp-").toFile();
-            targetDir.deleteOnExit();
-
-            try (JarFile jar = new JarFile(jarFile)) {
-                Enumeration<JarEntry> entries = jar.entries();
-                while (entries.hasMoreElements()) {
-                    JarEntry entry = entries.nextElement();
-                    String name = entry.getName();
-                    if (hasDotSegment(name)) {
-                        continue;
-                    }
-                    if (name.startsWith("/")) {
-                        name = name.substring(1);
-                    }
-                    if (name.isEmpty()) {
-                        continue;
-                    }
-
-                    File out = new File(targetDir, name);
-                    if (entry.isDirectory()) {
-                        if (!out.exists() && !out.mkdirs()) {
-                            logger.debug("Could not create directory while sanitizing jar: {}", out);
-                        }
-                        continue;
-                    }
-
-                    File parent = out.getParentFile();
-                    if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                        logger.debug("Could not create parent directory while sanitizing jar: {}", parent);
-                        continue;
-                    }
-
-                    try (InputStream in = jar.getInputStream(entry)) {
-                        Files.copy(in, out.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    }
-                    out.deleteOnExit();
-                }
-            }
-            return targetDir.getAbsolutePath();
-        } catch (IOException e) {
-            logger.warn("Failed to sanitize malformed jar {} for compiler classpath: {}",
-                    jarFile.getAbsolutePath(), e.getMessage());
-            return jarFile.getAbsolutePath();
-        }
     }
 
     /**

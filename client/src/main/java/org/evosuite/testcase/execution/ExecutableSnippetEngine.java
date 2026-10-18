@@ -21,6 +21,7 @@ package org.evosuite.testcase.execution;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.junit.CompilerClasspath;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.RuntimeSettings;
@@ -1849,7 +1850,7 @@ public final class ExecutableSnippetEngine {
 
             String baseName = jarFile.getName();
             boolean seedMatch = !baseName.isEmpty() && problematicBasenames.contains(baseName);
-            if (seedMatch || containsMalformedManifestClassPathEntry(jarFile)) {
+            if (seedMatch || CompilerClasspath.hasMalformedManifestClassPath(jarFile)) {
                 forcedSanitizationEntries.add(jarFile.getAbsolutePath());
                 if (!baseName.isEmpty()) {
                     problematicBasenames.add(baseName);
@@ -1895,7 +1896,7 @@ public final class ExecutableSnippetEngine {
     private List<String> expandManifestOnlyClasspathJar(File jarFile) {
         if (jarFile == null
                 || !isManifestOnlyClasspathJar(jarFile)
-                || containsMalformedManifestClassPathEntry(jarFile)) {
+                || CompilerClasspath.hasMalformedManifestClassPath(jarFile)) {
             return Collections.emptyList();
         }
 
@@ -2091,105 +2092,20 @@ public final class ExecutableSnippetEngine {
             return cached;
         }
 
-        if (!forceSanitization && !containsMalformedManifestClassPathEntry(jarFile)) {
+        if (!forceSanitization && !CompilerClasspath.hasMalformedManifestClassPath(jarFile)) {
             sanitizedCompilerClasspathEntries.put(absolutePath, absolutePath);
             return absolutePath;
         }
 
-        String sanitized = extractJarWithoutManifestClassPath(jarFile);
+        // The manifest is dropped so javac does not follow its malformed Class-Path.
+        String sanitized = CompilerClasspath.extractJar(jarFile, "evosuite-snippet-compiler-cp-",
+                "META-INF/MANIFEST.MF"::equalsIgnoreCase);
         sanitizedCompilerClasspathEntries.put(absolutePath, sanitized);
         if (!absolutePath.equals(sanitized)) {
             logger.warn("Using sanitized snippet compiler classpath entry {} -> {}",
                     absolutePath, sanitized);
         }
         return sanitized;
-    }
-
-    private boolean containsMalformedManifestClassPathEntry(File jarFile) {
-        try (JarFile jar = new JarFile(jarFile)) {
-            java.util.jar.Manifest manifest = jar.getManifest();
-            if (manifest == null) {
-                return false;
-            }
-            Attributes attributes = manifest.getMainAttributes();
-            if (attributes == null) {
-                return false;
-            }
-            String classPath = attributes.getValue(Attributes.Name.CLASS_PATH);
-            if (classPath == null || classPath.trim().isEmpty()) {
-                return false;
-            }
-
-            String[] entries = classPath.trim().split("\\s+");
-            for (String manifestEntry : entries) {
-                if (manifestEntry == null || manifestEntry.isEmpty()) {
-                    continue;
-                }
-                if (manifestEntry.indexOf('\\') >= 0) {
-                    return true;
-                }
-                try {
-                    new URI(manifestEntry);
-                } catch (URISyntaxException e) {
-                    return true;
-                }
-            }
-        } catch (IOException e) {
-            logger.debug("Could not inspect jar manifest {} for snippet compiler sanitization: {}",
-                    jarFile,
-                    e.getMessage());
-        }
-        return false;
-    }
-
-    private String extractJarWithoutManifestClassPath(File jarFile) {
-        try {
-            File targetDir = Files.createTempDirectory("evosuite-snippet-compiler-cp-").toFile();
-            targetDir.deleteOnExit();
-
-            try (JarFile jar = new JarFile(jarFile)) {
-                java.util.Enumeration<JarEntry> entries = jar.entries();
-                while (entries.hasMoreElements()) {
-                    JarEntry entry = entries.nextElement();
-                    String name = entry.getName();
-                    if ("META-INF/MANIFEST.MF".equalsIgnoreCase(name)) {
-                        // Avoid javac reading malformed Class-Path from this manifest.
-                        continue;
-                    }
-                    if (name.startsWith("/")) {
-                        name = name.substring(1);
-                    }
-                    if (name.isEmpty()) {
-                        continue;
-                    }
-
-                    File out = new File(targetDir, name);
-                    if (entry.isDirectory()) {
-                        if (!out.exists() && !out.mkdirs()) {
-                            logger.debug("Could not create directory while sanitizing jar: {}", out);
-                        }
-                        continue;
-                    }
-
-                    File parent = out.getParentFile();
-                    if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                        logger.debug("Could not create parent directory while sanitizing jar: {}", parent);
-                        continue;
-                    }
-
-                    try (InputStream in = jar.getInputStream(entry)) {
-                        Files.copy(in, out.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    }
-                    out.deleteOnExit();
-                }
-            }
-            return targetDir.getAbsolutePath();
-        } catch (IOException e) {
-            logger.warn("Failed to sanitize malformed jar {} for snippet compiler classpath: {}",
-                    jarFile.getAbsolutePath(),
-                    e.getMessage());
-            return jarFile.getAbsolutePath();
-        }
     }
 
     private URLClassLoader getOrCreateSnippetClassLoader(ClassLoader parentLoader) {
