@@ -119,15 +119,13 @@ public class GenericClassUtils {
         }
 
         if (exactSuperType instanceof Class && !isDefinitelyRaw(rhsType)) {
-            // gentyref's own isMissingTypeParameters(Class) walks getEnclosingClass() without
-            // checking Modifier.isStatic, so a static nested class of a generic outer class
-            // (DOMDeserializer<T>.DocumentDeserializer) counts as raw and its whole supertype
-            // chain is erased: the "exact" supertype comes back as the raw JsonDeserializer
-            // class, which commons-lang3 would then accept for JsonDeserializer<Object>.
-            // GenericUtils.getExactSuperType recomputes the answer for the static nested class
-            // itself, but not for a class that only extends one, which still comes back erased.
-            // The rhs is not raw by the static-aware definition below, so do not trust the erased
-            // result; the caller's commons-lang3 check resolves the type arguments correctly.
+            // A bare class for a right-hand side that is not itself raw means the supertype is
+            // raw somewhere up its hierarchy (class ProviderList extends Hashtable): the "exact"
+            // supertype is the raw class, which commons-lang3 would accept for any
+            // parameterization of it. GenericUtils.getExactSuperType already recomputes the
+            // answer gentyref erases for static nested classes of generic outer classes
+            // (DOMDeserializer<T>.DocumentDeserializer) and their subclasses, so what is left is
+            // genuinely raw; do not trust it and let the caller's commons-lang3 check decide.
             return false;
         }
 

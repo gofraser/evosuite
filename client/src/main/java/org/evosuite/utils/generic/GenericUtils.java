@@ -521,7 +521,11 @@ public class GenericUtils {
      * classes without looking at {@code static}, so for {@code DefaultContig.Builder extends
      * AbstractContigBuilder<AssembledRead, ...>} it answers the erased
      * {@code AbstractContigBuilder}, and every parameter that mentions the superclass's type
-     * variable ({@code Iterable<P>}) is erased with it.
+     * variable ({@code Iterable<P>}) is erased with it. The same happens for a class that only
+     * extends such a static nested class, as the walk up its hierarchy passes through it.
+     *
+     * <p>A supertype the classes in between really extend raw is still answered raw, and so is
+     * one that is only known through a type variable of an enclosing instance.
      *
      * <p>Every exact-supertype lookup goes through here; checkstyle rejects direct calls to
      * gentyref's {@code getExactSuperType} and the member-type lookups built on it.
@@ -533,8 +537,7 @@ public class GenericUtils {
             return exact;
         }
         Class<?> clazz = (Class<?>) type;
-        if (clazz.getTypeParameters().length != 0 || !clazz.isMemberClass()
-                || !Modifier.isStatic(clazz.getModifiers())) {
+        if (clazz.getTypeParameters().length != 0) {
             return exact;
         }
         Map<TypeVariable<?>, Type> arguments = TypeUtils.getTypeArguments(clazz, searchClass);
@@ -542,7 +545,8 @@ public class GenericUtils {
             return exact;
         }
         for (TypeVariable<?> variable : searchClass.getTypeParameters()) {
-            if (arguments.get(variable) == null) {
+            Type argument = arguments.get(variable);
+            if (argument == null || argument instanceof TypeVariable<?>) {
                 return exact;
             }
         }

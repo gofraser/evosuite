@@ -45,6 +45,27 @@ public class GenericFieldStaticNestedSuperTypeTest {
         }
     }
 
+    public static class RawChild extends Base {
+    }
+
+    @Test
+    public void subclassOfStaticNestedClassResolvesTheSuperclassTypeArgument() throws Exception {
+        // Not a member class itself, so it is not covered by the static nested class rule.
+        class Grandchild extends Outer.Child {
+        }
+        assertEquals(TypeUtils.parameterize(Base.class, String.class),
+                GenericUtils.getExactSuperType(Grandchild.class, Base.class));
+        GenericMethod get = new GenericMethod(Base.class.getMethod("get"), Grandchild.class);
+        assertEquals(String.class, get.getGeneratedType());
+        GenericField value = new GenericField(Base.class.getField("value"), Grandchild.class);
+        assertEquals(String.class, value.getFieldType());
+    }
+
+    @Test
+    public void genuinelyRawSuperclassStaysRaw() {
+        assertEquals(Base.class, GenericUtils.getExactSuperType(RawChild.class, Base.class));
+    }
+
     @Test
     public void inheritedMethodResolvesTheSuperclassTypeArgument() throws Exception {
         GenericMethod get = new GenericMethod(Base.class.getMethod("get"), Outer.Child.class);
