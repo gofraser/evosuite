@@ -57,6 +57,7 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.StatisticsSender;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.symbolic.dse.DSEStatistics;
+import org.evosuite.testcase.TestReferenceValidator;
 import org.evosuite.testcase.ConstantInliner;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
@@ -70,7 +71,6 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.MinimizationResult;
 import org.evosuite.testsuite.MinimizationStopCause;
 import org.evosuite.testsuite.OracleReplayConfiguration;
@@ -657,9 +657,9 @@ public class TestSuiteGenerator {
                 // The same check the search applies to its offspring, plus assignments whose
                 // value or target is only defined later, which clone() tolerates but any
                 // positional copy, and the written test, do not.
-                problems = TestParser.findOrphanedVariableReferences(test.getTestCase());
+                problems = TestReferenceValidator.findOrphanedVariableReferences(test.getTestCase());
                 if (problems.isEmpty()) {
-                    problems = TestParser.findUnsafelyCopyableStatements(test.getTestCase());
+                    problems = TestReferenceValidator.findUnsafelyCopyableStatements(test.getTestCase());
                 }
             } catch (Throwable t) {
                 problems = Collections.singletonList("reference check crashed: " + t);

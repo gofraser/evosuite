@@ -235,7 +235,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         // The salvage path already validates, but tests can reach this method
         // from non-salvage paths too — a single bad sequence kills the master
         // process during crossover, so reject before adding to the pool.
-        List<String> copyIssues = org.evosuite.testparser.TestParser
+        List<String> copyIssues = org.evosuite.testcase.TestReferenceValidator
                 .findUnsafelyCopyableStatements(testCase);
         if (!copyIssues.isEmpty()) {
             rejectedValidation++;

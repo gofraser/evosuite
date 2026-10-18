@@ -78,6 +78,7 @@ import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testcase.TestReferenceValidator;
 import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -87,7 +88,6 @@ import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ArrayUtil;
@@ -1118,7 +1118,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             OperatorAttemptResult mutResult) {
         List<String> orphans;
         try {
-            orphans = TestParser.findOrphanedVariableReferences(offspring.getTestCase());
+            orphans = TestReferenceValidator.findOrphanedVariableReferences(offspring.getTestCase());
         } catch (Throwable t) {
             // The orphan check itself crashed — treat as unsafe; drop and log.
             orphans = Collections.singletonList(

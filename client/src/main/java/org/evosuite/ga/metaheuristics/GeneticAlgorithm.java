@@ -53,11 +53,11 @@ import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.StagnationDetector;
 import org.evosuite.llm.search.StagnationLlmHelper;
 import org.evosuite.symbolic.dse.DSEStatistics;
+import org.evosuite.testcase.TestReferenceValidator;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
-import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.factories.TestSuiteChromosomeFactory;
 import org.evosuite.utils.ArrayUtil;
@@ -714,7 +714,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             }
             List<String> orphans;
             try {
-                orphans = TestParser.findOrphanedVariableReferences(tc.getTestCase());
+                orphans = TestReferenceValidator.findOrphanedVariableReferences(tc.getTestCase());
             } catch (Throwable t) {
                 logger.warn("Orphan check crashed for chromosome from {}; dropping ({})",
                         sourceLabel, t.toString());

@@ -49,6 +49,7 @@ import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.testcase.TestReferenceValidator;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
@@ -993,7 +994,7 @@ public class TestRepairLoop {
         }
         List<String> orphans;
         try {
-            orphans = TestParser.findOrphanedVariableReferences(testCase);
+            orphans = TestReferenceValidator.findOrphanedVariableReferences(testCase);
         } catch (Throwable t) {
             logger.warn("Orphan-reference validation crashed for {}; dropping test ({})",
                     context, t.toString());
@@ -1023,7 +1024,7 @@ public class TestRepairLoop {
         }
         List<String> issues;
         try {
-            issues = TestParser.findUnsafelyCopyableStatements(testCase);
+            issues = TestReferenceValidator.findUnsafelyCopyableStatements(testCase);
         } catch (Throwable t) {
             logger.warn("Copy-safety validation crashed for {}; dropping test ({})",
                     context, t.toString());
