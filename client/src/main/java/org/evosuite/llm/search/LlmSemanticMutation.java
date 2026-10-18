@@ -19,96 +19,31 @@
  */
 package org.evosuite.llm.search;
 
-import org.evosuite.Properties;
-import org.evosuite.llm.LlmBudgetExceededException;
-import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
-import org.evosuite.llm.prompt.FewShotExampleProvider;
-import org.evosuite.llm.prompt.PromptBuilder;
-import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.LlmAssertionPolicyResolver;
-import org.evosuite.llm.response.RepairResult;
-import org.evosuite.llm.response.TestRepairLoop;
-import org.evosuite.setup.TestCluster;
-import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Collection;
+import org.evosuite.llm.prompt.TargetedPromptFactory;
+import org.evosuite.llm.search.operator.OperatorTarget;
 
 /**
  * LLM-driven semantic mutation: asks the LLM to produce a meaningfully
- * mutated version of a test that targets different behaviour/state.
+ * mutated version of a test that targets a chosen goal.
  */
-public class LlmSemanticMutation {
-
-    private static final Logger logger = LoggerFactory.getLogger(LlmSemanticMutation.class);
-
-    private final LlmService llmService;
+public class LlmSemanticMutation extends LlmSemanticOperator {
 
     public LlmSemanticMutation() {
         this(LlmService.getInstance());
     }
 
     public LlmSemanticMutation(LlmService llmService) {
-        this.llmService = llmService;
+        super(llmService, LlmFeature.SEMANTIC_MUTATION);
     }
 
-    /**
-     * Attempt a semantic mutation of the given test chromosome.
-     *
-     * @param test  the test to mutate
-     * @param goals uncovered goals for context
-     * @return the mutated chromosome, or null if LLM mutation failed
-     */
-    public TestChromosome mutateSemantically(TestChromosome test,
-                                              Collection<TestFitnessFunction> goals) {
-        if (test == null || !llmService.isAvailable() || !llmService.hasBudget()) {
-            return null;
-        }
-
-        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
-        for (int attempt = 0; attempt < Properties.LLM_OPERATOR_MAX_ATTEMPTS; attempt++) {
-            try {
-                PromptResult prompt = new PromptBuilder()
-                        .withSystemPrompt()
-                        .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                        .withExistingTest(test.getTestCase())
-                        .withUncoveredGoals(goals)
-                        .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
-                        .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                        .withInstruction(
-                                "Produce a semantically mutated version of this test. "
-                                + "Make a meaningful behaviour or state change (not just renaming or "
-                                + "minor edits). Target the uncovered goals if possible. "
-                                + "Return exactly one complete JUnit test method."
-                                + LlmAssertionPolicyResolver.instructionSuffix(false))
-                        .buildWithMetadata();
-
-                String response = llmService.query(prompt, LlmFeature.SEMANTIC_MUTATION);
-                RepairResult result = TestRepairLoop
-                        .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
-                        .attemptParse(response, prompt.getMessages(), LlmFeature.SEMANTIC_MUTATION);
-                if (result.isSuccess() && !result.getTestCases().isEmpty()) {
-                    TestChromosome mutant = new TestChromosome();
-                    mutant.setTestCase(result.getTestCases().get(0));
-                    mutant.setChanged(true);
-                    return mutant;
-                }
-            } catch (LlmBudgetExceededException e) {
-                logger.debug("LLM semantic mutation budget exceeded");
-                return null;
-            } catch (LlmCallFailedException e) {
-                logger.debug("LLM semantic mutation call failed on attempt {}: {}",
-                        attempt, e.getMessage());
-            } catch (RuntimeException e) {
-                logger.debug("LLM semantic mutation error on attempt {}: {}",
-                        attempt, e.getMessage());
-            }
-        }
-        return null;
+    public LlmSemanticMutation(LlmService llmService, TargetedPromptFactory promptFactory) {
+        super(llmService, LlmFeature.SEMANTIC_MUTATION, promptFactory);
     }
 
+    @Override
+    public OperatorTarget.Kind kind() {
+        return OperatorTarget.Kind.MUTATION;
+    }
 }

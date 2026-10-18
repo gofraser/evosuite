@@ -4,8 +4,12 @@
 package org.evosuite.llm;
 
 import org.evosuite.llm.prompt.DecompiledContextProvider;
+import org.evosuite.llm.prompt.StaticPromptContext;
 import org.evosuite.llm.prompt.SutContextProviderFactory;
 import org.evosuite.llm.response.TestRepairLoop;
+import org.evosuite.llm.search.DisruptionRecorder;
+import org.evosuite.llm.search.ProblemCardLogRecorder;
+import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,8 +30,14 @@ public final class LlmRunLifecycle {
     public static void completeRun() {
         cleanup("service", LlmService::closeAndResetForRunCompletion);
         cleanup("SUT context cache", SutContextProviderFactory::resetForRunCompletion);
+        cleanup("static prompt context cache", StaticPromptContext::resetForRunCompletion);
         cleanup("decompiler worker", DecompiledContextProvider::resetForRunCompletion);
         cleanup("parse-compile worker", TestRepairLoop::resetForRunCompletion);
+        // Run-scoped telemetry singletons: without this a JVM running a second search would
+        // publish the previous run's counters and flush its rows under the new run's sidecar name.
+        cleanup("operator attempt log", OperatorAttemptLog::resetInstance);
+        cleanup("disruption recorder", DisruptionRecorder::resetInstance);
+        cleanup("problem-card log", ProblemCardLogRecorder::resetInstance);
     }
 
     private static void cleanup(String component, Runnable action) {

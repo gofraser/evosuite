@@ -26,15 +26,28 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFitnessFunction;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Fluent prompt builder for EvoSuite LLM requests.
  */
 public class PromptBuilder {
+
+    private static final String REMINDER_GENERIC_TYPES = "IMPORTANT: Ensure that all generic types "
+            + "(e.g., Vector<Character>, List<String>) match the "
+            + "class definition exactly. Do not use generic types like Vector<String> if the class "
+            + "expects Vector<Character>.";
+    private static final String REMINDER_VISIBILITY = "IMPORTANT: Do NOT access private or protected fields or methods. "
+            + "Only use public and package-private members in the generated tests.";
+    private static final String REMINDER_CONCRETE_TYPES = "IMPORTANT: Instantiate only concrete classes. "
+            + "Do NOT use new on abstract classes or interfaces; use concrete subtypes listed in dependency context.";
 
     private final SystemPromptProvider systemPromptProvider;
     private final TestClusterSummarizer testClusterSummarizer;
@@ -56,6 +69,13 @@ public class PromptBuilder {
     private PromptResult.DependencySummaryMetadata dependencySummaryMetadata =
             PromptResult.DependencySummaryMetadata.empty();
     private boolean dependencyContextAdded;
+
+    // Populated only when Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT is true: the
+    // memoised SUT/dependency sections are placed here instead of in userSections,
+    // and buildWithMetadata() appends them (SUT first, dependencies second,
+    // regardless of call order) to the system message.
+    private String staticSutSectionText;
+    private String staticDependencySectionText;
 
     private List<TestCase> fewShotExamples;
     private List<String> fewShotSnippets;
@@ -145,30 +165,58 @@ public class PromptBuilder {
     public PromptBuilder withSutContext(String className, TestCluster cluster,
                                         boolean includeTestGenerationReminders,
                                         boolean includeDependencyContext) {
-        SutContextProviderFactory.ContextResult result =
-                sutContextProviderFactory.getContext(className, cluster);
-        this.sutContextModeUsed = result.getModeUsed();
-        this.sutContextUnavailable = result.isContextUnavailable();
-        this.sutContextTruncated = result.isContextTruncated();
-        this.sutContextCommentsStripped = result.isCommentsStripped();
-        this.sutContextSelectivelyTruncated = result.isSelectivelyTruncated();
-        String text = result.getText();
-        if (text != null && !text.trim().isEmpty()) {
-            userSections.add("CLASS UNDER TEST (SUT): " + className + "\n\n" + result.getModeUsed().name()
-                    + " context:\n```\n" + text + "\n```");
-            if (includeTestGenerationReminders) {
-                userSections.add("IMPORTANT: Ensure that all generic types "
-                        + "(e.g., Vector<Character>, List<String>) match the "
-                        + "class definition exactly. Do not use generic types like Vector<String> if the class "
-                        + "expects Vector<Character>.");
-                userSections.add("IMPORTANT: Do NOT access private or protected fields or methods. "
-                        + "Only use public and package-private members in the generated tests.");
+        boolean cached = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
+        StaticPromptContext.SutEntry entry = cached
+                ? StaticPromptContext.sutEntry(className, includeTestGenerationReminders,
+                        () -> renderSutEntry(className, cluster, includeTestGenerationReminders))
+                : renderSutEntry(className, cluster, includeTestGenerationReminders);
+        this.sutContextModeUsed = entry.getModeUsed();
+        this.sutContextUnavailable = entry.isUnavailable();
+        this.sutContextTruncated = entry.isTruncated();
+        this.sutContextCommentsStripped = entry.isCommentsStripped();
+        this.sutContextSelectivelyTruncated = entry.isSelectivelyTruncated();
+        if (entry.getSectionText() != null) {
+            List<String> parts = new ArrayList<>();
+            parts.add(entry.getSectionText());
+            parts.addAll(entry.getReminderTexts());
+            if (cached) {
+                this.staticSutSectionText = String.join("\n\n", parts);
+            } else {
+                userSections.addAll(parts);
             }
         }
         if (includeDependencyContext) {
             addDependencyContext(className, cluster);
         }
         return this;
+    }
+
+    /**
+     * Renders the SUT-context section (via {@link #sutContextProviderFactory}). With prompt
+     * caching on, {@link StaticPromptContext} calls this at most once per
+     * {@code (className, includeReminders)} pair per run.
+     */
+    private StaticPromptContext.SutEntry renderSutEntry(String className, TestCluster cluster,
+                                                         boolean includeReminders) {
+        SutContextProviderFactory.ContextResult result = sutContextProviderFactory.getContext(className, cluster);
+        String text = result.getText();
+        String sectionText = null;
+        List<String> reminders = Collections.emptyList();
+        if (text != null && !text.trim().isEmpty()) {
+            sectionText = "CLASS UNDER TEST (SUT): " + className + "\n\n"
+                    + result.getModeUsed().name() + " context:\n```\n" + text + "\n```";
+            if (includeReminders) {
+                reminders = Arrays.asList(REMINDER_GENERIC_TYPES, REMINDER_VISIBILITY);
+            }
+        }
+        // Same rule SutContextProviderFactory applies to its own cache: SIGNATURE_ONLY depends on
+        // the (expandable) test cluster, and a fallback means the primary mode should be retried.
+        Properties.LlmSutContextMode mode = Properties.LLM_SUT_CONTEXT_MODE;
+        boolean stable = mode != Properties.LlmSutContextMode.SIGNATURE_ONLY
+                && result.getModeUsed() == mode;
+        return new StaticPromptContext.SutEntry(sectionText, reminders, result.getModeUsed(),
+                result.isContextUnavailable(), result.isContextTruncated(), result.isCommentsStripped(),
+                result.isSelectivelyTruncated(), stable);
     }
 
     /** Adds test cluster context (available API signatures) to the user prompt. */
@@ -194,20 +242,67 @@ public class PromptBuilder {
             return;
         }
         String targetClassName = className == null ? "" : className;
+
+        boolean cached = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
+        StaticPromptContext.DependencyEntry entry = cached
+                ? StaticPromptContext.dependencyEntry(targetClassName,
+                        () -> renderDependencyEntry(targetClassName, cluster))
+                : renderDependencyEntry(targetClassName, cluster);
+        this.clusterSummaryTruncated = entry.isTruncated();
+        this.clusterSummaryChars = entry.getTotalCharsBeforeTruncation();
+        this.clusterSummaryBudgetMode = entry.getBudgetMode();
+        this.dependencySummaryMetadata = entry.getMetadata();
+
+        // The dependency entry may have been served from an earlier prompt's
+        // render; if cluster expansion has since added classes the cached
+        // summary never saw, render their signatures dynamically so the
+        // system-message prefix itself never changes. Computed before the
+        // sectionText==null check below so the delta still surfaces even when
+        // the cluster had nothing to summarize at render time. Only meaningful
+        // on the cached path — the uncached path re-renders the full summary
+        // (including any newly added classes) on every call.
+        String growthDelta = null;
+        if (cached) {
+            Set<String> addedClassNames = new TreeSet<>(StaticPromptContext.clusterClassNames(cluster));
+            addedClassNames.removeAll(entry.getClusterClassNamesAtRender());
+            growthDelta = ClusterGrowthDelta.render(testClusterSummarizer, cluster, targetClassName, addedClassNames);
+        }
+
+        if (entry.getSectionText() == null) {
+            if (growthDelta == null) {
+                return;
+            }
+            dependencyContextAdded = true;
+            userSections.add(growthDelta);
+            return;
+        }
+        dependencyContextAdded = true;
+        if (!cached) {
+            userSections.add(entry.getSectionText());
+            userSections.add(REMINDER_CONCRETE_TYPES);
+            return;
+        }
+        this.staticDependencySectionText = entry.getSectionText() + "\n\n" + REMINDER_CONCRETE_TYPES;
+        if (growthDelta != null) {
+            userSections.add(growthDelta);
+        }
+    }
+
+    /**
+     * Renders the dependency-summary section (the expensive reflective cluster walk).
+     * With prompt caching on, {@link StaticPromptContext} calls this at most once per
+     * {@code className} per run.
+     */
+    private StaticPromptContext.DependencyEntry renderDependencyEntry(String targetClassName, TestCluster cluster) {
         BudgetDecision budgetDecision = resolveDependencySummaryBudget();
-        int dependencyBudget = budgetDecision.budgetChars;
-        this.clusterSummaryBudgetMode = budgetDecision.mode;
         TestClusterSummarizer.DependencySummaryResult result =
-                testClusterSummarizer.summarizeDependencies(
-                        cluster, targetClassName, dependencyBudget);
-        this.clusterSummaryTruncated = result.isTruncated();
-        this.clusterSummaryChars = result.getTotalCharsBeforeTruncation();
-        this.dependencySummaryMetadata = new PromptResult.DependencySummaryMetadata(
+                testClusterSummarizer.summarizeDependencies(cluster, targetClassName, budgetDecision.budgetChars);
+        PromptResult.DependencySummaryMetadata metadata = new PromptResult.DependencySummaryMetadata(
                 result.getBudgetCharsUsed(),
                 result.getPerClassSoftCapUsed(),
                 result.isPerClassSoftCapAuto(),
                 result.isCompactSignaturesUsed(),
-                clusterSummaryBudgetMode,
+                budgetDecision.mode,
                 result.getCandidateClasses(),
                 result.getEmittedClasses(),
                 result.getEmittedTier1Classes(),
@@ -218,17 +313,16 @@ public class PromptBuilder {
                 result.getDroppedByPerClassCap(),
                 result.getDroppedByGlobalBudget());
         String summary = result.getText();
-        if (summary != null && !summary.trim().isEmpty()) {
-            userSections.add("Available dependency types (standard Java library "
-                    + "classes may also be used freely):\n" + summary);
-            userSections.add("IMPORTANT: Instantiate only concrete classes. "
-                    + "Do NOT use new on abstract classes or interfaces; use concrete subtypes listed in dependency "
-                            + "context.");
-            dependencyContextAdded = true;
-        }
+        String sectionText = (summary != null && !summary.trim().isEmpty())
+                ? StaticPromptContext.DEPENDENCY_SECTION_HEADER + "\n" + summary
+                : null;
+        return new StaticPromptContext.DependencyEntry(sectionText, result.isTruncated(),
+                result.getTotalCharsBeforeTruncation(), budgetDecision.mode, metadata,
+                StaticPromptContext.clusterClassNames(cluster));
     }
 
-    private BudgetDecision resolveDependencySummaryBudget() {
+    /** Package-private (not private) so {@link ClusterGrowthDelta} can size its own budget off the same logic. */
+    static BudgetDecision resolveDependencySummaryBudget() {
         int absoluteOverride = Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS;
         if (absoluteOverride > 0) {
             return new BudgetDecision(absoluteOverride, "absolute_override");
@@ -256,7 +350,7 @@ public class PromptBuilder {
         return new BudgetDecision(bounded, "dynamic_scaled");
     }
 
-    private static class BudgetDecision {
+    static class BudgetDecision {
         final int budgetChars;
         final String mode;
 
@@ -473,6 +567,16 @@ public class PromptBuilder {
      */
     public PromptResult buildWithMetadata() {
         String resolvedSystem = systemPrompt == null ? systemPromptProvider.getSystemPrompt() : systemPrompt;
+        if (staticSutSectionText != null || staticDependencySectionText != null) {
+            List<String> staticSections = new ArrayList<>();
+            if (staticSutSectionText != null) {
+                staticSections.add(staticSutSectionText);
+            }
+            if (staticDependencySectionText != null) {
+                staticSections.add(staticDependencySectionText);
+            }
+            resolvedSystem = resolvedSystem + "\n\n" + String.join("\n\n", staticSections);
+        }
         String userPrompt = String.join("\n\n", userSections);
         if (userPrompt.trim().isEmpty()) {
             userPrompt = "Generate one valid Java test method.";

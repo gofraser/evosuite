@@ -125,7 +125,7 @@ public class LlmPostProcessor {
         return isAnyFeatureEnabled(phaseContext.options())
                 && llmService != null
                 && llmService.isAvailable()
-                && llmService.hasBudget();
+                && llmService.hasBudget(LlmFeature.POST_PROCESSING);
     }
 
     /** Tracks every post-processing runtime variable at its empty default. */
@@ -203,7 +203,8 @@ public class LlmPostProcessor {
             publishMetrics(phaseContext, new PostProcessingMetrics("empty_suite"));
             return 0;
         }
-        if (llmService == null || !llmService.isAvailable() || !llmService.hasBudget()) {
+        if (llmService == null || !llmService.isAvailable()
+                || !llmService.hasBudget(LlmFeature.POST_PROCESSING)) {
             logger.info("Unified LLM post-processing skipped: LLM service unavailable or budget exhausted");
             publishMetrics(phaseContext, new PostProcessingMetrics("service_unavailable_or_no_budget"));
             return 0;
@@ -283,7 +284,7 @@ public class LlmPostProcessor {
     }
 
     boolean hasLlmBudget() {
-        return llmService != null && llmService.hasBudget();
+        return llmService != null && llmService.hasBudget(LlmFeature.POST_PROCESSING);
     }
 
     String queryWithPostProcessingTraceContext(LlmPostProcessingPhaseContext phaseContext,
@@ -803,7 +804,8 @@ public class LlmPostProcessor {
                 && rejected.size() > 1) {
             rejected = new ArrayList<>(rejected.subList(0, 1));
         }
-        if (!llmService.hasBudget() || (limits.maxCalls > 0 && requestedCalls >= limits.maxCalls)) {
+        if (!llmService.hasBudget(LlmFeature.POST_PROCESSING)
+                || (limits.maxCalls > 0 && requestedCalls >= limits.maxCalls)) {
             return AssertionRepairResult.skippedBudget(acceptedResponse);
         }
         if (!canStartAnotherLlmCall(phaseContext)) {

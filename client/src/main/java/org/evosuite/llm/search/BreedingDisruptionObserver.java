@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.testcase.TestChromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,9 +66,8 @@ public class BreedingDisruptionObserver {
      * @param attemptResult   LLM operator attempt result
      * @param crossoverApplied whether any crossover was applied
      * @param generation      current generation number
-     * @param isolatedFitness isolated probe fitness (NaN if not probed)
-     * @param probeFailure    true if isolated probe evaluation failed
-     * @param probeSnapshot   the post-crossover snapshot (null if not probed)
+     * @param postCrossoverProbe isolated probe of the offspring after crossover ({@link IsolatedProbe#NONE} if not probed)
+     * @param probe           isolated view of the semantic result and its twin (never null; {@link SemanticProbeResult#NONE} if none)
      */
     public void recordCrossover(TestChromosome offspring,
                                 TestChromosome parent1,
@@ -76,13 +76,15 @@ public class BreedingDisruptionObserver {
                                 OperatorAttemptResult attemptResult,
                                 boolean crossoverApplied,
                                 int generation,
-                                double isolatedFitness,
-                                boolean probeFailure,
-                                TestChromosome probeSnapshot) {
+                                IsolatedProbe postCrossoverProbe,
+                                SemanticProbeResult probe) {
         if (recorder == null) {
             return;
         }
         try {
+            OperatorTarget target = attemptResult.getTarget();
+            TestChromosome probeSnapshot = postCrossoverProbe.getSnapshot();
+            boolean probeFailure = postCrossoverProbe.isFailure();
             int postStmts = DisruptionHelper.statementCount(offspring);
             int delta = postStmts - preStmtCount;
 
@@ -110,7 +112,7 @@ public class BreedingDisruptionObserver {
 
             if (isolatedProbes && crossoverApplied && probeSnapshot != null) {
                 builder.isolatedProbe(true);
-                builder.isolatedFitnessPostCrossover(isolatedFitness);
+                builder.isolatedFitnessPostCrossover(postCrossoverProbe.getFitness());
                 if (probeFailure) {
                     builder.probeFailure(true);
                 }
@@ -127,6 +129,14 @@ public class BreedingDisruptionObserver {
                 }
             }
 
+            if (target != null) {
+                builder.targetGoalId(GoalId.of(target.getGoal()));
+                builder.targetDistanceBefore(target.getDistance());
+                // The semantic child is measured as the LLM left it, before mutation runs on it.
+                builder.targetDistanceAfter(probe.getSemanticTargetDistance());
+            }
+            builder.probe(probe);
+
             recorder.record(builder.build());
         } catch (Exception e) {
             logger.debug("Failed to record crossover disruption event", e);
@@ -142,9 +152,8 @@ public class BreedingDisruptionObserver {
      * @param attemptResult                LLM operator attempt result
      * @param accepted                     true if offspring was changed and added to population
      * @param generation                   current generation number
-     * @param postCrossoverSnapshot        post-crossover snapshot for isolated probe (null if not probed)
-     * @param isolatedFitnessPostCrossover isolated fitness after crossover (NaN if not probed)
-     * @param crossoverProbeFailure        true if crossover probe failed
+     * @param postCrossoverProbe           isolated probe of the offspring after crossover ({@link IsolatedProbe#NONE} if not probed)
+     * @param probe                        isolated view of the semantic result and its twin (never null; {@link SemanticProbeResult#NONE} if none)
      */
     public void recordMutation(TestChromosome offspring,
                                TestChromosome parent,
@@ -152,13 +161,15 @@ public class BreedingDisruptionObserver {
                                OperatorAttemptResult attemptResult,
                                boolean accepted,
                                int generation,
-                               TestChromosome postCrossoverSnapshot,
-                               double isolatedFitnessPostCrossover,
-                               boolean crossoverProbeFailure) {
+                               IsolatedProbe postCrossoverProbe,
+                               SemanticProbeResult probe) {
         if (recorder == null) {
             return;
         }
         try {
+            OperatorTarget target = attemptResult.getTarget();
+            double isolatedFitnessPostCrossover = postCrossoverProbe.getFitness();
+            boolean crossoverProbeFailure = postCrossoverProbe.isFailure();
             int postStmts = DisruptionHelper.statementCount(offspring);
             int delta = postStmts - preStmtCount;
 
@@ -192,7 +203,7 @@ public class BreedingDisruptionObserver {
                 builder.speciationMetricDistance(DisruptionHelper.speciationDistance(parent, offspring));
             }
 
-            if (postCrossoverSnapshot != null || crossoverProbeFailure) {
+            if (postCrossoverProbe.getSnapshot() != null || crossoverProbeFailure) {
                 builder.isolatedProbe(true);
                 builder.isolatedFitnessPostCrossover(isolatedFitnessPostCrossover);
 
@@ -209,6 +220,18 @@ public class BreedingDisruptionObserver {
                     builder.probeFailure(true);
                 }
             }
+
+            if (target != null) {
+                builder.targetGoalId(GoalId.of(target.getGoal()));
+                builder.targetDistanceBefore(target.getDistance());
+                double targetDistanceAfter = Double.NaN;
+                if (accepted) {
+                    Double v = offspring.getFitnessValues().get(target.getGoal());
+                    targetDistanceAfter = v == null ? Double.NaN : v;
+                }
+                builder.targetDistanceAfter(targetDistanceAfter);
+            }
+            builder.probe(probe);
 
             recorder.record(builder.build());
         } catch (Exception e) {

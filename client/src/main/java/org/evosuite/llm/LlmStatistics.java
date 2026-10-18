@@ -577,10 +577,12 @@ public class LlmStatistics {
     private final AtomicLong failedCalls = new AtomicLong();
     private final AtomicLong timedOutCalls = new AtomicLong();
     private final AtomicLong inputTokens = new AtomicLong();
+    private final AtomicLong cachedInputTokens = new AtomicLong();
     private final AtomicLong outputTokens = new AtomicLong();
     private final AtomicLong totalLatencyMs = new AtomicLong();
     private final Map<LlmFeature, FeatureStats> perFeature = new ConcurrentHashMap<>();
     private volatile String configuredModel = "";
+    private volatile String configuredOperatorModel = "";
 
     /**
      * Associates this statistics instance with the immutable configuration of
@@ -590,20 +592,37 @@ public class LlmStatistics {
     void setConfiguration(LlmConfiguration configuration) {
         if (configuration == null || configuration.getProvider() == Properties.LlmProvider.NONE) {
             configuredModel = "";
+            configuredOperatorModel = "";
         } else {
             configuredModel = configuration.getModel();
+            configuredOperatorModel = configuration.modelFor(LlmFeature.SEMANTIC_MUTATION);
         }
     }
 
-    /** Records a successful LLM call for the given feature, updating token and latency totals. */
+    /**
+     * Records a successful LLM call for the given feature, updating token and
+     * latency totals, with zero cached input tokens. Retained for callers
+     * that do not track provider-side prompt caching.
+     */
     public void recordCall(LlmFeature feature, int inputTokenCount, int outputTokenCount, long latencyMs) {
+        recordCall(feature, inputTokenCount, 0, outputTokenCount, latencyMs);
+    }
+
+    /**
+     * Records a successful LLM call for the given feature, updating token and
+     * latency totals. {@code cachedInputTokenCount} is the portion of
+     * {@code inputTokenCount} that the provider served from a prompt cache.
+     */
+    public void recordCall(LlmFeature feature, int inputTokenCount, int cachedInputTokenCount,
+                           int outputTokenCount, long latencyMs) {
         totalCalls.incrementAndGet();
         successfulCalls.incrementAndGet();
         inputTokens.addAndGet(Math.max(0, inputTokenCount));
+        cachedInputTokens.addAndGet(Math.max(0, cachedInputTokenCount));
         outputTokens.addAndGet(Math.max(0, outputTokenCount));
         totalLatencyMs.addAndGet(Math.max(0L, latencyMs));
         perFeature.computeIfAbsent(feature, ignored -> new FeatureStats())
-                .recordSuccess(inputTokenCount, outputTokenCount, latencyMs);
+                .recordSuccess(inputTokenCount, cachedInputTokenCount, outputTokenCount, latencyMs);
     }
 
     /**
@@ -654,6 +673,10 @@ public class LlmStatistics {
         return inputTokens.get();
     }
 
+    public long getCachedInputTokens() {
+        return cachedInputTokens.get();
+    }
+
     public long getOutputTokens() {
         return outputTokens.get();
     }
@@ -671,18 +694,61 @@ public class LlmStatistics {
         return snapshots;
     }
 
+    /** Returns the per-feature cached-input-tokens runtime variable for {@code feature}. */
+    static RuntimeVariable cachedInputTokensVariable(LlmFeature feature) {
+        if (feature == null) {
+            return RuntimeVariable.LLM_Cached_Input_Tokens;
+        }
+        switch (feature) {
+            case SEEDING:
+                return RuntimeVariable.LLM_Seeding_Cached_Input_Tokens;
+            case TEST_FACTORY:
+                return RuntimeVariable.LLM_TestFactory_Cached_Input_Tokens;
+            case ASYNC_PRODUCER:
+                return RuntimeVariable.LLM_AsyncProducer_Cached_Input_Tokens;
+            case STAGNATION:
+                return RuntimeVariable.LLM_Stagnation_Cached_Input_Tokens;
+            case CONSTANT_POOL_ENRICHMENT:
+                return RuntimeVariable.LLM_ConstantPoolEnrichment_Cached_Input_Tokens;
+            case OBJECT_POOL_ENRICHMENT:
+                return RuntimeVariable.LLM_ObjectPoolEnrichment_Cached_Input_Tokens;
+            case CAST_CLASS_ENRICHMENT:
+                return RuntimeVariable.LLM_CastClassEnrichment_Cached_Input_Tokens;
+            case TEST_REPAIR:
+                return RuntimeVariable.LLM_TestRepair_Cached_Input_Tokens;
+            case POST_PROCESSING:
+                return RuntimeVariable.LLM_PostProcessing_Cached_Input_Tokens;
+            case SEMANTIC_MUTATION:
+                return RuntimeVariable.LLM_SemanticMutation_Cached_Input_Tokens;
+            case SEMANTIC_CROSSOVER:
+                return RuntimeVariable.LLM_SemanticCrossover_Cached_Input_Tokens;
+            case ITERATIVE_STRATEGY:
+                return RuntimeVariable.LLM_IterativeStrategy_Cached_Input_Tokens;
+            default:
+                throw new IllegalArgumentException("Unhandled LLM feature: " + feature);
+        }
+    }
+
     /** Publishes collected LLM statistics as EvoSuite runtime variables. */
     public void publishRuntimeVariables() {
         // Do not reset counters here: they are accumulated during the run and
         // must be published as-is at shutdown.
         ClientServices.track(RuntimeVariable.LLM_Model, configuredModel);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Model, configuredOperatorModel);
         ClientServices.track(RuntimeVariable.LLM_Calls, getTotalCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, getSuccessfulCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, getFailedCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_TimedOut, getTimedOutCalls());
         ClientServices.track(RuntimeVariable.LLM_Input_Tokens, getInputTokens());
+        ClientServices.track(RuntimeVariable.LLM_Cached_Input_Tokens, getCachedInputTokens());
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, getOutputTokens());
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, getTotalLatencyMs());
+        Map<LlmFeature, FeatureSnapshot> featureSnapshots = getFeatureSnapshots();
+        for (LlmFeature feature : LlmFeature.values()) {
+            FeatureSnapshot snapshot = featureSnapshots.get(feature);
+            ClientServices.track(cachedInputTokensVariable(feature),
+                    snapshot == null ? 0L : snapshot.getCachedInputTokens());
+        }
         ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, getPoolEnrichmentElapsedMs());
         ClientServices.track(RuntimeVariable.LLM_Pool_Enrichment_Elapsed_Millis, getPoolEnrichmentElapsedMs());
         ClientServices.track(RuntimeVariable.LLM_Initial_Population_Elapsed_Millis,
@@ -718,6 +784,56 @@ public class LlmStatistics {
             ClientServices.track(toSurvivedCandidateRuntimeVariable(type), getDiagnosticCandidatesSurvived(type));
             ClientServices.track(toCoverageGainRuntimeVariable(type), getDiagnosticCoverageGains(type));
         }
+        OperatorFeatureTotals operatorTotals = OperatorFeatureTotals.of(featureSnapshots);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Calls, operatorTotals.calls);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Input_Tokens, operatorTotals.inputTokens);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Cached_Input_Tokens, operatorTotals.cachedInputTokens);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Output_Tokens, operatorTotals.outputTokens);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Latency_Millis, operatorTotals.latencyMs);
+    }
+
+    /**
+     * Sums the {@code SEMANTIC_MUTATION} and {@code SEMANTIC_CROSSOVER} feature
+     * snapshots into the combined {@code LLM_Operator_*} call/token/latency
+     * totals. The remaining {@code LLM_Operator_*} runtime variables (targets
+     * selected, offspring outcomes, async drop counters, and the sidecar path)
+     * are per-target counts published separately by the search loop.
+     */
+    static final class OperatorFeatureTotals {
+        final long calls;
+        final long inputTokens;
+        final long cachedInputTokens;
+        final long outputTokens;
+        final long latencyMs;
+
+        private OperatorFeatureTotals(long calls, long inputTokens, long cachedInputTokens,
+                                      long outputTokens, long latencyMs) {
+            this.calls = calls;
+            this.inputTokens = inputTokens;
+            this.cachedInputTokens = cachedInputTokens;
+            this.outputTokens = outputTokens;
+            this.latencyMs = latencyMs;
+        }
+
+        static OperatorFeatureTotals of(Map<LlmFeature, FeatureSnapshot> snapshots) {
+            long calls = 0L;
+            long input = 0L;
+            long cachedInput = 0L;
+            long output = 0L;
+            long latency = 0L;
+            for (LlmFeature feature : LlmFeature.values()) {
+                FeatureSnapshot snapshot = feature.isOperator() ? snapshots.get(feature) : null;
+                if (snapshot == null) {
+                    continue;
+                }
+                calls += snapshot.getCalls();
+                input += snapshot.getInputTokens();
+                cachedInput += snapshot.getCachedInputTokens();
+                output += snapshot.getOutputTokens();
+                latency += snapshot.getLatencyMs();
+            }
+            return new OperatorFeatureTotals(calls, input, cachedInput, output, latency);
+        }
     }
 
     /**
@@ -735,13 +851,18 @@ public class LlmStatistics {
      */
     public static void initializeRuntimeVariables() {
         ClientServices.track(RuntimeVariable.LLM_Model, "");
+        ClientServices.track(RuntimeVariable.LLM_Operator_Model, "");
         ClientServices.track(RuntimeVariable.LLM_Calls, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_TimedOut, 0);
         ClientServices.track(RuntimeVariable.LLM_Input_Tokens, 0);
+        ClientServices.track(RuntimeVariable.LLM_Cached_Input_Tokens, 0);
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, 0);
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, 0);
+        for (LlmFeature feature : LlmFeature.values()) {
+            ClientServices.track(cachedInputTokensVariable(feature), 0);
+        }
         ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, 0);
         ClientServices.track(RuntimeVariable.LLM_Pool_Enrichment_Elapsed_Millis, 0);
         ClientServices.track(RuntimeVariable.LLM_Initial_Population_Elapsed_Millis, 0);
@@ -847,6 +968,26 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.Disruption_Standard_Crossovers, 0);
         ClientServices.track(RuntimeVariable.Disruption_Semantic_Crossovers, 0);
         ClientServices.track(RuntimeVariable.Disruption_Semantic_Fallbacks, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Targets_Selected, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Targets_Mutation, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Targets_Crossover, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Calls, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Calls_Dropped_Budget, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Calls_Dropped_InFlight, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Calls_Dropped_Time, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Calls_Failed, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Offspring_Parsed, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Offspring_Admitted, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Offspring_Survived, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Target_Hits, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Target_Improved, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_InFlight_Generations, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Candidates_StaleTarget, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Input_Tokens, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Cached_Input_Tokens, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Output_Tokens, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Latency_Millis, 0);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Sidecar_Path, "");
     }
 
     private static RuntimeVariable toExtractedRuntimeVariable(ProblemCardType type) {
@@ -1130,12 +1271,14 @@ public class LlmStatistics {
         private final AtomicLong failures = new AtomicLong();
         private final AtomicLong timedOut = new AtomicLong();
         private final AtomicLong input = new AtomicLong();
+        private final AtomicLong cachedInput = new AtomicLong();
         private final AtomicLong output = new AtomicLong();
         private final AtomicLong latency = new AtomicLong();
 
-        void recordSuccess(int in, int out, long latencyMs) {
+        void recordSuccess(int in, int cachedIn, int out, long latencyMs) {
             calls.incrementAndGet();
             input.addAndGet(Math.max(0, in));
+            cachedInput.addAndGet(Math.max(0, cachedIn));
             output.addAndGet(Math.max(0, out));
             latency.addAndGet(Math.max(0L, latencyMs));
         }
@@ -1160,7 +1303,7 @@ public class LlmStatistics {
         /** Returns an immutable snapshot of this feature's statistics. */
         FeatureSnapshot snapshot() {
             return new FeatureSnapshot(calls.get(), failures.get(), timedOut.get(),
-                    input.get(), output.get(), latency.get());
+                    input.get(), cachedInput.get(), output.get(), latency.get());
         }
     }
 
@@ -1169,16 +1312,28 @@ public class LlmStatistics {
         private final long failures;
         private final long timedOut;
         private final long inputTokens;
+        private final long cachedInputTokens;
         private final long outputTokens;
         private final long latencyMs;
 
-        /** Constructs a snapshot with per-feature call, failure, token, and latency counts. */
-        public FeatureSnapshot(long calls, long failures, long timedOut, 
+        /**
+         * Constructs a snapshot with per-feature call, failure, token, and
+         * latency counts, with zero cached input tokens. Retained for source
+         * compatibility with callers that predate cached-token accounting.
+         */
+        public FeatureSnapshot(long calls, long failures, long timedOut,
                                long inputTokens, long outputTokens, long latencyMs) {
+            this(calls, failures, timedOut, inputTokens, 0L, outputTokens, latencyMs);
+        }
+
+        /** Constructs a snapshot with per-feature call, failure, token, and latency counts. */
+        public FeatureSnapshot(long calls, long failures, long timedOut,
+                               long inputTokens, long cachedInputTokens, long outputTokens, long latencyMs) {
             this.calls = calls;
             this.failures = failures;
             this.timedOut = timedOut;
             this.inputTokens = inputTokens;
+            this.cachedInputTokens = cachedInputTokens;
             this.outputTokens = outputTokens;
             this.latencyMs = latencyMs;
         }
@@ -1197,6 +1352,10 @@ public class LlmStatistics {
 
         public long getInputTokens() {
             return inputTokens;
+        }
+
+        public long getCachedInputTokens() {
+            return cachedInputTokens;
         }
 
         public long getOutputTokens() {

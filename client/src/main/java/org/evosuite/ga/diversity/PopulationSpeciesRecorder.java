@@ -38,6 +38,7 @@ import java.util.List;
  *   n_injected_post_incubator,injection_source,
  *   n_injected_attempts,injection_attempt_source,
  *   n_injected_attempts_llm_stagnation,n_injected_attempts_llm_async,
+ *   n_injected_attempts_llm_operator,
  *   n_injected_attempts_island_immigrant,n_injected_attempts_local_search,
  *   covered_goals,remaining_goals,n_fronts,best_fitness,mean_fitness,
  *   diversity,largest_species_share,n_quota_protected,n_newborn_protected,
@@ -64,6 +65,7 @@ public final class PopulationSpeciesRecorder {
             + "n_injected_incubator,n_injected_post_incubator,"
             + "injection_source,n_injected_attempts,injection_attempt_source,"
             + "n_injected_attempts_llm_stagnation,n_injected_attempts_llm_async,"
+            + "n_injected_attempts_llm_operator,"
             + "n_injected_attempts_island_immigrant,n_injected_attempts_local_search,"
             + "covered_goals,remaining_goals,n_fronts,best_fitness,mean_fitness,"
             + "diversity,largest_species_share,n_quota_protected,n_newborn_protected,"
@@ -182,6 +184,7 @@ public final class PopulationSpeciesRecorder {
         public final InjectionSource dominantAttemptSource;
         public final int numInjectedAttemptsLlmStagnation;
         public final int numInjectedAttemptsLlmAsync;
+        public final int numInjectedAttemptsLlmOperator;
         public final int numInjectedAttemptsIslandImmigrant;
         public final int numInjectedAttemptsLocalSearch;
         public final int coveredGoals;
@@ -217,6 +220,7 @@ public final class PopulationSpeciesRecorder {
                                   InjectionSource dominantAttemptSource,
                                   int numInjectedAttemptsLlmStagnation,
                                   int numInjectedAttemptsLlmAsync,
+                                  int numInjectedAttemptsLlmOperator,
                                   int numInjectedAttemptsIslandImmigrant,
                                   int numInjectedAttemptsLocalSearch,
                                   int coveredGoals,
@@ -237,7 +241,8 @@ public final class PopulationSpeciesRecorder {
             this(gen, elapsedMs, popSize, numSpecies, numInjected, numInjectedIncubator,
                     numInjectedPostIncubator, dominantInjectionSource, numInjectedAttempts,
                     dominantAttemptSource, numInjectedAttemptsLlmStagnation,
-                    numInjectedAttemptsLlmAsync, numInjectedAttemptsIslandImmigrant,
+                    numInjectedAttemptsLlmAsync, numInjectedAttemptsLlmOperator,
+                    numInjectedAttemptsIslandImmigrant,
                     numInjectedAttemptsLocalSearch, coveredGoals, remainingGoals, numFronts,
                     bestFitness, meanFitness, diversity, largestSpeciesShare,
                     numQuotaProtected, numNewbornProtected, numIncubatorProtected,
@@ -260,6 +265,7 @@ public final class PopulationSpeciesRecorder {
                                   InjectionSource dominantAttemptSource,
                                   int numInjectedAttemptsLlmStagnation,
                                   int numInjectedAttemptsLlmAsync,
+                                  int numInjectedAttemptsLlmOperator,
                                   int numInjectedAttemptsIslandImmigrant,
                                   int numInjectedAttemptsLocalSearch,
                                   int coveredGoals,
@@ -290,6 +296,7 @@ public final class PopulationSpeciesRecorder {
             this.dominantAttemptSource = dominantAttemptSource;
             this.numInjectedAttemptsLlmStagnation = numInjectedAttemptsLlmStagnation;
             this.numInjectedAttemptsLlmAsync = numInjectedAttemptsLlmAsync;
+            this.numInjectedAttemptsLlmOperator = numInjectedAttemptsLlmOperator;
             this.numInjectedAttemptsIslandImmigrant = numInjectedAttemptsIslandImmigrant;
             this.numInjectedAttemptsLocalSearch = numInjectedAttemptsLocalSearch;
             this.coveredGoals = coveredGoals;
@@ -325,6 +332,7 @@ public final class PopulationSpeciesRecorder {
               .append(dominantAttemptSource == null ? "" : dominantAttemptSource.name()).append(',')
               .append(numInjectedAttemptsLlmStagnation).append(',')
               .append(numInjectedAttemptsLlmAsync).append(',')
+              .append(numInjectedAttemptsLlmOperator).append(',')
               .append(numInjectedAttemptsIslandImmigrant).append(',')
               .append(numInjectedAttemptsLocalSearch).append(',')
               .append(coveredGoals).append(',')

@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.factory;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.llm.LlmBudgetExceededException;
@@ -72,11 +73,8 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     private static final long serialVersionUID = -1785138098554527622L;
     private static final Logger logger = LoggerFactory.getLogger(LlmSeededPopulationFactory.class);
     /** Blocking provider I/O must never occupy ForkJoinPool.commonPool workers. */
-    private static final ExecutorService LLM_SEED_EXECUTOR = Executors.newCachedThreadPool(r -> {
-        Thread thread = new Thread(r, "llm-initial-seeding");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private static final ExecutorService LLM_SEED_EXECUTOR = Executors.newCachedThreadPool(
+            r -> LlmPrivilegedThreads.newThread(r, "initial-seeding"));
 
     static {
         Runtime.getRuntime().addShutdownHook(new Thread(LLM_SEED_EXECUTOR::shutdownNow,
@@ -253,7 +251,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                     + "(check LLM provider configuration and JDK compiler availability)");
             return Collections.emptyList();
         }
-        if (!llmService.hasBudget()) {
+        if (!llmService.hasBudget(LlmFeature.SEEDING)) {
             LoggingUtils.getEvoLogger().info("* LLM seeding skipped: call budget exhausted");
             return Collections.emptyList();
         }

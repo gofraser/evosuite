@@ -80,6 +80,26 @@ class ProblemCardFormatterTest {
     }
 
     @Test
+    void operandHintRendersBetweenEvidenceAndConcreteExamples() {
+        TestCase example = testCase("working-prefix");
+        ProblemCard anchored = ProblemCard.builder(ProblemCardType.UNREACHED_METHOD)
+                .title("Method not reached")
+                .evidence(Collections.singletonList("zero executions"))
+                .operandHint("Last evaluation: 1 vs 0 (IF_ICMPLE); need left > right")
+                .concreteExample(example, "Reusable successful prefix")
+                .build();
+
+        String formatted = ProblemCardFormatter.format(
+                Collections.singletonList(anchored), Collections.singletonList(example));
+
+        int evidenceIdx = formatted.indexOf("zero executions");
+        int hintIdx = formatted.indexOf("Last evaluation: 1 vs 0 (IF_ICMPLE); need left > right");
+        int exampleIdx = formatted.indexOf("Reusable successful prefix");
+        assertTrue(evidenceIdx >= 0 && hintIdx > evidenceIdx && exampleIdx > hintIdx,
+                "expected evidence, then operand hint, then concrete example: " + formatted);
+    }
+
+    @Test
     void inlinesAtMostEightStatementsWhenConcreteExampleIsNotSelected() {
         DefaultTestCase example = new DefaultTestCase();
         for (int i = 0; i < 10; i++) {

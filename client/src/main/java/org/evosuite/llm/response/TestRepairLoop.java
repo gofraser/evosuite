@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.response;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
@@ -39,6 +40,8 @@ import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.ClusterGrowthDelta;
+import org.evosuite.llm.prompt.StaticPromptContext;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
 import org.evosuite.runtime.GuiSupport;
@@ -84,6 +87,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 /**
@@ -165,11 +169,7 @@ public class TestRepairLoop {
     private static volatile ExecutorService parseCompileExecutor = createParseCompileExecutor();
 
     private static ExecutorService createParseCompileExecutor() {
-        return Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, "evosuite-llm-parse-compile");
-            t.setDaemon(true);
-            return t;
-        });
+        return Executors.newSingleThreadExecutor(r -> LlmPrivilegedThreads.newThread(r, "parse-compile"));
     }
 
     /** Error patterns that the LLM cannot fix (native libs, sandbox, etc.). */
@@ -236,6 +236,20 @@ public class TestRepairLoop {
     private final DependencyCodeContextResolver dependencyCodeResolver = new DependencyCodeContextResolver();
     private final RepairHintResolver repairHintResolver = new RepairHintResolver();
     private boolean expansionAttempted;
+    /** Signature summarizer for {@link #describedDependencyClasses}'s cluster-growth delta. */
+    private final TestClusterSummarizer dependencyGrowthSummarizer = new TestClusterSummarizer();
+    /**
+     * Test-only seam: overrides the {@code TestCluster.getInstance()} used to render
+     * the cluster-growth signature delta, since the real test cluster is a global
+     * singleton that is awkward to control from a unit test.
+     */
+    private Supplier<TestCluster> testClusterSupplier = TestCluster::getInstance;
+    /**
+     * Classes whose dependency signatures have already been sent to the model this
+     * repair conversation (cluster-growth delta). Conversation-scoped like
+     * {@link #expansionAttempted}: reset per {@link #attemptParse} call, never static.
+     */
+    private final Set<String> describedDependencyClasses = new LinkedHashSet<>();
     /** FQCNs whose static initializer has failed during this repair conversation. */
     private final Set<String> poisonedClasses = new LinkedHashSet<>();
     /** Hint-id -> last repair attempt where it was emitted, for cooldown/dedup. */
@@ -299,13 +313,43 @@ public class TestRepairLoop {
         private final boolean keepAssertionsInParsedTests;
         private final boolean repairOnAssertionFailures;
         private final boolean instructRepairToAvoidAssertions;
+        private final boolean executeParsedTests;
+        private final boolean expandClusterOnDemand;
 
         public static RepairOptions defaults() {
-            return new RepairOptions(true, true, false);
+            return new RepairOptions(true, true, false, true, true);
         }
 
         public static RepairOptions forAssertionPolicy(boolean keepAssertions) {
-            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions);
+            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions, true, true);
+        }
+
+        /**
+         * Options for callers that will evaluate the parsed tests themselves
+         * (e.g. a genetic-algorithm operator running on a worker thread) and
+         * must not touch {@link org.evosuite.testcase.execution.TestCaseExecutor}
+         * from the repair loop. With this option, {@link #attemptParse} never
+         * executes a parsed test: it only compile-checks candidates, and later
+         * repair turns react to parse/compile diagnostics rather than runtime
+         * failures. The execution-based brute-force salvage is skipped as well,
+         * since it would otherwise execute the failed test directly.
+         */
+        public static RepairOptions parseOnly(boolean keepAssertions) {
+            return parseOnly(keepAssertions, true);
+        }
+
+        /**
+         * Same as {@link #parseOnly(boolean)}, but also controls whether the
+         * loop may expand the test cluster itself. A worker thread must pass
+         * {@code false}: {@link TestCluster} is process-wide and the search
+         * thread reads it concurrently, so expansion has to happen on the
+         * search thread instead. With expansion disallowed, {@link
+         * #attemptParse} stops as soon as it would otherwise expand and
+         * returns a failure flagged {@link RepairResult#needsClusterExpansion()}.
+         */
+        public static RepairOptions parseOnly(boolean keepAssertions, boolean expandClusterOnDemand) {
+            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions, false,
+                    expandClusterOnDemand);
         }
 
         /**
@@ -318,9 +362,20 @@ public class TestRepairLoop {
         public RepairOptions(boolean keepAssertionsInParsedTests,
                              boolean repairOnAssertionFailures,
                              boolean instructRepairToAvoidAssertions) {
+            this(keepAssertionsInParsedTests, repairOnAssertionFailures,
+                    instructRepairToAvoidAssertions, true, true);
+        }
+
+        public RepairOptions(boolean keepAssertionsInParsedTests,
+                             boolean repairOnAssertionFailures,
+                             boolean instructRepairToAvoidAssertions,
+                             boolean executeParsedTests,
+                             boolean expandClusterOnDemand) {
             this.keepAssertionsInParsedTests = keepAssertionsInParsedTests;
             this.repairOnAssertionFailures = repairOnAssertionFailures;
             this.instructRepairToAvoidAssertions = instructRepairToAvoidAssertions;
+            this.executeParsedTests = executeParsedTests;
+            this.expandClusterOnDemand = expandClusterOnDemand;
         }
 
         public boolean isKeepAssertionsInParsedTests() {
@@ -334,6 +389,27 @@ public class TestRepairLoop {
         public boolean isInstructRepairToAvoidAssertions() {
             return instructRepairToAvoidAssertions;
         }
+
+        /**
+         * Whether {@link #attemptParse} is allowed to execute parsed tests via
+         * {@link org.evosuite.testcase.execution.TestCaseExecutor}. When {@code false},
+         * the caller is responsible for evaluating the returned tests itself, and the
+         * repair loop only reacts to parse/compile diagnostics on later repair turns.
+         */
+        public boolean isExecuteParsedTests() {
+            return executeParsedTests;
+        }
+
+        /**
+         * Whether {@link #attemptParse} may expand the test cluster itself when
+         * parsing hits unresolved symbols. When {@code false}, it stops instead
+         * of expanding and returns a failure flagged {@link
+         * RepairResult#needsClusterExpansion()} so the caller can expand and
+         * re-parse on a thread that is allowed to touch the cluster.
+         */
+        public boolean isExpandClusterOnDemand() {
+            return expandClusterOnDemand;
+        }
     }
 
     /**
@@ -345,9 +421,19 @@ public class TestRepairLoop {
     }
 
     /**
-     * Creates a standard repair loop wired to the given LLM service and options.
+     * Creates a standard repair loop wired to the given LLM service and options,
+     * allowing {@link Properties#LLM_REPAIR_ATTEMPTS} repair round-trips.
      */
     public static TestRepairLoop createDefault(LlmService llmService, RepairOptions options) {
+        return createDefault(llmService, options, Properties.LLM_REPAIR_ATTEMPTS);
+    }
+
+    /**
+     * Creates a standard repair loop wired to the given LLM service and options
+     * with an explicit cap on repair round-trips.
+     */
+    public static TestRepairLoop createDefault(LlmService llmService, RepairOptions options,
+                                               int maxAttempts) {
         String systemPrompt = null;
         String sutContext = null;
         try {
@@ -372,7 +458,7 @@ public class TestRepairLoop {
                 new LlmResponseParser(),
                 new ClusterExpansionManager(),
                 new DefaultExecutor(),
-                Properties.LLM_REPAIR_ATTEMPTS,
+                maxAttempts,
                 systemPrompt,
                 sutContext,
                 options == null ? RepairOptions.defaults() : options);
@@ -439,6 +525,11 @@ public class TestRepairLoop {
         this.repairOptions = repairOptions == null ? RepairOptions.defaults() : repairOptions;
     }
 
+    /** Returns the {@link RepairOptions} this loop was configured with. */
+    public RepairOptions getRepairOptions() {
+        return repairOptions;
+    }
+
     /** Attempts to parse the LLM response and repair it iteratively if parsing fails. */
     public RepairResult attemptParse(String llmResponse,
                                      List<LlmMessage> conversationHistory,
@@ -485,6 +576,7 @@ public class TestRepairLoop {
         identicalErrorEscalated = false;
         pendingTopOfMessageEscalationHint = null;
         expansionAttempted = false;
+        describedDependencyClasses.clear();
         boolean observedExecutionDrop = false;
         boolean strictContractReaskUsed = false;
         // Candidates that failed at execution in any attempt. The LLM often
@@ -629,6 +721,14 @@ public class TestRepairLoop {
             if (validTests.isEmpty()
                     && hasResolutionErrors(parseResults)
                     && Properties.LLM_EXPAND_CLUSTER_ON_DEMAND) {
+                if (!repairOptions.isExpandClusterOnDemand()) {
+                    // This loop must not touch the shared TestCluster (it runs on a
+                    // worker thread); hand the response back unparsed instead of
+                    // burning a repair round-trip that expansion might make moot.
+                    Set<String> unresolved = clusterExpansionManager.extractUnresolvedSymbols(parseResults);
+                    diagnostics.add("Deferred cluster expansion: " + unresolved);
+                    return RepairResult.needsClusterExpansion(diagnostics, attemptsUsed, expandedClasses);
+                }
                 boolean expanded = false;
                 this.expansionAttempted = true;
                 try {
@@ -646,6 +746,18 @@ public class TestRepairLoop {
                     }
                     if (addedNew) {
                         diagnostics.add("Expanded cluster with: " + expandedClasses);
+                        // Re-parse the SAME response against the now-larger cluster
+                        // without spending an LLM attempt: no request was sent, so
+                        // this must not advance attemptsUsed (and, with
+                        // maxAttempts == 0, must not be skipped by loop
+                        // termination either). Decrementing attempt here cancels
+                        // out the for-loop's attempt++, so the next iteration
+                        // recomputes the same attemptsUsed. This cannot loop
+                        // forever: addedNew is only true when at least one new
+                        // class was appended to expandedClasses, and the set of
+                        // classes the cluster can still expand into is finite, so
+                        // eventually expansion adds nothing new and falls through.
+                        attempt--;
                         continue;
                     }
                     logger.info("Cluster expansion produced no new classes; stopping expansion loop");
@@ -683,19 +795,26 @@ public class TestRepairLoop {
             }
 
             // Execute valid tests and split into executable (kept) and dropped-at-execution.
+            // When execution is disabled, every compile-checked test is trusted as-is:
+            // the caller (e.g. a GA operator evaluating candidates itself) is responsible
+            // for running it, and the repair loop must not touch TestCaseExecutor.
             List<ParseResult> finalTests = new ArrayList<>();
             List<ParseResult> droppedAtExecution = new ArrayList<>();
             Map<ParseResult, ExecutionFailureContext> executionErrorByTest = new LinkedHashMap<>();
-            for (ParseResult pr : validTests) {
-                ExecutionFailureContext failure = checkExecution(pr);
-                if (failure == null) {
-                    finalTests.add(pr);
-                } else {
-                    droppedAtExecution.add(pr);
-                    executionErrorByTest.put(pr, failure);
-                    diagnostics.add(failure.errorMessage);
-                    executionDropsForSalvage.putIfAbsent(buildSalvageDedupKey(pr), pr);
+            if (repairOptions.isExecuteParsedTests()) {
+                for (ParseResult pr : validTests) {
+                    ExecutionFailureContext failure = checkExecution(pr);
+                    if (failure == null) {
+                        finalTests.add(pr);
+                    } else {
+                        droppedAtExecution.add(pr);
+                        executionErrorByTest.put(pr, failure);
+                        diagnostics.add(failure.errorMessage);
+                        executionDropsForSalvage.putIfAbsent(buildSalvageDedupKey(pr), pr);
+                    }
                 }
+            } else {
+                finalTests.addAll(validTests);
             }
 
             // Record any executable tests we have so far so they survive later repair turns.
@@ -726,10 +845,14 @@ public class TestRepairLoop {
                     conversation, currentResponse, feature, expandedClasses,
                     executionErrorByTest, repairDeadlineNanos);
             if (next == null) {
-                salvageFailedCandidates(droppedAtParse, executionDropsForSalvage.values(),
-                        diagnostics, salvagedExecutableTests, salvagedTestsConsumer,
-                        repairDeadlineNanos);
-                salvageAttempted = true;
+                if (!repairOptions.isExecuteParsedTests()) {
+                    diagnostics.add("Skipped execution-based salvage: parse-only mode");
+                } else {
+                    salvageFailedCandidates(droppedAtParse, executionDropsForSalvage.values(),
+                            diagnostics, salvagedExecutableTests, salvagedTestsConsumer,
+                            repairDeadlineNanos);
+                    salvageAttempted = true;
+                }
                 if (!salvagedExecutableTests.isEmpty()) {
                     return RepairResult.success(new ArrayList<>(salvagedExecutableTests.values()),
                             diagnostics, attemptsUsed, expandedClasses);
@@ -1982,12 +2105,24 @@ public class TestRepairLoop {
                                  int repairAttempt,
                                  Map<ParseResult, ExecutionFailureContext> executionFailures,
                                  long repairDeadlineNanos) {
-        // Ensure system prompt is at the front of the conversation
+        // Ensure a system message is at the front of the conversation. The
+        // conversation seeded from the original prompt already carries one
+        // (possibly longer than `systemPrompt`, e.g. with the cached static
+        // SUT/dependency context appended) — only prepend when none is there.
         if (systemPrompt != null && !systemPrompt.isEmpty()
                 && (conversation.isEmpty()
-                    || !conversation.get(0).getContent().equals(systemPrompt))) {
+                    || conversation.get(0).getRole() != LlmMessage.Role.SYSTEM)) {
             conversation.add(0, LlmMessage.system(systemPrompt));
         }
+
+        // When the conversation's system message already carries the cached
+        // dependency-type catalogue (rendered once into the system message by
+        // PromptBuilder), don't re-append the bulk catalogue below — the model
+        // already has it in the cacheable prefix.
+        boolean sutContextSummaryAlreadyInSystemMessage = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT
+                && !conversation.isEmpty()
+                && conversation.get(0).getRole() == LlmMessage.Role.SYSTEM
+                && StaticPromptContext.containsDependencyContext(conversation.get(0).getContent());
 
         // Add the assistant's last response to the conversation
         if (previousResponse != null && !previousResponse.isEmpty()) {
@@ -2004,6 +2139,22 @@ public class TestRepairLoop {
         if (!expandedClasses.isEmpty()) {
             repairMessage.append("Note: The test cluster has been expanded with newly resolved classes: ")
                          .append(expandedClasses).append("\n\n");
+            // The names above are not enough for the model to actually use the
+            // new classes (no constructors/methods). When the dependency
+            // catalogue lives in the cached system message, render a bounded
+            // signature delta here instead — once per class per conversation.
+            if (Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT) {
+                Set<String> newlyDescribed = new LinkedHashSet<>(expandedClasses);
+                newlyDescribed.removeAll(describedDependencyClasses);
+                if (!newlyDescribed.isEmpty()) {
+                    String growthDelta = ClusterGrowthDelta.render(dependencyGrowthSummarizer,
+                            testClusterSupplier.get(), Properties.TARGET_CLASS, newlyDescribed);
+                    if (growthDelta != null) {
+                        repairMessage.append(growthDelta).append("\n\n");
+                    }
+                    describedDependencyClasses.addAll(newlyDescribed);
+                }
+            }
         }
         repairMessage.append("The following issue was found in the generated tests:\n")
                      .append(error);
@@ -2043,7 +2194,8 @@ public class TestRepairLoop {
         // seed, 2 = first repair). On later turns the LLM already has it in
         // its conversation history, and re-emitting tens of KB of catalog text
         // dilutes the failure-specific hints that should drive the repair.
-        if (sutContextSummary != null && !sutContextSummary.isEmpty() && repairAttempt <= 2) {
+        if (sutContextSummary != null && !sutContextSummary.isEmpty() && repairAttempt <= 2
+                && !sutContextSummaryAlreadyInSystemMessage) {
             repairMessage.append("\n\nFor reference, here are the available constructors and methods:\n")
                          .append(sutContextSummary);
         }
@@ -5170,6 +5322,11 @@ public class TestRepairLoop {
             parseCompileExecutor = executor;
             previous.shutdownNow();
         }
+    }
+
+    /** Test-only seam: see {@link #testClusterSupplier}. */
+    void setTestClusterSupplierForTesting(Supplier<TestCluster> supplier) {
+        this.testClusterSupplier = supplier == null ? TestCluster::getInstance : supplier;
     }
 
     private String runRenderedCompilationCheck(String methodName, String source) throws Exception {

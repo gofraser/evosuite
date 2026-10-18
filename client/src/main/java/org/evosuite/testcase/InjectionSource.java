@@ -28,6 +28,8 @@ package org.evosuite.testcase;
 public enum InjectionSource {
     LLM_STAGNATION,
     LLM_ASYNC,
+    /** Results of the background LLM operator executor. */
+    LLM_OPERATOR,
     ISLAND_IMMIGRANT,
     LOCAL_SEARCH
 }

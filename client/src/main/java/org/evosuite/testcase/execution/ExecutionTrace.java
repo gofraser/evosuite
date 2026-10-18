@@ -46,6 +46,52 @@ public interface ExecutionTrace {
     void branchPassed(int branch, int bytecodeId, double trueDistance, double falseDistance);
 
     /**
+     * Records the operands of a two-int-operand evaluation of {@code branch} that just
+     * happened; a later evaluation replaces an earlier one. Only called when
+     * {@link org.evosuite.Properties#LLM_BRANCH_OPERAND_HINTS} is on. Primitive so recording
+     * never allocates on this hot path.
+     *
+     * @param branch a int.
+     * @param left   a int.
+     * @param right  a int.
+     * @param opcode a int.
+     */
+    void branchOperandsSeen(int branch, int left, int right, int opcode);
+
+    /**
+     * Records the operands of a one-int-operand evaluation of {@code branch} that just
+     * happened; see {@link #branchOperandsSeen(int, int, int, int)}.
+     *
+     * @param branch a int.
+     * @param value  a int.
+     * @param opcode a int.
+     */
+    void branchOperandsSeen(int branch, int value, int opcode);
+
+    /**
+     * Records the operands of a two-object-operand evaluation of {@code branch} that just
+     * happened; see {@link #branchOperandsSeen(int, int, int, int)}. The operands are rendered
+     * to text immediately, exactly as {@link BranchOperands#ofObjects(Object, Object, int)}
+     * would, so no reference to a SUT object is retained.
+     *
+     * @param branch a int.
+     * @param left   a {@link java.lang.Object} object.
+     * @param right  a {@link java.lang.Object} object.
+     * @param opcode a int.
+     */
+    void branchOperandsSeen(int branch, Object left, Object right, int opcode);
+
+    /**
+     * Records the operands of a one-object-operand evaluation of {@code branch} that just
+     * happened; see {@link #branchOperandsSeen(int, Object, Object, int)}.
+     *
+     * @param branch a int.
+     * @param value  a {@link java.lang.Object} object.
+     * @param opcode a int.
+     */
+    void branchOperandsSeen(int branch, Object value, int opcode);
+
+    /**
      * Retrieve minimum branch distance to false branch.
      *
      * @param branchId a int.
@@ -153,6 +199,23 @@ public interface ExecutionTrace {
      * @return a {@link java.util.Map} object.
      */
     Map<Integer, Map<CallContext, Double>> getFalseDistancesContext();
+
+    /**
+     * Branch id &rarr; operands of the last evaluation of that predicate in this execution;
+     * empty unless operand recording is on.
+     *
+     * @return a {@link java.util.Map} object.
+     */
+    Map<Integer, BranchOperands> getLastBranchOperands();
+
+    /**
+     * Operands of the last evaluation of branch {@code branchId} in this execution, or null
+     * when it was never evaluated or operand recording is off. Cheaper than building the
+     * whole {@link #getLastBranchOperands()} map for one branch.
+     */
+    default BranchOperands getLastBranchOperands(int branchId) {
+        return getLastBranchOperands().get(branchId);
+    }
 
     /**
      * Retrieve map of all context method counts.

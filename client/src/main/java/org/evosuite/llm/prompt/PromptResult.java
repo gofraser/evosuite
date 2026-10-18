@@ -169,6 +169,7 @@ public final class PromptResult {
     private final List<ProblemCardType> diagnosticCardTypes;
     private final List<ProblemCard> diagnosticCards;
     private final List<RepeatedInjectionTarget> repeatedInjectionTargets;
+    private final String prefixHash;
 
     public static final class Builder {
         private List<LlmMessage> messages = Collections.emptyList();
@@ -183,9 +184,13 @@ public final class PromptResult {
         private List<ProblemCardType> diagnosticCardTypes = Collections.emptyList();
         private List<ProblemCard> diagnosticCards = Collections.emptyList();
         private List<RepeatedInjectionTarget> repeatedInjectionTargets = Collections.emptyList();
+        private String prefixHash;
 
         public Builder messages(List<LlmMessage> messages) {
             this.messages = messages;
+            // A new set of messages invalidates any hash computed (or copied via
+            // toBuilder()) for the old ones; build() recomputes it from these.
+            this.prefixHash = null;
             return this;
         }
 
@@ -244,6 +249,16 @@ public final class PromptResult {
             return this;
         }
 
+        /**
+         * Explicitly sets the prefix hash. Optional — when not called,
+         * {@link #build()} computes it from the SYSTEM-role content of
+         * {@link #messages}.
+         */
+        public Builder prefixHash(String prefixHash) {
+            this.prefixHash = prefixHash;
+            return this;
+        }
+
         public PromptResult build() {
             return new PromptResult(this);
         }
@@ -271,6 +286,7 @@ public final class PromptResult {
         this.repeatedInjectionTargets = builder.repeatedInjectionTargets == null
                 ? Collections.<RepeatedInjectionTarget>emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(builder.repeatedInjectionTargets));
+        this.prefixHash = builder.prefixHash != null ? builder.prefixHash : PrefixHash.of(this.messages);
     }
 
     public List<LlmMessage> getMessages() {
@@ -344,9 +360,19 @@ public final class PromptResult {
     }
 
     /**
-     * Creates a builder pre-populated with the values of this result.
-     *
-     * @return a new builder
+     * Lowercase hex SHA-256 of the system message content (empty-string hash
+     * if there is none). Prompts that share a cacheable prefix (see
+     * {@code Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT}) produce the same
+     * value here regardless of what differs in the user message.
+     */
+    public String getPrefixHash() {
+        return prefixHash;
+    }
+
+    /**
+     * Returns a builder seeded with this result's fields. Does not copy
+     * {@link #prefixHash}: a caller that replaces {@link Builder#messages} must
+     * get a hash recomputed from the new messages, not this result's stale one.
      */
     public Builder toBuilder() {
         return new Builder()

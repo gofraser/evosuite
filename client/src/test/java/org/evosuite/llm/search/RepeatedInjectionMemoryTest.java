@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RepeatedInjectionMemoryTest {
 
     @Test
-    void asyncInFlightAttemptsSuppressImmediateReselection() {
+    void inFlightAttemptsSuppressImmediateReselection() {
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:foo", "goal:foo:v1");
 
@@ -44,6 +44,53 @@ class RepeatedInjectionMemoryTest {
                 adjustment.getDiscardReason());
 
         memory.recordAttemptOutcome(registration.getAttemptId(), 0);
+    }
+
+    @Test
+    void openSyncAttemptIsInFlightUntilItsOutcomeIsRecorded() {
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:sync", "goal:sync:v1");
+
+        // A SYNC caller blocks on the LLM call but still registers the attempt as in flight,
+        // so no other feature's selection can pick the same key while it is open.
+        RepeatedInjectionMemory.PromptAttemptRegistration registration =
+                memory.registerAttempt(Collections.singletonList(target), true);
+
+        RepeatedInjectionMemory.SelectionAdjustment whileOpen =
+                memory.adjustPriority(target, 1.0, true);
+        assertTrue(whileOpen.isSuppressed());
+        assertEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
+                whileOpen.getDiscardReason());
+
+        memory.recordAttemptOutcome(registration.getAttemptId(), 1);
+        memory.beginSelectionRound();
+
+        RepeatedInjectionMemory.SelectionAdjustment afterOutcome =
+                memory.adjustPriority(target, 1.0, true);
+        assertFalse(afterOutcome.isSuppressed(),
+                "the in-flight gate must clear once the attempt's outcome is recorded");
+    }
+
+    @Test
+    void suppressedTargetAgesWithSelectionRoundsEvenWithoutFurtherAttempts() {
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:only", "goal:only:v1");
+
+        memory.beginSelectionRound();
+        RepeatedInjectionMemory.PromptAttemptRegistration registration =
+                memory.registerAttempt(Collections.singletonList(target), false);
+        memory.recordAttemptOutcome(registration.getAttemptId(), 0);
+
+        assertTrue(memory.adjustPriority(target, 1.0, false).isSuppressed(),
+                "immediately after a no-gain attempt the target must be suppressed");
+
+        // No further attempts are ever registered for this target (it is the sole remaining
+        // candidate and stays suppressed), but selection still runs every generation.
+        memory.beginSelectionRound();
+        memory.beginSelectionRound();
+
+        assertFalse(memory.adjustPriority(target, 1.0, false).isSuppressed(),
+                "the cooldown must elapse from selection rounds alone, not just from registered attempts");
     }
 
     @Test
@@ -74,10 +121,9 @@ class RepeatedInjectionMemoryTest {
                 memory.registerAttempt(Collections.singletonList(target), false);
         memory.releaseUndeliveredAttempt(registration.getAttemptId());
 
-        // Advance ordinal so the same-fingerprint cooldown window has elapsed.
-        RepeatedInjectionTarget dummy = new RepeatedInjectionTarget("dummy:key", "dummy:fingerprint");
-        memory.registerAttempt(Collections.singletonList(dummy), false);
-        memory.registerAttempt(Collections.singletonList(dummy), false);
+        // Advance the ordinal so the same-fingerprint cooldown window has elapsed.
+        memory.beginSelectionRound();
+        memory.beginSelectionRound();
 
         RepeatedInjectionMemory.SelectionAdjustment retry =
                 memory.adjustPriority(target, 1.0, false);
@@ -96,9 +142,8 @@ class RepeatedInjectionMemoryTest {
 
         // While the in-flight gate is cleared by release, the same-fingerprint cooldown still
         // applies for one ordinal step. Advance past it so we can assert the in-flight gate is open.
-        RepeatedInjectionTarget dummy = new RepeatedInjectionTarget("dummy:key", "dummy:fingerprint");
-        memory.registerAttempt(Collections.singletonList(dummy), false);
-        memory.registerAttempt(Collections.singletonList(dummy), false);
+        memory.beginSelectionRound();
+        memory.beginSelectionRound();
 
         RepeatedInjectionMemory.SelectionAdjustment afterRelease =
                 memory.adjustPriority(target, 1.0, true);
@@ -127,12 +172,11 @@ class RepeatedInjectionMemoryTest {
                 lowSteerMemory.registerAttempt(Collections.singletonList(lowSteer), false);
         lowSteerMemory.recordAttemptOutcome(lowRegistration.getAttemptId(), 0);
 
-        // Advance the global selection ordinal by two picks in each memory.
-        RepeatedInjectionTarget dummy = new RepeatedInjectionTarget("dummy:key", "dummy:fingerprint");
-        normalMemory.registerAttempt(Collections.singletonList(dummy), false);
-        normalMemory.registerAttempt(Collections.singletonList(dummy), false);
-        lowSteerMemory.registerAttempt(Collections.singletonList(dummy), false);
-        lowSteerMemory.registerAttempt(Collections.singletonList(dummy), false);
+        // Advance the selection ordinal by two rounds in each memory.
+        normalMemory.beginSelectionRound();
+        normalMemory.beginSelectionRound();
+        lowSteerMemory.beginSelectionRound();
+        lowSteerMemory.beginSelectionRound();
 
         RepeatedInjectionMemory.SelectionAdjustment normalAfterAging =
                 normalMemory.adjustPriority(normal, 1.0, false);

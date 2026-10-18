@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -391,6 +392,48 @@ class StagnationLlmHelperTest {
     }
 
     @Test
+    void featureQuotaExhausted_skipsSubmissionEvenWithOperatorBudgetRemaining() {
+        // LlmBudgetCoordinator.FeatureShare reserves a slice of the total
+        // call budget for the operator features (SEMANTIC_MUTATION/
+        // SEMANTIC_CROSSOVER) and draws every other feature, including
+        // STAGNATION, from what is left. With the operator share set to
+        // 100%, the "other" quota is zero: the service still has budget
+        // globally (hasBudget()), but STAGNATION does not, and the helper
+        // must gate on the latter -- otherwise it would consume the
+        // stagnation window and record a submitted prompt that the
+        // service's own per-feature check in queryInternal would then
+        // reject anyway.
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        LlmService service = createServiceWithFeatureShare(model, 4, 1.0);
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.SYNC, () -> -1L, 0);
+
+        try {
+            assertTrue(service.hasBudget(),
+                    "Global view must still show budget: only the non-operator share is exhausted");
+            assertFalse(service.hasBudget(LlmFeature.STAGNATION),
+                    "Non-operator quota must be exhausted");
+
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // not stagnant yet
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // stagnant, but no quota
+
+            assertEquals(0, helper.drain().size(),
+                    "Helper must not deliver tests when its feature quota is exhausted");
+            assertEquals(0, helper.getPromptsSubmitted(),
+                    "Helper must not record a submitted prompt when its feature quota is exhausted");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    @Test
     void syncMode_truncatesWaitToRemainingBudget() throws Exception {
         // The SYNC arm wraps the LLM call in a Future and waits at most the
         // remaining search budget, even though the normal wait can cover the
@@ -644,6 +687,93 @@ class StagnationLlmHelperTest {
         }
     }
 
+    @Test
+    void maybeSubmitFourArgPassesExplicitTotalGoalsToBuildPrompt() {
+        LlmStatistics.resetDiagnosticCardCounters();
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        AtomicInteger capturedTotalGoals = new AtomicInteger(-1);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get) {
+            @Override
+            public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                            List<TestChromosome> currentPopulation,
+                                            int totalGoals, int coveredGoalCount,
+                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal,
+                                            boolean suppressInFlightRepeats) {
+                capturedTotalGoals.set(totalGoals);
+                return super.buildPrompt(uncoveredGoals, currentPopulation, totalGoals,
+                        coveredGoalCount, bestFitnessPerGoal, suppressInFlightRepeats);
+            }
+        };
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.SYNC, () -> -1L, 0);
+
+        try {
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+
+            // A frontier of one goal, but an explicit totalGoals far larger than
+            // coveredCount + goals.size() -- this can only reach buildPrompt if the
+            // 4-arg overload passes totalGoals through untouched.
+            helper.maybeSubmit(0, 99, Collections.singleton(goal), pop);  // not stagnant yet
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(0, 99, Collections.singleton(goal), pop);  // fires
+            helper.drain();
+
+            assertEquals(99, capturedTotalGoals.get(),
+                    "the 4-arg maybeSubmit must pass its explicit totalGoals through to buildPrompt");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    @Test
+    void maybeSubmitThreeArgDerivesTotalGoalsFromCoveredPlusGoalsSize() {
+        LlmStatistics.resetDiagnosticCardCounters();
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        AtomicInteger capturedTotalGoals = new AtomicInteger(-1);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get) {
+            @Override
+            public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                            List<TestChromosome> currentPopulation,
+                                            int totalGoals, int coveredGoalCount,
+                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal,
+                                            boolean suppressInFlightRepeats) {
+                capturedTotalGoals.set(totalGoals);
+                return super.buildPrompt(uncoveredGoals, currentPopulation, totalGoals,
+                        coveredGoalCount, bestFitnessPerGoal, suppressInFlightRepeats);
+            }
+        };
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.SYNC, () -> -1L, 0);
+
+        try {
+            TestFitnessFunction goalA = makeGoal("a");
+            TestFitnessFunction goalB = makeGoal("b");
+            List<TestFitnessFunction> goals = java.util.Arrays.asList(goalA, goalB);
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+            int coveredCount = 3;
+
+            // 3-arg overload: no explicit totalGoals.
+            helper.maybeSubmit(coveredCount, goals, pop);  // not stagnant yet
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(coveredCount, goals, pop);  // fires
+            helper.drain();
+
+            assertEquals(coveredCount + goals.size(), capturedTotalGoals.get(),
+                    "the 3-arg maybeSubmit must derive totalGoals as coveredCount + goals.size()");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
     private static TestFitnessFunction makeGoal(String name) {
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.toString()).thenReturn(name);
@@ -687,6 +817,30 @@ class StagnationLlmHelperTest {
                 "stagnation-helper-test");
         return new LlmService(model,
                 new LlmBudgetCoordinator.Local(budget),
+                configuration,
+                new LlmStatistics(),
+                new LlmTraceRecorder(configuration));
+    }
+
+    private static LlmService createServiceWithFeatureShare(
+            LlmService.ChatLanguageModel model, int maxCalls, double operatorShare) {
+        LlmConfiguration configuration = new LlmConfiguration(
+                Properties.LlmProvider.NONE,
+                "mock",
+                "",
+                "",
+                0.0,
+                1024,
+                2,
+                0,
+                1,
+                false,
+                Paths.get("target/llm-test-traces"),
+                "stagnation-helper-test");
+        LlmBudgetCoordinator.FeatureShare coordinator = new LlmBudgetCoordinator.FeatureShare(
+                new LlmBudgetCoordinator.Local(maxCalls), maxCalls, operatorShare);
+        return new LlmService(model,
+                coordinator,
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));

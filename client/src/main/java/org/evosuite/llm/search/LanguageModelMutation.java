@@ -20,84 +20,31 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
-import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.utils.Randomness;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Collection;
-import java.util.concurrent.atomic.AtomicInteger;
+import org.evosuite.llm.search.operator.OperatorTarget;
+import org.evosuite.llm.search.operator.SyncTargetPlan;
 
 /**
- * MOSA-level LLM mutation operator. Probabilistically applies semantic
- * mutation via LLM; falls back gracefully if LLM is unavailable or fails.
+ * MOSA-level LLM mutation operator. The target — which parent, which goal,
+ * and any crossover partner — is chosen once per generation by {@code
+ * OperatorTargetSelector} and handed in as a {@link SyncTargetPlan}; this
+ * hook only decides, via {@link Properties#LLM_MUTATION_PROBABILITY}, whether
+ * a targeted parent's offspring is actually sent to the LLM, and falls back
+ * gracefully if the call is unavailable or fails.
  *
  * <p>This operator is additive: the caller should apply standard mutation
- * when this operator returns false.
+ * when this operator returns a non-applied result.
  */
-public class LanguageModelMutation {
-
-    private static final Logger logger = LoggerFactory.getLogger(LanguageModelMutation.class);
-
-    private final LlmSemanticMutation semanticMutation;
-    private final AtomicInteger appliedCount = new AtomicInteger(0);
-    private final AtomicInteger fallbackCount = new AtomicInteger(0);
+public class LanguageModelMutation extends SyncOperatorHook {
 
     public LanguageModelMutation() {
-        this(new LlmSemanticMutation());
+        this(new LlmSemanticMutation(), null);
     }
 
-    public LanguageModelMutation(LlmSemanticMutation semanticMutation) {
-        this.semanticMutation = semanticMutation;
+    public LanguageModelMutation(LlmSemanticMutation operator) {
+        this(operator, null);
     }
 
-    /**
-     * Attempt LLM semantic mutation with configured probability.
-     *
-     * @param offspring the offspring to potentially replace with LLM mutation
-     * @param goals     uncovered goals for prompt context
-     * @return true if LLM mutation was successfully applied (offspring is replaced);
-     *         false if standard mutation should be applied instead
-     */
-    public boolean tryMutate(TestChromosome offspring,
-                             Collection<TestFitnessFunction> goals) {
-        return tryMutateWithResult(offspring, goals).isAppliedSemantic();
-    }
-
-    /**
-     * Attempt LLM semantic mutation, returning rich metadata about
-     * whether the semantic path was attempted, applied, or skipped.
-     */
-    public OperatorAttemptResult tryMutateWithResult(TestChromosome offspring,
-                                                     Collection<TestFitnessFunction> goals) {
-        if (!Properties.LLM_OPERATOR_ENABLED) {
-            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.DISABLED);
-        }
-        if (Randomness.nextDouble() > Properties.LLM_MUTATION_PROBABILITY) {
-            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.PROBABILITY);
-        }
-
-        try {
-            TestChromosome mutant = semanticMutation.mutateSemantically(offspring, goals);
-            if (mutant != null) {
-                offspring.setTestCase(mutant.getTestCase());
-                offspring.setChanged(true);
-                appliedCount.incrementAndGet();
-                return OperatorAttemptResult.semanticApplied();
-            }
-        } catch (Exception e) {
-            logger.debug("LLM mutation failed unexpectedly: {}", e.getMessage());
-        }
-        fallbackCount.incrementAndGet();
-        return OperatorAttemptResult.semanticFallback();
-    }
-
-    public int getAppliedCount() {
-        return appliedCount.get();
-    }
-
-    public int getFallbackCount() {
-        return fallbackCount.get();
+    public LanguageModelMutation(LlmSemanticMutation operator, RepeatedInjectionMemory memory) {
+        super(operator, OperatorTarget.Kind.MUTATION, () -> Properties.LLM_MUTATION_PROBABILITY, memory);
     }
 }

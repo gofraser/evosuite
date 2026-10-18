@@ -317,6 +317,16 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     private final Map<Integer, Double> trueDistancesSum = Collections.synchronizedMap(new HashMap<>());
 
+    /**
+     * Index i holds the most recent evaluation of branch id i, or null if that branch was
+     * never evaluated (or operand recording is off). Lazily allocated: {@code null} until the
+     * first record, so a trace that never records pays nothing. Branch ids are small dense
+     * ints starting at 1 (see {@link org.evosuite.coverage.branch.BranchPool}), so a plain
+     * array indexed by branch id avoids the boxing and hashing a {@code Map<Integer, ...>}
+     * would cost on every recorded branch evaluation.
+     */
+    private BranchOperandSlot[] branchOperandSlots;
+
     private static Set<Integer> gradientBranches = Collections.synchronizedSet(new HashSet<>());
 
     private static Set<Integer> gradientBranchesCoveredTrue = Collections.synchronizedSet(new HashSet<>());
@@ -586,6 +596,62 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void branchOperandsSeen(int branch, int left, int right, int opcode) {
+        slotFor(branch).setInts(left, right, opcode);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void branchOperandsSeen(int branch, int value, int opcode) {
+        slotFor(branch).setInt(value, opcode);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void branchOperandsSeen(int branch, Object left, Object right, int opcode) {
+        slotFor(branch).setObjects(left, right, opcode);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void branchOperandsSeen(int branch, Object value, int opcode) {
+        slotFor(branch).setObject(value, opcode);
+    }
+
+    /**
+     * Returns the (reused) slot for {@code branch}, growing and lazily allocating
+     * {@link #branchOperandSlots} as needed. Never allocates a new slot for a branch that
+     * already has one, so recording the same branch repeatedly costs no more than the field
+     * writes in {@link BranchOperandSlot}.
+     */
+    private BranchOperandSlot slotFor(int branch) {
+        if (branch < 0) {
+            throw new IllegalArgumentException("branch ids are non-negative pool ids, got " + branch);
+        }
+        if (branchOperandSlots == null) {
+            branchOperandSlots = new BranchOperandSlot[Math.max(branch + 1, 16)];
+        } else if (branch >= branchOperandSlots.length) {
+            int newLength = Math.max(branchOperandSlots.length * 2, branch + 1);
+            branchOperandSlots = Arrays.copyOf(branchOperandSlots, newLength);
+        }
+        BranchOperandSlot slot = branchOperandSlots[branch];
+        if (slot == null) {
+            slot = new BranchOperandSlot();
+            branchOperandSlots[branch] = slot;
+        }
+        return slot;
+    }
+
+    /**
      * Track reach/coverage of branch based on it's underlying opcode during
      * execution.
      *
@@ -653,6 +719,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         knownCallerObjects = new HashMap<>();
         trueDistances = new HashMap<>();
         falseDistances = new HashMap<>();
+        branchOperandSlots = null;
         mutantDistances = new HashMap<>();
         touchedMutants = new HashSet<>();
         coveredMethods = new HashMap<>();
@@ -720,6 +787,14 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
          */
         copy.trueDistances.putAll(trueDistances);
         copy.falseDistances.putAll(falseDistances);
+        if (branchOperandSlots != null) {
+            copy.branchOperandSlots = new BranchOperandSlot[branchOperandSlots.length];
+            for (int i = 0; i < branchOperandSlots.length; i++) {
+                if (branchOperandSlots[i] != null) {
+                    copy.branchOperandSlots[i] = branchOperandSlots[i].copy();
+                }
+            }
+        }
         copy.coveredMethods.putAll(coveredMethods);
         copy.coveredBranchlessMethods.putAll(coveredBranchlessMethods);
         copy.coveredPredicates.putAll(coveredPredicates);
@@ -1526,6 +1601,36 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     @Override
     public Map<Integer, Double> getTrueDistances() {
         return trueDistances;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Map<Integer, BranchOperands> getLastBranchOperands() {
+        if (branchOperandSlots == null) {
+            return Collections.emptyMap();
+        }
+        Map<Integer, BranchOperands> result = new HashMap<>();
+        for (int branch = 0; branch < branchOperandSlots.length; branch++) {
+            BranchOperandSlot slot = branchOperandSlots[branch];
+            if (slot != null) {
+                result.put(branch, slot.toBranchOperands());
+            }
+        }
+        return result;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BranchOperands getLastBranchOperands(int branchId) {
+        if (branchOperandSlots == null || branchId < 0 || branchId >= branchOperandSlots.length) {
+            return null;
+        }
+        BranchOperandSlot slot = branchOperandSlots[branchId];
+        return slot == null ? null : slot.toBranchOperands();
     }
 
     /*

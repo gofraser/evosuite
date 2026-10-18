@@ -149,9 +149,9 @@ public class MOSA extends AbstractMOSA {
             this.initializePopulation();
         }
         try {
-            initializeLlmAssistance(this::getUncoveredGoals, false);
+            initializeLlmAssistance(this::getCurrentGoals, false);
             registerExternalCandidateSources(
-                    this::getNumberOfCoveredGoals, this::getUncoveredGoals);
+                    this::getNumberOfCoveredGoals, this::getCurrentGoals);
 
             // Calculate dominance ranks and crowding distance
             this.rankingFunction.computeRankingAssignment(this.population, this.getUncoveredGoals());

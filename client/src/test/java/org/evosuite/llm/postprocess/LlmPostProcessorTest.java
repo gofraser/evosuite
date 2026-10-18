@@ -2066,6 +2066,11 @@ class LlmPostProcessorTest {
         }
 
         @Override
+        public boolean hasBudget(LlmFeature feature) {
+            return false;
+        }
+
+        @Override
         public String query(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
             throw new AssertionError("No-budget service must be skipped before query");
         }

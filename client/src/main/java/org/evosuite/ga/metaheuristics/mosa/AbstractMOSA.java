@@ -54,14 +54,26 @@ import org.evosuite.llm.search.DisruptionHelper;
 import org.evosuite.llm.search.DisruptionRecorder;
 import org.evosuite.llm.search.ExtractorTraceSink;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
+import org.evosuite.llm.search.IsolatedEvaluation;
+import org.evosuite.llm.search.IsolatedProbe;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
+import org.evosuite.llm.search.LlmSemanticCrossover;
+import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.OperatorAttemptResult;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardExtractor;
 import org.evosuite.llm.search.ProblemCardLogRecorder;
 import org.evosuite.llm.search.ProblemCardType;
+import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.SemanticProbeResult;
+import org.evosuite.llm.search.StagnationLlmHelper;
 import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
+import org.evosuite.llm.search.operator.LlmOperatorExecutor;
+import org.evosuite.llm.search.operator.OperatorAttemptLog;
+import org.evosuite.llm.search.operator.OperatorTarget;
+import org.evosuite.llm.search.operator.OperatorTargetSelector;
+import org.evosuite.llm.search.operator.SyncTargetPlan;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -85,6 +97,8 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.ObjIntConsumer;
 
 /**
  * Abstract class for MOSA or variants of MOSA.
@@ -125,6 +139,59 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
         default void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
             // no-op
+        }
+
+        /** Called once {@code candidate} has been evaluated by the GA; {@code metadata} may be null. */
+        default void onCandidateEvaluated(TestChromosome candidate, InjectionAttemptMetadata metadata) {
+            // no-op
+        }
+
+        /** Called once {@code candidate} actually entered the union of {@code generation}; metadata may be null. */
+        default void onCandidateAdmitted(TestChromosome candidate, InjectionAttemptMetadata metadata,
+                                         int generation) {
+            // no-op
+        }
+    }
+
+    /**
+     * An LLM-backed candidate source: drains from one helper and routes that helper's
+     * per-attempt metadata and outcome reports through {@link #metadataByCandidate} and
+     * {@link #reportGains}.
+     */
+    private static class LlmCandidateSource implements ExternalCandidateSource {
+        private final java.util.function.Supplier<List<TestChromosome>> drain;
+        private final InjectionSource tag;
+        private final Function<TestChromosome, InjectionAttemptMetadata> lookup;
+        private final ObjIntConsumer<String> report;
+
+        LlmCandidateSource(java.util.function.Supplier<List<TestChromosome>> drain, InjectionSource tag,
+                           Function<TestChromosome, InjectionAttemptMetadata> lookup,
+                           ObjIntConsumer<String> report) {
+            this.drain = drain;
+            this.tag = tag;
+            this.lookup = lookup;
+            this.report = report;
+        }
+
+        @Override
+        public List<TestChromosome> drain() {
+            return drain.get();
+        }
+
+        @Override
+        public InjectionSource injectionSource() {
+            return tag;
+        }
+
+        @Override
+        public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
+                List<TestChromosome> candidates) {
+            return metadataByCandidate(candidates, lookup);
+        }
+
+        @Override
+        public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
+            reportGains(gainsByAttemptId, report);
         }
     }
 
@@ -172,14 +239,30 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final BudgetConsumptionMonitor budgetMonitor;
 
     /**
-     * LLM-based mutation operator. Initialized lazily when LLM operators are enabled.
+     * SYNC breeding-loop mutation hook; created by {@link #initializeLlmOperators()} when {@link
+     * Properties#LLM_OPERATOR_MODE} is {@code SYNC}. Tests may assign it directly.
      */
     protected transient LanguageModelMutation llmMutation;
 
     /**
-     * LLM-based crossover operator. Initialized lazily when LLM operators are enabled.
+     * SYNC breeding-loop crossover hook; created alongside {@link #llmMutation}.
      */
     protected transient LanguageModelCrossover llmCrossover;
+
+    /**
+     * Selector supplying this generation's operator targets. Shared by the SYNC breeding-loop
+     * hooks ({@link #llmMutation}, {@link #llmCrossover}) and the ASYNC {@link #operatorExecutor}.
+     * Set by {@link #initializeLlmOperators()} whenever {@link Properties#LLM_OPERATOR_MODE} is
+     * not {@code OFF}; tests may assign it directly.
+     */
+    protected transient OperatorTargetSelector operatorTargetSelector;
+
+    /**
+     * Background executor driving the LLM semantic operators in {@code ASYNC} mode; created by
+     * {@link #initializeLlmOperators()} via {@link #createOperatorExecutor()} and stopped by
+     * {@link #shutdownLlmAssistance()}. {@code null} in {@code OFF}/{@code SYNC} mode.
+     */
+    protected transient LlmOperatorExecutor operatorExecutor;
 
     /**
      * Species map from the most recent generation's speciation assignment. Used during breeding for
@@ -346,6 +429,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected transient int lastGenAttemptsLlmStagnationCount;
 
     protected transient int lastGenAttemptsLlmAsyncCount;
+    protected transient int lastGenAttemptsLlmOperatorCount;
     protected transient int lastGenAttemptsIslandImmigrantCount;
     protected transient int lastGenAttemptsLocalSearchCount;
     protected transient int lastGenInjectedCandidatesOrphanFilteredCount;
@@ -388,6 +472,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private transient long llmBlendGoalPartnerResolvedTotal;
     private transient long llmBlendGoalPartnerFallbackTotal;
     private transient long llmAsyncStaleTargetTotal;
+    private transient long llmOperatorStaleTargetTotal;
     private transient long llmLineageElitismReinsertedTotal;
 
     /**
@@ -425,11 +510,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     .warn("Originally, MOSA was implemented with a '"
                             + SelectionFunction.RANK_CROWD_DISTANCE_TOURNAMENT.name()
                             + "' selection function. You may want to consider using it.");
-        }
-
-        if (Properties.LLM_OPERATOR_ENABLED) {
-            this.llmMutation = new LanguageModelMutation();
-            this.llmCrossover = new LanguageModelCrossover();
         }
 
         // The population-species sidecar requires stable IDs to be meaningful;
@@ -543,6 +623,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         lastGenOffspringRandomNew = 0;
         lastGenOffspringIdentity = Collections.newSetFromMap(new IdentityHashMap<>());
 
+        final SyncTargetPlan syncTargets = selectSyncTargets();
+
         // Build identity-based reverse lookup for intra-species mating restriction.
         Map<TestChromosome, Integer> individualToSpecies = null;
         if (Properties.SPECIES_RESTRICT_MATING && currentSpeciesMap != null) {
@@ -575,17 +657,21 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             boolean crossoverApplied = false;
             if (llmCrossover != null) {
                 try {
-                    crossoverResult = llmCrossover.tryCrossoverWithResult(
-                            offspring1, offspring2, getUncoveredGoals());
+                    crossoverResult = llmCrossover.tryApply(
+                            offspring1, parent1, syncTargets);
                 } catch (Exception e) {
                     logger.debug("LLM crossover error; falling back to standard", e);
                     crossoverResult = OperatorAttemptResult.semanticFallback();
                 }
             }
+            // The LLM child replaces offspring1 only; offspring2 stays a plain clone of
+            // parent2 and must be accounted (lineage, orphan check) as uncrossed.
+            boolean crossoverApplied2 = false;
             if (!crossoverResult.isAppliedSemantic() && Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
                 try {
                     this.crossoverFunction.crossOver(offspring1, offspring2);
                     crossoverApplied = true;
+                    crossoverApplied2 = true;
                 } catch (ConstructionFailedException e) {
                     logger.debug("CrossOver failed.");
                     lastGenOffspringDiscarded += 2;
@@ -595,40 +681,54 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 crossoverApplied = true;
             }
             if (crossoverApplied) {
-                // Crossover mixes material from both parents.
-                offspring1.addDescentLineages(parent2.effectiveLineages());
+                // A semantic crossover recombines parent1 with the target's partner, which need
+                // not be parent2; a standard crossover always recombines parent1 with parent2.
+                if (crossoverResult.isAppliedSemantic() && crossoverResult.getTarget().getPartner().isPresent()) {
+                    offspring1.addDescentLineages(crossoverResult.getTarget().getPartner().get().effectiveLineages());
+                } else {
+                    offspring1.addDescentLineages(parent2.effectiveLineages());
+                }
+            }
+            if (crossoverApplied2) {
                 offspring2.addDescentLineages(parent1.effectiveLineages());
             }
 
+            // A semantic child is judged as the LLM left it: the mutation that follows must not
+            // create or destroy the target hit credited to the crossover.
+            SemanticProbeResult crossoverProbe = SemanticProbeResult.NONE;
+            if (crossoverResult.isAppliedSemantic()) {
+                crossoverProbe = probeSemanticResult(crossoverResult, offspring1, parent1, observer.isEnabled());
+                llmCrossover.recordOutcome(crossoverResult, crossoverProbe.getSemanticTargetDistance());
+            }
+
+            // The post-crossover probe is sidecar-only, so it never goes through calculateFitness
+            // (archive, goal manager, listeners); a semantic child was already evaluated in
+            // isolation above and that snapshot serves both the crossover and the mutation event.
+            IsolatedProbe postCrossoverProbe1 = IsolatedProbe.NONE;
+            if (observer.isEnabled() && observer.isIsolatedProbeEnabled() && crossoverApplied) {
+                postCrossoverProbe1 = crossoverProbe.getSemanticSnapshot() != null
+                        ? IsolatedProbe.of(crossoverProbe.getSemanticSnapshot())
+                        : IsolatedProbe.run(offspring1, getCurrentGoals());
+            }
             // Record crossover disruption event
             if (observer.isEnabled() && (crossoverApplied || crossoverResult.isAttemptedSemantic())) {
-                TestChromosome probeSnapshot = null;
-                boolean probeFailure = false;
-                double isolatedFitness = Double.NaN;
-                if (observer.isIsolatedProbeEnabled() && crossoverApplied) {
-                    probeSnapshot = offspring1.clone();
-                    try {
-                        this.clearCachedResults(probeSnapshot);
-                        this.calculateFitness(probeSnapshot);
-                        isolatedFitness = DisruptionHelper.aggregateFitness(probeSnapshot);
-                    } catch (Exception e) {
-                        logger.debug("Disruption isolated crossover probe failed", e);
-                        probeFailure = true;
-                        probeSnapshot = null;
-                    }
-                }
-                observer.recordCrossover(offspring1, parent1, parent2,
+                // A semantic crossover recombined parent1 with the selector's partner, so that is
+                // the second parent on record; the breeding loop's parent2 contributed nothing.
+                TestChromosome recordedParent2 = crossoverResult.isAppliedSemantic()
+                        ? crossoverResult.getTarget().getPartner().orElse(parent2) : parent2;
+                observer.recordCrossover(offspring1, parent1, recordedParent2,
                         preCrossStmts1, crossoverResult, crossoverApplied,
-                        this.currentIteration, isolatedFitness, probeFailure, probeSnapshot);
+                        this.currentIteration, postCrossoverProbe1, crossoverProbe);
             }
 
             this.removeUnusedVariables(offspring1);
             this.removeUnusedVariables(offspring2);
 
             processOffspringMutation(offspring1, parent1, offspringPopulation, observer,
-                    crossoverApplied);
+                    crossoverApplied, syncTargets, postCrossoverProbe1, crossoverResult);
             processOffspringMutation(offspring2, parent2, offspringPopulation, observer,
-                    crossoverApplied);
+                    crossoverApplied2, syncTargets, IsolatedProbe.NONE,
+                    OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.NOT_CONFIGURED));
         }
 
         // EvoObj: collect the uncovered branch goals once per generation (not per inserted test)
@@ -702,6 +802,90 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         return offspringPopulation;
     }
 
+    @Override
+    protected void initializeLlmAssistance(
+            java.util.function.Supplier<java.util.Collection<TestFitnessFunction>> currentGoalsSupplier,
+            boolean maximizationObjective) {
+        super.initializeLlmAssistance(currentGoalsSupplier, maximizationObjective);
+        initializeLlmOperators();
+    }
+
+    /**
+     * Creates the LLM operator machinery {@link Properties#LLM_OPERATOR_MODE} asks for: {@code
+     * SYNC} creates the breeding-loop hooks, {@code ASYNC} creates the background {@link
+     * #operatorExecutor}; both share the target selector and the GA's {@link
+     * org.evosuite.llm.search.RepeatedInjectionMemory} so a (parent, goal) pair that just went out
+     * is not re-targeted by the next generation, the seed factory or the stagnation prompt.
+     */
+    private void initializeLlmOperators() {
+        // Fresh run, fresh attempt log: this must run even when the mode is OFF, otherwise a
+        // JVM that runs an operator-enabled search followed by an OFF search publishes the
+        // previous run's counts from emitOperatorStats and may flush its rows under the new
+        // run's sidecar name. LlmRunLifecycle.completeRun() resets it (and the other telemetry
+        // singletons) at the end of a generation run too; this covers a GA started without one.
+        OperatorAttemptLog.resetInstance();
+        if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.OFF) {
+            return;
+        }
+        if (repeatedInjectionMemory == null) {
+            repeatedInjectionMemory = new RepeatedInjectionMemory();
+        }
+        operatorTargetSelector = new OperatorTargetSelector(repeatedInjectionMemory);
+        if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.SYNC) {
+            llmMutation = new LanguageModelMutation(new LlmSemanticMutation(), repeatedInjectionMemory);
+            llmCrossover = new LanguageModelCrossover(new LlmSemanticCrossover(), repeatedInjectionMemory);
+            return;
+        }
+        operatorExecutor = createOperatorExecutor();
+        LoggingUtils.getEvoLogger().info(
+                "* LLM operators: ASYNC executor, {} calls/generation, batch {}, in-flight cap {}",
+                Properties.LLM_OPERATOR_CALLS_PER_GENERATION, Properties.LLM_OPERATOR_BATCH_SIZE,
+                Properties.LLM_OPERATOR_MAX_INFLIGHT);
+    }
+
+    /**
+     * Builds the {@code ASYNC} background executor from {@link Properties}. Protected so a test
+     * harness can override it to return a stub/mock instead of starting real worker threads and an
+     * LLM client.
+     */
+    protected LlmOperatorExecutor createOperatorExecutor() {
+        return new LlmOperatorExecutor(new LlmSemanticMutation(), new LlmSemanticCrossover(),
+                repeatedInjectionMemory, this::getRemainingSearchBudgetSeconds,
+                StagnationLlmHelper.resolveBudgetGuardSeconds(),
+                Properties.LLM_OPERATOR_MAX_INFLIGHT, Properties.LLM_OPERATOR_BATCH_SIZE);
+    }
+
+    /**
+     * Selector targets for this generation's SYNC hooks; empty when the hooks are off or
+     * neither could place a call (budget spent, service down), since selection is the
+     * expensive part and every hook would skip its target anyway.
+     */
+    private SyncTargetPlan selectSyncTargets() {
+        if (operatorTargetSelector == null || (llmMutation == null && llmCrossover == null)) {
+            return SyncTargetPlan.EMPTY;
+        }
+        if (!(llmMutation != null && llmMutation.canCall()) && !(llmCrossover != null && llmCrossover.canCall())) {
+            return SyncTargetPlan.EMPTY;
+        }
+        return new SyncTargetPlan(operatorTargetSelector.select(this.population, getCurrentGoals(),
+                this.population.size(), this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER),
+                this.currentIteration);
+    }
+
+    /**
+     * Stops the {@link #operatorExecutor} before {@link
+     * GeneticAlgorithm#shutdownLlmAssistance()} nulls {@code repeatedInjectionMemory}, so any
+     * still-open attempts are released against a live memory instance. Idempotent.
+     */
+    @Override
+    protected void shutdownLlmAssistance() {
+        if (operatorExecutor != null) {
+            operatorExecutor.shutdown();
+            operatorExecutor = null;
+        }
+        super.shutdownLlmAssistance();
+    }
+
     protected Map<Branch, List<BranchCoverageTestFitness>> objectRuleUncoveredGoalsByBranch() {
         Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch = new LinkedHashMap<>();
         for (TestFitnessFunction ff : getUncoveredGoals()) {
@@ -762,40 +946,101 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
+     * Isolated view of a semantic operator result for the disruption sidecar: the offspring as the
+     * LLM left it, evaluated against this generation's goals (plus the target) through {@link
+     * IsolatedEvaluation} so neither the archive nor the goal manager moves, and — with {@link
+     * Properties#LLM_OPERATOR_PAIRED_PROBE} on and events being recorded — the standard
+     * operator's twin from the same parent (or parent/partner pair), evaluated against the same
+     * frozen goals and then discarded. The semantic side is always evaluated when {@code
+     * forSidecar} is set or the result needs judging for the repeat memory; the twin only when
+     * its numbers have a sidecar row to go to.
+     */
+    private SemanticProbeResult probeSemanticResult(OperatorAttemptResult result,
+                                                    TestChromosome semanticOffspring,
+                                                    TestChromosome parent,
+                                                    boolean forSidecar) {
+        if (!result.isAppliedSemantic() || result.getTarget() == null) {
+            return SemanticProbeResult.NONE;
+        }
+        OperatorTarget target = result.getTarget();
+        List<TestFitnessFunction> frozenGoals = new ArrayList<>(getCurrentGoals());
+        if (!frozenGoals.contains(target.getGoal())) {
+            frozenGoals.add(target.getGoal());
+        }
+        TestChromosome snapshot;
+        try {
+            snapshot = semanticOffspring.clone();
+            IsolatedEvaluation.evaluate(snapshot, frozenGoals);
+        } catch (Exception e) {
+            logger.debug("Isolated evaluation of the semantic result failed", e);
+            return SemanticProbeResult.NONE;
+        }
+        if (!forSidecar || !Properties.LLM_OPERATOR_PAIRED_PROBE || !DisruptionRecorder.isEnabled()) {
+            return SemanticProbeResult.semanticOnly(snapshot, target.getGoal());
+        }
+        try {
+            TestChromosome twin = target.getKind() == OperatorTarget.Kind.CROSSOVER
+                    ? standardCrossoverTwin(target) : standardMutationTwin(parent);
+            boolean twinChanged = twin.isChanged();
+            IsolatedEvaluation.evaluate(twin, frozenGoals);
+            return SemanticProbeResult.withTwin(snapshot, twin, twinChanged, target.getGoal());
+        } catch (Exception e) {
+            logger.debug("Paired probe twin failed", e);
+            return SemanticProbeResult.twinFailed(snapshot, target.getGoal());
+        }
+    }
+
+    /** The standard mutation applied to a fresh clone of {@code parent}; unchanged clones are kept as such. */
+    private TestChromosome standardMutationTwin(TestChromosome parent) {
+        TestChromosome twin = parent.clone();
+        this.clearCachedResults(twin);
+        twin.setChanged(false); // so isChanged() afterwards reports what the mutation did
+        applyStandardMutation(twin, parent);
+        return twin;
+    }
+
+    /** The standard crossover applied to clones of the target parent and its partner; the parent-side child. */
+    private TestChromosome standardCrossoverTwin(OperatorTarget target) throws ConstructionFailedException {
+        TestChromosome twin = target.getParent().clone();
+        TestChromosome partnerTwin = target.getPartner()
+                .orElseThrow(() -> new IllegalStateException("crossover target without partner")).clone();
+        this.clearCachedResults(twin);
+        this.crossoverFunction.crossOver(twin, partnerTwin);
+        twin.setChanged(true);
+        return twin;
+    }
+
+    /**
      * Apply mutation to offspring with optional disruption recording. Extracts the repeated
      * mutation logic for offspring1 and offspring2. Records mutation event even when offspring is
-     * unchanged (fix: lost attempts).
+     * unchanged (fix: lost attempts). {@code postCrossoverProbe} is the isolated view of the
+     * offspring as crossover left it when the caller already took one; otherwise it is taken
+     * here (sidecar-only, never through calculateFitness). {@code crossoverResult} is the
+     * crossover attempt (if any) that produced {@code offspring} before mutation ran; it is
+     * marked admitted here, at the same point as the mutation attempt, since this is where the
+     * offspring is actually added to {@code offspringPopulation} — the mutation/orphan checks
+     * that ran in between could still have discarded it.
      */
     private void processOffspringMutation(
             TestChromosome offspring,
             TestChromosome parent,
             List<TestChromosome> offspringPopulation,
             BreedingDisruptionObserver observer,
-            boolean crossoverApplied) {
+            boolean crossoverApplied,
+            SyncTargetPlan syncTargets,
+            IsolatedProbe postCrossoverProbe,
+            OperatorAttemptResult crossoverResult) {
         int preMutStmts = observer.isEnabled() ? DisruptionHelper.statementCount(offspring) : 0;
 
-        // Isolated probe: evaluate post-crossover state before mutation
-        TestChromosome postCrossoverSnapshot = null;
-        boolean crossoverProbeFailure = false;
-        double isolatedFitnessPostCrossover = Double.NaN;
-        if (observer.isIsolatedProbeEnabled()) {
-            postCrossoverSnapshot = offspring.clone();
-            try {
-                this.clearCachedResults(postCrossoverSnapshot);
-                this.calculateFitness(postCrossoverSnapshot);
-                isolatedFitnessPostCrossover = DisruptionHelper.aggregateFitness(postCrossoverSnapshot);
-            } catch (Exception e) {
-                logger.debug("Disruption isolated post-crossover probe failed", e);
-                crossoverProbeFailure = true;
-                postCrossoverSnapshot = null;
-            }
+        if (!postCrossoverProbe.isTaken() && observer.isEnabled() && observer.isIsolatedProbeEnabled()) {
+            postCrossoverProbe = IsolatedProbe.run(offspring, getCurrentGoals());
         }
 
         OperatorAttemptResult mutResult = OperatorAttemptResult.standardOnly(
                 OperatorAttemptResult.SkipReason.NOT_CONFIGURED);
         if (llmMutation != null) {
             try {
-                mutResult = llmMutation.tryMutateWithResult(offspring, getUncoveredGoals());
+                mutResult = llmMutation.tryApply(offspring, parent, syncTargets);
             } catch (Exception e) {
                 logger.debug("LLM mutation error; falling back to standard", e);
                 mutResult = OperatorAttemptResult.semanticFallback();
@@ -807,19 +1052,32 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         if (offspring.isChanged()) {
             if (isOffspringOrphaned(offspring, parent, crossoverApplied, mutResult)) {
                 lastGenOffspringDiscarded++;
+                if (llmMutation != null) {
+                    llmMutation.recordOutcome(mutResult, null);
+                }
                 return;
             }
+            SemanticProbeResult mutationProbe = observer.isEnabled()
+                    ? probeSemanticResult(mutResult, offspring, parent, true) : SemanticProbeResult.NONE;
             this.clearCachedResults(offspring);
             offspring.updateAge(this.currentIteration);
             this.calculateFitness(offspring);
+            if (llmMutation != null) {
+                llmMutation.recordOutcome(mutResult, offspring);
+            }
 
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
-                        true, this.currentIteration, postCrossoverSnapshot,
-                        isolatedFitnessPostCrossover, crossoverProbeFailure);
+                        true, this.currentIteration, postCrossoverProbe, mutationProbe);
             }
 
             offspringPopulation.add(offspring);
+            if (llmMutation != null) {
+                llmMutation.recordAdmitted(mutResult, offspring);
+            }
+            if (llmCrossover != null) {
+                llmCrossover.recordAdmitted(crossoverResult, offspring);
+            }
             lastGenOffspringBred++;
             lastGenOffspringIdentity.add(offspring);
             switch (OffspringFate.classify(offspring.getFitnessValues(), parent.getFitnessValues())) {
@@ -837,8 +1095,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             lastGenOffspringUnchanged++;
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
-                        false, this.currentIteration, postCrossoverSnapshot,
-                        isolatedFitnessPostCrossover, crossoverProbeFailure);
+                        false, this.currentIteration, postCrossoverProbe, SemanticProbeResult.NONE);
             }
         }
     }
@@ -1560,6 +1817,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                 lastGenDominantAttemptSource,
                                 lastGenAttemptsLlmStagnationCount,
                                 lastGenAttemptsLlmAsyncCount,
+                                lastGenAttemptsLlmOperatorCount,
                                 lastGenAttemptsIslandImmigrantCount,
                                 lastGenAttemptsLocalSearchCount,
                                 coveredGoalCount,
@@ -1875,6 +2133,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         int attempts = 0;
         Map<InjectionSource, Integer> attemptCounts = new EnumMap<>(InjectionSource.class);
         Set<TestFitnessFunction> remainingUncoveredBeforeInjection = getUncoveredGoals();
+        // Immutable snapshot for staleness only: remainingUncoveredBeforeInjection is mutated by
+        // coveredGoalsAndRemoveList as each candidate is processed, so two drained candidates
+        // targeting the same live goal would otherwise see the second as stale just because the
+        // first already covered it moments earlier — even though both arrived while it was still
+        // uncovered. Taken lazily, before the first candidate of the generation is processed, so
+        // the common generation with nothing drained does not copy the uncovered set at all.
+        Set<TestFitnessFunction> uncoveredAtDrainStart = null;
         Set<String> seenInjectedCallSignatures = new HashSet<>();
         int deduplicatedInjectedCandidates = 0;
         // Only previously-injected LLM candidates seed the dedup set: a
@@ -1894,6 +2159,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         lastGenDominantAttemptSource = null;
         lastGenAttemptsLlmStagnationCount = 0;
         lastGenAttemptsLlmAsyncCount = 0;
+        lastGenAttemptsLlmOperatorCount = 0;
         lastGenAttemptsIslandImmigrantCount = 0;
         lastGenAttemptsLocalSearchCount = 0;
         lastGenInjectedCandidatesOrphanFilteredCount = 0;
@@ -1924,20 +2190,29 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
 
         for (ExternalCandidateSource source : externalCandidateSources) {
+            List<TestChromosome> candidates;
+            InjectionSource tag;
+            Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate;
             try {
-                List<TestChromosome> candidates = source.drain();
+                candidates = source.drain();
                 if (candidates == null || candidates.isEmpty()) {
                     continue;
                 }
-                attempts += candidates.size();
-                InjectionSource tag = source.injectionSource();
-                if (tag != null) {
-                    attemptCounts.merge(tag, candidates.size(), Integer::sum);
-                }
-                Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate =
-                        source.consumeAttemptMetadata(candidates);
-                Map<String, Integer> gainsByAttemptId =
-                        initializeAttemptOutcomeMap(attemptMetadataByCandidate);
+                tag = source.injectionSource();
+                // Consumes the source's metadata for these candidates; from here on an attempt
+                // outcome is owed for each of them, however processing goes, so the report below
+                // must run in a finally.
+                attemptMetadataByCandidate = source.consumeAttemptMetadata(candidates);
+            } catch (Exception e) {
+                logger.debug("External candidate source failed while draining; skipping", e);
+                continue;
+            }
+            attempts += candidates.size();
+            if (tag != null) {
+                attemptCounts.merge(tag, candidates.size(), Integer::sum);
+            }
+            Map<String, Integer> gainsByAttemptId = initializeAttemptOutcomeMap(attemptMetadataByCandidate);
+            try {
                 List<TestChromosome> safe = filterOrphanedTestChromosomes(
                         candidates, "external candidate source " + source.getClass().getSimpleName());
                 if (isLlmInjectionSource(tag)) {
@@ -1950,81 +2225,95 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     }
                 }
                 for (TestChromosome candidate : safe) {
-                    boolean enableLlmDedup = tag == InjectionSource.LLM_STAGNATION
-                            || tag == InjectionSource.LLM_ASYNC;
-                    if (enableLlmDedup) {
-                        String candidateSignature = injectedCallSequenceSignature(candidate);
-                        if (!candidateSignature.isEmpty()
-                                && !seenInjectedCallSignatures.add(candidateSignature)) {
-                            deduplicatedInjectedCandidates++;
-                            lastGenInjectedCandidatesDeduplicatedCount++;
-                            llmInjectedCandidatesDeduplicatedTotal++;
-                            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Deduplicated,
-                                    llmInjectedCandidatesDeduplicatedTotal);
-                            continue;
+                    try {
+                        boolean enableLlmDedup = isLlmInjectionSource(tag);
+                        if (enableLlmDedup) {
+                            String candidateSignature = injectedCallSequenceSignature(candidate);
+                            if (!candidateSignature.isEmpty()
+                                    && !seenInjectedCallSignatures.add(candidateSignature)) {
+                                deduplicatedInjectedCandidates++;
+                                lastGenInjectedCandidatesDeduplicatedCount++;
+                                llmInjectedCandidatesDeduplicatedTotal++;
+                                ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Deduplicated,
+                                        llmInjectedCandidatesDeduplicatedTotal);
+                                continue;
+                            }
                         }
-                    }
-                    InjectionAttemptMetadata metadata = attemptMetadataByCandidate.get(candidate);
-                    candidate.setDiagnosticCardTypes(metadata == null
-                            ? Collections.<ProblemCardType>emptyList()
-                            : metadata.getDiagnosticCardTypes());
-                    if (tag != null) {
-                        tagInjectedCandidate(candidate, tag);
-                    }
-                    maybeRecordStaleTarget(tag, metadata, remainingUncoveredBeforeInjection);
-                    this.calculateFitness(candidate);
-                    List<TestFitnessFunction> coveredNow =
-                            coveredGoalsAndRemoveList(candidate, remainingUncoveredBeforeInjection);
-                    int gained = coveredNow.size();
-                    maybeRecordDiagnosticAttribution(tag, metadata, gained);
-                    if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
-                            && ProblemCardLogRecorder.isEnabled()) {
-                        try {
-                            ProblemCardLogRecorder.getInstance().recordCoveredByInjection(
-                                    metadata.getAttemptId(), tag, this.currentIteration, coveredNow);
-                        } catch (Exception e) {
-                            logger.debug("Failed to log injection coverage for attempt {}",
-                                    metadata.getAttemptId(), e);
+                        InjectionAttemptMetadata metadata = attemptMetadataByCandidate.get(candidate);
+                        candidate.setDiagnosticCardTypes(metadata == null
+                                ? Collections.<ProblemCardType>emptyList()
+                                : metadata.getDiagnosticCardTypes());
+                        if (tag != null) {
+                            tagInjectedCandidate(candidate, tag);
                         }
-                    }
-                    if (metadata != null && metadata.getAttemptId() != null
-                            && !metadata.getAttemptId().trim().isEmpty()) {
-                        gainsByAttemptId.merge(metadata.getAttemptId(), gained, Integer::sum);
-                    }
-                    boolean blendingActive = Properties.LLM_BLEND_ENABLED && isLlmInjectionSource(tag);
-                    if (blendingActive) {
-                        candidate.setBlendChannel(BlendChannel.RAW);
-                    }
-                    if (!blendingActive || Properties.LLM_BLEND_KEEP_RAW) {
-                        union.add(candidate);
-                        if (isLlmInjectionSource(tag)) {
-                            lastGenInjectedCandidatesAdmittedCount++;
-                            llmInjectedCandidatesAdmittedTotal++;
-                            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
-                                    llmInjectedCandidatesAdmittedTotal);
+                        if (uncoveredAtDrainStart == null) {
+                            uncoveredAtDrainStart =
+                                    Collections.unmodifiableSet(new HashSet<>(remainingUncoveredBeforeInjection));
                         }
-                        if (isLlmInjectionSource(tag) && metadata != null) {
-                            org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesAdmitted(
-                                    metadata.getDiagnosticCardTypes(), 1);
+                        maybeRecordStaleTarget(tag, metadata, uncoveredAtDrainStart);
+                        this.calculateFitness(candidate);
+                        source.onCandidateEvaluated(candidate, metadata);
+                        List<TestFitnessFunction> coveredNow =
+                                coveredGoalsAndRemoveList(candidate, remainingUncoveredBeforeInjection);
+                        int gained = coveredNow.size();
+                        maybeRecordDiagnosticAttribution(tag, metadata, gained);
+                        if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
+                                && ProblemCardLogRecorder.isEnabled()) {
+                            try {
+                                ProblemCardLogRecorder.getInstance().recordCoveredByInjection(
+                                        metadata.getAttemptId(), tag, this.currentIteration, coveredNow);
+                            } catch (Exception e) {
+                                logger.debug("Failed to log injection coverage for attempt {}",
+                                        metadata.getAttemptId(), e);
+                            }
                         }
-                    }
-                    if (blendingActive) {
-                        try {
-                            blendInjectedCandidate(candidate, tag, metadata, union,
-                                    remainingUncoveredBeforeInjection, gainsByAttemptId,
-                                    seenInjectedCallSignatures);
-                        } catch (Exception e) {
-                            logger.debug("Blending failed for injected candidate; "
-                                    + "raw admission unaffected", e);
+                        if (metadata != null && metadata.getAttemptId() != null
+                                && !metadata.getAttemptId().trim().isEmpty()) {
+                            gainsByAttemptId.merge(metadata.getAttemptId(), gained, Integer::sum);
                         }
+                        boolean blendingActive = Properties.LLM_BLEND_ENABLED && isLlmInjectionSource(tag);
+                        if (blendingActive) {
+                            candidate.setBlendChannel(BlendChannel.RAW);
+                        }
+                        if (!blendingActive || Properties.LLM_BLEND_KEEP_RAW) {
+                            union.add(candidate);
+                            source.onCandidateAdmitted(candidate, metadata, this.currentIteration);
+                            if (isLlmInjectionSource(tag)) {
+                                lastGenInjectedCandidatesAdmittedCount++;
+                                llmInjectedCandidatesAdmittedTotal++;
+                                ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
+                                        llmInjectedCandidatesAdmittedTotal);
+                            }
+                            if (isLlmInjectionSource(tag) && metadata != null) {
+                                org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesAdmitted(
+                                        metadata.getDiagnosticCardTypes(), 1);
+                            }
+                        }
+                        if (blendingActive) {
+                            try {
+                                blendInjectedCandidate(candidate, tag, metadata, union,
+                                        remainingUncoveredBeforeInjection, gainsByAttemptId,
+                                        seenInjectedCallSignatures);
+                            } catch (Exception e) {
+                                logger.debug("Blending failed for injected candidate; "
+                                        + "raw admission unaffected", e);
+                            }
+                        }
+                    } catch (Exception e) {
+                        // This candidate's attempt keeps the 0 already seeded by
+                        // initializeAttemptOutcomeMap; move on so one bad candidate cannot sink
+                        // the rest of the batch (or, worse, the source's outcome report below).
+                        logger.debug("Failed to process an injected candidate from {}; skipping",
+                                source.getClass().getSimpleName(), e);
                     }
                 }
-                source.reportAttemptOutcomes(gainsByAttemptId);
             } catch (Exception | LinkageError e) {
                 // LinkageError: a source reflecting on SUT types (eg to build an LLM prompt) can
                 // hit a class whose dependencies are not on the classpath. That source's
                 // candidates are optional; losing them must not end the search.
                 logger.debug("External candidate source failed; skipping", e);
+            } finally {
+                source.reportAttemptOutcomes(gainsByAttemptId);
             }
         }
         if (deduplicatedInjectedCandidates > 0) {
@@ -2046,6 +2335,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 InjectionSource.LLM_STAGNATION, 0);
         lastGenAttemptsLlmAsyncCount = attemptCounts.getOrDefault(
                 InjectionSource.LLM_ASYNC, 0);
+        lastGenAttemptsLlmOperatorCount = attemptCounts.getOrDefault(
+                InjectionSource.LLM_OPERATOR, 0);
         lastGenAttemptsIslandImmigrantCount = attemptCounts.getOrDefault(
                 InjectionSource.ISLAND_IMMIGRANT, 0);
         lastGenAttemptsLocalSearchCount = attemptCounts.getOrDefault(
@@ -2200,6 +2491,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             return;
         }
         lastRecordedInjectedSurvivorGeneration = this.currentIteration;
+        if (Properties.LLM_OPERATOR_MODE != Properties.LlmOperatorMode.OFF) {
+            OperatorAttemptLog.getInstance().recordSurvivors(this.population, this.currentIteration);
+        }
         int llmSurvivors = 0;
         int blendSurvivors = 0;
         int mutantSurvivors = 0;
@@ -2261,7 +2555,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     private static boolean isLlmInjectionSource(InjectionSource source) {
-        return source == InjectionSource.LLM_STAGNATION || source == InjectionSource.LLM_ASYNC;
+        return source == InjectionSource.LLM_STAGNATION || source == InjectionSource.LLM_ASYNC
+                || source == InjectionSource.LLM_OPERATOR;
     }
 
     /**
@@ -2280,15 +2575,16 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Counts a drained LLM_ASYNC candidate whose prompt-time target goals were all covered by the
-     * time it arrived. Supports the staleness analysis of async injection; sync candidates are
-     * exempt because their results land in the same generation that prompted them.
+     * Counts a drained LLM_ASYNC or LLM_OPERATOR candidate whose prompt-time target goals were
+     * all covered by the time it arrived, into that source's own total. Supports the staleness
+     * analysis of asynchronous injection; sync candidates are exempt because their results land
+     * in the same generation that prompted them.
      */
     private void maybeRecordStaleTarget(
             InjectionSource tag,
             InjectionAttemptMetadata metadata,
             Set<TestFitnessFunction> remainingUncovered) {
-        if (tag != InjectionSource.LLM_ASYNC || metadata == null
+        if ((tag != InjectionSource.LLM_ASYNC && tag != InjectionSource.LLM_OPERATOR) || metadata == null
                 || metadata.getTargetGoals().isEmpty() || remainingUncovered == null) {
             return;
         }
@@ -2297,9 +2593,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 return;
             }
         }
-        llmAsyncStaleTargetTotal++;
-        ClientServices.track(RuntimeVariable.LLM_Async_Candidates_StaleTarget,
-                llmAsyncStaleTargetTotal);
+        if (tag == InjectionSource.LLM_ASYNC) {
+            llmAsyncStaleTargetTotal++;
+            ClientServices.track(RuntimeVariable.LLM_Async_Candidates_StaleTarget,
+                    llmAsyncStaleTargetTotal);
+        } else {
+            llmOperatorStaleTargetTotal++;
+            ClientServices.track(RuntimeVariable.LLM_Operator_Candidates_StaleTarget,
+                    llmOperatorStaleTargetTotal);
+        }
     }
 
     /**
@@ -2686,96 +2988,123 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * variant-specific sources (e.g., island immigrants for MOSA).
      *
      * @param coveredGoalCountSupplier supplies the current covered goal count
-     * @param uncoveredGoalsSupplier supplies the current uncovered goals
+     * @param currentGoalsSupplier supplies the goals LLM prompts should target
+     *                             (see {@link #getCurrentGoals()})
      */
     protected void registerExternalCandidateSources(
             java.util.function.IntSupplier coveredGoalCountSupplier,
-            java.util.function.Supplier<Set<TestFitnessFunction>> uncoveredGoalsSupplier) {
+            java.util.function.Supplier<Set<TestFitnessFunction>> currentGoalsSupplier) {
         // Snapshot the LLM helpers into final locals so that
         // shutdownLlmAssistance() (which nulls the fields) doesn't cause the
         // lambdas to NPE if collectExternalCandidates runs after teardown.
         // maybeSubmit/drain are documented to be safe no-ops post-shutdown.
         if (asyncProducer != null) {
             final org.evosuite.llm.search.AsyncLlmTestProducer producer = asyncProducer;
-            externalCandidateSources.add(new ExternalCandidateSource() {
-                @Override
-                public List<TestChromosome> drain() {
-                    return producer.drainAvailable();
-                }
-
-                @Override
-                public InjectionSource injectionSource() {
-                    return InjectionSource.LLM_ASYNC;
-                }
-
-                @Override
-                public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                        List<TestChromosome> candidates) {
-                    if (candidates == null || candidates.isEmpty()) {
-                        return Collections.emptyMap();
-                    }
-                    Map<TestChromosome, InjectionAttemptMetadata> byCandidate = new IdentityHashMap<>();
-                    for (TestChromosome candidate : candidates) {
-                        InjectionAttemptMetadata metadata = producer.consumeAttemptMetadata(candidate);
-                        if (metadata != null) {
-                            byCandidate.put(candidate, metadata);
-                        }
-                    }
-                    return byCandidate;
-                }
-
-                @Override
-                public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
-                    if (gainsByAttemptId == null) {
-                        return;
-                    }
-                    for (Map.Entry<String, Integer> entry : gainsByAttemptId.entrySet()) {
-                        producer.reportAttemptOutcome(entry.getKey(), entry.getValue());
-                    }
-                }
-            });
+            externalCandidateSources.add(new LlmCandidateSource(producer::drainAvailable,
+                    InjectionSource.LLM_ASYNC, producer::consumeAttemptMetadata, producer::reportAttemptOutcome));
         }
         if (stagnationLlmHelper != null) {
-            final org.evosuite.llm.search.StagnationLlmHelper helper = stagnationLlmHelper;
-            externalCandidateSources.add(new ExternalCandidateSource() {
+            final StagnationLlmHelper helper = stagnationLlmHelper;
+            externalCandidateSources.add(new LlmCandidateSource(
+                    () -> driveStagnationHelper(helper, coveredGoalCountSupplier, currentGoalsSupplier),
+                    InjectionSource.LLM_STAGNATION, helper::consumeAttemptMetadata, helper::reportAttemptOutcome));
+        }
+        if (operatorExecutor != null) {
+            final LlmOperatorExecutor executor = operatorExecutor;
+            externalCandidateSources.add(new LlmCandidateSource(() -> driveOperatorExecutor(executor),
+                    InjectionSource.LLM_OPERATOR, executor::consumeAttemptMetadata, executor::reportAttemptOutcome) {
+                // The operator source is the only one with per-target telemetry: the attempt log
+                // wants the evaluated distance to the prompted goal and the moment of admission.
                 @Override
-                public List<TestChromosome> drain() {
-                    return driveStagnationHelper(helper, coveredGoalCountSupplier, uncoveredGoalsSupplier);
-                }
-
-                @Override
-                public InjectionSource injectionSource() {
-                    return InjectionSource.LLM_STAGNATION;
-                }
-
-                @Override
-                public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                        List<TestChromosome> candidates) {
-                    if (candidates == null || candidates.isEmpty()) {
-                        return Collections.emptyMap();
-                    }
-                    Map<TestChromosome, InjectionAttemptMetadata> byCandidate = new IdentityHashMap<>();
-                    for (TestChromosome candidate : candidates) {
-                        InjectionAttemptMetadata metadata = helper.consumeAttemptMetadata(candidate);
-                        if (metadata != null) {
-                            byCandidate.put(candidate, metadata);
-                        }
-                    }
-                    return byCandidate;
-                }
-
-                @Override
-                public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
-                    if (gainsByAttemptId == null) {
+                public void onCandidateEvaluated(TestChromosome candidate, InjectionAttemptMetadata metadata) {
+                    if (metadata == null || metadata.getAttemptId().isEmpty()) {
                         return;
                     }
-                    for (Map.Entry<String, Integer> entry : gainsByAttemptId.entrySet()) {
-                        helper.reportAttemptOutcome(entry.getKey(), entry.getValue());
+                    List<TestFitnessFunction> targetGoals = metadata.getTargetGoals();
+                    double distanceAfter = targetGoals.isEmpty()
+                            ? Double.NaN : candidate.getFitness(targetGoals.get(0));
+                    OperatorAttemptLog.getInstance().recordEvaluated(
+                            metadata.getAttemptId(), distanceAfter, distanceAfter == 0.0);
+                }
+
+                @Override
+                public void onCandidateAdmitted(TestChromosome candidate, InjectionAttemptMetadata metadata,
+                                                int generation) {
+                    if (metadata != null && !metadata.getAttemptId().isEmpty()) {
+                        OperatorAttemptLog.getInstance().recordAdmitted(metadata.getAttemptId(), candidate,
+                                generation);
                     }
                 }
             });
         }
         registerAdditionalCandidateSources();
+    }
+
+    /**
+     * Builds the {@code candidate -> metadata} map an {@link ExternalCandidateSource} returns from
+     * {@link ExternalCandidateSource#consumeAttemptMetadata}, skipping candidates {@code lookup}
+     * has no metadata for. Shared by every LLM-backed source (async producer, stagnation helper,
+     * operator executor), which otherwise differ only in which object owns {@code lookup}.
+     */
+    private static Map<TestChromosome, InjectionAttemptMetadata> metadataByCandidate(
+            List<TestChromosome> candidates, Function<TestChromosome, InjectionAttemptMetadata> lookup) {
+        if (candidates == null || candidates.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<TestChromosome, InjectionAttemptMetadata> byCandidate = new IdentityHashMap<>();
+        for (TestChromosome candidate : candidates) {
+            InjectionAttemptMetadata metadata = lookup.apply(candidate);
+            if (metadata != null) {
+                byCandidate.put(candidate, metadata);
+            }
+        }
+        return byCandidate;
+    }
+
+    /**
+     * Forwards each {@code (attemptId, gain)} pair to {@code reporter}. Shared by every
+     * LLM-backed source's {@link ExternalCandidateSource#reportAttemptOutcomes}.
+     */
+    private static void reportGains(Map<String, Integer> gainsByAttemptId, ObjIntConsumer<String> reporter) {
+        if (gainsByAttemptId == null) {
+            return;
+        }
+        for (Map.Entry<String, Integer> entry : gainsByAttemptId.entrySet()) {
+            reporter.accept(entry.getKey(), entry.getValue());
+        }
+    }
+
+    /**
+     * Single drive step for the ASYNC operator executor: first drains the candidates produced from
+     * a batch this method submitted on an earlier generation, then — capacity and the
+     * calls-per-generation budget permitting — selects and submits this generation's targets for a
+     * future drain.
+     *
+     * <p>The selector sees {@code this.population} as it stands right now, i.e. the parent
+     * population: this generation's offspring are already bred but still only in the union
+     * being assembled by the caller. The GA evaluates the
+     * candidates returned here immediately afterwards, in {@link #collectExternalCandidates}, which
+     * then reports each one's coverage gain back to {@code executor} via {@link
+     * ExternalCandidateSource#reportAttemptOutcomes}.
+     */
+    private List<TestChromosome> driveOperatorExecutor(LlmOperatorExecutor executor) {
+        executor.tickGeneration();
+        List<TestChromosome> ready = executor.drain();
+        int callsPerGeneration = Properties.LLM_OPERATOR_CALLS_PER_GENERATION;
+        if (callsPerGeneration > 0 && executor.hasCapacity() && operatorTargetSelector != null) {
+            try {
+                // Oversample so the executor's rank-order batch shaping has enough same-kind
+                // targets to fill callsPerGeneration full batches even when the ranked list
+                // alternates kinds.
+                int k = callsPerGeneration * Properties.LLM_OPERATOR_BATCH_SIZE;
+                List<OperatorTarget> ranked = operatorTargetSelector.select(this.population, getCurrentGoals(), k,
+                        this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER);
+                executor.submit(ranked, callsPerGeneration, this.currentIteration);
+            } catch (RuntimeException e) {
+                logger.debug("LLM operator target selection/submission failed; skipping this generation", e);
+            }
+        }
+        return ready;
     }
 
     /**
@@ -2789,11 +3118,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private List<TestChromosome> driveStagnationHelper(
             org.evosuite.llm.search.StagnationLlmHelper helper,
             java.util.function.IntSupplier coveredGoalCountSupplier,
-            java.util.function.Supplier<Set<TestFitnessFunction>> uncoveredGoalsSupplier) {
+            java.util.function.Supplier<Set<TestFitnessFunction>> currentGoalsSupplier) {
         int coveredCount = coveredGoalCountSupplier.getAsInt();
-        Set<TestFitnessFunction> uncovered = uncoveredGoalsSupplier.get();
+        int totalGoals = coveredCount + getNumberOfUncoveredGoals();
+        Set<TestFitnessFunction> targets = currentGoalsSupplier.get();
         List<TestChromosome> pop = new ArrayList<>(population);
-        helper.maybeSubmit(coveredCount, uncovered, pop);
+        helper.maybeSubmit(coveredCount, totalGoals, targets, pop);
         return helper.drain();
     }
 
@@ -2812,6 +3142,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * @param parent    the parent chromosome that {@code offspring} was created from
      */
     private void mutate(TestChromosome offspring, TestChromosome parent) {
+        applyStandardMutation(offspring, parent);
+        this.notifyMutation(offspring);
+    }
+
+    /** The standard mutation without listener notification, shared with the paired-probe twin. */
+    private void applyStandardMutation(TestChromosome offspring, TestChromosome parent) {
         offspring.mutate();
         if (!offspring.isChanged()) {
             // if offspring is not changed, we try to mutate it once again.
@@ -2826,7 +3162,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
             offspring.setChanged(changed);
         }
-        this.notifyMutation(offspring);
     }
 
     /**
@@ -3015,6 +3350,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
+     * Returns the uncovered goals the search is targeting right now. This is what LLM prompts
+     * (operators, stagnation, async producer, seed factory) should list: goals whose control
+     * dependencies are still unmet cannot be reached directly and only inflate the prompt.
+     * MOSA targets every uncovered goal; DynaMOSA narrows this to its current frontier.
+     *
+     * @return a {@link java.util.Set} object.
+     */
+    protected Set<TestFitnessFunction> getCurrentGoals() {
+        return getUncoveredGoals();
+    }
+
+    /**
      * Returns the goals that have not been covered by the test cases stored in the archive.
      *
      * @return a int.
@@ -3080,6 +3427,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             } catch (Exception e) {
                 logger.warn("Failed to flush problem card log", e);
             }
+        }
+        try {
+            OperatorAttemptLog.getInstance().flush();
+        } catch (Exception e) {
+            logger.warn("Failed to flush operator attempt log", e);
         }
         super.notifySearchFinished();
     }
@@ -3281,7 +3633,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Emit LLM operator statistics to the client node.
+     * Emit LLM operator statistics to the client node: the four SYNC-hook counters (unchanged),
+     * plus the {@code LLM_Operator_*} per-target counters kept by {@link OperatorAttemptLog} and
+     * the ASYNC-only counters kept by {@link #operatorExecutor} — always published, zero when the
+     * corresponding hook/executor/log has nothing to report.
      */
     protected void emitOperatorStats(ClientNodeLocal<?> clientNode) {
         if (llmMutation != null) {
@@ -3296,6 +3651,33 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Crossover_Fallbacks,
                     llmCrossover.getFallbackCount());
         }
+
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Selected, log.getAttempts());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Mutation,
+                log.getAttempts(OperatorTarget.Kind.MUTATION));
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Crossover,
+                log.getAttempts(OperatorTarget.Kind.CROSSOVER));
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_Budget,
+                operatorExecutor == null ? 0L : operatorExecutor.getDroppedBudget());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_InFlight,
+                operatorExecutor == null ? 0L : operatorExecutor.getDroppedInFlight());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_Time,
+                operatorExecutor == null ? 0L : operatorExecutor.getDroppedTime());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Failed,
+                operatorExecutor == null ? 0L : operatorExecutor.getFailedCalls());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_InFlight_Generations,
+                operatorExecutor == null ? 0L : operatorExecutor.getInFlightGenerations());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Parsed, log.getOffspringParsed());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Admitted, log.getOffspringAdmitted());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Survived, log.getOffspringSurvived());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Target_Hits, log.getTargetHits());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Target_Improved, log.getTargetImproved());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Candidates_StaleTarget,
+                llmOperatorStaleTargetTotal);
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Sidecar_Path,
+                OperatorAttemptLog.isSidecarEnabled() && log.getAttempts() > 0
+                        ? OperatorAttemptLog.resolveSidecarPath() : "");
     }
 
     /**

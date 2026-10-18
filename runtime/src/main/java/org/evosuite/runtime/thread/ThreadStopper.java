@@ -31,6 +31,11 @@ import java.util.*;
  * This class is used to try to stop all threads
  * spawn by the SUT.
  *
+ * <p>A thread registered with {@link EvoSuiteOwnedThreads} is exempt from
+ * this cleanup regardless of its name: that registry is EvoSuite's own way
+ * of marking a background thread as its own, so a SUT thread cannot spoof
+ * membership by picking a particular name.
+ *
  * @author arcuri
  */
 public class ThreadStopper {
@@ -171,6 +176,9 @@ public class ThreadStopper {
                 }
 
                 if (t.isAlive() && !currentRunningThreads.contains(t)) {
+                    if (EvoSuiteOwnedThreads.isOwned(t)) {
+                        continue;
+                    }
                     /*
                      * We may want to ignore some threads such as GUI event handlers
                      */
@@ -194,6 +202,9 @@ public class ThreadStopper {
                 }
 
                 if (t.isAlive() && !currentRunningThreads.contains(t)) {
+                    if (EvoSuiteOwnedThreads.isOwned(t)) {
+                        continue;
+                    }
                     for (String name : threadsToIgnore) {
                         if (t.getName().startsWith(name)) {
                             continue checkThreads;

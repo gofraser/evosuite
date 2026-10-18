@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -145,6 +146,7 @@ class AsyncLlmTestProducerIntegrationTest {
         LlmService service = mock(LlmService.class);
         when(service.isAvailable()).thenReturn(true);
         when(service.hasBudget()).thenReturn(true);
+        when(service.hasBudget(any(LlmFeature.class))).thenReturn(true);
         AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
                 Collections::emptyList,
                 null,

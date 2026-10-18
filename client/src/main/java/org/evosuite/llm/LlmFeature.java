@@ -27,7 +27,6 @@ public enum LlmFeature {
     TEST_FACTORY,
     ASYNC_PRODUCER,
     STAGNATION,
-    LOCAL_SEARCH,
     CONSTANT_POOL_ENRICHMENT,
     OBJECT_POOL_ENRICHMENT,
     CAST_CLASS_ENRICHMENT,
@@ -35,5 +34,14 @@ public enum LlmFeature {
     POST_PROCESSING,
     SEMANTIC_MUTATION,
     SEMANTIC_CROSSOVER,
-    ITERATIVE_STRATEGY
+    ITERATIVE_STRATEGY;
+
+    /**
+     * Returns true for the semantic mutation/crossover features that share
+     * the operator budget share ({@link LlmBudgetCoordinator.FeatureShare})
+     * and the optional operator model.
+     */
+    public boolean isOperator() {
+        return this == SEMANTIC_MUTATION || this == SEMANTIC_CROSSOVER;
+    }
 }

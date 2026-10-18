@@ -584,6 +584,9 @@ public class ExecutionTracer {
         // logger.trace("1 Branch distance false: " + distance_false);
 
         // Add current branch to control trace
+        if (Properties.LLM_BRANCH_OPERAND_HINTS) {
+            tracer.trace.branchOperandsSeen(branch, val, opcode);
+        }
         tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
     }
 
@@ -768,6 +771,9 @@ public class ExecutionTracer {
         // logger.trace("2 Branch distance false: " + distance_false);
 
         // Add current branch to control trace
+        if (Properties.LLM_BRANCH_OPERAND_HINTS) {
+            tracer.trace.branchOperandsSeen(branch, val1, val2, opcode);
+        }
         tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
         // tracer.trace.branchPassed(branch, distance_true, distance_false);
 
@@ -814,6 +820,9 @@ public class ExecutionTracer {
         distanceFalse = distanceTrue == 0 ? 1.0 : 0.0;
 
         // Add current branch to control trace
+        if (Properties.LLM_BRANCH_OPERAND_HINTS) {
+            tracer.trace.branchOperandsSeen(branch, val1, val2, opcode);
+        }
         tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
     }
 
@@ -856,6 +865,9 @@ public class ExecutionTracer {
         // logger.trace("Branch distance false: " + distance_false);
 
         // Add current branch to control trace
+        if (Properties.LLM_BRANCH_OPERAND_HINTS) {
+            tracer.trace.branchOperandsSeen(branch, val, opcode);
+        }
         tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
     }
 

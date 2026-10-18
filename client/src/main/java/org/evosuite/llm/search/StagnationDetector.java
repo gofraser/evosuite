@@ -27,9 +27,11 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
+import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.llm.prompt.PromptBuilder;
+import org.evosuite.llm.prompt.TargetSection;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
@@ -81,6 +83,7 @@ public class StagnationDetector {
     private final DiagnosticCardSelector diagnosticCardSelector = new DiagnosticCardSelector();
     private final ExceptionBarrierTracker exceptionBarrierTracker = new ExceptionBarrierTracker();
     private final GoalDescriptionMapper goalDescriptionMapper = new GoalDescriptionMapper();
+    private final ExemplarAttacher exemplarAttacher = new ExemplarAttacher(goalDescriptionMapper);
     private final RepeatedInjectionMemory repeatedInjectionMemory;
     /**
      * Volatile: in ASYNC stagnation mode, {@link #consumeWindow()} is called
@@ -293,7 +296,7 @@ public class StagnationDetector {
         if (prompt == null) {
             return Collections.emptyList();
         }
-        if (!llmService.isAvailable() || !llmService.hasBudget()) {
+        if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.STAGNATION)) {
             return Collections.emptyList();
         }
         try {
@@ -352,7 +355,7 @@ public class StagnationDetector {
                                             List<TestChromosome> currentPopulation,
                                             int totalGoals, int coveredGoalCount,
                                             Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-        if (!llmService.isAvailable() || !llmService.hasBudget()) {
+        if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.STAGNATION)) {
             return Collections.emptyList();
         }
         if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {
@@ -398,9 +401,12 @@ public class StagnationDetector {
     }
 
     /**
-     * Returns the per-goal best fitness over the given population. Computed on
-     * the caller's thread because it iterates the live population and computes
-     * fitness against each goal.
+     * Returns the per-goal best fitness over the given population. Reads each
+     * individual's cached fitness for the goal via {@link
+     * TestChromosome#getFitness(org.evosuite.ga.FitnessFunction)} and only
+     * falls back to computing it (which may execute the test) when no cached
+     * value is present. Computed on the caller's thread because it iterates
+     * the live population.
      */
     public static Map<TestFitnessFunction, Double> computeBestFitnessPerGoal(
             Collection<TestFitnessFunction> uncoveredGoals,
@@ -413,7 +419,7 @@ public class StagnationDetector {
             double best = Double.MAX_VALUE;
             if (population != null) {
                 for (TestChromosome tc : population) {
-                    double f = goal.getFitness(tc);
+                    double f = tc.getFitness(goal);
                     if (f < best) {
                         best = f;
                     }
@@ -508,7 +514,7 @@ public class StagnationDetector {
         if (cards.isEmpty()) {
             return null;
         }
-        cards = attachClosestBranchExamples(cards, currentPopulation, bestFitnessPerGoal);
+        cards = exemplarAttacher.attach(cards, currentPopulation, bestFitnessPerGoal);
         LlmStatistics.recordDiagnosticCardsExtracted(extractedCards);
         LlmStatistics.recordDiagnosticCardsSelected(cards);
         LlmStatistics.recordDiagnosticCardsDiscarded(selection.getDiscardedCards());
@@ -536,16 +542,7 @@ public class StagnationDetector {
             builder.withExistingTests(existingTests);
         }
         PromptResult prompt = builder.buildWithMetadata();
-        return new PromptResult.Builder()
-                .messages(prompt.getMessages())
-                .sutContextMode(prompt.getSutContextMode())
-                .contextUnavailable(prompt.isContextUnavailable())
-                .contextTruncated(prompt.isContextTruncated())
-                .contextCommentsStripped(prompt.isContextCommentsStripped())
-                .contextSelectivelyTruncated(prompt.isContextSelectivelyTruncated())
-                .clusterSummaryTruncated(prompt.isClusterSummaryTruncated())
-                .clusterSummaryChars(prompt.getClusterSummaryChars())
-                .dependencySummaryMetadata(prompt.getDependencySummaryMetadata())
+        return prompt.toBuilder()
                 .diagnosticCardTypes(extractCardTypes(cards))
                 .diagnosticCards(cards)
                 .repeatedInjectionTargets(extractRepeatedTargets(cards))
@@ -708,7 +705,7 @@ public class StagnationDetector {
         List<TestCase> existingTests = collectPinnedTests(cards, EXISTING_TESTS_CONTEXT_MAX);
         Set<String> seen = new LinkedHashSet<>();
         for (TestCase pinned : existingTests) {
-            seen.add(canonicalTestKey(pinned));
+            seen.add(TargetSection.canonicalCode(pinned));
         }
         if (existingTests.size() >= EXISTING_TESTS_CONTEXT_MAX) {
             return existingTests;
@@ -716,7 +713,7 @@ public class StagnationDetector {
         for (TestChromosome selectedChromosome : selected) {
             if (selectedChromosome != null && selectedChromosome.getTestCase() != null) {
                 TestCase test = selectedChromosome.getTestCase();
-                if (seen.add(canonicalTestKey(test))) {
+                if (seen.add(TargetSection.canonicalCode(test))) {
                     existingTests.add(test);
                     if (existingTests.size() >= EXISTING_TESTS_CONTEXT_MAX) {
                         break;
@@ -739,7 +736,7 @@ public class StagnationDetector {
             }
             for (ProblemCard.ConcreteExample example : card.getConcreteExamples()) {
                 TestCase test = example.getTestCase();
-                if (test != null && seen.add(canonicalTestKey(test))) {
+                if (test != null && seen.add(TargetSection.canonicalCode(test))) {
                     pinned.add(test);
                     if (pinned.size() >= maxCount) {
                         return pinned;
@@ -748,68 +745,6 @@ public class StagnationDetector {
             }
         }
         return pinned;
-    }
-
-    private List<ProblemCard> attachClosestBranchExamples(
-            List<ProblemCard> cards,
-            List<TestChromosome> population,
-            Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-        if (cards == null || cards.isEmpty() || population == null || population.isEmpty()
-                || bestFitnessPerGoal == null || bestFitnessPerGoal.isEmpty()) {
-            return cards;
-        }
-        List<ProblemCard> enriched = new ArrayList<>(cards.size());
-        for (ProblemCard card : cards) {
-            if (card == null || card.getType() != ProblemCardType.BRANCH_POLARITY_GAP) {
-                enriched.add(card);
-                continue;
-            }
-            TestFitnessFunction closestGoal = null;
-            double closestDistance = Double.POSITIVE_INFINITY;
-            for (TestFitnessFunction goal : card.getRelatedGoals()) {
-                Double distance = bestFitnessPerGoal.get(goal);
-                if (distance != null && Double.isFinite(distance) && distance > 0.0
-                        && distance < closestDistance) {
-                    closestGoal = goal;
-                    closestDistance = distance;
-                }
-            }
-            TestCase closestTest = findClosestTest(population, closestGoal, closestDistance);
-            if (closestTest == null) {
-                enriched.add(card);
-                continue;
-            }
-            String description = String.format(Locale.ROOT,
-                    "Closest near-miss for %s has branch distance %.4f; flip the condition",
-                    goalDescriptionMapper.describe(closestGoal), closestDistance);
-            enriched.add(card.withConcreteExample(closestTest, description));
-        }
-        return enriched;
-    }
-
-    private TestCase findClosestTest(List<TestChromosome> population,
-                                     TestFitnessFunction goal,
-                                     double expectedDistance) {
-        if (goal == null) {
-            return null;
-        }
-        TestCase closest = null;
-        double smallestDelta = Double.POSITIVE_INFINITY;
-        for (TestChromosome chromosome : population) {
-            if (chromosome == null || chromosome.getTestCase() == null) {
-                continue;
-            }
-            Double distance = chromosome.getFitnessValues().get(goal);
-            if (distance == null || !Double.isFinite(distance)) {
-                continue;
-            }
-            double delta = Math.abs(distance - expectedDistance);
-            if (delta < smallestDelta) {
-                smallestDelta = delta;
-                closest = chromosome.getTestCase();
-            }
-        }
-        return closest;
     }
 
     private boolean shouldDiversifyExistingTestsBySpecies() {
@@ -826,7 +761,7 @@ public class StagnationDetector {
             if (chromosome == null || chromosome.getTestCase() == null) {
                 continue;
             }
-            String key = canonicalTestKey(chromosome.getTestCase());
+            String key = TargetSection.canonicalCode(chromosome.getTestCase());
             if (seen.add(key)) {
                 unique.add(chromosome);
             }
@@ -885,13 +820,6 @@ public class StagnationDetector {
         return diversified;
     }
 
-    private String canonicalTestKey(TestCase testCase) {
-        try {
-            return testCase.toCode().replaceAll("\\s+", " ").trim();
-        } catch (RuntimeException e) {
-            return "id_" + System.identityHashCode(testCase);
-        }
-    }
 
     private String buildPoolInstruction(int totalGoals, int coveredGoalCount) {
         StringBuilder sb = new StringBuilder();

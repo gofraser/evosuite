@@ -2379,6 +2379,23 @@ public class Properties {
                     + "available.")
     public static LlmStagnationPromptMode LLM_STAGNATION_PROMPT = LlmStagnationPromptMode.DIAGNOSTIC;
 
+    /**
+     * Which problem cards receive a concrete exemplar (the population test
+     * closest to one of the card's related goals) in the diagnostic prompt.
+     */
+    public enum LlmExemplarScope {
+        /** Only branch-polarity cards, as in the original diagnostic prompt. */
+        BRANCH_POLARITY_GAP,
+        /** Every card type whose related goals have a closest test. */
+        ALL_CARD_TYPES
+    }
+
+    @Parameter(key = "llm_stagnation_exemplar_scope", group = "LLM",
+            description = "Which problem cards in the diagnostic stagnation prompt carry the "
+                    + "closest existing test as an exemplar: BRANCH_POLARITY_GAP only, or "
+                    + "ALL_CARD_TYPES")
+    public static LlmExemplarScope LLM_STAGNATION_EXEMPLAR_SCOPE = LlmExemplarScope.ALL_CARD_TYPES;
+
     // ---- LLM injection blending (brood recombination + lineage elitism) ----
 
     @Parameter(key = "llm_blend_enabled", group = "LLM",
@@ -2791,9 +2808,52 @@ public class Properties {
     public static LlmSuiteInjectionPolicy LLM_SUITE_INJECTION_POLICY =
             LlmSuiteInjectionPolicy.NEW_SUITE;
 
+    /**
+     * How LLM variation operators take part in the MOSA breeding loop.
+     */
+    public enum LlmOperatorMode {
+        /** Standard operators only. */
+        OFF,
+        /**
+         * The breeding loop blocks on an LLM call for offspring whose parent holds a
+         * selector target; the response replaces the offspring.
+         */
+        SYNC,
+        /**
+         * Selector targets are submitted to a background executor each generation and its
+         * results enter the next generation as external candidates.
+         */
+        ASYNC
+    }
+
+    @Parameter(key = "llm_operator_mode", group = "LLM",
+            description = "How LLM semantic operators take part in MOSA breeding: OFF uses the "
+                    + "standard operators only; SYNC replaces standard mutation/crossover with a "
+                    + "blocking LLM call on offspring whose parent was chosen by the operator "
+                    + "target selector (subject to llm_mutation_probability / "
+                    + "llm_crossover_probability); ASYNC submits selector targets to a background "
+                    + "executor each generation and its results enter the next generation as "
+                    + "external candidates")
+    public static LlmOperatorMode LLM_OPERATOR_MODE = LlmOperatorMode.OFF;
+
     @Parameter(key = "llm_operator_enabled", group = "LLM",
-            description = "Enable LLM-based semantic mutation and crossover operators in MOSA")
+            description = "Deprecated alias for llm_operator_mode=SYNC; only honoured when "
+                    + "llm_operator_mode is left at OFF")
+    @Deprecated
     public static boolean LLM_OPERATOR_ENABLED = false;
+
+    @Parameter(key = "llm_operator_paired_probe", group = "LLM",
+            description = "In SYNC mode with disruption analysis enabled, also apply the standard "
+                    + "operator to a clone of the same parent whenever a semantic operator was "
+                    + "applied, evaluate that twin and record its fitness and target distance "
+                    + "alongside the semantic offspring's, then discard the twin")
+    public static boolean LLM_OPERATOR_PAIRED_PROBE = false;
+
+    @Parameter(key = "llm_branch_operand_hints", group = "LLM",
+            description = "Record the operands of the last evaluation of every executed branch "
+                    + "predicate so LLM prompts can show what a near-miss test compared "
+                    + "(e.g. 50 vs 0 with IF_ICMPLE) and what the target branch needs")
+    public static boolean LLM_BRANCH_OPERAND_HINTS = false;
 
     @Parameter(key = "llm_mutation_probability", group = "LLM",
             description = "Probability of applying LLM semantic mutation instead of standard mutation (0.0-1.0)")
@@ -2805,10 +2865,85 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LLM_CROSSOVER_PROBABILITY = 0.1;
 
-    @Parameter(key = "llm_operator_max_attempts", group = "LLM",
-            description = "Maximum LLM query attempts per operator invocation before falling back to standard operator")
+    @Parameter(key = "llm_prompt_cache_static_context", group = "LLM",
+            description = "Render the SUT context and test-cluster summary once per run into the "
+                    + "system message so providers can cache the prompt prefix; when false they "
+                    + "are rebuilt into every user message")
+    public static boolean LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+
+    @Parameter(key = "llm_operator_repair_attempts", group = "LLM",
+            description = "Repair round-trips allowed for a malformed LLM operator response; "
+                    + "0 parses the first response only. These turns react to parse and compile "
+                    + "diagnostics only: operator responses are executed by the search, not by the "
+                    + "repair loop (llm_repair_attempts applies elsewhere)")
+    @IntValue(min = 0)
+    public static int LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
+
+    /**
+     * How {@code (parent, goal)} pairs are chosen for LLM variation operators.
+     */
+    public enum LlmOperatorTargeting {
+        /** Ranks (parent, goal) pairs by closeness to an uncovered goal. */
+        DIRECTED,
+        /** Pairs random individuals with random current goals, as a control arm. */
+        RANDOM
+    }
+
+    @Parameter(key = "llm_operator_targeting", group = "LLM",
+            description = "How LLM operator targets are chosen: DIRECTED ranks (parent, goal) "
+                    + "pairs by closeness to an uncovered goal; RANDOM pairs random individuals "
+                    + "with random current goals as a control")
+    public static LlmOperatorTargeting LLM_OPERATOR_TARGETING = LlmOperatorTargeting.DIRECTED;
+
+    @Parameter(key = "llm_operator_crossover", group = "LLM",
+            description = "Allow LLM operator targets to include a crossover partner test "
+                    + "alongside the mutation parent")
+    public static boolean LLM_OPERATOR_CROSSOVER = true;
+
+    @Parameter(key = "llm_operator_stall_generations", group = "LLM",
+            description = "Number of consecutive selections with an unchanged best distance "
+                    + "before a goal is considered stalled and its target priority is boosted 1.5x")
     @IntValue(min = 1)
-    public static int LLM_OPERATOR_MAX_ATTEMPTS = 2;
+    public static int LLM_OPERATOR_STALL_GENERATIONS = 3;
+
+    @Parameter(key = "llm_operator_partner_min_new_goals", group = "LLM",
+            description = "Minimum number of goals a crossover partner must cover beyond the "
+                    + "mutation parent to be eligible as a crossover target")
+    @IntValue(min = 0)
+    public static int LLM_OPERATOR_PARTNER_MIN_NEW_GOALS = 1;
+
+    @Parameter(key = "llm_operator_call_share", group = "LLM",
+            description = "Share of llm_max_calls reserved for LLM operator calls when stagnation "
+                    + "assistance is also on; the other LLM features draw from the rest. Ignored "
+                    + "when llm_max_calls is 0 (unlimited), stagnation is off, or the operators "
+                    + "cannot actually spend a call (llm_operator_mode is OFF, ASYNC with "
+                    + "llm_operator_calls_per_generation=0, or SYNC with llm_mutation_probability "
+                    + "at 0 and either llm_crossover_probability at 0 or llm_operator_crossover off)")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double LLM_OPERATOR_CALL_SHARE = 0.5;
+
+    @Parameter(key = "llm_operator_model", group = "LLM",
+            description = "Model name for the LLM semantic operator calls (mutation and crossover); "
+                    + "empty uses llm_model. Shares provider, base URL, API key and the other "
+                    + "llm_* request settings with llm_model")
+    public static String LLM_OPERATOR_MODEL = "";
+
+    @Parameter(key = "llm_operator_calls_per_generation", group = "LLM",
+            description = "LLM operator calls submitted to the background executor per "
+                    + "generation in ASYNC mode; 0 submits nothing")
+    @IntValue(min = 0)
+    public static int LLM_OPERATOR_CALLS_PER_GENERATION = 1;
+
+    @Parameter(key = "llm_operator_max_inflight", group = "LLM",
+            description = "Worker threads / in-flight cap of the ASYNC operator executor; "
+                    + "submissions beyond it are dropped")
+    @IntValue(min = 1)
+    public static int LLM_OPERATOR_MAX_INFLIGHT = 2;
+
+    @Parameter(key = "llm_operator_batch_size", group = "LLM",
+            description = "Targets rendered into one ASYNC operator call")
+    @IntValue(min = 1)
+    public static int LLM_OPERATOR_BATCH_SIZE = 1;
 
     // ---------------------------------------------------------------
     // Speciation / Diversity (LLM-independent)
@@ -3031,6 +3166,10 @@ public class Properties {
     @Parameter(key = "llm_operator_disruption_analysis_enabled", group = "LLM",
             description = "Enable per-operator disruption event recording for standard vs semantic operators")
     public static boolean LLM_OPERATOR_DISRUPTION_ANALYSIS_ENABLED = false;
+
+    @Parameter(key = "llm_operator_attempt_log_enabled", group = "LLM",
+            description = "Write one CSV row per LLM operator target (operator_attempts_<class>.csv in report_dir)")
+    public static boolean LLM_OPERATOR_ATTEMPT_LOG_ENABLED = false;
 
     @Parameter(key = "llm_operator_disruption_evaluate_isolated", group = "LLM",
             description = "When disruption analysis is enabled, run isolated intermediate fitness probes "
@@ -3627,6 +3766,28 @@ public class Properties {
             if (MAX_LENGTH < POPULATION) {
                 MAX_LENGTH = POPULATION;
             }
+        }
+        resolveLlmOperatorModeAlias();
+    }
+
+    /**
+     * Maps the deprecated {@code llm_operator_enabled=true} onto {@code llm_operator_mode=SYNC}
+     * unless {@code llm_operator_mode} was set explicitly (via a properties file or the command
+     * line). Runtime code reads only {@link #LLM_OPERATOR_MODE}.
+     */
+    static void resolveLlmOperatorModeAlias() {
+        resolveLlmOperatorModeAlias(changedFields.contains("llm_operator_mode"));
+    }
+
+    /**
+     * Maps the deprecated {@code llm_operator_enabled=true} onto {@code llm_operator_mode=SYNC}
+     * when the alias is on and {@code modeSetExplicitly} is false, i.e. nothing has set
+     * {@code llm_operator_mode} itself. An explicit {@code llm_operator_mode=OFF} is left alone
+     * even with the deprecated alias set, since the explicit setting is authoritative.
+     */
+    static void resolveLlmOperatorModeAlias(boolean modeSetExplicitly) {
+        if (LLM_OPERATOR_ENABLED && !modeSetExplicitly) {
+            LLM_OPERATOR_MODE = LlmOperatorMode.SYNC;
         }
     }
 

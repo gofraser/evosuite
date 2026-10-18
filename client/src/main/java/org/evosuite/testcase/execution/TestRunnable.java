@@ -241,11 +241,20 @@ public class TestRunnable implements InterfaceTestRunnable {
         runFinished = false;
 
         KillSwitch killSwitch = ExecutionTracer::setKillSwitch;
+        threadStopper = new ThreadStopper(killSwitch, threadsToIgnore(), Properties.TIMEOUT);
+    }
+
+    /**
+     * Thread-name prefixes the {@link ThreadStopper} must leave alone after a test: the
+     * execution thread itself and the user's {@code ignore_threads}. Threads that EvoSuite
+     * itself owns (LLM workers, compile threads, ...) are exempted separately, by identity,
+     * via {@link org.evosuite.runtime.thread.EvoSuiteOwnedThreads} — not by name.
+     */
+    static Set<String> threadsToIgnore() {
         Set<String> threadsToIgnore = new LinkedHashSet<>();
         threadsToIgnore.add(TestCaseExecutor.TEST_EXECUTION_THREAD);
         threadsToIgnore.addAll(Arrays.asList(Properties.IGNORE_THREADS));
-
-        threadStopper = new ThreadStopper(killSwitch, threadsToIgnore, Properties.TIMEOUT);
+        return threadsToIgnore;
     }
 
     /**

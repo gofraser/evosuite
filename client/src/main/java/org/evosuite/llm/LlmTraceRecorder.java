@@ -22,6 +22,7 @@ package org.evosuite.llm;
 import com.google.gson.Gson;
 import org.evosuite.Properties;
 import org.evosuite.llm.postprocess.LlmPostProcessingProtocol;
+import org.evosuite.llm.prompt.PrefixHash;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.slf4j.Logger;
@@ -33,7 +34,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,7 +49,7 @@ public class LlmTraceRecorder {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmTraceRecorder.class);
     private static final Gson GSON = new Gson();
-    private static final int TRACE_SCHEMA_VERSION = 3;
+    private static final int TRACE_SCHEMA_VERSION = 4;
     private static final ThreadLocal<PostProcessingTraceContext> POST_PROCESSING_TRACE_CONTEXT =
             new ThreadLocal<>();
 
@@ -68,6 +68,7 @@ public class LlmTraceRecorder {
         private final List<LlmMessage> messages;
         private final String responseText;
         private final int inputTokens;
+        private final int cachedInputTokens;
         private final int outputTokens;
         private final long latencyMs;
         private final String parseStatus;
@@ -89,6 +90,7 @@ public class LlmTraceRecorder {
             private List<LlmMessage> messages = Collections.emptyList();
             private String responseText;
             private int inputTokens;
+            private int cachedInputTokens;
             private int outputTokens;
             private long latencyMs;
             private String parseStatus;
@@ -123,6 +125,11 @@ public class LlmTraceRecorder {
 
             public Builder inputTokens(int inputTokens) {
                 this.inputTokens = inputTokens;
+                return this;
+            }
+
+            public Builder cachedInputTokens(int cachedInputTokens) {
+                this.cachedInputTokens = cachedInputTokens;
                 return this;
             }
 
@@ -211,6 +218,7 @@ public class LlmTraceRecorder {
             this.messages = builder.messages == null ? Collections.<LlmMessage>emptyList() : builder.messages;
             this.responseText = builder.responseText;
             this.inputTokens = builder.inputTokens;
+            this.cachedInputTokens = builder.cachedInputTokens;
             this.outputTokens = builder.outputTokens;
             this.latencyMs = builder.latencyMs;
             this.parseStatus = builder.parseStatus;
@@ -469,7 +477,7 @@ public class LlmTraceRecorder {
         traceRecord.put("postprocessing_minimization_stop_cause",
                 postProcessingContext == null ? "" : postProcessingContext.minimizationStopCause);
         traceRecord.put("provider", configuration.getProvider().name());
-        traceRecord.put("model", configuration.getModel());
+        traceRecord.put("model", configuration.modelFor(record.feature));
         traceRecord.put("effective_temperature", configuration.getTemperature());
         traceRecord.put("effective_max_tokens", configuration.getMaxTokens());
         traceRecord.put("effective_timeout_seconds", configuration.getTimeoutSeconds());
@@ -477,6 +485,9 @@ public class LlmTraceRecorder {
         traceRecord.put("effective_retry_base_delay_ms", configuration.getRetryBaseDelayMs());
         traceRecord.put("prompt_hash", deterministicPromptHash(safeMessages));
         traceRecord.put("system_prompt_hash", messageContentHash(safeMessages, LlmMessage.Role.SYSTEM));
+        // Same function PromptResult.getPrefixHash() uses, so trace rows and prompt
+        // metadata agree on which calls shared a cacheable prefix.
+        traceRecord.put("prefix_hash", PrefixHash.of(safeMessages));
         traceRecord.put("user_prompt_hash", messageContentHash(safeMessages, LlmMessage.Role.USER));
         traceRecord.put("postprocessing_prompt_version",
                 record.feature == LlmFeature.POST_PROCESSING
@@ -507,6 +518,7 @@ public class LlmTraceRecorder {
         traceRecord.put("expansion_attempted", record.expansionAttempted);
         traceRecord.put("expanded_classes", expanded);
         traceRecord.put("input_tokens", record.inputTokens);
+        traceRecord.put("cached_input_tokens", record.cachedInputTokens);
         traceRecord.put("output_tokens", record.outputTokens);
         traceRecord.put("latency_ms", record.latencyMs);
         traceRecord.put("error_type", record.errorType);
@@ -626,38 +638,30 @@ public class LlmTraceRecorder {
     }
 
     String deterministicPromptHash(List<LlmMessage> messages) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            for (LlmMessage message : messages) {
-                if (message == null) {
-                    continue;
-                }
-                digest.update(message.getRole().name().getBytes(StandardCharsets.UTF_8));
-                digest.update((byte) 0x1F);
-                digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
-                digest.update((byte) 0x1E);
+        MessageDigest digest = PrefixHash.sha256();
+        for (LlmMessage message : messages) {
+            if (message == null) {
+                continue;
             }
-            return toHex(digest.digest());
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
+            digest.update(message.getRole().name().getBytes(StandardCharsets.UTF_8));
+            digest.update((byte) 0x1F);
+            digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
+            digest.update((byte) 0x1E);
         }
+        return PrefixHash.hex(digest.digest());
     }
 
     private String messageContentHash(List<LlmMessage> messages, LlmMessage.Role role) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            boolean found = false;
-            for (LlmMessage message : messages) {
-                if (message != null && message.getRole() == role) {
-                    digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
-                    digest.update((byte) 0x1E);
-                    found = true;
-                }
+        MessageDigest digest = PrefixHash.sha256();
+        boolean found = false;
+        for (LlmMessage message : messages) {
+            if (message != null && message.getRole() == role) {
+                digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
+                digest.update((byte) 0x1E);
+                found = true;
             }
-            return found ? toHex(digest.digest()) : "";
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
         }
+        return found ? PrefixHash.hex(digest.digest()) : "";
     }
 
     private static boolean hasInternalContextTruncation(List<LlmMessage> messages) {
@@ -714,14 +718,10 @@ public class LlmTraceRecorder {
     }
 
     private static String contentHash(String content) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update((content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
-            digest.update((byte) 0x1E);
-            return toHex(digest.digest());
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
-        }
+        MessageDigest digest = PrefixHash.sha256();
+        digest.update((content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
+        digest.update((byte) 0x1E);
+        return PrefixHash.hex(digest.digest());
     }
 
     public Path getTraceFile() {
@@ -740,14 +740,6 @@ public class LlmTraceRecorder {
             serialized.add(jsonMessage);
         }
         return serialized;
-    }
-
-    private static String toHex(byte[] data) {
-        StringBuilder builder = new StringBuilder(data.length * 2);
-        for (byte datum : data) {
-            builder.append(String.format("%02x", datum));
-        }
-        return builder.toString();
     }
 
     private void writeJsonLine(String json) throws IOException {

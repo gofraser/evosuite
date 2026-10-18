@@ -93,7 +93,7 @@ class SidecarRecorderGoldenOutputTest {
         recorder.record(new GenerationSnapshot(
                 0, 100L, 4, 2, 1, 1, 0, InjectionSource.LLM_STAGNATION,
                 3, InjectionSource.LLM_STAGNATION,
-                3, 0, 0, 0,
+                3, 0, 2, 0, 0,
                 3, 7, 1, 0.5, 0.75, 0.3, 0.5,
                 1, 2, 1, 3,
                 new int[]{0, 0, 1, 1}, new int[]{0, 0, 1, 1},
@@ -102,7 +102,7 @@ class SidecarRecorderGoldenOutputTest {
         recorder.record(new GenerationSnapshot(
                 1, 250L, 4, 2, 0, 0, 0, null,
                 0, null,
-                0, 0, 0, 0,
+                0, 0, 0, 0, 0,
                 4, 6, 2, 0.25, Double.NaN, Double.NaN, 1.0E-7,
                 0, 0, 0, 0,
                 new int[0], new int[]{0, 1, 1, 2},

@@ -28,6 +28,11 @@ import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.postprocess.LlmPostProcessingResponse;
 import org.evosuite.llm.prompt.DecompiledContextProvider;
+import org.evosuite.llm.prompt.StaticPromptContext;
+import org.evosuite.setup.TestCluster;
+import org.evosuite.utils.generic.GenericAccessibleObject;
+import org.evosuite.utils.generic.GenericClass;
+import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -60,6 +65,7 @@ import org.slf4j.LoggerFactory;
 
 import java.awt.AWTError;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -83,6 +89,7 @@ class TestRepairLoopTest {
 
     private final boolean originalTruncationRecovery = Properties.LLM_ENABLE_TRUNCATION_RECOVERY;
     private final String originalTargetClass = Properties.TARGET_CLASS;
+    private final boolean originalPromptCacheStaticContext = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
     private Logger testRepairLoopLogger;
     private Logger decompiledContextLogger;
     private Logger evoLogger;
@@ -131,6 +138,7 @@ class TestRepairLoopTest {
         evoLogger.setAdditive(evoLoggerAdditive);
         Properties.LLM_ENABLE_TRUNCATION_RECOVERY = originalTruncationRecovery;
         Properties.TARGET_CLASS = originalTargetClass;
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = originalPromptCacheStaticContext;
         TestRepairLoop.resetForRunCompletion();
     }
 
@@ -349,7 +357,12 @@ class TestRepairLoopTest {
     }
 
     @Test
-    void retriesSameResponseAfterSuccessfulClusterExpansion() {
+    void retriesSameResponseAfterSuccessfulClusterExpansionWithoutConsumingAnAttempt() {
+        // maxAttempts = 0 mirrors LlmSemanticOperator's search-thread re-parse loop
+        // (newReparseRepairLoop()) and the SYNC operator loop at the default
+        // llm_operator_repair_attempts=0: the deferred re-parse after a successful
+        // expansion must still happen, and must not be charged against the LLM
+        // repair-attempt budget.
         LlmService llmService = mock(LlmService.class);
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
         when(expansionManager.tryExpandFrom(anyList())).thenReturn(true);
@@ -376,15 +389,100 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2);
+                0);
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 Collections.singletonList(LlmMessage.user("seed")),
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
-        assertEquals(2, result.getAttemptsUsed());
+        assertEquals(1, result.getAttemptsUsed(),
+                "the local re-parse against the expanded cluster must not consume an LLM attempt");
+        assertTrue(result.getExpandedClasses().contains("java.util.ArrayList"));
+        assertEquals(2, calls.get(), "must have re-parsed the same response after expansion");
         verify(expansionManager, times(1)).tryExpandFrom(anyList());
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void expansionWithNoNewClassesDoesNotLoopForeverAndFailsWithoutConsumingAnAttempt() {
+        // Same maxAttempts = 0 configuration, but expansion reports success while
+        // resolving nothing new (e.g. everything it could add is already in the
+        // cluster). The loop must fall through instead of looping, and since no
+        // LLM call happened, attemptsUsed stays at 1.
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+        when(expansionManager.tryExpandFrom(anyList())).thenReturn(true);
+        when(expansionManager.getLastExpandedClasses()).thenReturn(Collections.<String>emptyList());
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "cannot find symbol java.util.ArrayList", 1,
+                        "ArrayList list = new ArrayList();"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                0);
+
+        RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        assertEquals(1, result.getAttemptsUsed());
+        assertTrue(result.getExpandedClasses().isEmpty());
+        verify(expansionManager, times(1)).tryExpandFrom(anyList());
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void expansionDisabledStopsImmediatelyAndFlagsNeedsClusterExpansion() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+        when(expansionManager.extractUnresolvedSymbols(anyList()))
+                .thenReturn(new LinkedHashSet<>(Arrays.asList("java.util.ArrayList")));
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "cannot find symbol java.util.ArrayList", 1,
+                        "ArrayList list = new ArrayList();"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                2,
+                null,
+                null,
+                TestRepairLoop.RepairOptions.parseOnly(false, false));
+
+        RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.needsClusterExpansion());
+        assertEquals(1, result.getAttemptsUsed(),
+                "must stop on the first parse, never burning a repair round-trip");
+        verify(expansionManager, never()).tryExpandFrom(anyList());
         verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
     }
 
@@ -463,6 +561,84 @@ class TestRepairLoopTest {
         assertTrue(result.getDiagnostics().stream()
                 .anyMatch(d -> d.contains("sync deadline too close")));
         verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void parseOnlyOptionsNeverInvokeExecutorAndStillSucceed() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "kept"));
+            }
+        };
+
+        AtomicInteger executions = new AtomicInteger();
+        TestRepairLoop.TestExecutor executor = testCase -> {
+            executions.incrementAndGet();
+            return new ExecutionResult(testCase);
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                executor,
+                1,
+                null,
+                null,
+                TestRepairLoop.RepairOptions.parseOnly(false));
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        assertEquals(1, result.getParseResults().size());
+        assertEquals(0, executions.get(),
+                "a parse-only loop must never touch the test executor; "
+                        + "the caller evaluates the returned tests itself");
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void defaultOptionsStillExecuteParsedTests() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "kept"));
+            }
+        };
+
+        AtomicInteger executions = new AtomicInteger();
+        TestRepairLoop.TestExecutor executor = testCase -> {
+            executions.incrementAndGet();
+            return new ExecutionResult(testCase);
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                executor,
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        assertEquals(1, executions.get(),
+                "the default options must keep executing parsed tests (existing behaviour)");
     }
 
     @Test
@@ -4594,6 +4770,303 @@ class TestRepairLoopTest {
         assertFalse(result.getDiagnostics().stream()
                 .anyMatch(d -> d.contains("recurrent access violations")),
                 "Non-access errors should not trigger access violation tracking: " + result.getDiagnostics());
+    }
+
+    @Test
+    void requestRepairKeepsExistingLeadingSystemMessageInsteadOfPrependingAnother() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\nbroken\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "syntax error", 1, "broken"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1,
+                "loop-provided-system-prompt",
+                null);
+
+        RepairResult result = loop.attemptParse(
+                "broken",
+                Arrays.asList(LlmMessage.system("original-prompt-system-message"), LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+
+        long systemMessageCount = sentConversation.stream()
+                .filter(m -> m.getRole() == LlmMessage.Role.SYSTEM)
+                .count();
+        assertEquals(1, systemMessageCount, "Exactly one system message should be sent: " + sentConversation);
+        assertEquals(LlmMessage.Role.SYSTEM, sentConversation.get(0).getRole());
+        assertEquals("original-prompt-system-message", sentConversation.get(0).getContent(),
+                "The conversation's own leading system message must be kept, not replaced");
+    }
+
+    @Test
+    void sutContextSummaryOmittedFromRepairMessageWhenSystemMessageAlreadyHasDependencyContext() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\nbroken\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "syntax error", 1, "broken"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        String systemMessageWithDependencyContext = "You are a test generator.\n\n"
+                + org.evosuite.llm.prompt.StaticPromptContext.DEPENDENCY_SECTION_HEADER
+                + "\nFoo(): void bar()";
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1,
+                "loop-provided-system-prompt",
+                "CATALOG-TEXT-MARKER-of-constructors-and-methods");
+
+        RepairResult result = loop.attemptParse(
+                "broken",
+                Arrays.asList(LlmMessage.system(systemMessageWithDependencyContext), LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String repairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+
+        assertFalse(repairMessage.contains("CATALOG-TEXT-MARKER-of-constructors-and-methods"),
+                "The bulk catalogue is already in the cached system message and should not be duplicated");
+    }
+
+    @Test
+    void sutContextSummaryIncludedInRepairMessageWhenSystemMessageHasNoDependencyContext() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\nbroken\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "syntax error", 1, "broken"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1,
+                "loop-provided-system-prompt",
+                "CATALOG-TEXT-MARKER-of-constructors-and-methods");
+
+        RepairResult result = loop.attemptParse(
+                "broken",
+                Arrays.asList(LlmMessage.system("You are a test generator, no dependency catalogue here."),
+                        LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String repairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+
+        assertTrue(repairMessage.contains("CATALOG-TEXT-MARKER-of-constructors-and-methods"),
+                "Without a cached dependency section, the catalogue must still be re-appended as before");
+    }
+
+    @Test
+    void repairMessageIncludesGrowthDeltaForExpandedClassOnceWhenCacheEnabled() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+        // Same package as GrowthDep's (package-private) enclosing test class, so
+        // TestClusterSummarizer's source-accessibility check does not filter it out.
+        Properties.TARGET_CLASS = "org.evosuite.llm.response.SomeCut";
+
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("response-A", "response-B");
+
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+        when(expansionManager.tryExpandFrom(anyList())).thenReturn(true);
+        when(expansionManager.getLastExpandedClasses())
+                .thenReturn(Collections.singletonList(GrowthDep.class.getName()));
+
+        AtomicInteger calls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                int n = calls.getAndIncrement();
+                if (n == 0) {
+                    ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                    error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                            "cannot find symbol " + GrowthDep.class.getSimpleName(), 1,
+                            "GrowthDep dep = new GrowthDep();"));
+                    return Collections.singletonList(error);
+                }
+                if (n == 1) {
+                    throw new RuntimeException("first unrelated parser failure");
+                }
+                if (n == 2) {
+                    throw new RuntimeException("second unrelated parser failure");
+                }
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                5);
+        loop.setTestClusterSupplierForTesting(() -> clusterWithDependency(GrowthDep.class));
+
+        String systemMessageWithDependencyContext = "You are a test generator.\n\n"
+                + StaticPromptContext.DEPENDENCY_SECTION_HEADER + "\nsome cached catalogue";
+
+        RepairResult result = loop.attemptParse("initial",
+                Arrays.asList(LlmMessage.system(systemMessageWithDependencyContext), LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(2)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> finalConversation = conversationCaptor.getValue();
+        List<String> userMessages = new ArrayList<>();
+        for (LlmMessage message : finalConversation) {
+            if (message.getRole() == LlmMessage.Role.USER) {
+                userMessages.add(message.getContent());
+            }
+        }
+        assertEquals(3, userMessages.size(), "seed + two repair turns: " + userMessages);
+        String firstRepairMessage = userMessages.get(1);
+        String secondRepairMessage = userMessages.get(2);
+
+        assertTrue(firstRepairMessage.contains("Additional dependency types now available in the test cluster:"),
+                firstRepairMessage);
+        assertTrue(firstRepairMessage.contains("GrowthDep("), firstRepairMessage);
+        assertFalse(secondRepairMessage.contains("Additional dependency types now available in the test cluster:"),
+                "Growth delta for an already-described class must not repeat: " + secondRepairMessage);
+    }
+
+    @Test
+    void repairMessageOmitsGrowthDeltaWhenPromptCacheDisabled() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = false;
+        // Same package as GrowthDep's (package-private) enclosing test class, so
+        // TestClusterSummarizer's source-accessibility check does not filter it out.
+        Properties.TARGET_CLASS = "org.evosuite.llm.response.SomeCut";
+
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("response-A");
+
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+        when(expansionManager.tryExpandFrom(anyList())).thenReturn(true);
+        when(expansionManager.getLastExpandedClasses())
+                .thenReturn(Collections.singletonList(GrowthDep.class.getName()));
+
+        AtomicInteger calls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                int n = calls.getAndIncrement();
+                if (n == 0) {
+                    ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                    error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                            "cannot find symbol " + GrowthDep.class.getSimpleName(), 1,
+                            "GrowthDep dep = new GrowthDep();"));
+                    return Collections.singletonList(error);
+                }
+                if (n == 1) {
+                    throw new RuntimeException("unrelated parser failure");
+                }
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                5);
+        loop.setTestClusterSupplierForTesting(() -> clusterWithDependency(GrowthDep.class));
+
+        RepairResult result = loop.attemptParse("initial",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String repairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+
+        assertTrue(repairMessage.contains("Note: The test cluster has been expanded"), repairMessage);
+        assertFalse(repairMessage.contains("Additional dependency types now available in the test cluster:"),
+                "Growth delta must not be rendered when static-context caching is disabled: " + repairMessage);
+    }
+
+    private static TestCluster clusterWithDependency(Class<?> dependencyClass) {
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getModifiers()).thenReturn(Collections.<GenericAccessibleObject<?>>emptySet());
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorsByType = new LinkedHashMap<>();
+        generatorsByType.put(GenericClassFactory.get(dependencyClass), Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generatorsByType);
+        return cluster;
+    }
+
+    public static class GrowthDep {
+        public GrowthDep() {
+        }
     }
 
     private static void assertLogMessage(ListAppender<ILoggingEvent> appender, String message) {

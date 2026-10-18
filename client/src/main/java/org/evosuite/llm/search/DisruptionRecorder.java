@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.search.DisruptionEvent.OperatorKind;
 import org.evosuite.llm.search.DisruptionEvent.OperatorOutcome;
 import org.evosuite.llm.search.DisruptionEvent.OperatorSource;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -166,13 +167,7 @@ public class DisruptionRecorder {
      * Can be called before flush to emit the path in statistics.
      */
     public String resolveSidecarPath() {
-        String dir = Properties.LLM_OPERATOR_DISRUPTION_OUTPUT_DIR;
-        if (dir == null || dir.isEmpty()) {
-            dir = Properties.REPORT_DIR;
-        }
-        String tc = Properties.TARGET_CLASS;
-        String suffix = (tc == null || tc.isEmpty()) ? "" : "_" + tc.replaceAll("[^A-Za-z0-9_.$-]", "_");
-        return dir + File.separator + "disruption_events" + suffix + ".csv";
+        return SidecarCsv.path(Properties.LLM_OPERATOR_DISRUPTION_OUTPUT_DIR, "disruption_events");
     }
 
     // ---- Run-level counter accessors ----

@@ -12,12 +12,24 @@
 package org.evosuite.llm;
 
 import org.evosuite.Properties;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LlmConfigurationTest {
+
+    private final String savedOperatorModel = Properties.LLM_OPERATOR_MODEL;
+    private final String savedModel = Properties.LLM_MODEL;
+
+    @AfterEach
+    void restoreProperties() {
+        Properties.LLM_OPERATOR_MODEL = savedOperatorModel;
+        Properties.LLM_MODEL = savedModel;
+    }
 
     @Test
     void builderDefaultsMatchDocumentedPropertyDefaults() {
@@ -56,5 +68,65 @@ class LlmConfigurationTest {
         assertEquals("", configuration.getApiKey());
         assertEquals("", configuration.getBaseUrl());
         assertEquals("run", configuration.getRunId());
+    }
+
+    @Test
+    void fromPropertiesDefaultOperatorModelIsEmptyAndResolvesToPrimaryModel() {
+        Properties.LLM_MODEL = "primary-model";
+        Properties.LLM_OPERATOR_MODEL = "";
+
+        LlmConfiguration configuration = LlmConfiguration.fromProperties();
+
+        assertEquals("", configuration.getOperatorModel());
+        assertFalse(configuration.hasSeparateOperatorModel());
+        assertEquals(configuration.getModel(), configuration.modelFor(LlmFeature.SEMANTIC_MUTATION));
+        assertEquals(configuration.getModel(), configuration.modelFor(LlmFeature.SEMANTIC_CROSSOVER));
+    }
+
+    @Test
+    void fromPropertiesPicksUpConfiguredOperatorModel() {
+        Properties.LLM_MODEL = "primary-model";
+        Properties.LLM_OPERATOR_MODEL = "operator-model";
+
+        LlmConfiguration configuration = LlmConfiguration.fromProperties();
+
+        assertEquals("operator-model", configuration.getOperatorModel());
+        assertTrue(configuration.hasSeparateOperatorModel());
+        assertEquals("operator-model", configuration.modelFor(LlmFeature.SEMANTIC_MUTATION));
+        assertEquals("operator-model", configuration.modelFor(LlmFeature.SEMANTIC_CROSSOVER));
+        assertEquals("primary-model", configuration.modelFor(LlmFeature.STAGNATION));
+        assertEquals("primary-model", configuration.modelFor(LlmFeature.SEEDING));
+    }
+
+    @Test
+    void operatorModelEqualToPrimaryModelIsNotTreatedAsSeparate() {
+        Properties.LLM_MODEL = "same-model";
+        Properties.LLM_OPERATOR_MODEL = "same-model";
+
+        LlmConfiguration configuration = LlmConfiguration.fromProperties();
+
+        assertFalse(configuration.hasSeparateOperatorModel());
+        assertEquals("same-model", configuration.modelFor(LlmFeature.SEMANTIC_MUTATION));
+    }
+
+    @Test
+    void builderRoundTripsOperatorModel() {
+        LlmConfiguration configuration = LlmConfiguration.builder()
+                .model("primary-model")
+                .operatorModel("operator-model")
+                .build();
+
+        assertEquals("operator-model", configuration.getOperatorModel());
+        assertTrue(configuration.hasSeparateOperatorModel());
+        assertEquals("operator-model", configuration.modelFor(LlmFeature.SEMANTIC_CROSSOVER));
+    }
+
+    @Test
+    void constructorTrimsOperatorModelWhitespace() {
+        LlmConfiguration configuration = new LlmConfiguration(
+                Properties.LlmProvider.NONE, "primary-model", "  operator-model  ", null, null,
+                0.7, 1, 1, 0, 1, false, java.nio.file.Paths.get("target"), "run");
+
+        assertEquals("operator-model", configuration.getOperatorModel());
     }
 }

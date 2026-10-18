@@ -80,7 +80,7 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                     logger.debug("Cancelled during non-SUT constant enrichment, stopping");
                     break;
                 }
-                if (!llmService.hasBudget()) {
+                if (!llmService.hasBudget(feature)) {
                     logger.debug("Budget exhausted during non-SUT constant enrichment, stopping early");
                     break;
                 }

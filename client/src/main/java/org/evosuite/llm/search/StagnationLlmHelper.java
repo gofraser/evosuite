@@ -21,6 +21,7 @@ package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.LlmStagnationMode;
+import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.prompt.PromptResult;
@@ -146,19 +147,11 @@ public final class StagnationLlmHelper {
         // submits and returns immediately; SYNC submits and waits with a
         // truncated timeout so the call can be interrupted via Future.cancel
         // if it would otherwise outlast the search budget.
-        String threadName = "llm-stagnation-" + this.mode.name().toLowerCase();
-        this.worker = Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, threadName);
-            t.setDaemon(true);
-            // Register with the sandbox so test execution from the worker
-            // doesn't get sandboxed and corrupt MSecurityManager state.
-            // See AsyncLlmTestProducer for the original justification.
-            LlmPrivilegedThreads.registerAsPrivileged(t, threadName);
-            return t;
-        });
+        String role = "stagnation-" + this.mode.name().toLowerCase();
+        this.worker = Executors.newSingleThreadExecutor(r -> LlmPrivilegedThreads.newThread(r, role));
     }
 
-    private static int resolveBudgetGuardSeconds() {
+    public static int resolveBudgetGuardSeconds() {
         int configured = Properties.LLM_STAGNATION_BUDGET_GUARD_SECONDS;
         if (configured >= 0) {
             return configured;
@@ -175,19 +168,39 @@ public final class StagnationLlmHelper {
     }
 
     /**
+     * As {@link #maybeSubmit(int, int, Collection, List)}, treating every
+     * uncovered goal as a prompt target.
+     */
+    public void maybeSubmit(int coveredCount,
+                            Collection<TestFitnessFunction> uncoveredGoals,
+                            List<TestChromosome> populationSnapshot) {
+        int totalGoals = coveredCount + (uncoveredGoals == null ? 0 : uncoveredGoals.size());
+        maybeSubmit(coveredCount, totalGoals, uncoveredGoals, populationSnapshot);
+    }
+
+    /**
      * Inspects stagnation state and, if triggered, runs the LLM call now (SYNC)
      * or submits it to the background worker (ASYNC). Non-blocking in ASYNC,
      * blocking-for-up-to-{@code llm_timeout_seconds × (1 + repairAttempts)} (worst case, full repair chain)
      * in SYNC. The {@code populationSnapshot} should be a defensive copy: it
      * is read from the worker thread in ASYNC mode.
+     *
+     * @param coveredCount       goals covered so far, drives stagnation detection
+     * @param totalGoals         all goals, covered or not; only the progress line in the
+     *                           prompt uses it, so it may exceed
+     *                           {@code coveredCount + targetGoals.size()} when the
+     *                           caller narrows the targets to a frontier
+     * @param targetGoals        goals the prompt should target
+     * @param populationSnapshot defensive copy of the population
      */
     public void maybeSubmit(int coveredCount,
-                            Collection<TestFitnessFunction> uncoveredGoals,
+                            int totalGoals,
+                            Collection<TestFitnessFunction> targetGoals,
                             List<TestChromosome> populationSnapshot) {
         if (shutdown) {
             return;
         }
-        if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {
+        if (targetGoals == null || targetGoals.isEmpty()) {
             return;
         }
         // Peek (non-consuming): we only reset the stagnation window once we have
@@ -195,15 +208,17 @@ public final class StagnationLlmHelper {
         // availability, or an in-flight call must NOT swallow the window —
         // otherwise a tight budget guard or a long-running call can prevent
         // stagnation from ever firing.
-        int uncoveredSize = uncoveredGoals.size();
+        int uncoveredSize = Math.max(0, totalGoals - coveredCount);
+        int targetCount = targetGoals.size();
         if (!detector.peekStagnation(coveredCount)) {
             if (mode == LlmStagnationMode.ASYNC) {
                 tickInFlightGeneration();
             }
             return;
         }
-        if (!detector.getLlmService().isAvailable() || !detector.getLlmService().hasBudget()) {
-            traceOutcome("skipped:unavailable", coveredCount, uncoveredSize, -1L, 0);
+        if (!detector.getLlmService().isAvailable()
+                || !detector.getLlmService().hasBudget(LlmFeature.STAGNATION)) {
+            traceOutcome("skipped:unavailable", coveredCount, uncoveredSize, targetCount, -1L, 0);
             return;
         }
         if (!hasEnoughTimeLeft()) {
@@ -213,7 +228,7 @@ public final class StagnationLlmHelper {
             stagnationSkippedBudget.incrementAndGet();
             ClientServices.track(RuntimeVariable.LLM_StagnationSkippedBudget,
                     stagnationSkippedBudget.get());
-            traceOutcome("skipped:budget", coveredCount, uncoveredSize, -1L, 0);
+            traceOutcome("skipped:budget", coveredCount, uncoveredSize, targetCount, -1L, 0);
             return;
         }
         if (mode == LlmStagnationMode.ASYNC) {
@@ -226,7 +241,7 @@ public final class StagnationLlmHelper {
                 ClientServices.track(RuntimeVariable.LLM_StagnationSkippedInFlight,
                         stagnationSkippedInFlight.get());
                 tickInFlightGeneration();
-                traceOutcome("skipped:in_flight", coveredCount, uncoveredSize, -1L, 0);
+                traceOutcome("skipped:in_flight", coveredCount, uncoveredSize, targetCount, -1L, 0);
                 return;
             }
         }
@@ -246,17 +261,16 @@ public final class StagnationLlmHelper {
             }
             recordPromptSubmitted();
         }
-        traceOutcome("fired:" + mode.name().toLowerCase(), coveredCount, uncoveredSize, -1L, 0);
+        traceOutcome("fired:" + mode.name().toLowerCase(), coveredCount, uncoveredSize, targetCount, -1L, 0);
 
-        int totalGoals = coveredCount + uncoveredGoals.size();
         Map<TestFitnessFunction, Double> bestFitness =
-                StagnationDetector.computeBestFitnessPerGoal(uncoveredGoals, populationSnapshot);
-        PromptResult prompt = detector.buildPrompt(uncoveredGoals, populationSnapshot,
+                StagnationDetector.computeBestFitnessPerGoal(targetGoals, populationSnapshot);
+        PromptResult prompt = detector.buildPrompt(targetGoals, populationSnapshot,
                 totalGoals, coveredCount, bestFitness, mode == LlmStagnationMode.ASYNC);
 
         switch (mode) {
             case SYNC:
-                runSync(prompt, coveredCount, uncoveredSize);
+                runSync(prompt, coveredCount, uncoveredSize, targetCount);
                 break;
             case ASYNC:
                 runAsync(prompt);
@@ -329,7 +343,7 @@ public final class StagnationLlmHelper {
         }
     }
 
-    private void runSync(PromptResult prompt, int coveredCount, int uncoveredSize) {
+    private void runSync(PromptResult prompt, int coveredCount, int uncoveredSize, int targetCount) {
         long t0 = System.nanoTime();
         long waitSeconds = computeSyncWaitSeconds();
         long deadlineNanos = deadlineAfterWait(waitSeconds, SYNC_RETURN_MARGIN_NANOS);
@@ -360,17 +374,18 @@ public final class StagnationLlmHelper {
             future.cancel(true);
             // Wall-clock timeout: the call never produced a response — don't penalize
             // the repeated-injection cooldown for what is effectively a non-delivery.
-            recordSyncNonResponse(registration, false, "timeout:sync", t0, coveredCount, uncoveredSize);
+            recordSyncNonResponse(registration, false, "timeout:sync", t0, coveredCount, uncoveredSize, targetCount);
             return;
         } catch (CancellationException e) {
             // Cancelled before completion — treat as non-delivery.
-            recordSyncNonResponse(registration, false, "cancelled:sync", t0, coveredCount, uncoveredSize);
+            recordSyncNonResponse(registration, false, "cancelled:sync", t0, coveredCount, uncoveredSize, targetCount);
             return;
         } catch (InterruptedException e) {
             future.cancel(true);
             Thread.currentThread().interrupt();
             // Interrupt during the wait — non-delivery.
-            recordSyncNonResponse(registration, false, "interrupted:sync", t0, coveredCount, uncoveredSize);
+            recordSyncNonResponse(registration, false, "interrupted:sync", t0, coveredCount, uncoveredSize,
+                    targetCount);
             return;
         } catch (ExecutionException e) {
             // Worker raised an exception while executing the call — the call was
@@ -379,7 +394,7 @@ public final class StagnationLlmHelper {
             Throwable cause = e.getCause();
             logger.debug("Sync stagnation call failed: {}",
                     cause == null ? e.toString() : cause.toString());
-            recordSyncNonResponse(registration, true, "error:sync", t0, coveredCount, uncoveredSize);
+            recordSyncNonResponse(registration, true, "error:sync", t0, coveredCount, uncoveredSize, targetCount);
             return;
         }
         synchronized (lifecycleLock) {
@@ -390,7 +405,7 @@ public final class StagnationLlmHelper {
             recordResponseReceived();
             recordCallCompleted(elapsedMs, elapsedMs);
             int produced = tests == null ? 0 : tests.size();
-            traceOutcome("completed:sync", coveredCount, uncoveredSize, elapsedMs, produced);
+            traceOutcome("completed:sync", coveredCount, uncoveredSize, targetCount, elapsedMs, produced);
             publishTests(tests, prompt, registration);
         }
     }
@@ -401,7 +416,7 @@ public final class StagnationLlmHelper {
      */
     private void recordSyncNonResponse(RepeatedInjectionMemory.PromptAttemptRegistration registration,
                                        boolean delivered, String label, long t0,
-                                       int coveredCount, int uncoveredSize) {
+                                       int coveredCount, int uncoveredSize, int targetCount) {
         if (hardShutdown) {
             return;
         }
@@ -411,7 +426,7 @@ public final class StagnationLlmHelper {
             detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
         }
         long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-        traceOutcome(label, coveredCount, uncoveredSize, elapsedMs, 0);
+        traceOutcome(label, coveredCount, uncoveredSize, targetCount, elapsedMs, 0);
     }
 
     private long computeSyncWaitSeconds() {
@@ -475,7 +490,7 @@ public final class StagnationLlmHelper {
                         }
                         recordCallCompleted(elapsedMs, 0L);
                         int produced = tests == null ? 0 : tests.size();
-                        traceOutcome("completed:async", -1, -1, elapsedMs, produced);
+                        traceOutcome("completed:async", -1, -1, -1, elapsedMs, produced);
                         publishTests(tests, prompt, registration);
                     }
                 }));
@@ -637,16 +652,18 @@ public final class StagnationLlmHelper {
      * One structured debug line per stagnation outcome. Fields that don't
      * apply to the event are passed as {@code -1}. Format is grep-friendly:
      *
-     * <pre>stagnation outcome={x} mode={SYNC|ASYNC} covered={n} uncovered={n} latencyMs={n} tests={n}</pre>
+     * <pre>stagnation outcome={x} mode={SYNC|ASYNC} covered={n} uncovered={n} targets={n} latencyMs={n} tests={n}</pre>
      *
-     * <p>Cheap (single SLF4J call, guarded by isDebugEnabled).
+     * <p>{@code uncovered} is the true count of goals not yet covered; {@code targets} is how many
+     * of them the prompt listed (DynaMOSA narrows this to its frontier). Cheap (single SLF4J call,
+     * guarded by isDebugEnabled).
      */
-    private void traceOutcome(String outcome, int coveredCount, int uncoveredSize,
+    private void traceOutcome(String outcome, int coveredCount, int uncoveredSize, int targetCount,
                               long latencyMs, int testsProduced) {
         if (!logger.isDebugEnabled()) {
             return;
         }
-        logger.debug("stagnation outcome={} mode={} covered={} uncovered={} latencyMs={} tests={}",
-                outcome, mode, coveredCount, uncoveredSize, latencyMs, testsProduced);
+        logger.debug("stagnation outcome={} mode={} covered={} uncovered={} targets={} latencyMs={} tests={}",
+                outcome, mode, coveredCount, uncoveredSize, targetCount, latencyMs, testsProduced);
     }
 }

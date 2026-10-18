@@ -407,31 +407,58 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
     }
 
-    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+    /**
+     * Starts the LLM helpers that run alongside the search.
+     *
+     * @param currentGoalsSupplier the goals LLM prompts should target. Pass the goals the
+     *                             search is currently pursuing (DynaMOSA's frontier), not
+     *                             every uncovered goal: goals behind unmet control
+     *                             dependencies cannot be reached directly and only inflate
+     *                             prompts. Read from background threads, so it must return a
+     *                             snapshot.
+     */
+    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier,
                                            boolean maximizationObjective,
                                            LlmInjectionAdapter<T> injectionAdapter) {
         this.llmInjectionAdapter = injectionAdapter;
-        initializeAsyncProducer(uncoveredGoalsSupplier);
+        initializeAsyncProducer(currentGoalsSupplier);
         initializeStagnationDetector(maximizationObjective);
-        wireUncoveredGoalsIntoLlmTestFactory(uncoveredGoalsSupplier);
+        wireSearchStateIntoLlmTestFactory(currentGoalsSupplier);
     }
 
     /**
      * Walks the chromosome-factory chain and, if it contains an
-     * {@link LlmTestChromosomeFactory}, replaces its default empty-goals
-     * supplier with the live one. The factory is constructed by the strategy
-     * wrappers before the GA exists, so this is the earliest moment we can
-     * bind real goal feedback into per-individual LLM prompts.
+     * {@link LlmTestChromosomeFactory}, replaces its default empty search
+     * state with the live goal supplier, population supplier and repeated-
+     * injection memory. The factory is constructed by the strategy wrappers
+     * before the GA exists, so this is the earliest moment we can bind real
+     * search feedback into per-individual LLM prompts. {@code
+     * repeatedInjectionMemory} may still be unset here (it is otherwise
+     * created lazily by {@link #initializeAsyncProducer} or {@link
+     * #initializeStagnationDetector}), so it is created here too whenever the
+     * seed factory is present, so it shares the same repeat memory as the
+     * other LLM features.
      */
-    private void wireUncoveredGoalsIntoLlmTestFactory(
-            Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
-        if (uncoveredGoalsSupplier == null) {
+    private void wireSearchStateIntoLlmTestFactory(
+            Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier) {
+        if (currentGoalsSupplier == null) {
             return;
         }
         LlmTestChromosomeFactory factory = findLlmTestChromosomeFactory(chromosomeFactory);
-        if (factory != null) {
-            factory.setUncoveredGoalsSupplier(uncoveredGoalsSupplier);
+        if (factory == null) {
+            return;
         }
+        if (repeatedInjectionMemory == null && Properties.LLM_TEST_FACTORY) {
+            repeatedInjectionMemory = new RepeatedInjectionMemory();
+        }
+        // getPopulationAsTestChromosomes() is called from the search thread
+        // (LlmTestChromosomeFactory.getChromosome() runs during population
+        // creation/replacement), so reading the live population here is safe.
+        factory.setSearchState(currentGoalsSupplier, this::getPopulationAsTestChromosomes,
+                () -> currentIteration, repeatedInjectionMemory);
+        // The factory never executes its own tests; the GA's evaluation of
+        // the new individual closes the prompt attempt behind it.
+        addListener(factory.evaluationListener());
     }
 
     private static LlmTestChromosomeFactory findLlmTestChromosomeFactory(ChromosomeFactory<?> root) {
@@ -450,9 +477,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return null;
     }
 
-    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier,
                                            boolean maximizationObjective) {
-        initializeLlmAssistance(uncoveredGoalsSupplier, maximizationObjective, llmInjectionAdapter);
+        initializeLlmAssistance(currentGoalsSupplier, maximizationObjective, llmInjectionAdapter);
     }
 
     public void setLlmInjectionAdapter(LlmInjectionAdapter<T> injectionAdapter) {
@@ -463,8 +490,8 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return llmInjectionAdapter;
     }
 
-    protected void initializeAsyncProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
-        if (!Properties.LLM_ASYNC_PRODUCER || uncoveredGoalsSupplier == null) {
+    protected void initializeAsyncProducer(Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier) {
+        if (!Properties.LLM_ASYNC_PRODUCER || currentGoalsSupplier == null) {
             return;
         }
         if (repeatedInjectionMemory == null) {
@@ -472,7 +499,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
         Supplier<List<TestChromosome>> popSupplier = Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS
                 ? this::getPopulationAsTestChromosomes : null;
-        asyncProducer = new AsyncLlmTestProducer(uncoveredGoalsSupplier, popSupplier,
+        asyncProducer = new AsyncLlmTestProducer(currentGoalsSupplier, popSupplier,
                 org.evosuite.llm.LlmService.getInstance(),
                 Properties.LLM_ASYNC_PRODUCER_QUEUE_SIZE,
                 Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL,

@@ -1,0 +1,130 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.llm.search.operator;
+
+import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
+import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.Collections;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.mock;
+
+class SyncTargetPlanTest {
+
+    private static TestChromosome chromosome() {
+        TestChromosome tc = new TestChromosome();
+        tc.setTestCase(new DefaultTestCase());
+        return tc;
+    }
+
+    private static TestFitnessFunction goal(String name) {
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        return goal;
+    }
+
+    @Test
+    void takeMutationRemovesTheTarget() {
+        TestChromosome parent = chromosome();
+        OperatorTarget target = OperatorTarget.builder(parent, goal("g")).distance(0.4).build();
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        assertSame(target, plan.take(parent, OperatorTarget.Kind.MUTATION));
+        assertNull(plan.take(parent, OperatorTarget.Kind.MUTATION), "a parent must be targeted at most once per generation");
+        assertEquals(0, plan.remaining());
+    }
+
+    @Test
+    void takeMutationLeavesCrossoverTargetInPlaceAndReturnsNull() {
+        TestChromosome parent = chromosome();
+        TestChromosome partner = chromosome();
+        OperatorTarget crossover = OperatorTarget.builder(parent, goal("g"))
+                .distance(0.3).priority(0.7).partner(partner).build();
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(crossover));
+
+        assertNull(plan.take(parent, OperatorTarget.Kind.MUTATION),
+                "a crossover target whose gate is rejected must not be handed to the mutation hook");
+        assertEquals(1, plan.remaining(), "a crossover-kind target must remain for takeCrossover");
+        assertSame(crossover, plan.take(parent, OperatorTarget.Kind.CROSSOVER));
+    }
+
+    @Test
+    void takeCrossoverLeavesMutationTargetInPlaceAndReturnsNull() {
+        TestChromosome parent = chromosome();
+        OperatorTarget mutationTarget = OperatorTarget.builder(parent, goal("g")).build();
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(mutationTarget));
+
+        assertNull(plan.take(parent, OperatorTarget.Kind.CROSSOVER));
+        assertEquals(1, plan.remaining(), "a mutation-kind target must remain for takeMutation");
+        assertSame(mutationTarget, plan.take(parent, OperatorTarget.Kind.MUTATION));
+    }
+
+    @Test
+    void takeCrossoverRemovesCrossoverTarget() {
+        TestChromosome parent = chromosome();
+        TestChromosome partner = chromosome();
+        OperatorTarget crossover = OperatorTarget.builder(parent, goal("g")).partner(partner).build();
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(crossover));
+
+        assertSame(crossover, plan.take(parent, OperatorTarget.Kind.CROSSOVER));
+        assertEquals(0, plan.remaining());
+        assertNull(plan.take(parent, OperatorTarget.Kind.MUTATION));
+    }
+
+    @Test
+    void unknownParentReturnsNull() {
+        SyncTargetPlan plan = new SyncTargetPlan(
+                Collections.singletonList(OperatorTarget.builder(chromosome(), goal("g")).build()));
+
+        assertNull(plan.take(chromosome(), OperatorTarget.Kind.MUTATION));
+        assertNull(plan.take(chromosome(), OperatorTarget.Kind.CROSSOVER));
+    }
+
+    @Test
+    void emptyPlanIsAlwaysSafe() {
+        assertNull(SyncTargetPlan.EMPTY.take(chromosome(), OperatorTarget.Kind.MUTATION));
+        assertNull(SyncTargetPlan.EMPTY.take(chromosome(), OperatorTarget.Kind.CROSSOVER));
+        assertEquals(0, SyncTargetPlan.EMPTY.remaining());
+        assertEquals(-1, SyncTargetPlan.EMPTY.getGeneration());
+    }
+
+    @Test
+    void generationDefaultsToMinusOneUnlessGiven() {
+        OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g")).build();
+        assertEquals(-1, new SyncTargetPlan(Collections.singletonList(target)).getGeneration());
+        assertEquals(5, new SyncTargetPlan(Collections.singletonList(target), 5).getGeneration());
+    }
+
+    @Test
+    void firstTargetWinsWhenTwoShareAParent() {
+        TestChromosome parent = chromosome();
+        OperatorTarget first = OperatorTarget.builder(parent, goal("a")).build();
+        OperatorTarget second = OperatorTarget.builder(parent, goal("b")).build();
+        SyncTargetPlan plan = new SyncTargetPlan(Arrays.asList(first, second));
+
+        assertEquals(1, plan.remaining());
+        assertSame(first, plan.take(parent, OperatorTarget.Kind.MUTATION));
+    }
+}

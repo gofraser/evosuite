@@ -33,10 +33,23 @@ class Phase5PropertyDefaultsTest {
 
     @Test
     void llmOperatorDefaultsAreCorrect() {
+        assertEquals(Properties.LlmOperatorMode.OFF, Properties.LLM_OPERATOR_MODE);
         assertFalse(Properties.LLM_OPERATOR_ENABLED);
+        assertFalse(Properties.LLM_OPERATOR_PAIRED_PROBE);
         assertEquals(0.1, Properties.LLM_MUTATION_PROBABILITY, 1e-9);
         assertEquals(0.1, Properties.LLM_CROSSOVER_PROBABILITY, 1e-9);
-        assertEquals(2, Properties.LLM_OPERATOR_MAX_ATTEMPTS);
+        assertEquals(0, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
+        assertEquals(Properties.LlmOperatorTargeting.DIRECTED, Properties.LLM_OPERATOR_TARGETING);
+        assertTrue(Properties.LLM_OPERATOR_CROSSOVER);
+        assertEquals(3, Properties.LLM_OPERATOR_STALL_GENERATIONS);
+        assertEquals(1, Properties.LLM_OPERATOR_PARTNER_MIN_NEW_GOALS);
+        assertEquals(0.5, Properties.LLM_OPERATOR_CALL_SHARE, 0.0);
+        assertEquals("", Properties.LLM_OPERATOR_MODEL);
+        assertEquals(1, Properties.LLM_OPERATOR_CALLS_PER_GENERATION);
+        assertEquals(2, Properties.LLM_OPERATOR_MAX_INFLIGHT);
+        assertEquals(1, Properties.LLM_OPERATOR_BATCH_SIZE);
+        assertEquals(Properties.LlmExemplarScope.ALL_CARD_TYPES, Properties.LLM_STAGNATION_EXEMPLAR_SCOPE);
+        assertFalse(Properties.LLM_OPERATOR_ATTEMPT_LOG_ENABLED);
     }
 
     @Test

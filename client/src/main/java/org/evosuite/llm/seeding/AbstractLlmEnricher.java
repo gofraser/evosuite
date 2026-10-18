@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.seeding;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.setup.TestCluster;
@@ -43,11 +44,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.EnrichmentResult> {
 
     /** Shared executor for all enrichment async work. Daemon threads so JVM exit is not blocked. */
-    static final ExecutorService LLM_ENRICHMENT_EXECUTOR = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "llm-enrichment");
-        t.setDaemon(true);
-        return t;
-    });
+    static final ExecutorService LLM_ENRICHMENT_EXECUTOR = Executors.newCachedThreadPool(
+            r -> LlmPrivilegedThreads.newThread(r, "enrichment"));
 
     static {
         Runtime.getRuntime().addShutdownHook(new Thread(LLM_ENRICHMENT_EXECUTOR::shutdownNow,
@@ -82,7 +80,7 @@ public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.Enrichme
      */
     public CompletableFuture<R> enrichAsync(String className, TestCluster cluster) {
         return CompletableFuture.supplyAsync(() -> {
-            if (!llmService.isAvailable() || !llmService.hasBudget()) {
+            if (!llmService.isAvailable() || !llmService.hasBudget(feature)) {
                 logger.debug("LLM not available or no budget for {}", feature);
                 return createSkippedResult("LLM unavailable or no budget");
             }

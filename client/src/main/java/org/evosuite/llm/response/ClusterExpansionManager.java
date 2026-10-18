@@ -40,8 +40,17 @@ public class ClusterExpansionManager {
     private static final Pattern FQCN_PATTERN = Pattern.compile("\\b([a-zA-Z_][\\w$]*(?:\\.[a-zA-Z_][\\w$]*)+)\\b");
     private static final Pattern SIMPLE_CLASS_PATTERN = Pattern.compile("\\b([A-Z][\\w$]*)\\b");
 
+    /**
+     * Guards {@link TestClusterGenerator#addNewDependencies}. The test cluster it
+     * mutates is process-wide ({@link TestCluster#getInstance()}), but every
+     * {@link TestRepairLoop} owns its own {@code ClusterExpansionManager} (search
+     * thread, stagnation worker, async producer, operator workers, ...). A lock
+     * scoped to one instance would let two of those loops expand the shared
+     * cluster concurrently, so this lock is shared by every instance instead.
+     */
+    private static final Lock EXPANSION_LOCK = new ReentrantLock();
+
     private final ClassLoader sutClassLoader;
-    private final Lock expansionLock = new ReentrantLock();
     private volatile List<String> lastExpandedClasses = Collections.emptyList();
 
     /** Creates an expansion manager using the SUT class loader from the current test generation context. */
@@ -70,7 +79,7 @@ public class ClusterExpansionManager {
             return false;
         }
 
-        expansionLock.lock();
+        EXPANSION_LOCK.lock();
         try {
             generator.addNewDependencies(candidates);
             List<String> expanded = new ArrayList<>();
@@ -80,7 +89,7 @@ public class ClusterExpansionManager {
             lastExpandedClasses = Collections.unmodifiableList(expanded);
             return true;
         } finally {
-            expansionLock.unlock();
+            EXPANSION_LOCK.unlock();
         }
     }
 
@@ -106,6 +115,11 @@ public class ClusterExpansionManager {
 
     public List<String> getLastExpandedClasses() {
         return lastExpandedClasses;
+    }
+
+    /** Test-only accessor for the run-wide expansion lock shared by every instance. */
+    static Lock getExpansionLock() {
+        return EXPANSION_LOCK;
     }
 
     private Set<Class<?>> resolveCandidates(Set<String> unresolved) {

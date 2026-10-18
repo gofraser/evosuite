@@ -165,14 +165,12 @@ public class AsyncLlmTestProducer {
         this.refreshInterval = Math.max(1, refreshInterval);
         this.delayMs = Math.max(0, delayMs);
         this.repeatedInjectionMemory = repeatedInjectionMemory;
-        this.producerThread = new Thread(this::produceLoop, "LLM-AsyncProducer");
-        this.producerThread.setDaemon(true);
+        this.producerThread = LlmPrivilegedThreads.newThread(this::produceLoop, "async-producer");
     }
 
     /** Starts the background producer thread if not already running. */
     public void start() {
         if (!producerThread.isAlive()) {
-            LlmPrivilegedThreads.registerAsPrivileged(producerThread, "async LLM producer");
             producerThread.start();
         }
     }
@@ -251,7 +249,7 @@ public class AsyncLlmTestProducer {
                 recordStopReason(StopReason.LLM_UNAVAILABLE);
                 break;
             }
-            if (!llmService.hasBudget()) {
+            if (!llmService.hasBudget(LlmFeature.ASYNC_PRODUCER)) {
                 recordStopReason(StopReason.BUDGET_EXHAUSTED);
                 break;
             }
@@ -614,6 +612,7 @@ public class AsyncLlmTestProducer {
         if (repeatedInjectionMemory == null || goals.size() <= GOALS_PER_PROMPT) {
             return goals;
         }
+        repeatedInjectionMemory.beginSelectionRound();
         goals.sort((left, right) -> Double.compare(goalPriority(right), goalPriority(left)));
         List<TestFitnessFunction> selected = new ArrayList<>();
         for (TestFitnessFunction goal : goals) {

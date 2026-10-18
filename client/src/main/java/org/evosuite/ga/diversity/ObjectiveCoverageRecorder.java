@@ -132,22 +132,12 @@ public final class ObjectiveCoverageRecorder {
         }
         List<String> lines = new ArrayList<>(classNames.length);
         for (int i = 0; i < classNames.length; i++) {
-            lines.add(i + "," + csvEscape(classNames[i]) + "," + csvEscape(methodNames[i]) + ","
-                    + csvEscape(descriptions[i]));
+            lines.add(i + "," + SidecarCsv.escape(classNames[i]) + "," + SidecarCsv.escape(methodNames[i]) + ","
+                    + SidecarCsv.escape(descriptions[i]));
         }
         if (SidecarCsv.write(indexPath, INDEX_HEADER, lines, logger, "objective index")) {
             logger.info("Objective index: wrote {} goals to {}", classNames.length, indexPath);
         }
-    }
-
-    private static String csvEscape(String s) {
-        if (s == null) {
-            return "";
-        }
-        if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
-            return "\"" + s.replace("\"", "\"\"") + "\"";
-        }
-        return s;
     }
 
     private static String defaultTimelinePath() {

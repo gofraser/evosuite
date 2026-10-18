@@ -46,7 +46,7 @@ class PopulationSpeciesRecorderTest {
         recorder.record(new GenerationSnapshot(
                 0, 100L, 4, 2, 1, 1, 0, InjectionSource.LLM_STAGNATION,
                 3, InjectionSource.LLM_STAGNATION,
-                3, 0, 0, 0,
+                3, 0, 0, 0, 0,
                 3, 7, 1, 0.5, 0.75, 0.3, 0.5,
                 1, 2, 1, 3,
                 new int[]{0, 0, 1, 1}, new int[]{0, 0, 1, 1},
@@ -54,7 +54,7 @@ class PopulationSpeciesRecorderTest {
         recorder.record(new GenerationSnapshot(
                 1, 250L, 4, 2, 0, 0, 0, null,
                 0, null,
-                0, 0, 0, 0,
+                0, 0, 0, 0, 0,
                 4, 6, 2, 0.25, 0.4, Double.NaN, 0.5,
                 0, 0, 0, 0,
                 new int[]{0, 0, 1, 2}, new int[]{0, 1, 1, 2},
@@ -71,7 +71,7 @@ class PopulationSpeciesRecorderTest {
 
         String row0 = lines.get(1);
         // gen,...,injection_source,n_injected_attempts,injection_attempt_source,<per-source-attempts>,...
-        assertTrue(row0.startsWith("0,100,4,2,1,1,0,LLM_STAGNATION,3,LLM_STAGNATION,3,0,0,0,"),
+        assertTrue(row0.startsWith("0,100,4,2,1,1,0,LLM_STAGNATION,3,LLM_STAGNATION,3,0,0,0,0,"),
                 "row 0 metadata prefix mismatch: " + row0);
         assertTrue(row0.contains(",0.5,1,2,1,3,"),
                 "row 0 should contain protection counters: " + row0);
@@ -83,7 +83,7 @@ class PopulationSpeciesRecorderTest {
 
         String row1 = lines.get(2);
         // injection_source / injection_attempt_source empty; diversity NaN → empty
-        assertTrue(row1.startsWith("1,250,4,2,0,0,0,,0,,0,0,0,0,"),
+        assertTrue(row1.startsWith("1,250,4,2,0,0,0,,0,,0,0,0,0,0,"),
                 "row 1 should have empty injection_source: " + row1);
         assertTrue(row1.contains(",,0.5,"),
                 "row 1 should have empty diversity field: " + row1);
@@ -96,7 +96,7 @@ class PopulationSpeciesRecorderTest {
         Path file = tmp.resolve("breeding.csv");
         PopulationSpeciesRecorder recorder = new PopulationSpeciesRecorder(file.toString());
         recorder.record(new GenerationSnapshot(
-                7, 7000L, 3, 1, 0, 0, 0, null, 0, null, 0, 0, 0, 0,
+                7, 7000L, 3, 1, 0, 0, 0, null, 0, null, 0, 0, 0, 0, 0,
                 5, 5, 1, 1.5, 2.0, 0.4, 1.0,
                 0, 0, 0, 0,
                 new int[]{0, 0, 0}, new int[]{0, 1, 1},
@@ -117,7 +117,7 @@ class PopulationSpeciesRecorderTest {
         PopulationSpeciesRecorder recorder = new PopulationSpeciesRecorder(file.toString());
         recorder.record(new GenerationSnapshot(
                 3, 3000L, 2, 1, 1, 0, 0, InjectionSource.LLM_ASYNC, 1, InjectionSource.LLM_ASYNC,
-                0, 1, 0, 0,
+                0, 1, 0, 0, 0,
                 5, 5, 1, 1.5, 2.0, 0.4, 1.0,
                 0, 0, 0, 0,
                 new int[]{0, 0}, new int[]{0, 1},
@@ -136,7 +136,7 @@ class PopulationSpeciesRecorderTest {
         Path file = tmp.resolve("idem.csv");
         PopulationSpeciesRecorder recorder = new PopulationSpeciesRecorder(file.toString());
         recorder.record(new GenerationSnapshot(
-                0, 0L, 1, 1, 0, 0, 0, null, 0, null, 0, 0, 0, 0, 0, 1, 1, 0.0, 0.0, 0.0, 1.0,
+                0, 0L, 1, 1, 0, 0, 0, null, 0, null, 0, 0, 0, 0, 0, 0, 1, 1, 0.0, 0.0, 0.0, 1.0,
                 0, 0, 0, 0,
                 new int[]{0}, new int[]{0},
                 BreedingStats.empty(), null));

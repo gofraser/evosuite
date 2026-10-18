@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga.metaheuristics;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
@@ -164,7 +165,7 @@ class LlmGaIntegrationTest {
     private static int countAsyncProducerThreads() {
         int count = 0;
         for (Thread thread : Thread.getAllStackTraces().keySet()) {
-            if (thread != null && thread.isAlive() && thread.getName().startsWith("LLM-AsyncProducer")) {
+            if (thread != null && thread.isAlive() && thread.getName().startsWith(LlmPrivilegedThreads.threadName("async-producer"))) {
                 count++;
             }
         }

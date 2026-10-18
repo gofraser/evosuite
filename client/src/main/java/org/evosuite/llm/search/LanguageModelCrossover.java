@@ -20,87 +20,30 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
-import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.utils.Randomness;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Collection;
-import java.util.concurrent.atomic.AtomicInteger;
+import org.evosuite.llm.search.operator.OperatorTarget;
+import org.evosuite.llm.search.operator.SyncTargetPlan;
 
 /**
- * MOSA-level LLM crossover operator. Probabilistically applies semantic
- * crossover via LLM; falls back gracefully if LLM is unavailable or fails.
+ * MOSA-level LLM crossover operator. The target — which parent, its crossover
+ * partner, and which goal — is chosen once per generation by {@code
+ * OperatorTargetSelector} and handed in as a {@link SyncTargetPlan}; this
+ * hook only decides, via {@link Properties#LLM_CROSSOVER_PROBABILITY},
+ * whether a targeted parent's offspring is actually sent to the LLM, and
+ * falls back gracefully if the call is unavailable or fails.
  *
- * <p>When successful, offspring1 receives the recombined test case.
+ * <p>When successful, {@code offspring1} receives the recombined test case.
  */
-public class LanguageModelCrossover {
-
-    private static final Logger logger = LoggerFactory.getLogger(LanguageModelCrossover.class);
-
-    private final LlmSemanticCrossover semanticCrossover;
-    private final AtomicInteger appliedCount = new AtomicInteger(0);
-    private final AtomicInteger fallbackCount = new AtomicInteger(0);
+public class LanguageModelCrossover extends SyncOperatorHook {
 
     public LanguageModelCrossover() {
-        this(new LlmSemanticCrossover());
+        this(new LlmSemanticCrossover(), null);
     }
 
-    public LanguageModelCrossover(LlmSemanticCrossover semanticCrossover) {
-        this.semanticCrossover = semanticCrossover;
+    public LanguageModelCrossover(LlmSemanticCrossover operator) {
+        this(operator, null);
     }
 
-    /**
-     * Attempt LLM semantic crossover with configured probability.
-     *
-     * @param offspring1 first offspring (will receive recombined test on success)
-     * @param offspring2 second offspring (used as second parent context)
-     * @param goals      uncovered goals for prompt context
-     * @return true if LLM crossover was successfully applied;
-     *         false if standard crossover should be applied instead
-     */
-    public boolean tryCrossover(TestChromosome offspring1,
-                                TestChromosome offspring2,
-                                Collection<TestFitnessFunction> goals) {
-        return tryCrossoverWithResult(offspring1, offspring2, goals).isAppliedSemantic();
-    }
-
-    /**
-     * Attempt LLM semantic crossover, returning rich metadata about
-     * whether the semantic path was attempted, applied, or skipped.
-     */
-    public OperatorAttemptResult tryCrossoverWithResult(TestChromosome offspring1,
-                                                        TestChromosome offspring2,
-                                                        Collection<TestFitnessFunction> goals) {
-        if (!Properties.LLM_OPERATOR_ENABLED) {
-            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.DISABLED);
-        }
-        if (Randomness.nextDouble() > Properties.LLM_CROSSOVER_PROBABILITY) {
-            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.PROBABILITY);
-        }
-
-        try {
-            TestChromosome child = semanticCrossover.crossoverSemantically(
-                    offspring1, offspring2, goals);
-            if (child != null) {
-                offspring1.setTestCase(child.getTestCase());
-                offspring1.setChanged(true);
-                appliedCount.incrementAndGet();
-                return OperatorAttemptResult.semanticApplied();
-            }
-        } catch (Exception e) {
-            logger.debug("LLM crossover failed unexpectedly: {}", e.getMessage());
-        }
-        fallbackCount.incrementAndGet();
-        return OperatorAttemptResult.semanticFallback();
-    }
-
-    public int getAppliedCount() {
-        return appliedCount.get();
-    }
-
-    public int getFallbackCount() {
-        return fallbackCount.get();
+    public LanguageModelCrossover(LlmSemanticCrossover operator, RepeatedInjectionMemory memory) {
+        super(operator, OperatorTarget.Kind.CROSSOVER, () -> Properties.LLM_CROSSOVER_PROBABILITY, memory);
     }
 }
