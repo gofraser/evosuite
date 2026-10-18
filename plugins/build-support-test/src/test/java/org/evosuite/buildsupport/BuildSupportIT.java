@@ -26,6 +26,7 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectHelper;
 import org.evosuite.runtime.InitializingListener;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -58,10 +59,23 @@ public class BuildSupportIT {
         return System.getProperty("evosuiteVersion","1.2.1-SNAPSHOT");
     }
 
+    /** Repository shared by both fixtures, populated once per IT execution. */
+    private static final Path FIXTURE_REPO = Paths.get("target", "fixture-m2", "repository").toAbsolutePath();
+
+    private static boolean repoBootstrapped;
+
+    @BeforeAll
+    public static void bootstrapFixtureRepo() throws Exception {
+        synchronized (BuildSupportIT.class) {
+            if (!repoBootstrapped) {
+                bootstrapEvoSuiteArtifacts(FIXTURE_REPO);
+                repoBootstrapped = true;
+            }
+        }
+    }
+
     @BeforeEach
     public void setUp() throws Exception {
-        bootstrapEvoSuiteArtifactsInFixtureRepo(simple);
-        bootstrapEvoSuiteArtifactsInFixtureRepo(extension);
         cleanProjects();
     }
 
@@ -84,14 +98,12 @@ public class BuildSupportIT {
         FileUtils.deleteQuietly(extension.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
     }
 
-    private void bootstrapEvoSuiteArtifactsInFixtureRepo(Path projectPath) throws Exception {
+    private static void bootstrapEvoSuiteArtifacts(Path localRepo) throws Exception {
         Path projectRoot = Paths.get("").toAbsolutePath().normalize();
         Path repoRoot = projectRoot.getParent().getParent();
         if (repoRoot == null) {
             throw new IllegalStateException("Could not resolve repository root from " + projectRoot);
         }
-
-        Path localRepo = projectPath.resolve(".m2").resolve("repository").toAbsolutePath();
 
         Verifier bootstrapRuntimeAndPlugin = new Verifier(repoRoot.toString());
         bootstrapRuntimeAndPlugin.setAutoclean(false);
@@ -219,7 +231,7 @@ public class BuildSupportIT {
 
     private Verifier getMaven(Path targetProject) throws Exception{
         Verifier verifier  = new Verifier(targetProject.toAbsolutePath().toString());
-        verifier.setLocalRepo(targetProject.resolve(".m2").resolve("repository").toAbsolutePath().toString());
+        verifier.setLocalRepo(FIXTURE_REPO.toString());
         Properties props = new Properties(System.getProperties());
         props.put("evosuiteVersion", getEvoSuiteVersion());
         verifier.setSystemProperties(props);
