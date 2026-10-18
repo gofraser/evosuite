@@ -48,8 +48,9 @@ public class MockObjectWait {
 
     /**
      * Maximum cumulative wait time (in effective milliseconds) before we
-     * throw {@link TooManyResourcesException}.  Matches the budget used
-     * by {@link MockThread} for sleep calls.
+     * throw {@link TooManyResourcesException}.  Each wait counts for at most
+     * {@link #MAX_WAIT_PER_CALL_MS}, so a loop is ended after about 200 calls.
+     * {@link MockThread#sleep(long)} limits the number of calls instead (10,000 per test).
      */
     private static final long MAX_CUMULATIVE_WAIT_MS = 10_000L;
 
