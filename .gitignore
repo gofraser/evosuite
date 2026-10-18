@@ -26,3 +26,6 @@ master/dependency-reduced-pom.xml
 shaded/dependency-reduced-pom.xml
 standalone_runtime/dependency-reduced-pom.xml
 nbactions.xml
+
+# Generated Maven repositories of the build-support integration fixtures
+plugins/build-support-test/projects/*/.m2/
