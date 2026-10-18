@@ -30,6 +30,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmTraceRecorder;
 import org.evosuite.llm.prompt.PromptResult;
@@ -79,11 +80,12 @@ public class LlmPostProcessor {
 
     /**
      * Creates a post-processor that queries the shared {@link LlmService} and uses the default runners, guards and
-     * telemetry.
+     * telemetry. When post-processing cannot run, no service is created and the post-processor has none.
      */
     public LlmPostProcessor() {
-        this(LlmService.getInstance(), new TraceAssertionFallbackRunner(),
-                new TraceAssertionCandidateRunner(), new DefaultStabilityExecutionRunner(),
+        this(LlmRunFeatures.postProcessing() ? LlmService.getInstance() : null,
+                new TraceAssertionFallbackRunner(), new TraceAssertionCandidateRunner(),
+                new DefaultStabilityExecutionRunner(),
                 PostProcessingAssertionValidator.defaultEvaluationRunner(),
                 new DefaultResourceGuard(), new SystemPhaseClock(),
                 new RuntimePostProcessingTelemetry());

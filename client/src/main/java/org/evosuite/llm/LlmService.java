@@ -173,6 +173,11 @@ public class LlmService implements AutoCloseable {
         }
     }
 
+    /** Returns whether the singleton has been created, without creating it. */
+    public static boolean hasInstance() {
+        return instance != null;
+    }
+
     /** Replaces the singleton instance for use in tests. */
     public static void setInstanceForTesting(LlmService service) {
         synchronized (INSTANCE_LOCK) {

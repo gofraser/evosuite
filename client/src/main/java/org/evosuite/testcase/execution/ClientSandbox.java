@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.execution;
 
+import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.runtime.sandbox.Sandbox;
 
@@ -57,6 +58,8 @@ public final class ClientSandbox {
 
     private static void registerWorkerThreadsAsPrivileged() {
         ExecutableSnippetEngine.INSTANCE.registerCompilationThreadAsPrivileged();
-        TestRepairLoop.registerParseCompileThreadAsPrivileged();
+        if (LlmRunFeatures.parsePathPossible()) {
+            TestRepairLoop.registerParseCompileThreadAsPrivileged();
+        }
     }
 }

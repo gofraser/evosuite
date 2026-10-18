@@ -31,8 +31,12 @@ public final class LlmRunLifecycle {
         cleanup("service", LlmService::closeAndResetForRunCompletion);
         cleanup("SUT context cache", SutContextProviderFactory::resetForRunCompletion);
         cleanup("static prompt context cache", StaticPromptContext::resetForRunCompletion);
-        cleanup("decompiler worker", DecompiledContextProvider::resetForRunCompletion);
-        cleanup("parse-compile worker", TestRepairLoop::resetForRunCompletion);
+        // These workers exist only when an LLM response can be parsed; a default run must not
+        // initialise their classes just to reset them.
+        if (LlmRunFeatures.parsePathPossible()) {
+            cleanup("decompiler worker", DecompiledContextProvider::resetForRunCompletion);
+            cleanup("parse-compile worker", TestRepairLoop::resetForRunCompletion);
+        }
         // Run-scoped telemetry singletons: without this a JVM running a second search would
         // publish the previous run's counters and flush its rows under the new run's sidecar name.
         cleanup("operator attempt log", OperatorAttemptLog::resetInstance);
