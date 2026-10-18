@@ -747,343 +747,433 @@ public class TestCaseExecutor implements ThreadFactory {
             }
             return result; // FIXME: is this reachable?
         } catch (TimeoutException e1) {
-            // The worker will finish on its own time, after the sandbox has been
-            // cleared below; mark it before anything is cleared. The streams stay with
-            // the worker until we give up on it, below.
-            callable.markResultDiscarded();
-            // Snapshot immediately on timeout catch, before any interrupt/wait/cleanup
-            // can move the worker back to the executor idle loop.
-            StackTraceElement[] timeoutStackSnapshot = currentThread != null
-                    ? currentThread.getStackTrace()
-                    : null;
-            String timeoutThreadName = currentThread != null ? currentThread.getName() : "<null>";
-            Thread.State timeoutThreadState = currentThread != null ? currentThread.getState() : null;
-
-            if (Properties.LOG_TIMEOUT) {
-                logger.warn("Timeout occurred for " + Properties.TARGET_CLASS);
-            }
-            logger.info("TimeoutException, need to stop runner", e1);
-            // If timeout happened while executing <clinit>, enter the dedicated
-            // grace branch first. Forcing TimeoutExceeded inside <clinit> can
-            // poison class initialization and block later static reads.
-            boolean initialInStaticInit = isInStaticInit();
-            boolean initialInRuntimeBootstrap = !initialInStaticInit && isInRuntimeBootstrap();
-            boolean initialInProtectedBootstrap = initialInStaticInit || initialInRuntimeBootstrap;
-            ExecutionTracer.setKillSwitch(!initialInProtectedBootstrap);
-            if (initialInStaticInit) {
-                logger.info("Timeout happened inside <clinit> of {}; entering grace handling "
-                        + "before kill switch.", ExecutionTracer.describeCurrentClassInit());
-            } else if (initialInRuntimeBootstrap) {
-                logger.info("Timeout happened during dynamic-runtime bootstrap; granting up to {}ms "
-                                + "of uninterrupted grace time.",
-                        Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT);
-            }
-
-            // Interrupt immediately only when not in <clinit>. If we interrupt
-            // during static initialization, LoopCounter.checkLoop() can convert
-            // the interrupt into TooManyResourcesException, which then poisons
-            // class initialization (NoClassDefFoundError on subsequent access).
-            if (currentThread != null && !initialInProtectedBootstrap) {
-                currentThread.interrupt();
-            } else if (initialInStaticInit) {
-                logger.info("Deferring thread interrupt while <clinit> grace handling is active.");
-            } else if (initialInRuntimeBootstrap) {
-                logger.info("Deferring thread interrupt while dynamic-runtime bootstrap grace is active.");
-            }
-            waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
-
-            // A thread that is still running instrumented code well past the kill switch,
-            // having seen and ignored a checkTimeout() probe of its own, is not merely
-            // slow — it has demonstrably swallowed TimeoutExceeded (typically via a
-            // "catch (Throwable) { ...; continue; }" loop in the SUT) and will keep doing
-            // so no matter how long we wait through the graceful chain below. Detect that
-            // here and skip straight to the Thread.stop() last resort. ExecutionTracer
-            // only counts probes made by the thread under test, so a background SUT thread
-            // touching an instrumented line cannot push us down this path.
-            boolean sutSwallowsKillSwitch = shouldFastEscalateAfterKillSwitch(
-                    initialInProtectedBootstrap, needsTimeoutCleanup(handler),
-                    ExecutionTracer.getKillSwitchProbeCount(), KILL_SWITCH_SWALLOW_PROBE_THRESHOLD);
-            if (sutSwallowsKillSwitch) {
-                logger.warn("Thread {} hit {} kill-switch probes after being told to stop — "
-                                + "it is looping through code that swallows TimeoutExceeded; "
-                                + "skipping the graceful shutdown chain and escalating straight "
-                                + "to Thread.stop().",
-                        currentThread == null ? "<null>" : currentThread.getName(),
-                        ExecutionTracer.getKillSwitchProbeCount());
-            }
-
-            // Set once we decide to give up on a thread that is still inside <clinit>
-            // after its grace period. From that point on we skip every remaining
-            // forcing step (kill switch, interrupt, Thread.stop()) for this thread —
-            // see the comment where it is set for why.
-            boolean abandonStuckStaticInit = false;
-
-            if (!sutSwallowsKillSwitch && needsTimeoutCleanup(handler)) {
-                if (initialInRuntimeBootstrap && Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT > 0) {
-                    ExecutionTracer.setKillSwitch(false);
-                    waitForLastTask(handler, Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT);
-                    if (!needsTimeoutCleanup(handler)) {
-                        logger.info("Dynamic-runtime bootstrap completed during grace time.");
-                    }
-                }
-
-                // If the thread is in a static initializer or classloading, let it finish:
-                // throwing inside <clinit> would leave the class broken.
-                boolean loopCounter = LoopCounter.getInstance().isActivated();
-                boolean wasInStaticInit = false;
-                int clinitWaitAttempts = 0;
-                // Allow up to CLINIT_GRACE_TIMEOUT ms for the static initializer to complete
-                // normally. This is deliberately not derived from the per-test timeout: a
-                // <clinit> runs once per class, and real ones (e.g. reading configuration
-                // files) legitimately take longer than a single test is allowed to.
-                int maxClinitWaitAttempts =
-                        (int) Math.max(1, Properties.CLINIT_GRACE_TIMEOUT / Properties.SHUTDOWN_TIMEOUT);
-                // Only pay the grace period once per class: see abandonedClinitClasses.
-                String stuckClinitClass = currentStaticInitClass();
-                boolean alreadyAbandonedThisClass = stuckClinitClass != null
-                        && abandonedClinitClasses.contains(stuckClinitClass);
-                if (alreadyAbandonedThisClass) {
-                    wasInStaticInit = true;
-                }
-                while (!alreadyAbandonedThisClass
-                        && needsTimeoutCleanup(handler)
-                        && currentThread != null
-                        && currentThread.isAlive()
-                        && isInStaticInit()
-                        && clinitWaitAttempts < maxClinitWaitAttempts) {
-                    wasInStaticInit = true;
-                    LoopCounter.getInstance().setActive(false);
-                    ExecutionTracer.setKillSwitch(false);
-                    logger.info("Run still not finished, but awaiting for static initializer to finish ({}/{}).",
-                            clinitWaitAttempts + 1, maxClinitWaitAttempts);
-                    waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
-                    clinitWaitAttempts++;
-                }
-                LoopCounter.getInstance().setActive(loopCounter);
-
-                if (wasInStaticInit && needsTimeoutCleanup(handler) && isInStaticInit()) {
-                    // Static initializer is still running after max wait. Do NOT force it:
-                    // every forcing step below (re-interrupt, FutureTask.cancel(true), and
-                    // ultimately Thread.stop()) either throws or injects ThreadDeath with no
-                    // regard for whether the target is inside a <clinit> frame, and any
-                    // exception escaping <clinit> makes the JVM mark that class — and anything
-                    // whose own <clinit> reads from it — erroneous for the rest of the process.
-                    // LoopCounter's own interrupt-driven throw already respects this, but that only
-                    // protects one of the throw sites; the Thread.stop() fallback a few steps below has no
-                    // such awareness and would poison classes ("Force-stopping stuck thread" followed by
-                    // NoClassDefFoundError ... __STATIC_RESET() on every later test).
-                    //
-                    // Abandon the thread instead, the same way this method already abandons
-                    // an unkillable thread elsewhere: leave it running at background priority
-                    // and let the caller rotate to a fresh executor. A genuinely infinite loop
-                    // in the initializer is still bounded: the per-thread abandonment deadline
-                    // is checked by both LoopCounter and ExecutionTracer, even though ordinary
-                    // loop counting and the kill switch are disabled during this grace path.
-                    if (alreadyAbandonedThisClass) {
-                        logger.debug("Static initializer of {} was already abandoned once; "
-                                        + "abandoning again without re-waiting the grace period.",
-                                stuckClinitClass);
-                    } else {
-                        logger.warn("Static initializer of {} still running after {}ms — abandoning "
-                                        + "the thread instead of forcing it, to avoid poisoning the class.",
-                                ExecutionTracer.describeCurrentClassInit(),
-                                clinitWaitAttempts * Properties.SHUTDOWN_TIMEOUT);
-                    }
-                    if (stuckClinitClass != null) {
-                        abandonedClinitClasses.add(stuckClinitClass);
-                    }
-                    // The worker is intentionally left alone after this point to
-                    // avoid force-throwing out of <clinit>. Arm LoopCounter's
-                    // per-thread, time-bounded escape so an instrumented infinite
-                    // initializer cannot keep the class-initialization lock and
-                    // consume CPU forever.
-                    LoopCounter.getInstance().abandonStaticInitializer(currentThread);
-                    abandonStuckStaticInit = true;
-                } else if (wasInStaticInit && needsTimeoutCleanup(handler)) {
-                    // The initial timeout was consumed by classloading/static initialization.
-                    // Give the actual test code a fresh timeout budget so it gets a fair chance.
-                    logger.info("Static initializer finished; granting fresh timeout of {}ms for test execution.",
-                            timeout);
-                    ExecutionTracer.setKillSwitch(false);
-                    waitForLastTask(handler, timeout);
-                }
-
-                if (!abandonStuckStaticInit) {
-                    ExecutionTracer.setKillSwitch(true);
-                }
-            }
-
-            if (!sutSwallowsKillSwitch && !abandonStuckStaticInit && needsTimeoutCleanup(handler)) {
-                logger.info("Cancelling thread:");
-                if (currentThread != null) {
-                    for (StackTraceElement elem : currentThread.getStackTrace()) {
-                        logger.info(elem.toString());
-                    }
-                }
-                // Not tc.toCode(): the thread is still running the test, and rendering a
-                // functional mock it is observing reads half-updated stubs
-                logger.info("Test with {} statements", tc.size());
-
-                // Re-interrupt in case the first one was swallowed
-                if (currentThread != null) {
-                    currentThread.interrupt();
-                }
-                waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
-            }
-
-            if (!sutSwallowsKillSwitch && !abandonStuckStaticInit && needsTimeoutCleanup(handler)) {
-                // Last resort: cancel the task and wait once more
-                FutureTask<?> task = handler.getLastTask();
-                if (task != null) {
-                    task.cancel(true);
-                }
-                if (currentThread != null) {
-                    currentThread.interrupt();
-                }
-                try {
-                    // After cancel, get() throws CancellationException immediately,
-                    // so fall back to a timed join on the thread itself.
-                    if (currentThread != null) {
-                        currentThread.join(Properties.SHUTDOWN_TIMEOUT);
-                    }
-                } catch (InterruptedException e) {
-                    // Ignore
-                }
-            }
-
-            if (!sutSwallowsKillSwitch && !abandonStuckStaticInit) {
-                waitForTimeoutExitGracePeriod(handler);
-            }
-
-            boolean workerStillExecutingAfterCancellation = currentThread != null
-                    && currentThread.isAlive() && isThreadStuckInSutCode(currentThread);
-            if (!abandonStuckStaticInit && shouldForceStopAfterCancellation(needsTimeoutCleanup(handler),
-                    workerStillExecutingAfterCancellation)) {
-                // Re-sample <clinit> membership right here, immediately before doing
-                // anything forceful. initialInStaticInit/initialInProtectedBootstrap were
-                // snapshotted once, back when the timeout was first caught; everything
-                // between there and here — the fast kill-switch-swallow escalation, which
-                // skips the grace/abandon handling above entirely, or simply the time spent
-                // waiting through the graceful chain — is enough for the thread to have left
-                // ordinary SUT code and entered a <clinit> since. Forcing it now is exactly
-                // the class-poisoning bug abandonStuckStaticInit exists to avoid, so route
-                // into the same abandon handling instead of interrupting or stopping it,
-                // no matter which path got us here.
-                if (isInStaticInit()) {
-                    String stuckClinitClass = currentStaticInitClass();
-                    if (stuckClinitClass != null) {
-                        abandonedClinitClasses.add(stuckClinitClass);
-                    }
-                    // This late re-check is another abandonment path. Arm
-                    // the same per-thread deadline before leaving the worker
-                    // untouched, otherwise a class initializer entered after
-                    // the initial timeout can still run forever.
-                    LoopCounter.getInstance().abandonStaticInitializer(currentThread);
-                    logger.warn("Thread {} is inside <clinit> of {} at the force-stop decision "
-                                    + "(it was not when the timeout was first caught) — abandoning "
-                                    + "it instead of forcing it, to avoid poisoning the class.",
-                            currentThread == null ? "<null>" : currentThread.getName(),
-                            ExecutionTracer.describeCurrentClassInit());
-                    abandonStuckStaticInit = true;
-                } else {
-                    logger.warn("Run still not finished, thread {} is stuck at:",
-                            currentThread == null ? "<null>" : currentThread.getName());
-                    if (currentThread != null) {
-                        for (String line : summarizeStuckStack(currentThread.getStackTrace())) {
-                            logger.warn("  {}", line);
-                        }
-                    }
-                    // Try interrupt first — works for threads blocked on I/O,
-                    // sleeping, or waiting on monitors.
-                    if (currentThread != null && currentThread.isAlive()) {
-                        currentThread.interrupt();
-                    }
-                    // Last resort: Thread.stop() to kill CPU-bound loops in
-                    // uninstrumented JDK code (e.g. Logger.getEffectiveLoggerBundle)
-                    // that don't respond to interrupt(). Deprecated but necessary —
-                    // a leaked thread burns 100% CPU for the entire process lifetime.
-                    if (currentThread != null && currentThread.isAlive()) {
-                        Thread stoppedThread = currentThread;
-                        try {
-                            logger.warn("Force-stopping stuck thread {} via Thread.stop()",
-                                    stoppedThread.getName());
-                            stoppedThread.stop();
-                            stoppedThread.join(Properties.SHUTDOWN_TIMEOUT);
-                        } catch (Throwable t) {
-                            logger.info("Exception during Thread.stop() cleanup: {}", t.getMessage());
-                        }
-                        // Thread.stop() gives the victim no chance to run any finally
-                        // block, and on JDK 20+ it does not even stop it (it throws
-                        // UnsupportedOperationException instead). Either way we have
-                        // just given up on this thread, so if it was inside the
-                        // sandbox its lock is now leaked, and every later test
-                        // execution in this process would stall for the full sandbox
-                        // acquisition timeout before recovering. Hand the lock back
-                        // here instead of paying that timeout. No-op when the thread
-                        // did not own the lock, so it is safe to call unconditionally.
-                        if (Sandbox.reclaimSandboxLockOwnedBy(stoppedThread)) {
-                            logger.warn("Reclaimed the sandbox lock leaked by force-stopped thread {}",
-                                    stoppedThread.getName());
-                        }
-                    }
-                }
-            }
-            // This is the point where we give up on the worker: whatever it still does, it
-            // no longer gets to hand the streams back. A no-op if it already did.
-            callable.handBackStreams();
-            ExecutionTracer.disable();
-
-            // Record whether execution is genuinely still running in SUT code
-            // after all cleanup attempts.
-            //
-            // Do not rely on FutureTask.isDone() here: cancel(true) marks the
-            // Future as done even if the worker thread keeps running after
-            // swallowing interrupts. That would miss stalled workers and skip
-            // rotation.
-            lastTaskStillRunning = currentThread != null
-                    && currentThread.isAlive()
-                    && isThreadStuckInSutCode(currentThread);
-            lastTimeoutWasStuckClinit = abandonStuckStaticInit && lastTaskStillRunning;
-
-            // TODO: If this is true, is this problematic?
-            if (Sandbox.isOnAndExecutingSUTCode()) {
-                Sandbox.doneWithExecutingSUTCode();
-                TestGenerationContext.getInstance().doneWithExecutingSUTCode();
-            }
-
-            ExecutionResult result = new ExecutionResult(tc, null);
-            try {
-                result.setThrownExceptions(callable.getExceptionsThrown());
-                String timeoutMessage = timeoutThreadState == null
-                        ? "Test execution timed out in worker thread " + timeoutThreadName
-                        : "Test execution timed out in worker thread " + timeoutThreadName
-                        + " [state=" + timeoutThreadState + "]";
-                Integer timeoutStatementPosition = callable.getCurrentStatementIndex();
-                if (timeoutStatementPosition != null && timeoutStatementPosition < 0) {
-                    timeoutStatementPosition = null;
-                }
-                result.reportNewThrownException(tc.size(),
-                        new TestCaseExecutor.TimeoutExceeded(
-                                timeoutMessage,
-                                timeoutStackSnapshot,
-                                timeoutStatementPosition,
-                                callable.getCurrentStatementCode()));
-                result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
-                ExecutionTracer.getExecutionTracer().clear();
-            } finally {
-                // Ensure the tracer is always re-enabled after a timeout, even if
-                // result construction throws (e.g., due to a race with the
-                // still-running worker thread).  Leaving the tracer disabled would
-                // cause ALL subsequent test executions to produce empty traces.
-                ExecutionTracer.setKillSwitch(false);
-                ExecutionTracer.enable();
-            }
-            return result;
+            return recoverFromTimeout(tc, timeout, handler, callable, e1);
         } finally {
             if (threadGroup != null) {
                 PermissionStatistics.getInstance().countThreads(threadGroup.activeCount());
             }
             TestCluster.getInstance().handleRuntimeAccesses(tc);
+        }
+    }
+
+    /**
+     * What the steps of the timeout escalation know about the test that did not come back, and
+     * what the earlier steps decided for the later ones.
+     */
+    private static final class TimeoutEscalation {
+        final TestCase test;
+        final int timeout;
+        final TimeoutHandler<ExecutionResult> handler;
+
+        /** Whether the timeout was first seen inside a static initializer or class loading. */
+        boolean initialInStaticInit;
+
+        /** Whether the timeout was first seen inside a dynamic-runtime bootstrap. */
+        boolean initialInRuntimeBootstrap;
+
+        /** Either of the two above: the thread must not be forced yet. */
+        boolean initialInProtectedBootstrap;
+
+        /** The thread keeps running instrumented code that swallows the kill switch. */
+        boolean sutSwallowsKillSwitch;
+
+        /**
+         * Set once we decide to give up on a thread that is still inside {@code <clinit>}
+         * after its grace period. From that point on we skip every remaining forcing step
+         * (kill switch, interrupt, Thread.stop()) for this thread, see
+         * {@link #awaitStaticInitializer}.
+         */
+        boolean abandonStuckStaticInit;
+
+        TimeoutEscalation(TestCase test, int timeout, TimeoutHandler<ExecutionResult> handler) {
+            this.test = test;
+            this.timeout = timeout;
+            this.handler = handler;
+        }
+
+        /** Whether the thread is still to be asked, rather than forced or left alone, to stop. */
+        boolean mayStillAsk() {
+            return !sutSwallowsKillSwitch && !abandonStuckStaticInit;
+        }
+    }
+
+    /**
+     * Handles a test whose worker did not come back within the timeout, and builds the result
+     * that reports it. The escalation runs in this order, each step only acting if the task is
+     * still running: interrupt and wait; fast path for a SUT that swallows the kill switch;
+     * grace for runtime bootstrap and static initializers (which may end in abandoning the
+     * thread); interrupt again and wait; cancel and join; wait for a thread that is leaving
+     * through the kill switch; force-stop (or abandon, for a late static initializer).
+     */
+    private ExecutionResult recoverFromTimeout(TestCase tc, int timeout,
+                                               TimeoutHandler<ExecutionResult> handler,
+                                               TestRunnable callable, TimeoutException cause) {
+        // The worker will finish on its own time, after the sandbox has been
+        // cleared below; mark it before anything is cleared. The streams stay with
+        // the worker until we give up on it, below.
+        callable.markResultDiscarded();
+        // Snapshot immediately on timeout catch, before any interrupt/wait/cleanup
+        // can move the worker back to the executor idle loop.
+        StackTraceElement[] timeoutStackSnapshot = currentThread != null
+                ? currentThread.getStackTrace()
+                : null;
+        String timeoutThreadName = currentThread != null ? currentThread.getName() : "<null>";
+        Thread.State timeoutThreadState = currentThread != null ? currentThread.getState() : null;
+
+        if (Properties.LOG_TIMEOUT) {
+            logger.warn("Timeout occurred for " + Properties.TARGET_CLASS);
+        }
+        logger.info("TimeoutException, need to stop runner", cause);
+
+        TimeoutEscalation escalation = new TimeoutEscalation(tc, timeout, handler);
+        interruptAndWait(escalation);
+        detectKillSwitchSwallowing(escalation);
+        if (!escalation.sutSwallowsKillSwitch && needsTimeoutCleanup(handler)) {
+            awaitRuntimeBootstrap(escalation);
+            awaitStaticInitializer(escalation);
+        }
+        reinterruptAndWait(escalation);
+        cancelAndJoin(escalation);
+        if (escalation.mayStillAsk()) {
+            waitForTimeoutExitGracePeriod(handler);
+        }
+        forceStopOrAbandon(escalation);
+
+        // This is the point where we give up on the worker: whatever it still does, it
+        // no longer gets to hand the streams back. A no-op if it already did.
+        callable.handBackStreams();
+        ExecutionTracer.disable();
+
+        // Record whether execution is genuinely still running in SUT code
+        // after all cleanup attempts.
+        //
+        // Do not rely on FutureTask.isDone() here: cancel(true) marks the
+        // Future as done even if the worker thread keeps running after
+        // swallowing interrupts. That would miss stalled workers and skip
+        // rotation.
+        lastTaskStillRunning = currentThread != null
+                && currentThread.isAlive()
+                && isThreadStuckInSutCode(currentThread);
+        lastTimeoutWasStuckClinit = escalation.abandonStuckStaticInit && lastTaskStillRunning;
+
+        // TODO: If this is true, is this problematic?
+        if (Sandbox.isOnAndExecutingSUTCode()) {
+            Sandbox.doneWithExecutingSUTCode();
+            TestGenerationContext.getInstance().doneWithExecutingSUTCode();
+        }
+
+        ExecutionResult result = new ExecutionResult(tc, null);
+        try {
+            result.setThrownExceptions(callable.getExceptionsThrown());
+            String timeoutMessage = timeoutThreadState == null
+                    ? "Test execution timed out in worker thread " + timeoutThreadName
+                    : "Test execution timed out in worker thread " + timeoutThreadName
+                    + " [state=" + timeoutThreadState + "]";
+            Integer timeoutStatementPosition = callable.getCurrentStatementIndex();
+            if (timeoutStatementPosition != null && timeoutStatementPosition < 0) {
+                timeoutStatementPosition = null;
+            }
+            result.reportNewThrownException(tc.size(),
+                    new TestCaseExecutor.TimeoutExceeded(
+                            timeoutMessage,
+                            timeoutStackSnapshot,
+                            timeoutStatementPosition,
+                            callable.getCurrentStatementCode()));
+            result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
+            ExecutionTracer.getExecutionTracer().clear();
+        } finally {
+            // Ensure the tracer is always re-enabled after a timeout, even if
+            // result construction throws (e.g., due to a race with the
+            // still-running worker thread).  Leaving the tracer disabled would
+            // cause ALL subsequent test executions to produce empty traces.
+            ExecutionTracer.setKillSwitch(false);
+            ExecutionTracer.enable();
+        }
+        return result;
+    }
+
+    /** First step: arm the kill switch and interrupt, unless the thread is in a protected phase. */
+    private void interruptAndWait(TimeoutEscalation esc) {
+        // If timeout happened while executing <clinit>, enter the dedicated
+        // grace branch first. Forcing TimeoutExceeded inside <clinit> can
+        // poison class initialization and block later static reads.
+        esc.initialInStaticInit = isInStaticInit();
+        esc.initialInRuntimeBootstrap = !esc.initialInStaticInit && isInRuntimeBootstrap();
+        esc.initialInProtectedBootstrap = esc.initialInStaticInit || esc.initialInRuntimeBootstrap;
+        ExecutionTracer.setKillSwitch(!esc.initialInProtectedBootstrap);
+        if (esc.initialInStaticInit) {
+            logger.info("Timeout happened inside <clinit> of {}; entering grace handling "
+                    + "before kill switch.", ExecutionTracer.describeCurrentClassInit());
+        } else if (esc.initialInRuntimeBootstrap) {
+            logger.info("Timeout happened during dynamic-runtime bootstrap; granting up to {}ms "
+                            + "of uninterrupted grace time.",
+                    Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT);
+        }
+
+        // Interrupt immediately only when not in <clinit>. If we interrupt
+        // during static initialization, LoopCounter.checkLoop() can convert
+        // the interrupt into TooManyResourcesException, which then poisons
+        // class initialization (NoClassDefFoundError on subsequent access).
+        if (currentThread != null && !esc.initialInProtectedBootstrap) {
+            currentThread.interrupt();
+        } else if (esc.initialInStaticInit) {
+            logger.info("Deferring thread interrupt while <clinit> grace handling is active.");
+        } else if (esc.initialInRuntimeBootstrap) {
+            logger.info("Deferring thread interrupt while dynamic-runtime bootstrap grace is active.");
+        }
+        waitForLastTask(esc.handler, Properties.SHUTDOWN_TIMEOUT);
+    }
+
+    /**
+     * A thread that is still running instrumented code well past the kill switch, having seen
+     * and ignored a checkTimeout() probe of its own, is not merely slow: it has demonstrably
+     * swallowed TimeoutExceeded (typically via a "catch (Throwable) { ...; continue; }" loop in
+     * the SUT) and will keep doing so no matter how long we wait through the graceful chain.
+     * Detect that here and skip straight to the Thread.stop() last resort. ExecutionTracer only
+     * counts probes made by the thread under test, so a background SUT thread touching an
+     * instrumented line cannot push us down this path.
+     */
+    private void detectKillSwitchSwallowing(TimeoutEscalation esc) {
+        esc.sutSwallowsKillSwitch = shouldFastEscalateAfterKillSwitch(
+                esc.initialInProtectedBootstrap, needsTimeoutCleanup(esc.handler),
+                ExecutionTracer.getKillSwitchProbeCount(), KILL_SWITCH_SWALLOW_PROBE_THRESHOLD);
+        if (esc.sutSwallowsKillSwitch) {
+            logger.warn("Thread {} hit {} kill-switch probes after being told to stop — "
+                            + "it is looping through code that swallows TimeoutExceeded; "
+                            + "skipping the graceful shutdown chain and escalating straight "
+                            + "to Thread.stop().",
+                    currentThread == null ? "<null>" : currentThread.getName(),
+                    ExecutionTracer.getKillSwitchProbeCount());
+        }
+    }
+
+    /** Lets a dynamic-runtime bootstrap that was running at the timeout finish, undisturbed. */
+    private void awaitRuntimeBootstrap(TimeoutEscalation esc) {
+        if (esc.initialInRuntimeBootstrap && Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT > 0) {
+            ExecutionTracer.setKillSwitch(false);
+            waitForLastTask(esc.handler, Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT);
+            if (!needsTimeoutCleanup(esc.handler)) {
+                logger.info("Dynamic-runtime bootstrap completed during grace time.");
+            }
+        }
+    }
+
+    /**
+     * If the thread is in a static initializer or classloading, lets it finish: throwing inside
+     * &lt;clinit&gt; would leave the class broken. A thread that is still in one after the grace
+     * period is abandoned rather than forced; otherwise the kill switch is armed again.
+     */
+    private void awaitStaticInitializer(TimeoutEscalation esc) {
+        TimeoutHandler<ExecutionResult> handler = esc.handler;
+        boolean loopCounter = LoopCounter.getInstance().isActivated();
+        boolean wasInStaticInit = false;
+        int clinitWaitAttempts = 0;
+        // Allow up to CLINIT_GRACE_TIMEOUT ms for the static initializer to complete
+        // normally. This is deliberately not derived from the per-test timeout: a
+        // <clinit> runs once per class, and real ones (e.g. reading configuration
+        // files) legitimately take longer than a single test is allowed to.
+        int maxClinitWaitAttempts =
+                (int) Math.max(1, Properties.CLINIT_GRACE_TIMEOUT / Properties.SHUTDOWN_TIMEOUT);
+        // Only pay the grace period once per class: see abandonedClinitClasses.
+        String stuckClinitClass = currentStaticInitClass();
+        boolean alreadyAbandonedThisClass = stuckClinitClass != null
+                && abandonedClinitClasses.contains(stuckClinitClass);
+        if (alreadyAbandonedThisClass) {
+            wasInStaticInit = true;
+        }
+        while (!alreadyAbandonedThisClass
+                && needsTimeoutCleanup(handler)
+                && currentThread != null
+                && currentThread.isAlive()
+                && isInStaticInit()
+                && clinitWaitAttempts < maxClinitWaitAttempts) {
+            wasInStaticInit = true;
+            LoopCounter.getInstance().setActive(false);
+            ExecutionTracer.setKillSwitch(false);
+            logger.info("Run still not finished, but awaiting for static initializer to finish ({}/{}).",
+                    clinitWaitAttempts + 1, maxClinitWaitAttempts);
+            waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
+            clinitWaitAttempts++;
+        }
+        LoopCounter.getInstance().setActive(loopCounter);
+
+        if (wasInStaticInit && needsTimeoutCleanup(handler) && isInStaticInit()) {
+            // Static initializer is still running after max wait. Do NOT force it:
+            // every forcing step below (re-interrupt, FutureTask.cancel(true), and
+            // ultimately Thread.stop()) either throws or injects ThreadDeath with no
+            // regard for whether the target is inside a <clinit> frame, and any
+            // exception escaping <clinit> makes the JVM mark that class — and anything
+            // whose own <clinit> reads from it — erroneous for the rest of the process.
+            // LoopCounter's own interrupt-driven throw already respects this, but that only
+            // protects one of the throw sites; the Thread.stop() fallback a few steps below has no
+            // such awareness and would poison classes ("Force-stopping stuck thread" followed by
+            // NoClassDefFoundError ... __STATIC_RESET() on every later test).
+            //
+            // Abandon the thread instead, the same way this method already abandons
+            // an unkillable thread elsewhere: leave it running at background priority
+            // and let the caller rotate to a fresh executor. A genuinely infinite loop
+            // in the initializer is still bounded: the per-thread abandonment deadline
+            // is checked by both LoopCounter and ExecutionTracer, even though ordinary
+            // loop counting and the kill switch are disabled during this grace path.
+            if (alreadyAbandonedThisClass) {
+                logger.debug("Static initializer of {} was already abandoned once; "
+                                + "abandoning again without re-waiting the grace period.",
+                        stuckClinitClass);
+            } else {
+                logger.warn("Static initializer of {} still running after {}ms — abandoning "
+                                + "the thread instead of forcing it, to avoid poisoning the class.",
+                        ExecutionTracer.describeCurrentClassInit(),
+                        clinitWaitAttempts * Properties.SHUTDOWN_TIMEOUT);
+            }
+            abandonStaticInit(stuckClinitClass);
+            esc.abandonStuckStaticInit = true;
+        } else if (wasInStaticInit && needsTimeoutCleanup(handler)) {
+            // The initial timeout was consumed by classloading/static initialization.
+            // Give the actual test code a fresh timeout budget so it gets a fair chance.
+            logger.info("Static initializer finished; granting fresh timeout of {}ms for test execution.",
+                    esc.timeout);
+            ExecutionTracer.setKillSwitch(false);
+            waitForLastTask(handler, esc.timeout);
+        }
+
+        if (!esc.abandonStuckStaticInit) {
+            ExecutionTracer.setKillSwitch(true);
+        }
+    }
+
+    /**
+     * Gives up on the current thread while it is inside the static initializer of
+     * {@code stuckClinitClass} (null if it is in class loading instead): later timeouts in that
+     * class do not wait out the grace period again, and the worker is left running, to be ended
+     * by LoopCounter's per-thread, time-bounded escape if the initializer is an instrumented
+     * infinite loop that would otherwise keep the class-initialization lock and consume CPU
+     * forever.
+     */
+    private void abandonStaticInit(String stuckClinitClass) {
+        if (stuckClinitClass != null) {
+            abandonedClinitClasses.add(stuckClinitClass);
+        }
+        LoopCounter.getInstance().abandonStaticInitializer(currentThread);
+    }
+
+    /** Interrupts a second time, in case the first interrupt was swallowed, and waits. */
+    private void reinterruptAndWait(TimeoutEscalation esc) {
+        if (esc.mayStillAsk() && needsTimeoutCleanup(esc.handler)) {
+            logger.info("Cancelling thread:");
+            if (currentThread != null) {
+                for (StackTraceElement elem : currentThread.getStackTrace()) {
+                    logger.info(elem.toString());
+                }
+            }
+            // Not tc.toCode(): the thread is still running the test, and rendering a
+            // functional mock it is observing reads half-updated stubs
+            logger.info("Test with {} statements", esc.test.size());
+
+            // Re-interrupt in case the first one was swallowed
+            if (currentThread != null) {
+                currentThread.interrupt();
+            }
+            waitForLastTask(esc.handler, Properties.SHUTDOWN_TIMEOUT);
+        }
+    }
+
+    /** Last graceful resort: cancel the task and wait once more. */
+    private void cancelAndJoin(TimeoutEscalation esc) {
+        if (esc.mayStillAsk() && needsTimeoutCleanup(esc.handler)) {
+            FutureTask<?> task = esc.handler.getLastTask();
+            if (task != null) {
+                task.cancel(true);
+            }
+            if (currentThread != null) {
+                currentThread.interrupt();
+            }
+            try {
+                // After cancel, get() throws CancellationException immediately,
+                // so fall back to a timed join on the thread itself.
+                if (currentThread != null) {
+                    currentThread.join(Properties.SHUTDOWN_TIMEOUT);
+                }
+            } catch (InterruptedException e) {
+                // Ignore
+            }
+        }
+    }
+
+    /**
+     * Forces a worker that is still running the test with interrupt and Thread.stop(), unless it
+     * has entered a static initializer since the timeout was first seen; then it is abandoned.
+     */
+    @SuppressWarnings({"deprecation", "removal"})
+    private void forceStopOrAbandon(TimeoutEscalation esc) {
+        boolean workerStillExecutingAfterCancellation = currentThread != null
+                && currentThread.isAlive() && isThreadStuckInSutCode(currentThread);
+        if (esc.abandonStuckStaticInit || !shouldForceStopAfterCancellation(
+                needsTimeoutCleanup(esc.handler), workerStillExecutingAfterCancellation)) {
+            return;
+        }
+        // Re-sample <clinit> membership right here, immediately before doing
+        // anything forceful. initialInStaticInit/initialInProtectedBootstrap were
+        // snapshotted once, back when the timeout was first caught; everything
+        // between there and here — the fast kill-switch-swallow escalation, which
+        // skips the grace/abandon handling above entirely, or simply the time spent
+        // waiting through the graceful chain — is enough for the thread to have left
+        // ordinary SUT code and entered a <clinit> since. Forcing it now is exactly
+        // the class-poisoning bug abandonStuckStaticInit exists to avoid, so route
+        // into the same abandon handling instead of interrupting or stopping it,
+        // no matter which path got us here.
+        if (isInStaticInit()) {
+            // This late re-check is another abandonment path. Arm
+            // the same per-thread deadline before leaving the worker
+            // untouched, otherwise a class initializer entered after
+            // the initial timeout can still run forever.
+            abandonStaticInit(currentStaticInitClass());
+            logger.warn("Thread {} is inside <clinit> of {} at the force-stop decision "
+                            + "(it was not when the timeout was first caught) — abandoning "
+                            + "it instead of forcing it, to avoid poisoning the class.",
+                    currentThread == null ? "<null>" : currentThread.getName(),
+                    ExecutionTracer.describeCurrentClassInit());
+            esc.abandonStuckStaticInit = true;
+            return;
+        }
+        logger.warn("Run still not finished, thread {} is stuck at:",
+                currentThread == null ? "<null>" : currentThread.getName());
+        if (currentThread != null) {
+            for (String line : summarizeStuckStack(currentThread.getStackTrace())) {
+                logger.warn("  {}", line);
+            }
+        }
+        // Try interrupt first — works for threads blocked on I/O,
+        // sleeping, or waiting on monitors.
+        if (currentThread != null && currentThread.isAlive()) {
+            currentThread.interrupt();
+        }
+        // Last resort: Thread.stop() to kill CPU-bound loops in
+        // uninstrumented JDK code (e.g. Logger.getEffectiveLoggerBundle)
+        // that don't respond to interrupt(). Deprecated but necessary —
+        // a leaked thread burns 100% CPU for the entire process lifetime.
+        if (currentThread != null && currentThread.isAlive()) {
+            Thread stoppedThread = currentThread;
+            try {
+                logger.warn("Force-stopping stuck thread {} via Thread.stop()",
+                        stoppedThread.getName());
+                stoppedThread.stop();
+                stoppedThread.join(Properties.SHUTDOWN_TIMEOUT);
+            } catch (Throwable t) {
+                logger.info("Exception during Thread.stop() cleanup: {}", t.getMessage());
+            }
+            // Thread.stop() gives the victim no chance to run any finally
+            // block, and on JDK 20+ it does not even stop it (it throws
+            // UnsupportedOperationException instead). Either way we have
+            // just given up on this thread, so if it was inside the
+            // sandbox its lock is now leaked, and every later test
+            // execution in this process would stall for the full sandbox
+            // acquisition timeout before recovering. Hand the lock back
+            // here instead of paying that timeout. No-op when the thread
+            // did not own the lock, so it is safe to call unconditionally.
+            if (Sandbox.reclaimSandboxLockOwnedBy(stoppedThread)) {
+                logger.warn("Reclaimed the sandbox lock leaked by force-stopped thread {}",
+                        stoppedThread.getName());
+            }
         }
     }
 
