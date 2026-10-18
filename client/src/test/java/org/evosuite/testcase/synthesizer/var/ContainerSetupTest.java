@@ -458,7 +458,7 @@ public class ContainerSetupTest {
                 "byte byte0 = (byte)1;",
                 "int int0 = 0;",
                 "boolean boolean0 = false;",
-                "String string0 = \"\";",
+                "String string0 = \"value\";",
                 "ContainerSetupTest.Colour containerSetupTest_Colour0 = ContainerSetupTest.Colour.RED;",
                 "ContainerSetupTest.Element containerSetupTest_Element0 = new ContainerSetupTest.Element();",
                 "ContainerSetupTest.Inventory containerSetupTest_Inventory1 = new ContainerSetupTest.Inventory();",
@@ -481,8 +481,8 @@ public class ContainerSetupTest {
                 "LinkedHashMap linkedHashMap0 = new LinkedHashMap<>();",
                 "String string0 = \"symbols\";",
                 "String string1 = \"value\";",
-                "Object object0 = new Object();",
-                "String string2 = new String();",
+                "String string2 = \"value\";",
+                "String string3 = \"value\";",
                 "ArrayList arrayList0 = new ArrayList<>();",
                 "List nullRef0 = null;",
                 "Integer nullRef1 = null;",
@@ -547,7 +547,7 @@ public class ContainerSetupTest {
         assertEquals(lines(
                 "ContainerSetupTest.Inventory containerSetupTest_Inventory0 = new ContainerSetupTest.Inventory();",
                 "ContainerSetupTest.Subject containerSetupTest_Subject0 = new ContainerSetupTest.Subject();",
-                "String string0 = \"\";",
+                "String string0 = \"value\";",
                 "containerSetupTest_Inventory0.add(string0);",
                 "containerSetupTest_Inventory0.getItems();",
                 "containerSetupTest_Subject0.accepts(containerSetupTest_Inventory0);"),
@@ -565,7 +565,7 @@ public class ContainerSetupTest {
                 test, Inventory.class.getMethod("getItems"), receiver);
         assertEquals(lines(
                 "ContainerSetupTest.Inventory containerSetupTest_Inventory0 = new ContainerSetupTest.Inventory();",
-                "String string0 = \"\";",
+                "String string0 = \"value\";",
                 "containerSetupTest_Inventory0.add(string0);",
                 "containerSetupTest_Inventory0.getItems();"),
                 code(test));

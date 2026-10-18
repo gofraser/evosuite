@@ -279,7 +279,10 @@ final class ContainerSetup {
     static VariableReference mutationArgument(
             TestCase test, VariableReference receiver, Class<?> parameter, int position)
             throws Exception {
-        if (parameter.isPrimitive() || parameter == String.class || parameter.isEnum()) {
+        if (parameter == String.class) {
+            return stringLiteral(test, VALUE, position);
+        }
+        if (parameter.isPrimitive() || parameter.isEnum()) {
             PrimitiveStatement<?> primitive =
                     PrimitiveStatement.getPrimitiveStatement(
                             test, GenericClassFactory.get(parameter));
@@ -319,9 +322,10 @@ final class ContainerSetup {
      */
     static VariableReference observedMapValue(TestCase test, Class<?> inferred, int position)
             throws Exception {
-        if (inferred != null
-                && !inferred.isInterface()
-                && !Modifier.isAbstract(inferred.getModifiers())) {
+        if (inferred == null || inferred == Object.class || inferred == String.class) {
+            return stringLiteral(test, VALUE, position);
+        }
+        if (!inferred.isInterface() && !Modifier.isAbstract(inferred.getModifiers())) {
             Constructor<?> constructor = null;
             try {
                 constructor = inferred.getConstructor();
@@ -336,9 +340,6 @@ final class ContainerSetup {
                                 Collections.emptyList()),
                         position);
             }
-        }
-        if (inferred == null || inferred == Object.class || inferred == String.class) {
-            return stringLiteral(test, VALUE, position);
         }
         return test.addStatement(new NullStatement(test, inferred), position);
     }
