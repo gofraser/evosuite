@@ -26,8 +26,8 @@ import org.evosuite.TimeController;
 import org.evosuite.junit.UnitTestAdapter;
 import org.evosuite.junit.naming.methods.CoverageGoalTestNameGenerationStrategy;
 import org.evosuite.junit.naming.methods.NumberedTestNameGenerationStrategy;
+import org.evosuite.junit.naming.methods.PresentationMetadataTestNameStrategy;
 import org.evosuite.junit.naming.methods.TestNameGenerationStrategy;
-import org.evosuite.llm.postprocess.LlmPostProcessingTestNameStrategy;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit;
@@ -269,7 +269,7 @@ public class TestSuiteWriter implements Opcodes {
         } else {
             throw new RuntimeException("Unsupported naming strategy: " + effectiveNamingStrategy);
         }
-        nameGenerator = new LlmPostProcessingTestNameStrategy(nameGenerator);
+        nameGenerator = new PresentationMetadataTestNameStrategy(nameGenerator);
 
         // Avoid downcasts that could break
         removeUnnecessaryDownCasts(results);

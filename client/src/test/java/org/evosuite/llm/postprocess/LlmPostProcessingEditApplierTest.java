@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.junit.naming.methods.NumberedTestNameGenerationStrategy;
+import org.evosuite.junit.naming.methods.PresentationMetadataTestNameStrategy;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
@@ -127,7 +128,7 @@ class LlmPostProcessingEditApplierTest {
         NumberedTestNameGenerationStrategy numbered =
                 new NumberedTestNameGenerationStrategy(java.util.Arrays.<TestCase>asList(named, fallback),
                         Collections.emptyList());
-        LlmPostProcessingTestNameStrategy strategy = new LlmPostProcessingTestNameStrategy(numbered);
+        PresentationMetadataTestNameStrategy strategy = new PresentationMetadataTestNameStrategy(numbered);
 
         assertEquals("customName", strategy.getName(named));
         assertEquals("test1", strategy.getName(fallback));

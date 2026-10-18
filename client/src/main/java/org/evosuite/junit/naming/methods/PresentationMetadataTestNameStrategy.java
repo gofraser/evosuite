@@ -17,20 +17,20 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.llm.postprocess;
+package org.evosuite.junit.naming.methods;
 
-import org.evosuite.junit.naming.methods.TestNameGenerationStrategy;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestPresentationMetadata;
 
 /**
- * Gives accepted unified LLM test names precedence over the configured fallback.
+ * Gives a test name recorded in the test's presentation metadata (as accepted LLM post-processing
+ * does) precedence over the configured fallback.
  */
-public final class LlmPostProcessingTestNameStrategy implements TestNameGenerationStrategy {
+public final class PresentationMetadataTestNameStrategy implements TestNameGenerationStrategy {
 
     private final TestNameGenerationStrategy fallback;
 
-    public LlmPostProcessingTestNameStrategy(TestNameGenerationStrategy fallback) {
+    public PresentationMetadataTestNameStrategy(TestNameGenerationStrategy fallback) {
         this.fallback = fallback;
     }
 
