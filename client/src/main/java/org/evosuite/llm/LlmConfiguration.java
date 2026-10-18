@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Immutable snapshot of runtime LLM configuration.
@@ -135,7 +136,7 @@ public class LlmConfiguration {
      * Creates an {@link LlmConfiguration} from the current EvoSuite {@link Properties}.
      */
     public static LlmConfiguration fromProperties() {
-        String model = readWithEnvFallback(Properties.LLM_MODEL, "EVOSUITE_LLM_MODEL");
+        String model = resolveModel(Properties.LLM_MODEL, Properties.LLM_PROVIDER, System::getenv);
         String operatorModel = readWithEnvFallback(Properties.LLM_OPERATOR_MODEL, "EVOSUITE_LLM_OPERATOR_MODEL");
         String apiKey = readWithEnvFallback(Properties.LLM_API_KEY, "EVOSUITE_LLM_API_KEY");
         String baseUrl = readWithEnvFallback(Properties.LLM_BASE_URL, "EVOSUITE_LLM_BASE_URL");
@@ -157,6 +158,39 @@ public class LlmConfiguration {
                 Properties.LLM_TRACE_ENABLED,
                 traceDir,
                 UUID.randomUUID().toString());
+    }
+
+    /**
+     * Resolves the model name: an explicit {@code llm_model} wins, then the
+     * {@code EVOSUITE_LLM_MODEL} environment variable, then the default of the provider.
+     */
+    static String resolveModel(String configuredValue, Properties.LlmProvider provider,
+                               Function<String, String> environment) {
+        String trimmed = configuredValue == null ? "" : configuredValue.trim();
+        if (!trimmed.isEmpty()) {
+            return trimmed;
+        }
+        String env = environment.apply("EVOSUITE_LLM_MODEL");
+        if (env != null && !env.trim().isEmpty()) {
+            return env.trim();
+        }
+        return defaultModel(provider);
+    }
+
+    private static String defaultModel(Properties.LlmProvider provider) {
+        if (provider == null) {
+            return "";
+        }
+        switch (provider) {
+            case OPENAI:
+                return "gpt-4o";
+            case ANTHROPIC:
+                return "claude-3-5-sonnet-latest";
+            case OLLAMA:
+                return "llama3.1";
+            default:
+                return "";
+        }
     }
 
     private static String readWithEnvFallback(String configuredValue, String envKey) {

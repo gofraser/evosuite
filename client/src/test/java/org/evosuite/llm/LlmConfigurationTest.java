@@ -129,4 +129,25 @@ class LlmConfigurationTest {
 
         assertEquals("operator-model", configuration.getOperatorModel());
     }
+
+    @Test
+    void modelFromEnvironmentBeatsProviderDefault() {
+        assertEquals("env-model", LlmConfiguration.resolveModel(
+                "", Properties.LlmProvider.OPENAI, key -> "EVOSUITE_LLM_MODEL".equals(key) ? " env-model " : null));
+    }
+
+    @Test
+    void explicitModelBeatsEnvironment() {
+        assertEquals("explicit", LlmConfiguration.resolveModel(
+                "explicit", Properties.LlmProvider.OPENAI, key -> "env-model"));
+    }
+
+    @Test
+    void modelFallsBackToProviderDefault() {
+        assertEquals("gpt-4o", LlmConfiguration.resolveModel("", Properties.LlmProvider.OPENAI, key -> null));
+        assertEquals("llama3.1", LlmConfiguration.resolveModel(null, Properties.LlmProvider.OLLAMA, key -> ""));
+        assertTrue(LlmConfiguration.resolveModel("", Properties.LlmProvider.ANTHROPIC, key -> null)
+                .startsWith("claude"));
+        assertEquals("", LlmConfiguration.resolveModel("", Properties.LlmProvider.NONE, key -> null));
+    }
 }

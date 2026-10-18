@@ -1864,8 +1864,9 @@ public class Properties {
     public static LlmProvider LLM_PROVIDER = LlmProvider.NONE;
 
     @Parameter(key = "llm_model", group = "LLM",
-            description = "Model name for the configured provider")
-    public static String LLM_MODEL = "gpt-4o";
+            description = "Model name for the configured provider. If empty, the EVOSUITE_LLM_MODEL "
+                    + "environment variable is used, then a default for the provider")
+    public static String LLM_MODEL = "";
 
     @Parameter(key = "llm_api_key", group = "LLM",
             description = "API key for provider-authenticated LLM services")
