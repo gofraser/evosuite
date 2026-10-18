@@ -1254,11 +1254,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
     /**
      * The number of individuals the survivors are selected for. Called after the union has been
-     * ranked, so the rank-0 front is available. By default the current population size, which
-     * is the population size the search was configured with.
+     * ranked, so the rank-0 front is available. By default the configured population size, so
+     * that the population does not grow from one generation to the next. Survival selection
+     * under speciation still keeps the whole rank-0 front, so a single generation can exceed it.
      */
     protected int survivalTarget() {
-        return this.population.size();
+        return Properties.POPULATION;
     }
 
     /** Runs after survival selection and lineage elitism, before the generation is recorded. */

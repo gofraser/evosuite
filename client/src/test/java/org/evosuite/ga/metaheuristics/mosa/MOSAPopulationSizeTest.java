@@ -46,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class MOSAPopulationSizeTest extends MosaTestSupport {
 
+    private int savedPopulation;
     private boolean savedSpeciationEnabled;
     private boolean savedBalanceParentSelection;
     private double savedSurvivalCap;
@@ -55,6 +56,7 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
 
     @BeforeEach
     void saveProperties() {
+        savedPopulation = Properties.POPULATION;
         savedSpeciationEnabled = Properties.SPECIATION_ENABLED;
         savedBalanceParentSelection = Properties.SPECIES_BALANCE_PARENT_SELECTION;
         savedSurvivalCap = Properties.SPECIES_SURVIVAL_CAP;
@@ -65,6 +67,7 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
 
     @AfterEach
     void restoreProperties() {
+        Properties.POPULATION = savedPopulation;
         Properties.SPECIATION_ENABLED = savedSpeciationEnabled;
         Properties.SPECIES_BALANCE_PARENT_SELECTION = savedBalanceParentSelection;
         Properties.SPECIES_SURVIVAL_CAP = savedSurvivalCap;
@@ -300,7 +303,9 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
                          List<TestChromosome> front1,
                          int initialPopSize) {
             super(factory);
-            // Seed the population to establish base target
+            // The configured population size is the survival target
+            Properties.POPULATION = initialPopSize;
+            // Seed the population
             this.population.clear();
             for (int i = 0; i < initialPopSize; i++) {
                 TestChromosome tc = new TestChromosome();

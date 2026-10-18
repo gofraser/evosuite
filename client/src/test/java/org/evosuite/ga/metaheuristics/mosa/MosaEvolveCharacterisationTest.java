@@ -432,20 +432,12 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
      * goals and a base population of four, then three more generations after the goals shrink to
      * three.
      *
-     * <p>CURRENT BEHAVIOUR, NOT AN ENDORSEMENT. MOSA takes the next target from the current
-     * population size ({@code baseTarget = population.size()}, MOSA.java) and survival keeps
-     * {@code max(target, front0)}, so the target can only grow: it climbs to seven and stays
-     * there while rank 0 has six members (generations 4 to 8), while DynaMOSA, which re-anchors
-     * on {@code Properties.POPULATION} every generation, is at six whenever rank 0 is six. After the goals shrink
-     * the MOSA population falls to five, but because of the ranking depth (fronts are only
-     * computed until {@code POPULATION} individuals are ranked), not because the target came
-     * down.
-     *
-     * <p>Whether the ratchet is intended is an open question. If a decision changes the MOSA
-     * sequence below, update this test together with it.
+     * <p>Both algorithms select the survivors for {@code Properties.POPULATION} every generation
+     * and survival keeps the whole rank-0 front, so the size is {@code max(POPULATION, rank 0)}
+     * and the two algorithms follow the same sequence.
      */
     @Test
-    void speciationRatchetsMosaButNotDynaMosa() {
+    void speciationKeepsTheSizeAtThePopulationOrTheFrontZero() {
         Properties.SPECIATION_ENABLED = true;
 
         Harness mosa = newHarness(false, 8, 4);
@@ -458,10 +450,29 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
         dyna.restrictGoals(3);
         dynaSizes += " | " + sizes(dyna, 3);
 
-        // MOSA: stays at 7 while rank 0 has 6 members
-        assertEquals("6/6 7/7 7/7 7/6 7/6 7/6 7/6 7/6 | 5/3 5/3 5/3", mosaSizes);
-        // DynaMOSA: max(POPULATION, rank 0) every generation
-        assertEquals("6/6 7/7 7/7 6/6 7/7 6/6 6/6 6/6 | 4/3 4/3 4/3", dynaSizes);
+        assertEquals("6/6 7/7 7/7 6/6 7/7 6/6 6/6 6/6 | 4/3 4/3 4/3", mosaSizes);
+        assertEquals(mosaSizes, dynaSizes);
+    }
+
+    /**
+     * MOSA does not remember the largest rank-0 front it has seen: each generation selects for the
+     * configured population size, so once rank 0 fits again the population is back at that size.
+     */
+    @Test
+    void mosaPopulationReturnsToThePopulationSizeUnderSpeciation() {
+        Properties.SPECIATION_ENABLED = true;
+        int populationSize = 4;
+        Harness mosa = newHarness(false, 8, populationSize);
+
+        for (int generation = 0; generation < 8; generation++) {
+            mosa.step();
+            assertEquals(Math.max(populationSize, mosa.front0().size()), mosa.currentPopulation().size());
+        }
+        mosa.restrictGoals(3);
+        for (int generation = 0; generation < 3; generation++) {
+            mosa.step();
+            assertEquals(populationSize, mosa.currentPopulation().size());
+        }
     }
 
     /** The first generation does not yet ratchet: both algorithms start from the same base. */
