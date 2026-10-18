@@ -615,7 +615,7 @@ public class VariableCodeGenerationUtil {
      * When bytecode proves {@code field.contains(targetArgument)}, call the selected one-argument
      * container mutator with that exact argument.
      */
-    private static VariableReference generateMembershipSetterWithTargetArgument(
+    static VariableReference generateMembershipSetterWithTargetArgument(
             TestCase test, VariableReference receiver, Field field, Method setter) {
         if (test == null
                 || receiver == null

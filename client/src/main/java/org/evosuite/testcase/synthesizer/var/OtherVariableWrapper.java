@@ -531,7 +531,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
      * add}, maps use {@code put}, and header-like APIs use their {@code add}/{@code set} method.
      * The exact observed key/value is retained.
      */
-    private VariableReference materializeMembershipObservation(
+    VariableReference materializeMembershipObservation(
             TestCase test,
             Method observation,
             VariableReference receiver,
@@ -612,7 +612,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
      * ByteState.getCeilings()}, where replaying the getter cannot create a ceiling but {@code
      * putTransition(byte, transition)} can.
      */
-    private VariableReference materializeCollectionQueryObservation(
+    VariableReference materializeCollectionQueryObservation(
             TestCase test, Method observation, VariableReference receiver) throws Exception {
         if (observation == null
                 || receiver == null
@@ -695,7 +695,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         return mutations;
     }
 
-    private static VariableReference deterministicMutationArgument(
+    static VariableReference deterministicMutationArgument(
             TestCase test, VariableReference receiver, Class<?> parameter, int position)
             throws Exception {
         if (parameter.isPrimitive() || parameter == String.class || parameter.isEnum()) {
@@ -732,7 +732,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         }
     }
 
-    private VariableReference materializeMapValueForObservedKey(
+    VariableReference materializeMapValueForObservedKey(
             TestCase test, VariableReference receiver, VariableReference key, int position)
             throws Exception {
         Class<?> inferred = inferMapValueCast(stringValue(test, key));
@@ -777,7 +777,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
      * value contract implied by the branch and lets containsKey setup use (for example) an
      * ArrayList for "symbols" instead of the semantically invalid String key as its value.
      */
-    private Class<?> inferMapValueCast(String key) {
+    Class<?> inferMapValueCast(String key) {
         if (key == null || var.getInstruction() == null) {
             return null;
         }

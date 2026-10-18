@@ -279,7 +279,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
         return requestedClass;
     }
 
-    private void materializeContainer(
+    void materializeContainer(
             TestCase test, VariableReference parameter, boolean allowNullValue) {
         Class<?> parameterClass = parameter == null ? null : parameter.getVariableClass();
         boolean mapCardinality =
@@ -319,7 +319,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
      * TestFactory for arbitrary Object values previously produced large SQL/RMI/JDK object trees
      * and frequent pre-target exceptions.
      */
-    private static VariableReference addDeterministicContainerMutation(
+    static VariableReference addDeterministicContainerMutation(
             TestCase test, VariableReference container, GenericMethod mutator, int position)
             throws Exception {
         List<VariableReference> arguments = new ArrayList<>();
@@ -342,7 +342,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
         return result;
     }
 
-    private static VariableReference deterministicContainerValue(
+    static VariableReference deterministicContainerValue(
             TestCase test, VariableReference container, boolean mapValue, int position)
             throws Exception {
         List<GenericClass<?>> parameters = container.getGenericClass().getParameterClasses();
@@ -387,7 +387,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
         return test.addStatement(new NullStatement(test, requested), position);
     }
 
-    private static VariableReference deterministicElement(
+    static VariableReference deterministicElement(
             TestCase test, GenericClass<?> elementType, int position) throws Exception {
         Class<?> requested = elementType.getRawClass();
         if (requested == Object.class || requested == String.class) {
