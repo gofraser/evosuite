@@ -9,12 +9,10 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
-import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.EntityWithParametersStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.ConstructionReferenceUtil;
 import org.evosuite.testcase.synthesizer.VariableInTest;
 import org.evosuite.testcase.variable.VariableReference;
@@ -32,7 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -231,7 +228,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
         } catch (ClassNotFoundException e) {
             return null;
         }
-        paramClass = concreteContainerClass(paramClass);
+        paramClass = ContainerSetup.concreteContainerClass(paramClass);
 
         GenericClass<?> paramDeclaringClazz = GenericClassFactory.get(paramClass);
         VariableReference paramRef = null;
@@ -260,25 +257,6 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
         return paramRef;
     }
 
-    static Class<?> concreteContainerClass(Class<?> requestedClass) {
-        if (requestedClass == null
-                || (!requestedClass.isInterface()
-                        && !Modifier.isAbstract(requestedClass.getModifiers()))) {
-            return requestedClass;
-        }
-        if (java.util.Map.class.isAssignableFrom(requestedClass)) {
-            return java.util.LinkedHashMap.class;
-        }
-        if (java.util.Set.class.isAssignableFrom(requestedClass)) {
-            return java.util.LinkedHashSet.class;
-        }
-        if (java.util.Collection.class.isAssignableFrom(requestedClass)
-                || requestedClass == Iterable.class) {
-            return java.util.ArrayList.class;
-        }
-        return requestedClass;
-    }
-
     void materializeContainer(
             TestCase test, VariableReference parameter, boolean allowNullValue) {
         Class<?> parameterClass = parameter == null ? null : parameter.getVariableClass();
@@ -298,154 +276,18 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
             } else {
                 return;
             }
-            EntityWithParametersStatement target = test.findTargetExecutableStatement();
-            int position = target == null ? test.size() : target.getPosition();
+            int position = ContainerSetup.insertionPosition(test);
             GenericMethod method = new GenericMethod(mutator, mutator.getDeclaringClass());
             MethodStatement existingMutation = findContainerMutation(test, parameter, mutator);
             if (existingMutation == null) {
-                addDeterministicContainerMutation(test, parameter, method, position);
+                ContainerSetup.addEntry(test, parameter, method, position);
             } else if (java.util.Map.class.isAssignableFrom(parameterClass)) {
-                ensureStringMapKey(test, existingMutation.getReturnValue());
+                ContainerSetup.ensureStringMapKey(test, existingMutation.getReturnValue());
             }
         } catch (Exception e) {
 
             // Container setup is best effort; the caller will reject the incomplete path.
         }
-    }
-
-    /**
-     * Build the smallest non-empty container without invoking the recursive generic object
-     * generator. Query evidence such as size/entrySet/iterator only requires cardinality; asking
-     * TestFactory for arbitrary Object values previously produced large SQL/RMI/JDK object trees
-     * and frequent pre-target exceptions.
-     */
-    static VariableReference addDeterministicContainerMutation(
-            TestCase test, VariableReference container, GenericMethod mutator, int position)
-            throws Exception {
-        List<VariableReference> arguments = new ArrayList<>();
-        if (java.util.Map.class.isAssignableFrom(container.getVariableClass())) {
-            VariableReference key =
-                    test.addStatement(new StringPrimitiveStatement(test, "key"), position++);
-            arguments.add(key);
-            arguments.add(deterministicContainerValue(test, container, true, position++));
-        } else {
-            arguments.add(deterministicContainerValue(test, container, false, position++));
-        }
-        VariableReference result =
-                test.addStatement(
-                        new MethodStatement(
-                                test,
-                                mutator.copyWithNewOwner(container.getGenericClass()),
-                                container,
-                                arguments),
-                        position);
-        return result;
-    }
-
-    static VariableReference deterministicContainerValue(
-            TestCase test, VariableReference container, boolean mapValue, int position)
-            throws Exception {
-        List<GenericClass<?>> parameters = container.getGenericClass().getParameterClasses();
-        int genericIndex = mapValue ? 1 : 0;
-        GenericClass<?> requestedType =
-                genericIndex < parameters.size()
-                        ? parameters.get(genericIndex)
-                        : GenericClassFactory.get(Object.class);
-        Class<?> requested = requestedType.getRawClass();
-        if (requested == null || requested == Object.class || requested == String.class) {
-            return test.addStatement(new StringPrimitiveStatement(test, "value"), position);
-        }
-        if (java.util.Collection.class.isAssignableFrom(requested) || requested == Iterable.class) {
-            Class<?> concrete = concreteContainerClass(requested);
-            Constructor<?> constructor = concrete.getConstructor();
-            VariableReference collection =
-                    test.addStatement(
-                            new ConstructorStatement(
-                                    test,
-                                    new GenericConstructor(constructor, concrete),
-                                    Collections.emptyList()),
-                            position);
-            List<GenericClass<?>> elementTypes = requestedType.getParameterClasses();
-            if (!elementTypes.isEmpty()) {
-                VariableReference element =
-                        deterministicElement(test, elementTypes.get(0), position + 1);
-                if (element != null) {
-                    Method add = java.util.Collection.class.getMethod("add", Object.class);
-                    test.addStatement(
-                            new MethodStatement(
-                                    test,
-                                    new GenericMethod(add, collection.getGenericClass()),
-                                    collection,
-                                    Collections.singletonList(element)),
-                            position + 2);
-                }
-            }
-            return collection;
-        }
-        // A typed null still establishes cardinality and is safer than recursively generating an
-        // arbitrary graph. Object-typed collections use the non-null String path above.
-        return test.addStatement(new NullStatement(test, requested), position);
-    }
-
-    static VariableReference deterministicElement(
-            TestCase test, GenericClass<?> elementType, int position) throws Exception {
-        Class<?> requested = elementType.getRawClass();
-        if (requested == Object.class || requested == String.class) {
-            return test.addStatement(new StringPrimitiveStatement(test, "value"), position);
-        }
-        try {
-            Constructor<?> constructor = requested.getConstructor();
-            return test.addStatement(
-                    new ConstructorStatement(
-                            test,
-                            new GenericConstructor(constructor, requested),
-                            Collections.emptyList()),
-                    position);
-        } catch (NoSuchMethodException ignored) {
-            // Prefer a stable no-argument value factory over recursive arbitrary generation.
-        }
-        List<Method> factories = new ArrayList<>();
-        for (Method method : requested.getMethods()) {
-            if (Modifier.isStatic(method.getModifiers())
-                    && method.getParameterCount() == 0
-                    && requested.isAssignableFrom(method.getReturnType())) {
-                factories.add(method);
-            }
-        }
-        factories.sort((left, right) -> left.toGenericString().compareTo(right.toGenericString()));
-        if (!factories.isEmpty()) {
-            Method factory = factories.get(0);
-            return test.addStatement(
-                    new MethodStatement(
-                            test,
-                            new GenericMethod(factory, factory.getDeclaringClass()),
-                            null,
-                            Collections.emptyList()),
-                    position);
-        }
-        return null;
-    }
-
-    static VariableReference ensureStringMapKey(TestCase test, VariableReference mutationResult)
-            throws ConstructionFailedException {
-        MethodStatement mutation =
-                (MethodStatement) test.getStatement(mutationResult.getStPosition());
-        if (mutation.getParameterReferences().isEmpty()) {
-            return null;
-        }
-        VariableReference oldKey = mutation.getParameterReferences().get(0);
-        if (oldKey != null && oldKey.getVariableClass() == String.class) {
-            return oldKey;
-        }
-        // Strings are primitive statements in EvoSuite and are intentionally absent from the
-        // TestCluster generator registry. Going through createObject() therefore fails with
-        // "Have no generator for class java.lang.String" and leaves a semantically useless
-        // arbitrary Object key behind. Insert a stable literal immediately before put instead.
-        VariableReference stringKey =
-                test.addStatement(
-                        new StringPrimitiveStatement(test, "key"), mutation.getPosition());
-        mutation.replace(oldKey, stringKey);
-        return stringKey;
     }
 
     private static MethodStatement findContainerMutation(

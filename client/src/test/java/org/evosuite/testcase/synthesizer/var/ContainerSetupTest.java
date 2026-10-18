@@ -356,17 +356,17 @@ public class ContainerSetupTest {
     @Test
     public void deterministicElementPrefersConstructorThenFactory() throws Exception {
         TestCase test = new DefaultTestCase();
-        VariableReference string = ParameterVariableWrapper.deterministicElement(
+        VariableReference string = ContainerSetup.element(
                 test, GenericClassFactory.get(String.class), 0);
-        VariableReference object = ParameterVariableWrapper.deterministicElement(
+        VariableReference object = ContainerSetup.element(
                 test, GenericClassFactory.get(Object.class), 1);
-        VariableReference element = ParameterVariableWrapper.deterministicElement(
+        VariableReference element = ContainerSetup.element(
                 test, GenericClassFactory.get(Element.class), 2);
-        VariableReference maker = ParameterVariableWrapper.deterministicElement(
+        VariableReference maker = ContainerSetup.element(
                 test, GenericClassFactory.get(Maker.class), 3);
-        VariableReference opaque = ParameterVariableWrapper.deterministicElement(
+        VariableReference opaque = ContainerSetup.element(
                 test, GenericClassFactory.get(Opaque.class), 4);
-        VariableReference integer = ParameterVariableWrapper.deterministicElement(
+        VariableReference integer = ContainerSetup.element(
                 test, GenericClassFactory.get(Integer.class), 5);
         assertNotNull(string);
         assertNotNull(object);
@@ -386,17 +386,17 @@ public class ContainerSetupTest {
     public void deterministicContainerValueByRequestedType() throws Exception {
         TestCase test = new DefaultTestCase();
         VariableReference map = construct(test, concrete(LinkedHashMap.class, "listMap"));
-        ParameterVariableWrapper.deterministicContainerValue(test, map, true, test.size());
+        ContainerSetup.containerValue(test, map, true, test.size());
         VariableReference integerMap = construct(test, concrete(LinkedHashMap.class, "integerMap"));
-        ParameterVariableWrapper.deterministicContainerValue(test, integerMap, true, test.size());
+        ContainerSetup.containerValue(test, integerMap, true, test.size());
         VariableReference objectMap = construct(test, concrete(LinkedHashMap.class, "objectMap"));
-        ParameterVariableWrapper.deterministicContainerValue(test, objectMap, true, test.size());
+        ContainerSetup.containerValue(test, objectMap, true, test.size());
         VariableReference setMap = construct(test, concrete(LinkedHashMap.class, "integerSetMap"));
-        ParameterVariableWrapper.deterministicContainerValue(test, setMap, true, test.size());
+        ContainerSetup.containerValue(test, setMap, true, test.size());
         VariableReference makerMap = construct(test, concrete(LinkedHashMap.class, "makerListMap"));
-        ParameterVariableWrapper.deterministicContainerValue(test, makerMap, true, test.size());
+        ContainerSetup.containerValue(test, makerMap, true, test.size());
         VariableReference opaqueMap = construct(test, concrete(LinkedHashMap.class, "opaqueListMap"));
-        ParameterVariableWrapper.deterministicContainerValue(test, opaqueMap, true, test.size());
+        ContainerSetup.containerValue(test, opaqueMap, true, test.size());
         assertEquals(lines(
                 "LinkedHashMap<String, List<ContainerSetupTest.Element>> linkedHashMap0 = new LinkedHashMap<String, List<ContainerSetupTest.Element>>();",
                 "ArrayList arrayList0 = new ArrayList<>();",
@@ -421,11 +421,11 @@ public class ContainerSetupTest {
     public void deterministicContainerMutationForMapAndList() throws Exception {
         TestCase test = new DefaultTestCase();
         VariableReference map = construct(test, concrete(LinkedHashMap.class, "stringMap"));
-        ParameterVariableWrapper.addDeterministicContainerMutation(test, map,
+        ContainerSetup.addEntry(test, map,
                 new GenericMethod(LinkedHashMap.class.getMethod("put", Object.class, Object.class),
                         LinkedHashMap.class), test.size());
         VariableReference list = construct(test, concrete(ArrayList.class, "elementList"));
-        ParameterVariableWrapper.addDeterministicContainerMutation(test, list,
+        ContainerSetup.addEntry(test, list,
                 new GenericMethod(ArrayList.class.getMethod("add", Object.class), ArrayList.class),
                 test.size());
         assertEquals(lines(
@@ -446,11 +446,11 @@ public class ContainerSetupTest {
         Randomness.setSeed(7L);
         for (Class<?> parameter : new Class<?>[] {byte.class, int.class, boolean.class,
                 String.class, Colour.class, Element.class, Inventory.class, Object.class}) {
-            assertNotNull(OtherVariableWrapper.deterministicMutationArgument(
+            assertNotNull(ContainerSetup.mutationArgument(
                     test, receiver, parameter, test.size()));
         }
         for (Class<?> parameter : new Class<?>[] {Opaque.class, Collection.class, List.class}) {
-            assertNull(OtherVariableWrapper.deterministicMutationArgument(
+            assertNull(ContainerSetup.mutationArgument(
                     test, receiver, parameter, test.size()));
         }
         assertEquals(lines(
@@ -475,8 +475,7 @@ public class ContainerSetupTest {
         VariableReference key = test.addStatement(new StringPrimitiveStatement(test, "symbols"));
         for (Class<?> inferred : new Class<?>[] {null, Object.class, String.class, ArrayList.class,
                 List.class, Integer.class, Element.class, Opaque.class}) {
-            assertNotNull(otherWrapper(inferred).materializeMapValueForObservedKey(
-                    test, receiver, key, test.size()));
+            assertNotNull(ContainerSetup.observedMapValue(test, inferred, test.size()));
         }
         assertEquals(lines(
                 "LinkedHashMap linkedHashMap0 = new LinkedHashMap<>();",

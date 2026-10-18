@@ -93,7 +93,7 @@ public class OtherVariableWrapperTest {
         VariableReference laterArgument = test.addStatement(
                 new StringPrimitiveStatement(test, "argument"));
 
-        int insertionPosition = OtherVariableWrapper.methodCallInsertionPosition(
+        int insertionPosition = ContainerSetup.insertionPosition(
                 test, receiver, Collections.singletonList(laterArgument));
 
         assertEquals(2, insertionPosition,

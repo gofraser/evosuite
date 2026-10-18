@@ -9,17 +9,13 @@ import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
-import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.EntityWithParametersStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
-import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.VariableInTest;
 import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.utils.generic.GenericClassFactory;
-import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -29,7 +25,6 @@ import org.objectweb.asm.tree.TypeInsnNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
@@ -224,7 +219,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                     }
                     GenericMethod genericMethod = new GenericMethod(call, call.getDeclaringClass());
                     int insertionPosition =
-                            methodCallInsertionPosition(test, null, paramRefMap.values());
+                            ContainerSetup.insertionPosition(test, null, paramRefMap.values());
                     VariableReference varRef =
                             TestFactory.getInstance()
                                     .addMethod(
@@ -291,7 +286,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                             GenericMethod genericMethod =
                                     new GenericMethod(call, call.getDeclaringClass());
                             int insertionPosition =
-                                    methodCallInsertionPosition(
+                                    ContainerSetup.insertionPosition(
                                             test, calleeVarRef, paramRefMap.values());
                             VariableReference varRef =
                                     TestFactory.getInstance()
@@ -405,7 +400,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             return existingBuilder.getReturnValue();
         }
         int insertionPosition =
-                methodCallInsertionPosition(test, receiver, Collections.emptyList());
+                ContainerSetup.insertionPosition(test, receiver, Collections.emptyList());
         VariableReference result =
                 test.addStatement(
                         new MethodStatement(
@@ -498,33 +493,6 @@ public class OtherVariableWrapper extends DepVariableWrapper {
     }
 
     /**
-     * Places a replayed observation after every graph value it consumes. Graph nodes are resolved
-     * incrementally, so a field used as an argument may have been inserted after the receiver. The
-     * old receiver-adjacent placement followed by parameter replacement created a forward reference
-     * (for example {@code type.equals(UNKNOW)} before the {@code UNKNOW} field read). A crossover
-     * cut between those statements then left the method callee or argument permanently orphaned.
-     * Prefer the position immediately before the target call, while also handling callers without a
-     * marked target and any unusual dependency that is already later in the test.
-     */
-    static int methodCallInsertionPosition(
-            TestCase test, VariableReference receiver, Iterable<VariableReference> parameters) {
-        int afterDependencies = 0;
-        if (receiver != null) {
-            afterDependencies = receiver.getStPosition() + 1;
-        }
-        if (parameters != null) {
-            for (VariableReference parameter : parameters) {
-                if (parameter != null) {
-                    afterDependencies = Math.max(afterDependencies, parameter.getStPosition() + 1);
-                }
-            }
-        }
-        EntityWithParametersStatement targetCall = test.findTargetExecutableStatement();
-        int beforeTarget = targetCall == null ? test.size() : targetCall.getPosition();
-        return Math.min(test.size(), Math.max(afterDependencies, beforeTarget));
-    }
-
-    /**
      * A boolean membership call is an observation, not setup. Replaying {@code contains(key)}
      * before the target leaves the receiver unchanged and therefore cannot help cover the positive
      * direction. Translate it to the receiver's public mutator instead: collections use {@code
@@ -555,18 +523,15 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             return null;
         }
 
-        EntityWithParametersStatement targetCall = test.findTargetExecutableStatement();
-        int insertionPosition = targetCall == null ? test.size() : targetCall.getPosition();
-        insertionPosition =
-                Math.max(
-                        insertionPosition,
-                        Math.max(receiver.getStPosition(), observed.getStPosition()) + 1);
+        int insertionPosition =
+                ContainerSetup.insertionPosition(test, receiver, Collections.singletonList(observed));
         GenericMethod genericMutation = new GenericMethod(mutation, mutation.getDeclaringClass());
         if ("containsKey".equals(observation.getName())
                 && "put".equals(mutation.getName())
                 && mutation.getParameterCount() == 2) {
             VariableReference value =
-                    materializeMapValueForObservedKey(test, receiver, observed, insertionPosition);
+                    ContainerSetup.observedMapValue(
+                            test, inferMapValueCast(stringValue(test, observed)), insertionPosition);
             test.addStatement(
                     new MethodStatement(
                             test,
@@ -623,13 +588,12 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         }
         List<Method> mutations = collectionMutationCandidates(receiver.getVariableClass());
         for (Method mutation : mutations) {
-            EntityWithParametersStatement target = test.findTargetExecutableStatement();
-            int position = target == null ? test.size() : target.getPosition();
+            int position = ContainerSetup.insertionPosition(test);
             List<VariableReference> arguments = new ArrayList<>();
             boolean supported = true;
             for (Class<?> parameter : mutation.getParameterTypes()) {
                 VariableReference argument =
-                        deterministicMutationArgument(
+                        ContainerSetup.mutationArgument(
                                 test, receiver, parameter, position + arguments.size());
                 if (argument == null) {
                     supported = false;
@@ -672,18 +636,10 @@ public class OtherVariableWrapper extends DepVariableWrapper {
      * package the tests are generated into.
      */
     static List<Method> collectionMutationCandidates(Class<?> receiverClass) {
-        List<Method> mutations = new ArrayList<>();
-        for (Method candidate : receiverClass.getDeclaredMethods()) {
-            String name = candidate.getName();
-            if (Modifier.isStatic(candidate.getModifiers())
-                    || candidate.getParameterCount() < 1
-                    || candidate.getParameterCount() > 2
-                    || !(name.startsWith("add") || name.startsWith("put"))
-                    || !TestUsageChecker.isSynthesisCallable(candidate)) {
-                continue;
-            }
-            mutations.add(candidate);
-        }
+        List<Method> mutations =
+                ContainerSetup.findMutators(
+                        receiverClass, true, name -> name.startsWith("add") || name.startsWith("put"),
+                        1, 2);
         mutations.sort(
                 (left, right) -> {
                     int count =
@@ -693,71 +649,6 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                             : left.toGenericString().compareTo(right.toGenericString());
                 });
         return mutations;
-    }
-
-    static VariableReference deterministicMutationArgument(
-            TestCase test, VariableReference receiver, Class<?> parameter, int position)
-            throws Exception {
-        if (parameter.isPrimitive() || parameter == String.class || parameter.isEnum()) {
-            PrimitiveStatement<?> primitive =
-                    PrimitiveStatement.getPrimitiveStatement(
-                            test, GenericClassFactory.get(parameter));
-            if (parameter == byte.class) {
-                @SuppressWarnings({"rawtypes", "unchecked"})
-                PrimitiveStatement raw = primitive;
-                raw.setValue((byte) 1);
-            }
-            return test.addStatement(primitive, position);
-        }
-        Class<?> concrete =
-                parameter.isAssignableFrom(receiver.getVariableClass())
-                        ? receiver.getVariableClass()
-                        : parameter;
-        if (concrete.isInterface() || Modifier.isAbstract(concrete.getModifiers())) {
-            return null;
-        }
-        try {
-            Constructor<?> constructor = concrete.getDeclaredConstructor();
-            if (Modifier.isPrivate(constructor.getModifiers())) {
-                return null;
-            }
-            return test.addStatement(
-                    new ConstructorStatement(
-                            test,
-                            new GenericConstructor(constructor, concrete),
-                            Collections.emptyList()),
-                    position);
-        } catch (NoSuchMethodException failure) {
-            return null;
-        }
-    }
-
-    VariableReference materializeMapValueForObservedKey(
-            TestCase test, VariableReference receiver, VariableReference key, int position)
-            throws Exception {
-        Class<?> inferred = inferMapValueCast(stringValue(test, key));
-        if (inferred != null
-                && !inferred.isInterface()
-                && !Modifier.isAbstract(inferred.getModifiers())) {
-            Constructor<?> constructor = null;
-            try {
-                constructor = inferred.getConstructor();
-            } catch (NoSuchMethodException ignored) {
-                // Fall through to a typed null; it preserves the key branch without a random tree.
-            }
-            if (constructor != null) {
-                return test.addStatement(
-                        new ConstructorStatement(
-                                test,
-                                new GenericConstructor(constructor, inferred),
-                                Collections.emptyList()),
-                        position);
-            }
-        }
-        if (inferred == null || inferred == Object.class || inferred == String.class) {
-            return test.addStatement(new StringPrimitiveStatement(test, "value"), position);
-        }
-        return test.addStatement(new NullStatement(test, inferred), position);
     }
 
     private static String stringValue(TestCase test, VariableReference reference) {
@@ -876,15 +767,11 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         }
         boolean valueObservation = "containsValue".equals(observation.getName());
         Method best = null;
-        for (Method candidate : receiverType.getMethods()) {
-            String name = candidate.getName();
-            if (!("add".equals(name) || "put".equals(name) || "set".equals(name))
-                    || Modifier.isStatic(candidate.getModifiers())
-                    || candidate.getParameterCount() < 1
-                    || candidate.getParameterCount() > 2
-                    || !TestUsageChecker.isSynthesisCallable(candidate)) {
-                continue;
-            }
+        for (Method candidate :
+                ContainerSetup.findMutators(
+                        receiverType, false,
+                        name -> "add".equals(name) || "put".equals(name) || "set".equals(name),
+                        1, 2)) {
             int observedParameter = valueObservation && candidate.getParameterCount() > 1 ? 1 : 0;
             if (!candidate.getParameterTypes()[observedParameter].isAssignableFrom(observedType)) {
                 continue;
@@ -1005,13 +892,8 @@ public class OtherVariableWrapper extends DepVariableWrapper {
 
     static Method findCompatibleListInsertionMethod(Class<?> receiverType, Class<?> elementType) {
         Method best = null;
-        for (Method candidate : receiverType.getMethods()) {
-            if (!"add".equals(candidate.getName())
-                    || candidate.getParameterCount() != 1
-                    || Modifier.isStatic(candidate.getModifiers())
-                    || !TestUsageChecker.isSynthesisCallable(candidate)) {
-                continue;
-            }
+        for (Method candidate :
+                ContainerSetup.findMutators(receiverType, false, "add"::equals, 1, 1)) {
             Class<?> parameterType = candidate.getParameterTypes()[0];
             if (elementType != null && !parameterType.isAssignableFrom(elementType)) {
                 continue;

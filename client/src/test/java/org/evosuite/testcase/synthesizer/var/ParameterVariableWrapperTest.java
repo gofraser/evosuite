@@ -36,13 +36,13 @@ public class ParameterVariableWrapperTest {
     @Test
     public void resolvesAbstractContainerContractsToStableConcreteTypes() {
         assertEquals(java.util.LinkedHashMap.class,
-                ParameterVariableWrapper.concreteContainerClass(java.util.Map.class));
+                ContainerSetup.concreteContainerClass(java.util.Map.class));
         assertEquals(java.util.ArrayList.class,
-                ParameterVariableWrapper.concreteContainerClass(Iterable.class));
+                ContainerSetup.concreteContainerClass(Iterable.class));
         assertEquals(java.util.LinkedHashSet.class,
-                ParameterVariableWrapper.concreteContainerClass(java.util.Set.class));
+                ContainerSetup.concreteContainerClass(java.util.Set.class));
         assertEquals(SeveralConstructors.class,
-                ParameterVariableWrapper.concreteContainerClass(SeveralConstructors.class));
+                ContainerSetup.concreteContainerClass(SeveralConstructors.class));
     }
 
     @Test
@@ -57,7 +57,7 @@ public class ParameterVariableWrapperTest {
         VariableReference result = test.addStatement(new MethodStatement(test,
                 new GenericMethod(put, LinkedHashMap.class), map, Arrays.asList(oldKey, value)));
 
-        VariableReference key = ParameterVariableWrapper.ensureStringMapKey(test, result);
+        VariableReference key = ContainerSetup.ensureStringMapKey(test, result);
 
         assertEquals(String.class, key.getVariableClass());
         assertEquals("key", ((StringPrimitiveStatement) test.getStatement(key.getStPosition())).getValue());
