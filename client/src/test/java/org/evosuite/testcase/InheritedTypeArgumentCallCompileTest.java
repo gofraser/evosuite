@@ -84,6 +84,14 @@ public class InheritedTypeArgumentCallCompileTest {
         }
     }
 
+    @SuppressWarnings("rawtypes")
+    public static class RawKey implements Comparable {
+        @Override
+        public int compareTo(Object other) {
+            return 0;
+        }
+    }
+
     public static class BoundedBox<E extends Comparable<E>> {
         public List<E> values() {
             return new ArrayList<>();
@@ -219,6 +227,25 @@ public class InheritedTypeArgumentCallCompileTest {
                 Collections.emptyList()));
         tc.addStatement(new MethodStatement(tc,
                 new GenericMethod(Holder.Key.class.getMethod("compareTo", Holder.Key.class), Holder.Key.class),
+                key, Collections.singletonList(key)));
+
+        assertCompiles(tc);
+    }
+
+    @Test
+    public void elementOfRawTypeArgumentOutsideTheBoundCompiles() throws Exception {
+        // RawKey implements the raw Comparable, so it is outside the bound of E and the box
+        // is declared raw: javac sees first() return Comparable.
+        TestCase tc = new DefaultTestCase();
+        Type boxType = TypeUtils.parameterize(BoundedBox.class, RawKey.class);
+        VariableReference box = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(BoundedBox.class.getConstructor(), boxType),
+                Collections.emptyList()));
+        VariableReference key = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(BoundedBox.class.getMethod("first"), boxType), box,
+                Collections.emptyList()));
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(RawKey.class.getMethod("compareTo", Object.class), RawKey.class),
                 key, Collections.singletonList(key)));
 
         assertCompiles(tc);

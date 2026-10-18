@@ -3701,7 +3701,7 @@ public class TestCodeVisitor extends TestVisitor {
                 GenericConstructor constructor = ((ConstructorStatement) definition).getConstructor();
                 Class<?> declaringClass = constructor.getConstructor().getDeclaringClass();
                 if (constructor.getOwnerType() instanceof ParameterizedType
-                        && !declaringClass.isMemberClass()
+                        && !(declaringClass.isMemberClass() && !Modifier.isStatic(declaringClass.getModifiers()))
                         && isDeclaredTypeNameableInGeneratedTest(declaringClass)) {
                     return rawIfOutsideOfBounds(constructor.getOwnerType());
                 }
