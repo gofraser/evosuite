@@ -20,6 +20,7 @@
 package org.evosuite.llm.seeding;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.setup.TestCluster;
@@ -277,11 +278,7 @@ public class LlmPoolEnrichmentOrchestrator {
      * Checks whether any enrichment is enabled and the LLM is configured.
      */
     public static boolean isEnrichmentEnabled() {
-        if (!Properties.LLM_ENRICH_CONSTANT_POOL && !Properties.LLM_ENRICH_OBJECT_POOL
-                && !Properties.LLM_ENRICH_CAST_CLASSES) {
-            return false;
-        }
-        return Properties.LLM_PROVIDER != Properties.LlmProvider.NONE;
+        return LlmRunFeatures.enrichment();
     }
 
     private void handleResult(String label, Object result, Throwable ex) {

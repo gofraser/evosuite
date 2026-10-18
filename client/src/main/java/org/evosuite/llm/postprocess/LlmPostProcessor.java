@@ -142,7 +142,7 @@ public class LlmPostProcessor {
      * response feature, and the LLM provider is configured.
      */
     public static boolean isAnyFeatureEnabled() {
-        return isAnyFeatureEnabled(PostProcessingOptions.fromProperties());
+        return LlmRunFeatures.postProcessing();
     }
 
     static boolean isAnyFeatureEnabled(PostProcessingOptions options) {

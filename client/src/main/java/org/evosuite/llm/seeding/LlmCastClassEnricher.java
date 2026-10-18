@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.PromptBuilder;
@@ -497,8 +498,7 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
      * Checks whether cast class enrichment should run.
      */
     public static boolean isEnabled() {
-        return Properties.LLM_ENRICH_CAST_CLASSES
-                && Properties.LLM_PROVIDER != Properties.LlmProvider.NONE;
+        return Properties.LLM_ENRICH_CAST_CLASSES && LlmRunFeatures.providerConfigured();
     }
 
     /**

@@ -43,6 +43,7 @@ import org.evosuite.ga.populationlimit.PopulationLimit;
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.factory.LlmTestChromosomeFactory;
@@ -560,7 +561,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         // even when stagnation assistance never activates. Publish whenever any
         // LLM mode is enabled so those counters survive into the statistics
         // output; only zero-initialise when LLM is fully off.
-        if (llmWasActive || Properties.LLM_PROVIDER != Properties.LlmProvider.NONE) {
+        if (llmWasActive || LlmRunFeatures.providerConfigured()) {
             org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
         } else {
             org.evosuite.llm.LlmStatistics.initializeRuntimeVariables();

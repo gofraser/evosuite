@@ -34,6 +34,7 @@ import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.junit.JUnitAnalyzer;
 import org.evosuite.junit.writer.Scaffolding;
 import org.evosuite.junit.writer.TestSuiteWriter;
+import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmRunLifecycle;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
@@ -410,7 +411,7 @@ public class TestSuiteGenerator {
          * TODO: when we will have several processes running in parallel, we ll
          * need to handle the gathering of the statistics.
          */
-        if (Properties.LLM_PROVIDER != Properties.LlmProvider.NONE) {
+        if (LlmRunFeatures.providerConfigured()) {
             org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
         } else {
             org.evosuite.llm.LlmStatistics.initializeRuntimeVariables();
@@ -530,7 +531,7 @@ public class TestSuiteGenerator {
 
     private TestGenerationResult finishReplayRun(TestGenerationResult result) {
         TestCaseExecutor.pullDown();
-        if (Properties.LLM_PROVIDER != Properties.LlmProvider.NONE) {
+        if (LlmRunFeatures.providerConfigured()) {
             LlmService.getInstance().getStatistics().publishRuntimeVariables();
         } else {
             LlmStatistics.initializeRuntimeVariables();
