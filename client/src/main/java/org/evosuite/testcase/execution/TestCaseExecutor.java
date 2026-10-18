@@ -109,6 +109,30 @@ public class TestCaseExecutor implements ThreadFactory {
 
     private Set<ExecutionObserver> observers;
 
+    /**
+     * Workers that were given up on while they were still running and have been retired from the
+     * pool; see {@link #retireStalledThread(Thread)}.
+     *
+     * <p>Several registries describe a worker that outlives its test, and they deliberately
+     * start counting it as abandoned at different points of the timeout handling, so they are
+     * not one registry:
+     * <ul>
+     * <li>{@code Sandbox.abandonThread}, called by {@link TestRunnable#markResultDiscarded()} as
+     * soon as the timeout is caught: from then on its sandbox calls are no-ops. It ends when the
+     * pooled worker starts its next test ({@code Sandbox.reinstateThread}), and the JUnit check
+     * runner uses it too, without anything below.</li>
+     * <li>{@code LoopCounter.abandonStaticInitializer}, when a worker is left inside a static
+     * initializer: arms the bounded escape for that thread. It is applied in the middle of the
+     * escalation, before the thread is retired.</li>
+     * <li>This set, {@code clinitStuckThreads} and {@code LoopCounter.protectFromReset}, applied
+     * together by {@link #retireStalledThread(Thread)} once the escalation is over and the
+     * worker is still stuck: the thread is counted against the rotation limits, re-interrupted
+     * when counted (unless it is in {@code clinitStuckThreads}) and keeps private loop counts.
+     * They are dropped when the thread dies.</li>
+     * </ul>
+     * Applying the sandbox or loop-count protection at the same moment as another of these would
+     * change how the worker behaves while the executor is still waiting for it.
+     */
     private final Set<Thread> stalledThreads = new HashSet<>();
 
     /**
