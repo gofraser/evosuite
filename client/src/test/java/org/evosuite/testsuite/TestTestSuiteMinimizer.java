@@ -24,6 +24,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.examples.with.different.packagename.FlagExample1;
+import org.evosuite.PhaseMemoryGuard;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
@@ -1008,6 +1009,35 @@ public class TestTestSuiteMinimizer {
                 return "";
             }
         };
+    }
+
+    @Test
+    public void lowMemoryCollectsTheHeapOnceThenStaysStopped() {
+        AtomicInteger collections = new AtomicInteger();
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(new BranchCoverageFactory());
+        minimizer.setMemoryGuardFactory(() -> new PhaseMemoryGuard(
+                () -> 1024L, collections::incrementAndGet, 1024L * 1024L));
+
+        assertTrue(minimizer.isMemoryCritical());
+        assertTrue(minimizer.isMemoryCritical());
+        assertTrue(minimizer.isMemoryCritical());
+
+        assertEquals(1, collections.get());
+        assertLogMessage(Level.WARN, "Minimization aborting: free memory 0 MB below threshold 1 MB");
+    }
+
+    @Test
+    public void lowMemoryRecoveredByTheCollectionDoesNotStopMinimization() {
+        AtomicInteger collections = new AtomicInteger();
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(new BranchCoverageFactory());
+        minimizer.setMemoryGuardFactory(() -> new PhaseMemoryGuard(
+                () -> collections.get() == 0 ? 1024L : 4L * 1024L * 1024L,
+                collections::incrementAndGet, 1024L * 1024L));
+
+        assertFalse(minimizer.isMemoryCritical());
+        assertFalse(minimizer.isMemoryCritical());
+
+        assertEquals(1, collections.get());
     }
 
     private static ExecutionTrace nonEmptyTrace() {

@@ -45,6 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.function.Supplier;
 
 import static java.util.Comparator.comparingInt;
 
@@ -79,6 +80,9 @@ public class TestSuiteMinimizer {
     private MinimizationStopCause firstStopCause = MinimizationStopCause.NONE;
     private final StopCauseProvider stopCauseProvider;
     private final PreflightExecutor preflightExecutor;
+    private Supplier<PhaseMemoryGuard> memoryGuardFactory =
+            () -> new PhaseMemoryGuard(PhaseMemoryGuard::currentFreeHeapBytes, System::gc, Properties.MIN_FREE_MEM * 2L);
+    private PhaseMemoryGuard memoryGuard;
 
     /**
      * Fraction of the previously covering tests that must still produce a
@@ -171,6 +175,10 @@ public class TestSuiteMinimizer {
         this.preflightExecutor = preflightExecutor;
     }
 
+    void setMemoryGuardFactory(Supplier<PhaseMemoryGuard> memoryGuardFactory) {
+        this.memoryGuardFactory = memoryGuardFactory;
+    }
+
     /**
      * <p>
      * minimize.
@@ -182,6 +190,7 @@ public class TestSuiteMinimizer {
     public MinimizationResult minimize(TestSuiteChromosome suite, boolean minimizePerTest) {
         startTime = System.currentTimeMillis();
         firstStopCause = MinimizationStopCause.NONE;
+        memoryGuard = memoryGuardFactory.get();
         final int originalTests = suite.size();
         final int originalLength = suite.totalLengthOfTestCases();
 
@@ -810,17 +819,24 @@ public class TestSuiteMinimizer {
      * blown by minutes (GC thrashing makes the cooperative time checks fire
      * far too late).
      *
-     * <p>Returns true if memory remains critically low even after a hint GC.
+     * <p>The heap is collected at most once per minimization; a low reading after
+     * that collection stops minimization, and every later check stays stopped.
      * Callers should treat this like a timeout and break out of long loops,
      * preserving partial results.
      */
-    private boolean isMemoryCritical() {
-        PhaseMemoryGuard guard = PhaseMemoryGuard.oneShot(Properties.MIN_FREE_MEM * 2L);
-        if (!guard.isExhausted()) {
+    boolean isMemoryCritical() {
+        if (memoryGuard == null) {
+            memoryGuard = memoryGuardFactory.get();
+        }
+        boolean alreadyStopped = memoryGuard.isExhaustedAlready();
+        if (!memoryGuard.isExhausted()) {
             return false;
         }
-        logger.warn("Minimization aborting: free memory {} MB below threshold {} MB",
-                guard.getLastFreeBytes() / 1024 / 1024, guard.getThresholdBytes() / 1024 / 1024);
+        if (!alreadyStopped) {
+            logger.warn("Minimization aborting: free memory {} MB below threshold {} MB (max memory {} MB)",
+                    memoryGuard.getLastFreeBytes() / 1024 / 1024, memoryGuard.getThresholdBytes() / 1024 / 1024,
+                    Runtime.getRuntime().maxMemory() / 1024 / 1024);
+        }
         return true;
     }
 
