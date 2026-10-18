@@ -75,4 +75,10 @@ public class AssertionAmbiguityCompileTest {
     public void testIntegerValueOnLongVariableDeclaredAsInteger() throws Exception {
         assertRendersAndCompiles(long.class, Integer.valueOf(-64860000));
     }
+
+    @Test
+    public void testIntegerValueOnIntVariableDeclaredAsInteger() throws Exception {
+        // D4J Collections 12: Integer int0 = new Integer(2); assertEquals(2, int0);
+        assertRendersAndCompiles(int.class, Integer.valueOf(2));
+    }
 }

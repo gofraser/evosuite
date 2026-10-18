@@ -1189,10 +1189,12 @@ public class TestCodeVisitor extends TestVisitor {
                         + ", (" + NumberFormatter.getBoxedClassName(value) + ")"
                         + getVariableName(source) + ");";
             }
-        } else if (PrimitiveAssertion.needsUnboxingCast(source, value)) {
+        } else if (PrimitiveAssertion.needsUnboxingCast(source, value)
+                || isPrimitiveVariableDeclaredAsWrapper(source, value)) {
             // The variable class and the value disagree (eg a variable of class long whose
-            // declaration is the constructor owner Integer): without a cast
-            // assertEquals(int, Integer) is ambiguous between (long, long) and (Object, Object).
+            // declaration is the constructor owner Integer), or the variable of class int is
+            // itself declared Integer: without a cast assertEquals(int, Integer) is ambiguous
+            // between (long, long) and (Object, Object).
             stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this)
                     + ", (" + NumberFormatter.getBoxedClassName(value) + ")"
                     + getVariableName(source) + ");";
@@ -1204,6 +1206,28 @@ public class TestCodeVisitor extends TestVisitor {
         testCode.append(stmt);
     }
 
+
+    /**
+     * Whether a variable of a primitive class is declared with that primitive's wrapper (eg
+     * {@code Integer int0 = new Integer(2)}), so that comparing it with a boxed number
+     * {@code value} is ambiguous.
+     */
+    private boolean isPrimitiveVariableDeclaredAsWrapper(VariableReference source, Object value) {
+        Class<?> sourceClass = source.getVariableClass();
+        if (!sourceClass.isPrimitive() || !ClassUtils.isPrimitiveWrapper(value.getClass())
+                || value instanceof Boolean || source.getTestCase() == null) {
+            return false;
+        }
+        int position = source.getTestCase().positionOfReturnValue(source);
+        if (position < 0) {
+            return false;
+        }
+        Statement definition = source.getTestCase().getStatement(position);
+        if (!(definition instanceof ConstructorStatement) && !(definition instanceof MethodStatement)) {
+            return false;
+        }
+        return declarationTypeName(source, definition).equals(getClassName(ClassUtils.primitiveToWrapper(sourceClass)));
+    }
 
     protected void visitArrayEqualsAssertion(ArrayEqualsAssertion assertion) {
         VariableReference source = assertion.getSource();
