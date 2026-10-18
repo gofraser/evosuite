@@ -46,8 +46,7 @@ import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.ga.stoppingconditions.SocketStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
-import org.evosuite.llm.factory.LlmSeededPopulationFactory;
-import org.evosuite.llm.factory.LlmTestChromosomeFactory;
+import org.evosuite.llm.factory.LlmFactoryWrappers;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
@@ -103,13 +102,7 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
                 throw new RuntimeException("Unsupported test factory: "
                         + Properties.TEST_FACTORY);
         }
-        if (Properties.LLM_SEED_INITIAL_POPULATION) {
-            factory = new LlmSeededPopulationFactory(factory);
-        }
-        if (Properties.LLM_TEST_FACTORY || Properties.TEST_FACTORY == Properties.TestFactory.LLM) {
-            factory = new LlmTestChromosomeFactory(factory);
-        }
-        return factory;
+        return LlmFactoryWrappers.wrap(factory);
     }
 
     protected SelectionFunction<TestChromosome> getSelectionFunction() {

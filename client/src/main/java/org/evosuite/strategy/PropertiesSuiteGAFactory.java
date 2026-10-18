@@ -74,8 +74,7 @@ import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.ga.stoppingconditions.SocketStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
-import org.evosuite.llm.factory.LlmSeededPopulationFactory;
-import org.evosuite.llm.factory.LlmTestChromosomeFactory;
+import org.evosuite.llm.factory.LlmFactoryWrappers;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
@@ -108,32 +107,32 @@ public class PropertiesSuiteGAFactory
                 switch (Properties.TEST_FACTORY) {
                     case ALLMETHODS:
                         logger.info("Using all methods chromosome factory");
-                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(
+                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(
                                 new AllMethodsTestChromosomeFactory()));
                     case RANDOM:
                         logger.info("Using random chromosome factory");
-                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new RandomLengthTestFactory()));
+                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(new RandomLengthTestFactory()));
                     case ARCHIVE:
                         logger.info("Using archive chromosome factory");
                         return new TestSuiteChromosomeFactory(
-                                applyLlmFactoryWrappers(new ArchiveTestChromosomeFactory()));
+                                LlmFactoryWrappers.wrap(new ArchiveTestChromosomeFactory()));
                     case JUNIT:
                         logger.info("Using seeding chromosome factory");
                         JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
                                 new RandomLengthTestFactory());
-                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(factory));
+                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(factory));
                     case PARSED_JUNIT:
                         logger.info("Using parsed JUnit seeding chromosome factory");
                         JUnitTestParsedChromosomeFactory parsedFactory = new JUnitTestParsedChromosomeFactory(
                                 new RandomLengthTestFactory());
-                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(parsedFactory));
+                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(parsedFactory));
                     case SERIALIZATION:
                         logger.info("Using serialization seeding chromosome factory");
                         return new SerializationSuiteChromosomeFactory(
-                                applyLlmFactoryWrappers(new RandomLengthTestFactory()));
+                                LlmFactoryWrappers.wrap(new RandomLengthTestFactory()));
                     case LLM:
                         logger.info("Using LLM chromosome factory with random fallback");
-                        return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(new RandomLengthTestFactory()));
+                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(new RandomLengthTestFactory()));
                     default:
                         throw new RuntimeException("Unsupported test factory: "
                                 + Properties.TEST_FACTORY);
@@ -149,22 +148,11 @@ public class PropertiesSuiteGAFactory
                     logger.info("Using parsed JUnit seeding chromosome factory");
                     moFactory = new JUnitTestParsedChromosomeFactory(moFactory);
                 }
-                return new TestSuiteChromosomeFactory(applyLlmFactoryWrappers(moFactory));
+                return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(moFactory));
             default:
                 throw new RuntimeException("Unsupported test factory: "
                         + Properties.TEST_FACTORY);
         }
-    }
-
-    private ChromosomeFactory<TestChromosome> applyLlmFactoryWrappers(ChromosomeFactory<TestChromosome> baseFactory) {
-        ChromosomeFactory<TestChromosome> factory = baseFactory;
-        if (Properties.LLM_SEED_INITIAL_POPULATION) {
-            factory = new LlmSeededPopulationFactory(factory);
-        }
-        if (Properties.LLM_TEST_FACTORY || Properties.TEST_FACTORY == Properties.TestFactory.LLM) {
-            factory = new LlmTestChromosomeFactory(factory);
-        }
-        return factory;
     }
 
     @Override

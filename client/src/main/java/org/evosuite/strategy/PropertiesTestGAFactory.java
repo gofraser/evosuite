@@ -65,8 +65,7 @@ import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
-import org.evosuite.llm.factory.LlmSeededPopulationFactory;
-import org.evosuite.llm.factory.LlmTestChromosomeFactory;
+import org.evosuite.llm.factory.LlmFactoryWrappers;
 import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.seeding.TestCaseRecycler;
 import org.evosuite.testcase.RelativeTestLengthBloatControl;
@@ -128,20 +127,7 @@ public class PropertiesTestGAFactory
         if (factory == null) {
             throw new RuntimeException("Unsupported test factory: " + Properties.TEST_FACTORY);
         }
-        return applyLlmFactoryWrappers(factory);
-    }
-
-    private ChromosomeFactory<TestChromosome> applyLlmFactoryWrappers(ChromosomeFactory<TestChromosome> baseFactory) {
-        ChromosomeFactory<TestChromosome> factory = baseFactory;
-        if (Properties.LLM_SEED_INITIAL_POPULATION) {
-            factory = new LlmSeededPopulationFactory(factory);
-        }
-        if (Properties.LLM_TEST_FACTORY || Properties.TEST_FACTORY == Properties.TestFactory.LLM) {
-            logger.info("LLM test factory wraps fallback factory {}; fallback remains active",
-                    factory.getClass().getSimpleName());
-            factory = new LlmTestChromosomeFactory(factory);
-        }
-        return factory;
+        return LlmFactoryWrappers.wrap(factory);
     }
 
     private GeneticAlgorithm<TestChromosome> getGeneticAlgorithm(ChromosomeFactory<TestChromosome> factory) {
