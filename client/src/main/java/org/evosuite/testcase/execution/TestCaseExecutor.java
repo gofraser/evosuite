@@ -1404,6 +1404,11 @@ public class TestCaseExecutor implements ThreadFactory {
      * @return a int.
      */
     public int getNumStalledThreads() {
+        reinterruptStalledThreads();
+        return stalledThreads.size();
+    }
+
+    private void reinterruptStalledThreads() {
         // Re-interrupt stalled threads — they may have swallowed earlier
         // interrupts and gone back to blocking.  Also prune dead ones.
         //
@@ -1421,7 +1426,6 @@ public class TestCaseExecutor implements ThreadFactory {
             }
             return false;
         });
-        return stalledThreads.size();
     }
 
     /**
@@ -1430,9 +1434,7 @@ public class TestCaseExecutor implements ThreadFactory {
     @Override
     public Thread newThread(Runnable r) {
         if (currentThread != null && currentThread.isAlive()) {
-            currentThread.setPriority(Thread.MIN_PRIORITY);
-            stalledThreads.add(currentThread);
-            LoopCounter.getInstance().protectFromReset(currentThread);
+            retireStalledThread(currentThread);
             int numStalled = getNumStalledThreads();
             logger.info("Current number of stalled threads: " + numStalled);
             if (numStalled > 20) {
