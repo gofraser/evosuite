@@ -20,7 +20,9 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
+import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -42,6 +44,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Seeded characterisation of the generation step of {@link MOSA} and {@link DynaMOSA}, taken
@@ -159,6 +163,8 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
         List<TestChromosome> front0();
 
         void restrictGoals(int n);
+
+        void setRanking(RankBasedPreferenceSorting<TestChromosome> ranking);
     }
 
     private static class MosaHarness extends MOSA implements Harness {
@@ -216,6 +222,11 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
         public void restrictGoals(int n) {
             goals = allGoals.subList(0, n);
         }
+
+        @Override
+        public void setRanking(RankBasedPreferenceSorting<TestChromosome> ranking) {
+            setRankingFunction(ranking);
+        }
     }
 
     private static class DynaHarness extends DynaMOSA implements Harness {
@@ -268,6 +279,11 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
         public void restrictGoals(int n) {
             goalsManager.getCurrentGoals().clear();
             goalsManager.getCurrentGoals().addAll(allGoals.subList(0, n));
+        }
+
+        @Override
+        public void setRanking(RankBasedPreferenceSorting<TestChromosome> ranking) {
+            setRankingFunction(ranking);
         }
     }
 
@@ -552,5 +568,40 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
                 + "; pop=[p2 p3 g2o1 g2o0] front0=[p2 p3 g2o1]"
                 + "; pop=[g3o2 p3 g2o1 g3o0] front0=[g3o2 p3 g2o1]"
                 + "; next=0.5467102761223961", trace(dyna, 3));
+    }
+
+    // ------------------------------------------------------------------ ranking failure
+
+    /** Records the species context handed to the ranking and fails the ranking itself. */
+    private static final class FailingRanking extends RankBasedPreferenceSorting<TestChromosome> {
+        private static final long serialVersionUID = 1L;
+        Map<TestChromosome, Integer> context;
+
+        @Override
+        public void setSpeciesContext(Map<TestChromosome, Integer> speciesContext) {
+            this.context = speciesContext;
+            super.setSpeciesContext(speciesContext);
+        }
+
+        @Override
+        public void computeRankingAssignment(List<TestChromosome> solutions,
+                                             Set<? extends FitnessFunction<TestChromosome>> uncoveredGoals) {
+            throw new IllegalStateException("ranking failed");
+        }
+    }
+
+    @Test
+    void rankingFailureDoesNotLeaveASpeciesContextBehind() {
+        Properties.SPECIATION_ENABLED = true;
+        FailingRanking failing = new FailingRanking();
+        for (boolean dynamosa : new boolean[] {false, true}) {
+            Harness harness = newHarness(dynamosa, 8, 4);
+            harness.step();
+            harness.setRanking(failing);
+            failing.context = null;
+
+            assertThrows(IllegalStateException.class, harness::step);
+            assertNull(failing.context);
+        }
     }
 }

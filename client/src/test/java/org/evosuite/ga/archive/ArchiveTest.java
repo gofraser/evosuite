@@ -96,6 +96,18 @@ public class ArchiveTest {
     }
 
     @Test
+    public void testCoverageArchiveResetClearsCloneFailureTotal() throws Exception {
+        CoverageArchive archive = new CoverageArchive();
+        java.lang.reflect.Field total = CoverageArchive.class.getDeclaredField("cloneFailureTotal");
+        total.setAccessible(true);
+        total.setLong(archive, 3L);
+
+        archive.reset();
+
+        assertEquals(0L, total.getLong(archive));
+    }
+
+    @Test
     public void testCoverageArchiveAddTarget() {
         CoverageArchive archive = new CoverageArchive();
         archive.addTarget(target);

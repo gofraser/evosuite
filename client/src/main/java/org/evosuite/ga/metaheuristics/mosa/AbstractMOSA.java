@@ -1205,8 +1205,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
         // Ranking with species-aware tiebreaking
         setSpeciesContextOnRanking();
-        this.rankingFunction.computeRankingAssignment(union, goals);
-        clearSpeciesContextOnRanking();
+        try {
+            this.rankingFunction.computeRankingAssignment(union, goals);
+        } finally {
+            clearSpeciesContextOnRanking();
+        }
 
         int populationSize = survivalTarget();
         int candidateLimit = speciationEnabled

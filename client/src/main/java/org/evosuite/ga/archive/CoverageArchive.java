@@ -477,5 +477,6 @@ public class CoverageArchive extends Archive {
         super.reset();
         this.covered.clear();
         this.uncovered.clear();
+        this.cloneFailureTotal = 0;
     }
 }
