@@ -24,9 +24,6 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
-import org.evosuite.rmi.ClientServices;
-import org.evosuite.rmi.service.ClientNodeLocal;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.LoggingUtils;
@@ -139,6 +136,8 @@ public class DynaMOSA extends AbstractMOSA {
         this.goalsManager = new MultiCriteriaManager(this.fitnessFunctions);
         publishCurrentGoals();
         try {
+            // MOSA starts the LLM assistance only after the initial population is created; see
+            // MOSA#generateSolution.
             initializeLlmAssistance(this::getCurrentGoals, false);
             registerExternalCandidateSources(
                     () -> goalsManager == null ? 0 : goalsManager.getCoveredGoals().size(),
@@ -183,24 +182,7 @@ public class DynaMOSA extends AbstractMOSA {
                 this.applyLocalSearch(this.generateSuite());
             }
         } finally {
-            // Emit operator and speciation stats
-            try {
-                ClientNodeLocal<?> clientNode =
-                        ClientServices.getInstance().getClientNode();
-                clientNode.trackOutputVariable(RuntimeVariable.Time2MaxCoverage,
-                        this.budgetMonitor.getTime2MaxCoverage());
-                clientNode.trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio,
-                        computePopulationParsedRatio(this.population));
-                emitOperatorStats(clientNode);
-                emitDisruptionStats(clientNode);
-            } catch (Exception e) {
-                logger.debug("Failed to emit Phase 5 stats", e);
-            }
-            flushPopulationSpeciesRecorder();
-            flushObjectiveCoverageRecorder();
-            flushFitnessSpaceSnapshotRecorder();
-            flushPopulationShapeRecorder();
-            shutdownLlmAssistance();
+            finishSearch();
         }
         this.notifySearchFinished();
     }

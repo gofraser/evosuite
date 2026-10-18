@@ -29,7 +29,6 @@ import org.evosuite.ga.operators.selection.RankSelection;
 import org.evosuite.ga.operators.selection.SelectionFunction;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -144,11 +143,14 @@ public class MOSA extends AbstractMOSA {
         // keep track of covered goals
         this.fitnessFunctions.forEach(this::addUncoveredGoal);
 
-        // initialize population
-        if (this.population.isEmpty()) {
-            this.initializePopulation();
-        }
         try {
+            // initialize population
+            if (this.population.isEmpty()) {
+                this.initializePopulation();
+            }
+            // Unlike DynaMOSA, which starts the LLM assistance before the initial population is
+            // created, MOSA starts it afterwards. Kept as it is, as aligning the two would change
+            // the search.
             initializeLlmAssistance(this::getCurrentGoals, false);
             registerExternalCandidateSources(
                     this::getNumberOfCoveredGoals, this::getCurrentGoals);
@@ -202,24 +204,7 @@ public class MOSA extends AbstractMOSA {
             }
 
         } finally {
-            // Emit stats in finally block so they are not lost on exception
-            try {
-                ClientNodeLocal<?> clientNode =
-                        ClientServices.getInstance().getClientNode();
-                clientNode.trackOutputVariable(RuntimeVariable.Time2MaxCoverage,
-                        this.budgetMonitor.getTime2MaxCoverage());
-                clientNode.trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio,
-                        computePopulationParsedRatio(this.population));
-                emitOperatorStats(clientNode);
-                emitDisruptionStats(clientNode);
-            } catch (Exception e) {
-                logger.debug("Failed to emit final stats", e);
-            }
-            flushPopulationSpeciesRecorder();
-            flushObjectiveCoverageRecorder();
-            flushFitnessSpaceSnapshotRecorder();
-            flushPopulationShapeRecorder();
-            shutdownLlmAssistance();
+            finishSearch();
         }
         this.notifySearchFinished();
     }

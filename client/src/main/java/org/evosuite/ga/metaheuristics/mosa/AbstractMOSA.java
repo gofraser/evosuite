@@ -1986,6 +1986,32 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
+     * Ends a search: emits the final statistics, flushes the sidecar recorders and shuts the LLM
+     * assistance down. Called from the {@code finally} block of the variants' {@code
+     * generateSolution()} so none of it is lost when the search exits abnormally.
+     */
+    protected void finishSearch() {
+        // Emit stats in finally block so they are not lost on exception
+        try {
+            ClientNodeLocal<?> clientNode =
+                    ClientServices.getInstance().getClientNode();
+            clientNode.trackOutputVariable(RuntimeVariable.Time2MaxCoverage,
+                    this.budgetMonitor.getTime2MaxCoverage());
+            clientNode.trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio,
+                    computePopulationParsedRatio(this.population));
+            emitOperatorStats(clientNode);
+            emitDisruptionStats(clientNode);
+        } catch (Exception e) {
+            logger.debug("Failed to emit final stats", e);
+        }
+        flushPopulationSpeciesRecorder();
+        flushObjectiveCoverageRecorder();
+        flushFitnessSpaceSnapshotRecorder();
+        flushPopulationShapeRecorder();
+        shutdownLlmAssistance();
+    }
+
+    /**
      * Flushes the population species sidecar to disk. Called from MOSA variants' generateSolution()
      * finally block so the file is written even if the search exits abnormally.
      */
