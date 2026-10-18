@@ -23,8 +23,12 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import org.evosuite.ga.ConstructionFailedException;
@@ -61,15 +65,18 @@ final class ContainerSetup {
     }
 
     /**
-     * The methods of {@code type} that a generated test can call, take between {@code minArity}
-     * and {@code maxArity} parameters and whose name {@code name} accepts, in reflection order.
-     *
-     * @param declaredOnly whether to consider only the methods {@code type} itself declares
+     * The instance methods of {@code type} that a generated test can call, take between {@code
+     * minArity} and {@code maxArity} parameters and whose name {@code name} accepts: the public
+     * methods including inherited ones, and the methods {@code type} declares itself that are
+     * visible from the package the tests are generated into. Fewest parameters first, then by name
+     * and signature, so that the choice among them does not depend on reflection order.
      */
     static List<Method> findMutators(
-            Class<?> type, boolean declaredOnly, Predicate<String> name, int minArity, int maxArity) {
+            Class<?> type, Predicate<String> name, int minArity, int maxArity) {
+        Set<Method> candidates = new LinkedHashSet<>(Arrays.asList(type.getMethods()));
+        candidates.addAll(Arrays.asList(type.getDeclaredMethods()));
         List<Method> mutators = new ArrayList<>();
-        for (Method candidate : declaredOnly ? type.getDeclaredMethods() : type.getMethods()) {
+        for (Method candidate : candidates) {
             if (Modifier.isStatic(candidate.getModifiers())
                     || candidate.getParameterCount() < minArity
                     || candidate.getParameterCount() > maxArity
@@ -79,6 +86,10 @@ final class ContainerSetup {
             }
             mutators.add(candidate);
         }
+        mutators.sort(
+                Comparator.comparingInt(Method::getParameterCount)
+                        .thenComparing(Method::getName)
+                        .thenComparing(Method::toGenericString));
         return mutators;
     }
 

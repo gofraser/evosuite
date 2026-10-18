@@ -470,15 +470,10 @@ public class VariableCodeGenerationUtil {
         }
     }
 
-    /** The first one-argument {@code add} method {@code type} declares that a test can call. */
+    /** The first one-argument {@code add} method of {@code type} that a test can call. */
     static Method findElementAddMethod(Class<?> type) {
-        for (Method m : type.getDeclaredMethods()) {
-            if (m.getName().equals("add") && m.getParameterCount() == 1
-                    && TestUsageChecker.isSynthesisCallable(m)) {
-                return m;
-            }
-        }
-        return null;
+        List<Method> mutators = ContainerSetup.findMutators(type, "add"::equals, 1, 1);
+        return mutators.isEmpty() ? null : mutators.get(0);
     }
 
     /**

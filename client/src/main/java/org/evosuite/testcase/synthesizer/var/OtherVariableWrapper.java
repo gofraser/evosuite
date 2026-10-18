@@ -630,25 +630,10 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         return null;
     }
 
-    /**
-     * The receiver's own {@code add*}/{@code put*} methods that the generated test can call,
-     * fewest parameters first. A non-public method qualifies only when its class is in the
-     * package the tests are generated into.
-     */
+    /** The receiver's {@code add*}/{@code put*} methods that the generated test can call. */
     static List<Method> collectionMutationCandidates(Class<?> receiverClass) {
-        List<Method> mutations =
-                ContainerSetup.findMutators(
-                        receiverClass, true, name -> name.startsWith("add") || name.startsWith("put"),
-                        1, 2);
-        mutations.sort(
-                (left, right) -> {
-                    int count =
-                            Integer.compare(left.getParameterCount(), right.getParameterCount());
-                    return count != 0
-                            ? count
-                            : left.toGenericString().compareTo(right.toGenericString());
-                });
-        return mutations;
+        return ContainerSetup.findMutators(
+                receiverClass, name -> name.startsWith("add") || name.startsWith("put"), 1, 2);
     }
 
     private static String stringValue(TestCase test, VariableReference reference) {
@@ -769,7 +754,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         Method best = null;
         for (Method candidate :
                 ContainerSetup.findMutators(
-                        receiverType, false,
+                        receiverType,
                         name -> "add".equals(name) || "put".equals(name) || "set".equals(name),
                         1, 2)) {
             int observedParameter = valueObservation && candidate.getParameterCount() > 1 ? 1 : 0;
@@ -893,7 +878,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
     static Method findCompatibleListInsertionMethod(Class<?> receiverType, Class<?> elementType) {
         Method best = null;
         for (Method candidate :
-                ContainerSetup.findMutators(receiverType, false, "add"::equals, 1, 1)) {
+                ContainerSetup.findMutators(receiverType, "add"::equals, 1, 1)) {
             Class<?> parameterType = candidate.getParameterTypes()[0];
             if (elementType != null && !parameterType.isAssignableFrom(elementType)) {
                 continue;

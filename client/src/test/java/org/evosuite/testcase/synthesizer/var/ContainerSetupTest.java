@@ -314,16 +314,16 @@ public class ContainerSetupTest {
 
     @Test
     public void collectionMutationCandidatesAreTheCallableAddAndPutMethods() {
-        assertEquals(Arrays.asList("Inventory.add(String)", "Inventory.addAll(Collection)", "Inventory.addByte(byte)", "Inventory.addColour(Colour)", "Inventory.addElement(Element)", "Inventory.addOpaque(Opaque)", "Inventory.addPackage(int)", "Inventory.putEntry(String,int)"), describe(
+        assertEquals(Arrays.asList("Inventory.add(String)", "Inventory.addAll(Collection)", "BaseBag.addBase(String)", "Inventory.addByte(byte)", "Inventory.addColour(Colour)", "Inventory.addElement(Element)", "Inventory.addOpaque(Opaque)", "Inventory.addPackage(int)", "Inventory.putEntry(String,int)"), describe(
                 OtherVariableWrapper.collectionMutationCandidates(Inventory.class)));
-        assertEquals(Arrays.asList(), describe(
+        assertEquals(Arrays.asList("BaseBag.add(String)", "BaseBag.addBase(String)"), describe(
                 OtherVariableWrapper.collectionMutationCandidates(InheritingBag.class)));
     }
 
     @Test
     public void membershipMutationLookup() throws Exception {
         Method contains = Inventory.class.getMethod("contains", String.class);
-        assertEquals(Arrays.asList("Inventory.add(String)", "null", "BaseBag.add(String)"), Arrays.asList(
+        assertEquals(Arrays.asList("Inventory.add(String)", "PackageOnlyBag.add(String)", "BaseBag.add(String)"), Arrays.asList(
                 describe(OtherVariableWrapper.findMembershipMutation(
                         contains, Inventory.class, String.class)),
                 describe(OtherVariableWrapper.findMembershipMutation(
@@ -334,7 +334,7 @@ public class ContainerSetupTest {
 
     @Test
     public void listInsertionLookup() {
-        assertEquals(Arrays.asList("Inventory.add(String)", "null", "BaseBag.add(String)"), Arrays.asList(
+        assertEquals(Arrays.asList("Inventory.add(String)", "PackageOnlyBag.add(String)", "BaseBag.add(String)"), Arrays.asList(
                 describe(OtherVariableWrapper.findCompatibleListInsertionMethod(
                         Inventory.class, String.class)),
                 describe(OtherVariableWrapper.findCompatibleListInsertionMethod(
@@ -345,7 +345,7 @@ public class ContainerSetupTest {
 
     @Test
     public void elementAddLookup() {
-        assertEquals(Arrays.asList("Inventory.add(String)", "PackageOnlyBag.add(String)", "null"), Arrays.asList(
+        assertEquals(Arrays.asList("Inventory.add(String)", "PackageOnlyBag.add(String)", "BaseBag.add(String)"), Arrays.asList(
                 describe(VariableCodeGenerationUtil.findElementAddMethod(Inventory.class)),
                 describe(VariableCodeGenerationUtil.findElementAddMethod(PackageOnlyBag.class)),
                 describe(VariableCodeGenerationUtil.findElementAddMethod(InheritingBag.class))));
@@ -667,16 +667,19 @@ public class ContainerSetupTest {
     }
 
     @Test
-    public void generatedElementsOfATypeWithoutDeclaredAdd() throws Exception {
+    public void generatedElementsThroughAnInheritedAdd() throws Exception {
         TestCase test = new DefaultTestCase();
         VariableReference receiver = construct(test, InheritingBag.class);
         Randomness.setSeed(5L);
         VariableCodeGenerationUtil.generateElements(InheritingBag.class, test, receiver);
         assertEquals(lines(
-                "ContainerSetupTest.InheritingBag containerSetupTest_InheritingBag0 = new ContainerSetupTest.InheritingBag();"),
+                "ContainerSetupTest.InheritingBag containerSetupTest_InheritingBag0 = new ContainerSetupTest.InheritingBag();",
+                "String string0 = \"e`7/JK^)<Du4t@)s\";",
+                "containerSetupTest_InheritingBag0.add(string0);",
+                "String string1 = \"(dDRS_mx/hc&g8Z\";",
+                "containerSetupTest_InheritingBag0.add(string1);"),
                 code(test));
-        int next = Randomness.nextInt();
-        assertEquals(firstDrawAfterSeed(5L), next);
+        assertEquals(1222716560, Randomness.nextInt());
     }
 
     @Test

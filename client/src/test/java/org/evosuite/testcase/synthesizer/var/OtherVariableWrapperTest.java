@@ -229,8 +229,9 @@ public class OtherVariableWrapperTest {
             // javac ignores the erased add(Object) bridge: a call with an Object argument does not
             // compile against NameBag.
             List<Method> candidates = OtherVariableWrapper.collectionMutationCandidates(NameBag.class);
-            assertEquals(1, candidates.size(), candidates.toString());
-            assertEquals(String.class, candidates.get(0).getParameterTypes()[0]);
+            assertTrue(candidates.stream().noneMatch(Method::isBridge), candidates.toString());
+            assertTrue(candidates.stream().anyMatch(candidate -> candidate.getName().equals("add")
+                    && candidate.getParameterTypes()[0] == String.class), candidates.toString());
         } finally {
             org.evosuite.Properties.CLASS_PREFIX = previous;
         }
