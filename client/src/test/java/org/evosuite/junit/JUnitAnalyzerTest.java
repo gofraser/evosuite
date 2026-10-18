@@ -438,6 +438,41 @@ public class JUnitAnalyzerTest {
     }
 
     @Test
+    public void testOutOfMemoryBeforeTheSourcesAreWrittenIsNotARejection() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.TARGET_CLASS = DowncastExample.class.getCanonicalName();
+        // Renders as the writer reads the test, which is before anything is written.
+        TestCase test = new DefaultTestCase() {
+            @Override
+            public DefaultTestCase clone() {
+                return this;
+            }
+
+            @Override
+            public int size() {
+                throw new OutOfMemoryError("test");
+            }
+        };
+
+        File dir = JUnitAnalyzer.createNewTmpDir();
+        Assertions.assertNotNull(dir);
+        try {
+            Method compileTests = JUnitAnalyzer.class.getDeclaredMethod("compileTests", List.class, File.class);
+            compileTests.setAccessible(true);
+            JUnitAnalyzer.CompileOutcome outcome = (JUnitAnalyzer.CompileOutcome) compileTests.invoke(
+                    null, Collections.singletonList(test), dir);
+
+            Assertions.assertFalse(outcome.isRejected(), "javac never judged the tests");
+            Assertions.assertTrue(outcome.isNotJudged());
+            Assertions.assertEquals(JUnitAnalyzer.NotJudgedReason.OUT_OF_MEMORY, outcome.getNotJudgedReason());
+        } finally {
+            JUnitAnalyzer.resetMemoryExhaustion();
+            FileUtils.deleteDirectory(dir);
+        }
+    }
+
+    @Test
     public void testWatchdogBudgetIsBoundedByTheRemainingPhaseTime() {
         long configured = 1_200_000L;
         Assertions.assertEquals(configured, JUnitAnalyzer.computeWatchdogBudgetMs(configured, Long.MAX_VALUE));

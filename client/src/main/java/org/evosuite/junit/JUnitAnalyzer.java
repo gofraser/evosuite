@@ -1771,14 +1771,6 @@ public abstract class JUnitAnalyzer {
             return new CompileOutcome(null, reason);
         }
 
-        /**
-         * Not judged, unless the failure came before the test sources were written: that case
-         * has always been reported as a rejection.
-         */
-        private static CompileOutcome notJudgedOnceWritten(List<File> written, NotJudgedReason reason) {
-            return written == null ? REJECTED : notJudged(reason);
-        }
-
         boolean isCompiled() {
             return files != null;
         }
@@ -1822,11 +1814,10 @@ public abstract class JUnitAnalyzer {
         String name = Properties.TARGET_CLASS.substring(beginIndex);
         name += "_" + (NUM++) + "_tmp_" + Properties.JUNIT_SUFFIX; //postfix
 
-        List<File> generated = null;
         String compilerClasspath = null;
         try {
             //now generate the JUnit test case
-            generated = suite.writeTestSuite(name, dir.getAbsolutePath(), Collections.EMPTY_LIST);
+            List<File> generated = suite.writeTestSuite(name, dir.getAbsolutePath(), Collections.EMPTY_LIST);
             for (File file : generated) {
                 if (!file.exists()) {
                     logger.error("Supposed to generate " + file
@@ -1933,29 +1924,29 @@ public abstract class JUnitAnalyzer {
         } catch (OutOfMemoryError e) {
             // Not a verdict on the tests: reporting them as not compiling would delete them.
             stopChecksDueToMemoryExhaustion(tests.size(), e);
-            return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.OUT_OF_MEMORY);
+            return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
         } catch (IOException e) {
             logger.error("" + e, e);
             return CompileOutcome.REJECTED;
         } catch (RuntimeException e) {
             if (isOutOfMemory(e)) {
                 stopChecksDueToMemoryExhaustion(tests.size(), e);
-                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.OUT_OF_MEMORY);
+                return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
             }
             if (isJavacInfrastructureFailure(e)) {
                 disableCompileCheckDueToInfrastructure(e, compilerClasspath);
-                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.COMPILE_CHECK_DISABLED);
+                return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
             logger.error("Unexpected runtime exception while compiling generated tests", e);
             return CompileOutcome.REJECTED;
         } catch (Error e) {
             if (isOutOfMemory(e)) {
                 stopChecksDueToMemoryExhaustion(tests.size(), e);
-                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.OUT_OF_MEMORY);
+                return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
             }
             if (isJavacInfrastructureFailure(e)) {
                 disableCompileCheckDueToInfrastructure(e, compilerClasspath);
-                return CompileOutcome.notJudgedOnceWritten(generated, NotJudgedReason.COMPILE_CHECK_DISABLED);
+                return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
             throw e;
         }
