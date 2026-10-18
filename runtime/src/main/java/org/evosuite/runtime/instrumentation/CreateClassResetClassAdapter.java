@@ -26,7 +26,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -444,50 +443,7 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
         MethodVisitor mv = cv.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC,
                 ClassResetter.STATIC_RESET, "()V", null, null);
         mv.visitCode();
-        for (StaticField staticField : staticFields) {
-
-            if (!finalFields.contains(staticField.name) && !staticField.name.startsWith("__cobertura")
-                    && !staticField.name.startsWith("$jacoco") && !staticField.name.startsWith("$VRc") // Old
-                    // Emma
-                    && !staticField.name.startsWith("$gzoltar")
-            ) {
-
-                logger.info("Adding bytecode for initializing field " + staticField.name);
-
-                if (staticField.value != null) {
-                    mv.visitLdcInsn(staticField.value);
-                } else {
-                    Type type = Type.getType(staticField.desc);
-                    switch (type.getSort()) {
-                        case Type.BOOLEAN:
-                        case Type.BYTE:
-                        case Type.CHAR:
-                        case Type.SHORT:
-                        case Type.INT:
-                            mv.visitInsn(Opcodes.ICONST_0);
-                            break;
-                        case Type.FLOAT:
-                            mv.visitInsn(Opcodes.FCONST_0);
-                            break;
-                        case Type.LONG:
-                            mv.visitInsn(Opcodes.LCONST_0);
-                            break;
-                        case Type.DOUBLE:
-                            mv.visitInsn(Opcodes.DCONST_0);
-                            break;
-                        case Type.ARRAY:
-                        case Type.OBJECT:
-                            mv.visitInsn(Opcodes.ACONST_NULL);
-                            break;
-                        default:
-                            // Do nothing
-                            break;
-                    }
-                }
-                mv.visitFieldInsn(Opcodes.PUTSTATIC, className, staticField.name, staticField.desc);
-
-            }
-        }
+        CreateClassResetMethodAdapter.emitStaticFieldResets(mv, className, staticFields, finalFields);
         mv.visitInsn(Opcodes.RETURN);
         mv.visitMaxs(0, 0);
         mv.visitEnd();

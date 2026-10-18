@@ -58,6 +58,15 @@ public class CreateClassResetMethodAdapter extends MethodVisitor {
     @Override
     public void visitCode() {
         super.visitCode();
+        emitStaticFieldResets(mv, className, staticFields, finalFields);
+    }
+
+    /**
+     * Emits the code that assigns every resettable static field its initial value, or its
+     * type's default value if it has none.
+     */
+    static void emitStaticFieldResets(MethodVisitor mv, String className,
+                                      List<StaticField> staticFields, List<String> finalFields) {
         for (StaticField staticField : staticFields) {
 
             if (!finalFields.contains(staticField.name)
@@ -101,7 +110,6 @@ public class CreateClassResetMethodAdapter extends MethodVisitor {
                         staticField.name, staticField.desc);
             }
         }
-
     }
 
 }
