@@ -853,7 +853,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 if (result == null) {
                     continue;
                 }
-                status = worseStatus(status, result.getTestGenerationStatus());
+                status = TestGenerationResult.Status.worse(status, result.getTestGenerationStatus());
                 if (result.getGeneticAlgorithm() != null
                         && result.getGeneticAlgorithm().getBestIndividual() instanceof TestSuiteChromosome) {
                     TestSuiteChromosome best = (TestSuiteChromosome) result.getGeneticAlgorithm().getBestIndividual();
@@ -919,27 +919,6 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         } catch (Throwable t) {
             logger.warn("Failed to export lightweight coverage summary after result export failure", t);
         }
-    }
-
-    private static TestGenerationResult.Status worseStatus(TestGenerationResult.Status left,
-                                                           TestGenerationResult.Status right) {
-        if (left == null) {
-            return right;
-        }
-        if (right == null) {
-            return left;
-        }
-        return statusRank(right) > statusRank(left) ? right : left;
-    }
-
-    private static int statusRank(TestGenerationResult.Status status) {
-        if (status == TestGenerationResult.Status.ERROR) {
-            return 2;
-        }
-        if (status == TestGenerationResult.Status.TIMEOUT) {
-            return 1;
-        }
-        return 0;
     }
 
     protected void fallbackSetOutputVariable(RuntimeVariable variable, Object value) {

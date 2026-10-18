@@ -975,13 +975,12 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
 
     private static int statusRank(String status) {
         if (STATUS_CLIENT_CRASH.equals(status)) {
-            return 3;
+            return TestGenerationResult.Status.ERROR.severity() + 1;
         }
-        if (TestGenerationResult.Status.ERROR.name().equals(status)) {
-            return 2;
-        }
-        if (TestGenerationResult.Status.TIMEOUT.name().equals(status)) {
-            return 1;
+        for (TestGenerationResult.Status known : TestGenerationResult.Status.values()) {
+            if (known.name().equals(status)) {
+                return known.severity();
+            }
         }
         return 0;
     }

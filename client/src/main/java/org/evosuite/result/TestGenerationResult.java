@@ -30,7 +30,35 @@ import java.util.Set;
 
 public interface TestGenerationResult<T extends Chromosome<T>> extends Serializable {
 
-    enum Status { SUCCESS, TIMEOUT, ERROR }
+    enum Status {
+        SUCCESS(0), TIMEOUT(1), ERROR(2);
+
+        private final int severity;
+
+        Status(int severity) {
+            this.severity = severity;
+        }
+
+        /**
+         * Higher values denote a worse outcome.
+         */
+        public int severity() {
+            return severity;
+        }
+
+        /**
+         * Returns the worse of two statuses, ignoring null; on a tie the left one.
+         */
+        public static Status worse(Status left, Status right) {
+            if (left == null) {
+                return right;
+            }
+            if (right == null) {
+                return left;
+            }
+            return right.severity > left.severity ? right : left;
+        }
+    }
 
     /**
      * Did test generation succeed.
