@@ -145,6 +145,25 @@ public class ControlFlowDistanceCalculatorTest {
     // ── Tests ───────────────────────────────────────────────────────
 
     @Test
+    public void testCachesDoNotSurviveContextReset() throws ClassNotFoundException {
+        // Populate the caches with the branches of a different class ...
+        analyzeClass(ExceptionalControlFlow.class);
+        ClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        for (Branch b : BranchPool.getInstance(cl).getAllBranches()) {
+            ControlFlowDistanceCalculator.getCDGDepth(b);
+        }
+
+        // ... then restart the branch IDs with the nested conditions.
+        TestGenerationContext.getInstance().resetContext();
+        analyzeClass(NestedConditions.class);
+
+        assertEquals(0, ControlFlowDistanceCalculator.getCDGDepth(
+                findBranchAtLine(CLASS_NAME, OUTER_LINE)));
+        assertEquals(1, ControlFlowDistanceCalculator.getCDGDepth(
+                findBranchAtLine(CLASS_NAME, INNER_LINE)));
+    }
+
+    @Test
     public void testBranchCoveredExact() {
         // Outer branch reached and covered in the desired direction (false = fall-through = x > 0)
         Branch outer = findBranchAtLine(CLASS_NAME, OUTER_LINE);

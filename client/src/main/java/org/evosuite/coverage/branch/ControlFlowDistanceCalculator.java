@@ -86,6 +86,15 @@ public class ControlFlowDistanceCalculator {
     private static final Map<Integer, CdgAncestorInfo> CDG_ANCESTOR_CACHE = new ConcurrentHashMap<>();
 
     /**
+     * Drops the cached CDG depths and ancestor info. Branch IDs restart when the
+     * branch pool is reset, so a cached entry may describe a different branch afterwards.
+     */
+    public static void clearCaches() {
+        CDG_DEPTH_CACHE.clear();
+        CDG_ANCESTOR_CACHE.clear();
+    }
+
+    /**
      * Calculates the ControlFlowDistance indicating how far away the given
      * ExecutionResult was from executing the given Branch in a certain way,
      * depending on the given value.
