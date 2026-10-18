@@ -22,7 +22,6 @@ package org.evosuite.ga.metaheuristics.mosa;
 import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.ga.operators.selection.BestKSelection;
 import org.evosuite.ga.operators.selection.RandomKSelection;
 import org.evosuite.ga.operators.selection.RankSelection;
@@ -31,7 +30,6 @@ import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.Listener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,47 +77,10 @@ public class MOSA extends AbstractMOSA {
     }
 
     /**
-     * {@inheritDoc}
+     * For parallel runs: sends the best k individuals to the neighbouring clients.
      */
     @Override
-    protected void evolve() {
-        List<TestChromosome> offspringPopulation = this.breedNextGeneration();
-
-        // Create the union of parents and offspring
-        List<TestChromosome> union = new ArrayList<>();
-        union.addAll(this.population);
-        union.addAll(offspringPopulation);
-
-        // Integrate all external candidates (immigrants, LLM async, LLM stagnation)
-        collectExternalCandidates(union);
-
-        Set<TestFitnessFunction> uncoveredGoals = this.getUncoveredGoals();
-
-        logger.debug("Union Size = {}", union.size());
-
-        // Ranking with species-aware tiebreaking
-        setSpeciesContextOnRanking();
-        this.rankingFunction.computeRankingAssignment(union, uncoveredGoals);
-        clearSpeciesContextOnRanking();
-
-        // Population-size target: dynamic based on current population
-        final int baseTarget = this.population.size();
-        int candidateLimit = speciationEnabled
-                ? Math.min(union.size(), baseTarget * 2)
-                : baseTarget;
-        Map<Integer, List<TestChromosome>> speciesMapForSelection =
-                speciationEnabled ? speciesAssigner.groupBySpecies(union) : Collections.emptyMap();
-        SpeciesProtectionStats sharingStats = new SpeciesProtectionStats();
-
-        List<TestChromosome> rankedCandidates =
-                selectByRankingAndCrowding(union, uncoveredGoals, candidateLimit,
-                        speciesMapForSelection, sharingStats);
-
-        applySpeciationSurvival(rankedCandidates, baseTarget);
-
-        applyLineageElitism(union);
-
-        // for parallel runs: collect best k individuals for migration
+    protected void afterSurvival() {
         if (Properties.NUM_PARALLEL_CLIENTS > 1 && Properties.MIGRANTS_ITERATION_FREQUENCY > 0) {
             if ((currentIteration + 1) % Properties.MIGRANTS_ITERATION_FREQUENCY == 0 && !this.population.isEmpty()) {
                 HashSet<TestChromosome> emigrants = new HashSet<>(emigrantsSelection.select(this.population,
@@ -127,10 +88,6 @@ public class MOSA extends AbstractMOSA {
                 ClientServices.<TestChromosome>getInstance().getClientNode().emigrate(emigrants);
             }
         }
-
-        emitGenerationMetrics(this.getNumberOfUncoveredGoals(), this.getNumberOfCoveredGoals());
-
-        this.currentIteration++;
     }
 
     /**

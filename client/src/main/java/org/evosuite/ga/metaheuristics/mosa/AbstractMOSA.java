@@ -1180,6 +1180,99 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
+     * One generation: breed, merge parents, offspring and external candidates, rank them against
+     * {@link #rankingGoals()}, select the survivors for {@link #survivalTarget()} and record the
+     * generation. The variants differ only in the hooks.
+     */
+    @Override
+    protected void evolve() {
+        startGeneration();
+        // Generate offspring, compute their fitness, update the archive and coverage goals.
+        List<TestChromosome> offspringPopulation = this.breedNextGeneration();
+
+        // Create the union of parents and offspring
+        List<TestChromosome> union = new ArrayList<>(this.population.size() + offspringPopulation.size());
+        union.addAll(this.population);
+        union.addAll(offspringPopulation);
+
+        // Integrate all external candidates (immigrants, LLM async, LLM stagnation)
+        collectExternalCandidates(union);
+
+        // After the external candidates: evaluating them can change the goals
+        Set<TestFitnessFunction> goals = rankingGoals();
+
+        logger.debug("Union Size = {}", union.size());
+
+        // Ranking with species-aware tiebreaking
+        setSpeciesContextOnRanking();
+        this.rankingFunction.computeRankingAssignment(union, goals);
+        clearSpeciesContextOnRanking();
+
+        int populationSize = survivalTarget();
+        int candidateLimit = speciationEnabled
+                ? Math.min(union.size(), populationSize * 2)
+                : populationSize;
+        Map<Integer, List<TestChromosome>> speciesMapForSelection =
+                speciationEnabled ? speciesAssigner.groupBySpecies(union) : Collections.emptyMap();
+        SpeciesProtectionStats sharingStats = new SpeciesProtectionStats();
+
+        List<TestChromosome> rankedCandidates =
+                selectByRankingAndCrowding(union, goals, candidateLimit,
+                        speciesMapForSelection, sharingStats);
+
+        applySpeciationSurvival(rankedCandidates, populationSize);
+
+        applyLineageElitism(union);
+
+        afterSurvival();
+
+        emitGenerationMetrics(uncoveredGoalCount(), coveredGoalCount());
+
+        this.currentIteration++;
+        finishGeneration();
+    }
+
+    /** Runs before the offspring are bred. */
+    protected void startGeneration() {
+    }
+
+    /** Runs after the generation is recorded and the iteration counter has advanced. */
+    protected void finishGeneration() {
+    }
+
+    /**
+     * The goals the union is ranked against and the survivors are selected for. Called once per
+     * generation, after the external candidates have been evaluated. By default every uncovered
+     * goal.
+     */
+    protected Set<TestFitnessFunction> rankingGoals() {
+        return getUncoveredGoals();
+    }
+
+    /**
+     * The number of individuals the survivors are selected for. Called after the union has been
+     * ranked, so the rank-0 front is available. By default the current population size, which
+     * is the population size the search was configured with.
+     */
+    protected int survivalTarget() {
+        return this.population.size();
+    }
+
+    /** Runs after survival selection and lineage elitism, before the generation is recorded. */
+    protected void afterSurvival() {
+    }
+
+    /** The number of goals still uncovered, for the generation metrics. */
+    protected int uncoveredGoalCount() {
+        return getNumberOfUncoveredGoals();
+    }
+
+    /** The number of goals covered, for the generation metrics. */
+    protected int coveredGoalCount() {
+        return getNumberOfCoveredGoals();
+    }
+
+    /**
      * Sets the previous generation's species map as context on the ranking function so that
      * species-aware front-0 tiebreaking can be applied during ranking. Must be paired with {@link
      * #clearSpeciesContextOnRanking()}.

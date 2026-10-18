@@ -22,7 +22,6 @@ package org.evosuite.ga.metaheuristics.mosa;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
-import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -72,53 +71,38 @@ public class DynaMOSA extends AbstractMOSA {
         super(factory);
     }
 
+    @Override
+    protected void startGeneration() {
+        publishCurrentGoals();
+    }
+
+    @Override
+    protected Set<TestFitnessFunction> rankingGoals() {
+        return this.goalsManager.getCurrentGoals();
+    }
+
     /**
-     * {@inheritDoc}
+     * The population size with the rank-0 front as a floor, so that no non-dominated individual is
+     * cut.
      */
     @Override
-    protected void evolve() {
+    protected int survivalTarget() {
+        return Math.max(Properties.POPULATION, this.rankingFunction.getSubfront(0).size());
+    }
+
+    @Override
+    protected int uncoveredGoalCount() {
+        return goalsManager.getUncoveredGoals().size();
+    }
+
+    @Override
+    protected int coveredGoalCount() {
+        return goalsManager.getCoveredGoals().size();
+    }
+
+    @Override
+    protected void finishGeneration() {
         publishCurrentGoals();
-        // Generate offspring, compute their fitness, update the archive and coverage goals.
-        List<TestChromosome> offspringPopulation = this.breedNextGeneration();
-
-        // Create the union of parents and offspring
-        List<TestChromosome> union = new ArrayList<>(this.population.size() + offspringPopulation.size());
-        union.addAll(this.population);
-        union.addAll(offspringPopulation);
-
-        // Integrate all external candidates (LLM async, LLM stagnation)
-        collectExternalCandidates(union);
-
-        logger.debug("Union Size = {}", union.size());
-
-        // Ranking with species-aware tiebreaking
-        setSpeciesContextOnRanking();
-        this.rankingFunction.computeRankingAssignment(union, this.goalsManager.getCurrentGoals());
-        clearSpeciesContextOnRanking();
-
-        // Population-size target: fixed base with front-0 floor
-        int populationSize = Math.max(Properties.POPULATION, this.rankingFunction.getSubfront(0).size());
-        int candidateLimit = speciationEnabled
-                ? Math.min(union.size(), populationSize * 2)
-                : populationSize;
-        Map<Integer, List<TestChromosome>> speciesMapForSelection =
-                speciationEnabled ? speciesAssigner.groupBySpecies(union) : Collections.emptyMap();
-        SpeciesProtectionStats sharingStats = new SpeciesProtectionStats();
-
-        List<TestChromosome> rankedCandidates =
-                selectByRankingAndCrowding(union, this.goalsManager.getCurrentGoals(),
-                        candidateLimit, speciesMapForSelection, sharingStats);
-
-        applySpeciationSurvival(rankedCandidates, populationSize);
-
-        applyLineageElitism(union);
-
-        emitGenerationMetrics(goalsManager.getUncoveredGoals().size(),
-                goalsManager.getCoveredGoals().size());
-
-        publishCurrentGoals();
-
-        this.currentIteration++;
         logger.debug("Covered goals = {}", goalsManager.getCoveredGoals().size());
         logger.debug("Current goals = {}", goalsManager.getCurrentGoals().size());
         logger.debug("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
