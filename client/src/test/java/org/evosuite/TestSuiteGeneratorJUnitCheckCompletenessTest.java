@@ -20,6 +20,8 @@
 package org.evosuite;
 
 import org.evosuite.junit.JUnitAnalyzer;
+import org.evosuite.junit.JUnitCheckState;
+import org.evosuite.junit.JUnitCheckState;
 import org.evosuite.junit.JUnitAnalyzerTestSupport;
 import org.evosuite.llm.postprocess.LlmPostProcessingPhaseContext;
 import org.evosuite.rmi.service.ClientState;
@@ -48,7 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * per-test loop that runs out of time, a whole-suite/reverse-order check skipped for lack of
  * time, an order-sensitivity probe skipped for lack of time, or a memory guard that trips
  * independently of anything {@code JUnitAnalyzer} itself observed. None of those exits used to
- * reach {@link JUnitAnalyzer#isCheckIncomplete()} / {@link JUnitAnalyzer#getIncompleteCheckRounds()}
+ * reach {@link JUnitCheckState#isIncomplete()} / {@link JUnitCheckState#getIncompleteRounds()}
  * at all, so a harness reading the opt-in {@link RuntimeVariable#JUnit_Check_Incomplete} output
  * variable could not tell such a suite from one that was actually validated.
  *
@@ -69,7 +71,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
     @BeforeEach
     public void setUp() {
         Properties.getInstance().resetToDefaults();
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
         TimeController.resetSingleton();
         TestSuiteGenerator.freeMemoryBytesForTesting = null;
     }
@@ -83,7 +85,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         Properties.TEST_EXTENSION_MODE = defaultTestExtensionMode;
         Properties.RESET_STATIC_FIELDS = defaultResetStaticFields;
         Properties.getInstance().resetToDefaults();
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
         TimeController.resetSingleton();
         TestSuiteGenerator.freeMemoryBytesForTesting = null;
     }
@@ -95,8 +97,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         // Simulate a reused JVM where an earlier, unrelated check round already left the
         // flag/counter dirty. The fix resets this *before* the preflight can return, so the
         // skip below must be recorded as exactly one fresh give-up, not seven stale ones plus one.
-        JUnitAnalyzerTestSupport.setFlag("CHECK_INCOMPLETE", true);
-        JUnitAnalyzerTestSupport.setIntField("INCOMPLETE_CHECK_ROUNDS", 7);
+        JUnitAnalyzerTestSupport.recordStaleIncompleteRounds(7);
 
         // Stub the measurement itself rather than relying on Properties.MIN_FREE_MEM against
         // actual free heap: a JVM with a large enough max heap can have more free than even
@@ -109,8 +110,8 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         invokeCompileAndCheckTests(suite);
 
         assertEquals(1, suite.size(), "the unchecked test must be kept, not removed");
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds(),
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds(),
                 "must report exactly this skip, not the stale count from a previous run");
     }
 
@@ -124,8 +125,8 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         invokeCompileAndCheckTests(suite);
 
         assertEquals(1, suite.size(), "the unchecked test must be kept, not removed");
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     @Test
@@ -149,11 +150,11 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         invokeCompileAndCheckTests(suite);
 
         assertEquals(1, suite.size(), "the unchecked test must be kept, not removed");
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
+        assertTrue(JUnitCheckState.isIncomplete());
         // (1) JUnitAnalyzer's own pre-existing compile-filter give-up, (2) the generator's
         // per-test loop break, (3) the generator's whole-suite-check time skip: three distinct
         // exits hit the same time condition in sequence.
-        assertEquals(3, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertEquals(3, JUnitCheckState.getIncompleteRounds());
     }
 
     @Test
@@ -173,8 +174,8 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         invokeCompileAndCheckTests(suite);
 
         assertEquals(0, suite.size());
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     // ---- JUnitCheckBudget.isMemoryExhausted: the generator's own JVM-memory guard ----
@@ -183,14 +184,14 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
     public void ownMemoryGuardTripRecordsIncompleteOnlyOnce() throws Exception {
         PhaseMemoryGuard guard = new PhaseMemoryGuard(() -> 0L, () -> { }, 100L);
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
         assertTrue(isMemoryExhausted(guard, 2));
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
 
         // Already-exhausted guard: same give-up, not a new one.
         assertTrue(isMemoryExhausted(guard, 2));
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     @Test
@@ -199,15 +200,15 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
                 "stopChecksDueToMemoryExhaustion", int.class, Throwable.class);
         stop.setAccessible(true);
         stop.invoke(null, 1, new OutOfMemoryError("test"));
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
 
         // This guard has not seen anything itself; it only learns of the OOM through
-        // JUnitAnalyzer.isMemoryExhaustedDuringCheck(), which that call already recorded.
+        // JUnitCheckState.isMemoryExhausted(), which that call already recorded.
         PhaseMemoryGuard guard = new PhaseMemoryGuard(() -> 1_000_000L, () -> { }, 100L);
         assertTrue(isMemoryExhausted(guard, 0));
 
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds(),
+        assertEquals(1, JUnitCheckState.getIncompleteRounds(),
                 "must not double-count a give-up JUnitAnalyzer already recorded");
     }
 
@@ -216,8 +217,8 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         PhaseMemoryGuard guard = new PhaseMemoryGuard(() -> 1_000_000_000L, () -> { }, 100L);
 
         assertFalse(isMemoryExhausted(guard, 0));
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(0, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertFalse(JUnitCheckState.isIncomplete());
+        assertEquals(0, JUnitCheckState.getIncompleteRounds());
     }
 
     // ---- JUnitCheckBudget.mayRun: the reverse-order probe's own time skip ----
@@ -227,8 +228,8 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         JUnitAnalyzerTestSupport.forceNoTimeLeftInJUnitCheckPhase();
 
         assertFalse(healthyBudget().mayRun(JUnitCheckBudget.Step.REVERSE_ORDER, 0));
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     // ---- resolveExtensionInitializationOrderIfNeeded: the order-probe time skips ----
@@ -247,8 +248,8 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         List<String> result = invokeResolveExtensionInitializationOrderIfNeeded(tests, 0L);
 
         assertTrue(result.isEmpty());
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     @Test
@@ -274,8 +275,8 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         List<String> result = invokeResolveExtensionInitializationOrderIfNeeded(tests, 3_000L);
 
         assertTrue(result.isEmpty());
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     @Test
@@ -289,8 +290,8 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         List<String> result = invokeResolveExtensionInitializationOrderIfNeeded(tests, 0L);
 
         assertTrue(result.isEmpty());
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(0, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertFalse(JUnitCheckState.isIncomplete());
+        assertEquals(0, JUnitCheckState.getIncompleteRounds());
     }
 
     // ---- helpers ----

@@ -145,31 +145,6 @@ public abstract class JUnitAnalyzer {
     private static final int MAX_LOGGED_FILE_SYSTEM_PROVIDER_CLASSPATH_ENTRIES = 30;
     private static final int MAX_LOGGED_FILE_SYSTEM_PROVIDER_IMPLEMENTATIONS_PER_ENTRY = 10;
     private static final int MAX_LOGGED_FILE_SYSTEM_PROVIDER_SERVICE_URLS = 30;
-    private static volatile boolean COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE = false;
-    private static volatile boolean COMPILE_CHECK_DISABLED_LOGGED = false;
-    private static volatile boolean COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED = false;
-    /**
-     * Set when a check ran out of heap (javac included, which runs in this JVM). The remaining
-     * checks of the phase are skipped and the tests not checked yet are kept, as with any other
-     * sign of low memory during the check; unlike a javac infrastructure failure, this does not
-     * disable compile filtering for good. Cleared by {@link #resetMemoryExhaustion()}.
-     */
-    private static volatile boolean MEMORY_EXHAUSTED_DURING_CHECK = false;
-
-    /**
-     * Set when any JUnit check round (compile filter, instability check, or order-sensitivity
-     * probe) during this run had to be abandoned before completing. The suite is kept regardless
-     * (see the call sites of {@link #recordCheckIncomplete(String)}); this only records that it
-     * was never fully validated, so that fact reaches the generation report instead of being
-     * visible only in the log. Cleared by {@link #resetMemoryExhaustion()}.
-     */
-    private static volatile boolean CHECK_INCOMPLETE = false;
-
-    /**
-     * Number of distinct give-up events recorded via {@link #recordCheckIncomplete(String)}.
-     */
-    private static volatile int INCOMPLETE_CHECK_ROUNDS = 0;
-
     /**
      * The class loader of the JUnit check in progress. Every check gets a fresh one, which is
      * released (see {@link #releaseCheckLoader()}) once the check is over, so that the classes
@@ -299,7 +274,7 @@ public abstract class JUnitAnalyzer {
         if (tests == null || tests.isEmpty()) { //nothing to do
             return;
         }
-        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+        if (JUnitCheckState.isCompileCheckDisabled()) {
             logCompileCheckDisabledIfNeeded();
             return;
         }
@@ -308,10 +283,10 @@ public abstract class JUnitAnalyzer {
 
         while (iter.hasNext()) {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                recordCheckIncomplete("ran out of time in the compile filter; remaining test(s) kept unchecked");
+                JUnitCheckState.recordIncomplete("ran out of time in the compile filter; remaining test(s) kept unchecked");
                 break;
             }
-            if (MEMORY_EXHAUSTED_DURING_CHECK) {
+            if (JUnitCheckState.isMemoryExhausted()) {
                 break;
             }
 
@@ -322,7 +297,7 @@ public abstract class JUnitAnalyzer {
                 logger.warn("Failed to create tmp dir");
                 // Infrastructure setup failure, not a judgment on the remaining test(s): they are
                 // kept unchecked, so record that the compile filter never actually ran on them.
-                recordCheckIncomplete("compile filter: failed to create tmp dir; remaining test(s) kept unchecked");
+                JUnitCheckState.recordIncomplete("compile filter: failed to create tmp dir; remaining test(s) kept unchecked");
                 return;
             }
             logger.debug("Created tmp folder: " + dir.getAbsolutePath());
@@ -396,7 +371,7 @@ public abstract class JUnitAnalyzer {
             logger.error("Failed to create tmp dir");
             // Infrastructure setup failure: the test(s) are kept unchecked, exactly as the
             // compile filter's own tmp-dir failure does, so record it the same way.
-            recordCheckIncomplete("instability check: failed to create tmp dir; test(s) kept unchecked");
+            JUnitCheckState.recordIncomplete("instability check: failed to create tmp dir; test(s) kept unchecked");
             return numUnstable;
         }
 
@@ -413,7 +388,7 @@ public abstract class JUnitAnalyzer {
              * rejected, and are not re-recorded here.
              */
             logger.warn("Failed to compile the test cases ");
-            recordCheckIncomplete(
+            JUnitCheckState.recordIncomplete(
                     "instability check: whole-suite compile failed unexpectedly; test(s) kept unchecked");
             return numUnstable;
         }
@@ -422,7 +397,7 @@ public abstract class JUnitAnalyzer {
         Integer beforeLoading() {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.error("Ran out of time while checking tests");
-                recordCheckIncomplete("ran out of time before running the instability check");
+                JUnitCheckState.recordIncomplete("ran out of time before running the instability check");
                 return numUnstable;
             }
             return null;
@@ -434,7 +409,7 @@ public abstract class JUnitAnalyzer {
             // not an ordinary compile rejection: the suite is kept unchecked and the round
             // never validated it.
             logger.error("Found no classes for compiled tests");
-            recordCheckIncomplete(
+            JUnitCheckState.recordIncomplete(
                     "instability check: failed to load compiled test classes; test(s) kept unchecked");
             return numUnstable;
         }
@@ -1001,14 +976,14 @@ public abstract class JUnitAnalyzer {
             // Synthesized result, not an observed one: every test is reported failed without
             // ever having been checked, so this is a give-up like the others above.
             gaveUp = true;
-            recordCheckIncomplete("JUnit check runner interrupted while awaiting its result: " + ie);
+            JUnitCheckState.recordIncomplete("JUnit check runner interrupted while awaiting its result: " + ie);
             return JUnitResult.allFailed(testClasses.length, ie);
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause() != null ? ee.getCause() : ee;
             // Same reasoning as the InterruptedException branch above: the result is synthesized,
             // not observed.
             gaveUp = true;
-            recordCheckIncomplete("JUnit check runner failed unexpectedly while awaiting its result: " + cause);
+            JUnitCheckState.recordIncomplete("JUnit check runner failed unexpectedly while awaiting its result: " + cause);
             return JUnitResult.allFailed(testClasses.length, cause);
         } finally {
             abandonRunnerLeftRunning(future, progress, runnerThread.get(), gaveUp);
@@ -1061,7 +1036,7 @@ public abstract class JUnitAnalyzer {
                 // read result.getFailures() (e.g. handleTestsThatAreUnstable) see an empty list
                 // and treat this exactly like a run that observed nothing wrong. Record it the
                 // same way the other synthesized-result give-ups in this method already do.
-                recordCheckIncomplete("OutOfMemoryError escaped the JUnit runner: " + e);
+                JUnitCheckState.recordIncomplete("OutOfMemoryError escaped the JUnit runner: " + e);
                 return JUnitResult.allFailed(testClasses.length, e);
             } finally {
                 // The runner runs nothing more of the check: from here on it is not abandoned, so
@@ -1112,7 +1087,7 @@ public abstract class JUnitAnalyzer {
             if (returned != null) {
                 return returned;
             }
-            recordCheckIncomplete(reason);
+            JUnitCheckState.recordIncomplete(reason);
             return afterWatchdogAbandonedRunner(abandonment.getResult(), progress, testCount);
         } catch (CancellationException ce) {
             // The check was cancelled rather than completed, so it observed no failure for
@@ -1125,7 +1100,7 @@ public abstract class JUnitAnalyzer {
             if (progress.abandon()) {
                 abandonRunner(runner, reason);
             } else {
-                recordCheckIncomplete(reason);
+                JUnitCheckState.recordIncomplete(reason);
             }
             return JUnitResult.allPassed(testCount);
         }
@@ -1176,7 +1151,7 @@ public abstract class JUnitAnalyzer {
         Sandbox.abandonThread(runner);
         checkRunnerAbandoned = true;
         if (!giveUpRecorded) {
-            recordCheckIncomplete("runner was still going when the wait for it ended");
+            JUnitCheckState.recordIncomplete("runner was still going when the wait for it ended");
         }
         return true;
     }
@@ -1252,7 +1227,7 @@ public abstract class JUnitAnalyzer {
             throw died;
         }
         logger.warn("The JUnit check runner died after a test had to be stopped: {}", died.toString());
-        recordCheckIncomplete("runner died after a hung test was stopped");
+        JUnitCheckState.recordIncomplete("runner died after a hung test was stopped");
         return progress.deadRunnerResult(testCount);
     }
 
@@ -1654,7 +1629,7 @@ public abstract class JUnitAnalyzer {
                 // order-sensitivity probe never actually ran, so record it as abandoned rather
                 // than let the caller's infrastructure-failure heuristic on "tmp-dir-error" be the
                 // only trace of it.
-                recordCheckIncomplete("order-sensitivity analysis: failed to create tmp dir");
+                JUnitCheckState.recordIncomplete("order-sensitivity analysis: failed to create tmp dir");
                 return Collections.singleton("tmp-dir-error");
             }
 
@@ -1664,13 +1639,13 @@ public abstract class JUnitAnalyzer {
                 // per-test compile filter, so a rejection here is the whole-suite compile unit
                 // (or its writer output) failing in a way that filter never saw, not an ordinary
                 // rejected-test verdict.
-                recordCheckIncomplete("order-sensitivity analysis: whole-suite compile failed unexpectedly");
+                JUnitCheckState.recordIncomplete("order-sensitivity analysis: whole-suite compile failed unexpectedly");
                 return Collections.singleton("compilation-error");
             }
 
             @Override
             Set<String> notLoaded() {
-                recordCheckIncomplete("order-sensitivity analysis: failed to load compiled test classes");
+                JUnitCheckState.recordIncomplete("order-sensitivity analysis: failed to load compiled test classes");
                 return Collections.singleton("load-error");
             }
 
@@ -1685,7 +1660,7 @@ public abstract class JUnitAnalyzer {
             @Override
             Set<String> failed(Exception e) {
                 logger.warn("Order-sensitivity analysis failed: {}", e.getMessage());
-                recordCheckIncomplete("order-sensitivity analysis: unexpected exception during execution: " + e);
+                JUnitCheckState.recordIncomplete("order-sensitivity analysis: unexpected exception during execution: " + e);
                 return Collections.singleton("execution-error");
             }
 
@@ -1832,7 +1807,7 @@ public abstract class JUnitAnalyzer {
                 logger.error("No Java compiler is available");
                 return CompileOutcome.REJECTED;
             }
-            if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+            if (JUnitCheckState.isCompileCheckDisabled()) {
                 logCompileCheckDisabledIfNeeded();
                 return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
@@ -2017,81 +1992,24 @@ public abstract class JUnitAnalyzer {
     }
 
     private static void disableCompileCheckDueToInfrastructure(Throwable failure, String compilerClasspath) {
-        boolean first = !COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE;
-        COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE = true;
+        boolean first = JUnitCheckState.disableCompileCheck();
         logger.error("Javac infrastructure failure during compile check. "
                         + "Disabling compile filtering for the remainder of this run and keeping generated tests.",
                 failure);
         logFileSystemProviderClasspathDiagnostics(compilerClasspath);
         if (first) {
-            recordCheckIncomplete("javac infrastructure failure disabled compile filtering: " + failure);
+            JUnitCheckState.recordIncomplete("javac infrastructure failure disabled compile filtering: " + failure);
         }
     }
 
-    /** Whether checks are off for the rest of the run: javac infrastructure failed or memory ran out. */
-    private static boolean checksSuspended() {
-        return COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK;
-    }
-
-    public static boolean isCompileCheckDisabledDueToInfrastructure() {
-        return COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE;
-    }
-
-    /**
-     * Whether a check ran out of memory since the last {@link #resetMemoryExhaustion()}; the
-     * remaining checks are then skipped and the tests not checked yet are kept.
-     *
-     * @return true if memory ran out during a check
-     */
-    public static boolean isMemoryExhaustedDuringCheck() {
-        return MEMORY_EXHAUSTED_DURING_CHECK;
-    }
-
-    /**
-     * Forgets an earlier out-of-memory condition and any recorded check incompleteness, e.g. at
-     * the start of a new JUnit check phase.
-     */
-    public static void resetMemoryExhaustion() {
-        MEMORY_EXHAUSTED_DURING_CHECK = false;
-        resetCheckIncompleteness();
-    }
-
     private static void stopChecksDueToMemoryExhaustion(int numTests, Throwable failure) {
-        boolean first = !MEMORY_EXHAUSTED_DURING_CHECK;
-        MEMORY_EXHAUSTED_DURING_CHECK = true;
+        boolean first = JUnitCheckState.markMemoryExhausted();
         if (first) {
             logger.warn("Ran out of memory while compiling {} generated test(s) for the JUnit check ({}). "
                             + "Skipping the remaining checks and keeping the tests not checked yet.",
                     numTests, failure == null ? "no details" : failure.toString());
-            recordCheckIncomplete("out of memory during check: " + failure);
+            JUnitCheckState.recordIncomplete("out of memory during check: " + failure);
         }
-    }
-
-    /**
-     * Whether any JUnit check round during this run (since the last {@link
-     * #resetMemoryExhaustion()}) had to be abandoned before completing.
-     *
-     * @return true if at least one give-up event was recorded
-     */
-    public static boolean isCheckIncomplete() {
-        return CHECK_INCOMPLETE;
-    }
-
-    /**
-     * Number of distinct JUnit check rounds that were abandoned before completing during this run
-     * (since the last {@link #resetMemoryExhaustion()}).
-     *
-     * @return the count of recorded give-up events
-     */
-    public static int getIncompleteCheckRounds() {
-        return INCOMPLETE_CHECK_ROUNDS;
-    }
-
-    /** Resets the recorded check-incompleteness state and publishes the cleared baseline. */
-    private static void resetCheckIncompleteness() {
-        CHECK_INCOMPLETE = false;
-        INCOMPLETE_CHECK_ROUNDS = 0;
-        trackCheckIncompleteness();
     }
 
     /**
@@ -2110,34 +2028,7 @@ public abstract class JUnitAnalyzer {
     private static void abandonRunner(Thread runner, String reason) {
         Sandbox.abandonThread(runner);
         checkRunnerAbandoned = true;
-        recordCheckIncomplete(reason);
-    }
-
-    /**
-     * Records that a JUnit check round was abandoned before completing: the reason is logged, and
-     * the fact reaches the generation report via {@link RuntimeVariable#JUnit_Check_Incomplete}
-     * and {@link RuntimeVariable#JUnit_Check_Incomplete_Rounds}. Does not change whether the suite
-     * (or the specific tests involved) is kept — that decision is made at each call site, same as
-     * before this method existed.
-     *
-     * <p>Also called by {@code TestSuiteGenerator} and its {@code JUnitCheckBudget} for the rounds
-     * abandoned before this analyzer is reached at all — the phase skipped for low memory, its time
-     * budget expired, its per-test loop exited early, an order probe skipped, or its memory guard
-     * tripped. Those exits used to be
-     * invisible outside the log, which is indistinguishable from a validated suite.
-     *
-     * @param reason short description of what was abandoned, for the debug log
-     */
-    public static void recordCheckIncomplete(String reason) {
-        INCOMPLETE_CHECK_ROUNDS++;
-        CHECK_INCOMPLETE = true;
-        logger.debug("Recording JUnit check as incomplete: {}", reason);
-        trackCheckIncompleteness();
-    }
-
-    private static void trackCheckIncompleteness() {
-        ClientServices.track(RuntimeVariable.JUnit_Check_Incomplete, CHECK_INCOMPLETE);
-        ClientServices.track(RuntimeVariable.JUnit_Check_Incomplete_Rounds, INCOMPLETE_CHECK_ROUNDS);
+        JUnitCheckState.recordIncomplete(reason);
     }
 
     /**
@@ -2162,23 +2053,21 @@ public abstract class JUnitAnalyzer {
     }
 
     private static void logCompileCheckDisabledIfNeeded() {
-        if (COMPILE_CHECK_DISABLED_LOGGED) {
+        if (!JUnitCheckState.claimCompileCheckDisabledLog()) {
             return;
         }
-        COMPILE_CHECK_DISABLED_LOGGED = true;
         logger.warn("Compile check is disabled due to a prior javac infrastructure failure. "
                 + "Generated tests will be kept without compile filtering.");
     }
 
     private static void logCompileDependentExecutionSkippedIfNeeded() {
-        if (!COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+        if (!JUnitCheckState.isCompileCheckDisabled()) {
             // Skipped because memory ran out, which was reported when it happened.
             return;
         }
-        if (COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED) {
+        if (!JUnitCheckState.claimCompileDependentExecutionSkippedLog()) {
             return;
         }
-        COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED = true;
         logger.warn("Skipping compile-dependent JUnit execution checks because compile check is disabled "
                 + "after a javac infrastructure failure.");
     }
@@ -2921,7 +2810,7 @@ public abstract class JUnitAnalyzer {
             @Override
             Boolean noTmpDir() {
                 logger.warn("Failed to create tmp dir");
-                recordCheckIncomplete("verifyCompilationAndExecution: failed to create tmp dir");
+                JUnitCheckState.recordIncomplete("verifyCompilationAndExecution: failed to create tmp dir");
                 return false;
             }
 
@@ -3026,7 +2915,7 @@ public abstract class JUnitAnalyzer {
      * @return what the check made of the outcome
      */
     private static <R> R withCompiledSuite(List<TestCase> tests, CompiledSuiteCheck<R> check) {
-        if (checksSuspended()) {
+        if (JUnitCheckState.isSuspended()) {
             logCompileDependentExecutionSkippedIfNeeded();
             return check.notRun();
         }

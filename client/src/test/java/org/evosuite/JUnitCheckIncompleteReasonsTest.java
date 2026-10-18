@@ -23,7 +23,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import org.evosuite.junit.JUnitAnalyzer;
+import org.evosuite.junit.JUnitCheckState;
 import org.evosuite.llm.postprocess.LlmPostProcessingPhaseContext;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.testcase.DefaultTestCase;
@@ -58,10 +58,10 @@ public class JUnitCheckIncompleteReasonsTest {
     @BeforeEach
     public void setUp() {
         Properties.getInstance().resetToDefaults();
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
         TimeController.resetSingleton();
         TestSuiteGenerator.freeMemoryBytesForTesting = null;
-        analyzerLogger = (Logger) LoggerFactory.getLogger(JUnitAnalyzer.class);
+        analyzerLogger = (Logger) LoggerFactory.getLogger(JUnitCheckState.class);
         analyzerLevel = analyzerLogger.getLevel();
         analyzerLogger.setLevel(Level.DEBUG);
         appender = new ListAppender<>();
@@ -75,7 +75,7 @@ public class JUnitCheckIncompleteReasonsTest {
         analyzerLogger.setLevel(analyzerLevel);
         appender.stop();
         Properties.getInstance().resetToDefaults();
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
         TimeController.resetSingleton();
         TestSuiteGenerator.freeMemoryBytesForTesting = null;
     }
@@ -98,7 +98,7 @@ public class JUnitCheckIncompleteReasonsTest {
                 "ran out of time in the compile filter; remaining test(s) kept unchecked",
                 "ran out of time before finishing the per-test JUnit checks; 1 test(s) left unchecked",
                 "ran out of time before the whole-suite JUnit check"), recordedReasons());
-        assertEquals(3, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertEquals(3, JUnitCheckState.getIncompleteRounds());
     }
 
     @Test

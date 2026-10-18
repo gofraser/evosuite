@@ -32,6 +32,7 @@ import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.junit.JUnitAnalyzer;
+import org.evosuite.junit.JUnitCheckState;
 import org.evosuite.junit.writer.Scaffolding;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.llm.LlmRunFeatures;
@@ -1481,10 +1482,10 @@ public class TestSuiteGenerator {
         // reused JVM (e.g. many checks within one run, or many tests within one JVM) would
         // otherwise leave whatever a previous check round recorded in place, so a low-memory skip
         // here could be masked by, or wrongly blamed on, stale incompleteness from earlier.
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
 
         if (isMemoryTooLowForPhase("JUnit check")) {
-            JUnitAnalyzer.recordCheckIncomplete(
+            JUnitCheckState.recordIncomplete(
                     "skipped the whole JUnit check phase due to low memory");
             return;
         }
@@ -1500,7 +1501,7 @@ public class TestSuiteGenerator {
 
         // note: compiling and running JUnit tests can be very time consuming
         if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
-            JUnitAnalyzer.recordCheckIncomplete(
+            JUnitCheckState.recordIncomplete(
                     "JUnit check phase budget expired before any check could run");
             Properties.USE_SEPARATE_CLASSLOADER = junitSeparateClassLoader;
             return;
@@ -1624,7 +1625,7 @@ public class TestSuiteGenerator {
         }
 
         if (!budget.hasTimeForWholeSuiteCheck()) {
-            JUnitAnalyzer.recordCheckIncomplete(
+            JUnitCheckState.recordIncomplete(
                     "ran out of time before the extension initialization order could be resolved");
             return Collections.emptyList();
         }
@@ -1642,7 +1643,7 @@ public class TestSuiteGenerator {
         if (!hasTimeForOrderSensitivityAnalysis(suiteRunMs)) {
             logger.warn("Skipping order-sensitivity analysis: less than twice its expected cost of {} ms "
                     + "left in the JUnit check phase", orderSensitivityAnalysisCostMs(suiteRunMs));
-            JUnitAnalyzer.recordCheckIncomplete(
+            JUnitCheckState.recordIncomplete(
                     "skipped the order-sensitivity analysis for lack of time");
             return Collections.emptyList();
         }

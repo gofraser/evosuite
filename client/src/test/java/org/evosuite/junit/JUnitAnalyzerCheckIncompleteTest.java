@@ -55,8 +55,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * failure, running out of memory, or simply running out of the JUnit-check time budget) used to
  * keep the suite silently: nothing downstream could tell the check never actually ran. These
  * tests drive each give-up path directly (per the task instructions, not by reproducing a real
- * hang) and check that {@link JUnitAnalyzer#isCheckIncomplete()} /
- * {@link JUnitAnalyzer#getIncompleteCheckRounds()}, and the
+ * hang) and check that {@link JUnitCheckState#isIncomplete()} /
+ * {@link JUnitCheckState#getIncompleteRounds()}, and the
  * {@link RuntimeVariable#JUnit_Check_Incomplete} / {@link RuntimeVariable#JUnit_Check_Incomplete_Rounds}
  * output variables they feed, now report it.
  */
@@ -78,13 +78,13 @@ public class JUnitAnalyzerCheckIncompleteTest {
 
     @BeforeEach
     public void setUp() {
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
         TimeController.resetSingleton();
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
         Properties.CRITERION = defaultCriterion;
         Properties.TARGET_CLASS = defaultTargetClass;
         Properties.TEST_FORMAT = defaultTestFormat;
@@ -101,14 +101,13 @@ public class JUnitAnalyzerCheckIncompleteTest {
 
     @Test
     public void resetMemoryExhaustionClearsCheckIncompletenessAndTracksFalseBaseline() throws Exception {
-        JUnitAnalyzerTestSupport.setFlag("CHECK_INCOMPLETE", true);
-        JUnitAnalyzerTestSupport.setIntField("INCOMPLETE_CHECK_ROUNDS", 5);
+        JUnitAnalyzerTestSupport.recordStaleIncompleteRounds(5);
 
         CapturingClientNode node = installCapturingClientNode();
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(0, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertFalse(JUnitCheckState.isIncomplete());
+        assertEquals(0, JUnitCheckState.getIncompleteRounds());
         assertEquals(Boolean.FALSE, node.value(RuntimeVariable.JUnit_Check_Incomplete));
         assertEquals(0, node.value(RuntimeVariable.JUnit_Check_Incomplete_Rounds));
     }
@@ -116,18 +115,18 @@ public class JUnitAnalyzerCheckIncompleteTest {
     @Test
     public void recordCheckIncompleteSetsFlagIncrementsCountAndTracksVariables() throws Exception {
         CapturingClientNode node = installCapturingClientNode();
-        assertFalse(JUnitAnalyzer.isCheckIncomplete(), "normal completing path must start false");
-        assertEquals(0, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertFalse(JUnitCheckState.isIncomplete(), "normal completing path must start false");
+        assertEquals(0, JUnitCheckState.getIncompleteRounds());
 
         invokeRecordCheckIncomplete("first give-up");
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
         assertEquals(Boolean.TRUE, node.value(RuntimeVariable.JUnit_Check_Incomplete));
         assertEquals(1, node.value(RuntimeVariable.JUnit_Check_Incomplete_Rounds));
 
         invokeRecordCheckIncomplete("second give-up");
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(2, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(2, JUnitCheckState.getIncompleteRounds());
         assertEquals(2, node.value(RuntimeVariable.JUnit_Check_Incomplete_Rounds));
     }
 
@@ -139,46 +138,36 @@ public class JUnitAnalyzerCheckIncompleteTest {
                 "stopChecksDueToMemoryExhaustion", int.class, Throwable.class);
         stop.setAccessible(true);
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
         stop.invoke(null, 3, new OutOfMemoryError("test"));
-        assertTrue(JUnitAnalyzer.isMemoryExhaustedDuringCheck());
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isMemoryExhausted());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
 
         // A repeat hit while already in the exhausted state is the same give-up, not a new one.
         stop.invoke(null, 3, new OutOfMemoryError("test"));
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     @Test
     public void compileCheckDisabledDueToInfrastructureRecordsIncompleteOnlyOnce() throws Exception {
-        Field disabledField = JUnitAnalyzer.class.getDeclaredField(
-                "COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE");
-        disabledField.setAccessible(true);
-        boolean previousDisabled = disabledField.getBoolean(null);
-        Field loggedField = JUnitAnalyzer.class.getDeclaredField("COMPILE_CHECK_DISABLED_LOGGED");
-        loggedField.setAccessible(true);
-        boolean previousLogged = loggedField.getBoolean(null);
-
         Method disable = JUnitAnalyzer.class.getDeclaredMethod(
                 "disableCompileCheckDueToInfrastructure", Throwable.class, String.class);
         disable.setAccessible(true);
         try {
-            disabledField.setBoolean(null, false);
-            loggedField.setBoolean(null, false);
+            JUnitCheckState.resetAllForTests();
 
-            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            assertFalse(JUnitCheckState.isIncomplete());
             disable.invoke(null, new RuntimeException("infra"), "");
-            assertTrue(JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure());
-            assertTrue(JUnitAnalyzer.isCheckIncomplete());
-            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertTrue(JUnitCheckState.isCompileCheckDisabled());
+            assertTrue(JUnitCheckState.isIncomplete());
+            assertEquals(1, JUnitCheckState.getIncompleteRounds());
 
             // Already-disabled state: a second infrastructure failure is not a fresh give-up.
             disable.invoke(null, new RuntimeException("infra again"), "");
-            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertEquals(1, JUnitCheckState.getIncompleteRounds());
         } finally {
-            disabledField.setBoolean(null, previousDisabled);
-            loggedField.setBoolean(null, previousLogged);
+            JUnitCheckState.resetAllForTests();
         }
     }
 
@@ -195,11 +184,11 @@ public class JUnitAnalyzerCheckIncompleteTest {
 
         JUnitAnalyzerTestSupport.forceNoTimeLeftInJUnitCheckPhase();
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
         JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
 
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
         assertEquals(1, tests.size(), "the unchecked test must be kept, not removed");
         assertEquals(compiledBefore, numField.getInt(null), "no compile check may have run");
     }
@@ -211,13 +200,13 @@ public class JUnitAnalyzerCheckIncompleteTest {
 
         JUnitAnalyzerTestSupport.forceNoTimeLeftInJUnitCheckPhase();
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
         int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
 
         assertEquals(0, numUnstable);
         assertEquals(1, tests.size(), "the unchecked test must be kept, not removed or run");
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     // ---- OOM escaping the JUnit runner itself ----
@@ -228,7 +217,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
      * {@link JUnitResult} whose {@code getFailures()} is empty. The failure-matching loop in
      * {@link JUnitAnalyzer#handleTestsThatAreUnstable(List)} then has nothing to act on, which
      * looks exactly like a check that observed no problems at all -- unless the give-up is
-     * recorded separately via {@link JUnitAnalyzer#recordCheckIncomplete(String)}.
+     * recorded separately via {@link JUnitCheckState#recordIncomplete(String)}.
      *
      * <p>JUnit itself attributes a per-test {@link OutOfMemoryError} to that test before it would
      * ever reach the outer catch, so a SUT test method that throws does not exercise this path.
@@ -246,7 +235,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
         List<TestCase> tests = new ArrayList<>();
         tests.add(compilingTestCase()); // also selects TEST_FORMAT=JUNIT4
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
 
         Field analyzerOverrideField = JUnitAnalyzer.class.getDeclaredField(
                 "VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
@@ -268,8 +257,8 @@ public class JUnitAnalyzerCheckIncompleteTest {
             analyzerOverrideField.set(null, null);
         }
 
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
         assertEquals(Boolean.TRUE, node.value(RuntimeVariable.JUnit_Check_Incomplete));
         assertEquals(1, node.value(RuntimeVariable.JUnit_Check_Incomplete_Rounds));
     }
@@ -289,11 +278,11 @@ public class JUnitAnalyzerCheckIncompleteTest {
         tests.add(compilingTestCase());
 
         withPoisonedTmpDir(() -> {
-            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            assertFalse(JUnitCheckState.isIncomplete());
             JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
 
-            assertTrue(JUnitAnalyzer.isCheckIncomplete());
-            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertTrue(JUnitCheckState.isIncomplete());
+            assertEquals(1, JUnitCheckState.getIncompleteRounds());
             assertEquals(1, tests.size(), "the unchecked test must be kept, not removed");
         });
     }
@@ -304,13 +293,13 @@ public class JUnitAnalyzerCheckIncompleteTest {
         tests.add(compilingTestCase());
 
         withPoisonedTmpDir(() -> {
-            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            assertFalse(JUnitCheckState.isIncomplete());
             int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
 
             assertEquals(0, numUnstable);
             assertEquals(1, tests.size(), "the unchecked test must be kept, not removed or run");
-            assertTrue(JUnitAnalyzer.isCheckIncomplete());
-            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertTrue(JUnitCheckState.isIncomplete());
+            assertEquals(1, JUnitCheckState.getIncompleteRounds());
         });
     }
 
@@ -320,12 +309,12 @@ public class JUnitAnalyzerCheckIncompleteTest {
         tests.add(compilingTestCase());
 
         withPoisonedTmpDir(() -> {
-            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            assertFalse(JUnitCheckState.isIncomplete());
             boolean result = JUnitAnalyzer.verifyCompilationAndExecution(tests);
 
             assertFalse(result);
-            assertTrue(JUnitAnalyzer.isCheckIncomplete());
-            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertTrue(JUnitCheckState.isIncomplete());
+            assertEquals(1, JUnitCheckState.getIncompleteRounds());
         });
     }
 
@@ -336,7 +325,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
         tests.add(compilingTestCase());
 
         withPoisonedTmpDir(() -> {
-            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            assertFalse(JUnitCheckState.isIncomplete());
 
             Method m = JUnitAnalyzer.class.getDeclaredMethod(
                     "executeAndCollectUnexpectedFailures", List.class);
@@ -345,8 +334,8 @@ public class JUnitAnalyzerCheckIncompleteTest {
             Set<String> failures = (Set<String>) m.invoke(null, tests);
 
             assertEquals(Collections.singleton("tmp-dir-error"), failures);
-            assertTrue(JUnitAnalyzer.isCheckIncomplete());
-            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertTrue(JUnitCheckState.isIncomplete());
+            assertEquals(1, JUnitCheckState.getIncompleteRounds());
         });
     }
 
@@ -375,13 +364,13 @@ public class JUnitAnalyzerCheckIncompleteTest {
                         .thenReturn(Collections.singletonList(
                                 new File(DUMMY_DIR, "missing-generated-source.java"))))) {
 
-            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            assertFalse(JUnitCheckState.isIncomplete());
             int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
 
             assertEquals(0, numUnstable);
             assertEquals(1, tests.size(), "the unchecked test must be kept, not removed");
-            assertTrue(JUnitAnalyzer.isCheckIncomplete());
-            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertTrue(JUnitCheckState.isIncomplete());
+            assertEquals(1, JUnitCheckState.getIncompleteRounds());
         }
     }
 
@@ -404,13 +393,13 @@ public class JUnitAnalyzerCheckIncompleteTest {
         Properties.SCAFFOLDING_SUFFIX = Properties.JUNIT_SUFFIX.startsWith("_")
                 ? Properties.JUNIT_SUFFIX.substring(1) : Properties.JUNIT_SUFFIX;
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
         int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
 
         assertEquals(0, numUnstable);
         assertEquals(1, tests.size(), "the unchecked test must be kept, not removed");
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     @Test
@@ -426,7 +415,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
                         .thenReturn(Collections.singletonList(
                                 new File(DUMMY_DIR, "missing-generated-source.java"))))) {
 
-            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            assertFalse(JUnitCheckState.isIncomplete());
 
             Method m = JUnitAnalyzer.class.getDeclaredMethod(
                     "executeAndCollectUnexpectedFailures", List.class);
@@ -435,8 +424,8 @@ public class JUnitAnalyzerCheckIncompleteTest {
             Set<String> failures = (Set<String>) m.invoke(null, tests);
 
             assertEquals(Collections.singleton("compilation-error"), failures);
-            assertTrue(JUnitAnalyzer.isCheckIncomplete());
-            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertTrue(JUnitCheckState.isIncomplete());
+            assertEquals(1, JUnitCheckState.getIncompleteRounds());
         }
     }
 
@@ -449,7 +438,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
         Properties.SCAFFOLDING_SUFFIX = Properties.JUNIT_SUFFIX.startsWith("_")
                 ? Properties.JUNIT_SUFFIX.substring(1) : Properties.JUNIT_SUFFIX;
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
 
         Method m = JUnitAnalyzer.class.getDeclaredMethod(
                 "executeAndCollectUnexpectedFailures", List.class);
@@ -458,8 +447,8 @@ public class JUnitAnalyzerCheckIncompleteTest {
         Set<String> failures = (Set<String>) m.invoke(null, tests);
 
         assertEquals(Collections.singleton("load-error"), failures);
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     /**
@@ -474,7 +463,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
     public void executeAndCollectUnexpectedFailuresRecordsIncompleteOnExecutionError() throws Exception {
         List<TestCase> tests = new ArrayList<>(Arrays.asList(compilingTestCase(), null));
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
 
         Method m = JUnitAnalyzer.class.getDeclaredMethod(
                 "executeAndCollectUnexpectedFailures", List.class);
@@ -483,8 +472,8 @@ public class JUnitAnalyzerCheckIncompleteTest {
         Set<String> failures = (Set<String>) m.invoke(null, tests);
 
         assertEquals(Collections.singleton("execution-error"), failures);
-        assertTrue(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertTrue(JUnitCheckState.isIncomplete());
+        assertEquals(1, JUnitCheckState.getIncompleteRounds());
     }
 
     // ---- Non-regression: the per-test compile filter's ordinary rejected-test verdict must stay
@@ -503,13 +492,13 @@ public class JUnitAnalyzerCheckIncompleteTest {
                         .thenReturn(Collections.singletonList(
                                 new File(DUMMY_DIR, "missing-generated-source.java"))))) {
 
-            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            assertFalse(JUnitCheckState.isIncomplete());
             JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
 
             assertEquals(0, tests.size(), "a test that fails the compile filter is removed, as normal");
-            assertFalse(JUnitAnalyzer.isCheckIncomplete(),
+            assertFalse(JUnitCheckState.isIncomplete(),
                     "the per-test compile filter's ordinary rejection is not an incomplete check");
-            assertEquals(0, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertEquals(0, JUnitCheckState.getIncompleteRounds());
         }
     }
 
@@ -525,12 +514,12 @@ public class JUnitAnalyzerCheckIncompleteTest {
 
         // Plenty of time: TimeController was never moved out of NOT_STARTED, so
         // hasTimeToExecuteATestCase() is unconditionally true.
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
         JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
 
         assertEquals(1, tests.size(), "a compiling test must survive the filter");
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(0, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertFalse(JUnitCheckState.isIncomplete());
+        assertEquals(0, JUnitCheckState.getIncompleteRounds());
     }
 
     @Test
@@ -541,13 +530,13 @@ public class JUnitAnalyzerCheckIncompleteTest {
         List<TestCase> tests = new ArrayList<>();
         tests.add(compilingTestCase());
 
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        assertFalse(JUnitCheckState.isIncomplete());
         int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
 
         assertEquals(0, numUnstable);
         assertEquals(1, tests.size());
-        assertFalse(JUnitAnalyzer.isCheckIncomplete());
-        assertEquals(0, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertFalse(JUnitCheckState.isIncomplete());
+        assertEquals(0, JUnitCheckState.getIncompleteRounds());
     }
 
     // ---- helpers ----
@@ -591,9 +580,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
     }
 
     private static void invokeRecordCheckIncomplete(String reason) throws Exception {
-        Method record = JUnitAnalyzer.class.getDeclaredMethod("recordCheckIncomplete", String.class);
-        record.setAccessible(true);
-        record.invoke(null, reason);
+        JUnitCheckState.recordIncomplete(reason);
     }
 
     private CapturingClientNode installCapturingClientNode() throws Exception {

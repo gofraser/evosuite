@@ -19,7 +19,7 @@
  */
 package org.evosuite;
 
-import org.evosuite.junit.JUnitAnalyzer;
+import org.evosuite.junit.JUnitCheckState;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,12 +82,12 @@ final class JUnitCheckBudget {
     boolean mayRun(Step step, int unchecked) {
         switch (step) {
             case PER_TEST:
-                if (JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()) {
+                if (JUnitCheckState.isCompileCheckDisabled()) {
                     logger.warn("Aborting remaining per-test JUnit checks due to prior javac infrastructure failure");
                     return false;
                 }
                 if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                    JUnitAnalyzer.recordCheckIncomplete(
+                    JUnitCheckState.recordIncomplete(
                             "ran out of time before finishing the per-test JUnit checks; "
                                     + unchecked + " test(s) left unchecked");
                     return false;
@@ -95,11 +95,11 @@ final class JUnitCheckBudget {
                 return !isMemoryExhausted(step, unchecked);
             case WHOLE_SUITE:
             case REVERSE_ORDER:
-                if (JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure() || isMemoryExhausted(step, 0)) {
+                if (JUnitCheckState.isCompileCheckDisabled() || isMemoryExhausted(step, 0)) {
                     return false;
                 }
                 if (!hasTimeForWholeSuiteCheck()) {
-                    JUnitAnalyzer.recordCheckIncomplete("ran out of time before " + step.description);
+                    JUnitCheckState.recordIncomplete("ran out of time before " + step.description);
                     return false;
                 }
                 return true;
@@ -135,7 +135,7 @@ final class JUnitCheckBudget {
         // A check that ran out of memory inside JUnitAnalyzer has recorded that itself; only
         // this guard's own reading of free heap is recorded here.
         boolean ownGuardTrippedNow = false;
-        if (!wasExhausted && JUnitAnalyzer.isMemoryExhaustedDuringCheck()) {
+        if (!wasExhausted && JUnitCheckState.isMemoryExhausted()) {
             // A check (e.g. javac, which shares this heap) ran out of memory.
             memoryGuard.markExhausted();
             cause = "a check ran out of memory";
@@ -152,7 +152,7 @@ final class JUnitCheckBudget {
                     + step.description + " and all later checks, keeping the suite"
                     + (unchecked > 0 ? " (" + unchecked + " test(s) left unchecked)" : ""));
             if (ownGuardTrippedNow) {
-                JUnitAnalyzer.recordCheckIncomplete("low free JVM memory during JUnit check; skipping "
+                JUnitCheckState.recordIncomplete("low free JVM memory during JUnit check; skipping "
                         + step.description + " and all later checks");
             }
         }

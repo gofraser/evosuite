@@ -23,12 +23,10 @@ import org.evosuite.Properties;
 import org.evosuite.TimeController;
 import org.evosuite.rmi.service.ClientState;
 
-import java.lang.reflect.Field;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
- * Test-only plumbing for driving {@link JUnitAnalyzer}'s private give-up state directly, shared
+ * Test-only plumbing for driving the give-up state of {@link JUnitCheckState}, shared
  * between {@link JUnitAnalyzerCheckIncompleteTest} (which drives {@code JUnitAnalyzer}'s own
  * internal abort paths) and {@code org.evosuite.TestSuiteGeneratorJUnitCheckCompletenessTest}
  * (which drives the generator-level exits around it). Both used to inline byte-for-byte copies of
@@ -55,17 +53,13 @@ public final class JUnitAnalyzerTestSupport {
                 "test setup must actually exhaust the phase budget");
     }
 
-    /** Reflectively pokes a private {@code static boolean} field on {@link JUnitAnalyzer}. */
-    public static void setFlag(String fieldName, boolean value) throws Exception {
-        Field field = JUnitAnalyzer.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(null, value);
-    }
-
-    /** Reflectively pokes a private {@code static int} field on {@link JUnitAnalyzer}. */
-    public static void setIntField(String fieldName, int value) throws Exception {
-        Field field = JUnitAnalyzer.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(null, value);
+    /**
+     * Leaves {@link JUnitCheckState} dirty, as if an earlier check round of a reused JVM had
+     * given up {@code rounds} times.
+     */
+    public static void recordStaleIncompleteRounds(int rounds) {
+        for (int i = 0; i < rounds; i++) {
+            JUnitCheckState.recordIncomplete("stale round " + i);
+        }
     }
 }

@@ -50,13 +50,13 @@ public class JUnitAnalyzerUnstableRemovalByNameTest {
 
     @BeforeEach
     public void setUp() {
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
         TimeController.resetSingleton();
     }
 
     @AfterEach
     public void tearDown() {
-        JUnitAnalyzer.resetMemoryExhaustion();
+        JUnitCheckState.resetForPhase();
         Properties.CRITERION = defaultCriterion;
         Properties.TARGET_CLASS = defaultTargetClass;
         Properties.TEST_FORMAT = defaultTestFormat;

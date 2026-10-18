@@ -414,14 +414,12 @@ public class JUnitAnalyzerTest {
         List<TestCase> tests = new ArrayList<>();
         tests.add(builder.getDefaultTestCase());
 
-        java.lang.reflect.Field flag = JUnitAnalyzer.class.getDeclaredField("MEMORY_EXHAUSTED_DURING_CHECK");
-        flag.setAccessible(true);
         // Counts the suites rendered for compilation.
         java.lang.reflect.Field compiled = JUnitAnalyzer.class.getDeclaredField("NUM");
         compiled.setAccessible(true);
-        flag.set(null, true);
+        JUnitCheckState.markMemoryExhausted();
         try {
-            Assertions.assertTrue(JUnitAnalyzer.isMemoryExhaustedDuringCheck());
+            Assertions.assertTrue(JUnitCheckState.isMemoryExhausted());
             int compiledBefore = compiled.getInt(null);
             JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
             Assertions.assertEquals(0, JUnitAnalyzer.handleTestsThatAreUnstable(tests));
@@ -430,11 +428,11 @@ public class JUnitAnalyzerTest {
             Assertions.assertEquals(compiledBefore, compiled.getInt(null), "no further checks may run");
             Assertions.assertEquals(1, tests.size(), "unchecked tests must be kept");
             // Running out of memory is not a javac infrastructure failure.
-            Assertions.assertFalse(JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure());
+            Assertions.assertFalse(JUnitCheckState.isCompileCheckDisabled());
         } finally {
-            JUnitAnalyzer.resetMemoryExhaustion();
+            JUnitCheckState.resetForPhase();
         }
-        Assertions.assertFalse(JUnitAnalyzer.isMemoryExhaustedDuringCheck());
+        Assertions.assertFalse(JUnitCheckState.isMemoryExhausted());
     }
 
     @Test
@@ -467,7 +465,7 @@ public class JUnitAnalyzerTest {
             Assertions.assertTrue(outcome.isNotJudged());
             Assertions.assertEquals(JUnitAnalyzer.NotJudgedReason.OUT_OF_MEMORY, outcome.getNotJudgedReason());
         } finally {
-            JUnitAnalyzer.resetMemoryExhaustion();
+            JUnitCheckState.resetForPhase();
             FileUtils.deleteDirectory(dir);
         }
     }
@@ -756,25 +754,16 @@ public class JUnitAnalyzerTest {
 
     @Test
     public void testDisableCompileCheckDueToInfrastructureSetsRunWideFlag() throws Exception {
-        java.lang.reflect.Field disabledField = JUnitAnalyzer.class.getDeclaredField(
-                "COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE");
-        disabledField.setAccessible(true);
-        java.lang.reflect.Field loggedField = JUnitAnalyzer.class.getDeclaredField("COMPILE_CHECK_DISABLED_LOGGED");
-        loggedField.setAccessible(true);
-
-        boolean previousDisabled = disabledField.getBoolean(null);
-        boolean previousLogged = loggedField.getBoolean(null);
         try {
-            disabledField.setBoolean(null, false);
-            loggedField.setBoolean(null, false);
+            JUnitCheckState.resetAllForTests();
 
             Method disable = JUnitAnalyzer.class.getDeclaredMethod(
                     "disableCompileCheckDueToInfrastructure", Throwable.class, String.class);
             disable.setAccessible(true);
             disable.invoke(null, new RuntimeException("infra"), "");
 
-            Assertions.assertTrue(disabledField.getBoolean(null));
-            Assertions.assertFalse(loggedField.getBoolean(null));
+            Assertions.assertTrue(JUnitCheckState.isCompileCheckDisabled());
+            Assertions.assertFalse(JUnitCheckState.isCompileCheckDisabledLogged());
 
             List<ILoggingEvent> infrastructureErrors = eventsContaining(analyzerLogAppender,
                     Level.ERROR, "Javac infrastructure failure during compile check");
@@ -786,20 +775,12 @@ public class JUnitAnalyzerTest {
                     .stream().anyMatch(event -> event.getFormattedMessage()
                             .contains("compiler classpath used during failure analysis")));
         } finally {
-            disabledField.setBoolean(null, previousDisabled);
-            loggedField.setBoolean(null, previousLogged);
+            JUnitCheckState.resetAllForTests();
         }
     }
 
     @Test
     public void testSkippedCompileDependentExecutionIsLoggedOnceForADisabledCompileCheck() throws Exception {
-        java.lang.reflect.Field disabledField = JUnitAnalyzer.class.getDeclaredField(
-                "COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE");
-        disabledField.setAccessible(true);
-        java.lang.reflect.Field skippedLoggedField = JUnitAnalyzer.class.getDeclaredField(
-                "COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED");
-        skippedLoggedField.setAccessible(true);
-
         Method logSkipped = JUnitAnalyzer.class.getDeclaredMethod(
                 "logCompileDependentExecutionSkippedIfNeeded", JUnitAnalyzer.CompileOutcome.class);
         logSkipped.setAccessible(true);
@@ -808,17 +789,14 @@ public class JUnitAnalyzerTest {
         JUnitAnalyzer.CompileOutcome disabled =
                 JUnitAnalyzer.CompileOutcome.notJudged(JUnitAnalyzer.NotJudgedReason.COMPILE_CHECK_DISABLED);
 
-        boolean previousDisabled = disabledField.getBoolean(null);
-        boolean previousSkippedLogged = skippedLoggedField.getBoolean(null);
         try {
-            disabledField.setBoolean(null, false);
-            skippedLoggedField.setBoolean(null, false);
+            JUnitCheckState.resetAllForTests();
             logSkipped.invoke(null, outOfMemory);
-            Assertions.assertFalse(skippedLoggedField.getBoolean(null));
+            Assertions.assertFalse(JUnitCheckState.isCompileDependentExecutionSkippedLogged());
 
-            disabledField.setBoolean(null, true);
+            JUnitCheckState.disableCompileCheck();
             logSkipped.invoke(null, disabled);
-            Assertions.assertTrue(skippedLoggedField.getBoolean(null));
+            Assertions.assertTrue(JUnitCheckState.isCompileDependentExecutionSkippedLogged());
             logSkipped.invoke(null, disabled);
 
             List<ILoggingEvent> skipWarnings = eventsContaining(analyzerLogAppender,
@@ -826,8 +804,7 @@ public class JUnitAnalyzerTest {
             Assertions.assertEquals(1, skipWarnings.size());
             Assertions.assertNull(skipWarnings.get(0).getThrowableProxy());
         } finally {
-            disabledField.setBoolean(null, previousDisabled);
-            skippedLoggedField.setBoolean(null, previousSkippedLogged);
+            JUnitCheckState.resetAllForTests();
         }
     }
 
