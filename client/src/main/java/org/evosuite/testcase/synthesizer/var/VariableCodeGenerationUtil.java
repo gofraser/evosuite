@@ -640,8 +640,10 @@ public class VariableCodeGenerationUtil {
         if (receiverPosition < 0 || argumentPosition < 0) {
             return null;
         }
-        int insertionPosition = Math.max(receiverPosition, argumentPosition) + 1;
-        insertionPosition = Math.min(insertionPosition, target.getPosition());
+        int insertionPosition = ContainerSetup.insertionPosition(test);
+        if (Math.max(receiverPosition, argumentPosition) >= insertionPosition) {
+            return null;
+        }
         GenericMethod method = new GenericMethod(setter, receiver.getGenericClass());
         VariableReference result =
                 test.addStatement(

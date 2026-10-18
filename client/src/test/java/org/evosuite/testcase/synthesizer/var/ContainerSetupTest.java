@@ -756,8 +756,8 @@ public class ContainerSetupTest {
         assertEquals(lines(
                 "MembershipGroup membershipGroup0 = new MembershipGroup();",
                 "MembershipGroup.Member membershipGroup_Member0 = new MembershipGroup.Member();",
-                "membershipGroup0.add(membershipGroup_Member0);",
                 "String string0 = \"between\";",
+                "membershipGroup0.add(membershipGroup_Member0);",
                 "membershipGroup0.accepts(membershipGroup_Member0);"),
                 code(test));
     }
