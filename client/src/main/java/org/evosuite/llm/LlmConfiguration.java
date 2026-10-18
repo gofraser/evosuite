@@ -185,7 +185,7 @@ public class LlmConfiguration {
             case OPENAI:
                 return "gpt-4o";
             case ANTHROPIC:
-                return "claude-3-5-sonnet-latest";
+                return "claude-sonnet-5-5";
             case OLLAMA:
                 return "llama3.1";
             default:
