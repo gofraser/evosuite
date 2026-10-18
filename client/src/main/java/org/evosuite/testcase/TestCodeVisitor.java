@@ -2625,7 +2625,9 @@ public class TestCodeVisitor extends TestVisitor {
                 || test == null || source == null) {
             return false;
         }
-        int position = source.getStPosition();
+        // A value that only exists in the rendering (eg the null a pending mock stub is answered
+        // with) is defined by no statement and has no position; it is not a class literal.
+        int position = safePosition(source);
         if (position < 0 || position >= test.size()
                 || !(test.getStatement(position) instanceof ClassPrimitiveStatement)
                 || test.getStatement(position).getReturnValue() != source) {
@@ -3691,9 +3693,9 @@ public class TestCodeVisitor extends TestVisitor {
 
     /** See {@link #declaredReceiverType}: the type javac sees for a variable. */
     private Type declaredVariableType(TestCase testCase, VariableReference callee) {
-        if (testCase != null && callee.getStPosition() >= 0
-                && callee.getStPosition() < testCase.size()) {
-            Statement definition = testCase.getStatement(callee.getStPosition());
+        int calleePosition = testCase != null ? testCase.positionOfReturnValue(callee) : -1;
+        if (calleePosition >= 0) {
+            Statement definition = testCase.getStatement(calleePosition);
             if (definition instanceof ConstructorStatement
                     && definition.getReturnValue() == callee) {
                 GenericConstructor constructor = ((ConstructorStatement) definition).getConstructor();

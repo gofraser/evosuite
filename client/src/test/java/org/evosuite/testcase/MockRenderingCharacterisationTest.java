@@ -108,7 +108,16 @@ public class MockRenderingCharacterisationTest {
         T get();
     }
 
+    public interface ClassSource {
+        @SuppressWarnings("rawtypes")
+        Class type();
+    }
+
     public static class User {
+        public static Object useClassSource(ClassSource source) {
+            return source.type();
+        }
+
         public static String use(Service first, Service second) {
             return first.name() + second.name();
         }
@@ -459,5 +468,27 @@ public class MockRenderingCharacterisationTest {
         tc.getStatement(0).getCode();
 
         assertEquals(before, modelState(tc), "getCode() must not repair the mock it renders");
+    }
+
+    /**
+     * The null a pending stub is answered with is defined by no statement. A raw Class return
+     * type gives it the type the stub is declared with, which is what makes the renderer ask
+     * whether it is a class literal; that decision must not ask for its position.
+     */
+    @Test
+    public void pendingStubOfParameterizedClassTypeIsRenderedWithoutAStatementPosition() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        FunctionalMockStatement mock = new FunctionalMockStatement(tc, ClassSource.class,
+                GenericClassFactory.get(ClassSource.class));
+        VariableReference ref = tc.addStatement(mock);
+        call(tc, User.class, "useClassSource", new Class<?>[]{ClassSource.class}, ref);
+        TestCaseExecutor.runTest(tc);
+        assertTrue(mock.doesNeedToUpdateInputs(), "precondition: the mock still needs its inputs");
+        List<String> before = modelState(tc);
+
+        String code = render(tc);
+
+        assertTrue(code.contains("doReturn("), code);
+        assertEquals(before, modelState(tc), "rendering must not change the test");
     }
 }
