@@ -107,6 +107,16 @@ public class ContainerSetupTest {
         }
     }
 
+    public static class PackageMade {
+        PackageMade() {
+        }
+    }
+
+    public abstract static class Unfinished {
+        public Unfinished() {
+        }
+    }
+
     public static class Opaque {
         private Opaque() {
         }
@@ -219,6 +229,10 @@ public class ContainerSetupTest {
     private Map<String, Set<Integer>> integerSetMap;
     @SuppressWarnings("unused")
     private Map<String, Object> objectMap;
+    @SuppressWarnings("unused")
+    private Map<String, Map<String, Element>> nestedMap;
+    @SuppressWarnings("unused")
+    private Map<String, List<List<Element>>> deepMap;
     @SuppressWarnings("unused")
     private List<String> stringList;
     @SuppressWarnings("unused")
@@ -354,31 +368,48 @@ public class ContainerSetupTest {
     // Deterministic values
 
     @Test
-    public void deterministicElementPrefersConstructorThenFactory() throws Exception {
+    public void valueIsLiteralConstructorOrFactory() throws Exception {
         TestCase test = new DefaultTestCase();
-        VariableReference string = ContainerSetup.element(
-                test, GenericClassFactory.get(String.class), 0);
-        VariableReference object = ContainerSetup.element(
-                test, GenericClassFactory.get(Object.class), 1);
-        VariableReference element = ContainerSetup.element(
-                test, GenericClassFactory.get(Element.class), 2);
-        VariableReference maker = ContainerSetup.element(
-                test, GenericClassFactory.get(Maker.class), 3);
-        VariableReference opaque = ContainerSetup.element(
-                test, GenericClassFactory.get(Opaque.class), 4);
-        VariableReference integer = ContainerSetup.element(
-                test, GenericClassFactory.get(Integer.class), 5);
+        VariableReference string = ContainerSetup.value(
+                test, GenericClassFactory.get(String.class), true, 0);
+        VariableReference object = ContainerSetup.value(
+                test, GenericClassFactory.get(Object.class), true, 1);
+        VariableReference element = ContainerSetup.value(
+                test, GenericClassFactory.get(Element.class), true, 2);
+        VariableReference maker = ContainerSetup.value(
+                test, GenericClassFactory.get(Maker.class), true, 3);
+        VariableReference opaque = ContainerSetup.value(
+                test, GenericClassFactory.get(Opaque.class), true, 4);
+        VariableReference integer = ContainerSetup.value(
+                test, GenericClassFactory.get(Integer.class), true, 5);
+        VariableReference packageMade = ContainerSetup.value(
+                test, GenericClassFactory.get(PackageMade.class), true, test.size());
+        VariableReference unfinished = ContainerSetup.value(
+                test, GenericClassFactory.get(Unfinished.class), true, test.size());
+        VariableReference list = ContainerSetup.value(
+                test, GenericClassFactory.get(List.class), true, test.size());
+        VariableReference map = ContainerSetup.value(
+                test, GenericClassFactory.get(Map.class), true, test.size());
         assertNotNull(string);
         assertNotNull(object);
         assertNotNull(element);
         assertNotNull(maker);
         assertNull(opaque);
         assertNull(integer);
+        assertNotNull(packageMade);
+        assertNull(unfinished);
+        assertNotNull(list);
+        assertNotNull(map);
         assertEquals(lines(
                 "String string0 = \"value\";",
                 "String string1 = \"value\";",
                 "ContainerSetupTest.Element containerSetupTest_Element0 = new ContainerSetupTest.Element();",
-                "ContainerSetupTest.Maker.another();"),
+                "ContainerSetupTest.Maker.another();",
+                "ContainerSetupTest.PackageMade containerSetupTest_PackageMade0 = new ContainerSetupTest.PackageMade();",
+                "ArrayList arrayList0 = new ArrayList<>();",
+                "String string2 = \"value\";",
+                "((Collection)arrayList0).add((Object) string2);",
+                "LinkedHashMap linkedHashMap0 = new LinkedHashMap<>();"),
                 code(test));
     }
 
@@ -397,6 +428,10 @@ public class ContainerSetupTest {
         ContainerSetup.containerValue(test, makerMap, true, test.size());
         VariableReference opaqueMap = construct(test, concrete(LinkedHashMap.class, "opaqueListMap"));
         ContainerSetup.containerValue(test, opaqueMap, true, test.size());
+        VariableReference nestedMap = construct(test, concrete(LinkedHashMap.class, "nestedMap"));
+        ContainerSetup.containerValue(test, nestedMap, true, test.size());
+        VariableReference deepMap = construct(test, concrete(LinkedHashMap.class, "deepMap"));
+        ContainerSetup.containerValue(test, deepMap, true, test.size());
         assertEquals(lines(
                 "LinkedHashMap<String, List<ContainerSetupTest.Element>> linkedHashMap0 = new LinkedHashMap<String, List<ContainerSetupTest.Element>>();",
                 "ArrayList arrayList0 = new ArrayList<>();",
@@ -413,7 +448,15 @@ public class ContainerSetupTest {
                 "ContainerSetupTest.Maker containerSetupTest_Maker0 = ContainerSetupTest.Maker.another();",
                 "((Collection)arrayList1).add((Object) containerSetupTest_Maker0);",
                 "LinkedHashMap<String, List<ContainerSetupTest.Opaque>> linkedHashMap5 = new LinkedHashMap<String, List<ContainerSetupTest.Opaque>>();",
-                "ArrayList arrayList2 = new ArrayList<>();"),
+                "ArrayList arrayList2 = new ArrayList<>();",
+                "LinkedHashMap<String, Map<String, ContainerSetupTest.Element>> linkedHashMap6 = new LinkedHashMap<String, Map<String, ContainerSetupTest.Element>>();",
+                "LinkedHashMap linkedHashMap7 = new LinkedHashMap<>();",
+                "LinkedHashMap<String, List<List<ContainerSetupTest.Element>>> linkedHashMap8 = new LinkedHashMap<String, List<List<ContainerSetupTest.Element>>>();",
+                "ArrayList arrayList3 = new ArrayList<>();",
+                "ArrayList arrayList4 = new ArrayList<>();",
+                "((Collection)arrayList3).add((Object) arrayList4);",
+                "ContainerSetupTest.Element containerSetupTest_Element1 = new ContainerSetupTest.Element();",
+                "((Collection)arrayList4).add((Object) containerSetupTest_Element1);"),
                 code(test));
     }
 
@@ -434,8 +477,8 @@ public class ContainerSetupTest {
                 "String string1 = \"value\";",
                 "linkedHashMap0.put(string0, string1);",
                 "ArrayList<ContainerSetupTest.Element> arrayList0 = new ArrayList<ContainerSetupTest.Element>();",
-                "ContainerSetupTest.Element nullRef0 = null;",
-                "arrayList0.add((ContainerSetupTest.Element) null);"),
+                "ContainerSetupTest.Element containerSetupTest_Element0 = new ContainerSetupTest.Element();",
+                "arrayList0.add(containerSetupTest_Element0);"),
                 code(test));
     }
 
@@ -484,10 +527,10 @@ public class ContainerSetupTest {
                 "String string2 = \"value\";",
                 "String string3 = \"value\";",
                 "ArrayList arrayList0 = new ArrayList<>();",
-                "List nullRef0 = null;",
-                "Integer nullRef1 = null;",
+                "ArrayList arrayList1 = new ArrayList<>();",
+                "Integer nullRef0 = null;",
                 "ContainerSetupTest.Element containerSetupTest_Element0 = new ContainerSetupTest.Element();",
-                "ContainerSetupTest.Opaque nullRef2 = null;"),
+                "ContainerSetupTest.Opaque nullRef1 = null;"),
                 code(test));
     }
 
@@ -628,8 +671,8 @@ public class ContainerSetupTest {
                 "HashSet hashSet0 = new HashSet<>();",
                 "String string0 = \"value\";",
                 "arrayList0.add(string0);",
-                "ContainerSetupTest.Element nullRef0 = null;",
-                "arrayList1.add((ContainerSetupTest.Element) null);",
+                "ContainerSetupTest.Element containerSetupTest_Element0 = new ContainerSetupTest.Element();",
+                "arrayList1.add(containerSetupTest_Element0);",
                 "String string1 = \"value\";",
                 "((AbstractCollection) containerSetupTest_NameBag0).add((Object) string1);",
                 "String string2 = \"value\";",

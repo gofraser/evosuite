@@ -180,78 +180,102 @@ final class ContainerSetup {
                 genericIndex < parameters.size()
                         ? parameters.get(genericIndex)
                         : GenericClassFactory.get(Object.class);
-        Class<?> requested = requestedType.getRawClass();
-        if (requested == null || requested == Object.class || requested == String.class) {
+        return valueOrNull(test, requestedType, true, position);
+    }
+
+    /**
+     * A value of the given type that needs no search, or a typed null when there is none. A typed
+     * null still establishes cardinality and is safer than recursively generating an arbitrary
+     * graph.
+     */
+    private static VariableReference valueOrNull(
+            TestCase test, GenericClass<?> type, boolean withElement, int position)
+            throws Exception {
+        VariableReference value = value(test, type, withElement, position);
+        return value != null
+                ? value
+                : test.addStatement(new NullStatement(test, type.getRawClass()), position);
+    }
+
+    /**
+     * A value of the given type that needs no search: the {@code "value"} literal for strings and
+     * objects, an empty collection or map, an instance created by a no-argument constructor, or
+     * the first static no-argument factory by signature. Null when the type offers none of these.
+     *
+     * @param withElement whether a collection also receives one element of its type argument
+     */
+    static VariableReference value(
+            TestCase test, GenericClass<?> type, boolean withElement, int position)
+            throws Exception {
+        Class<?> raw = type.getRawClass();
+        if (raw == null || raw == Object.class || raw == String.class) {
             return stringLiteral(test, VALUE, position);
         }
-        if (java.util.Collection.class.isAssignableFrom(requested) || requested == Iterable.class) {
-            Class<?> concrete = concreteContainerClass(requested);
-            Constructor<?> constructor = concrete.getConstructor();
-            VariableReference collection =
-                    test.addStatement(
-                            new ConstructorStatement(
-                                    test,
-                                    new GenericConstructor(constructor, concrete),
-                                    Collections.emptyList()),
-                            position);
-            List<GenericClass<?>> elementTypes = requestedType.getParameterClasses();
-            if (!elementTypes.isEmpty()) {
-                VariableReference element = element(test, elementTypes.get(0), position + 1);
+        boolean collection = java.util.Collection.class.isAssignableFrom(raw) || raw == Iterable.class;
+        if (collection || java.util.Map.class.isAssignableFrom(raw)) {
+            VariableReference container = newInstance(test, concreteContainerClass(raw), position);
+            List<GenericClass<?>> elementTypes = type.getParameterClasses();
+            if (container != null && collection && withElement && !elementTypes.isEmpty()) {
+                VariableReference element = value(test, elementTypes.get(0), true, position + 1);
                 if (element != null) {
                     Method add = java.util.Collection.class.getMethod("add", Object.class);
                     test.addStatement(
                             new MethodStatement(
                                     test,
-                                    new GenericMethod(add, collection.getGenericClass()),
-                                    collection,
+                                    new GenericMethod(add, container.getGenericClass()),
+                                    container,
                                     Collections.singletonList(element)),
-                            position + 2);
+                            element.getStPosition() + 1);
                 }
             }
-            return collection;
+            return container;
         }
-        // A typed null still establishes cardinality and is safer than recursively generating an
-        // arbitrary graph. Object-typed collections use the non-null String path above.
-        return test.addStatement(new NullStatement(test, requested), position);
+        VariableReference instance = newInstance(test, raw, position);
+        return instance != null ? instance : staticFactoryResult(test, raw, position);
     }
 
-    static VariableReference element(TestCase test, GenericClass<?> elementType, int position)
-            throws Exception {
-        Class<?> requested = elementType.getRawClass();
-        if (requested == Object.class || requested == String.class) {
-            return stringLiteral(test, VALUE, position);
+    /** An instance of {@code type} created by a no-argument constructor a test can call. */
+    private static VariableReference newInstance(TestCase test, Class<?> type, int position) {
+        if (type.isInterface() || Modifier.isAbstract(type.getModifiers())) {
+            return null;
         }
-        try {
-            Constructor<?> constructor = requested.getConstructor();
-            return test.addStatement(
-                    new ConstructorStatement(
-                            test,
-                            new GenericConstructor(constructor, requested),
-                            Collections.emptyList()),
-                    position);
-        } catch (NoSuchMethodException ignored) {
-            // Prefer a stable no-argument value factory over recursive arbitrary generation.
+        for (Constructor<?> constructor : type.getDeclaredConstructors()) {
+            if (constructor.getParameterCount() == 0
+                    && TestUsageChecker.isSynthesisCallable(constructor)) {
+                return test.addStatement(
+                        new ConstructorStatement(
+                                test,
+                                new GenericConstructor(constructor, type),
+                                Collections.emptyList()),
+                        position);
+            }
         }
+        return null;
+    }
+
+    /** The result of the first public static no-argument method of {@code type} that returns it. */
+    private static VariableReference staticFactoryResult(
+            TestCase test, Class<?> type, int position) {
         List<Method> factories = new ArrayList<>();
-        for (Method method : requested.getMethods()) {
+        for (Method method : type.getMethods()) {
             if (Modifier.isStatic(method.getModifiers())
                     && method.getParameterCount() == 0
-                    && requested.isAssignableFrom(method.getReturnType())) {
+                    && type.isAssignableFrom(method.getReturnType())) {
                 factories.add(method);
             }
         }
         factories.sort((left, right) -> left.toGenericString().compareTo(right.toGenericString()));
-        if (!factories.isEmpty()) {
-            Method factory = factories.get(0);
-            return test.addStatement(
-                    new MethodStatement(
-                            test,
-                            new GenericMethod(factory, factory.getDeclaringClass()),
-                            null,
-                            Collections.emptyList()),
-                    position);
+        if (factories.isEmpty()) {
+            return null;
         }
-        return null;
+        Method factory = factories.get(0);
+        return test.addStatement(
+                new MethodStatement(
+                        test,
+                        new GenericMethod(factory, factory.getDeclaringClass()),
+                        null,
+                        Collections.emptyList()),
+                position);
     }
 
     /** Make the key of an existing {@code put} a string literal inserted just before the call. */
@@ -297,23 +321,7 @@ final class ContainerSetup {
                 parameter.isAssignableFrom(receiver.getVariableClass())
                         ? receiver.getVariableClass()
                         : parameter;
-        if (concrete.isInterface() || Modifier.isAbstract(concrete.getModifiers())) {
-            return null;
-        }
-        try {
-            Constructor<?> constructor = concrete.getDeclaredConstructor();
-            if (Modifier.isPrivate(constructor.getModifiers())) {
-                return null;
-            }
-            return test.addStatement(
-                    new ConstructorStatement(
-                            test,
-                            new GenericConstructor(constructor, concrete),
-                            Collections.emptyList()),
-                    position);
-        } catch (NoSuchMethodException failure) {
-            return null;
-        }
+        return newInstance(test, concrete, position);
     }
 
     /**
@@ -322,25 +330,8 @@ final class ContainerSetup {
      */
     static VariableReference observedMapValue(TestCase test, Class<?> inferred, int position)
             throws Exception {
-        if (inferred == null || inferred == Object.class || inferred == String.class) {
-            return stringLiteral(test, VALUE, position);
-        }
-        if (!inferred.isInterface() && !Modifier.isAbstract(inferred.getModifiers())) {
-            Constructor<?> constructor = null;
-            try {
-                constructor = inferred.getConstructor();
-            } catch (NoSuchMethodException ignored) {
-                // Fall through to a typed null; it preserves the key branch without a random tree.
-            }
-            if (constructor != null) {
-                return test.addStatement(
-                        new ConstructorStatement(
-                                test,
-                                new GenericConstructor(constructor, inferred),
-                                Collections.emptyList()),
-                        position);
-            }
-        }
-        return test.addStatement(new NullStatement(test, inferred), position);
+        return inferred == null
+                ? stringLiteral(test, VALUE, position)
+                : valueOrNull(test, GenericClassFactory.get(inferred), false, position);
     }
 }
