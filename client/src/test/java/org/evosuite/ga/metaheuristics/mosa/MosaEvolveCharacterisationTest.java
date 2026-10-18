@@ -122,6 +122,19 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
         return c;
     }
 
+    /** Marks every third offspring as a member of an injected lineage, when lineage elitism is tested. */
+    private static boolean tagLineages;
+
+    private static void tagLineages(List<TestChromosome> offspring, int iteration) {
+        if (!tagLineages) {
+            return;
+        }
+        for (int i = 0; i < offspring.size(); i += 3) {
+            offspring.get(i).setInjectionLineageId(1000L * (iteration + 1) + i);
+            offspring.get(i).setInjectionGeneration(iteration);
+        }
+    }
+
     private static List<Goal> goals(int n) {
         List<Goal> goals = new ArrayList<>();
         for (int i = 0; i < n; i++) {
@@ -175,6 +188,7 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
             for (int i = 0; i < population.size(); i++) {
                 offspring.add(chromosome("g" + generation + "o" + i, allGoals));
             }
+            tagLineages(offspring, currentIteration);
             return offspring;
         }
 
@@ -226,6 +240,7 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
             for (int i = 0; i < population.size(); i++) {
                 offspring.add(chromosome("g" + generation + "o" + i, allGoals));
             }
+            tagLineages(offspring, currentIteration);
             return offspring;
         }
 
@@ -259,6 +274,7 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
     private static Harness newHarness(boolean dynamosa, int goalCount, int population) {
         nextId = 0;
         LABELS.clear();
+        tagLineages = false;
         Properties.POPULATION = population;
         Randomness.setSeed(42L);
         return dynamosa
@@ -279,6 +295,19 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
 
     private static String state(Harness harness) {
         return "pop=[" + labels(harness.currentPopulation()) + "] front0=[" + labels(harness.front0()) + "]";
+    }
+
+    /**
+     * The state after each generation, and the next value of the seeded generator: it differs as
+     * soon as a generation draws a different number of random values.
+     */
+    private static String trace(Harness harness, int generations) {
+        StringBuilder sb = new StringBuilder();
+        for (int g = 0; g < generations; g++) {
+            harness.step();
+            sb.append(g == 0 ? "" : "; ").append(state(harness));
+        }
+        return sb.append("; next=").append(Randomness.nextDouble()).toString();
     }
 
     @BeforeEach
@@ -431,5 +460,97 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
 
         assertEquals(mosaState, state(dyna));
         assertEquals(6, dyna.currentPopulation().size());
+    }
+
+    // ------------------------------------------------------------------ order and random draws
+
+    private static void withSpeciation() {
+        Properties.SPECIATION_ENABLED = true;
+    }
+
+    private static void withLineageElitism() {
+        Properties.LLM_LINEAGE_ELITISM_GENERATIONS = 3;
+        Properties.LLM_LINEAGE_ELITISM_MAX_FRACTION = 0.5;
+    }
+
+    /** Speciation off, no external candidates, no lineage elitism: the default configuration. */
+    @Test
+    void mosaDefaultPinsOrderAndRandomDraws() {
+        assertEquals("pop=[g1o3 g1o0 p1 g1o4 g1o2 p3] front0=[g1o3 g1o0 p1 g1o4 g1o2 p3 p0]"
+                + "; pop=[g1o3 g1o0 p1 g1o4 g2o0 p3] front0=[g1o3 g1o0 p1 g1o4 g2o0 p3]"
+                + "; pop=[g1o3 g3o5 p1 g1o4 g3o0 p3] front0=[g1o3 g3o5 p1 g1o4 g3o0 p3 g3o3]"
+                + "; next=0.6331014512286649", trace(newHarness(false, 8, 6), 3));
+    }
+
+    @Test
+    void dynaMosaDefaultPinsOrderAndRandomDraws() {
+        assertEquals("pop=[g1o3 g1o0 p1 g1o4 g1o2 p3 p0] front0=[g1o3 g1o0 p1 g1o4 g1o2 p3 p0]"
+                + "; pop=[g1o3 g2o6 p1 g1o4 g2o0 p3 p0] front0=[g1o3 g2o6 p1 g1o4 g2o0 p3 p0]"
+                + "; pop=[g1o3 g2o6 p1 g1o4 g2o0 p3 p0] front0=[g1o3 g2o6 p1 g1o4 g2o0 p3 p0]"
+                + "; next=0.2839209759355791", trace(newHarness(true, 8, 6), 3));
+    }
+
+    @Test
+    void mosaSpeciationPinsOrderAndRandomDraws() {
+        withSpeciation();
+        assertEquals("pop=[g1o0 g1o2 p1 p2 p0 p3] front0=[g1o0 g1o2 p1 p2 p0 p3]"
+                + "; pop=[g2o1 g1o2 p1 g2o2 g2o4 p3 p0] front0=[g2o1 g1o2 p1 g2o2 g2o4 p3 p0]"
+                + "; pop=[g2o1 g1o2 p1 g2o2 g3o4 g3o1 p0] front0=[g2o1 g1o2 p1 g2o2 g3o4 g3o1 p0]"
+                + "; next=0.5908929456168249", trace(newHarness(false, 8, 4), 3));
+    }
+
+    @Test
+    void dynaMosaSpeciationPinsOrderAndRandomDraws() {
+        withSpeciation();
+        assertEquals("pop=[g1o0 g1o2 p1 p2 p0 p3] front0=[g1o0 g1o2 p1 p2 p0 p3]"
+                + "; pop=[g2o1 g1o2 p1 g2o2 g2o4 p3 p0] front0=[g2o1 g1o2 p1 g2o2 g2o4 p3 p0]"
+                + "; pop=[g2o1 g1o2 p1 g2o2 g3o4 g3o1 p0] front0=[g2o1 g1o2 p1 g2o2 g3o4 g3o1 p0]"
+                + "; next=0.5908929456168249", trace(newHarness(true, 8, 4), 3));
+    }
+
+    @Test
+    void mosaLineageElitismPinsOrderAndRandomDraws() {
+        withLineageElitism();
+        Harness mosa = newHarness(false, 3, 6);
+        tagLineages = true;
+        assertEquals("pop=[p2 p3 g1o3 g1o0 g1o1 g1o4] front0=[p2 p3 g1o3]"
+                + "; pop=[g2o2 p3 g1o3 g2o3 g1o4 g2o0] front0=[g2o2 p3 g1o3]"
+                + "; pop=[g2o2 p3 g1o3 g3o0 g3o3 g3o4] front0=[g2o2 p3 g1o3]"
+                + "; next=0.005522117228505263", trace(mosa, 3));
+    }
+
+    @Test
+    void dynaMosaLineageElitismPinsOrderAndRandomDraws() {
+        withLineageElitism();
+        Harness dyna = newHarness(true, 3, 6);
+        tagLineages = true;
+        assertEquals("pop=[p2 p3 g1o3 g1o0 g1o1 g1o4] front0=[p2 p3 g1o3]"
+                + "; pop=[g2o2 p3 g1o3 g2o3 g1o4 g2o0] front0=[g2o2 p3 g1o3]"
+                + "; pop=[g2o2 p3 g1o3 g3o0 g3o3 g3o4] front0=[g2o2 p3 g1o3]"
+                + "; next=0.005522117228505263", trace(dyna, 3));
+    }
+
+    @Test
+    void mosaSpeciationWithLineageElitismPinsOrderAndRandomDraws() {
+        withSpeciation();
+        withLineageElitism();
+        Harness mosa = newHarness(false, 3, 4);
+        tagLineages = true;
+        assertEquals("pop=[p2 p3 p1 g1o0] front0=[p2 p3 p1]"
+                + "; pop=[p2 p3 g2o1 g2o0] front0=[p2 p3 g2o1]"
+                + "; pop=[g3o2 p3 g2o1 g3o0] front0=[g3o2 p3 g2o1]"
+                + "; next=0.5467102761223961", trace(mosa, 3));
+    }
+
+    @Test
+    void dynaMosaSpeciationWithLineageElitismPinsOrderAndRandomDraws() {
+        withSpeciation();
+        withLineageElitism();
+        Harness dyna = newHarness(true, 3, 4);
+        tagLineages = true;
+        assertEquals("pop=[p2 p3 p1 g1o0] front0=[p2 p3 p1]"
+                + "; pop=[p2 p3 g2o1 g2o0] front0=[p2 p3 g2o1]"
+                + "; pop=[g3o2 p3 g2o1 g3o0] front0=[g3o2 p3 g2o1]"
+                + "; next=0.5467102761223961", trace(dyna, 3));
     }
 }
