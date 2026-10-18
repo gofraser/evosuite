@@ -40,4 +40,5 @@
     <suppress checks="PackageName" files="org[\\/]evosuite[\\/]symbolic[\\/]expr[\\/].*"/>
 
     <suppress id="gentyrefExactSuperType" files="org[\\/]evosuite[\\/]utils[\\/]generic[\\/]GenericUtils\.java"/>
+    <suppress id="gentyrefIsSuperType" files="org[\\/]evosuite[\\/]utils[\\/]generic[\\/]GenericUtils\.java"/>
 </suppressions>

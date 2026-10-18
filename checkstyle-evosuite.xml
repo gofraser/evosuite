@@ -333,5 +333,15 @@
             <property name="message"
                       value="Use GenericUtils.getExactSuperType: gentyref erases the supertypes of static nested classes of generic classes."/>
         </module>
+        <!-- gentyref throws on generic arrays without a component type. GenericUtils.isSuperType
+             answers false for those and is the only caller. -->
+        <module name="RegexpSinglelineJava">
+            <property name="id" value="gentyrefIsSuperType"/>
+            <property name="severity" value="error"/>
+            <property name="format" value="GenericTypeReflector\s*(\.|::)\s*isSuperType\b"/>
+            <property name="ignoreComments" value="true"/>
+            <property name="message"
+                      value="Use GenericUtils.isSuperType: gentyref throws on malformed generic arrays."/>
+        </module>
     </module>
 </module>

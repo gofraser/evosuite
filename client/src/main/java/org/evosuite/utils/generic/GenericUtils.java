@@ -19,6 +19,7 @@
  */
 package org.evosuite.utils.generic;
 
+import com.googlecode.gentyref.CaptureType;
 import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
@@ -29,9 +30,11 @@ import org.slf4j.LoggerFactory;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -544,5 +547,81 @@ public class GenericUtils {
             }
         }
         return TypeUtils.parameterize(searchClass, arguments);
+    }
+
+    /**
+     * {@link GenericTypeReflector#isSuperType}, answering false for a type that gentyref cannot
+     * walk: a generic array without a component type, or a type whose resolution fails with a
+     * {@link NullPointerException}.
+     */
+    public static boolean isSuperType(Type type, Type subType) {
+        if (hasNullGenericArrayComponent(type) || hasNullGenericArrayComponent(subType)) {
+            logger.debug("Cannot compare malformed generic array type {} with {}", type, subType);
+            return false;
+        }
+        try {
+            return GenericTypeReflector.isSuperType(type, subType);
+        } catch (NullPointerException e) {
+            logger.debug("Cannot compare malformed generic type {} with {}", type, subType, e);
+            return false;
+        }
+    }
+
+    static boolean hasNullGenericArrayComponent(Type type) {
+        if (type == null || type instanceof Class) {
+            return false;
+        }
+        return hasNullGenericArrayComponent(type, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    private static boolean hasNullGenericArrayComponent(Type type, Set<Type> visited) {
+        if (type == null || !visited.add(type)) {
+            return false;
+        }
+        if (type instanceof GenericArrayType) {
+            Type componentType = ((GenericArrayType) type).getGenericComponentType();
+            return componentType == null || hasNullGenericArrayComponent(componentType, visited);
+        } else if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            if (hasNullGenericArrayComponent(parameterizedType.getOwnerType(), visited)) {
+                return true;
+            }
+            for (Type argument : parameterizedType.getActualTypeArguments()) {
+                if (hasNullGenericArrayComponent(argument, visited)) {
+                    return true;
+                }
+            }
+        } else if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            for (Type bound : wildcardType.getUpperBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+            for (Type bound : wildcardType.getLowerBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+        } else if (type instanceof TypeVariable) {
+            for (Type bound : ((TypeVariable<?>) type).getBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+        } else if (type instanceof CaptureType) {
+            CaptureType captureType = (CaptureType) type;
+            for (Type bound : captureType.getUpperBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+            for (Type bound : captureType.getLowerBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

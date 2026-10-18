@@ -209,7 +209,7 @@ public class GenericTypeInference extends TestVisitor {
                             + Arrays.asList(typeVar.getBounds()) + " and current type "
                             + currentType + " from " + actualType);
                     logger.info(""
-                            + GenericTypeReflector.isSuperType(currentType, actualType));
+                            + GenericUtils.isSuperType(currentType, actualType));
                     logger.info("" + TypeUtils.isAssignable(actualType, typeVar));
                 }
             } else {
