@@ -19,13 +19,13 @@
  */
 package org.evosuite.llm.factory;
 
+import org.evosuite.llm.response.GeneratedTestRequest;
 import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
-import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmWaitBudget;
@@ -260,18 +260,19 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         }
         PromptResult prompt = buildPrompt();
         try {
-            String response = llmService.query(LlmRequest.of(prompt, LlmFeature.SEEDING)
-                    .withDeadlineNanos(repairDeadlineNanos)).getText();
-            if (!acceptingSeeds.get() || Thread.currentThread().isInterrupted()) {
+            GeneratedTestRequest.Outcome outcome = GeneratedTestRequest.of(prompt, LlmFeature.SEEDING)
+                    .withDeadlineNanos(repairDeadlineNanos)
+                    .onSalvagedTests(this::publishPartialSeeds)
+                    .parseOnlyIf(() -> acceptingSeeds.get() && !Thread.currentThread().isInterrupted())
+                    .send(llmService, () -> TestRepairLoop.createDefault(llmService,
+                            TestRepairLoop.RepairOptions.forAssertionPolicy(
+                                    LlmAssertionPolicyResolver.keepAssertions(llmStrategyContext))));
+            outcome.rethrowFailure();
+            if (outcome.getStatus() == GeneratedTestRequest.Outcome.Status.ABANDONED) {
                 LoggingUtils.getEvoLogger().info("* LLM seeding interrupted after LLM query");
                 return Collections.emptyList();
             }
-            RepairResult repairResult = org.evosuite.llm.response.TestRepairLoop
-                    .createDefault(llmService,
-                            TestRepairLoop.RepairOptions.forAssertionPolicy(
-                                    LlmAssertionPolicyResolver.keepAssertions(llmStrategyContext)))
-                    .attemptParse(response, prompt, LlmFeature.SEEDING,
-                            repairDeadlineNanos, this::publishPartialSeeds);
+            RepairResult repairResult = outcome.getResult();
             if (!acceptingSeeds.get() || Thread.currentThread().isInterrupted()) {
                 return Collections.emptyList();
             }
