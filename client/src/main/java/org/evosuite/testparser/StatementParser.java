@@ -33,10 +33,7 @@ import com.github.javaparser.ast.stmt.AssertStmt;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
-import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.TryStmt;
-import com.github.javaparser.ast.visitor.ModifierVisitor;
-import com.github.javaparser.ast.visitor.Visitable;
 import org.evosuite.Properties;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestClusterUtils;
@@ -106,6 +103,7 @@ public class StatementParser {
     private final Map<VariableReference, String> downgradedDeclaredTypeNames = new IdentityHashMap<>();
     private final MockitoPatternParser mockitoPatternParser;
     private final LegacyHelperRewriter legacyHelpers;
+    private final HelperInliner helperInliner;
 
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
     private int syntheticVarCounter = 0;
@@ -153,6 +151,7 @@ public class StatementParser {
                 testCase, typeResolver, scope, result, this);
         this.mockitoPatternParser = new MockitoPatternParser(
                 testCase, typeResolver, scope, result, this);
+        this.helperInliner = new HelperInliner(this, testCase, scope, inlineHelperMethods);
         this.legacyHelpers = new LegacyHelperRewriter(
                 this, testCase, typeResolver, scope, overloadResolver);
     }
@@ -256,7 +255,7 @@ public class StatementParser {
             int line = astStmt.getBegin().map(p -> p.line).orElse(0);
             com.github.javaparser.ast.stmt.Statement preserved = astStmt;
             if (bestEffort) {
-                preserved = inlineHelperCallsInUnsupportedStatement(astStmt);
+                preserved = helperInliner.inlineHelperCallsInUnsupportedStatement(astStmt);
                 if (shouldDropUnsupportedStatement(preserved)) {
                     return 1;
                 }
@@ -1321,18 +1320,18 @@ public class StatementParser {
                 } else {
                     if (bestEffort) {
                         MethodDeclaration inlineHelper = inlineHelperMethods.get(
-                                inlineHelperKey(methodName, expr.getArguments().size()));
+                                HelperInliner.inlineHelperKey(methodName, expr.getArguments().size()));
                         if (inlineHelper != null) {
                             Expression inlinedReturn =
-                                    instantiateInlineHelperReturn(inlineHelper, expr.getArguments(), expr);
+                                    helperInliner.instantiateInlineHelperReturn(inlineHelper, expr.getArguments(), expr);
                             if (inlinedReturn != null) {
                                 Type helperType = (declaredType == null) ? Object.class : declaredType;
                                 return handleExpression("__inlinedHelper" + syntheticVarCounter++,
                                         inlinedReturn, helperType);
                             }
                             Expression inlinedSideEffect =
-                                    instantiateInlineHelperExpression(inlineHelper, expr.getArguments(), expr);
-                            if (inlinedSideEffect != null && isVoidContext(declaredType, targetVarName)) {
+                                    helperInliner.instantiateInlineHelperExpression(inlineHelper, expr.getArguments(), expr);
+                            if (inlinedSideEffect != null && HelperInliner.isVoidContext(declaredType, targetVarName)) {
                                 handleExpressionStatement(inlinedSideEffect);
                                 return null;
                             }
@@ -1670,243 +1669,13 @@ public class StatementParser {
         return failOrFallback(expr, declaredType, knownType, diagnostic);
     }
 
-    private void rollbackTemporaryStatements(int checkpointSize) {
+    void rollbackTemporaryStatements(int checkpointSize) {
         if (checkpointSize < 0) {
             return;
         }
         if (testCase.size() > checkpointSize) {
             testCase.chop(checkpointSize);
         }
-    }
-
-    private static String inlineHelperKey(String methodName, int arity) {
-        return methodName + "#" + arity;
-    }
-
-    private boolean isVoidContext(Type declaredType, String targetVarName) {
-        if (targetVarName == null) {
-            return true;
-        }
-        if (!(declaredType instanceof Class<?>)) {
-            return false;
-        }
-        Class<?> raw = (Class<?>) declaredType;
-        return raw == void.class || raw == Void.class || raw == Void.TYPE;
-    }
-
-    private Expression instantiateInlineHelperReturn(MethodDeclaration helper,
-                                                     List<Expression> callArgs,
-                                                     Expression callSite) {
-        if (!helper.getBody().isPresent()) {
-            return null;
-        }
-        List<com.github.javaparser.ast.stmt.Statement> statements = helper.getBody().get().getStatements();
-        if (statements.isEmpty()) {
-            return null;
-        }
-        com.github.javaparser.ast.stmt.Statement terminal = statements.get(statements.size() - 1);
-        if (!(terminal instanceof ReturnStmt)) {
-            return null;
-        }
-        ReturnStmt returnStmt = (ReturnStmt) terminal;
-        if (!returnStmt.getExpression().isPresent()) {
-            return null;
-        }
-        return materializeInlineHelperBody(helper, statements, callArgs, callSite,
-                returnStmt.getExpression().get());
-    }
-
-    private Expression instantiateInlineHelperExpression(MethodDeclaration helper,
-                                                         List<Expression> callArgs,
-                                                         Expression callSite) {
-        if (!helper.getBody().isPresent()) {
-            return null;
-        }
-        List<com.github.javaparser.ast.stmt.Statement> statements = helper.getBody().get().getStatements();
-        if (statements.isEmpty()) {
-            return null;
-        }
-        com.github.javaparser.ast.stmt.Statement terminal = statements.get(statements.size() - 1);
-        if (!(terminal instanceof ExpressionStmt)) {
-            return null;
-        }
-        return materializeInlineHelperBody(helper, statements, callArgs, callSite,
-                ((ExpressionStmt) terminal).getExpression());
-    }
-
-    /**
-     * Materializes a (possibly multi-statement) helper body at the call site.
-     * Preamble statements (everything before the terminal) are emitted into
-     * the test case via {@link #parseStatement} after locals are renamed to
-     * avoid collisions and the helper parameter (if any) is substituted with
-     * the actual call argument. Returns the rewritten terminal expression for
-     * the caller to plug in (typed-null fallback if anything fails, with
-     * preamble emissions rolled back).
-     */
-    private Expression materializeInlineHelperBody(MethodDeclaration helper,
-                                                   List<com.github.javaparser.ast.stmt.Statement> statements,
-                                                   List<Expression> callArgs,
-                                                   Expression callSite,
-                                                   Expression terminalExpression) {
-        Map<String, Expression> paramSub = buildHelperParamSubstitution(helper, callArgs);
-        if (paramSub == null) {
-            return null;
-        }
-        int preambleCount = statements.size() - 1;
-        int checkpoint = testCase.size();
-        try {
-            Map<String, String> localRename = buildHelperLocalRenameMap(
-                    statements, preambleCount, helper.getNameAsString());
-            for (int i = 0; i < preambleCount; i++) {
-                com.github.javaparser.ast.stmt.Statement preamble = statements.get(i);
-                com.github.javaparser.ast.stmt.Statement rewritten =
-                        rewriteHelperStatement(preamble, localRename, paramSub, callSite);
-                parseStatement(rewritten);
-            }
-            Expression terminal = copySyntheticRange(terminalExpression.clone(), callSite);
-            Expression rewrittenTerminal = rewriteHelperExpression(terminal, localRename, paramSub);
-            return copySyntheticRange(rewrittenTerminal, callSite);
-        } catch (Throwable t) {
-            logger.debug("Failed to materialize multi-statement inline helper {}: {}",
-                    helper.getNameAsString(), t.getMessage());
-            rollbackTemporaryStatements(checkpoint);
-            return null;
-        }
-    }
-
-    /**
-     * Returns a substitution map from helper parameter name to actual call
-     * argument expression, or {@code null} if the arity does not match.
-     */
-    private Map<String, Expression> buildHelperParamSubstitution(MethodDeclaration helper,
-                                                                 List<Expression> callArgs) {
-        if (helper.getParameters().isEmpty()) {
-            return Collections.emptyMap();
-        }
-        if (helper.getParameters().size() != 1 || callArgs.size() != 1) {
-            return null;
-        }
-        Map<String, Expression> map = new LinkedHashMap<>();
-        Parameter param = helper.getParameter(0);
-        map.put(param.getNameAsString(), callArgs.get(0));
-        return map;
-    }
-
-    /**
-     * Builds a map from each local variable declared in the helper's preamble
-     * to a fresh, host-scope-unique name. Subsequent name references and
-     * declarators are renamed so that inlined preambles do not collide with
-     * existing locals or with previously inlined helper invocations.
-     */
-    private Map<String, String> buildHelperLocalRenameMap(
-            List<com.github.javaparser.ast.stmt.Statement> statements,
-            int preambleCount,
-            String helperName) {
-        Map<String, String> rename = new LinkedHashMap<>();
-        for (int i = 0; i < preambleCount; i++) {
-            com.github.javaparser.ast.stmt.Statement s = statements.get(i);
-            if (!(s instanceof ExpressionStmt)) {
-                continue;
-            }
-            Expression e = ((ExpressionStmt) s).getExpression();
-            if (!(e instanceof VariableDeclarationExpr)) {
-                continue;
-            }
-            for (VariableDeclarator d : ((VariableDeclarationExpr) e).getVariables()) {
-                String original = d.getNameAsString();
-                if (!rename.containsKey(original)) {
-                    rename.put(original,
-                            "__inlined_" + helperName + "_" + original + "_" + syntheticVarCounter++);
-                }
-            }
-        }
-        return rename;
-    }
-
-    private com.github.javaparser.ast.stmt.Statement rewriteHelperStatement(
-            com.github.javaparser.ast.stmt.Statement original,
-            Map<String, String> localRename,
-            Map<String, Expression> paramSub,
-            Expression callSite) {
-        com.github.javaparser.ast.stmt.Statement cloned =
-                copySyntheticRange(original.clone(), callSite);
-        applyHelperRewrite(cloned, localRename, paramSub);
-        return cloned;
-    }
-
-    private Expression rewriteHelperExpression(Expression original,
-                                                Map<String, String> localRename,
-                                                Map<String, Expression> paramSub) {
-        Visitable rewritten = applyHelperRewrite(original, localRename, paramSub);
-        if (rewritten instanceof Expression) {
-            return (Expression) rewritten;
-        }
-        return original;
-    }
-
-    private Visitable applyHelperRewrite(com.github.javaparser.ast.Node node,
-                                          Map<String, String> localRename,
-                                          Map<String, Expression> paramSub) {
-        ModifierVisitor<Void> visitor = new ModifierVisitor<Void>() {
-            @Override
-            public Visitable visit(NameExpr n, Void arg) {
-                String name = n.getNameAsString();
-                Expression substitution = paramSub.get(name);
-                if (substitution != null) {
-                    return copySyntheticRange(substitution.clone(), n);
-                }
-                String renamed = localRename.get(name);
-                if (renamed != null) {
-                    n.setName(renamed);
-                }
-                return super.visit(n, arg);
-            }
-
-            @Override
-            public Visitable visit(VariableDeclarator d, Void arg) {
-                String name = d.getNameAsString();
-                String renamed = localRename.get(name);
-                if (renamed != null) {
-                    d.setName(renamed);
-                }
-                return super.visit(d, arg);
-            }
-        };
-        return node.accept(visitor, null);
-    }
-
-    private com.github.javaparser.ast.stmt.Statement inlineHelperCallsInUnsupportedStatement(
-            com.github.javaparser.ast.stmt.Statement astStmt) {
-        com.github.javaparser.ast.stmt.Statement cloned = copySyntheticRange(astStmt.clone(), astStmt);
-        ModifierVisitor<Void> visitor = new ModifierVisitor<Void>() {
-            @Override
-            public Visitable visit(ExpressionStmt n, Void arg) {
-                Expression expr = n.getExpression();
-                if (expr instanceof MethodCallExpr) {
-                    MethodCallExpr call = (MethodCallExpr) expr;
-                    if (!call.getScope().isPresent()) {
-                        MethodDeclaration helper = inlineHelperMethods.get(
-                                inlineHelperKey(call.getNameAsString(), call.getArguments().size()));
-                        if (helper != null) {
-                            Expression replacement =
-                                    instantiateInlineHelperExpression(helper, call.getArguments(), call);
-                            if (replacement == null) {
-                                replacement = instantiateInlineHelperReturn(helper, call.getArguments(), call);
-                            }
-                            if (replacement != null) {
-                                return copySyntheticRange(new ExpressionStmt(replacement), n);
-                            }
-                        }
-                    }
-                }
-                return (ExpressionStmt) super.visit(n, arg);
-            }
-        };
-        Visitable rewritten = cloned.accept(visitor, null);
-        if (rewritten instanceof com.github.javaparser.ast.stmt.Statement) {
-            return (com.github.javaparser.ast.stmt.Statement) rewritten;
-        }
-        return cloned;
     }
 
     private boolean shouldDropUnsupportedStatement(com.github.javaparser.ast.stmt.Statement stmt) {
@@ -3609,7 +3378,7 @@ public class StatementParser {
         if (!bestEffort
                 || expr == null
                 || targetVarName != null
-                || !isVoidContext(declaredType, targetVarName)
+                || !HelperInliner.isVoidContext(declaredType, targetVarName)
                 || !expr.getScope().isPresent()
                 || !(expr.getScope().get() instanceof MethodCallExpr)) {
             return null;
