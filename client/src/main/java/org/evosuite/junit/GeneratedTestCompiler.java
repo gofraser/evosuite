@@ -67,7 +67,7 @@ public final class GeneratedTestCompiler {
      * EvoSuite's own, with pathing jars expanded and malformed jars sanitized. It is computed
      * again only when the classpaths it is built from change.
      */
-    static synchronized String compilerClasspathForGeneratedTests() {
+    public static synchronized String compilerClasspathForGeneratedTests() {
         String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
         String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
         if (cachedCompilerClasspath != null

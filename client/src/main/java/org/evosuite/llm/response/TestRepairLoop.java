@@ -1407,7 +1407,7 @@ public class TestRepairLoop {
             Path sourceFile = pkgDir.resolve(className + ".java");
             Files.write(sourceFile, source.getBytes(StandardCharsets.UTF_8));
 
-            String classPath = System.getProperty("java.class.path", "");
+            String classPath = GeneratedTestCompiler.compilerClasspathForGeneratedTests();
             int maxPasses = 3;
             for (int pass = 0; ; pass++) {
                 GeneratedTestCompiler.CompilerAttemptResult attempt = GeneratedTestCompiler

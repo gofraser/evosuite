@@ -23,6 +23,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.Properties;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
@@ -60,11 +61,15 @@ import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 
 import java.awt.AWTError;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -253,6 +258,43 @@ class TestRepairLoopTest {
             assertTrue(check.getCause().contains("An exception has occurred in the compiler"), check.getCause());
         } finally {
             TestRepairLoop.setParseCompileCompilerForTesting(null);
+        }
+    }
+
+    @Test
+    void compileProbeSeesTheProjectClasspath(@TempDir Path projectDir) throws Exception {
+        // A project class that is on the target classpath but not on this JVM's class path,
+        // as when EvoSuite runs in-process or the client is started without the project jars.
+        Path source = projectDir.resolve("probecp").resolve("OnlyOnProjectClasspath.java");
+        Files.createDirectories(source.getParent());
+        Files.write(source, ("package probecp;\npublic class OnlyOnProjectClasspath {\n"
+                + "  public int value() { return 1; }\n}\n").getBytes(StandardCharsets.UTF_8));
+        assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null, source.toString()));
+        Files.delete(source);
+
+        String savedCp = Properties.CP;
+        ClassPathHandler.getInstance().changeTargetClassPath(new String[]{projectDir.toString()});
+        try {
+            TestRepairLoop loop = new TestRepairLoop(
+                    mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
+                    mock(ClusterExpansionManager.class),
+                    testCase -> new ExecutionResult(testCase), 0);
+            DefaultTestCase testCase = new DefaultTestCase();
+            testCase.addStatement(new UninterpretedStatement(testCase,
+                    "int v = new probecp.OnlyOnProjectClasspath().value();"));
+            ParseResult candidate = new ParseResult(testCase, "testProjectClass");
+            Method compileGate = TestRepairLoop.class.getDeclaredMethod(
+                    "checkRenderedCompilation", ParseResult.class, long.class);
+            compileGate.setAccessible(true);
+
+            TestRepairLoop.CompileCheck check =
+                    (TestRepairLoop.CompileCheck) compileGate.invoke(loop, candidate, Long.MAX_VALUE);
+
+            assertFalse(check.isRejected(), check.getRejection());
+            assertFalse(check.isNotJudged(), check.getCause());
+        } finally {
+            ClassPathHandler.resetSingleton();
+            Properties.CP = savedCp;
         }
     }
 
