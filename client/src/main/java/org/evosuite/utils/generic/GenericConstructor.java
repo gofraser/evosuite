@@ -155,27 +155,6 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         return constructor.getDeclaringClass();
     }
 
-    /**
-     * Returns the exact parameter types of the given method in the given type.
-     * This may be different from <tt>m.getGenericParameterTypes()</tt> when the
-     * method was declared in a superclass, or <tt>type</tt> has a type
-     * parameter that is used in one of the parameters, or <tt>type</tt> is a
-     * raw type.
-     */
-    public Type[] getExactParameterTypes(Constructor<?> m, Type type) {
-        Type[] parameterTypes = m.getGenericParameterTypes();
-        Type exactDeclaringType = getExactDeclaringType(m, type);
-        if (exactDeclaringType == null) {
-            return m.getParameterTypes();
-        }
-
-        Type[] result = new Type[parameterTypes.length];
-        for (int i = 0; i < parameterTypes.length; i++) {
-            result[i] = mapTypeParameters(parameterTypes[i], exactDeclaringType);
-        }
-        return result;
-    }
-
     public Type[] getGenericParameterTypes() {
         return constructor.getGenericParameterTypes();
     }
