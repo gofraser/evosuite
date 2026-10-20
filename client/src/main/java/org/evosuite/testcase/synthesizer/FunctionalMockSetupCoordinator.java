@@ -116,7 +116,7 @@ public final class FunctionalMockSetupCoordinator {
 
     /** Applies cached stubs to matching mocks before their template's normal first execution. */
     public static synchronized boolean applyCachedSetup(TestCase test) {
-        if (!enabled() || test == null || SUCCESSFUL_RECIPES.isEmpty()) {
+        if (test == null || SUCCESSFUL_RECIPES.isEmpty()) {
             return false;
         }
         boolean changed = false;
@@ -159,7 +159,7 @@ public final class FunctionalMockSetupCoordinator {
     private static RepairToken applyObservedSetup(TestCase candidate,
                                                   boolean preferNonDefaultBooleans,
                                                   Number numericHint) {
-        if (!enabled() || candidate == null) {
+        if (candidate == null) {
             return null;
         }
         Map<String, Integer> ordinals = new HashMap<>();
@@ -296,7 +296,7 @@ public final class FunctionalMockSetupCoordinator {
 
     /** Returns whether the preceding execution exposed at least one missing mock return value. */
     public static boolean hasObservedSetup(TestCase test) {
-        if (!enabled() || test == null) {
+        if (test == null) {
             return false;
         }
         for (FunctionalMockStatement mock : functionalMocks(test)) {
@@ -549,7 +549,7 @@ public final class FunctionalMockSetupCoordinator {
      * @return true if some mock has an observed invocation of a boolean method that needs a stub
      */
     public static boolean hasObservedBooleanSetup(TestCase test) {
-        if (!enabled() || test == null) {
+        if (test == null) {
             return false;
         }
         for (FunctionalMockStatement mock : functionalMocks(test)) {
@@ -645,10 +645,6 @@ public final class FunctionalMockSetupCoordinator {
             List<MockInvocationObservation> observations) {
         // Observation instances are immutable and defensively copy their MethodDescriptor getter.
         return Collections.unmodifiableList(new ArrayList<>(observations));
-    }
-
-    private static boolean enabled() {
-        return true;
     }
 
     /**
