@@ -43,6 +43,7 @@ import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
+import org.evosuite.utils.ReplaceableWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +69,6 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -140,13 +140,9 @@ public class TestRepairLoop {
 
     private static final Pattern ALIASED_IMPORT_PATTERN = Pattern.compile(
             "(?m)^\\s*import\\s+[^;]+\\s+as\\s+([^;]+);\\s*$", Pattern.CASE_INSENSITIVE);
-    private static final Object PARSE_COMPILE_EXECUTOR_LOCK = new Object();
     private static final long DEFAULT_PARSE_COMPILE_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(10L);
-    private static volatile ExecutorService parseCompileExecutor = createParseCompileExecutor();
-
-    private static ExecutorService createParseCompileExecutor() {
-        return Executors.newSingleThreadExecutor(r -> LlmPrivilegedThreads.newThread(r, "parse-compile"));
-    }
+    private static final ReplaceableWorker PARSE_COMPILE_WORKER =
+            new ReplaceableWorker(r -> LlmPrivilegedThreads.newThread(r, "parse-compile"));
 
     /** Error patterns that the LLM cannot fix (native libs, sandbox, etc.). */
     private static final Set<String> UNFIXABLE_ERROR_PATTERNS = new HashSet<>(Arrays.asList(
@@ -3115,25 +3111,15 @@ public class TestRepairLoop {
         String methodBody = visitor.getCode() == null ? "" : visitor.getCode();
         String source = buildCompilationProbeSource(parseResult, methodBody, visitor.getImports());
 
-        ExecutorService executor = parseCompileExecutor;
-        Future<String> future = null;
         try {
             final String method = safeMethodName(parseResult);
             final String finalSource = source;
-            future = executor.submit(() -> runRenderedCompilationCheck(method, finalSource));
-            String rejection = future.get(parseCompileTimeoutNanos(repairDeadlineNanos), TimeUnit.NANOSECONDS);
+            String rejection = PARSE_COMPILE_WORKER.call(() -> runRenderedCompilationCheck(method, finalSource),
+                    parseCompileTimeoutNanos(repairDeadlineNanos), TimeUnit.NANOSECONDS);
             return rejection == null ? CompileCheck.COMPILED : CompileCheck.rejected(rejection);
         } catch (TimeoutException timeout) {
-            if (future != null) {
-                future.cancel(true);
-            }
-            replaceParseCompileExecutor(executor);
             return CompileCheck.notJudged("compile check timed out");
         } catch (InterruptedException interrupted) {
-            if (future != null) {
-                future.cancel(true);
-            }
-            replaceParseCompileExecutor(executor);
             Thread.currentThread().interrupt();
             throw new CancellationException("Interrupted during parse-phase compile check");
         } catch (SecurityException securityException) {
@@ -3161,23 +3147,12 @@ public class TestRepairLoop {
         if (!Sandbox.isSecurityManagerInitialized()) {
             return;
         }
-        ExecutorService executor = parseCompileExecutor;
-        Future<Thread> future = null;
         try {
-            future = executor.submit(Thread::currentThread);
-            Thread worker = future.get(2L, TimeUnit.SECONDS);
+            Thread worker = PARSE_COMPILE_WORKER.call(Thread::currentThread, 2L, TimeUnit.SECONDS);
             Sandbox.addPrivilegedThread(worker);
         } catch (TimeoutException timeout) {
-            if (future != null) {
-                future.cancel(true);
-            }
-            replaceParseCompileExecutor(executor);
             logger.warn("Timed out registering parse-compile worker; replaced the blocked executor");
         } catch (InterruptedException interrupted) {
-            if (future != null) {
-                future.cancel(true);
-            }
-            replaceParseCompileExecutor(executor);
             Thread.currentThread().interrupt();
         } catch (SecurityException se) {
             // Caller is not privileged right now; another privileged caller may register later.
@@ -3203,33 +3178,13 @@ public class TestRepairLoop {
         return Math.min(DEFAULT_PARSE_COMPILE_TIMEOUT_NANOS, remaining);
     }
 
-    private static void replaceParseCompileExecutor(ExecutorService expected) {
-        synchronized (PARSE_COMPILE_EXECUTOR_LOCK) {
-            if (parseCompileExecutor != expected) {
-                return;
-            }
-            try {
-                expected.shutdownNow();
-            } finally {
-                parseCompileExecutor = createParseCompileExecutor();
-            }
-        }
-    }
-
     /** Cancel compile probes and provision a clean worker for the next EvoSuite run. */
     public static void resetForRunCompletion() {
-        replaceParseCompileExecutor(parseCompileExecutor);
+        PARSE_COMPILE_WORKER.reset();
     }
 
     static void setParseCompileExecutorForTesting(ExecutorService executor) {
-        if (executor == null) {
-            throw new IllegalArgumentException("Parse compile executor must not be null");
-        }
-        synchronized (PARSE_COMPILE_EXECUTOR_LOCK) {
-            ExecutorService previous = parseCompileExecutor;
-            parseCompileExecutor = executor;
-            previous.shutdownNow();
-        }
+        PARSE_COMPILE_WORKER.setForTesting(executor);
     }
 
     /** Test-only seam: see {@link #testClusterSupplier}. */
