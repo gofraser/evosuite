@@ -26,7 +26,6 @@ import com.github.javaparser.Range;
 import com.github.javaparser.ast.ArrayCreationLevel;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.AssertStmt;
@@ -104,6 +103,7 @@ public class StatementParser {
     private final MockitoPatternParser mockitoPatternParser;
     private final LegacyHelperRewriter legacyHelpers;
     private final HelperInliner helperInliner;
+    private final UnsupportedStatementScrubber statementScrubber;
 
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
     private int syntheticVarCounter = 0;
@@ -152,6 +152,8 @@ public class StatementParser {
         this.mockitoPatternParser = new MockitoPatternParser(
                 testCase, typeResolver, scope, result, this);
         this.helperInliner = new HelperInliner(this, testCase, scope, inlineHelperMethods);
+        this.statementScrubber = new UnsupportedStatementScrubber(
+                this, typeResolver, scope, overloadResolver);
         this.legacyHelpers = new LegacyHelperRewriter(
                 this, testCase, typeResolver, scope, overloadResolver);
     }
@@ -256,7 +258,7 @@ public class StatementParser {
             com.github.javaparser.ast.stmt.Statement preserved = astStmt;
             if (bestEffort) {
                 preserved = helperInliner.inlineHelperCallsInUnsupportedStatement(astStmt);
-                if (shouldDropUnsupportedStatement(preserved)) {
+                if (statementScrubber.shouldDropUnsupportedStatement(preserved)) {
                     return 1;
                 }
             }
@@ -1675,182 +1677,6 @@ public class StatementParser {
         }
         if (testCase.size() > checkpointSize) {
             testCase.chop(checkpointSize);
-        }
-    }
-
-    private boolean shouldDropUnsupportedStatement(com.github.javaparser.ast.stmt.Statement stmt) {
-        UnsupportedMethodTarget invalid = findInvalidUnsupportedStatementMethodCall(stmt);
-        if (invalid == null) {
-            return false;
-        }
-        addWarning(invalid.call,
-                "Dropped unsupported statement in LLM best-effort mode because it contains "
-                        + "an invalid method call that would not compile");
-        return true;
-    }
-
-    private UnsupportedMethodTarget findInvalidUnsupportedStatementMethodCall(
-            com.github.javaparser.ast.stmt.Statement stmt) {
-        Map<String, Type> localTypes = collectUnsupportedStatementLocalTypes(stmt);
-        for (MethodCallExpr call : stmt.findAll(MethodCallExpr.class)) {
-            UnsupportedMethodTarget target = resolveUnsupportedMethodTarget(call, localTypes);
-            if (target == null || target.rawClass == null) {
-                continue;
-            }
-            if (!overloadResolver.hasMethodNamed(target.rawClass, call.getNameAsString(), target.staticCall)) {
-                return target;
-            }
-        }
-        return null;
-    }
-
-    private Map<String, Type> collectUnsupportedStatementLocalTypes(com.github.javaparser.ast.stmt.Statement stmt) {
-        Map<String, Type> localTypes = new LinkedHashMap<>();
-        if (stmt == null) {
-            return localTypes;
-        }
-        stmt.walk(com.github.javaparser.ast.Node.TreeTraversal.PREORDER, node -> {
-            if (node instanceof VariableDeclarator) {
-                VariableDeclarator declarator = (VariableDeclarator) node;
-                localTypes.put(declarator.getNameAsString(),
-                        resolveUnsupportedAstType(declarator.getType()));
-            } else if (node instanceof com.github.javaparser.ast.body.Parameter) {
-                com.github.javaparser.ast.body.Parameter parameter =
-                        (com.github.javaparser.ast.body.Parameter) node;
-                localTypes.put(parameter.getNameAsString(),
-                        resolveUnsupportedAstType(parameter.getType()));
-            }
-        });
-        return localTypes;
-    }
-
-    private Type resolveUnsupportedAstType(com.github.javaparser.ast.type.Type astType) {
-        if (astType == null) {
-            return Object.class;
-        }
-        try {
-            return typeResolver.resolveType(astType);
-        } catch (ClassNotFoundException e) {
-            Type democked = mockitoPatternParser.tryResolveDemockedDeclaredType(astType);
-            return democked != null ? democked : Object.class;
-        }
-    }
-
-    private UnsupportedMethodTarget resolveUnsupportedMethodTarget(MethodCallExpr call,
-                                                                   Map<String, Type> localTypes) {
-        if (call == null) {
-            return null;
-        }
-
-        if (!call.getScope().isPresent()) {
-            String staticClass = typeResolver.resolveStaticImportClass(call.getNameAsString());
-            if (staticClass == null) {
-                return null;
-            }
-            try {
-                return new UnsupportedMethodTarget(
-                        call,
-                        typeResolver.resolveClass(staticClass),
-                        true);
-            } catch (ClassNotFoundException e) {
-                return null;
-            }
-        }
-
-        Expression scopeExpr = call.getScope().get();
-        Class<?> staticClass = resolveClassFromExpression(scopeExpr);
-        if (staticClass != null) {
-            return new UnsupportedMethodTarget(call, staticClass, true);
-        }
-
-        Type scopeType = resolveUnsupportedExpressionType(scopeExpr, localTypes);
-        if (scopeType == null) {
-            return new UnsupportedMethodTarget(call, null, false);
-        }
-        return new UnsupportedMethodTarget(call, getRawClass(scopeType), false);
-    }
-
-    private Type resolveUnsupportedExpressionType(Expression expr, Map<String, Type> localTypes) {
-        if (expr == null) {
-            return null;
-        }
-        if (expr instanceof EnclosedExpr) {
-            return resolveUnsupportedExpressionType(((EnclosedExpr) expr).getInner(), localTypes);
-        }
-        if (expr instanceof NameExpr) {
-            String name = ((NameExpr) expr).getNameAsString();
-            if (localTypes.containsKey(name)) {
-                return localTypes.get(name);
-            }
-            VariableReference ref = scope.resolve(name);
-            if (ref != null) {
-                return ref.getType();
-            }
-            Class<?> clazz = resolveClassFromExpression(expr);
-            return clazz != null ? clazz : null;
-        }
-        if (expr instanceof CastExpr) {
-            return resolveUnsupportedAstType(((CastExpr) expr).getType());
-        }
-        if (expr instanceof ObjectCreationExpr) {
-            return resolveUnsupportedAstType(((ObjectCreationExpr) expr).getType());
-        }
-        if (expr instanceof MethodCallExpr) {
-            UnsupportedMethodTarget target = resolveUnsupportedMethodTarget((MethodCallExpr) expr, localTypes);
-            if (target == null || target.rawClass == null) {
-                return null;
-            }
-            if (!overloadResolver.hasMethodNamed(target.rawClass,
-                    ((MethodCallExpr) expr).getNameAsString(), target.staticCall)) {
-                return null;
-            }
-            try {
-                Class<?>[] argTypes = new Class<?>[((MethodCallExpr) expr).getArguments().size()];
-                Arrays.fill(argTypes, Object.class);
-                Method method = overloadResolver.resolveMethod(
-                        target.rawClass,
-                        ((MethodCallExpr) expr).getNameAsString(),
-                        argTypes);
-                return method.getGenericReturnType();
-            } catch (NoSuchMethodException e) {
-                return Object.class;
-            }
-        }
-        if (expr instanceof FieldAccessExpr) {
-            FieldAccessExpr fieldAccessExpr = (FieldAccessExpr) expr;
-            Type scopeType = resolveUnsupportedExpressionType(fieldAccessExpr.getScope(), localTypes);
-            Class<?> ownerClass = getRawClass(scopeType);
-            if (ownerClass == null || ownerClass == Object.class) {
-                ownerClass = resolveClassFromExpression(fieldAccessExpr.getScope());
-            }
-            if (ownerClass == null) {
-                return null;
-            }
-            if (ownerClass.isEnum()) {
-                return ownerClass;
-            }
-            try {
-                return ownerClass.getField(fieldAccessExpr.getNameAsString()).getGenericType();
-            } catch (NoSuchFieldException e) {
-                try {
-                    return ownerClass.getDeclaredField(fieldAccessExpr.getNameAsString()).getGenericType();
-                } catch (NoSuchFieldException ignored) {
-                    return null;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static final class UnsupportedMethodTarget {
-        private final MethodCallExpr call;
-        private final Class<?> rawClass;
-        private final boolean staticCall;
-
-        private UnsupportedMethodTarget(MethodCallExpr call, Class<?> rawClass, boolean staticCall) {
-            this.call = call;
-            this.rawClass = rawClass;
-            this.staticCall = staticCall;
         }
     }
 
