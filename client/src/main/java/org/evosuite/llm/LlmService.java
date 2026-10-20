@@ -325,61 +325,6 @@ public class LlmService implements AutoCloseable {
         return queryInternal(request);
     }
 
-    /**
-     * Query with repair attempt number and cluster expansion metadata for trace recording.
-     *
-     * @param repairAttempt      the 1-based repair attempt number
-     * @param expansionAttempted whether cluster expansion was attempted before this call
-     * @param expandedClasses    classes that were expanded into the cluster
-     */
-    public String query(List<LlmMessage> messages, LlmFeature feature,
-                        int repairAttempt, boolean expansionAttempted,
-                        List<String> expandedClasses) {
-        return query(LlmRequest.of(messages, feature)
-                .withRepairAttempt(repairAttempt)
-                .withExpansion(expansionAttempted, expandedClasses)).getText();
-    }
-
-    /**
-     * Query with repair metadata, bounded by an absolute
-     * {@link System#nanoTime()} deadline.
-     */
-    public String query(List<LlmMessage> messages, LlmFeature feature,
-                        int repairAttempt, boolean expansionAttempted,
-                        List<String> expandedClasses, long deadlineNanos) {
-        return query(LlmRequest.of(messages, feature)
-                .withRepairAttempt(repairAttempt)
-                .withExpansion(expansionAttempted, expandedClasses)
-                .withDeadlineNanos(deadlineNanos)).getText();
-    }
-
-    /** Query with context metadata propagated to trace recording. */
-    public String query(PromptResult promptResult, LlmFeature feature) {
-        return query(LlmRequest.of(promptResult, feature)).getText();
-    }
-
-    /**
-     * Query with prompt metadata, bounded by an absolute
-     * {@link System#nanoTime()} deadline.
-     */
-    public String query(PromptResult promptResult, LlmFeature feature,
-                        long deadlineNanos) {
-        return query(LlmRequest.of(promptResult, feature).withDeadlineNanos(deadlineNanos)).getText();
-    }
-
-    /** Same as {@link #query(PromptResult, LlmFeature)}, but also returns the token usage and latency. */
-    public QueryResult queryWithUsage(PromptResult promptResult, LlmFeature feature) {
-        return query(LlmRequest.of(promptResult, feature));
-    }
-
-    /**
-     * Same as {@link #queryWithUsage(PromptResult, LlmFeature)}, bounded by an
-     * absolute {@link System#nanoTime()} deadline.
-     */
-    public QueryResult queryWithUsage(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
-        return query(LlmRequest.of(promptResult, feature).withDeadlineNanos(deadlineNanos));
-    }
-
     private QueryResult queryInternal(LlmRequest request) {
         List<LlmMessage> messages = request.getMessages();
         LlmFeature feature = request.getFeature();

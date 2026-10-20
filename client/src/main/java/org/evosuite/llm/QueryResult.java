@@ -19,13 +19,12 @@
  */
 package org.evosuite.llm;
 
-import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TargetedResponse;
 
 /**
- * Text plus the token usage and latency of the call that produced it.
- * Returned by {@link LlmService#queryWithUsage(PromptResult, LlmFeature)} for
- * callers that need to attribute usage rather than just consume the text.
+ * Text plus the token usage and latency of the call that produced it, as
+ * returned by {@link LlmService#query(LlmRequest)}. Callers that only consume
+ * the text call {@link #getText()}; others attribute the usage.
  */
 public final class QueryResult {
     private final String text;

@@ -35,7 +35,6 @@ import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmTraceRecorder;
 import org.evosuite.llm.QueryResult;
 import org.evosuite.llm.mock.MockChatLanguageModel;
-import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeImpl;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
@@ -2040,7 +2039,7 @@ class LlmPostProcessorTest {
         }
 
         @Override
-        public String query(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
+        public QueryResult query(LlmRequest request) {
             throw new AssertionError("Unavailable service must be skipped before query");
         }
     }
@@ -2060,7 +2059,7 @@ class LlmPostProcessorTest {
         }
 
         @Override
-        public String query(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
+        public QueryResult query(LlmRequest request) {
             throw new AssertionError("No-budget service must be skipped before query");
         }
     }

@@ -58,7 +58,7 @@ import static org.mockito.Mockito.when;
  * <p>There is no getter for the factory's internal supplier, so this is observed the cheap
  * way this factory already supports: with {@code LLM_GOAL_FORMAT=RAW}, the goals collection
  * is rendered via each goal's own {@code toString()}, so capturing the {@link PromptResult}
- * passed to {@link LlmService#query(PromptResult, LlmFeature)} and inspecting its message
+ * sent through {@link LlmService#query(org.evosuite.llm.LlmRequest)} and inspecting its message
  * text is enough to prove which goals actually reached the prompt.
  */
 class LlmTestChromosomeFactoryFrontierWiringTest extends MosaTestSupport {

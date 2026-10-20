@@ -29,7 +29,7 @@ import java.util.function.LongSupplier;
  * injection, single-prompt strategy).
  *
  * <p>{@link Properties#LLM_TIMEOUT_SECONDS} is the per-call HTTP timeout used
- * by {@code LlmService.query()}. A repair-capable producer may issue up to
+ * by {@code LlmService.query(LlmRequest)}. A repair-capable producer may issue up to
  * {@code 1 + LLM_REPAIR_ATTEMPTS} LLM calls per parse attempt, and each call
  * may be tried {@code 1 + LLM_RETRY_MAX_ATTEMPTS} times with a backoff before
  * every retry. An orchestrator waiting on its completion should therefore

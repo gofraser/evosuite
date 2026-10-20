@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Verifies that {@link LlmService#query(LlmRequest)}
  * exposes the same token usage and latency that is otherwise only recorded
  * into {@link LlmStatistics} and the trace file, with the same call/budget/
- * retry semantics as {@link LlmService#query(PromptResult, LlmFeature)}.
+ * retry semantics as a call whose caller only reads the text.
  */
 class LlmServiceQueryWithUsageTest {
 
