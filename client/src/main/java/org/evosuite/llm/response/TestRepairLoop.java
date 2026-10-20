@@ -84,6 +84,20 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
+import static org.evosuite.llm.response.RepairText.MISSING_METHOD_DIAGNOSTIC_PATTERN;
+import static org.evosuite.llm.response.RepairText.NEW_CALL_PATTERN;
+import static org.evosuite.llm.response.RepairText.NULL_DECLARATION_PATTERN;
+import static org.evosuite.llm.response.RepairText.extractFallbackTypeFromDiagnostic;
+import static org.evosuite.llm.response.RepairText.extractMissingMethodName;
+import static org.evosuite.llm.response.RepairText.extractTypedFallbackDeclaredType;
+import static org.evosuite.llm.response.RepairText.extractTypedNullDeclarationTypes;
+import static org.evosuite.llm.response.RepairText.getSutPackage;
+import static org.evosuite.llm.response.RepairText.isUnresolvedTypeDiagnostic;
+import static org.evosuite.llm.response.RepairText.joinTop;
+import static org.evosuite.llm.response.RepairText.simpleName;
+import static org.evosuite.llm.response.RepairText.stripTypeDecorators;
+import static org.evosuite.llm.response.RepairText.truncate;
+
 /**
  * Applies parse -> validate -> execute and iterative LLM repair.
  *
@@ -111,25 +125,14 @@ public class TestRepairLoop {
     private static final Pattern NEW_DECLARATION_PATTERN = Pattern.compile(
             "\\b([A-Za-z_][A-Za-z0-9_$.<>]*)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*new"
                     + "\\s+([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\(");
-    private static final Pattern NULL_DECLARATION_PATTERN = Pattern.compile(
-            "\\b([A-Za-z_][A-Za-z0-9_$.<>]*)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*null\\s*;");
-    private static final Pattern FALLBACK_NULL_DECLARATION_PATTERN = Pattern.compile(
-            "\\b([A-Za-z_][A-Za-z0-9_$.<>]*)\\s+(__llm_fallback\\d+)\\s*=\\s*null\\s*;");
     private static final Pattern PARSED_TEST_CODE_EXCERPT_PATTERN = Pattern.compile(
             "Parsed test code excerpt:\\n```java\\n(.*?)\\n```", Pattern.DOTALL);
     private static final String EXCERPT_INDEX_MARKER_PREFIX = "__EVOSUITE_REPAIR_INDEX__";
     private static final Pattern EXCERPT_INDEX_MARKER_PATTERN = Pattern.compile(
             "^\\s*//\\s*" + Pattern.quote(EXCERPT_INDEX_MARKER_PREFIX) + "(\\d+)\\s*$");
-    private static final Pattern NEW_CALL_PATTERN = Pattern.compile(
-            "\\bnew\\s+([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\(");
-    private static final Pattern CONSTRUCTOR_DIAGNOSTIC_TYPE_PATTERN = Pattern.compile(
-            "No matching constructor found for\\s+([A-Za-z_][A-Za-z0-9_$.]+)");
     private static final String EXPLICIT_REPAIR_ACTION_MARKER = "LLM_REPAIR_ACTION_REQUIRED:";
     private static final Pattern EXPLICIT_REPAIR_ACTION_PATTERN = Pattern.compile(
             EXPLICIT_REPAIR_ACTION_MARKER + "\\s*(.*)$");
-    private static final Pattern MISSING_METHOD_DIAGNOSTIC_PATTERN = Pattern.compile(
-            "No method named\\s+([A-Za-z_][A-Za-z0-9_$]*)\\s+in\\s+([A-Za-z_][A-Za-z0-9_$.]+)",
-            Pattern.CASE_INSENSITIVE);
     private static final Pattern METHOD_SIGNATURE_PATTERN = Pattern.compile(
             "\\b([A-Za-z_][A-Za-z0-9_$]*)\\s*\\(([^\\)]*)\\)");
     private static final Pattern INVENTED_UNKNOWN_TYPE_PATTERN = Pattern.compile(
@@ -2722,24 +2725,6 @@ public class TestRepairLoop {
         }
     }
 
-    private String extractTypedFallbackDeclaredType(String error) {
-        if (error == null || error.isEmpty()) {
-            return null;
-        }
-        java.util.regex.Matcher matcher = FALLBACK_NULL_DECLARATION_PATTERN.matcher(error);
-        while (matcher.find()) {
-            String declaredType = stripTypeDecorators(matcher.group(1));
-            String simpleType = simpleName(declaredType);
-            if (declaredType.isEmpty()
-                    || "Object".equals(simpleType)
-                    || "InvocationTargetException".equals(simpleType)) {
-                continue;
-            }
-            return declaredType;
-        }
-        return null;
-    }
-
     private String buildNoTestMethodsParseError(String extractedClass) {
         StringBuilder error = new StringBuilder("Parser produced no test methods.");
         List<String> malformedImports = extractMalformedImportLines(extractedClass);
@@ -2833,46 +2818,6 @@ public class TestRepairLoop {
             }
         }
         return new ArrayList<>(malformed);
-    }
-
-    private List<String> extractTypedNullDeclarationTypes(String text) {
-        if (text == null || text.isEmpty()) {
-            return Collections.emptyList();
-        }
-        LinkedHashSet<String> declaredTypes = new LinkedHashSet<>();
-        java.util.regex.Matcher matcher = NULL_DECLARATION_PATTERN.matcher(text);
-        while (matcher.find()) {
-            String declaredType = stripTypeDecorators(matcher.group(1));
-            String simpleType = simpleName(declaredType);
-            if (declaredType.isEmpty()
-                    || "Object".equals(simpleType)
-                    || "InvocationTargetException".equals(simpleType)) {
-                continue;
-            }
-            declaredTypes.add(declaredType);
-        }
-        return new ArrayList<>(declaredTypes);
-    }
-
-    private String extractFallbackTypeFromDiagnostic(ParseDiagnostic diagnostic) {
-        if (diagnostic == null) {
-            return null;
-        }
-        String message = diagnostic.getMessage() == null ? "" : diagnostic.getMessage();
-        java.util.regex.Matcher constructorMatcher = CONSTRUCTOR_DIAGNOSTIC_TYPE_PATTERN.matcher(message);
-        if (constructorMatcher.find()) {
-            return stripTypeDecorators(constructorMatcher.group(1));
-        }
-
-        String sourceSnippet = diagnostic.getSourceSnippet();
-        if (sourceSnippet == null || sourceSnippet.trim().isEmpty()) {
-            return null;
-        }
-        java.util.regex.Matcher constructorSourceMatcher = NEW_CALL_PATTERN.matcher(sourceSnippet);
-        if (constructorSourceMatcher.find()) {
-            return stripTypeDecorators(constructorSourceMatcher.group(1));
-        }
-        return null;
     }
 
     private String extractAnonymousConstructedType(String sourceText) {
@@ -3683,45 +3628,6 @@ public class TestRepairLoop {
         }
     }
 
-    private static String stripTypeDecorators(String typeName) {
-        if (typeName == null) {
-            return "";
-        }
-        String base = typeName.trim();
-        int generic = base.indexOf('<');
-        if (generic >= 0) {
-            base = base.substring(0, generic);
-        }
-        return base;
-    }
-
-    private String simpleName(String typeName) {
-        if (typeName == null || typeName.isEmpty()) {
-            return "";
-        }
-        String clean = stripTypeDecorators(typeName);
-        int lastDot = clean.lastIndexOf('.');
-        return lastDot >= 0 ? clean.substring(lastDot + 1) : clean;
-    }
-
-    private String joinTop(List<String> values, int maxItems) {
-        if (values == null || values.isEmpty() || maxItems <= 0) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        int limit = Math.min(values.size(), maxItems);
-        for (int i = 0; i < limit; i++) {
-            if (i > 0) {
-                sb.append(", ");
-            }
-            sb.append(values.get(i));
-        }
-        if (values.size() > limit) {
-            sb.append(", ...");
-        }
-        return sb.toString();
-    }
-
     private boolean shouldIncludeDroppedParseDiagnostic(ParseDiagnostic diagnostic) {
         if (diagnostic == null) {
             return false;
@@ -3903,20 +3809,6 @@ public class TestRepairLoop {
             enriched.append(System.lineSeparator()).append("- ").append(hint);
         }
         return enriched.toString();
-    }
-
-    /**
-     * Derives the SUT's package name from {@link Properties#TARGET_CLASS}
-     * so that the generated test class resides in the same package, enabling
-     * access to package-private members.
-     */
-    private static String getSutPackage() {
-        String target = Properties.TARGET_CLASS;
-        if (target == null || target.isEmpty()) {
-            return null;
-        }
-        int lastDot = target.lastIndexOf('.');
-        return lastDot > 0 ? target.substring(0, lastDot) : null;
     }
 
     /**
@@ -4286,17 +4178,6 @@ public class TestRepairLoop {
         return note.toString();
     }
 
-    private String extractMissingMethodName(String diagnosticMessage) {
-        if (diagnosticMessage == null || diagnosticMessage.isEmpty()) {
-            return null;
-        }
-        java.util.regex.Matcher matcher = MISSING_METHOD_DIAGNOSTIC_PATTERN.matcher(diagnosticMessage);
-        if (!matcher.find()) {
-            return null;
-        }
-        return matcher.group(1);
-    }
-
     private String findClosestAccessibleApiSuggestion(String missingMethodName) {
         if (missingMethodName == null || missingMethodName.isEmpty()
                 || sutContextSummary == null || sutContextSummary.isEmpty()) {
@@ -4625,21 +4506,6 @@ public class TestRepairLoop {
                 || lower.startsWith("no static method named ")
                 || lower.startsWith("method argument mismatch:")
                 || (lower.contains("llm_repair_action_required:") && isUnresolvedTypeDiagnostic(diagnostic));
-    }
-
-    private boolean isUnresolvedTypeDiagnostic(ParseDiagnostic diagnostic) {
-        if (diagnostic == null) {
-            return false;
-        }
-        if ("UNRESOLVED_TYPE".equals(diagnostic.getKindName())) {
-            return true;
-        }
-        String message = diagnostic.getMessage();
-        if (message == null || message.isEmpty()) {
-            return false;
-        }
-        String lower = message.toLowerCase();
-        return lower.contains("cannot resolve class") || lower.contains("cannot resolve type");
     }
 
     private boolean matchesFallbackDiagnosticType(ParseDiagnostic diagnostic, String fallbackType) {
@@ -5303,17 +5169,6 @@ public class TestRepairLoop {
                 && position != null
                 && position >= 0
                 && position < parseResult.getTestCase().size();
-    }
-
-    private String truncate(String text, int maxChars) {
-        if (text == null) {
-            return "";
-        }
-        if (text.length() <= maxChars) {
-            return text;
-        }
-        return text.substring(0, Math.max(0, maxChars))
-                + "\n// ... truncated (" + (text.length() - maxChars) + " chars omitted)";
     }
 
     private String buildFailureStackExcerpt(Throwable throwable,
