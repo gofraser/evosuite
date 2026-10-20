@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.testcase.execution;
+package org.evosuite.testcase.dmon;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,26 +32,26 @@ public class DmonRollbackLogRateLimitTest {
     @BeforeEach
     @AfterEach
     public void reset() {
-        TestRunnable.resetDmonRollbackFailureCounts();
+        DmonEphemeralAssist.resetDmonRollbackFailureCounts();
     }
 
     @Test
     public void onlyTheFirstFailuresPerSiteAreWarnings() {
         int warned = 0;
         for (int i = 0; i < 1000; i++) {
-            if (TestRunnable.shouldWarnAboutDmonRollbackFailure("A.setX(...)")) {
+            if (DmonEphemeralAssist.shouldWarnAboutDmonRollbackFailure("A.setX(...)")) {
                 warned++;
             }
         }
-        assertEquals(TestRunnable.DMON_ROLLBACK_WARNINGS_PER_SITE, warned);
+        assertEquals(DmonEphemeralAssist.DMON_ROLLBACK_WARNINGS_PER_SITE, warned);
     }
 
     @Test
     public void sitesAreCountedIndependently() {
         for (int i = 0; i < 10; i++) {
-            TestRunnable.shouldWarnAboutDmonRollbackFailure("A.setX(...)");
+            DmonEphemeralAssist.shouldWarnAboutDmonRollbackFailure("A.setX(...)");
         }
-        assertFalse(TestRunnable.shouldWarnAboutDmonRollbackFailure("A.setX(...)"));
-        assertTrue(TestRunnable.shouldWarnAboutDmonRollbackFailure("B.setY(...)"));
+        assertFalse(DmonEphemeralAssist.shouldWarnAboutDmonRollbackFailure("A.setX(...)"));
+        assertTrue(DmonEphemeralAssist.shouldWarnAboutDmonRollbackFailure("B.setY(...)"));
     }
 }

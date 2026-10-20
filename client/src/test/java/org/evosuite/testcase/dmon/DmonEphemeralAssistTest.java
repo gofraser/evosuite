@@ -154,8 +154,7 @@ public class DmonEphemeralAssistTest {
     @Test
     public void methodStatementNpeIsRecordedAsPromotionCandidateAndRolledBack() throws Exception {
         // Before the method-invocation generalisation, DMoN's runtime gates
-        // (maybeRecordDmonCandidate / maybeAssistAndRecordDmonCandidate in TestRunnable) only
-        // fired for `instanceof ConstructorStatement`. A NullPointerException thrown from a
+        // (DmonEphemeralAssist, called from TestRunnable) only fired for `instanceof ConstructorStatement`. A NullPointerException thrown from a
         // MethodStatement therefore never recorded a promotion candidate, even against the
         // target class. This test fails (getDmonPromotionPlan() == null) if that gate is
         // reinstated.

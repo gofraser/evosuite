@@ -19,7 +19,7 @@
  */
 package org.evosuite.testcase.statements;
 
-import org.evosuite.testcase.execution.TestRunnable;
+import org.evosuite.testcase.dmon.DmonEphemeralAssist;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -60,7 +60,7 @@ public class FunctionalMockClassLoaderReturnTest {
 
     @Test
     public void ephemeralReturnValueDoesNotMockClassLoaders() throws Exception {
-        Method returnValue = TestRunnable.class.getDeclaredMethod("createEphemeralReturnValue", Class.class);
+        Method returnValue = DmonEphemeralAssist.class.getDeclaredMethod("createEphemeralReturnValue", Class.class);
         returnValue.setAccessible(true);
 
         assertNull(returnValue.invoke(null, ClassLoader.class));
@@ -70,7 +70,7 @@ public class FunctionalMockClassLoaderReturnTest {
 
     @Test
     public void ephemeralInjectionRefusesClassLoaderDependencies() throws Exception {
-        Method mock = TestRunnable.class.getDeclaredMethod("createEphemeralMock", Class.class);
+        Method mock = DmonEphemeralAssist.class.getDeclaredMethod("createEphemeralMock", Class.class);
         mock.setAccessible(true);
 
         // the injection sites treat any exception as "cannot inject" and leave the field alone
