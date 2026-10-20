@@ -213,13 +213,13 @@ class LlmServiceRetryTest {
     @Test
     void retryClassificationUnwrapsNestedTimeoutCause() {
         RuntimeException wrapped = new RuntimeException("wrapper", new RuntimeException(new TimeoutException("slow")));
-        assertTrue(LlmService.isRetryable(wrapped));
+        assertTrue(LlmErrorClassifier.isRetryable(wrapped));
     }
 
     @Test
     void retryClassificationDetectsNestedNonRetryableCause() {
         RuntimeException wrapped = new RuntimeException("wrapper", new IllegalArgumentException("bad request"));
-        assertFalse(LlmService.isRetryable(wrapped));
+        assertFalse(LlmErrorClassifier.isRetryable(wrapped));
     }
 
     @Test
@@ -227,7 +227,7 @@ class LlmServiceRetryTest {
         for (int status : new int[]{408, 409, 429, 500, 504, 529}) {
             RuntimeException wrapped = new RuntimeException("wrapper",
                     new LlmHttpException(status, "irrelevant body"));
-            assertTrue(LlmService.isRetryable(wrapped), "status " + status + " should be retryable");
+            assertTrue(LlmErrorClassifier.isRetryable(wrapped), "status " + status + " should be retryable");
         }
     }
 
@@ -236,7 +236,7 @@ class LlmServiceRetryTest {
         for (int status : new int[]{400, 401, 404, 422}) {
             RuntimeException wrapped = new RuntimeException("wrapper",
                     new LlmHttpException(status, "irrelevant body"));
-            assertFalse(LlmService.isRetryable(wrapped), "status " + status + " should not be retryable");
+            assertFalse(LlmErrorClassifier.isRetryable(wrapped), "status " + status + " should not be retryable");
         }
     }
 
@@ -246,32 +246,32 @@ class LlmServiceRetryTest {
         // included, in its own message; the status must still win.
         RuntimeException retryableDespiteBody = new RuntimeException(
                 new LlmHttpException(500, "invalid request"));
-        assertTrue(LlmService.isRetryable(retryableDespiteBody));
+        assertTrue(LlmErrorClassifier.isRetryable(retryableDespiteBody));
 
         RuntimeException nonRetryableDespiteBody = new RuntimeException(
                 new LlmHttpException(400, "temporarily unavailable"));
-        assertFalse(LlmService.isRetryable(nonRetryableDespiteBody));
+        assertFalse(LlmErrorClassifier.isRetryable(nonRetryableDespiteBody));
     }
 
     @Test
     void malformedResponseIsRetryableEvenWhenItsMessageLooksLikeABadRequest() {
         RuntimeException wrapped = new RuntimeException(new org.evosuite.llm.provider.LlmProtocolException(
                 "OpenAI response reported an error: invalid request", "{\"error\":{}}"));
-        assertTrue(LlmService.isRetryable(wrapped));
+        assertTrue(LlmErrorClassifier.isRetryable(wrapped));
     }
 
     @Test
     void providerErrorInvalidRequestTypeIsNotRetriedEvenWrappedInCauseOnlyException() {
         RuntimeException wrapped = new RuntimeException(
                 new LlmProviderErrorException("invalid_request_error", null, "missing field", "{}"));
-        assertFalse(LlmService.isRetryable(wrapped));
+        assertFalse(LlmErrorClassifier.isRetryable(wrapped));
     }
 
     @Test
     void providerErrorRateLimitTypeIsRetried() {
         RuntimeException wrapped = new RuntimeException(
                 new LlmProviderErrorException("rate_limit_error", null, "slow down", "{}"));
-        assertTrue(LlmService.isRetryable(wrapped));
+        assertTrue(LlmErrorClassifier.isRetryable(wrapped));
     }
 
     @Test
