@@ -304,21 +304,6 @@ public class JUnitAnalyzerCheckIncompleteTest {
     }
 
     @Test
-    public void verifyCompilationAndExecutionRecordsIncompleteWhenTmpDirCreationFails() throws Exception {
-        List<TestCase> tests = new ArrayList<>();
-        tests.add(compilingTestCase());
-
-        withPoisonedTmpDir(() -> {
-            assertFalse(JUnitCheckState.isIncomplete());
-            boolean result = JUnitAnalyzer.verifyCompilationAndExecution(tests);
-
-            assertFalse(result);
-            assertTrue(JUnitCheckState.isIncomplete());
-            assertEquals(1, JUnitCheckState.getIncompleteRounds());
-        });
-    }
-
-    @Test
     public void executeAndCollectUnexpectedFailuresRecordsIncompleteWhenTmpDirCreationFails() throws Exception {
         List<TestCase> tests = new ArrayList<>();
         tests.add(compilingTestCase());

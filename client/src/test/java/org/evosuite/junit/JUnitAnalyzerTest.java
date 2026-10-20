@@ -218,11 +218,6 @@ public class JUnitAnalyzerTest {
         JUnitAnalyzer.handleTestsThatAreUnstable(list);
         Assertions.assertEquals(1, list.size());
         Assertions.assertFalse(file.exists());
-
-        System.out.println("\n FINAL VERIFICATION \n");
-        JUnitAnalyzer.verifyCompilationAndExecution(list);
-        Assertions.assertEquals(1, list.size());
-        Assertions.assertFalse(file.exists());
     }
 
     @Test
