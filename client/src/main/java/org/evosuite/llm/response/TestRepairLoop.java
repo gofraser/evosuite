@@ -950,13 +950,6 @@ public class TestRepairLoop {
             conversation.add(0, LlmMessage.system(systemPrompt));
         }
 
-        // When the conversation's system message already carries the cached
-        // dependency-type catalogue (rendered once into the system message by
-        // PromptBuilder), don't re-append the bulk catalogue below — the model
-        // already has it in the cacheable prefix.
-        boolean sutContextSummaryAlreadyInSystemMessage = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT
-                && state.isDependencyContextInPrompt();
-
         // Add the assistant's last response to the conversation
         if (previousResponse != null && !previousResponse.isEmpty()) {
             conversation.add(LlmMessage.assistant(previousResponse));
@@ -995,9 +988,12 @@ public class TestRepairLoop {
         // turn (repairAttempt == 2 in the conversation numbering: 1 = initial
         // seed, 2 = first repair). On later turns the LLM already has it in
         // its conversation history, and re-emitting tens of KB of catalog text
-        // dilutes the failure-specific hints that should drive the repair.
+        // dilutes the failure-specific hints that should drive the repair. The
+        // same holds when the original prompt carried the catalogue itself
+        // (in the system message with static caching, in the user message
+        // without), which the prompt reports.
         if (sutContextSummary != null && !sutContextSummary.isEmpty() && repairAttempt <= 2
-                && !sutContextSummaryAlreadyInSystemMessage) {
+                && !state.isDependencyContextInPrompt()) {
             repairMessage.append("\n\nFor reference, here are the available constructors and methods:\n")
                          .append(sutContextSummary);
         }
