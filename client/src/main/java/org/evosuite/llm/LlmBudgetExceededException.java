@@ -27,4 +27,8 @@ public class LlmBudgetExceededException extends RuntimeException {
     public LlmBudgetExceededException(String message) {
         super(message);
     }
+
+    public LlmBudgetExceededException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

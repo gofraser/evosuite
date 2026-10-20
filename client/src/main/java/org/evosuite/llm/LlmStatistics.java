@@ -637,6 +637,32 @@ public class LlmStatistics {
                 .recordRetryAttempt(latencyMs);
     }
 
+    /**
+     * Records a provider attempt that was cut short because the caller was
+     * interrupted.  It counts as an attempt, but as neither a failure nor a
+     * timeout: the provider did not fail, the run was shutting down.
+     */
+    public void recordInterruptedAttempt(LlmFeature feature, long latencyMs) {
+        recordRetryAttempt(feature, latencyMs);
+    }
+
+    /**
+     * Records the final outcome of a call whose last provider attempt was
+     * already counted by {@link #recordRetryAttempt} and which could not be
+     * retried further (budget or deadline exhausted).  No new provider attempt
+     * took place, so the total and latency are left alone.
+     */
+    public void recordRetriesAbandoned(LlmFeature feature, boolean timedOut) {
+        FeatureStats stats = perFeature.computeIfAbsent(feature, ignored -> new FeatureStats());
+        if (timedOut) {
+            timedOutCalls.incrementAndGet();
+            stats.timedOut.incrementAndGet();
+        } else {
+            failedCalls.incrementAndGet();
+            stats.failures.incrementAndGet();
+        }
+    }
+
     /** Records a final failed provider attempt, including its elapsed time. */
     public void recordFailure(LlmFeature feature, long latencyMs) {
         totalCalls.incrementAndGet();

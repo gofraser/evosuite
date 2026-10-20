@@ -561,8 +561,16 @@ public class LlmService implements AutoCloseable {
         Throwable lastError = null;
 
         for (int attempt = 1; attempt <= maxTries; attempt++) {
+            if (lastError != null && remainingNanos(options.deadlineNanos) <= 0) {
+                recordAbandonedRetries(feature, messages, options, safeExpandedClasses, lastError);
+            }
             ensureBeforeDeadline(options.deadlineNanos);
             if (!budgetCoordinator.tryAcquire(feature)) {
+                if (lastError != null) {
+                    recordAbandonedRetries(feature, messages, options, safeExpandedClasses, lastError);
+                    throw new LlmBudgetExceededException("LLM call budget exhausted on attempt " + attempt
+                            + " after: " + friendlyMessage(lastError), lastError);
+                }
                 throw new LlmBudgetExceededException("LLM call budget exhausted on attempt " + attempt);
             }
             long start = System.currentTimeMillis();
@@ -593,7 +601,7 @@ public class LlmService implements AutoCloseable {
                     // Future.get() clears the interrupted flag before throwing.
                     // Do not turn a shutdown request into an ordinary provider
                     // failure or continue with a retry.
-                    statistics.recordFailure(feature, latency);
+                    statistics.recordInterruptedAttempt(feature, latency);
                     safeRecordTrace(feature, messages, "", 0, 0, 0, latency,
                             "INTERRUPTED", options.repairAttempt,
                             options.expansionAttempted, safeExpandedClasses,
@@ -655,6 +663,20 @@ public class LlmService implements AutoCloseable {
         }
 
         throw new LlmCallFailedException("LLM query failed", lastError, false);
+    }
+
+    /**
+     * Gives a call whose last attempt was recorded as RETRYING a final outcome
+     * when no further attempt can start, so the counters and the trace do not
+     * end on a retry that never completed.
+     */
+    private void recordAbandonedRetries(LlmFeature feature, List<LlmMessage> messages,
+                                        QueryOptions options, List<String> expandedClasses,
+                                        Throwable lastError) {
+        statistics.recordRetriesAbandoned(feature, lastError instanceof TimeoutException);
+        safeRecordTrace(feature, messages, "", 0, 0, 0, 0L, "FAILED", options.repairAttempt,
+                options.expansionAttempted, expandedClasses,
+                lastError.getClass().getSimpleName(), options);
     }
 
     private LlmResponse invokeWithTimeout(List<LlmMessage> messages, LlmFeature feature,

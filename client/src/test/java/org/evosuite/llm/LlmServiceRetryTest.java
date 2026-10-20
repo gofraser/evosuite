@@ -305,6 +305,105 @@ class LlmServiceRetryTest {
     }
 
     @Test
+    void budgetExhaustedAfterRetryableFailureRecordsTheProviderFailure() throws Exception {
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            throw new RuntimeException(new LlmHttpException(503, "unavailable"));
+        };
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock", "", "", 0.0, 1024, 2, 2, 1,
+                true, tempDir, "budget-tail");
+        LlmStatistics statistics = new LlmStatistics();
+        LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
+        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1),
+                configuration, statistics, recorder);
+
+        try {
+            assertThrows(LlmBudgetExceededException.class, () -> service.query(
+                    Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR));
+
+            assertEquals(1, statistics.getTotalCalls());
+            assertEquals(1, statistics.getFailedCalls(),
+                    "the provider failure that ended the retries is the call's final outcome");
+            assertEquals(0, statistics.getTimedOutCalls());
+            java.util.List<String> lines = Files.readAllLines(recorder.getTraceFile(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(lines.get(lines.size() - 1).contains("\"parse_status\":\"FAILED\""),
+                    "the trace must not end on RETRYING");
+        } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void deadlineExhaustedAfterRetryableFailureRecordsTheProviderFailure() throws Exception {
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            throw new RuntimeException(new LlmHttpException(503, "unavailable"));
+        };
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock", "", "", 0.0, 1024, 30, 3, 5_000,
+                true, tempDir, "deadline-tail");
+        LlmStatistics statistics = new LlmStatistics();
+        LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
+        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(10),
+                configuration, statistics, recorder);
+
+        try {
+            assertThrows(LlmCallFailedException.class, () -> service.query(
+                    Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR,
+                    System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(200)));
+
+            assertEquals(1, statistics.getTotalCalls());
+            assertEquals(1, statistics.getFailedCalls());
+            java.util.List<String> lines = Files.readAllLines(recorder.getTraceFile(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(lines.get(lines.size() - 1).contains("\"parse_status\":\"FAILED\""));
+        } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void interruptedCallIsNotCountedAsAProviderFailure() throws Exception {
+        CountDownLatch providerStarted = new CountDownLatch(1);
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            providerStarted.countDown();
+            new CountDownLatch(1).await();
+            return LlmService.LlmResponse.fromText("unexpected");
+        };
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock", "", "", 0.0, 1024, 5, 0, 1,
+                false, Paths.get("target/llm-test-traces"), "interrupt-stats");
+        LlmStatistics statistics = new LlmStatistics();
+        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1), configuration,
+                statistics, new LlmTraceRecorder(configuration));
+        Thread caller = new Thread(() -> {
+            try {
+                service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
+            } catch (LlmCallFailedException expected) {
+                // The interruption is the expected outcome.
+            }
+        });
+
+        try {
+            caller.start();
+            assertTrue(providerStarted.await(1L, TimeUnit.SECONDS));
+            caller.interrupt();
+            caller.join(3_000L);
+            assertFalse(caller.isAlive());
+            assertEquals(1, statistics.getTotalCalls(), "the provider attempt was made");
+            assertEquals(0, statistics.getFailedCalls(),
+                    "a shutdown interrupt is not a provider failure");
+            assertEquals(0, statistics.getTimedOutCalls());
+        } finally {
+            caller.interrupt();
+            service.close();
+        }
+    }
+
+    @Test
     void timeoutReplacesExecutorWhenProviderIgnoresInterruption() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
