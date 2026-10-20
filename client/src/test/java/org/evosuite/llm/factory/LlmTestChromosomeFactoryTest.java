@@ -22,6 +22,7 @@ package org.evosuite.llm.factory;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.llm.LlmBudgetExceededException;
+import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptResult;
@@ -220,6 +221,21 @@ class LlmTestChromosomeFactoryTest {
         LlmService llmService = mockAvailableService();
         when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
                 .thenThrow(new LlmBudgetExceededException("spent"));
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+
+        targetedFactory(llmService, memory, goal).getChromosome();
+
+        verify(memory).registerAttempt(any(List.class), eq(true));
+        verify(memory).releaseUndeliveredAttempt(any(String.class));
+        verify(memory, never()).recordAttemptOutcome(any(String.class), any(Integer.class));
+    }
+
+    @Test
+    void releasesTheAttemptWhenTheCallFailed() {
+        TestFitnessFunction goal = new StubGoal("g");
+        LlmService llmService = mockAvailableService();
+        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+                .thenThrow(new LlmCallFailedException("provider down", null, true));
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
 
         targetedFactory(llmService, memory, goal).getChromosome();

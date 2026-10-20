@@ -199,7 +199,8 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
      * One LLM call, framed as one repeated-injection attempt when the prompt
      * has a target: the attempt is registered before the call and closed on
      * every exit — with no gain when the response yielded nothing, released
-     * without judgement when the call never went out (budget exhausted), and
+     * without judgement when no response was delivered (budget exhausted, call
+     * failed), and
      * otherwise left open in the {@link SeedAttemptLedger} until the GA has
      * evaluated the new test — so the shared memory's cooldown and no-gain
      * counters reflect this factory's prompts like every other feature's.
@@ -256,7 +257,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
                 handedToLedger = true;
             }
             return chromosome;
-        } catch (LlmBudgetExceededException e) {
+        } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             if (!registration.isEmpty()) {
                 memory.releaseUndeliveredAttempt(registration.getAttemptId());
                 registration = RepeatedInjectionMemory.PromptAttemptRegistration.empty();
