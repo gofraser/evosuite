@@ -184,6 +184,27 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void compileErrorMessageKeepsCodeFencesBalanced() throws Exception {
+        TestRepairLoop loop = new TestRepairLoop(
+                mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
+                mock(ClusterExpansionManager.class),
+                testCase -> new ExecutionResult(testCase), 0);
+        DefaultTestCase testCase = new DefaultTestCase();
+        testCase.addStatement(new UninterpretedStatement(testCase, "int x = noSuchSymbolForProbe;"));
+        ParseResult candidate = new ParseResult(testCase, "testBroken");
+        Method compileGate = TestRepairLoop.class.getDeclaredMethod(
+                "checkRenderedCompilation", ParseResult.class, long.class);
+        compileGate.setAccessible(true);
+
+        String error = (String) compileGate.invoke(loop, candidate, Long.MAX_VALUE);
+
+        assertNotNull(error);
+        assertTrue(error.contains("noSuchSymbolForProbe"), error);
+        int fences = error.split("```", -1).length - 1;
+        assertEquals(0, fences % 2, "every opened code fence must be closed exactly once: " + error);
+    }
+
+    @Test
     void truncatedResponseRecoveredWithoutRepairCall() {
         Properties.LLM_ENABLE_TRUNCATION_RECOVERY = true;
         LlmService llmService = mock(LlmService.class);

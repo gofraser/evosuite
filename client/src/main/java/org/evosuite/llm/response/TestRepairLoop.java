@@ -5387,7 +5387,6 @@ public class TestRepairLoop {
                                     + "parsing), not directly from raw LLM text."
                             + "\nRendered compile-check class excerpt:\n```java\n"
                             + truncate(source, MAX_TEST_CODE_EXCERPT_CHARS)
-                            + "\n```"
                             + "\n```";
                 }
             }
