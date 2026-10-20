@@ -49,7 +49,7 @@ class LlmResponseParserTest {
     @Test
     void wrapsMethodBodyIntoClass() {
         String response = "```java\n@org.junit.Test\npublic void x(){ int a = 1; }\n```";
-        String code = parser.extractTestClass(response, "MyGeneratedTest");
+        String code = parser.extractAllTestClassesWithMetadata(response, "MyGeneratedTest", null).get(0).getSource();
 
         assertTrue(code.contains("public class MyGeneratedTest"));
         assertTrue(code.contains("public void x()"));
@@ -76,7 +76,7 @@ class LlmResponseParserTest {
     @Test
     void emptyFallbackUsesJUnit4ByDefault() {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
-        String code = parser.extractTestClass("", "MyGeneratedTest");
+        String code = parser.extractAllTestClassesWithMetadata("", "MyGeneratedTest", null).get(0).getSource();
 
         assertTrue(code.contains("@org.junit.Test"));
     }
@@ -84,7 +84,7 @@ class LlmResponseParserTest {
     @Test
     void emptyFallbackUsesJUnit5WhenConfigured() {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
-        String code = parser.extractTestClass("", "MyGeneratedTest");
+        String code = parser.extractAllTestClassesWithMetadata("", "MyGeneratedTest", null).get(0).getSource();
 
         assertTrue(code.contains("@org.junit.jupiter.api.Test"));
         assertFalse(code.contains("@org.junit.Test"));
@@ -108,7 +108,7 @@ class LlmResponseParserTest {
                 + "  public void broken(){ int y =\n"
                 + "```";
         LlmResponseParser.ExtractionResult result =
-                parser.extractTestClassWithMetadata(response, "MyGeneratedTest", null);
+                parser.extractAllTestClassesWithMetadata(response, "MyGeneratedTest", null).get(0);
 
         assertTrue(result.isRecoveryApplied());
         assertTrue(result.getSource().contains("public void complete()"));
@@ -126,7 +126,7 @@ class LlmResponseParserTest {
                 + "```";
 
         LlmResponseParser.ExtractionResult result =
-                parser.extractTestClassWithMetadata(response, "IgnoredName", null);
+                parser.extractAllTestClassesWithMetadata(response, "IgnoredName", null).get(0);
 
         assertTrue(result.getSource().contains("public class AlreadyValid")
                         || result.getSource().contains("public class IgnoredName"),
@@ -154,7 +154,7 @@ class LlmResponseParserTest {
                 + "}\n"
                 + "```";
 
-        String source = parser.extractTestClass(response, "Ignored");
+        String source = parser.extractAllTestClassesWithMetadata(response, "Ignored", null).get(0).getSource();
 
         assertFalse(source.contains(" as BeanBinQuery"),
                 "alias import should be removed");
@@ -182,7 +182,7 @@ class LlmResponseParserTest {
                 + "}\n"
                 + "```";
 
-        String source = parser.extractTestClass(response, "Ignored");
+        String source = parser.extractAllTestClassesWithMetadata(response, "Ignored", null).get(0).getSource();
 
         assertFalse(source.contains(" as BeanBinQuery"));
         assertFalse(source.contains(" as Lst"));
@@ -215,7 +215,7 @@ class LlmResponseParserTest {
                 + "}\n"
                 + "```";
 
-        String source = parser.extractTestClass(response, "Ignored");
+        String source = parser.extractAllTestClassesWithMetadata(response, "Ignored", null).get(0).getSource();
         org.evosuite.testparser.TestMethodParser methodParser =
                 new org.evosuite.testparser.TestMethodParser();
         com.github.javaparser.ast.CompilationUnit cu = methodParser.parseSource(source);
@@ -235,7 +235,7 @@ class LlmResponseParserTest {
                 + "```";
 
         LlmResponseParser.ExtractionResult result =
-                parser.extractTestClassWithMetadata(response, "NormalizedWrapperTest", null);
+                parser.extractAllTestClassesWithMetadata(response, "NormalizedWrapperTest", null).get(0);
 
         assertTrue(result.isRecoveryApplied());
         assertTrue(result.getRecoveryReason().contains("wrapper-normalized"));
@@ -254,7 +254,7 @@ class LlmResponseParserTest {
                 + "}\n"
                 + "```";
 
-        String source = parser.extractTestClass(response, "NormalizedWrapperTest");
+        String source = parser.extractAllTestClassesWithMetadata(response, "NormalizedWrapperTest", null).get(0).getSource();
 
         assertTrue(source.contains("class WrapperWithHelper"));
         assertFalse(source.contains("public class NormalizedWrapperTest"),

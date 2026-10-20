@@ -1133,19 +1133,6 @@ public class TestClusterSummarizer {
         return b.toString();
     }
 
-    /** Returns a string listing the constructors that can generate instances of the given type. */
-    public String summarizeGenerators(GenericClass<?> type) {
-        if (type == null || type.getRawClass() == null) {
-            return "";
-        }
-        Class<?> raw = type.getRawClass();
-        List<String> lines = new ArrayList<>();
-        for (Constructor<?> constructor : raw.getConstructors()) {
-            lines.add(raw.getSimpleName() + "(" + genericParameterList(constructor.getGenericParameterTypes()) + ")");
-        }
-        return String.join(System.lineSeparator(), lines);
-    }
-
     /**
      * Returns a semicolon-separated summary of constructors and static factory methods
      * for the given type, using both reflection and the test cluster's generator map.

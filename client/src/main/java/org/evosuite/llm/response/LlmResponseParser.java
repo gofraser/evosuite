@@ -158,37 +158,6 @@ public class LlmResponseParser {
     }
 
     /**
-     * Extracts or synthesises a complete Java class from the LLM response,
-     * using {@code className} as the class name.
-     */
-    public String extractTestClass(String response, String className) {
-        return extractTestClassWithMetadata(response, className, null).getSource();
-    }
-
-    /**
-     * Extracts or synthesises a complete Java class from the LLM response,
-     * using {@code className} as the class name. If the extracted code does
-     * not contain a package declaration and {@code packageName} is non-null,
-     * the package declaration is prepended so that the test resides in the
-     * same package as the SUT (enabling access to package-private members).
-     */
-    public String extractTestClass(String response, String className, String packageName) {
-        return extractTestClassWithMetadata(response, className, packageName).getSource();
-    }
-
-    /**
-     * Extracts or synthesises a complete Java class and returns recovery metadata.
-     */
-    public ExtractionResult extractTestClassWithMetadata(String response, String className, String packageName) {
-        List<ExtractionResult> extractions =
-                extractAllTestClassesWithMetadata(response, className, packageName);
-        if (extractions.isEmpty()) {
-            return emptyFallbackResult(className, packageName);
-        }
-        return extractions.get(0);
-    }
-
-    /**
      * Extracts or synthesises complete Java classes from all detected code blocks
      * and returns recovery metadata for each block.
      */

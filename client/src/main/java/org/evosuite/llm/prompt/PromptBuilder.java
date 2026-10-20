@@ -31,7 +31,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -65,7 +64,6 @@ public class PromptBuilder {
     private boolean sutContextSelectivelyTruncated;
     private boolean clusterSummaryTruncated;
     private int clusterSummaryChars;
-    private String clusterSummaryBudgetMode = "none";
     private PromptResult.DependencySummaryMetadata dependencySummaryMetadata =
             PromptResult.DependencySummaryMetadata.empty();
     private boolean dependencyContextAdded;
@@ -143,7 +141,7 @@ public class PromptBuilder {
 
     /**
      * Add CUT context using the configured {@code LLM_SUT_CONTEXT_MODE}.
-     * This replaces separate {@code withTestClusterContext} and {@code withSourceCode} calls.
+     * Dependency context is added separately by {@link #withTestClusterContext(String, TestCluster)}.
      */
     public PromptBuilder withSutContext(String className, TestCluster cluster) {
         return withSutContext(className, cluster, true, true);
@@ -219,12 +217,6 @@ public class PromptBuilder {
                 result.isSelectivelyTruncated(), stable);
     }
 
-    /** Adds test cluster context (available API signatures) to the user prompt. */
-    public PromptBuilder withTestClusterContext(TestCluster cluster) {
-        addDependencyContext(Properties.TARGET_CLASS, cluster);
-        return this;
-    }
-
     /**
      * Adds a compact dependency summary (constructors, enum constants) to the user prompt.
      * The CUT itself is excluded since it's already covered by {@link #withSutContext}.
@@ -250,7 +242,6 @@ public class PromptBuilder {
                 : renderDependencyEntry(targetClassName, cluster);
         this.clusterSummaryTruncated = entry.isTruncated();
         this.clusterSummaryChars = entry.getTotalCharsBeforeTruncation();
-        this.clusterSummaryBudgetMode = entry.getBudgetMode();
         this.dependencySummaryMetadata = entry.getMetadata();
 
         // The dependency entry may have been served from an earlier prompt's
@@ -358,15 +349,6 @@ public class PromptBuilder {
             this.budgetChars = budgetChars;
             this.mode = mode;
         }
-    }
-
-    /** Adds the source code of the given class to the user prompt when available. */
-    public PromptBuilder withSourceCode(String className) {
-        Optional<String> sourceCode = sourceCodeProvider.getSourceCode(className);
-        if (sourceCode.isPresent()) {
-            userSections.add("Source code:\n```java\n" + sourceCode.get() + "\n```");
-        }
-        return this;
     }
 
     /** Adds the given uncovered coverage goals as a section in the user prompt. */
