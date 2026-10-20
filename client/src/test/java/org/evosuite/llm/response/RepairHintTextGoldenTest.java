@@ -22,6 +22,7 @@ package org.evosuite.llm.response;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -46,9 +47,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.evosuite.llm.LlmRequestMatchers.text;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Pins the complete text of repair messages for one input per hint family, so
@@ -147,8 +151,11 @@ class RepairHintTextGoldenTest {
     }
 
     private static TestRepairLoop newLoop() {
+        // Only the sent message matters here; the model's reply is irrelevant.
+        LlmService service = mock(LlmService.class);
+        when(service.query(any(LlmRequest.class))).thenReturn(text(null));
         return new TestRepairLoop(
-                mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
+                service, mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
                 testCase -> new ExecutionResult(testCase), 3,
                 null, SUT_CONTEXT);
