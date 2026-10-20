@@ -27,7 +27,23 @@ public class SecretHolder {
         }
     }
 
+    /** Its nearest accessible supertype is Serializable, which is not a collection. */
+    private static class SecretBag extends java.util.AbstractList<String>
+            implements java.io.Serializable {
+        @Override
+        public String get(int index) {
+            throw new IndexOutOfBoundsException();
+        }
+
+        @Override
+        public int size() {
+            return 0;
+        }
+    }
+
     public Secret secret = new Secret();
+
+    public SecretBag bag = new SecretBag();
 
     public Object anything = new Secret();
 

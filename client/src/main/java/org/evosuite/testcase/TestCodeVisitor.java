@@ -1340,11 +1340,16 @@ public class TestCodeVisitor extends TestVisitor {
      */
     private static Class<?> getRenderedDeclarationClass(VariableReference var) {
         Type type = var.getType();
+        Class<?> rawClass = null;
         if (type instanceof Class<?>) {
-            return (Class<?>) type;
+            rawClass = (Class<?>) type;
+        } else if (type instanceof ParameterizedType && ((ParameterizedType) type).getRawType() instanceof Class<?>) {
+            rawClass = (Class<?>) ((ParameterizedType) type).getRawType();
         }
-        if (type instanceof ParameterizedType && ((ParameterizedType) type).getRawType() instanceof Class<?>) {
-            return (Class<?>) ((ParameterizedType) type).getRawType();
+        if (rawClass != null) {
+            // A class the test cannot name is declared with an accessible supertype.
+            return rawClass.isPrimitive() || rawClass.isArray() || isDeclaredTypeNameableInGeneratedTest(rawClass)
+                    ? rawClass : findAccessibleRenderableSupertype(rawClass);
         }
         if (type instanceof GenericArrayType) {
             return Object[].class;

@@ -24,13 +24,19 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.TestFactory;
+import org.evosuite.testcase.accessfixture.other.SecretHolder;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
 import org.evosuite.utils.generic.JavacScratchCompiler;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -70,6 +76,41 @@ public class ContainsAssertionRenderingCompileTest {
                 "evosuite-contains-object", "ContainsSnippet", code);
         assertTrue(compiled.success, code + "\n" + compiled.stderr);
         return code;
+    }
+
+    /**
+     * A collection whose class is private is declared with its nearest accessible supertype,
+     * here Serializable, so {@code serializable0.contains(7)} would not compile either.
+     */
+    @Test
+    public void containsOnPrivateCollectionDeclaredAsNonCollectionIsOmitted() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(SecretHolder.class.getConstructor(), SecretHolder.class),
+                Collections.emptyList()));
+        VariableReference bag = tc.addStatement(new FieldStatement(tc,
+                new GenericField(SecretHolder.class.getField("bag"), SecretHolder.class), holder));
+
+        ContainsAssertion assertion = new ContainsAssertion();
+        assertion.source = bag;
+        assertion.containedVariable = new ConstantValue(tc, GenericClassFactory.get(int.class), 7);
+        assertion.value = false;
+        tc.getStatement(bag.getStPosition()).addAssertion(assertion);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        StringBuilder code = new StringBuilder();
+        for (Class<?> imported : visitor.getImports()) {
+            if (imported.getCanonicalName() != null) {
+                code.append("import ").append(imported.getCanonicalName()).append(";\n");
+            }
+        }
+        code.append("import static org.junit.jupiter.api.Assertions.*;\n")
+                .append("public class HiddenContainsSnippet {\n  public void test0() throws Throwable {\n")
+                .append(visitor.getCode()).append("\n  }\n}\n");
+        JavacScratchCompiler.Result compiled = JavacScratchCompiler.compile(
+                "evosuite-contains-hidden", "HiddenContainsSnippet", code.toString());
+        assertTrue(compiled.success, code + "\n" + compiled.stderr);
     }
 
     @Test
