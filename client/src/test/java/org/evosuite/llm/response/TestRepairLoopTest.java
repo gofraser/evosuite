@@ -41,6 +41,7 @@ import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.runtime.FalsePositiveException;
+import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.testcase.statements.ArrayStatement;
@@ -59,6 +60,7 @@ import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -295,6 +297,33 @@ class TestRepairLoopTest {
         } finally {
             ClassPathHandler.resetSingleton();
             Properties.CP = savedCp;
+        }
+    }
+
+    @Test
+    void compileWorkerStartedUnderTheSandboxMayRunJavac() throws Exception {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported(),
+                "Security Manager is not supported in this JVM (Java 24+)");
+        Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
+        TestRepairLoop loop = new TestRepairLoop(
+                mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
+                mock(ClusterExpansionManager.class),
+                testCase -> new ExecutionResult(testCase), 0);
+        Method compileGate = TestRepairLoop.class.getDeclaredMethod(
+                "checkRenderedCompilation", ParseResult.class, long.class);
+        compileGate.setAccessible(true);
+
+        // A fresh worker whose thread is only started once the sandbox is up.
+        TestRepairLoop.resetForRunCompletion();
+        Sandbox.initializeSecurityManagerForSUT();
+        try {
+            TestRepairLoop.CompileCheck check = (TestRepairLoop.CompileCheck) compileGate.invoke(
+                    loop, new ParseResult(new DefaultTestCase(), "testEmpty"), Long.MAX_VALUE);
+
+            assertFalse(check.isNotJudged(), check.getCause());
+            assertFalse(check.isRejected(), check.getRejection());
+        } finally {
+            Sandbox.resetDefaultSecurityManager();
         }
     }
 

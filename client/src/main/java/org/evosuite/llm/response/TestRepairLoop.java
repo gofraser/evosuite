@@ -1298,7 +1298,6 @@ public class TestRepairLoop {
             return CompileCheck.rejected(
                     "Compilation error in parsed test '<unnamed>': missing parsed test case");
         }
-        ensureParseCompileThreadPrivileged();
         if (parseCompileCompiler() == null) {
             return CompileCheck.notJudged("No Java compiler available in current runtime");
         }
@@ -1334,14 +1333,12 @@ public class TestRepairLoop {
         }
     }
 
-    private void ensureParseCompileThreadPrivileged() {
-        registerParseCompileThreadAsPrivileged();
-    }
-
     /**
      * Registers the parse-phase compilation worker thread as privileged with
      * the EvoSuite sandbox. Must be invoked by a privileged EvoSuite thread
-     * after sandbox initialization.
+     * after sandbox initialization. A worker thread started while the sandbox
+     * is up registers itself on creation; this covers a thread that already
+     * existed when the sandbox was (re)initialized.
      */
     public static void registerParseCompileThreadAsPrivileged() {
         if (!Sandbox.isSecurityManagerInitialized()) {
