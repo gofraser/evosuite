@@ -253,7 +253,6 @@ public class TestParser {
             }
         }
 
-        int statementsBeforeParse = testCase.size();
         List<com.github.javaparser.ast.stmt.Statement> astStatements = methodParser.extractBody(method);
         for (int i = 0; i < astStatements.size(); ) {
             com.github.javaparser.ast.stmt.Statement astStmt = astStatements.get(i);
@@ -271,7 +270,7 @@ public class TestParser {
                 // Preserve as UninterpretedStatement so the source is not lost. If that
                 // also fails validation, skip this statement and continue with the rest.
                 try {
-                    testCase.addStatement(stmtParser.createUninterpretedStatementFromAst(astStmt));
+                    stmtParser.addStatement(stmtParser.createUninterpretedStatementFromAst(astStmt));
                 } catch (Throwable fallbackFailure) {
                     logger.warn("Failed to preserve unparsable statement as UninterpretedStatement: {}",
                             astStmt, fallbackFailure);
@@ -282,13 +281,6 @@ public class TestParser {
                             astStmt.toString()));
                 }
                 i++;
-            }
-        }
-
-        // Mark all statements created during this parse pass as LLM-originated
-        if (this.markParsedFromLlm) {
-            for (int i = statementsBeforeParse; i < testCase.size(); i++) {
-                testCase.getStatement(i).setParsedFromLlm(true);
             }
         }
 
