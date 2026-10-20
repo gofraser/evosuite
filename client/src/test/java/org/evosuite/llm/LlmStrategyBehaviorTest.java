@@ -287,7 +287,7 @@ class LlmStrategyBehaviorTest {
                 new TestParser(getClass().getClassLoader()), new LlmResponseParser(),
                 new ClusterExpansionManager(), testCase -> null, 0) {
             @Override
-            public RepairResult attemptParse(String llmResponse, List<LlmMessage> conversationHistory,
+            public RepairResult attemptParse(String llmResponse, PromptResult prompt,
                                              LlmFeature feature, long repairDeadlineNanos) {
                 attempts[0]++;
                 return RepairResult.failure(Arrays.asList(

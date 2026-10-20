@@ -166,6 +166,7 @@ public final class PromptResult {
     private final boolean clusterSummaryTruncated;
     private final int clusterSummaryChars;
     private final DependencySummaryMetadata dependencySummaryMetadata;
+    private final boolean dependencyContextIncluded;
     private final List<ProblemCardType> diagnosticCardTypes;
     private final List<ProblemCard> diagnosticCards;
     private final List<RepeatedInjectionTarget> repeatedInjectionTargets;
@@ -181,6 +182,7 @@ public final class PromptResult {
         private boolean clusterSummaryTruncated;
         private int clusterSummaryChars;
         private DependencySummaryMetadata dependencySummaryMetadata = DependencySummaryMetadata.empty();
+        private boolean dependencyContextIncluded;
         private List<ProblemCardType> diagnosticCardTypes = Collections.emptyList();
         private List<ProblemCard> diagnosticCards = Collections.emptyList();
         private List<RepeatedInjectionTarget> repeatedInjectionTargets = Collections.emptyList();
@@ -234,6 +236,11 @@ public final class PromptResult {
             return this;
         }
 
+        public Builder dependencyContextIncluded(boolean dependencyContextIncluded) {
+            this.dependencyContextIncluded = dependencyContextIncluded;
+            return this;
+        }
+
         public Builder diagnosticCardTypes(List<ProblemCardType> diagnosticCardTypes) {
             this.diagnosticCardTypes = diagnosticCardTypes;
             return this;
@@ -277,6 +284,7 @@ public final class PromptResult {
         this.clusterSummaryChars = builder.clusterSummaryChars;
         this.dependencySummaryMetadata = builder.dependencySummaryMetadata == null
                 ? DependencySummaryMetadata.empty() : builder.dependencySummaryMetadata;
+        this.dependencyContextIncluded = builder.dependencyContextIncluded;
         this.diagnosticCardTypes = builder.diagnosticCardTypes == null
                 ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(builder.diagnosticCardTypes));
@@ -287,6 +295,14 @@ public final class PromptResult {
                 ? Collections.<RepeatedInjectionTarget>emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(builder.repeatedInjectionTargets));
         this.prefixHash = builder.prefixHash != null ? builder.prefixHash : PrefixHash.of(this.messages);
+    }
+
+    /**
+     * True if the prompt carries the dependency-type catalogue (in the system message when static
+     * context is cached, in the user message otherwise), so a repair turn need not repeat it.
+     */
+    public boolean isDependencyContextIncluded() {
+        return dependencyContextIncluded;
     }
 
     public List<LlmMessage> getMessages() {
@@ -385,6 +401,7 @@ public final class PromptResult {
                 .clusterSummaryTruncated(clusterSummaryTruncated)
                 .clusterSummaryChars(clusterSummaryChars)
                 .dependencySummaryMetadata(dependencySummaryMetadata)
+                .dependencyContextIncluded(dependencyContextIncluded)
                 .diagnosticCardTypes(diagnosticCardTypes)
                 .diagnosticCards(diagnosticCards)
                 .repeatedInjectionTargets(repeatedInjectionTargets);

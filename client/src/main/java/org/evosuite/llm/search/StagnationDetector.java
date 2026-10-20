@@ -304,7 +304,7 @@ public class StagnationDetector {
         }
         try {
             RepairResult result = repairLoop()
-                    .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION,
+                    .attemptParse(response, prompt, LlmFeature.STAGNATION,
                             repairDeadlineNanos);
             return CallResult.delivered(result.isSuccess()
                     ? result.toChromosomes() : Collections.<TestChromosome>emptyList());

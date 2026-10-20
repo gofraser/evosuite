@@ -351,6 +351,42 @@ class PromptBuilderSutContextTest {
     }
 
     @Test
+    void promptResultReportsWhetherTheDependencyCatalogueIsIncluded() {
+        Properties.LLM_SUT_CONTEXT_MODE = LlmSutContextMode.SIGNATURE_ONLY;
+        Properties.TARGET_CLASS = "com.example.Foo";
+        SutContextProvider stubProvider = new StubSutContextProvider("public class Foo {}");
+        SutContextProviderFactory factory = new SutContextProviderFactory(
+                stubProvider, stubProvider, stubProvider, stubProvider);
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorsByType = new LinkedHashMap<>();
+        generatorsByType.put(GenericClassFactory.get(SignatureContextProvider.class),
+                java.util.Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generatorsByType);
+
+        for (boolean cached : new boolean[] {false, true}) {
+            Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = cached;
+            StaticPromptContext.resetInstanceForTesting();
+            assertTrue(newBuilder(factory).withSutContext("com.example.Foo", cluster)
+                    .buildWithMetadata().isDependencyContextIncluded(), "cached=" + cached);
+            assertFalse(newBuilder(factory).withSutContext("com.example.Foo", cluster, true, false)
+                    .buildWithMetadata().isDependencyContextIncluded(), "cached=" + cached);
+            assertFalse(newBuilder(factory).withSutContext("com.example.Foo", null)
+                    .buildWithMetadata().isDependencyContextIncluded(), "cached=" + cached);
+        }
+    }
+
+    private static PromptBuilder newBuilder(SutContextProviderFactory factory) {
+        return new PromptBuilder(
+                new SystemPromptProvider(),
+                new TestClusterSummarizer(),
+                new SourceCodeProvider(),
+                new CoverageGoalFormatter(),
+                new TestCaseFormatter(),
+                factory);
+    }
+
+    @Test
     void dependencyBudgetScalesWithContextBudget() {
         Properties.LLM_CONTEXT_MAX_CHARS = 100_000;
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING = true;

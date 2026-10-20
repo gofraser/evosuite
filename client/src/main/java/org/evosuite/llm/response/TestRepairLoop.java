@@ -27,7 +27,7 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.ClusterGrowthDelta;
-import org.evosuite.llm.prompt.StaticPromptContext;
+import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
 import org.evosuite.runtime.GuiSupport;
@@ -478,12 +478,52 @@ public class TestRepairLoop {
                                      LlmFeature feature,
                                      long repairDeadlineNanos,
                                      Consumer<List<ParseResult>> salvagedTestsConsumer) {
+        return attemptParse(llmResponse, conversationHistory, false, feature,
+                repairDeadlineNanos, salvagedTestsConsumer);
+    }
+
+    /** Parses and repairs a response to {@code prompt}, which also supplies the starting conversation. */
+    public RepairResult attemptParse(String llmResponse,
+                                     PromptResult prompt,
+                                     LlmFeature feature) {
+        return attemptParse(llmResponse, prompt, feature, NO_REPAIR_DEADLINE);
+    }
+
+    /** Deadline-aware variant of {@link #attemptParse(String, PromptResult, LlmFeature)}. */
+    public RepairResult attemptParse(String llmResponse,
+                                     PromptResult prompt,
+                                     LlmFeature feature,
+                                     long repairDeadlineNanos) {
+        return attemptParse(llmResponse, prompt, feature, repairDeadlineNanos, null);
+    }
+
+    /**
+     * Variant of {@link #attemptParse(String, List, LlmFeature, long, Consumer)} that takes the
+     * conversation from {@code prompt}, which also says whether the dependency-type catalogue is
+     * already part of it so a repair turn does not send it a second time.
+     */
+    public RepairResult attemptParse(String llmResponse,
+                                     PromptResult prompt,
+                                     LlmFeature feature,
+                                     long repairDeadlineNanos,
+                                     Consumer<List<ParseResult>> salvagedTestsConsumer) {
+        return attemptParse(llmResponse, prompt.getMessages(), prompt.isDependencyContextIncluded(),
+                feature, repairDeadlineNanos, salvagedTestsConsumer);
+    }
+
+    private RepairResult attemptParse(String llmResponse,
+                                      List<LlmMessage> conversationHistory,
+                                      boolean dependencyContextInPrompt,
+                                      LlmFeature feature,
+                                      long repairDeadlineNanos,
+                                      Consumer<List<ParseResult>> salvagedTestsConsumer) {
         List<String> diagnostics = new ArrayList<>();
         List<String> expandedClasses = new ArrayList<>();
         Map<String, ParseResult> salvagedExecutableTests = new LinkedHashMap<>();
         String currentResponse = llmResponse;
         int attemptsUsed = 0;
         RepairConversation state = new RepairConversation();
+        state.setDependencyContextInPrompt(dependencyContextInPrompt);
         boolean observedExecutionDrop = false;
         boolean strictContractReaskUsed = false;
         // Candidates that failed at execution in any attempt. The LLM often
@@ -1116,9 +1156,7 @@ public class TestRepairLoop {
         // PromptBuilder), don't re-append the bulk catalogue below — the model
         // already has it in the cacheable prefix.
         boolean sutContextSummaryAlreadyInSystemMessage = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT
-                && !conversation.isEmpty()
-                && conversation.get(0).getRole() == LlmMessage.Role.SYSTEM
-                && StaticPromptContext.containsDependencyContext(conversation.get(0).getContent());
+                && state.isDependencyContextInPrompt();
 
         // Add the assistant's last response to the conversation
         if (previousResponse != null && !previousResponse.isEmpty()) {

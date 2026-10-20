@@ -145,7 +145,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
                 return EnrichmentResult.failure("Cancelled before parsing LLM response");
             }
             RepairResult repairResult = repairLoop.attemptParse(
-                    response, promptResult.getMessages(), LlmFeature.OBJECT_POOL_ENRICHMENT);
+                    response, promptResult, LlmFeature.OBJECT_POOL_ENRICHMENT);
 
             if (repairResult.isSuccess() && repairResult.getParseResults() != null) {
                 for (ParseResult parseResult : repairResult.getParseResults()) {

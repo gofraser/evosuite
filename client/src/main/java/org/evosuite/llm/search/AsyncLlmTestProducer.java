@@ -340,7 +340,7 @@ public class AsyncLlmTestProducer {
     protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
         String response = llmService.query(prompt, LlmFeature.ASYNC_PRODUCER);
         RepairResult result = repairLoop.attemptParse(
-                response, prompt.getMessages(), LlmFeature.ASYNC_PRODUCER);
+                response, prompt, LlmFeature.ASYNC_PRODUCER);
         return result.isSuccess() ? result.toChromosomes() : Collections.emptyList();
     }
 

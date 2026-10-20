@@ -866,7 +866,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                     llmService,
                     TestRepairLoop.RepairOptions.forAssertionPolicy(
                             LlmAssertionPolicyResolver.keepAssertions(true)))
-                    .attemptParse(response, prompt.getMessages(), feature,
+                    .attemptParse(response, prompt, feature,
                             deadlineNanos);
             long latencyMillis = elapsedMillis(startedNanos);
             if (!result.isSuccess()) {

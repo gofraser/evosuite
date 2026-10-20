@@ -258,7 +258,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
                     : llmService.query(prompt, LlmFeature.TEST_FACTORY, deadlineNanos);
             RepairResult repairResult = TestRepairLoop
                     .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
-                    .attemptParse(response, prompt.getMessages(), LlmFeature.TEST_FACTORY, deadlineNanos);
+                    .attemptParse(response, prompt, LlmFeature.TEST_FACTORY, deadlineNanos);
             TargetedResponse targeted = TargetedResponse.map(repairResult, 1);
             TestCase testCase = targeted.forTarget(1)
                     .orElseGet(() -> targeted.all().isEmpty() ? null : targeted.all().get(0));

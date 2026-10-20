@@ -201,7 +201,7 @@ public abstract class LlmSemanticOperator {
         }
         TargetedResponse.CallUsage usage = queryResult.getUsage();
         try {
-            RepairResult result = loop.get().attemptParse(queryResult.getText(), prompt.getMessages(), feature,
+            RepairResult result = loop.get().attemptParse(queryResult.getText(), prompt, feature,
                     deadlineNanos);
             if (stage != null) {
                 logParseOutcome(stage, result);
@@ -231,7 +231,7 @@ public abstract class LlmSemanticOperator {
      */
     public TargetedResponse reparseWithExpansion(PromptResult prompt, String rawResponse, int targetCount,
                                                  TargetedResponse.CallUsage usage) {
-        RepairResult result = reparseRepairLoop.get().attemptParse(rawResponse, prompt.getMessages(), feature);
+        RepairResult result = reparseRepairLoop.get().attemptParse(rawResponse, prompt, feature);
         logParseOutcome("search-thread re-parse", result);
         return TargetedResponse.map(result, targetCount, usage, rawResponse);
     }

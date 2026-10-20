@@ -4995,7 +4995,11 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Arrays.asList(LlmMessage.system(systemMessageWithDependencyContext), LlmMessage.user("seed")),
+                new org.evosuite.llm.prompt.PromptResult.Builder()
+                        .messages(Arrays.asList(LlmMessage.system(systemMessageWithDependencyContext),
+                                LlmMessage.user("seed")))
+                        .dependencyContextIncluded(true)
+                        .build(),
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());

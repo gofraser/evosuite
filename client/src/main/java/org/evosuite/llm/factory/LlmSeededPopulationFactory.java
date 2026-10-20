@@ -266,7 +266,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                     .createDefault(llmService,
                             TestRepairLoop.RepairOptions.forAssertionPolicy(
                                     LlmAssertionPolicyResolver.keepAssertions(llmStrategyContext)))
-                    .attemptParse(response, prompt.getMessages(), LlmFeature.SEEDING,
+                    .attemptParse(response, prompt, LlmFeature.SEEDING,
                             repairDeadlineNanos, this::publishPartialSeeds);
             if (!acceptingSeeds.get() || Thread.currentThread().isInterrupted()) {
                 return Collections.emptyList();

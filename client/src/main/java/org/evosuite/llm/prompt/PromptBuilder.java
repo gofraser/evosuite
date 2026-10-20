@@ -67,6 +67,8 @@ public class PromptBuilder {
     private PromptResult.DependencySummaryMetadata dependencySummaryMetadata =
             PromptResult.DependencySummaryMetadata.empty();
     private boolean dependencyContextAdded;
+    /** True once the dependency catalogue itself (not just a growth delta) is part of the prompt. */
+    private boolean dependencyCatalogueIncluded;
 
     // Populated only when Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT is true: the
     // memoised SUT/dependency sections are placed here instead of in userSections,
@@ -268,6 +270,7 @@ public class PromptBuilder {
             return;
         }
         dependencyContextAdded = true;
+        dependencyCatalogueIncluded = true;
         if (!cached) {
             userSections.add(entry.getSectionText());
             userSections.add(REMINDER_CONCRETE_TYPES);
@@ -577,6 +580,7 @@ public class PromptBuilder {
                 .clusterSummaryTruncated(clusterSummaryTruncated)
                 .clusterSummaryChars(clusterSummaryChars)
                 .dependencySummaryMetadata(dependencySummaryMetadata)
+                .dependencyContextIncluded(dependencyCatalogueIncluded)
                 .build();
     }
 

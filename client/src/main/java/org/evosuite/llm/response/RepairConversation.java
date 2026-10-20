@@ -49,6 +49,9 @@ final class RepairConversation {
     private static final Pattern LINE_NUMBER_PATTERN = Pattern.compile(
             "(?<=\\(line |line |Line )\\d+|(?<=position )\\d+");
 
+    /** Whether the original prompt already carries the dependency-type catalogue. */
+    private boolean dependencyContextInPrompt;
+
     /** Whether cluster expansion ran since the last repair request went out. */
     private boolean expansionAttempted;
     /** Classes whose dependency signatures have already been sent to the model (cluster-growth delta). */
@@ -94,6 +97,16 @@ final class RepairConversation {
      * after it is consumed so the same hint is not repeated on later turns.
      */
     private String pendingTopOfMessageEscalationHint;
+
+    /** Records whether the prompt this conversation started from already includes the catalogue. */
+    void setDependencyContextInPrompt(boolean dependencyContextInPrompt) {
+        this.dependencyContextInPrompt = dependencyContextInPrompt;
+    }
+
+    /** True if repeating the dependency-type catalogue in a repair turn would only duplicate it. */
+    boolean isDependencyContextInPrompt() {
+        return dependencyContextInPrompt;
+    }
 
     /** Records that cluster expansion ran; the next repair request reports it. */
     void markExpansionAttempted() {

@@ -48,12 +48,7 @@ import java.util.function.Supplier;
  */
 public final class StaticPromptContext {
 
-    /**
-     * Header of the dependency-summary section. Shared between this class'
-     * {@link #containsDependencyContext(String)} check and
-     * {@link PromptBuilder}'s rendering of the same section, so the two never
-     * drift apart.
-     */
+    /** Header of the dependency-summary section, rendered by {@link PromptBuilder}. */
     public static final String DEPENDENCY_SECTION_HEADER =
             "Available dependency types (standard Java library classes may also be used freely):";
 
@@ -104,11 +99,6 @@ public final class StaticPromptContext {
     /** Clears both memos for test isolation. */
     public static void resetInstanceForTesting() {
         resetForRunCompletion();
-    }
-
-    /** True if {@code systemMessage} already carries the dependency-summary section. */
-    public static boolean containsDependencyContext(String systemMessage) {
-        return systemMessage != null && systemMessage.contains(DEPENDENCY_SECTION_HEADER);
     }
 
     /**
