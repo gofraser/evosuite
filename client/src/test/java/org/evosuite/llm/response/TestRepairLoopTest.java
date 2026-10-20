@@ -3318,13 +3318,13 @@ class TestRepairLoopTest {
 
     @Test
     void initializationFailureClassifierDetectsInitializerErrors() {
-        assertTrue(TestRepairLoop.isInitializationFailureError(
+        assertTrue(RepairHintComposer.isInitializationFailureError(
                 "Execution error: java.lang.ExceptionInInitializerError - null"));
-        assertTrue(TestRepairLoop.isInitializationFailureError(
+        assertTrue(RepairHintComposer.isInitializationFailureError(
                 "Execution error: java.lang.NoClassDefFoundError - Could not initialize class a.b.C"));
-        assertTrue(TestRepairLoop.isInitializationFailureError(
+        assertTrue(RepairHintComposer.isInitializationFailureError(
                 "Execution error: java.awt.AWTError - Local GraphicsEnvironment must not be null"));
-        assertFalse(TestRepairLoop.isInitializationFailureError(
+        assertFalse(RepairHintComposer.isInitializationFailureError(
                 "Execution error: java.lang.NullPointerException - x is null"));
     }
 
@@ -3495,34 +3495,34 @@ class TestRepairLoopTest {
 
     @Test
     void instantiationFailureClassifierDetectsInstantiationErrors() {
-        assertTrue(TestRepairLoop.isInstantiationFailureError(
+        assertTrue(RepairHintComposer.isInstantiationFailureError(
                 "Execution error: java.lang.InstantiationException - null"));
-        assertTrue(TestRepairLoop.isInstantiationFailureError(
+        assertTrue(RepairHintComposer.isInstantiationFailureError(
                 "compile error: X is abstract; cannot be instantiated"));
-        assertFalse(TestRepairLoop.isInstantiationFailureError(
+        assertFalse(RepairHintComposer.isInstantiationFailureError(
                 "Execution error: java.lang.NullPointerException - x is null"));
     }
 
     @Test
     void mockingMisuseClassifierDetectsMockitoMisuseErrors() {
-        assertTrue(TestRepairLoop.isMockingMisuseError(
+        assertTrue(RepairHintComposer.isMockingMisuseError(
                 "Execution error: org.mockito.exceptions.misusing.NotAMockException - ..."));
-        assertTrue(TestRepairLoop.isMockingMisuseError(
+        assertTrue(RepairHintComposer.isMockingMisuseError(
                 "Execution error: org.mockito.exceptions.misusing.UnfinishedStubbingException - ..."));
-        assertFalse(TestRepairLoop.isMockingMisuseError(
+        assertFalse(RepairHintComposer.isMockingMisuseError(
                 "Execution error: java.lang.NullPointerException - x is null"));
     }
 
     @Test
     void falsePositiveMockClassifierDetectsViolatedAssumptionAnswerFailures() {
-        assertTrue(TestRepairLoop.isFalsePositiveMockError(
+        assertTrue(RepairHintComposer.isFalsePositiveMockError(
                 "Execution error in test 'x': org.evosuite.runtime.FalsePositiveException - "
                         + "Mock call to prepareStatement which was not presented when the test was generated"));
-        assertTrue(TestRepairLoop.isFalsePositiveMockError(
+        assertTrue(RepairHintComposer.isFalsePositiveMockError(
                 "Execution error in test 'x': java.lang.RuntimeException - "
                         + "Root cause: org.evosuite.runtime.FalsePositiveException - "
                         + "Mock call to getTransaction which was not presented when the test was generated"));
-        assertFalse(TestRepairLoop.isFalsePositiveMockError(
+        assertFalse(RepairHintComposer.isFalsePositiveMockError(
                 "Execution error: java.lang.NullPointerException - x is null"));
     }
 
