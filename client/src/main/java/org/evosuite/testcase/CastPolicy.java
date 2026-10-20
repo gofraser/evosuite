@@ -1280,6 +1280,39 @@ class CastPolicy {
         return callee.getType();
     }
 
+    /**
+     * The type javac gives {@code outer.new Inner(...)} is {@code Outer<X>.Inner}, where X comes
+     * from the declared type of the enclosing instance, not from the constructor model's own
+     * owner type (which can carry a different instantiation of the outer's type parameters).
+     * Declaring the variable with the model's owner type then fails to compile, so only an
+     * owner type that agrees with the enclosing instance keeps its qualifier.
+     */
+    static Type withEnclosingInstanceOwner(Type ownerType, VariableReference enclosingInstance) {
+        Class<?> rawInner = safeErasure(ownerType);
+        if (rawInner == null || rawInner.getDeclaringClass() == null
+                || !(ownerType instanceof ParameterizedType)
+                || !(((ParameterizedType) ownerType).getOwnerType() instanceof ParameterizedType)) {
+            return ownerType;
+        }
+        // The enclosing instance may only inherit the outer class (class Derived extends
+        // Outer<String>), so look at its supertype that is the inner class's declaring class.
+        Type enclosingOuter = null;
+        try {
+            enclosingOuter = GenericUtils.getExactSuperType(
+                    enclosingInstance.getType(), rawInner.getDeclaringClass());
+        } catch (RuntimeException e) {
+            // unresolvable: fall through to the raw declaration
+        }
+        if (enclosingOuter instanceof ParameterizedType
+                && enclosingOuter.equals(((ParameterizedType) ownerType).getOwnerType())) {
+            return ownerType;
+        }
+        // The model's instantiation of the outer disagrees with, or cannot be reconciled with,
+        // the enclosing instance's type; later calls are chosen against the model, so a
+        // qualified declaration would only move the compile error. Stay raw.
+        return rawInner;
+    }
+
     private Type[] resolveMethodParameterTypesForReceiver(GenericMethod method, Type receiverType) {
         if (method == null || receiverType == null) {
             return method != null ? method.getParameterTypes() : new Type[0];
