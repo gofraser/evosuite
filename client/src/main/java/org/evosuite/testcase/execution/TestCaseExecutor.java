@@ -34,6 +34,7 @@ import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.evosuite.testcase.statements.FunctionalMockFailover;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.mockito.Mockito;
@@ -487,7 +488,7 @@ public class TestCaseExecutor implements ThreadFactory {
      * stay off: restoring the saved values would generate mocks that the failover then rejects.
      */
     private void restoreFunctionalMockingUnlessGloballyDisabled() {
-        if (FunctionalMockStatement.isFunctionalMockingGloballyDisabled()) {
+        if (FunctionalMockFailover.isFunctionalMockingGloballyDisabled()) {
             logger.info("Not restoring functional mocking: it is disabled globally.");
             return;
         }

@@ -33,7 +33,7 @@ import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.dmon.DmonEphemeralAssist;
 import org.evosuite.testcase.statements.ConstructorStatement;
-import org.evosuite.testcase.statements.FunctionalMockStatement;
+import org.evosuite.testcase.statements.FunctionalMockFailover;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -438,7 +438,7 @@ public class TestRunnable implements InterfaceTestRunnable {
                 // E.g., mock(Graphics.class) cast to Graphics2D → upgrade to Graphics2D.
                 ClassCastException classCast = findClassCastException(exceptionThrown);
                 if (classCast != null) {
-                    FunctionalMockStatement.detectMockTypeUpgrade(classCast, s, test);
+                    FunctionalMockFailover.detectMockTypeUpgrade(classCast, s, test);
                 }
 
                 exceptionThrown = dmonAssist.assist(result, s, exceptionThrown, out);

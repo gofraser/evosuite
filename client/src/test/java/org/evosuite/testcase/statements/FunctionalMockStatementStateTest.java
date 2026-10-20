@@ -53,7 +53,7 @@ public class FunctionalMockStatementStateTest {
 
     @AfterEach
     public void tearDown() {
-        FunctionalMockStatement.resetMockingFailoverStateForTests();
+        FunctionalMockFailover.reset();
     }
 
     private static FunctionalMockStatement mock(boolean lenient) {
@@ -116,7 +116,7 @@ public class FunctionalMockStatementStateTest {
 
     @Test
     public void mockTypeUpgradeIsAppliedByRealExecutionsOnly() throws Exception {
-        FunctionalMockStatement.registerMockTypeUpgrade(
+        FunctionalMockFailover.registerMockTypeUpgrade(
                 AbstractCollection.class.getName(), AbstractList.class.getName());
         TestCase tc = new DefaultTestCase();
         FunctionalMockStatement statement = new FunctionalMockStatement(tc,

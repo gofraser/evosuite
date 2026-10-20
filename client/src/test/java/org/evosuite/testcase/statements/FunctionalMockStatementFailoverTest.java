@@ -46,7 +46,7 @@ public class FunctionalMockStatementFailoverTest {
 
     @AfterEach
     public void tearDown() {
-        FunctionalMockStatement.resetMockingFailoverStateForTests();
+        FunctionalMockFailover.reset();
         Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE = DEFAULT_FAILOVER_MODE;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_COUNT = DEFAULT_FAILURE_THRESHOLD_COUNT;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO = DEFAULT_FAILURE_THRESHOLD_RATIO;
@@ -58,60 +58,60 @@ public class FunctionalMockStatementFailoverTest {
     public void testCauseChainRecognizesExceptionInInitializerError() {
         Throwable chain = new RuntimeException(
                 new ExceptionInInitializerError(new NullPointerException("simulated")));
-        assertTrue(FunctionalMockStatement.isCodeUnderTestInitializationFailureForTests(chain));
+        assertTrue(FunctionalMockFailover.isCodeUnderTestInitializationFailure(chain));
     }
 
     @Test
     public void testClassFailoverBlacklistsOnlyFailingClass() {
-        FunctionalMockStatement.resetMockingFailoverStateForTests();
+        FunctionalMockFailover.reset();
         Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE = Properties.FunctionalMockingFailoverMode.CLASS;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_COUNT = 100;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO = 1.0;
 
-        FunctionalMockStatement.registerMockAttemptForTests();
+        FunctionalMockFailover.registerMockAttempt();
         assertThrows(CodeUnderTestException.class, () ->
-                FunctionalMockStatement.registerRecoverableMockFailureForTests(
+                FunctionalMockFailover.handleRecoverableMockFailure(
                         "example.FailingClass", new ExceptionInInitializerError()));
 
-        assertTrue(FunctionalMockStatement.isClassBlacklistedForTests("example.FailingClass"));
-        assertFalse(FunctionalMockStatement.isFunctionalMockingGloballyDisabledForTests());
+        assertTrue(FunctionalMockFailover.isClassBlacklisted("example.FailingClass"));
+        assertFalse(FunctionalMockFailover.isFunctionalMockingGloballyDisabled());
     }
 
     @Test
     public void testGlobalFailoverDisablesFunctionalMocking() {
-        FunctionalMockStatement.resetMockingFailoverStateForTests();
+        FunctionalMockFailover.reset();
         Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE = Properties.FunctionalMockingFailoverMode.GLOBAL;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_COUNT = 1;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO = 0.5;
         Properties.P_FUNCTIONAL_MOCKING = 0.7;
         Properties.MOCK_IF_NO_GENERATOR = true;
 
-        FunctionalMockStatement.registerMockAttemptForTests();
+        FunctionalMockFailover.registerMockAttempt();
         assertThrows(CodeUnderTestException.class, () ->
-                FunctionalMockStatement.registerRecoverableMockFailureForTests(
+                FunctionalMockFailover.handleRecoverableMockFailure(
                         "example.GlobalFail", new NoClassDefFoundError("missing")));
 
-        assertTrue(FunctionalMockStatement.isFunctionalMockingGloballyDisabledForTests());
+        assertTrue(FunctionalMockFailover.isFunctionalMockingGloballyDisabled());
         assertEquals(0.0, Properties.P_FUNCTIONAL_MOCKING, 0.0);
         assertFalse(Properties.MOCK_IF_NO_GENERATOR);
     }
 
     @Test
     public void testFailoverOffDoesNotBlacklistOrDisableGlobally() {
-        FunctionalMockStatement.resetMockingFailoverStateForTests();
+        FunctionalMockFailover.reset();
         Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE = Properties.FunctionalMockingFailoverMode.OFF;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_COUNT = 1;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO = 0.0;
         Properties.P_FUNCTIONAL_MOCKING = 0.6;
         Properties.MOCK_IF_NO_GENERATOR = true;
 
-        FunctionalMockStatement.registerMockAttemptForTests();
+        FunctionalMockFailover.registerMockAttempt();
         assertThrows(CodeUnderTestException.class, () ->
-                FunctionalMockStatement.registerRecoverableMockFailureForTests(
+                FunctionalMockFailover.handleRecoverableMockFailure(
                         "example.NoFailover", new LinkageError("broken-linkage")));
 
-        assertFalse(FunctionalMockStatement.isClassBlacklistedForTests("example.NoFailover"));
-        assertFalse(FunctionalMockStatement.isFunctionalMockingGloballyDisabledForTests());
+        assertFalse(FunctionalMockFailover.isClassBlacklisted("example.NoFailover"));
+        assertFalse(FunctionalMockFailover.isFunctionalMockingGloballyDisabled());
         assertEquals(0.6, Properties.P_FUNCTIONAL_MOCKING, 0.0);
         assertTrue(Properties.MOCK_IF_NO_GENERATOR);
     }
@@ -120,13 +120,13 @@ public class FunctionalMockStatementFailoverTest {
     public void testCauseChainRecognizesModuleAccessRefusal() {
         Throwable chain = new RuntimeException(
                 new java.lang.reflect.InaccessibleObjectException("module java.base does not open"));
-        assertTrue(FunctionalMockStatement.isMockAccessRefusalForTests(chain));
-        assertFalse(FunctionalMockStatement.isMockAccessRefusalForTests(new IllegalStateException("other")));
+        assertTrue(FunctionalMockFailover.isMockAccessRefusal(chain));
+        assertFalse(FunctionalMockFailover.isMockAccessRefusal(new IllegalStateException("other")));
     }
 
     @Test
     public void testModuleAccessRefusalFailsOnlyTheStatement() throws Exception {
-        FunctionalMockStatement.resetMockingFailoverStateForTests();
+        FunctionalMockFailover.reset();
         Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE = Properties.FunctionalMockingFailoverMode.CLASS;
 
         TestCase tc = new DefaultTestCase();
@@ -146,6 +146,6 @@ public class FunctionalMockStatementFailoverTest {
         Throwable result = stmt.execute(new Scope(), System.out);
 
         assertNotNull(result);
-        assertTrue(FunctionalMockStatement.isClassBlacklistedForTests("java.util.List"));
+        assertTrue(FunctionalMockFailover.isClassBlacklisted("java.util.List"));
     }
 }

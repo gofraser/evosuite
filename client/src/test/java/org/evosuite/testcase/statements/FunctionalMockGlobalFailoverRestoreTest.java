@@ -66,14 +66,14 @@ public class FunctionalMockGlobalFailoverRestoreTest {
         failureThresholdRatio = Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO;
         pFunctionalMocking = Properties.P_FUNCTIONAL_MOCKING;
         mockIfNoGenerator = Properties.MOCK_IF_NO_GENERATOR;
-        FunctionalMockStatement.resetMockingFailoverStateForTests();
+        FunctionalMockFailover.reset();
         TestCaseExecutor.getInstance().resetAdaptiveTimeoutState();
     }
 
     @AfterEach
     public void tearDown() {
         TestCaseExecutor.getInstance().resetAdaptiveTimeoutState();
-        FunctionalMockStatement.resetMockingFailoverStateForTests();
+        FunctionalMockFailover.reset();
         Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE = failoverMode;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_COUNT = failureThresholdCount;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO = failureThresholdRatio;
@@ -102,11 +102,11 @@ public class FunctionalMockGlobalFailoverRestoreTest {
                 "precondition: the executor switched mocking off after the streak");
 
         // During the streak, mocks keep failing and the GLOBAL failover disables mocking for good.
-        FunctionalMockStatement.registerMockAttemptForTests();
+        FunctionalMockFailover.registerMockAttempt();
         assertThrows(CodeUnderTestException.class, () ->
-                FunctionalMockStatement.registerRecoverableMockFailureForTests(
+                FunctionalMockFailover.handleRecoverableMockFailure(
                         "example.GlobalFail", new NoClassDefFoundError("missing")));
-        assertTrue(FunctionalMockStatement.isFunctionalMockingGloballyDisabledForTests(),
+        assertTrue(FunctionalMockFailover.isFunctionalMockingGloballyDisabled(),
                 "precondition: the global failover fired");
 
         // The streak breaks: the executor restores what it saved.
