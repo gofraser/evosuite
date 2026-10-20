@@ -56,23 +56,22 @@ public abstract class LlmSemanticOperator {
     /** Seconds the search has left, negative for no limit; bounds {@link #complete(PromptResult, int)}. */
     private volatile LongSupplier remainingSearchSeconds = () -> -1L;
 
-    /** One loop per calling thread; see {@link #repairLoop()}. */
-    private final ThreadLocal<TestRepairLoop> repairLoops =
-            ThreadLocal.withInitial(() -> newRepairLoop(true, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS));
+    /** The loop of {@link #complete(PromptResult, int)}; see {@link #repairLoop()}. */
+    private final Supplier<TestRepairLoop> repairLoop =
+            lazily(() -> newRepairLoop(true, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS));
 
     /**
-     * One loop per calling thread that must never expand the test cluster
-     * itself; see {@link #completeDeferringExpansion(PromptResult, int)}.
+     * The loop that must never expand the test cluster itself; see {@link
+     * #completeDeferringExpansion(PromptResult, int)}.
      */
-    private final ThreadLocal<TestRepairLoop> deferringRepairLoops =
-            ThreadLocal.withInitial(() -> newRepairLoop(false, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS));
+    private final Supplier<TestRepairLoop> deferringRepairLoop =
+            lazily(() -> newRepairLoop(false, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS));
 
     /**
-     * One loop per calling thread for {@link #reparseWithExpansion}: expansion
-     * allowed (it runs on the search thread), but zero LLM repair round-trips.
+     * The loop of {@link #reparseWithExpansion}: expansion allowed (it runs on
+     * the search thread), but zero LLM repair round-trips.
      */
-    private final ThreadLocal<TestRepairLoop> reparseRepairLoops =
-            ThreadLocal.withInitial(() -> newRepairLoop(true, 0));
+    private final Supplier<TestRepairLoop> reparseRepairLoop = lazily(() -> newRepairLoop(true, 0));
 
     protected LlmSemanticOperator(LlmService llmService, LlmFeature feature) {
         this(llmService, feature, new TargetedPromptFactory());
@@ -149,14 +148,14 @@ public abstract class LlmSemanticOperator {
      * @param targetCount the number of targets the prompt was built for
      */
     public TargetedResponse complete(PromptResult prompt, int targetCount) {
-        return complete(prompt, targetCount, this::repairLoop, null,
+        return complete(prompt, targetCount, repairLoop, null,
                 LlmWaitBudget.deadlineNanos(remainingSearchSeconds));
     }
 
     /**
      * Same as {@link #complete(PromptResult, int)}, but for a caller that runs
      * on a background worker and must never mutate the shared {@link
-     * org.evosuite.setup.TestCluster}: its per-thread repair loop is built
+     * org.evosuite.setup.TestCluster}: its repair loop is built
      * with expansion disallowed, so a response that hits unresolved symbols
      * is handed back unfinished rather than expanded here. The returned
      * {@link TargetedResponse} is then flagged {@link
@@ -168,7 +167,7 @@ public abstract class LlmSemanticOperator {
      * @param targetCount the number of targets the prompt was built for
      */
     public TargetedResponse completeDeferringExpansion(PromptResult prompt, int targetCount) {
-        return complete(prompt, targetCount, this::deferringRepairLoop, "worker", Long.MAX_VALUE);
+        return complete(prompt, targetCount, deferringRepairLoop, "worker", Long.MAX_VALUE);
     }
 
     /**
@@ -218,8 +217,8 @@ public abstract class LlmSemanticOperator {
 
     /**
      * Finishes a response that {@link #completeDeferringExpansion} could not
-     * because it needed the test cluster expanded first. Runs a per-thread
-     * repair loop with expansion allowed but zero LLM repair round-trips over
+     * because it needed the test cluster expanded first. Runs a repair loop
+     * with expansion allowed but zero LLM repair round-trips over
      * the same raw text ({@code rawResponse}), and maps the result with
      * {@code usage} rather than issuing a new call: those tokens were already
      * spent by the call that produced {@code rawResponse}. A response whose
@@ -231,7 +230,7 @@ public abstract class LlmSemanticOperator {
      */
     public TargetedResponse reparseWithExpansion(PromptResult prompt, String rawResponse, int targetCount,
                                                  TargetedResponse.CallUsage usage) {
-        RepairResult result = reparseRepairLoops.get().attemptParse(rawResponse, prompt.getMessages(), feature);
+        RepairResult result = reparseRepairLoop.get().attemptParse(rawResponse, prompt.getMessages(), feature);
         logParseOutcome("search-thread re-parse", result);
         return TargetedResponse.map(result, targetCount, usage, rawResponse);
     }
@@ -244,25 +243,40 @@ public abstract class LlmSemanticOperator {
     }
 
     /**
-     * Returns this thread's repair loop, building it on first use: construction
+     * Returns the repair loop, building it on first use: construction
      * summarises the test cluster, which is too expensive to repeat per
-     * application, while {@link TestRepairLoop#attemptParse} keeps per-call
-     * conversation state in the instance, so threads must not share one.
+     * application. {@link TestRepairLoop#attemptParse} keeps its conversation
+     * state per call, so the search thread and the workers share one loop.
      *
      * <p>Package-private for tests.
      */
     TestRepairLoop repairLoop() {
-        return repairLoops.get();
+        return repairLoop.get();
     }
 
     /**
-     * Returns this thread's cluster-expansion-disallowed repair loop, used by
-     * {@link #completeDeferringExpansion(PromptResult, int)}.
+     * Returns the cluster-expansion-disallowed repair loop, used by {@link
+     * #completeDeferringExpansion(PromptResult, int)}.
      *
      * <p>Package-private for tests.
      */
     TestRepairLoop deferringRepairLoop() {
-        return deferringRepairLoops.get();
+        return deferringRepairLoop.get();
+    }
+
+    /** Returns a supplier that builds its value once, on the first call from any thread. */
+    private static <T> Supplier<T> lazily(Supplier<T> factory) {
+        return new Supplier<T>() {
+            private T value;
+
+            @Override
+            public synchronized T get() {
+                if (value == null) {
+                    value = factory.get();
+                }
+                return value;
+            }
+        };
     }
 
     private TestRepairLoop newRepairLoop(boolean expandClusterOnDemand, int repairAttempts) {

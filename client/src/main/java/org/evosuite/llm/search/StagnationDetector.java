@@ -354,9 +354,9 @@ public class StagnationDetector {
      *
      * <p>Thread-safe enough for our use: a benign race could initialise the
      * field twice if SYNC and ASYNC callers were to race; both instances are
-     * functionally equivalent and {@link TestRepairLoop#attemptParse} resets
-     * its per-call state at the top of each invocation. In practice
-     * {@code maybeSubmit} dispatches at most one call at a time.
+     * functionally equivalent, and {@link TestRepairLoop#attemptParse} keeps
+     * its conversation state per call, so a worker and {@code requestHelp}
+     * may use the loop at the same time.
      */
     private TestRepairLoop repairLoop() {
         TestRepairLoop loop = cachedRepairLoop;

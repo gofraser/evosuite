@@ -93,6 +93,9 @@ import java.util.regex.Pattern;
 
 /**
  * Applies parse -> validate -> execute and iterative LLM repair.
+ *
+ * <p>An instance holds configuration only; the state of one {@link #attemptParse}
+ * call lives in a {@link RepairConversation}, so threads may share a loop.
  */
 public class TestRepairLoop {
 
