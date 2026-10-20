@@ -24,6 +24,7 @@ import org.evosuite.junit.JUnitCheckState;
 import org.evosuite.junit.JUnitCheckState;
 import org.evosuite.junit.JUnitAnalyzerTestSupport;
 import org.evosuite.llm.postprocess.LlmPostProcessingPhaseContext;
+import org.evosuite.llm.postprocess.LlmPostProcessor;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.DefaultTestCase;
@@ -265,7 +266,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         TimeController.resetSingleton();
         TimeController.getInstance().updateState(ClientState.STARTED);
         TimeController.getInstance().updateState(ClientState.JUNIT_CHECK);
-        assertFalse(TestSuiteGenerator.hasTimeForOrderSensitivityAnalysis(3_000L),
+        assertFalse(OraclePhase.hasTimeForOrderSensitivityAnalysis(3_000L),
                 "test setup must actually be short of the order-sensitivity analysis budget");
 
         List<TestCase> tests = new ArrayList<>();
@@ -311,10 +312,11 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
     }
 
     private static void invokeCompileAndCheckTests(TestSuiteChromosome suite) throws Exception {
-        Method m = TestSuiteGenerator.class.getDeclaredMethod(
-                "compileAndCheckTests", TestSuiteChromosome.class, LlmPostProcessingPhaseContext.class);
+        Method m = OraclePhase.class.getDeclaredMethod(
+                "compileAndCheckTests", TestSuiteChromosome.class, LlmPostProcessor.class,
+                LlmPostProcessingPhaseContext.class);
         m.setAccessible(true);
-        m.invoke(new TestSuiteGenerator(), suite, null);
+        m.invoke(null, suite, null, null);
     }
 
     private static boolean isMemoryExhausted(PhaseMemoryGuard guard, int unchecked) {
@@ -328,7 +330,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
     @SuppressWarnings("unchecked")
     private static List<String> invokeResolveExtensionInitializationOrderIfNeeded(
             List<TestCase> tests, long suiteRunMs) throws Exception {
-        Method m = TestSuiteGenerator.class.getDeclaredMethod(
+        Method m = OraclePhase.class.getDeclaredMethod(
                 "resolveExtensionInitializationOrderIfNeeded", List.class, JUnitCheckBudget.class, long.class);
         m.setAccessible(true);
         return (List<String>) m.invoke(null, tests, healthyBudget(), suiteRunMs);

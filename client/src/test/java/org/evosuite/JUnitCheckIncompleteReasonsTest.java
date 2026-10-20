@@ -25,6 +25,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.junit.JUnitCheckState;
 import org.evosuite.llm.postprocess.LlmPostProcessingPhaseContext;
+import org.evosuite.llm.postprocess.LlmPostProcessor;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -163,9 +164,10 @@ public class JUnitCheckIncompleteReasonsTest {
     }
 
     private static void compileAndCheckTests(TestSuiteChromosome suite) throws Exception {
-        Method m = TestSuiteGenerator.class.getDeclaredMethod(
-                "compileAndCheckTests", TestSuiteChromosome.class, LlmPostProcessingPhaseContext.class);
+        Method m = OraclePhase.class.getDeclaredMethod(
+                "compileAndCheckTests", TestSuiteChromosome.class, LlmPostProcessor.class,
+                LlmPostProcessingPhaseContext.class);
         m.setAccessible(true);
-        m.invoke(new TestSuiteGenerator(), suite, null);
+        m.invoke(null, suite, null, null);
     }
 }

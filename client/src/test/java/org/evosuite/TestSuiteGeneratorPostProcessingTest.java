@@ -62,10 +62,10 @@ class TestSuiteGeneratorPostProcessingTest {
         Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
 
-        assertFalse(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
+        assertFalse(OraclePhase.shouldGenerateStandardAssertions(true));
 
         Properties.LLM_POSTPROCESSING_ASSERTIONS = false;
-        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
+        assertTrue(OraclePhase.shouldGenerateStandardAssertions(true));
     }
 
     @Test
@@ -76,7 +76,7 @@ class TestSuiteGeneratorPostProcessingTest {
         Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
 
-        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
+        assertTrue(OraclePhase.shouldGenerateStandardAssertions(true));
     }
 
     @Test
@@ -87,8 +87,8 @@ class TestSuiteGeneratorPostProcessingTest {
         Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
 
-        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions(false));
-        assertFalse(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
+        assertTrue(OraclePhase.shouldGenerateStandardAssertions(false));
+        assertFalse(OraclePhase.shouldGenerateStandardAssertions(true));
     }
 
     @Test
@@ -100,6 +100,6 @@ class TestSuiteGeneratorPostProcessingTest {
         Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
 
-        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
+        assertTrue(OraclePhase.shouldGenerateStandardAssertions(true));
     }
 }

@@ -50,8 +50,8 @@ public class JUnitCheckDeadlineTest {
 
     @Test
     public void orderSensitivityAnalysisCostsTwoSuiteRuns() {
-        assertEquals(3_000L, TestSuiteGenerator.orderSensitivityAnalysisCostMs(1_500L));
-        assertEquals(0L, TestSuiteGenerator.orderSensitivityAnalysisCostMs(-1L));
+        assertEquals(3_000L, OraclePhase.orderSensitivityAnalysisCostMs(1_500L));
+        assertEquals(0L, OraclePhase.orderSensitivityAnalysisCostMs(-1L));
     }
 
     @Test
@@ -60,14 +60,14 @@ public class JUnitCheckDeadlineTest {
         TimeController.getInstance().updateState(ClientState.JUNIT_CHECK);
 
         // 10 s phase: a 2 s suite run costs 4 s, and 8 s are left.
-        assertTrue(TestSuiteGenerator.hasTimeForOrderSensitivityAnalysis(2_000L));
+        assertTrue(OraclePhase.hasTimeForOrderSensitivityAnalysis(2_000L));
         // A 3 s suite run costs 6 s, which would need 12 s.
-        assertFalse(TestSuiteGenerator.hasTimeForOrderSensitivityAnalysis(3_000L));
+        assertFalse(OraclePhase.hasTimeForOrderSensitivityAnalysis(3_000L));
     }
 
     @Test
     public void orderSensitivityAnalysisRunsWithoutPhaseInformation() {
         // Nothing started yet, so no phase to be bounded by.
-        assertTrue(TestSuiteGenerator.hasTimeForOrderSensitivityAnalysis(1_000_000L));
+        assertTrue(OraclePhase.hasTimeForOrderSensitivityAnalysis(1_000_000L));
     }
 }
