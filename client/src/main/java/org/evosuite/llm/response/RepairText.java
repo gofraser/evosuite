@@ -21,6 +21,7 @@ package org.evosuite.llm.response;
 
 import org.evosuite.Properties;
 import org.evosuite.testparser.ParseDiagnostic;
+import org.evosuite.testparser.ParseResult;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -195,5 +196,13 @@ final class RepairText {
         }
         String lower = message.toLowerCase();
         return lower.contains("cannot resolve class") || lower.contains("cannot resolve type");
+    }
+
+    static String safeMethodName(ParseResult parseResult) {
+        if (parseResult == null) {
+            return "<unnamed>";
+        }
+        String name = parseResult.getOriginalMethodName();
+        return (name == null || name.isEmpty()) ? "<unnamed>" : name;
     }
 }

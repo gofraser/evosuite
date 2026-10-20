@@ -1382,15 +1382,9 @@ class TestRepairLoopTest {
     void bruteForceSalvageKeepsConstructorOnlyTargetCoverageAndDropsAssertionSnippets() throws Exception {
         Properties.TARGET_CLASS = Object.class.getName();
 
-        LlmService llmService = mock(LlmService.class);
-        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
-        TestRepairLoop loop = new TestRepairLoop(
-                llmService,
-                new TestParser(getClass().getClassLoader()),
-                new LlmResponseParser(),
-                expansionManager,
-                testCase -> new ExecutionResult(testCase),
-                0);
+        // Brute-force salvage does not consult the execution check.
+        LlmTestSalvager salvager = new LlmTestSalvager(
+                testCase -> new ExecutionResult(testCase), false, null);
 
         DefaultTestCase testCase = new DefaultTestCase();
         GenericConstructor objectConstructor = new GenericConstructor(Object.class.getConstructor(), Object.class);
@@ -1398,11 +1392,7 @@ class TestRepairLoopTest {
                 testCase, objectConstructor, Collections.<VariableReference>emptyList()));
         testCase.addStatement(new UninterpretedStatement(testCase, "assertNotNull(object0);"));
 
-        Method salvage = TestRepairLoop.class.getDeclaredMethod(
-                "performBruteForceSalvage", org.evosuite.testcase.TestCase.class);
-        salvage.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        java.util.Optional<TestCase> result = (java.util.Optional<TestCase>) salvage.invoke(loop, testCase);
+        java.util.Optional<TestCase> result = salvager.performBruteForceSalvage(testCase);
 
         assertTrue(result.isPresent());
         TestCase salvaged = result.get();
