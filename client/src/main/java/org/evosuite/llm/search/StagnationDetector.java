@@ -559,7 +559,6 @@ public class StagnationDetector {
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(
                         uncoveredGoals, new ArrayList<>(popCandidates)))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
@@ -692,7 +691,6 @@ public class StagnationDetector {
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(
                         uncoveredGoals, new ArrayList<>(popCandidates)))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
