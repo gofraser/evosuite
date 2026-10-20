@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import java.security.Principal;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -37,8 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * implementations in farther packages.
  */
 public class ConcreteClassAnalyzerAbstractBandTest {
-
-    private static final boolean DEFAULT = Properties.CONCRETE_CLASS_WIDEN_ABSTRACT_ONLY_BAND;
 
     private InheritanceTree tree;
 
@@ -56,21 +53,12 @@ public class ConcreteClassAnalyzerAbstractBandTest {
 
     @AfterEach
     public void tearDown() {
-        Properties.CONCRETE_CLASS_WIDEN_ABSTRACT_ONLY_BAND = DEFAULT;
         ConcreteClassAnalyzer.getInstance().clear();
     }
 
     @Test
     public void realImplementationIsFoundBehindAnAbstractOnlyBand() {
-        Properties.CONCRETE_CLASS_WIDEN_ABSTRACT_ONLY_BAND = true;
         Set<Class<?>> classes = ConcreteClassAnalyzer.getInstance().getConcreteClasses(Principal.class, tree);
         assertTrue(classes.contains(javax.security.auth.x500.X500Principal.class), classes.toString());
-    }
-
-    @Test
-    public void disablingTheOptionKeepsOnlyTheNearestBand() {
-        Properties.CONCRETE_CLASS_WIDEN_ABSTRACT_ONLY_BAND = false;
-        Set<Class<?>> classes = ConcreteClassAnalyzer.getInstance().getConcreteClasses(Principal.class, tree);
-        assertFalse(classes.contains(javax.security.auth.x500.X500Principal.class), classes.toString());
     }
 }

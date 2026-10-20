@@ -484,12 +484,6 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double P_FUNCTIONAL_MOCKING = 0.0; // Optimal value: 0.8
 
-    @Parameter(key = "concrete_class_widen_abstract_only_band", group = "Test Creation",
-            description = "When the nearest package-distance band of subclasses of an abstract type holds only "
-                    + "abstract classes with a static generator, keep looking in farther bands for real "
-                    + "concrete classes")
-    public static boolean CONCRETE_CLASS_WIDEN_ABSTRACT_ONLY_BAND = true;
-
     @Parameter(key = "mock_if_no_generator", group = "Test Creation",
             description = "Allow mock objects if there are no generators")
     public static boolean MOCK_IF_NO_GENERATOR = true;

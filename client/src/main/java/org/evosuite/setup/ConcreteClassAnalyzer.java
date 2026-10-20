@@ -223,8 +223,7 @@ public class ConcreteClassAnalyzer {
             // nearest band holds the abstract IdentityScope (getSystemScope()), which hid every
             // real implementation (JMXPrincipal, X500Principal, ...) from the search.
             if (!actualClasses.isEmpty()
-                    && !(Properties.CONCRETE_CLASS_WIDEN_ABSTRACT_ONLY_BAND
-                    && allAbstract(actualClasses))) {
+                    && !allAbstract(actualClasses)) {
                 break;
             }
         }
