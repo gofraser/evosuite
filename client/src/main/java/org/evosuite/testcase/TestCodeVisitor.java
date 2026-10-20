@@ -3165,9 +3165,6 @@ public class TestCodeVisitor extends TestVisitor {
                 result += declarationTypeName + " ";
             }
         }
-        if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
-            result += "try {" + NEWLINE + "    ";
-        }
         Type ownerTypeForParameterRendering = statement.getCallee() != null
                 ? statement.getCallee().getType()
                 : method.getOwnerType();
@@ -3210,29 +3207,13 @@ public class TestCodeVisitor extends TestVisitor {
                 forceRawReceiverInvocation, receiverCastClass, renderedParameterTypes);
         String returnCastStr = returnCast.kind == ReturnCast.Kind.NONE ? "" : "(" + returnCast.typeName + ")";
         calleeStr = returnCastStr + calleeStr;
-        if (retval.isVoid()) {
-            result += calleeStr + "." + method.getName() + "(" + parameterString + ");";
-        } else {
-            // if (exception == null || !lastStatement)
-            if (!unused) {
-                result += declarationVarName + " = ";
-            }
-            // If unused, then we don't want to print anything:
-            //else
-            //    result += getClassName(retval) + " " + getVariableName(retval) + " = ";
-
-            result += calleeStr + "." + method.getName() + "(" + parameterString + ");";
+        String invocation = "";
+        if (!retval.isVoid() && !unused) {
+            // An unused return value is not assigned at all.
+            invocation += declarationVarName + " = ";
         }
-
-        if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
-            if (assertionsEnabledForRendering()) {
-                result += generateFailAssertion(statement, exception);
-            }
-
-            result += NEWLINE + "}";// end try block
-
-            result += generateCatchBlock(statement, exception);
-        }
+        invocation += calleeStr + "." + method.getName() + "(" + parameterString + ");";
+        result += wrapThrowing(statement, exception, invocation);
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
@@ -4715,22 +4696,22 @@ public class TestCodeVisitor extends TestVisitor {
             }
 
             result = className + " " + declarationVarName + " = null;" + NEWLINE;
-            result += "try {" + NEWLINE + "    ";
             declarationPrefix = "";
         } else {
             declarationPrefix = constructorTypeName + " ";
         }
 
+        String invocation = "";
         if (constructorAccessible) {
             if (isNonStaticMemberClass) {
-                result += declarationPrefix + declarationVarName + " = "
+                invocation += declarationPrefix + declarationVarName + " = "
                         + getInnerClassCreationReceiver(rawConstructor.getDeclaringClass(),
                                 parameters.get(0))
                         + ".new "
                         + getSimpleConstructorInvocationTypeName(constructor.getOwnerType()) + "("
                         + parameterString + ");";
             } else {
-                result += declarationPrefix + declarationVarName + " = new "
+                invocation += declarationPrefix + declarationVarName + " = new "
                         + getConstructorInvocationTypeName(
                                 rawIfOutsideOfBounds(constructor.getOwnerType()))
                         + "(" + parameterString + ");";
@@ -4740,35 +4721,26 @@ public class TestCodeVisitor extends TestVisitor {
             // source-accessible from the generated test package.
             String constructorVarName = "constructor" + statement.getPosition();
             String classExpression = getClassLiteralExpression(rawConstructor.getDeclaringClass());
-            result += "java.lang.reflect.Constructor<?> " + constructorVarName + " = "
+            invocation += "java.lang.reflect.Constructor<?> " + constructorVarName + " = "
                     + classExpression + ".getDeclaredConstructor(";
             Class<?>[] rawParameterTypes = rawConstructor.getParameterTypes();
             for (int i = 0; i < rawParameterTypes.length; i++) {
                 if (i > 0) {
-                    result += ", ";
+                    invocation += ", ";
                 }
-                result += getClassLiteralExpression(rawParameterTypes[i]);
+                invocation += getClassLiteralExpression(rawParameterTypes[i]);
             }
-            result += ");" + NEWLINE;
-            result += constructorVarName + ".setAccessible(true);" + NEWLINE;
+            invocation += ");" + NEWLINE;
+            invocation += constructorVarName + ".setAccessible(true);" + NEWLINE;
             String reflectiveParameterString = getParameterString(parameterTypes, parameters,
                     isGenericConstructor, overloadedConstructorCall, 0);
             reflectiveParameterString = normalizeReflectiveVarargsArguments(
                     reflectiveParameterString, rawParameterTypes.length);
-            result += declarationPrefix + declarationVarName
+            invocation += declarationPrefix + declarationVarName
                     + " = (" + constructorTypeName + ") "
                     + constructorVarName + ".newInstance(" + reflectiveParameterString + ");";
         }
-
-        if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
-            if (assertionsEnabledForRendering()) {
-                result += generateFailAssertion(statement, exception);
-            }
-
-            result += NEWLINE + "}";// end try block
-
-            result += generateCatchBlock(statement, exception);
-        }
+        result += wrapThrowing(statement, exception, invocation);
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
@@ -4827,6 +4799,24 @@ public class TestCodeVisitor extends TestVisitor {
             return "Class.forName(\"" + classLiteral.getName() + "\")";
         }
         return getClassName(classLiteral) + ".class";
+    }
+
+    /**
+     * Wraps the code of a call that threw {@code exception} in a try block, followed by the
+     * fail assertion and the catch block. A call whose exception is not to be caught (see
+     * {@link #shouldUseTryCatch}) is returned as it is. A value assigned inside the try block
+     * must be declared before it by the caller.
+     */
+    private String wrapThrowing(AbstractStatement statement, Throwable exception, String code) {
+        if (!shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
+            return code;
+        }
+        String result = "try {" + NEWLINE + "    " + code;
+        if (assertionsEnabledForRendering()) {
+            result += generateFailAssertion(statement, exception);
+        }
+        result += NEWLINE + "}";
+        return result + generateCatchBlock(statement, exception);
     }
 
     private boolean shouldUseTryCatch(Throwable t, boolean isDeclared) {
