@@ -214,13 +214,13 @@ class StagnationDetectorIntegrationTest {
         // A provider far slower than the deadline; the per-call timeout alone would let it run on.
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
                 try {
                     Thread.sleep(TimeUnit.SECONDS.toMillis(10));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
-                return new LlmService.LlmResponse(SIMPLE_JUNIT_RESPONSE, 0, 0);
+                return new LlmResponse(SIMPLE_JUNIT_RESPONSE, 0, 0);
             }
         };
         LlmService service = createService(model, 2, 30);

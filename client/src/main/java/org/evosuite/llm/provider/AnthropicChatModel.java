@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmResponse;
 import org.evosuite.llm.LlmService;
 
 import java.io.IOException;
@@ -40,9 +41,9 @@ import java.util.Map;
  * tokens: {@code input_tokens} excludes any tokens that were served from or
  * written to the cache. To match OpenAI's {@code prompt_tokens} convention —
  * where "input tokens" means the whole prompt regardless of caching — this
- * class reports {@link LlmService.LlmResponse#getInputTokens()} as
+ * class reports {@link LlmResponse#getInputTokens()} as
  * {@code input_tokens + cache_read_input_tokens + cache_creation_input_tokens},
- * and {@link LlmService.LlmResponse#getCachedInputTokens()} as just
+ * and {@link LlmResponse#getCachedInputTokens()} as just
  * {@code cache_read_input_tokens} (tokens actually served from the cache, as
  * opposed to tokens newly written to it).
  */
@@ -98,12 +99,12 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
     }
 
     @Override
-    public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) throws IOException {
+    public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) throws IOException {
         return generate(messages, feature, null);
     }
 
     @Override
-    public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature,
+    public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature,
                                            RequestCancellation cancellation) throws IOException {
         String requestBody = buildRequestBody(messages);
         Map<String, String> headers = new LinkedHashMap<>();
@@ -209,7 +210,7 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
      * back to an empty response. Package-private and static so tests can
      * exercise the parsing rules directly, without a network round trip.
      */
-    static LlmService.LlmResponse parseResponse(String responseBody) throws IOException {
+    static LlmResponse parseResponse(String responseBody) throws IOException {
         JsonNode root = ProviderJson.parseObject(responseBody, "Anthropic");
         if ("error".equals(root.path("type").asText(""))) {
             // Top-level error marker without a well-formed error object: the
@@ -262,6 +263,6 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
                     "Anthropic", responseBody);
         }
         int inputTokens = reportedInputTokens + cacheReadInputTokens + cacheCreationInputTokens;
-        return new LlmService.LlmResponse(text.toString(), inputTokens, cacheReadInputTokens, outputTokens);
+        return new LlmResponse(text.toString(), inputTokens, cacheReadInputTokens, outputTokens);
     }
 }

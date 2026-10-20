@@ -170,7 +170,7 @@ class LlmSeededPopulationFactoryIntegrationTest {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            return LlmService.LlmResponse.fromText("");
+            return LlmResponse.fromText("");
         };
         LlmService service = createService(blockingModel, 4);
 
@@ -226,7 +226,7 @@ class LlmSeededPopulationFactoryIntegrationTest {
                 Thread.currentThread().interrupt();
             }
             providerFinished.countDown();
-            return LlmService.LlmResponse.fromText(SIMPLE_JUNIT_RESPONSE);
+            return LlmResponse.fromText(SIMPLE_JUNIT_RESPONSE);
         };
         LlmService service = createService(interruptIgnoringModel, 4);
         java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -287,7 +287,7 @@ class LlmSeededPopulationFactoryIntegrationTest {
         java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
         LlmService.ChatLanguageModel model = (messages, feature) -> {
             if (calls.incrementAndGet() == 1) {
-                return LlmService.LlmResponse.fromText(partialResponse);
+                return LlmResponse.fromText(partialResponse);
             }
             repairRequested.countDown();
             try {
@@ -295,7 +295,7 @@ class LlmSeededPopulationFactoryIntegrationTest {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            return LlmService.LlmResponse.fromText("");
+            return LlmResponse.fromText("");
         };
         LlmService service = createService(model, 4);
         java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();

@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.QueryResult;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.operator.OperatorTarget;
@@ -109,7 +110,7 @@ class LlmSemanticOperatorTest {
     void applyMapsTwoMutationTargetsInTargetOrder() {
         LlmService llmService = mockAvailableService();
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
+                .thenReturn(new QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
 
         OperatorTarget target1 = OperatorTarget.builder(makeChromosome(), makeGoal("g1")).build();
         OperatorTarget target2 = OperatorTarget.builder(makeChromosome(), makeGoal("g2")).build();
@@ -147,7 +148,7 @@ class LlmSemanticOperatorTest {
     void mutationPromptContainsTargetHeadingAndStartFromWording() {
         LlmService llmService = mockAvailableService();
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
+                .thenReturn(new QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
         ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
 
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -166,7 +167,7 @@ class LlmSemanticOperatorTest {
     void crossoverPromptContainsCombineAndRecombineWording() {
         LlmService llmService = mockAvailableService();
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
+                .thenReturn(new QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
         ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
 
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g"))

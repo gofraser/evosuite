@@ -21,7 +21,6 @@ package org.evosuite.llm;
 
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.provider.RequestCancellation;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -755,100 +754,6 @@ public class LlmService implements AutoCloseable {
         @Override
         public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
             throw new IllegalStateException("No chat language model configured");
-        }
-    }
-
-    public static final class LlmResponse {
-        private final String text;
-        private final int inputTokens;
-        private final int cachedInputTokens;
-        private final int outputTokens;
-
-        /**
-         * Constructs an LLM response with text, token usage counts, and the
-         * portion of the input tokens served from a provider-side prompt
-         * cache (0 when the provider does not report caching).
-         */
-        public LlmResponse(String text, int inputTokens, int cachedInputTokens, int outputTokens) {
-            this.text = text;
-            this.inputTokens = inputTokens;
-            this.cachedInputTokens = cachedInputTokens;
-            this.outputTokens = outputTokens;
-        }
-
-        /**
-         * Constructs an LLM response with text and token usage counts, with
-         * zero cached input tokens.
-         */
-        public LlmResponse(String text, int inputTokens, int outputTokens) {
-            this(text, inputTokens, 0, outputTokens);
-        }
-
-        /**
-         * Creates an {@link LlmResponse} with only the response text and zero token counts.
-         */
-        public static LlmResponse fromText(String text) {
-            return new LlmResponse(text, 0, 0, 0);
-        }
-
-        public String getText() {
-            return text;
-        }
-
-        public int getInputTokens() {
-            return inputTokens;
-        }
-
-        public int getCachedInputTokens() {
-            return cachedInputTokens;
-        }
-
-        public int getOutputTokens() {
-            return outputTokens;
-        }
-    }
-
-    /**
-     * Text plus the token usage and latency of the call that produced it.
-     * Returned by {@link #queryWithUsage(PromptResult, LlmFeature)} for
-     * callers that need to attribute usage rather than just consume the text.
-     */
-    public static final class QueryResult {
-        private final String text;
-        private final TargetedResponse.CallUsage usage;
-
-        public QueryResult(String text, int inputTokens, int cachedInputTokens, int outputTokens, long latencyMs) {
-            this(text, new TargetedResponse.CallUsage(inputTokens, cachedInputTokens, outputTokens, latencyMs));
-        }
-
-        public QueryResult(String text, TargetedResponse.CallUsage usage) {
-            this.text = text;
-            this.usage = usage == null ? TargetedResponse.CallUsage.NONE : usage;
-        }
-
-        public String getText() {
-            return text;
-        }
-
-        /** The usage of the call that produced {@link #getText()}, as one value shared with the response mapping. */
-        public TargetedResponse.CallUsage getUsage() {
-            return usage;
-        }
-
-        public int getInputTokens() {
-            return usage.getInputTokens();
-        }
-
-        public int getCachedInputTokens() {
-            return usage.getCachedInputTokens();
-        }
-
-        public int getOutputTokens() {
-            return usage.getOutputTokens();
-        }
-
-        public long getLatencyMs() {
-            return usage.getLatencyMs();
         }
     }
 }

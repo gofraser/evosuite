@@ -26,6 +26,7 @@ import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmConfiguration;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmResponse;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmServiceTestQueries;
 import org.evosuite.llm.LlmStatistics;
@@ -136,7 +137,7 @@ class ProviderResponseParsingTest {
 
     @Test
     void openAiToleratesMissingUsageAsZero() throws Exception {
-        LlmService.LlmResponse response = OpenAiCompatibleChatModel.parseResponse(
+        LlmResponse response = OpenAiCompatibleChatModel.parseResponse(
                 "{\"choices\":[{\"message\":{\"content\":\"ok\"}}]}");
         assertEquals("ok", response.getText());
         assertEquals(0, response.getInputTokens());
@@ -145,7 +146,7 @@ class ProviderResponseParsingTest {
 
     @Test
     void openAiAcceptsWellFormedResponse() throws Exception {
-        LlmService.LlmResponse response = OpenAiCompatibleChatModel.parseResponse(
+        LlmResponse response = OpenAiCompatibleChatModel.parseResponse(
                 "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"hello\"}}],"
                         + "\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2}}");
         assertEquals("hello", response.getText());
@@ -225,7 +226,7 @@ class ProviderResponseParsingTest {
 
     @Test
     void anthropicAcceptsWellFormedResponse() throws Exception {
-        LlmService.LlmResponse response = AnthropicChatModel.parseResponse(
+        LlmResponse response = AnthropicChatModel.parseResponse(
                 "{\"content\":[{\"type\":\"text\",\"text\":\"hi there\"}],"
                         + "\"usage\":{\"input_tokens\":5,\"output_tokens\":2}}");
         assertEquals("hi there", response.getText());

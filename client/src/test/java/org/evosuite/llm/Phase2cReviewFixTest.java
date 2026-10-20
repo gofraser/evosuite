@@ -195,8 +195,8 @@ class Phase2cReviewFixTest {
 
         LlmService.ChatLanguageModel model = new LlmService.ChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
-                return new LlmService.LlmResponse("test response", 10, 5);
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                return new LlmResponse("test response", 10, 5);
             }
         };
 
@@ -246,8 +246,8 @@ class Phase2cReviewFixTest {
 
         LlmService.ChatLanguageModel model = new LlmService.ChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
-                return new LlmService.LlmResponse("ok", 1, 1);
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                return new LlmResponse("ok", 1, 1);
             }
         };
 
@@ -331,8 +331,8 @@ class Phase2cReviewFixTest {
         LlmService service = new LlmService(
                 new LlmService.ChatLanguageModel() {
                     @Override
-                    public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
-                        return new LlmService.LlmResponse("ok", 0, 0);
+                    public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                        return new LlmResponse("ok", 0, 0);
                     }
                 },
                 new LlmBudgetCoordinator.Local(5),

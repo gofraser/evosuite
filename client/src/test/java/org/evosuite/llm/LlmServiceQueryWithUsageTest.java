@@ -42,7 +42,7 @@ class LlmServiceQueryWithUsageTest {
         AtomicInteger calls = new AtomicInteger();
         LlmService.ChatLanguageModel model = (messages, feature) -> {
             calls.incrementAndGet();
-            return new LlmService.LlmResponse("ok", 11, 3, 7);
+            return new LlmResponse("ok", 11, 3, 7);
         };
         LlmConfiguration configuration = new LlmConfiguration(
                 org.evosuite.Properties.LlmProvider.NONE,
@@ -58,7 +58,7 @@ class LlmServiceQueryWithUsageTest {
                 .build();
 
         try {
-            LlmService.QueryResult result = service.queryWithUsage(prompt, LlmFeature.SEMANTIC_MUTATION);
+            QueryResult result = service.queryWithUsage(prompt, LlmFeature.SEMANTIC_MUTATION);
 
             assertEquals("ok", result.getText());
             assertEquals(11, result.getInputTokens());
@@ -82,7 +82,7 @@ class LlmServiceQueryWithUsageTest {
             if (calls.incrementAndGet() == 1) {
                 throw new RuntimeException("HTTP 429");
             }
-            return new LlmService.LlmResponse("retried", 5, 2);
+            return new LlmResponse("retried", 5, 2);
         };
         LlmConfiguration configuration = new LlmConfiguration(
                 org.evosuite.Properties.LlmProvider.NONE,
@@ -97,7 +97,7 @@ class LlmServiceQueryWithUsageTest {
                 .build();
 
         try {
-            LlmService.QueryResult result = service.queryWithUsage(prompt, LlmFeature.SEMANTIC_CROSSOVER);
+            QueryResult result = service.queryWithUsage(prompt, LlmFeature.SEMANTIC_CROSSOVER);
 
             assertEquals("retried", result.getText());
             assertEquals(5, result.getInputTokens());

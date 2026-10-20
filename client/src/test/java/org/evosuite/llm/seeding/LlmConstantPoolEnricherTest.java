@@ -303,7 +303,7 @@ class LlmConstantPoolEnricherTest {
                 Thread.currentThread().interrupt();
             }
             queryFinished.countDown();
-            return LlmService.LlmResponse.fromText("\"late-constant-marker\"");
+            return LlmResponse.fromText("\"late-constant-marker\"");
         };
         LlmService service = createService(model, 4);
         LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(service);

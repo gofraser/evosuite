@@ -23,6 +23,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.QueryResult;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.operator.OperatorTarget;
@@ -170,7 +171,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult("some response", 5, 1, 7, 42L));
+                .thenReturn(new QueryResult("some response", 5, 1, 7, 42L));
 
         LlmSemanticMutation mutation = org.mockito.Mockito.spy(new LlmSemanticMutation(llmService));
         org.mockito.Mockito.doThrow(new IllegalStateException("parse blew up"))
@@ -195,7 +196,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult("some other response", 9, 2, 11, 99L));
+                .thenReturn(new QueryResult("some other response", 9, 2, 11, 99L));
 
         LlmSemanticMutation mutation = org.mockito.Mockito.spy(new LlmSemanticMutation(llmService));
         org.mockito.Mockito.doThrow(new IllegalStateException("parse blew up"))
@@ -221,7 +222,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(
-                new LlmService.QueryResult(
+                new QueryResult(
                         "```java\n"
                                 + "import org.junit.Test;\n"
                                 + "public class GeneratedLlmTest {\n"
@@ -271,7 +272,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
                         + "}\n"
                         + "```";
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult(response, 1, 2, 3, 4L));
+                .thenReturn(new QueryResult(response, 1, 2, 3, 4L));
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         List<OperatorTarget> targets = Collections.singletonList(
@@ -304,9 +305,9 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class), anyLong()))
-                .thenReturn(new LlmService.QueryResult("some response", 5, 1, 7, 42L));
+                .thenReturn(new QueryResult("some response", 5, 1, 7, 42L));
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult("some response", 5, 1, 7, 42L));
+                .thenReturn(new QueryResult("some response", 5, 1, 7, 42L));
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         mutation.setRemainingSearchSeconds(() -> 5L);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();

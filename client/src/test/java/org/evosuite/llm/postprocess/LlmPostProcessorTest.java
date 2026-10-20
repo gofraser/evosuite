@@ -28,6 +28,7 @@ import org.evosuite.llm.LlmBudgetCoordinator;
 import org.evosuite.llm.LlmConfiguration;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmResponse;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmTraceRecorder;
@@ -1952,10 +1953,10 @@ class LlmPostProcessorTest {
         private LlmFeature feature;
 
         @Override
-        public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+        public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
             this.messages = messages;
             this.feature = feature;
-            return new LlmService.LlmResponse("{\"schemaVersion\":2}", 0, 0);
+            return new LlmResponse("{\"schemaVersion\":2}", 0, 0);
         }
     }
 
@@ -1968,12 +1969,12 @@ class LlmPostProcessorTest {
         }
 
         @Override
-        public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+        public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
             this.messages.add(messages);
             if (responses.isEmpty()) {
                 throw new IllegalStateException("No queued response");
             }
-            return new LlmService.LlmResponse(responses.remove(0), 0, 0);
+            return new LlmResponse(responses.remove(0), 0, 0);
         }
     }
 
@@ -1987,7 +1988,7 @@ class LlmPostProcessorTest {
         }
 
         @Override
-        public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+        public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
             calls++;
             caller.interrupt();
             try {

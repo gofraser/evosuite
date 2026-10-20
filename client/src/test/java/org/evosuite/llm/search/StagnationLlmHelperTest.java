@@ -28,6 +28,7 @@ import org.evosuite.llm.LlmBudgetCoordinator;
 import org.evosuite.llm.LlmConfiguration;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmResponse;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmTraceRecorder;
@@ -141,7 +142,7 @@ class StagnationLlmHelperTest {
         CountDownLatch responseGate = new CountDownLatch(1);
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
                 try {
                     responseGate.await();
                 } catch (InterruptedException e) {
@@ -198,7 +199,7 @@ class StagnationLlmHelperTest {
         CountDownLatch responseGate = new CountDownLatch(1);
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
                 try {
                     responseGate.await();
                 } catch (InterruptedException e) {
@@ -269,7 +270,7 @@ class StagnationLlmHelperTest {
         CountDownLatch responseGate = new CountDownLatch(1);
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
                 try {
                     responseGate.await();
                 } catch (InterruptedException e) {
@@ -442,7 +443,7 @@ class StagnationLlmHelperTest {
         CountDownLatch responseGate = new CountDownLatch(1);
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
                 try {
                     responseGate.await();
                 } catch (InterruptedException e) {
@@ -491,7 +492,7 @@ class StagnationLlmHelperTest {
         CountDownLatch responseGate = new CountDownLatch(1);
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
                 try {
                     responseGate.await();
                 } catch (InterruptedException e) {
@@ -540,7 +541,7 @@ class StagnationLlmHelperTest {
         CountDownLatch providerReturned = new CountDownLatch(1);
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
                 providerEntered.countDown();
                 // Deliberately model a provider that ignores cancellation.
                 while (true) {
@@ -782,7 +783,7 @@ class StagnationLlmHelperTest {
         AtomicReference<DiagnosticCardSelector.DiscardReason> reasonDuringCall = new AtomicReference<>();
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
-            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
                 // Another feature's selection (e.g. the async producer) runs while the search
                 // thread blocks on this call; it must see the target as in flight.
                 reasonDuringCall.set(memory.adjustPriority(target, 1.0, true).getDiscardReason());

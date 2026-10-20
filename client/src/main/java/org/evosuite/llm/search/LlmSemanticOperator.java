@@ -25,6 +25,7 @@ import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
+import org.evosuite.llm.QueryResult;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TargetedPromptFactory;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
@@ -183,7 +184,7 @@ public abstract class LlmSemanticOperator {
         if (!canCall()) {
             return TargetedResponse.noBudget();
         }
-        LlmService.QueryResult queryResult;
+        QueryResult queryResult;
         try {
             queryResult = deadlineNanos == Long.MAX_VALUE
                     ? llmService.queryWithUsage(prompt, feature)

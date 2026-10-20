@@ -57,7 +57,7 @@ class LlmServiceRetryTest {
             // SocketOutputStream construction performs the same
             // writeFileDescriptor check as this constructor.
             new FileOutputStream(FileDescriptor.out);
-            return new LlmService.LlmResponse("ok", 0, 0);
+            return new LlmResponse("ok", 0, 0);
         };
         LlmConfiguration configuration = new LlmConfiguration(
                 org.evosuite.Properties.LlmProvider.NONE,
@@ -83,7 +83,7 @@ class LlmServiceRetryTest {
             if (calls.incrementAndGet() == 1) {
                 throw new RuntimeException("HTTP 429");
             }
-            return new LlmService.LlmResponse("ok", 11, 7);
+            return new LlmResponse("ok", 11, 7);
         };
 
         LlmConfiguration configuration = new LlmConfiguration(
@@ -175,7 +175,7 @@ class LlmServiceRetryTest {
             if (calls.incrementAndGet() == 1) {
                 throw new RuntimeException("HTTP 429");
             }
-            return new LlmService.LlmResponse("ok", 0, 0);
+            return new LlmResponse("ok", 0, 0);
         };
 
         LlmConfiguration configuration = new LlmConfiguration(
@@ -279,7 +279,7 @@ class LlmServiceRetryTest {
         AtomicInteger calls = new AtomicInteger();
         LlmService.ChatLanguageModel model = (messages, feature) -> {
             calls.incrementAndGet();
-            return new LlmService.LlmResponse("late", 0, 0);
+            return new LlmResponse("late", 0, 0);
         };
         LlmConfiguration configuration = new LlmConfiguration(
                 org.evosuite.Properties.LlmProvider.NONE,
@@ -370,7 +370,7 @@ class LlmServiceRetryTest {
         LlmService.ChatLanguageModel model = (messages, feature) -> {
             providerStarted.countDown();
             new CountDownLatch(1).await();
-            return LlmService.LlmResponse.fromText("unexpected");
+            return LlmResponse.fromText("unexpected");
         };
         LlmConfiguration configuration = new LlmConfiguration(
                 org.evosuite.Properties.LlmProvider.NONE,
@@ -417,7 +417,7 @@ class LlmServiceRetryTest {
                     // interruption while its request remains live.
                 }
             }
-            return LlmService.LlmResponse.fromText("late");
+            return LlmResponse.fromText("late");
         };
         LlmConfiguration configuration = new LlmConfiguration(
                 org.evosuite.Properties.LlmProvider.NONE,
@@ -448,7 +448,7 @@ class LlmServiceRetryTest {
             providerStarted.countDown();
             try {
                 new CountDownLatch(1).await();
-                return LlmService.LlmResponse.fromText("unexpected");
+                return LlmResponse.fromText("unexpected");
             } catch (InterruptedException e) {
                 providerInterrupted.countDown();
                 throw e;

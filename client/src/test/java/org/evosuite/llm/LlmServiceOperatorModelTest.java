@@ -201,9 +201,9 @@ class LlmServiceOperatorModelTest {
         private final List<LlmFeature> featuresCalled = new CopyOnWriteArrayList<>();
 
         @Override
-        public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+        public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
             featuresCalled.add(feature);
-            return new LlmService.LlmResponse("ok", 1, 0, 1);
+            return new LlmResponse("ok", 1, 0, 1);
         }
 
         private int callCount() {

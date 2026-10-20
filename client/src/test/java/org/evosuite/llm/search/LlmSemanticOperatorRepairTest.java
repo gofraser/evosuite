@@ -22,6 +22,7 @@ package org.evosuite.llm.search;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.QueryResult;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.llm.search.operator.OperatorTarget;
@@ -129,7 +130,7 @@ class LlmSemanticOperatorRepairTest {
 
         LlmService llmService = mockAvailableService();
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
+                .thenReturn(new QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         TestCase result = mutation.applyMapped(Collections.singletonList(mutationTarget())).forTarget(1).orElse(null);
@@ -147,7 +148,7 @@ class LlmSemanticOperatorRepairTest {
 
         LlmService llmService = mockAvailableService();
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
+                .thenReturn(new QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
         LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
         TestCase result = crossover.applyMapped(Collections.singletonList(crossoverTarget())).forTarget(1).orElse(null);
@@ -164,7 +165,7 @@ class LlmSemanticOperatorRepairTest {
 
         LlmService llmService = mockAvailableService();
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
+                .thenReturn(new QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
         when(llmService.query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList()))
                 .thenReturn(MALFORMED_RESPONSE);
 
