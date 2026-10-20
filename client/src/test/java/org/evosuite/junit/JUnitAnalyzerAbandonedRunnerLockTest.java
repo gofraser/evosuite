@@ -69,7 +69,7 @@ public class JUnitAnalyzerAbandonedRunnerLockTest {
         Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
 
         long previousTimeout = MSecurityManager.getSandboxLockAcquireTimeoutMs();
-        Method run = JUnitAnalyzer.class.getDeclaredMethod("runJUnitOnCurrentProcess", Class[].class);
+        Method run = JUnitCheckRunner.class.getDeclaredMethod("run", Class[].class);
         run.setAccessible(true);
 
         Sandbox.initializeSecurityManagerForSUT();

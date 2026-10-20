@@ -326,13 +326,13 @@ public class JUnitAnalyzerTest {
     @Test
     public void testAnalyzerSelectionFollowsCurrentTestFormat() {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
-        Assertions.assertFalse(JUnitAnalyzer.isJUnit5AnalyzerSelectedForCurrentFormat());
+        Assertions.assertFalse(JUnitCheckRunner.isJUnit5AnalyzerSelectedForCurrentFormat());
 
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
-        Assertions.assertTrue(JUnitAnalyzer.isJUnit5AnalyzerSelectedForCurrentFormat());
+        Assertions.assertTrue(JUnitCheckRunner.isJUnit5AnalyzerSelectedForCurrentFormat());
 
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
-        Assertions.assertFalse(JUnitAnalyzer.isJUnit5AnalyzerSelectedForCurrentFormat());
+        Assertions.assertFalse(JUnitCheckRunner.isJUnit5AnalyzerSelectedForCurrentFormat());
     }
 
     @Test
@@ -473,12 +473,12 @@ public class JUnitAnalyzerTest {
     @Test
     public void testWatchdogBudgetIsBoundedByTheRemainingPhaseTime() {
         long configured = 1_200_000L;
-        Assertions.assertEquals(configured, JUnitAnalyzer.computeWatchdogBudgetMs(configured, Long.MAX_VALUE));
-        Assertions.assertEquals(configured, JUnitAnalyzer.computeWatchdogBudgetMs(configured, 2_000_000L));
-        Assertions.assertEquals(45_000L, JUnitAnalyzer.computeWatchdogBudgetMs(configured, 45_000L));
+        Assertions.assertEquals(configured, JUnitCheckRunner.computeWatchdogBudgetMs(configured, Long.MAX_VALUE));
+        Assertions.assertEquals(configured, JUnitCheckRunner.computeWatchdogBudgetMs(configured, 2_000_000L));
+        Assertions.assertEquals(45_000L, JUnitCheckRunner.computeWatchdogBudgetMs(configured, 45_000L));
         // A phase that is over still leaves the check a short budget rather than none.
-        Assertions.assertEquals(JUnitAnalyzer.MIN_WATCHDOG_BUDGET_MS,
-                JUnitAnalyzer.computeWatchdogBudgetMs(configured, 0L));
+        Assertions.assertEquals(JUnitCheckRunner.MIN_WATCHDOG_BUDGET_MS,
+                JUnitCheckRunner.computeWatchdogBudgetMs(configured, 0L));
     }
 
     @Test

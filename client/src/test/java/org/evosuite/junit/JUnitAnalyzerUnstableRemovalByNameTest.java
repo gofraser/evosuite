@@ -118,9 +118,9 @@ public class JUnitAnalyzerUnstableRemovalByNameTest {
 
     private static int checkWith(String message, List<TestCase> tests, String... failingTestNames)
             throws Exception {
-        Field override = JUnitAnalyzer.class.getDeclaredField("VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
+        Field override = JUnitCheckRunner.class.getDeclaredField("VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
         override.setAccessible(true);
-        Class<?> analyzerType = Class.forName("org.evosuite.junit.JUnitAnalyzer$VersionDependentAnalyzing");
+        Class<?> analyzerType = Class.forName("org.evosuite.junit.JUnitCheckRunner$VersionDependentAnalyzing");
         JUnitResult result = new JUnitResult(false, failingTestNames.length, tests.size());
         for (String name : failingTestNames) {
             result.addFailure(new JUnitFailure(message, "java.lang.IllegalStateException", name,

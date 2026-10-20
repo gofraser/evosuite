@@ -74,9 +74,9 @@ public class JUnitAnalyzerHungFailingTestTest {
     }
 
     private int checkWith(String exceptionClass, List<TestCase> tests) throws Exception {
-        Field override = JUnitAnalyzer.class.getDeclaredField("VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
+        Field override = JUnitCheckRunner.class.getDeclaredField("VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
         override.setAccessible(true);
-        Class<?> analyzerType = Class.forName("org.evosuite.junit.JUnitAnalyzer$VersionDependentAnalyzing");
+        Class<?> analyzerType = Class.forName("org.evosuite.junit.JUnitCheckRunner$VersionDependentAnalyzing");
         JUnitResult result = new JUnitResult(false, 1, 1);
         result.addFailure(new JUnitFailure("message", exceptionClass, "test0", false, "trace"));
         Object analyzer = Mockito.mock(analyzerType, invocation -> result);

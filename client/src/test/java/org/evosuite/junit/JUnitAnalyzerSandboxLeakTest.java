@@ -44,7 +44,7 @@ public class JUnitAnalyzerSandboxLeakTest {
                 "Security Manager is not supported in this JVM (Java 24+)");
         Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
 
-        Method restore = JUnitAnalyzer.class.getDeclaredMethod("restoreSandboxStateAfterJUnitRun",
+        Method restore = JUnitCheckRunner.class.getDeclaredMethod("restoreSandboxStateAfterJUnitRun",
                 boolean.class, Set.class);
         restore.setAccessible(true);
 

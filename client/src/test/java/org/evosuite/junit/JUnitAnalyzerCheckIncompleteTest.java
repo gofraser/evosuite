@@ -222,7 +222,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
      * <p>JUnit itself attributes a per-test {@link OutOfMemoryError} to that test before it would
      * ever reach the outer catch, so a SUT test method that throws does not exercise this path.
      * This test instead injects the failure via {@link
-     * JUnitAnalyzer#VERSION_DEPENDENT_ANALYZER_FOR_TESTING} (see that field's javadoc for why a
+     * JUnitCheckRunner#VERSION_DEPENDENT_ANALYZER_FOR_TESTING} (see that field's javadoc for why a
      * Mockito static/construction mock cannot reach the worker thread instead): an ordinary
      * Mockito {@code mock(Class, Answer)} of the private {@code VersionDependentAnalyzing} type
      * (obtained via {@code Class.forName}, since the type cannot be named from this file) whose
@@ -237,10 +237,10 @@ public class JUnitAnalyzerCheckIncompleteTest {
 
         assertFalse(JUnitCheckState.isIncomplete());
 
-        Field analyzerOverrideField = JUnitAnalyzer.class.getDeclaredField(
+        Field analyzerOverrideField = JUnitCheckRunner.class.getDeclaredField(
                 "VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
         analyzerOverrideField.setAccessible(true);
-        Class<?> analyzerType = Class.forName("org.evosuite.junit.JUnitAnalyzer$VersionDependentAnalyzing");
+        Class<?> analyzerType = Class.forName("org.evosuite.junit.JUnitCheckRunner$VersionDependentAnalyzing");
         Object throwingAnalyzer = Mockito.mock(analyzerType,
                 invocation -> {
                     throw new OutOfMemoryError("test");

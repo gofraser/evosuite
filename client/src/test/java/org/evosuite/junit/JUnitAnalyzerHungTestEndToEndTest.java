@@ -48,15 +48,15 @@ public class JUnitAnalyzerHungTestEndToEndTest {
     public void setUp() {
         release = new CountDownLatch(1);
         savedFormat = Properties.TEST_FORMAT;
-        JUnitAnalyzer.HANG_LIMIT_FOR_TESTING_MS = 500L;
-        JUnitAnalyzer.HANG_GRACE_FOR_TESTING_MS = 2_000L;
+        JUnitCheckRunner.HANG_LIMIT_FOR_TESTING_MS = 500L;
+        JUnitCheckRunner.HANG_GRACE_FOR_TESTING_MS = 2_000L;
     }
 
     @AfterEach
     public void tearDown() {
         Properties.TEST_FORMAT = savedFormat;
-        JUnitAnalyzer.HANG_LIMIT_FOR_TESTING_MS = 0L;
-        JUnitAnalyzer.HANG_GRACE_FOR_TESTING_MS = 0L;
+        JUnitCheckRunner.HANG_LIMIT_FOR_TESTING_MS = 0L;
+        JUnitCheckRunner.HANG_GRACE_FOR_TESTING_MS = 0L;
         release.countDown();
     }
 
@@ -240,7 +240,7 @@ public class JUnitAnalyzerHungTestEndToEndTest {
     }
 
     private static JUnitResult check(Class<?> suite) throws Exception {
-        Method run = JUnitAnalyzer.class.getDeclaredMethod("runJUnitOnCurrentProcess", Class[].class);
+        Method run = JUnitCheckRunner.class.getDeclaredMethod("run", Class[].class);
         run.setAccessible(true);
         return (JUnitResult) run.invoke(null, (Object) new Class<?>[]{suite});
     }

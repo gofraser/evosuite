@@ -72,7 +72,8 @@ public class JUnitAnalyzerAbandonedRetryTest {
     }
 
     private static Field field(String name) throws Exception {
-        Field f = JUnitAnalyzer.class.getDeclaredField(name);
+        Class<?> owner = name.equals("loader") ? JUnitAnalyzer.class : JUnitCheckRunner.class;
+        Field f = owner.getDeclaredField(name);
         f.setAccessible(true);
         return f;
     }

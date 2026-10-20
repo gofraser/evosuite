@@ -84,7 +84,7 @@ public class JUnitAnalyzerHungTestTest {
 
         try {
             long start = System.nanoTime();
-            JUnitResult result = JUnitAnalyzer.awaitRunner(future[0], runner, progress,
+            JUnitResult result = JUnitCheckRunner.awaitRunner(future[0], runner, progress,
                     60_000L, 300L, 500L, 1);
             long tookMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
@@ -116,7 +116,7 @@ public class JUnitAnalyzerHungTestTest {
             return JUnitResult.allPassed(1);
         }, future);
 
-        JUnitResult result = JUnitAnalyzer.awaitRunner(future[0], runner, progress,
+        JUnitResult result = JUnitCheckRunner.awaitRunner(future[0], runner, progress,
                 60_000L, 300L, 5_000L, 1);
 
         // the code under test can run a test in a task that records the interrupt, so the test
@@ -169,7 +169,7 @@ public class JUnitAnalyzerHungTestTest {
         }, future);
 
         try {
-            JUnitResult result = JUnitAnalyzer.awaitRunner(future[0], runner, progress,
+            JUnitResult result = JUnitCheckRunner.awaitRunner(future[0], runner, progress,
                     60_000L, 300L, 500L, 1);
 
             assertFalse(result.wasSuccessful());
@@ -193,7 +193,7 @@ public class JUnitAnalyzerHungTestTest {
         }, future);
 
         try {
-            assertThrows(TimeoutException.class, () -> JUnitAnalyzer.awaitRunner(future[0], runner,
+            assertThrows(TimeoutException.class, () -> JUnitCheckRunner.awaitRunner(future[0], runner,
                     progress, 800L, 100L, 100L, 1));
         } finally {
             release.countDown();
@@ -342,7 +342,7 @@ public class JUnitAnalyzerHungTestTest {
         }, future);
 
         try {
-            JUnitAnalyzer.awaitRunner(future[0], runner, progress, 60_000L, 300L, 300L, 1);
+            JUnitCheckRunner.awaitRunner(future[0], runner, progress, 60_000L, 300L, 300L, 1);
         } finally {
             release.countDown();
         }
@@ -358,14 +358,14 @@ public class JUnitAnalyzerHungTestTest {
     public void resultAfterTheWatchdogAbandonedTheRunnerIsFlaggedAlsoWhenTestsHung() {
         JUnitCheckProgress progress = new JUnitCheckProgress();
         progress.markHung(null, "test1", 30_000L);
-        JUnitResult result = JUnitAnalyzer.afterWatchdogAbandonedRunner(
+        JUnitResult result = JUnitCheckRunner.afterWatchdogAbandonedRunner(
                 progress.abandonAndCollect(2).getResult(), progress, 2);
         assertTrue(result.wasWatchdogFired());
         assertEquals(1, result.getFailures().size());
         assertEquals(JUnitCheckProgress.Phase.ABANDONED, progress.snapshot().getPhase());
 
         JUnitCheckProgress noHang = new JUnitCheckProgress();
-        JUnitResult kept = JUnitAnalyzer.afterWatchdogAbandonedRunner(
+        JUnitResult kept = JUnitCheckRunner.afterWatchdogAbandonedRunner(
                 noHang.abandonAndCollect(2).getResult(), noHang, 2);
         assertTrue(kept.wasWatchdogFired());
         assertTrue(kept.wasSuccessful(), "a check without a hung test keeps the suite");
@@ -373,7 +373,7 @@ public class JUnitAnalyzerHungTestTest {
 
     /** Other tests abandon runners and leave the class loader of the check marked as kept. */
     private static void forgetAbandonedRunners() throws Exception {
-        Field flag = JUnitAnalyzer.class.getDeclaredField("checkRunnerAbandoned");
+        Field flag = JUnitCheckRunner.class.getDeclaredField("checkRunnerAbandoned");
         flag.setAccessible(true);
         flag.setBoolean(null, false);
         JUnitCheckState.resetForPhase();
@@ -390,9 +390,9 @@ public class JUnitAnalyzerHungTestTest {
         CompletableFuture<JUnitResult> notYetDone = new CompletableFuture<>();
         int roundsBefore = JUnitCheckState.getIncompleteRounds();
 
-        assertFalse(JUnitAnalyzer.abandonRunnerLeftRunning(notYetDone, progress, Thread.currentThread(), false),
+        assertFalse(JUnitCheckRunner.abandonRunnerLeftRunning(notYetDone, progress, Thread.currentThread(), false),
                 "a runner that had returned was abandoned");
-        assertFalse(JUnitAnalyzer.isCheckRunnerAbandoned(), "the class loader of the check would be kept");
+        assertFalse(JUnitCheckRunner.isCheckRunnerAbandoned(), "the class loader of the check would be kept");
         assertEquals(roundsBefore, JUnitCheckState.getIncompleteRounds());
         assertEquals(JUnitCheckProgress.Phase.CLASS_LEVEL, progress.snapshot().getPhase());
     }
@@ -405,12 +405,12 @@ public class JUnitAnalyzerHungTestTest {
         CompletableFuture<JUnitResult> notDone = new CompletableFuture<>();
         int roundsBefore = JUnitCheckState.getIncompleteRounds();
         try {
-            assertTrue(JUnitAnalyzer.abandonRunnerLeftRunning(notDone, progress, null, false));
-            assertTrue(JUnitAnalyzer.isCheckRunnerAbandoned());
+            assertTrue(JUnitCheckRunner.abandonRunnerLeftRunning(notDone, progress, null, false));
+            assertTrue(JUnitCheckRunner.isCheckRunnerAbandoned());
             assertEquals(roundsBefore + 1, JUnitCheckState.getIncompleteRounds());
             assertEquals(JUnitCheckProgress.Phase.ABANDONED, progress.snapshot().getPhase());
             // once abandoned, a second wait that ends does nothing more
-            assertFalse(JUnitAnalyzer.abandonRunnerLeftRunning(notDone, progress, null, false));
+            assertFalse(JUnitCheckRunner.abandonRunnerLeftRunning(notDone, progress, null, false));
             assertEquals(roundsBefore + 1, JUnitCheckState.getIncompleteRounds());
         } finally {
             forgetAbandonedRunners();
@@ -424,7 +424,7 @@ public class JUnitAnalyzerHungTestTest {
         JUnitResult run = new JUnitResult(false, 1, 3);
         run.addFailure(new JUnitFailure("timed out", "java.util.concurrent.TimeoutException", "test2", false, "t"));
 
-        JUnitResult result = JUnitAnalyzer.resultWithinGrace(
+        JUnitResult result = JUnitCheckRunner.resultWithinGrace(
                 CompletableFuture.completedFuture(run), progress, 100L, 3);
 
         assertTrue(result.wasWatchdogFired());
@@ -450,7 +450,7 @@ public class JUnitAnalyzerHungTestTest {
         CompletableFuture<JUnitResult> died = new CompletableFuture<>();
         died.completeExceptionally(new ThreadDeath());
 
-        JUnitResult result = JUnitAnalyzer.resultWithinGrace(died, progress, 100L, 7);
+        JUnitResult result = JUnitCheckRunner.resultWithinGrace(died, progress, 100L, 7);
 
         assertEquals(1, result.getFailures().size(), "only the hung test is blamed");
         assertEquals("test1", result.getFailures().get(0).getDescriptionMethodName());
@@ -463,7 +463,7 @@ public class JUnitAnalyzerHungTestTest {
         CompletableFuture<JUnitResult> died = new CompletableFuture<>();
         died.completeExceptionally(new IllegalStateException("boom"));
         assertThrows(ExecutionException.class,
-                () -> JUnitAnalyzer.resultWithinGrace(died, new JUnitCheckProgress(), 100L, 1));
+                () -> JUnitCheckRunner.resultWithinGrace(died, new JUnitCheckProgress(), 100L, 1));
     }
 
     // ---------------------------------------------------------------------------------------
@@ -473,9 +473,9 @@ public class JUnitAnalyzerHungTestTest {
     /** Makes the version dependent analyzer of the runner answer every call with the given one. */
     private static void withAnalyzer(org.mockito.stubbing.Answer<Object> answer, Callable<Void> body)
             throws Exception {
-        Field override = JUnitAnalyzer.class.getDeclaredField("VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
+        Field override = JUnitCheckRunner.class.getDeclaredField("VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
         override.setAccessible(true);
-        Class<?> type = Class.forName("org.evosuite.junit.JUnitAnalyzer$VersionDependentAnalyzing");
+        Class<?> type = Class.forName("org.evosuite.junit.JUnitCheckRunner$VersionDependentAnalyzing");
         override.set(null, org.mockito.Mockito.mock(type, answer));
         try {
             body.call();
@@ -488,7 +488,7 @@ public class JUnitAnalyzerHungTestTest {
     public void runnerThatReturnsReportsThatItReturned() throws Exception {
         JUnitCheckProgress progress = new JUnitCheckProgress();
         withAnalyzer(invocation -> JUnitResult.allPassed(1), () -> {
-            JUnitAnalyzer.runnerTask(new Class<?>[]{Object.class}, progress).call();
+            JUnitCheckRunner.runnerTask(new Class<?>[]{Object.class}, progress).call();
             return null;
         });
 
@@ -502,7 +502,7 @@ public class JUnitAnalyzerHungTestTest {
             throw new IllegalStateException("the run failed");
         }, () -> {
             assertThrows(IllegalStateException.class,
-                    () -> JUnitAnalyzer.runnerTask(new Class<?>[]{Object.class}, progress).call());
+                    () -> JUnitCheckRunner.runnerTask(new Class<?>[]{Object.class}, progress).call());
             return null;
         });
 
@@ -548,7 +548,7 @@ public class JUnitAnalyzerHungTestTest {
         run.addFailure(new JUnitFailure("broken", "java.lang.IllegalStateException", "p.C", "test1", false, "t"));
         int roundsBefore = JUnitCheckState.getIncompleteRounds();
 
-        JUnitResult result = JUnitAnalyzer.resultAfterBudgetRanOut(
+        JUnitResult result = JUnitCheckRunner.resultAfterBudgetRanOut(
                 new ReturnsAsTheGraceRunsOut(progress, run, true), null, progress, 100L, 2);
 
         assertEquals(1, result.getFailures().size(), "the failure the runner found was thrown away");
@@ -556,7 +556,7 @@ public class JUnitAnalyzerHungTestTest {
         assertTrue(result.wasWatchdogFired());
         assertEquals(roundsBefore, JUnitCheckState.getIncompleteRounds(),
                 "a check that completed was recorded incomplete");
-        assertFalse(JUnitAnalyzer.isCheckRunnerAbandoned(), "the class loader of the check would be kept");
+        assertFalse(JUnitCheckRunner.isCheckRunnerAbandoned(), "the class loader of the check would be kept");
         assertEquals(JUnitCheckProgress.Phase.CLASS_LEVEL, progress.snapshot().getPhase());
     }
 
@@ -566,13 +566,13 @@ public class JUnitAnalyzerHungTestTest {
         JUnitCheckProgress progress = new JUnitCheckProgress();
         int roundsBefore = JUnitCheckState.getIncompleteRounds();
 
-        JUnitResult result = JUnitAnalyzer.resultAfterBudgetRanOut(
+        JUnitResult result = JUnitCheckRunner.resultAfterBudgetRanOut(
                 new ReturnsAsTheGraceRunsOut(progress, null, false), null, progress, 100L, 2);
 
         assertTrue(result.wasSuccessful(), "a check without a result keeps the suite");
         assertTrue(result.wasWatchdogFired());
         assertEquals(roundsBefore + 1, JUnitCheckState.getIncompleteRounds());
-        assertFalse(JUnitAnalyzer.isCheckRunnerAbandoned(), "the class loader of the check would be kept");
+        assertFalse(JUnitCheckRunner.isCheckRunnerAbandoned(), "the class loader of the check would be kept");
         assertEquals(JUnitCheckProgress.Phase.CLASS_LEVEL, progress.snapshot().getPhase());
     }
 
@@ -583,13 +583,13 @@ public class JUnitAnalyzerHungTestTest {
         progress.testStarted("p.C", "test0");
         int roundsBefore = JUnitCheckState.getIncompleteRounds();
         try {
-            JUnitResult result = JUnitAnalyzer.resultAfterBudgetRanOut(
+            JUnitResult result = JUnitCheckRunner.resultAfterBudgetRanOut(
                     new CompletableFuture<>(), null, progress, 100L, 2);
 
             assertTrue(result.wasSuccessful(), "a check without a hung test keeps the suite");
             assertTrue(result.wasWatchdogFired());
             assertEquals(roundsBefore + 1, JUnitCheckState.getIncompleteRounds());
-            assertTrue(JUnitAnalyzer.isCheckRunnerAbandoned());
+            assertTrue(JUnitCheckRunner.isCheckRunnerAbandoned());
             assertEquals(JUnitCheckProgress.Phase.ABANDONED, progress.snapshot().getPhase());
         } finally {
             forgetAbandonedRunners();
@@ -605,12 +605,12 @@ public class JUnitAnalyzerHungTestTest {
         cancelled.cancel(false);
         int roundsBefore = JUnitCheckState.getIncompleteRounds();
 
-        JUnitResult result = JUnitAnalyzer.resultAfterBudgetRanOut(cancelled, null,
+        JUnitResult result = JUnitCheckRunner.resultAfterBudgetRanOut(cancelled, null,
                 progress, 100L, 2);
 
         assertTrue(result.wasSuccessful());
         assertEquals(roundsBefore + 1, JUnitCheckState.getIncompleteRounds());
-        assertFalse(JUnitAnalyzer.isCheckRunnerAbandoned(), "the class loader of the check would be kept");
+        assertFalse(JUnitCheckRunner.isCheckRunnerAbandoned(), "the class loader of the check would be kept");
         assertEquals(JUnitCheckProgress.Phase.CLASS_LEVEL, progress.snapshot().getPhase());
     }
 
@@ -623,11 +623,11 @@ public class JUnitAnalyzerHungTestTest {
         cancelled.cancel(false);
         int roundsBefore = JUnitCheckState.getIncompleteRounds();
         try {
-            JUnitResult result = JUnitAnalyzer.resultAfterBudgetRanOut(cancelled, null, progress, 100L, 2);
+            JUnitResult result = JUnitCheckRunner.resultAfterBudgetRanOut(cancelled, null, progress, 100L, 2);
 
             assertTrue(result.wasSuccessful());
             assertEquals(roundsBefore + 1, JUnitCheckState.getIncompleteRounds());
-            assertTrue(JUnitAnalyzer.isCheckRunnerAbandoned());
+            assertTrue(JUnitCheckRunner.isCheckRunnerAbandoned());
             assertEquals(JUnitCheckProgress.Phase.ABANDONED, progress.snapshot().getPhase());
         } finally {
             forgetAbandonedRunners();

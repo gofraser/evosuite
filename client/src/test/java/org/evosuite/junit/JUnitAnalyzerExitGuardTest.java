@@ -95,7 +95,7 @@ public class JUnitAnalyzerExitGuardTest {
                 "Security Manager is not supported in this JVM (Java 24+)");
         Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
 
-        Method run = JUnitAnalyzer.class.getDeclaredMethod("runJUnitOnCurrentProcess", Class[].class);
+        Method run = JUnitCheckRunner.class.getDeclaredMethod("run", Class[].class);
         run.setAccessible(true);
 
         // the client's sandbox, as during the whole generation
