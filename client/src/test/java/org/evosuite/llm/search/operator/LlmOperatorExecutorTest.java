@@ -53,6 +53,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.evosuite.llm.LlmServiceMocks.mockLlmService;
 import static org.evosuite.llm.LlmRequestMatchers.anyInitialRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -173,7 +174,7 @@ class LlmOperatorExecutorTest {
     }
 
     private static LlmService availableService() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         return llmService;
@@ -353,7 +354,7 @@ class LlmOperatorExecutorTest {
 
     @Test
     void unavailableServiceDropsUnderBudgetCounter() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(false);
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();

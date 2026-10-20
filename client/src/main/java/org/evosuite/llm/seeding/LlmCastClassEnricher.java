@@ -115,7 +115,7 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
      * Delegates to doEnrich but preserves original error swallowing.
      */
     public EnrichmentResult enrich(String className, TestCluster cluster) {
-        if (!llmService.isAvailable() || !llmService.hasBudget(feature)) {
+        if (!llmService.canCall(feature)) {
             return createSkippedResult("LLM unavailable or no budget");
         }
         try {

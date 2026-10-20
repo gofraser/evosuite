@@ -290,7 +290,7 @@ public class StagnationDetector {
         if (prompt == null) {
             return CallResult.UNDELIVERED;
         }
-        if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.STAGNATION)) {
+        if (!llmService.canCall(LlmFeature.STAGNATION)) {
             return CallResult.UNDELIVERED;
         }
         String response;
@@ -384,7 +384,7 @@ public class StagnationDetector {
                                             List<TestChromosome> currentPopulation,
                                             int totalGoals, int coveredGoalCount,
                                             Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-        if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.STAGNATION)) {
+        if (!llmService.canCall(LlmFeature.STAGNATION)) {
             return Collections.emptyList();
         }
         if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {

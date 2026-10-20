@@ -305,6 +305,15 @@ public class LlmService implements AutoCloseable {
         return remaining < 0 || remaining > 0;
     }
 
+    /**
+     * Whether a call for {@code feature} can start now: the provider is
+     * available and the feature has budget left. A call that passes this
+     * check can still run out of budget or time before it completes.
+     */
+    public boolean canCall(LlmFeature feature) {
+        return isAvailable() && hasBudget(feature);
+    }
+
     public LlmStatistics getStatistics() {
         return statistics;
     }

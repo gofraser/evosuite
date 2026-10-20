@@ -129,8 +129,7 @@ public class LlmPostProcessor {
         }
         return isAnyFeatureEnabled(phaseContext.options())
                 && llmService != null
-                && llmService.isAvailable()
-                && llmService.hasBudget(LlmFeature.POST_PROCESSING);
+                && llmService.canCall(LlmFeature.POST_PROCESSING);
     }
 
     /** Tracks every post-processing runtime variable at its empty default. */
@@ -208,8 +207,7 @@ public class LlmPostProcessor {
             publishMetrics(phaseContext, new PostProcessingMetrics("empty_suite"));
             return 0;
         }
-        if (llmService == null || !llmService.isAvailable()
-                || !llmService.hasBudget(LlmFeature.POST_PROCESSING)) {
+        if (llmService == null || !llmService.canCall(LlmFeature.POST_PROCESSING)) {
             logger.info("Unified LLM post-processing skipped: LLM service unavailable or budget exhausted");
             publishMetrics(phaseContext, new PostProcessingMetrics("service_unavailable_or_no_budget"));
             return 0;

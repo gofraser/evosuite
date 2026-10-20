@@ -213,8 +213,7 @@ public final class StagnationLlmHelper {
             }
             return;
         }
-        if (!detector.getLlmService().isAvailable()
-                || !detector.getLlmService().hasBudget(LlmFeature.STAGNATION)) {
+        if (!detector.getLlmService().canCall(LlmFeature.STAGNATION)) {
             traceOutcome("skipped:unavailable", coveredCount, uncoveredSize, targetCount, -1L, 0);
             return;
         }

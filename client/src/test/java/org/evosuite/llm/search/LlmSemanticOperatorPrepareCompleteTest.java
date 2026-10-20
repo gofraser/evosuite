@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static org.evosuite.llm.LlmServiceMocks.mockLlmService;
 import static org.evosuite.llm.LlmRequestMatchers.anyRepairRequest;
 import static org.evosuite.llm.LlmRequestMatchers.anyInitialRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,7 +73,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void applyMappedIsEmptyForNullOrEmptyTargetsWithoutCallingTheService() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
@@ -84,7 +85,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void applyMappedIsEmptyWhenUnavailableWithoutCallingPrepare() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(false);
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -97,7 +98,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void completeReturnsNoBudgetWhenCanCallIsFalse() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(false);
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -109,7 +110,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void completeReturnsNoBudgetWhenTheServiceThrowsBudgetExceeded() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))
@@ -126,7 +127,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void completeReturnsFailedWhenTheServiceThrowsCallFailed() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))
@@ -143,7 +144,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void completeReturnsFailedOnAnyOtherRuntimeException() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))
@@ -164,7 +165,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         // (the repair loop's parse, or TargetedResponse.map) blows up. That must not
         // be conflated with an undelivered call: the model answered, so every target
         // gets a DELIVERED, zero-gain outcome carrying the call's usage.
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))
@@ -189,7 +190,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void completeDeferringExpansionReturnsDeliveredUnparsedWhenParsingThrowsAfterASuccessfulQuery() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))
@@ -215,7 +216,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void applyMappedMatchesCompleteOfPrepareOnceGatesAreClear() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest())).thenReturn(
@@ -249,13 +250,13 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void prepareRejectsEmptyTargetsAsTheFactoryDoes() {
-        LlmSemanticMutation mutation = new LlmSemanticMutation(mock(LlmService.class));
+        LlmSemanticMutation mutation = new LlmSemanticMutation(mockLlmService());
         assertThrows(IllegalArgumentException.class, () -> mutation.prepare(Collections.emptyList()));
     }
 
     @Test
     void completeDeferringExpansionFlagsResolutionErrorsAndReparseFinishesWithoutAnotherCall() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         String response =
@@ -298,7 +299,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void applyMappedBoundsTheCallByTheRemainingSearchBudget() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))

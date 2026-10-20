@@ -270,7 +270,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                     break;
                 }
 
-                if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.ITERATIVE_STRATEGY)) {
+                if (!llmService.canCall(LlmFeature.ITERATIVE_STRATEGY)) {
                     iteration--;
                     LoggingUtils.getEvoLogger().info(
                             "* LLM budget exhausted after {} iterations", iteration);

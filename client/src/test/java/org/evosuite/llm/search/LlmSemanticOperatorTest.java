@@ -40,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static org.evosuite.llm.LlmServiceMocks.mockLlmService;
 import static org.evosuite.llm.LlmRequestMatchers.anyInitialRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -88,7 +89,7 @@ class LlmSemanticOperatorTest {
     }
 
     private static LlmService mockAvailableService() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         return llmService;
@@ -135,7 +136,7 @@ class LlmSemanticOperatorTest {
 
     @Test
     void applyReturnsEmptyListWhenServiceUnavailable() {
-        LlmService llmService = mock(LlmService.class);
+        LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(false);
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
