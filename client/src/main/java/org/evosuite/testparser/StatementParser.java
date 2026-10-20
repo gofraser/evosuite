@@ -45,7 +45,6 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.numeric.*;
 import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
-import org.evosuite.testcase.statements.reflection.PrivateMethodStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.FieldReference;
@@ -106,6 +105,7 @@ public class StatementParser {
      */
     private final Map<VariableReference, String> downgradedDeclaredTypeNames = new IdentityHashMap<>();
     private final MockitoPatternParser mockitoPatternParser;
+    private final LegacyHelperRewriter legacyHelpers;
 
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
     private int syntheticVarCounter = 0;
@@ -153,6 +153,8 @@ public class StatementParser {
                 testCase, typeResolver, scope, result, this);
         this.mockitoPatternParser = new MockitoPatternParser(
                 testCase, typeResolver, scope, result, this);
+        this.legacyHelpers = new LegacyHelperRewriter(
+                this, testCase, typeResolver, scope, overloadResolver);
     }
 
     /** Whether the LLM salvage heuristics are enabled. */
@@ -616,7 +618,7 @@ public class StatementParser {
         return handleExpression(varName, expr, declaredType, 0, expr);
     }
 
-    private VariableReference handleExpression(String varName,
+    VariableReference handleExpression(String varName,
                                                Expression expr,
                                                Type declaredType,
                                                int depth,
@@ -1286,7 +1288,7 @@ public class StatementParser {
                 Expression scopeExpr = expr.getScope().get();
                 if (bestEffort
                         && scopeExpr instanceof ObjectCreationExpr
-                        && tryHandleLegacyScopedInvokeHelperCall(expr, (ObjectCreationExpr) scopeExpr)) {
+                        && legacyHelpers.tryHandleLegacyScopedInvokeHelperCall(expr, (ObjectCreationExpr) scopeExpr)) {
                     return null; // helper wrapper call handled as reflective private method call
                 }
                 callee = resolveCalleeOrClass(scopeExpr);
@@ -1305,10 +1307,10 @@ public class StatementParser {
                     }
                 }
             } else {
-                if (bestEffort && tryHandleLegacyFieldHelperCall(expr)) {
+                if (bestEffort && legacyHelpers.tryHandleLegacyFieldHelperCall(expr)) {
                     return null; // void helper call handled as reflective statement
                 }
-                if (bestEffort && tryHandleLegacyInvokeHelperCall(expr)) {
+                if (bestEffort && legacyHelpers.tryHandleLegacyInvokeHelperCall(expr)) {
                     return null; // helper wrapper call handled as reflective private method call
                 }
                 // Unscoped method call — could be static import
@@ -1628,418 +1630,6 @@ public class StatementParser {
         addWarning(expr, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                 "Rewrote Assertions.assertDoesNotThrow(supplier) assignment to direct constructor call");
         return handleExpression(targetVarName, returnedExpr, declaredType);
-    }
-
-    /**
-     * LLMs sometimes emit helper-wrapper objects that are not present in the final
-     * parsed class body, e.g. {@code new MethodAccess(target).invokeGetBuilder(arg)}.
-     * Treat these like legacy invoke helpers by rewriting to reflective private-method
-     * invocation on the wrapped target object.
-     */
-    private boolean tryHandleLegacyScopedInvokeHelperCall(MethodCallExpr expr, ObjectCreationExpr scopeCtor) {
-        String helperName = expr.getNameAsString();
-        if (!helperName.startsWith("invoke") || helperName.length() <= "invoke".length()) {
-            return false;
-        }
-        if (scopeCtor.getArguments().isEmpty()) {
-            return false;
-        }
-
-        // Only rewrite when the helper type cannot be resolved; if it is a real SUT/JDK type,
-        // let normal method-call handling proceed.
-        try {
-            typeResolver.resolveType(scopeCtor.getType());
-            return false;
-        } catch (Exception ignored) {
-            // Unresolved helper type: proceed with legacy rewrite path.
-        }
-
-        if (!canRewriteLegacyInvokeHelperCall(
-                helperName, scopeCtor.getArgument(0), expr.getArguments(), false)) {
-            return false;
-        }
-
-        NodeList<Expression> syntheticArgs = new NodeList<>();
-        syntheticArgs.add(scopeCtor.getArgument(0));
-        syntheticArgs.addAll(expr.getArguments());
-        MethodCallExpr syntheticInvokeHelperCall =
-                copySyntheticRange(new MethodCallExpr(null, helperName, syntheticArgs), expr);
-        return tryHandleLegacyInvokeHelperCall(syntheticInvokeHelperCall);
-    }
-
-    /**
-     * LLMs sometimes emit local helper methods like setField()/setStaticField() and call them
-     * from tests. EvoSuite parses test bodies only, so helper method declarations are dropped.
-     * Convert these helper calls directly into PrivateFieldStatement so generated tests compile.
-     */
-    private boolean tryHandleLegacyFieldHelperCall(MethodCallExpr expr) {
-        String name = expr.getNameAsString();
-        if (!"setField".equals(name) && !"setStaticField".equals(name)) {
-            return false;
-        }
-        if (expr.getArguments().size() != 3) {
-            return false;
-        }
-
-        String fieldName = resolveFieldNameLiteral(expr.getArguments().get(1));
-        if (fieldName == null || fieldName.isEmpty()) {
-            addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                    "Could not resolve legacy helper field name literal for call: " + expr);
-            return false;
-        }
-
-        try {
-            if ("setField".equals(name)) {
-                VariableReference owner = handleExpression(
-                        "__legacy_owner" + syntheticVarCounter++, expr.getArguments().get(0), Object.class);
-                if (owner == null) {
-                    addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                            "Could not resolve receiver for legacy setField call: " + expr);
-                    return false;
-                }
-                Class<?> ownerClass = owner.getVariableClass();
-                Type fieldType = resolveFieldType(ownerClass, fieldName);
-                VariableReference value = handleExpression(
-                        "__legacy_value" + syntheticVarCounter++, expr.getArguments().get(2),
-                        fieldType != null ? fieldType : Object.class);
-                if (value == null) {
-                    addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                            "Could not resolve value for legacy setField call: " + expr);
-                    return false;
-                }
-                addStatement(new PrivateFieldStatement(testCase, ownerClass, fieldName, owner, value));
-                addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                        "Rewrote legacy helper call setField(...) to reflective field write");
-                return true;
-            }
-
-            Class<?> ownerClass = resolveOwnerClassForLegacyStaticField(expr.getArguments().get(0));
-            if (ownerClass == null) {
-                addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                        "Could not resolve class for legacy setStaticField call: " + expr);
-                return false;
-            }
-            Type fieldType = resolveFieldType(ownerClass, fieldName);
-            VariableReference value = handleExpression(
-                    "__legacy_value" + syntheticVarCounter++, expr.getArguments().get(2),
-                    fieldType != null ? fieldType : Object.class);
-            if (value == null) {
-                addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                        "Could not resolve value for legacy setStaticField call: " + expr);
-                return false;
-            }
-            VariableReference nullOwner = addStatement(new NullStatement(testCase, ownerClass));
-            addStatement(new PrivateFieldStatement(testCase, ownerClass, fieldName, nullOwner, value));
-            addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                    "Rewrote legacy helper call setStaticField(...) to reflective field write");
-            return true;
-        } catch (Exception e) {
-            addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                    "Failed to rewrite legacy helper call '" + name + "': " + e.getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * LLMs sometimes emit helper wrappers such as invokeGetBuilder(target, arg),
-     * where the helper itself is dropped because only method bodies are parsed.
-     * Rewrite the call directly to a reflective private-method invocation.
-     */
-    private boolean tryHandleLegacyInvokeHelperCall(MethodCallExpr expr) {
-        String helperName = expr.getNameAsString();
-        if (!helperName.startsWith("invoke") || helperName.length() <= "invoke".length()) {
-            return false;
-        }
-        if (expr.getArguments().isEmpty()) {
-            return false;
-        }
-
-        String reflectedMethodName = toLegacyInvokeReflectedMethodName(helperName);
-        if (reflectedMethodName == null) {
-            return false;
-        }
-        if (!canRewriteLegacyInvokeHelperCall(
-                helperName,
-                expr.getArguments().get(0),
-                expr.getArguments().subList(1, expr.getArguments().size()),
-                true)) {
-            return false;
-        }
-
-        try {
-            VariableReference callee = null;
-            Class<?> ownerClass = null;
-            Expression firstArg = expr.getArguments().get(0);
-
-            // Support invokeX(Target.class, ...) static wrappers too.
-            if (firstArg instanceof ClassExpr) {
-                Type ownerType = typeResolver.resolveType(((ClassExpr) firstArg).getType());
-                ownerClass = getRawClass(ownerType);
-            } else {
-                callee = handleExpression("__legacy_invoke_owner" + syntheticVarCounter++, firstArg, Object.class);
-                if (callee == null) {
-                    addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                            "Could not resolve receiver for legacy helper call: " + expr);
-                    return false;
-                }
-                ownerClass = callee.getVariableClass();
-            }
-
-            if (ownerClass == null) {
-                addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                        "Could not resolve owner class for legacy helper call: " + expr);
-                return false;
-            }
-
-            List<Expression> helperArgs = expr.getArguments().subList(1, expr.getArguments().size());
-            List<VariableReference> argRefs = resolveArguments(helperArgs, null, null);
-            Class<?>[] argTypes = getArgTypes(argRefs);
-
-            Method reflectedMethod = overloadResolver.resolveMethod(ownerClass, reflectedMethodName, argTypes);
-            retypeNullArguments(argRefs, reflectedMethod.getParameterTypes(), reflectedMethod.isVarArgs());
-            DiagnosticMessage mismatch = validateArgumentTypes(argRefs, reflectedMethod.getParameterTypes(),
-                    reflectedMethod.getGenericParameterTypes(), expr, reflectedMethod.isVarArgs());
-            if (mismatch != null) {
-                addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                        "Could not rewrite legacy helper call " + helperName
-                                + " due to argument mismatch: " + mismatch.render());
-                return false;
-            }
-            argRefs = normalizeVarArgsArguments(
-                    argRefs, reflectedMethod.getParameterTypes(), reflectedMethod.isVarArgs());
-
-            Class<?> reflectedOwner = reflectedMethod.getDeclaringClass();
-            boolean isStatic = Modifier.isStatic(reflectedMethod.getModifiers());
-            if (isStatic) {
-                callee = null;
-            }
-            addStatement(new PrivateMethodStatement(
-                    testCase,
-                    reflectedOwner,
-                    reflectedMethod,
-                    callee,
-                    argRefs,
-                    isStatic));
-            addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                    "Rewrote legacy helper call " + helperName + "(...) to reflective method call "
-                            + reflectedMethodName + "(...)");
-            return true;
-        } catch (Exception e) {
-            addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
-                    "Failed to rewrite legacy helper call '" + helperName + "': " + e.getMessage());
-            return false;
-        }
-    }
-
-    private boolean canRewriteLegacyInvokeHelperCall(String helperName,
-                                                     Expression receiverExpr,
-                                                     List<Expression> helperArgs,
-                                                     boolean checkStaticImport) {
-        String reflectedMethodName = toLegacyInvokeReflectedMethodName(helperName);
-        if (reflectedMethodName == null) {
-            return false;
-        }
-
-        Class<?> ownerClass = inferLegacyInvokeOwnerClass(receiverExpr);
-        if (ownerClass == null) {
-            return false;
-        }
-
-        Class<?>[] helperArgTypes = inferArgumentTypes(helperArgs);
-        Method reflectedMethod = findLegacyInvokeRewriteTarget(ownerClass, reflectedMethodName);
-        if (!isLegacyInvokeRewriteTarget(reflectedMethod)) {
-            return false;
-        }
-
-        boolean requireStaticOriginal = receiverExpr instanceof ClassExpr;
-        if (resolvesAccessibleReceiverMethod(ownerClass, helperName, helperArgTypes, requireStaticOriginal)) {
-            return false;
-        }
-
-        if (checkStaticImport) {
-            Class<?>[] fullArgTypes = inferArgumentTypesWithReceiver(receiverExpr, helperArgs);
-            if (resolvesAccessibleStaticImportMethod(helperName, fullArgTypes)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private String toLegacyInvokeReflectedMethodName(String helperName) {
-        if (helperName == null || !helperName.startsWith("invoke") || helperName.length() <= "invoke".length()) {
-            return null;
-        }
-        String reflectedMethodName = helperName.substring("invoke".length());
-        if (reflectedMethodName.isEmpty() || !Character.isUpperCase(reflectedMethodName.charAt(0))) {
-            return null;
-        }
-        return Character.toLowerCase(reflectedMethodName.charAt(0)) + reflectedMethodName.substring(1);
-    }
-
-    private Class<?> inferLegacyInvokeOwnerClass(Expression receiverExpr) {
-        try {
-            if (receiverExpr instanceof ClassExpr) {
-                Type ownerType = typeResolver.resolveType(((ClassExpr) receiverExpr).getType());
-                return getRawClass(ownerType);
-            }
-            return getRawClass(inferTypeForUntypedArgument(receiverExpr));
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private Class<?>[] inferArgumentTypes(List<Expression> expressions) {
-        Class<?>[] argTypes = new Class<?>[expressions.size()];
-        for (int i = 0; i < expressions.size(); i++) {
-            argTypes[i] = getRawClass(inferTypeForUntypedArgument(expressions.get(i)));
-        }
-        return argTypes;
-    }
-
-    private Class<?>[] inferArgumentTypesWithReceiver(Expression receiverExpr, List<Expression> helperArgs) {
-        Class<?>[] argTypes = new Class<?>[helperArgs.size() + 1];
-        argTypes[0] = getRawClass(inferTypeForUntypedArgument(receiverExpr));
-        for (int i = 0; i < helperArgs.size(); i++) {
-            argTypes[i + 1] = getRawClass(inferTypeForUntypedArgument(helperArgs.get(i)));
-        }
-        return argTypes;
-    }
-
-    private Method tryResolveMethod(Class<?> clazz, String name, Class<?>[] argTypes) {
-        if (clazz == null || name == null) {
-            return null;
-        }
-        try {
-            return overloadResolver.resolveMethod(clazz, name, argTypes);
-        } catch (NoSuchMethodException e) {
-            return null;
-        }
-    }
-
-    private Method findLegacyInvokeRewriteTarget(Class<?> ownerClass, String reflectedMethodName) {
-        Method best = OverloadResolver.findByNameLoose(ownerClass, reflectedMethodName);
-        if (best == null) {
-            return null;
-        }
-        for (Method candidate : ownerClass.getDeclaredMethods()) {
-            if (isPreferredLegacyInvokeRewriteTarget(candidate, reflectedMethodName, best)) {
-                best = candidate;
-            }
-        }
-        for (Method candidate : ownerClass.getMethods()) {
-            if (isPreferredLegacyInvokeRewriteTarget(candidate, reflectedMethodName, best)) {
-                best = candidate;
-            }
-        }
-        return best;
-    }
-
-    private boolean isLegacyInvokeRewriteTarget(Method method) {
-        if (method == null) {
-            return false;
-        }
-        int modifiers = method.getModifiers();
-        return Modifier.isPrivate(modifiers) || Modifier.isProtected(modifiers);
-    }
-
-    private boolean isPreferredLegacyInvokeRewriteTarget(Method candidate,
-                                                         String reflectedMethodName,
-                                                         Method currentBest) {
-        if (candidate == null || !candidate.getName().equals(reflectedMethodName)) {
-            return false;
-        }
-        return legacyInvokeVisibilityRank(candidate) < legacyInvokeVisibilityRank(currentBest);
-    }
-
-    private int legacyInvokeVisibilityRank(Method method) {
-        if (method == null) {
-            return Integer.MAX_VALUE;
-        }
-        int modifiers = method.getModifiers();
-        if (Modifier.isPrivate(modifiers)) {
-            return 0;
-        }
-        if (Modifier.isProtected(modifiers)) {
-            return 1;
-        }
-        if (!Modifier.isPublic(modifiers)) {
-            return 2;
-        }
-        return 3;
-    }
-
-    private boolean resolvesAccessibleReceiverMethod(Class<?> ownerClass,
-                                                     String methodName,
-                                                     Class<?>[] argTypes,
-                                                     boolean requireStatic) {
-        Method method = tryResolveMethod(ownerClass, methodName, argTypes);
-        if (method == null || !isAccessibleMember(method)) {
-            return false;
-        }
-        return requireStatic == Modifier.isStatic(method.getModifiers());
-    }
-
-    private boolean resolvesAccessibleStaticImportMethod(String methodName, Class<?>[] argTypes) {
-        try {
-            String staticClass = typeResolver.resolveStaticImportClass(methodName);
-            if (staticClass == null) {
-                return false;
-            }
-            Class<?> ownerClass = typeResolver.resolveClass(staticClass);
-            Method method = tryResolveMethod(ownerClass, methodName, argTypes);
-            return method != null && isAccessibleMember(method) && Modifier.isStatic(method.getModifiers());
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private String resolveFieldNameLiteral(Expression expr) {
-        if (expr instanceof StringLiteralExpr) {
-            return ((StringLiteralExpr) expr).getValue();
-        }
-        if (expr instanceof NameExpr) {
-            VariableReference ref = scope.resolve(((NameExpr) expr).getNameAsString());
-            Statement st = getStatementForReference(ref);
-            if (st instanceof StringPrimitiveStatement) {
-                return ((StringPrimitiveStatement) st).getValue();
-            }
-        }
-        return null;
-    }
-
-    private Class<?> resolveOwnerClassForLegacyStaticField(Expression classExpr) {
-        try {
-            if (classExpr instanceof ClassExpr) {
-                Type t = typeResolver.resolveType(((ClassExpr) classExpr).getType());
-                return getRawClass(t);
-            }
-            if (classExpr instanceof NameExpr) {
-                VariableReference ref = scope.resolve(((NameExpr) classExpr).getNameAsString());
-                Statement st = getStatementForReference(ref);
-                if (st instanceof ClassPrimitiveStatement) {
-                    return ((ClassPrimitiveStatement) st).getValue();
-                }
-            }
-        } catch (Exception ignored) {
-            // best-effort only
-        }
-        return null;
-    }
-
-    private Type resolveFieldType(Class<?> ownerClass, String fieldName) {
-        if (ownerClass == null || fieldName == null) {
-            return null;
-        }
-        try {
-            try {
-                return ownerClass.getField(fieldName).getGenericType();
-            } catch (NoSuchFieldException e) {
-                return ownerClass.getDeclaredField(fieldName).getGenericType();
-            }
-        } catch (Exception ignored) {
-            return null;
-        }
     }
 
     private VariableReference failOrTypedFallbackWithRollback(Expression expr,
@@ -2775,11 +2365,11 @@ public class StatementParser {
      * to {@code Object}, which later causes avoidable signature mismatches and uncompilable
      * synthetic assignments.
      */
-    private Type inferTypeForUntypedArgument(Expression arg) {
+    Type inferTypeForUntypedArgument(Expression arg) {
         return inferTypeForUntypedArgument(arg, 0, arg);
     }
 
-    private Type inferTypeForUntypedArgument(Expression arg, int depth, Expression originalArg) {
+    Type inferTypeForUntypedArgument(Expression arg, int depth, Expression originalArg) {
         if (depth >= MAX_RECURSIVE_EXPRESSION_DEPTH) {
             addWarning(originalArg, DiagnosticKind.EXPRESSION_DEPTH_EXCEEDED,
                     MAX_RECURSIVE_EXPRESSION_DEPTH + " during type inference; defaulting to Object");
@@ -2989,7 +2579,7 @@ public class StatementParser {
      * Once the executable is resolved we can fix them up to avoid generating
      * uncompilable casts like {@code (String) void0}.
      */
-    private void retypeNullArguments(List<VariableReference> argRefs, Class<?>[] paramTypes, boolean isVarArgs) {
+    void retypeNullArguments(List<VariableReference> argRefs, Class<?>[] paramTypes, boolean isVarArgs) {
         Class<?>[] argTypes = getArgTypes(argRefs);
         boolean explicitVarArgArray = OverloadResolver.usesExplicitVarArgsArray(paramTypes, isVarArgs, argTypes);
         for (int i = 0; i < argRefs.size(); i++) {
@@ -3005,7 +2595,7 @@ public class StatementParser {
         }
     }
 
-    private DiagnosticMessage validateArgumentTypes(List<VariableReference> argRefs,
+    DiagnosticMessage validateArgumentTypes(List<VariableReference> argRefs,
                                                     Class<?>[] paramTypes,
                                                     Type[] genericParamTypes,
                                                     Expression expr,
@@ -3061,7 +2651,7 @@ public class StatementParser {
      * materialize the trailing arguments into an explicit array variable so the
      * resulting Statement has one argument per declared parameter.
      */
-    private List<VariableReference> normalizeVarArgsArguments(List<VariableReference> argRefs,
+    List<VariableReference> normalizeVarArgsArguments(List<VariableReference> argRefs,
                                                               Class<?>[] paramTypes,
                                                               boolean isVarArgs) {
         if (!isVarArgs || paramTypes.length == 0) {
@@ -3437,7 +3027,7 @@ public class StatementParser {
         return null;
     }
 
-    private Statement getStatementForReference(VariableReference ref) {
+    Statement getStatementForReference(VariableReference ref) {
         if (ref == null) {
             return null;
         }
@@ -4523,7 +4113,7 @@ public class StatementParser {
     // Utility helpers
     // ========================================================================
 
-    private Class<?>[] getArgTypes(List<VariableReference> argRefs) {
+    Class<?>[] getArgTypes(List<VariableReference> argRefs) {
         Class<?>[] types = new Class<?>[argRefs.size()];
         for (int i = 0; i < argRefs.size(); i++) {
             types[i] = argRefs.get(i).getVariableClass();
@@ -4559,7 +4149,7 @@ public class StatementParser {
      *   <li>For dependency classes in other packages, only public members are accessible.</li>
      * </ul>
      */
-    private boolean isAccessibleMember(java.lang.reflect.Member member) {
+    boolean isAccessibleMember(java.lang.reflect.Member member) {
         int mod = member.getModifiers();
         if (Modifier.isPublic(mod)) {
             return true;
@@ -4571,7 +4161,7 @@ public class StatementParser {
         return isInTargetPackage(member.getDeclaringClass());
     }
 
-    private static final class DiagnosticMessage {
+    static final class DiagnosticMessage {
 
         private final DiagnosticKind kind;
         private final String text;
@@ -4597,7 +4187,7 @@ public class StatementParser {
             return text;
         }
 
-        private String render() {
+        String render() {
             return kind == null ? text : kind.format(text);
         }
 
@@ -4642,7 +4232,7 @@ public class StatementParser {
         addWarning(node, DiagnosticMessage.categorized(kind, details));
     }
 
-    private void addWarning(com.github.javaparser.ast.Node node, DiagnosticMessage diagnostic) {
+    void addWarning(com.github.javaparser.ast.Node node, DiagnosticMessage diagnostic) {
         DiagnosticKind kind = resolveEffectiveDiagnosticKind(diagnostic);
         String enriched = enrichDiagnosticForLlmRepair(kind, diagnostic.render());
         int line = resolveDiagnosticLine(node);
