@@ -1381,12 +1381,8 @@ public class TestCodeVisitorTest {
 
     @Test
     public void testSafeErasureSupportsWildcardTypeImpl() throws Exception {
-        TestCodeVisitor visitor = new TestCodeVisitor();
-        Method safeErasure = TestCodeVisitor.class.getDeclaredMethod("safeErasure", Type.class);
-        safeErasure.setAccessible(true);
-
         WildcardTypeImpl wildcard = new WildcardTypeImpl(new Type[]{Number.class}, new Type[]{});
-        Class<?> erased = (Class<?>) safeErasure.invoke(visitor, wildcard);
+        Class<?> erased = CastPolicy.safeErasure(wildcard);
 
         assertEquals(Number.class, erased);
     }
@@ -1399,13 +1395,8 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
 
-        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
-                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
-        getParameterString.setAccessible(true);
-
         TypeVariable<?> e = Vector.class.getTypeParameters()[0];
-        String parameterString = (String) getParameterString.invoke(
-                visitor,
+        String parameterString = visitor.castPolicy.getParameterString(
                 new Type[]{e},
                 Arrays.asList(charVar),
                 false,
@@ -1424,12 +1415,7 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
 
-        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
-                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
-        getParameterString.setAccessible(true);
-
-        String parameterString = (String) getParameterString.invoke(
-                visitor,
+        String parameterString = visitor.castPolicy.getParameterString(
                 new Type[]{CharSequence.class},
                 Arrays.asList(nullVar),
                 false,
@@ -1447,12 +1433,7 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
 
-        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
-                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
-        getParameterString.setAccessible(true);
-
-        String parameterString = (String) getParameterString.invoke(
-                visitor,
+        String parameterString = visitor.castPolicy.getParameterString(
                 new Type[]{CharSequence.class},
                 Arrays.asList(nullVar),
                 false,
@@ -1470,13 +1451,8 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
 
-        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
-                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
-        getParameterString.setAccessible(true);
-
         TypeVariable<?> e = Vector.class.getTypeParameters()[0];
-        String parameterString = (String) getParameterString.invoke(
-                visitor,
+        String parameterString = visitor.castPolicy.getParameterString(
                 new Type[]{e},
                 Arrays.asList(nullVar),
                 false,
@@ -1496,13 +1472,8 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
 
-        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
-                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
-        getParameterString.setAccessible(true);
-
         TypeVariable<?> e = Vector.class.getTypeParameters()[0];
-        String parameterString = (String) getParameterString.invoke(
-                visitor,
+        String parameterString = visitor.castPolicy.getParameterString(
                 new Type[]{e},
                 Arrays.asList(nullObjectVar),
                 false,
@@ -2357,13 +2328,13 @@ public class TestCodeVisitorTest {
                 parameterizedType(Class.class, Object.class));
         Type actualSetRawClass = parameterizedType(java.util.Set.class, Class.class);
 
-        assertTrue(visitor.returnCastIsInconvertible(declaredSetClassObject, actualSetRawClass),
+        assertTrue(visitor.castPolicy.returnCastIsInconvertible(declaredSetClassObject, actualSetRawClass),
                 "Set<Class<Object>> vs raw Set<Class> must be inconvertible");
         // Same parameterization -> convertible, no raw fallback.
-        assertFalse(visitor.returnCastIsInconvertible(declaredSetClassObject, declaredSetClassObject),
+        assertFalse(visitor.castPolicy.returnCastIsInconvertible(declaredSetClassObject, declaredSetClassObject),
                 "Identical parameterizations must be convertible");
         // A wildcard on the actual side is convertible (unchecked), not inconvertible.
-        assertFalse(visitor.returnCastIsInconvertible(
+        assertFalse(visitor.castPolicy.returnCastIsInconvertible(
                         parameterizedType(java.util.List.class, String.class),
                         parameterizedType(java.util.List.class,
                                 new java.lang.reflect.WildcardType() {

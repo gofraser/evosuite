@@ -709,7 +709,7 @@ class SnippetSourceSupport {
         }
         if (type instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) type;
-            Class<?> raw = TestCodeVisitor.safeErasure(parameterizedType);
+            Class<?> raw = CastPolicy.safeErasure(parameterizedType);
             if (raw != null) {
                 Class<?> match = resolveRelatedSimpleName(raw, simpleName, depth, visited);
                 if (match != null) {
@@ -760,7 +760,7 @@ class SnippetSourceSupport {
             return resolveRelatedType(((GenericArrayType) type).getGenericComponentType(),
                     simpleName, depth - 1, visited);
         }
-        Class<?> raw = TestCodeVisitor.safeErasure(type);
+        Class<?> raw = CastPolicy.safeErasure(type);
         if (raw == null) {
             return null;
         }

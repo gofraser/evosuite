@@ -234,10 +234,10 @@ class InconvertibleCastMatrixTest {
             Type value = sig(row[1]);
             String targetSource = source(row[0]);
             String valueSource = source(row[1]);
-            boolean argument = visitor.requiresRawCastForInconvertibleParameterizedTypes(target, value);
-            boolean assignment = visitor.parameterizedCastIsInconvertible(target, value,
-                    TestCodeVisitor.safeErasure(value));
-            boolean returned = visitor.returnCastIsInconvertible(target, value);
+            boolean argument = visitor.castPolicy.requiresRawCastForInconvertibleParameterizedTypes(target, value);
+            boolean assignment = visitor.castPolicy.parameterizedCastIsInconvertible(target, value,
+                    CastPolicy.safeErasure(value));
+            boolean returned = visitor.castPolicy.returnCastIsInconvertible(target, value);
             boolean castRejected = !compiles("Object x = (" + targetSource + ") arg;", valueSource);
             boolean assignmentRejected = !compiles(targetSource + " x = arg;", valueSource);
             table.append(String.format("%-36s <- %-52s argument=%s assignment=%s return=%s"
