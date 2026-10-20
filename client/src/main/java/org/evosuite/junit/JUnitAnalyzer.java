@@ -770,6 +770,13 @@ public abstract class JUnitAnalyzer {
             return result;
         }
 
+        // An abandoned runner may still be executing through the current loader. A retry would
+        // release its own loader in the abandoned runner's name and clear the abandonment, and
+        // the original loader would then be released under the orphan.
+        if (checkRunnerAbandoned) {
+            return result;
+        }
+
         boolean needsInstrumentedRetry = shouldRetryWithInstrumentingAfterFailure(result);
 
         if (!needsInstrumentedRetry) {
