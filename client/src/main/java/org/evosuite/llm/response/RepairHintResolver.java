@@ -200,7 +200,7 @@ public final class RepairHintResolver {
             if (selected.size() >= maxHints) {
                 break;
             }
-            boolean eligible = (rule.isAlwaysOn() && includeAlwaysOn) || rule.matches(context);
+            boolean eligible = rule.isAlwaysOn() ? includeAlwaysOn : rule.matches(context);
             if (!eligible) {
                 continue;
             }

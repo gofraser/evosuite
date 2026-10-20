@@ -112,6 +112,33 @@ class RepairHintResolverTest {
         assertTrue(second.getHints().isEmpty());
     }
 
+    @Test
+    void alwaysOnHintsAreOmittedWhenDisabled() {
+        RepairHintResolver resolver = new RepairHintResolver();
+
+        RepairHintResolver.Resolution disabled = resolver.resolve(
+                "Compilation error: unrelated",
+                Collections.<Throwable>emptyList(),
+                Collections.<String>emptySet(),
+                1,
+                new LinkedHashMap<String, Integer>(),
+                10,
+                0,
+                false);
+        RepairHintResolver.Resolution enabled = resolver.resolve(
+                "Compilation error: unrelated",
+                Collections.<Throwable>emptyList(),
+                Collections.<String>emptySet(),
+                1,
+                new LinkedHashMap<String, Integer>(),
+                10,
+                0,
+                true);
+
+        assertFalse(containsHint(disabled.getHints(), "constructor and lifecycle preconditions"));
+        assertTrue(containsHint(enabled.getHints(), "constructor and lifecycle preconditions"));
+    }
+
     private boolean containsHint(List<RepairHintRule> hints, String needle) {
         if (hints == null || hints.isEmpty()) {
             return false;
