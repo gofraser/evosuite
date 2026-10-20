@@ -850,11 +850,7 @@ public class TestSuiteGenerator {
                     LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                             + "Skipping minimization because not enough time is left");
                 }
-                ClientServices.track(RuntimeVariable.Result_Size, testSuite.size());
-                ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
-                ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
-                ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
-                minimizationResult.publish();
+                publishUnminimizedSuite(testSuite, minimizationResult);
             } else {
                 double before = testSuite.getFitness();
                 TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
@@ -893,11 +889,7 @@ public class TestSuiteGenerator {
                         + "Skipping minimization because not enough time is left");
             }
 
-            ClientServices.track(RuntimeVariable.Result_Size, testSuite.size());
-            ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
-            ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
-            ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
-            minimizationResult.publish();
+            publishUnminimizedSuite(testSuite, minimizationResult);
         }
 
         runCoverageAnalysisIfEnabled(testSuite);
@@ -908,11 +900,6 @@ public class TestSuiteGenerator {
             if (recomputedCoverage > 0.0) {
                 coverage = recomputedCoverage;
             }
-        }
-
-        if (ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)) {
-            // SearchStatistics.getInstance().mutationScore(coverage);
         }
 
         StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
@@ -1307,6 +1294,19 @@ public class TestSuiteGenerator {
         return isConfigured(Properties.ORACLE_REPLAY_INPUT)
                 && Properties.ORACLE_REPLAY_STRATEGY
                 == Properties.OracleReplayStrategy.MUTATION_LLM;
+    }
+
+    /**
+     * Records the size and length of a suite that was not minimized as both the result and the
+     * minimized figures, and publishes the minimization outcome.
+     */
+    private static void publishUnminimizedSuite(TestSuiteChromosome testSuite,
+                                                MinimizationResult minimizationResult) {
+        ClientServices.track(RuntimeVariable.Result_Size, testSuite.size());
+        ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
+        ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
+        ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
+        minimizationResult.publish();
     }
 
     private void logSuiteDiagnostics(String phase, TestSuiteChromosome suite) {
