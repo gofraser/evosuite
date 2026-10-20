@@ -33,6 +33,7 @@ import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmTraceRecorder;
+import org.evosuite.llm.postprocess.LlmPostProcessingResponse.AssertionProposal;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
@@ -57,6 +58,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.LongFunction;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -293,35 +295,33 @@ public class LlmPostProcessor {
                                                PromptResult prompt, int testIndex,
                                                MinimizationResult minimizationResult,
                                                int repairAttempt) {
-        LlmTraceRecorder.setPostProcessingTraceContext(
-                minimizationResult.getStatus().name(),
-                minimizationResult.getUnderlyingStopCause().name(),
-                testIndex);
-        try {
-            ensureNotInterrupted();
-            long deadlineNanos = phaseDeadlineNanos(phaseContext);
-            if (repairAttempt <= 1) {
-                return llmService.query(prompt, LlmFeature.POST_PROCESSING, deadlineNanos);
-            }
-            return llmService.query(prompt.getMessages(), LlmFeature.POST_PROCESSING, repairAttempt,
-                    false, Collections.<String>emptyList(), deadlineNanos);
-        } finally {
-            LlmTraceRecorder.clearPostProcessingTraceContext();
-        }
+        return queryWithPostProcessingTraceContext(phaseContext, testIndex, minimizationResult,
+                deadlineNanos -> repairAttempt <= 1
+                        ? llmService.query(prompt, LlmFeature.POST_PROCESSING, deadlineNanos)
+                        : llmService.query(prompt.getMessages(), LlmFeature.POST_PROCESSING, repairAttempt,
+                        false, Collections.<String>emptyList(), deadlineNanos));
     }
 
     String queryWithPostProcessingTraceContext(LlmPostProcessingPhaseContext phaseContext,
                                                List<LlmMessage> messages, int testIndex,
                                                MinimizationResult minimizationResult,
                                                int repairAttempt) {
+        return queryWithPostProcessingTraceContext(phaseContext, testIndex, minimizationResult,
+                deadlineNanos -> llmService.query(messages, LlmFeature.POST_PROCESSING, repairAttempt,
+                        false, Collections.<String>emptyList(), deadlineNanos));
+    }
+
+    private String queryWithPostProcessingTraceContext(LlmPostProcessingPhaseContext phaseContext,
+                                                       int testIndex,
+                                                       MinimizationResult minimizationResult,
+                                                       LongFunction<String> call) {
         LlmTraceRecorder.setPostProcessingTraceContext(
                 minimizationResult.getStatus().name(),
                 minimizationResult.getUnderlyingStopCause().name(),
                 testIndex);
         try {
             ensureNotInterrupted();
-            return llmService.query(messages, LlmFeature.POST_PROCESSING, repairAttempt,
-                    false, Collections.<String>emptyList(), phaseDeadlineNanos(phaseContext));
+            return call.apply(phaseDeadlineNanos(phaseContext));
         } finally {
             LlmTraceRecorder.clearPostProcessingTraceContext();
         }
@@ -395,7 +395,7 @@ public class LlmPostProcessor {
     }
 
     void recordAssertionLifecycle(
-            List<LlmPostProcessingResponse.AssertionProposal> proposals,
+            List<AssertionProposal> proposals,
             int testIndex,
             MinimizationResult minimizationResult,
             String lifecycleState,
@@ -403,7 +403,7 @@ public class LlmPostProcessor {
         if (proposals == null || !isTracing()) {
             return;
         }
-        for (LlmPostProcessingResponse.AssertionProposal proposal : proposals) {
+        for (AssertionProposal proposal : proposals) {
             recordAssertionLifecycle(llmService, proposal, testIndex, minimizationResult,
                     lifecycleState, callKind);
         }
@@ -411,7 +411,7 @@ public class LlmPostProcessor {
 
     private static void recordAssertionLifecycle(
             LlmService service,
-            LlmPostProcessingResponse.AssertionProposal proposal,
+            AssertionProposal proposal,
             int testIndex,
             MinimizationResult minimizationResult,
             String lifecycleState,
@@ -427,7 +427,7 @@ public class LlmPostProcessor {
                         lifecycleState,
                         callKind,
                         proposal.getAssertionId(),
-                        assertionKind(proposal),
+                        AssertionProposal.kindOrEmpty(proposal),
                         proposal.getActual(),
                         proposal.getExpected(),
                         proposal.getDelta(),
@@ -449,10 +449,10 @@ public class LlmPostProcessor {
         if (response == null || appliedAssertions == null || appliedAssertions.isEmpty() || !isTracing()) {
             return;
         }
-        Map<String, LlmPostProcessingResponse.AssertionProposal> proposals = proposalsById(response);
+        Map<String, AssertionProposal> proposals = LlmPostProcessingResponse.proposalsById(response);
         List<AppliedAssertionTrace> traces = phaseContext.session().appliedAssertions;
         for (TemplateCodeAssertion assertion : appliedAssertions) {
-            LlmPostProcessingResponse.AssertionProposal proposal = proposals.get(assertion.getAssertionId());
+            AssertionProposal proposal = proposals.get(assertion.getAssertionId());
             if (proposal == null) {
                 continue;
             }
@@ -619,8 +619,8 @@ public class LlmPostProcessor {
         if (diagnostics == null || diagnostics.isEmpty() || !isTracing()) {
             return;
         }
-        Map<String, LlmPostProcessingResponse.AssertionProposal> proposalsById =
-                proposalsById(response);
+        Map<String, AssertionProposal> proposalsById =
+                LlmPostProcessingResponse.proposalsById(response);
         for (LlmPostProcessingParseResult.Diagnostic diagnostic : diagnostics) {
             if (diagnostic == null || !isAssertionDiagnostic(diagnostic)) {
                 continue;
@@ -629,12 +629,12 @@ public class LlmPostProcessor {
             if (pathToken == null && diagnostic.getAssertionIndex() >= 0) {
                 pathToken = String.valueOf(diagnostic.getAssertionIndex());
             }
-            LlmPostProcessingResponse.AssertionProposal proposal =
+            AssertionProposal proposal =
                     proposalsById.get(pathToken);
             LlmPostProcessingParseResult.RawAssertion rawAssertion =
                     rawAssertion(rawAssertions, diagnostic);
             Map<String, Object> assertionJson = rawAssertion == null
-                    ? assertionJson(proposal)
+                    ? AssertionProposal.toJson(proposal)
                     : rawAssertion.getFields();
             llmService.recordPostProcessingAssertionDiagnostic(
                     new LlmTraceRecorder.PostProcessingAssertionDiagnosticRecord(
@@ -646,14 +646,14 @@ public class LlmPostProcessor {
                             diagnostic.getCode() == null ? "" : diagnostic.getCode().name(),
                             diagnostic.getPath(),
                             diagnostic.getMessage(),
-                            firstNonEmpty(assertionId(proposal), rawField(rawAssertion, "assertionId"), pathToken),
-                            firstNonEmpty(assertionKind(proposal), rawField(rawAssertion, "kind")),
-                            firstNonEmpty(assertionActual(proposal), rawField(rawAssertion, "actual")),
-                            firstNonEmpty(assertionExpected(proposal), rawField(rawAssertion, "expected")),
-                            firstNonEmpty(assertionDelta(proposal), rawField(rawAssertion, "delta")),
-                            firstNonEmpty(assertionIntent(proposal), rawField(rawAssertion, "intent")),
+                            firstNonEmpty(AssertionProposal.idOrEmpty(proposal), rawField(rawAssertion, "assertionId"), pathToken),
+                            firstNonEmpty(AssertionProposal.kindOrEmpty(proposal), rawField(rawAssertion, "kind")),
+                            firstNonEmpty(AssertionProposal.actualOrEmpty(proposal), rawField(rawAssertion, "actual")),
+                            firstNonEmpty(AssertionProposal.expectedOrEmpty(proposal), rawField(rawAssertion, "expected")),
+                            firstNonEmpty(AssertionProposal.deltaOrEmpty(proposal), rawField(rawAssertion, "delta")),
+                            firstNonEmpty(AssertionProposal.intentOrEmpty(proposal), rawField(rawAssertion, "intent")),
                             "",
-                            firstNonEmpty(assertionPurpose(proposal), rawField(rawAssertion, "purpose")),
+                            firstNonEmpty(AssertionProposal.purposeOrEmpty(proposal), rawField(rawAssertion, "purpose")),
                             proposal == null
                                     ? (rawField(rawAssertion, "candidateId").isEmpty()
                                     ? "SYNTHESIZED" : "SELECTED_CANDIDATE")
@@ -666,20 +666,6 @@ public class LlmPostProcessor {
 
     private static boolean isAssertionDiagnostic(LlmPostProcessingParseResult.Diagnostic diagnostic) {
         return diagnostic.getAssertionId() != null || diagnostic.getAssertionIndex() >= 0;
-    }
-
-    private static Map<String, LlmPostProcessingResponse.AssertionProposal> proposalsById(
-            LlmPostProcessingResponse response) {
-        Map<String, LlmPostProcessingResponse.AssertionProposal> proposals = new LinkedHashMap<>();
-        if (response == null) {
-            return proposals;
-        }
-        for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
-            if (proposal != null && proposal.getAssertionId() != null) {
-                proposals.put(proposal.getAssertionId(), proposal);
-            }
-        }
-        return proposals;
     }
 
     private static LlmPostProcessingParseResult.RawAssertion rawAssertion(
@@ -704,21 +690,6 @@ public class LlmPostProcessor {
         return null;
     }
 
-    private static Map<String, Object> assertionJson(LlmPostProcessingResponse.AssertionProposal proposal) {
-        if (proposal == null) {
-            return java.util.Collections.emptyMap();
-        }
-        Map<String, Object> assertion = new LinkedHashMap<>();
-        assertion.put("assertionId", proposal.getAssertionId());
-        assertion.put("kind", assertionKind(proposal));
-        assertion.put("actual", proposal.getActual());
-        assertion.put("expected", proposal.getExpected());
-        assertion.put("delta", proposal.getDelta());
-        assertion.put("intent", proposal.getIntent());
-        assertion.put("purpose", proposal.getPurpose());
-        return assertion;
-    }
-
     private static String rawField(LlmPostProcessingParseResult.RawAssertion assertion, String fieldName) {
         if (assertion == null || fieldName == null) {
             return "";
@@ -737,34 +708,6 @@ public class LlmPostProcessor {
             }
         }
         return "";
-    }
-
-    private static String assertionId(LlmPostProcessingResponse.AssertionProposal proposal) {
-        return proposal == null ? "" : proposal.getAssertionId();
-    }
-
-    private static String assertionKind(LlmPostProcessingResponse.AssertionProposal proposal) {
-        return proposal == null || proposal.getKind() == null ? "" : proposal.getKind().name();
-    }
-
-    private static String assertionActual(LlmPostProcessingResponse.AssertionProposal proposal) {
-        return proposal == null ? "" : proposal.getActual();
-    }
-
-    private static String assertionExpected(LlmPostProcessingResponse.AssertionProposal proposal) {
-        return proposal == null ? "" : proposal.getExpected();
-    }
-
-    private static String assertionDelta(LlmPostProcessingResponse.AssertionProposal proposal) {
-        return proposal == null ? "" : proposal.getDelta();
-    }
-
-    private static String assertionIntent(LlmPostProcessingResponse.AssertionProposal proposal) {
-        return proposal == null ? "" : proposal.getIntent();
-    }
-
-    private static String assertionPurpose(LlmPostProcessingResponse.AssertionProposal proposal) {
-        return proposal == null ? "" : proposal.getPurpose();
     }
 
     AssertionRepairResult repairRejectedAssertionsIfPossible(
@@ -869,7 +812,7 @@ public class LlmPostProcessor {
         LlmPostProcessingResponse merged = acceptedResponse.withoutAssertions();
         Set<String> seenIds = new HashSet<>();
         int accepted = 0;
-        for (LlmPostProcessingResponse.AssertionProposal proposal : acceptedResponse.getAssertions()) {
+        for (AssertionProposal proposal : acceptedResponse.getAssertions()) {
             if (accepted >= maxAssertions) {
                 return merged;
             }
@@ -877,7 +820,7 @@ public class LlmPostProcessor {
             seenIds.add(proposal.getAssertionId());
             accepted++;
         }
-        for (LlmPostProcessingResponse.AssertionProposal proposal : repairedResponse.getAssertions()) {
+        for (AssertionProposal proposal : repairedResponse.getAssertions()) {
             if (accepted >= maxAssertions) {
                 break;
             }
@@ -948,7 +891,7 @@ public class LlmPostProcessor {
     }
 
     interface AssertionEvaluationRunner {
-        EvaluationOutcome evaluate(LlmPostProcessingResponse.AssertionProposal proposal,
+        EvaluationOutcome evaluate(AssertionProposal proposal,
                                    TestCase validationTest,
                                    LlmPostProcessingReferences references,
                                    Scope finalScope,
@@ -1392,13 +1335,13 @@ public class LlmPostProcessor {
 
     static final class AppliedAssertionTrace {
         private final LlmService service;
-        private final LlmPostProcessingResponse.AssertionProposal proposal;
+        private final AssertionProposal proposal;
         private final String signature;
         private final int testIndex;
         private final MinimizationResult minimizationResult;
 
         private AppliedAssertionTrace(LlmService service,
-                                      LlmPostProcessingResponse.AssertionProposal proposal,
+                                      AssertionProposal proposal,
                                       String signature,
                                       int testIndex,
                                       MinimizationResult minimizationResult) {

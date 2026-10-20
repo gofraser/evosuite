@@ -250,5 +250,64 @@ public class LlmPostProcessingResponse {
         public String getSource() {
             return candidateId == null ? "SYNTHESIZED" : "SELECTED_CANDIDATE";
         }
+
+        /** The proposal's id, or the empty string for no proposal. */
+        static String idOrEmpty(AssertionProposal proposal) {
+            return proposal == null ? "" : proposal.getAssertionId();
+        }
+
+        static String kindOrEmpty(AssertionProposal proposal) {
+            return proposal == null || proposal.getKind() == null ? "" : proposal.getKind().name();
+        }
+
+        static String actualOrEmpty(AssertionProposal proposal) {
+            return proposal == null ? "" : proposal.getActual();
+        }
+
+        static String expectedOrEmpty(AssertionProposal proposal) {
+            return proposal == null ? "" : proposal.getExpected();
+        }
+
+        static String deltaOrEmpty(AssertionProposal proposal) {
+            return proposal == null ? "" : proposal.getDelta();
+        }
+
+        static String intentOrEmpty(AssertionProposal proposal) {
+            return proposal == null ? "" : proposal.getIntent();
+        }
+
+        static String purposeOrEmpty(AssertionProposal proposal) {
+            return proposal == null ? "" : proposal.getPurpose();
+        }
+
+        /** The proposal's fields as a JSON-shaped map, empty for no proposal. */
+        static Map<String, Object> toJson(AssertionProposal proposal) {
+            if (proposal == null) {
+                return Collections.emptyMap();
+            }
+            Map<String, Object> assertion = new LinkedHashMap<>();
+            assertion.put("assertionId", proposal.getAssertionId());
+            assertion.put("kind", kindOrEmpty(proposal));
+            assertion.put("actual", proposal.getActual());
+            assertion.put("expected", proposal.getExpected());
+            assertion.put("delta", proposal.getDelta());
+            assertion.put("intent", proposal.getIntent());
+            assertion.put("purpose", proposal.getPurpose());
+            return assertion;
+        }
+    }
+
+    /** The proposals of a response keyed by assertion id; empty for no response. */
+    static Map<String, AssertionProposal> proposalsById(LlmPostProcessingResponse response) {
+        Map<String, AssertionProposal> proposals = new LinkedHashMap<>();
+        if (response == null) {
+            return proposals;
+        }
+        for (AssertionProposal proposal : response.getAssertions()) {
+            if (proposal != null && proposal.getAssertionId() != null) {
+                proposals.put(proposal.getAssertionId(), proposal);
+            }
+        }
+        return proposals;
     }
 }
