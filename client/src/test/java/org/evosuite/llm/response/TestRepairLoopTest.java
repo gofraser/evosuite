@@ -3141,6 +3141,25 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void cannotFindSymbolIsDependencyMissingOnlyForClasses() {
+        String missingMethod = "/tmp/X.java:3: error: cannot find symbol\n"
+                + "    int x = foo();\n"
+                + "            ^\n"
+                + "  symbol:   method foo()\n"
+                + "  location: class X";
+        String missingClass = "/tmp/X.java:3: error: cannot find symbol\n"
+                + "    Missing m = null;\n"
+                + "    ^\n"
+                + "  symbol:   class Missing\n"
+                + "  location: class X";
+
+        assertFalse(TestRepairLoop.isDependencyMissingError(missingMethod));
+        assertTrue(TestRepairLoop.isDependencyMissingError(missingClass));
+        assertTrue(TestRepairLoop.isUnfixableError(missingMethod
+                + "\njava.lang.UnsatisfiedLinkError - native"));
+    }
+
+    @Test
     void snippetCompilerInfrastructureErrorsDoNotTriggerLlmRepair() {
         LlmService llmService = mock(LlmService.class);
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);

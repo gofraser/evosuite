@@ -190,9 +190,14 @@ public class TestRepairLoop {
             "ClassNotFoundException",
             "ClassNotFoundError",
             "Could not initialize class",
-            "cannot find symbol",
             "NoClassDefFoundError:"
     ));
+    /**
+     * A javac "cannot find symbol" error names a missing class only when its symbol line says so;
+     * an invented method or variable is an ordinary source error that the model can fix.
+     */
+    private static final Pattern MISSING_CLASS_SYMBOL_PATTERN = Pattern.compile(
+            "cannot find symbol[^\\n]*\\n(?:[^\\n]*\\n){0,3}?\\s*symbol:\\s+class\\b");
     private static final Set<String> INITIALIZATION_FAILURE_MARKERS = new HashSet<>(Arrays.asList(
             "ExceptionInInitializerError",
             "NoClassDefFoundError",
@@ -4389,7 +4394,7 @@ public class TestRepairLoop {
                 return true;
             }
         }
-        return false;
+        return MISSING_CLASS_SYMBOL_PATTERN.matcher(error).find();
     }
 
     private String formatThrowable(Throwable throwable) {
