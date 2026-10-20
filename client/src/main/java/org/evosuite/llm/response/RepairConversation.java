@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.response;
 
+import org.evosuite.llm.prompt.PromptResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,8 +50,8 @@ final class RepairConversation {
     private static final Pattern LINE_NUMBER_PATTERN = Pattern.compile(
             "(?<=\\(line |line |Line )\\d+|(?<=position )\\d+");
 
-    /** Whether the original prompt already carries the dependency-type catalogue. */
-    private boolean dependencyContextInPrompt;
+    /** The prompt this conversation started from, or null when it started from bare messages. */
+    private PromptResult prompt;
 
     /** Whether cluster expansion ran since the last repair request went out. */
     private boolean expansionAttempted;
@@ -98,14 +99,19 @@ final class RepairConversation {
      */
     private String pendingTopOfMessageEscalationHint;
 
-    /** Records whether the prompt this conversation started from already includes the catalogue. */
-    void setDependencyContextInPrompt(boolean dependencyContextInPrompt) {
-        this.dependencyContextInPrompt = dependencyContextInPrompt;
+    /** Records the prompt this conversation started from; null when it started from bare messages. */
+    void setPrompt(PromptResult prompt) {
+        this.prompt = prompt;
+    }
+
+    /** The prompt this conversation started from, whose context metadata repair turns carry; may be null. */
+    PromptResult getPrompt() {
+        return prompt;
     }
 
     /** True if repeating the dependency-type catalogue in a repair turn would only duplicate it. */
     boolean isDependencyContextInPrompt() {
-        return dependencyContextInPrompt;
+        return prompt != null && prompt.isDependencyContextIncluded();
     }
 
     /** Records that cluster expansion ran; the next repair request reports it. */

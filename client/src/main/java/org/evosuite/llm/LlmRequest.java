@@ -82,6 +82,16 @@ public final class LlmRequest {
                 expandedClasses, deadlineNanos > 0 ? deadlineNanos : NO_DEADLINE);
     }
 
+    /**
+     * This request traced with the context metadata of {@code prompt}, or
+     * without any when it is null. The messages stay as they are, so a later
+     * turn of a conversation can name the prompt the conversation started from.
+     */
+    public LlmRequest withContext(PromptResult prompt) {
+        return new LlmRequest(messages, feature, prompt, repairAttempt, expansionAttempted,
+                expandedClasses, deadlineNanos);
+    }
+
     /** This request numbered as conversation turn {@code repairAttempt} (1 = the initial request). */
     public LlmRequest withRepairAttempt(int repairAttempt) {
         return new LlmRequest(messages, feature, context, repairAttempt, expansionAttempted,

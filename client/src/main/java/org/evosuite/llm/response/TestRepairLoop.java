@@ -404,7 +404,7 @@ public class TestRepairLoop {
                                      LlmFeature feature,
                                      long repairDeadlineNanos,
                                      Consumer<List<ParseResult>> salvagedTestsConsumer) {
-        return attemptParse(llmResponse, conversationHistory, false, feature,
+        return attemptParse(llmResponse, conversationHistory, null, feature,
                 repairDeadlineNanos, salvagedTestsConsumer);
     }
 
@@ -426,20 +426,21 @@ public class TestRepairLoop {
     /**
      * Variant of {@link #attemptParse(String, List, LlmFeature, long, Consumer)} that takes the
      * conversation from {@code prompt}, which also says whether the dependency-type catalogue is
-     * already part of it so a repair turn does not send it a second time.
+     * already part of it so a repair turn does not send it a second time. Repair turns are traced
+     * with the context metadata of {@code prompt}.
      */
     public RepairResult attemptParse(String llmResponse,
                                      PromptResult prompt,
                                      LlmFeature feature,
                                      long repairDeadlineNanos,
                                      Consumer<List<ParseResult>> salvagedTestsConsumer) {
-        return attemptParse(llmResponse, prompt.getMessages(), prompt.isDependencyContextIncluded(),
+        return attemptParse(llmResponse, prompt.getMessages(), prompt,
                 feature, repairDeadlineNanos, salvagedTestsConsumer);
     }
 
     private RepairResult attemptParse(String llmResponse,
                                       List<LlmMessage> conversationHistory,
-                                      boolean dependencyContextInPrompt,
+                                      PromptResult prompt,
                                       LlmFeature feature,
                                       long repairDeadlineNanos,
                                       Consumer<List<ParseResult>> salvagedTestsConsumer) {
@@ -449,7 +450,7 @@ public class TestRepairLoop {
         String currentResponse = llmResponse;
         int attemptsUsed = 0;
         RepairConversation state = new RepairConversation();
-        state.setDependencyContextInPrompt(dependencyContextInPrompt);
+        state.setPrompt(prompt);
         boolean observedExecutionDrop = false;
         boolean strictContractReaskUsed = false;
         // Candidates that failed at execution in any attempt. The LLM often
@@ -1011,6 +1012,7 @@ public class TestRepairLoop {
 
         boolean expanded = state.takeExpansionAttempted();
         return llmService.query(LlmRequest.of(conversation, feature)
+                .withContext(state.getPrompt())
                 .withRepairAttempt(repairAttempt)
                 .withExpansion(expanded, expandedClasses)
                 .withDeadlineNanos(repairDeadlineNanos)).getText();
