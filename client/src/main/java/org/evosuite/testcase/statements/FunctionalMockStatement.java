@@ -1488,13 +1488,16 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // bookkeeping tied to real executions only.
         final boolean executingUnderMutation = MutationObserver.activeMutation != -1;
         final EvoInvocationListener listenerBeforeExecution = listener;
+        final MockStatementExecuter executer = new MockStatementExecuter(scope);
 
         try {
-            return super.exceptionHandler(new MockStatementExecuter(scope));
+            return super.exceptionHandler(executer);
         } catch (InvocationTargetException e) {
             exceptionThrown = e.getCause();
         } finally {
-            if (executingUnderMutation) {
+            // A set-up that failed leaves an empty listener, and the stubs are rebuilt from the
+            // listener: the record of the last good execution is the one to keep.
+            if (executingUnderMutation || (!executer.activated && listenerBeforeExecution != null)) {
                 listener = listenerBeforeExecution;
             }
         }
@@ -1503,6 +1506,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     private class MockStatementExecuter extends Executer {
         private final Scope scope;
+        /** Whether the mock was set up and its listener activated. */
+        private boolean activated;
 
         public MockStatementExecuter(Scope scope) {
             this.scope = scope;
@@ -1737,6 +1742,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
             //finally, activate the listener
             listener.activate();
+            activated = true;
 
             try {
                 retval.setObject(scope, ret);
@@ -1989,6 +1995,10 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
+        if (useLenientDefaultAnswer != fms.useLenientDefaultAnswer) {
+            return false;
+        }
+
         if (!sameStubbedMethods(fms)) {
             return false;
         }
@@ -2016,6 +2026,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         if (!java.util.Objects.equals(targetClass, that.targetClass)) {
             return false;
         }
+        if (useLenientDefaultAnswer != that.useLenientDefaultAnswer) {
+            return false;
+        }
         return sameStubbedMethods(that);
     }
 
@@ -2033,7 +2046,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     @Override
     public int hashCode() {
-        int result = java.util.Objects.hash(parameters, retval, targetClass);
+        int result = java.util.Objects.hash(parameters, retval, targetClass, useLenientDefaultAnswer);
         for (Stub stub : stubs) {
             result = 31 * result + java.util.Objects.hashCode(stub.method.getID());
         }
