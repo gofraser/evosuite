@@ -55,8 +55,6 @@ import org.evosuite.llm.search.ExtractorTraceSink;
 import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.IsolatedEvaluation;
 import org.evosuite.llm.search.IsolatedProbe;
-import org.evosuite.llm.search.LanguageModelCrossover;
-import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.LlmSemanticCrossover;
 import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.OperatorAttemptResult;
@@ -70,7 +68,6 @@ import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.llm.search.operator.LlmOperatorExecutor;
 import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.llm.search.operator.OperatorTarget;
-import org.evosuite.llm.search.operator.OperatorTargetSelector;
 import org.evosuite.llm.search.operator.SyncTargetPlan;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
@@ -220,30 +217,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final BudgetConsumptionMonitor budgetMonitor;
 
     /**
-     * SYNC breeding-loop mutation hook; created by {@link #initializeLlmOperators()} when {@link
-     * Properties#LLM_OPERATOR_MODE} is {@code SYNC}. Tests may assign it directly.
+     * The LLM semantic operators: SYNC breeding-loop hooks, ASYNC executor and their shared target
+     * selector. Started by {@link #initializeLlmOperators()}, stopped by {@link
+     * #shutdownLlmAssistance()}.
      */
-    protected transient LanguageModelMutation llmMutation;
-
-    /**
-     * SYNC breeding-loop crossover hook; created alongside {@link #llmMutation}.
-     */
-    protected transient LanguageModelCrossover llmCrossover;
-
-    /**
-     * Selector supplying this generation's operator targets. Shared by the SYNC breeding-loop
-     * hooks ({@link #llmMutation}, {@link #llmCrossover}) and the ASYNC {@link #operatorExecutor}.
-     * Set by {@link #initializeLlmOperators()} whenever {@link Properties#LLM_OPERATOR_MODE} is
-     * not {@code OFF}; tests may assign it directly.
-     */
-    protected transient OperatorTargetSelector operatorTargetSelector;
-
-    /**
-     * Background executor driving the LLM semantic operators in {@code ASYNC} mode; created by
-     * {@link #initializeLlmOperators()} via {@link #createOperatorExecutor()} and stopped by
-     * {@link #shutdownLlmAssistance()}. {@code null} in {@code OFF}/{@code SYNC} mode.
-     */
-    protected transient LlmOperatorExecutor operatorExecutor;
+    final transient LlmOperatorAssistance llmOperators = new LlmOperatorAssistance();
 
     /**
      * Species map from the most recent generation's speciation assignment. Used during breeding for
@@ -547,7 +525,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         lastGenOffspringRandomNew = 0;
         lastGenOffspringIdentity = Collections.newSetFromMap(new IdentityHashMap<>());
 
-        final SyncTargetPlan syncTargets = selectSyncTargets();
+        final SyncTargetPlan syncTargets =
+                llmOperators.selectSyncTargets(this.population, this::getCurrentGoals, this.currentIteration);
 
         // Build identity-based reverse lookup for intra-species mating restriction.
         Map<TestChromosome, Integer> individualToSpecies = null;
@@ -576,18 +555,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             int preCrossStmts1 = observer.isEnabled() ? DisruptionHelper.statementCount(offspring1) : 0;
 
             // Try LLM crossover first, then fall back to standard crossover
-            OperatorAttemptResult crossoverResult = OperatorAttemptResult.standardOnly(
-                    OperatorAttemptResult.SkipReason.NOT_CONFIGURED);
+            OperatorAttemptResult crossoverResult = llmOperators.tryCrossover(offspring1, parent1, syncTargets);
             boolean crossoverApplied = false;
-            if (llmCrossover != null) {
-                try {
-                    crossoverResult = llmCrossover.tryApply(
-                            offspring1, parent1, syncTargets);
-                } catch (Exception e) {
-                    logger.debug("LLM crossover error; falling back to standard", e);
-                    crossoverResult = OperatorAttemptResult.semanticFallback();
-                }
-            }
             // The LLM child replaces offspring1 only; offspring2 stays a plain clone of
             // parent2 and must be accounted (lineage, orphan check) as uncrossed.
             boolean crossoverApplied2 = false;
@@ -622,7 +591,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             SemanticProbeResult crossoverProbe = SemanticProbeResult.NONE;
             if (crossoverResult.isAppliedSemantic()) {
                 crossoverProbe = probeSemanticResult(crossoverResult, offspring1, parent1, observer.isEnabled());
-                llmCrossover.recordOutcome(crossoverResult, crossoverProbe.getSemanticTargetDistance());
+                llmOperators.recordCrossoverOutcome(crossoverResult, crossoverProbe.getSemanticTargetDistance());
             }
 
             // The post-crossover probe is sidecar-only, so it never goes through calculateFitness
@@ -729,11 +698,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Creates the LLM operator machinery {@link Properties#LLM_OPERATOR_MODE} asks for: {@code
-     * SYNC} creates the breeding-loop hooks, {@code ASYNC} creates the background {@link
-     * #operatorExecutor}; both share the target selector and the GA's {@link
-     * org.evosuite.llm.search.RepeatedInjectionMemory} so a (parent, goal) pair that just went out
-     * is not re-targeted by the next generation, the seed factory or the stagnation prompt.
+     * Starts the LLM operator machinery {@link Properties#LLM_OPERATOR_MODE} asks for (see {@link
+     * LlmOperatorAssistance#start}), sharing the GA's {@link RepeatedInjectionMemory}.
      */
     private void initializeLlmOperators() {
         // Fresh run, fresh attempt log: this must run even when the mode is OFF, otherwise a
@@ -748,22 +714,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         if (repeatedInjectionMemory == null) {
             repeatedInjectionMemory = new RepeatedInjectionMemory();
         }
-        operatorTargetSelector = new OperatorTargetSelector(repeatedInjectionMemory);
-        if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.SYNC) {
-            // The breeding loop blocks on these calls, so they must not outlast the search.
-            LlmSemanticMutation semanticMutation = new LlmSemanticMutation();
-            semanticMutation.setRemainingSearchSeconds(this::getRemainingSearchBudgetSeconds);
-            LlmSemanticCrossover semanticCrossover = new LlmSemanticCrossover();
-            semanticCrossover.setRemainingSearchSeconds(this::getRemainingSearchBudgetSeconds);
-            llmMutation = new LanguageModelMutation(semanticMutation, repeatedInjectionMemory);
-            llmCrossover = new LanguageModelCrossover(semanticCrossover, repeatedInjectionMemory);
-            return;
-        }
-        operatorExecutor = createOperatorExecutor();
-        LoggingUtils.getEvoLogger().info(
-                "* LLM operators: ASYNC executor, {} calls/generation, batch {}, in-flight cap {}",
-                Properties.LLM_OPERATOR_CALLS_PER_GENERATION, Properties.LLM_OPERATOR_BATCH_SIZE,
-                Properties.LLM_OPERATOR_MAX_INFLIGHT);
+        llmOperators.start(repeatedInjectionMemory, this::getRemainingSearchBudgetSeconds,
+                this::createOperatorExecutor);
     }
 
     /**
@@ -779,33 +731,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Selector targets for this generation's SYNC hooks; empty when the hooks are off or
-     * neither could place a call (budget spent, service down), since selection is the
-     * expensive part and every hook would skip its target anyway.
-     */
-    private SyncTargetPlan selectSyncTargets() {
-        if (operatorTargetSelector == null || (llmMutation == null && llmCrossover == null)) {
-            return SyncTargetPlan.EMPTY;
-        }
-        if (!(llmMutation != null && llmMutation.canCall()) && !(llmCrossover != null && llmCrossover.canCall())) {
-            return SyncTargetPlan.EMPTY;
-        }
-        return new SyncTargetPlan(operatorTargetSelector.select(this.population, getCurrentGoals(),
-                this.population.size(), this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER),
-                this.currentIteration);
-    }
-
-    /**
-     * Stops the {@link #operatorExecutor} before {@link
+     * Stops the ASYNC operator executor before {@link
      * GeneticAlgorithm#shutdownLlmAssistance()} nulls {@code repeatedInjectionMemory}, so any
      * still-open attempts are released against a live memory instance. Idempotent.
      */
     @Override
     protected void shutdownLlmAssistance() {
-        if (operatorExecutor != null) {
-            operatorExecutor.shutdown();
-            operatorExecutor = null;
-        }
+        llmOperators.shutdown();
         super.shutdownLlmAssistance();
     }
 
@@ -950,25 +882,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             postCrossoverProbe = IsolatedProbe.run(offspring, getCurrentGoals());
         }
 
-        OperatorAttemptResult mutResult = OperatorAttemptResult.standardOnly(
-                OperatorAttemptResult.SkipReason.NOT_CONFIGURED);
-        if (llmMutation != null) {
-            try {
-                mutResult = llmMutation.tryApply(offspring, parent, syncTargets);
-            } catch (Exception e) {
-                logger.debug("LLM mutation error; falling back to standard", e);
-                mutResult = OperatorAttemptResult.semanticFallback();
-            }
-        }
+        OperatorAttemptResult mutResult = llmOperators.tryMutate(offspring, parent, syncTargets);
         if (!mutResult.isAppliedSemantic()) {
             this.mutate(offspring, parent);
         }
         if (offspring.isChanged()) {
             if (isOffspringOrphaned(offspring, parent, crossoverApplied, mutResult)) {
                 lastGenOffspringDiscarded++;
-                if (llmMutation != null) {
-                    llmMutation.recordOutcome(mutResult, null);
-                }
+                llmOperators.recordMutationOutcome(mutResult, null);
                 return;
             }
             SemanticProbeResult mutationProbe = observer.isEnabled()
@@ -976,9 +897,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.clearCachedResults(offspring);
             offspring.updateAge(this.currentIteration);
             this.calculateFitness(offspring);
-            if (llmMutation != null) {
-                llmMutation.recordOutcome(mutResult, offspring);
-            }
+            llmOperators.recordMutationOutcome(mutResult, offspring);
 
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
@@ -986,12 +905,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
 
             offspringPopulation.add(offspring);
-            if (llmMutation != null) {
-                llmMutation.recordAdmitted(mutResult, offspring);
-            }
-            if (llmCrossover != null) {
-                llmCrossover.recordAdmitted(crossoverResult, offspring);
-            }
+            llmOperators.recordAdmitted(mutResult, crossoverResult, offspring);
             lastGenOffspringBred++;
             lastGenOffspringIdentity.add(offspring);
             switch (OffspringFate.classify(offspring.getFitnessValues(), parent.getFitnessValues())) {
@@ -2135,44 +2049,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     () -> driveStagnationHelper(helper, coveredGoalCountSupplier, currentGoalsSupplier),
                     InjectionSource.LLM_STAGNATION));
         }
-        if (operatorExecutor != null) {
-            final LlmOperatorExecutor executor = operatorExecutor;
-            externalCandidateSources.add(new LlmCandidateSource(() -> driveOperatorExecutor(executor),
+        if (llmOperators.executor != null) {
+            final LlmOperatorExecutor executor = llmOperators.executor;
+            externalCandidateSources.add(new LlmCandidateSource(() -> llmOperators.driveExecutor(executor,
+                    this.population, this::getCurrentGoals, this.currentIteration),
                     InjectionSource.LLM_OPERATOR));
         }
         registerAdditionalCandidateSources();
-    }
-
-    /**
-     * Single drive step for the ASYNC operator executor: first drains the candidates produced from
-     * a batch this method submitted on an earlier generation, then — capacity and the
-     * calls-per-generation budget permitting — selects and submits this generation's targets for a
-     * future drain.
-     *
-     * <p>The selector sees {@code this.population} as it stands right now, i.e. the parent
-     * population: this generation's offspring are already bred but still only in the union
-     * being assembled by the caller. The GA evaluates the
-     * candidates returned here immediately afterwards, in {@link #collectExternalCandidates}, which
-     * then closes each one's ticket with its coverage gain.
-     */
-    private List<AttributedCandidate> driveOperatorExecutor(LlmOperatorExecutor executor) {
-        executor.tickGeneration();
-        List<AttributedCandidate> ready = executor.drain();
-        int callsPerGeneration = Properties.LLM_OPERATOR_CALLS_PER_GENERATION;
-        if (callsPerGeneration > 0 && executor.hasCapacity() && operatorTargetSelector != null) {
-            try {
-                // Oversample so the executor's rank-order batch shaping has enough same-kind
-                // targets to fill callsPerGeneration full batches even when the ranked list
-                // alternates kinds.
-                int k = callsPerGeneration * Properties.LLM_OPERATOR_BATCH_SIZE;
-                List<OperatorTarget> ranked = operatorTargetSelector.select(this.population, getCurrentGoals(), k,
-                        this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER);
-                executor.submit(ranked, callsPerGeneration, this.currentIteration);
-            } catch (RuntimeException e) {
-                logger.debug("LLM operator target selection/submission failed; skipping this generation", e);
-            }
-        }
-        return ready;
     }
 
     /**
@@ -2701,51 +2584,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Emit LLM operator statistics to the client node: the four SYNC-hook counters (unchanged),
-     * plus the {@code LLM_Operator_*} per-target counters kept by {@link OperatorAttemptLog} and
-     * the ASYNC-only counters kept by {@link #operatorExecutor} — always published, zero when the
-     * corresponding hook/executor/log has nothing to report.
+     * Emit LLM operator statistics to the client node (see {@link LlmOperatorAssistance#emitStats}):
+     * always published, zero when the corresponding hook/executor/log has nothing to report.
      */
     protected void emitOperatorStats(ClientNodeLocal<?> clientNode) {
-        if (llmMutation != null) {
-            clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Mutations,
-                    llmMutation.getAppliedCount());
-            clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Mutation_Fallbacks,
-                    llmMutation.getFallbackCount());
-        }
-        if (llmCrossover != null) {
-            clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Crossovers,
-                    llmCrossover.getAppliedCount());
-            clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Crossover_Fallbacks,
-                    llmCrossover.getFallbackCount());
-        }
-
-        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Selected, log.getAttempts());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Mutation,
-                log.getAttempts(OperatorTarget.Kind.MUTATION));
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Crossover,
-                log.getAttempts(OperatorTarget.Kind.CROSSOVER));
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_Budget,
-                operatorExecutor == null ? 0L : operatorExecutor.getDroppedBudget());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_InFlight,
-                operatorExecutor == null ? 0L : operatorExecutor.getDroppedInFlight());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_Time,
-                operatorExecutor == null ? 0L : operatorExecutor.getDroppedTime());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Failed,
-                operatorExecutor == null ? 0L : operatorExecutor.getFailedCalls());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_InFlight_Generations,
-                operatorExecutor == null ? 0L : operatorExecutor.getInFlightGenerations());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Parsed, log.getOffspringParsed());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Admitted, log.getOffspringAdmitted());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Survived, log.getOffspringSurvived());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Target_Hits, log.getTargetHits());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Target_Improved, log.getTargetImproved());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Candidates_StaleTarget,
-                injectionAdmission.getOperatorStaleTargetTotal());
-        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Sidecar_Path,
-                OperatorAttemptLog.isSidecarEnabled() && log.getAttempts() > 0
-                        ? OperatorAttemptLog.resolveSidecarPath() : "");
+        llmOperators.emitStats(clientNode, injectionAdmission.getOperatorStaleTargetTotal());
     }
 
     /**

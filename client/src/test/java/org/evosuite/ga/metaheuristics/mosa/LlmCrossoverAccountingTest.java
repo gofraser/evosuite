@@ -86,7 +86,7 @@ import static org.mockito.Mockito.when;
  *       only; when semantic crossover does not apply and standard crossover runs instead, both
  *       offspring carry both lineages;
  *   <li>goal accounting: the mocked {@link LlmSemanticCrossover} and {@link
- *       LlmSemanticMutation} receive only targets from {@code operatorTargetSelector}, whose goal is
+ *       LlmSemanticMutation} receive only targets from {@code llmOperators.targetSelector}, whose goal is
  *       always one of DynaMOSA's frontier goals (never an archive-only goal, since the selector
  *       only ever sees {@code goalsManager.getCurrentGoals()}).
  * </ul>
@@ -169,7 +169,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         AccountingDynaMOSA harness = new AccountingDynaMOSA();
         harness.setSelectionFunction(new AlternatingSelection());
         harness.setCrossOverFunction(new NoOpCrossOverFunction());
-        harness.operatorTargetSelector = new OperatorTargetSelector(new RepeatedInjectionMemory());
+        harness.llmOperators.targetSelector = new OperatorTargetSelector(new RepeatedInjectionMemory());
 
         // frontier1: both parents have a cached distance, so the crossover partner search finds
         // parent2 eligible -> parent1's target is a CROSSOVER target with partner=parent2.
@@ -188,8 +188,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         when(mockSemanticCrossover.canCall()).thenReturn(true);
         LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
         when(mockSemanticMutation.canCall()).thenReturn(true);
-        harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, null);
-        harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, null);
+        harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, null);
+        harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, null);
 
         when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse());
@@ -242,7 +242,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         AccountingDynaMOSA harness = new AccountingDynaMOSA();
         harness.setSelectionFunction(new AlternatingSelection());
         harness.setCrossOverFunction(new NoOpCrossOverFunction());
-        harness.operatorTargetSelector = new OperatorTargetSelector(memory);
+        harness.llmOperators.targetSelector = new OperatorTargetSelector(memory);
 
         // Covered by any test with at least two statements: the LLM crossover child below has
         // two, the parents and the LLM mutation child have one.
@@ -256,8 +256,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         when(mockSemanticCrossover.canCall()).thenReturn(true);
         LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
         when(mockSemanticMutation.canCall()).thenReturn(true);
-        harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, memory);
-        harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, memory);
+        harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, memory);
+        harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, memory);
         when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse(2));
         when(mockSemanticMutation.applyMapped(anyList()))
@@ -297,7 +297,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             AccountingDynaMOSA harness = new AccountingDynaMOSA();
             harness.setSelectionFunction(new AlternatingSelection());
             harness.setCrossOverFunction(new NoOpCrossOverFunction());
-            harness.operatorTargetSelector = new OperatorTargetSelector(new RepeatedInjectionMemory());
+            harness.llmOperators.targetSelector = new OperatorTargetSelector(new RepeatedInjectionMemory());
             TestFitnessFunction frontier1 = coveredAtStatements("frontier1", 2);
             TestFitnessFunction frontier2 = coveredAtStatements("frontier2", 99);
             harness.goalsManager.getCurrentGoals().add(frontier1);
@@ -308,8 +308,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             when(mockSemanticCrossover.canCall()).thenReturn(true);
             LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
             when(mockSemanticMutation.canCall()).thenReturn(true);
-            harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, null);
-            harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, null);
+            harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, null);
+            harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, null);
             when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse(2));
             when(mockSemanticMutation.applyMapped(anyList()))
@@ -370,7 +370,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             AccountingDynaMOSA harness = new AccountingDynaMOSA();
             harness.setSelectionFunction(new AlternatingSelection());
             harness.setCrossOverFunction(new NoOpCrossOverFunction());
-            harness.operatorTargetSelector = new OperatorTargetSelector(new RepeatedInjectionMemory());
+            harness.llmOperators.targetSelector = new OperatorTargetSelector(new RepeatedInjectionMemory());
             TestFitnessFunction frontier1 = coveredAtStatements("frontier1", 2);
             TestFitnessFunction frontier2 = coveredAtStatements("frontier2", 99);
             harness.goalsManager.getCurrentGoals().add(frontier1);
@@ -381,8 +381,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             when(mockSemanticCrossover.canCall()).thenReturn(true);
             LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
             when(mockSemanticMutation.canCall()).thenReturn(true);
-            harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, null);
-            harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, null);
+            harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, null);
+            harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, null);
             when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse(2));
             when(mockSemanticMutation.applyMapped(anyList()))
@@ -432,7 +432,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         AccountingDynaMOSA harness = new AccountingDynaMOSA();
         harness.setSelectionFunction(new AlternatingSelection());
         harness.setCrossOverFunction(new NoOpCrossOverFunction());
-        // No operatorTargetSelector: every SYNC hook attempt gets NO_TARGET, so breedNextGeneration()
+        // No target selector: every SYNC hook attempt gets NO_TARGET, so breedNextGeneration()
         // must fall back to the standard CrossOverFunction and standard mutation for both offspring.
         harness.goalsManager.getCurrentGoals().add(CurrentGoalsSupplierTest.simpleGoal("frontier"));
         harness.publishCurrentGoals();
@@ -441,8 +441,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         when(mockSemanticCrossover.canCall()).thenReturn(true);
         LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
         when(mockSemanticMutation.canCall()).thenReturn(true);
-        harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, null);
-        harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, null);
+        harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, null);
+        harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, null);
 
         TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
         TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);

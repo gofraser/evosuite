@@ -113,10 +113,10 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         harness.initializeLlmAssistance(harness::getCurrentGoals, false);
 
-        assertEquals(mockExecutor, harness.operatorExecutor);
-        assertNotNull(harness.operatorTargetSelector);
-        assertNull(harness.llmMutation);
-        assertNull(harness.llmCrossover);
+        assertEquals(mockExecutor, harness.llmOperators.executor);
+        assertNotNull(harness.llmOperators.targetSelector);
+        assertNull(harness.llmOperators.mutation);
+        assertNull(harness.llmOperators.crossover);
     }
 
     @Test
@@ -126,10 +126,10 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         harness.initializeLlmAssistance(harness::getCurrentGoals, false);
 
-        assertNotNull(harness.llmMutation);
-        assertNotNull(harness.llmCrossover);
-        assertNotNull(harness.operatorTargetSelector);
-        assertNull(harness.operatorExecutor);
+        assertNotNull(harness.llmOperators.mutation);
+        assertNotNull(harness.llmOperators.crossover);
+        assertNotNull(harness.llmOperators.targetSelector);
+        assertNull(harness.llmOperators.executor);
     }
 
     @Test
@@ -166,10 +166,10 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         harness.initializeLlmAssistance(harness::getCurrentGoals, false);
 
-        assertNull(harness.llmMutation);
-        assertNull(harness.llmCrossover);
-        assertNull(harness.operatorTargetSelector);
-        assertNull(harness.operatorExecutor);
+        assertNull(harness.llmOperators.mutation);
+        assertNull(harness.llmOperators.crossover);
+        assertNull(harness.llmOperators.targetSelector);
+        assertNull(harness.llmOperators.executor);
     }
 
     @Test
@@ -285,7 +285,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         harness.initializeLlmAssistance(harness::getCurrentGoals, false);
 
         harness.callShutdownLlmAssistance();
-        assertNull(harness.operatorExecutor);
+        assertNull(harness.llmOperators.executor);
         verify(mockExecutor, times(1)).shutdown();
 
         // A second shutdown must be safe (no NPE, no second shutdown() call on the executor
@@ -352,8 +352,8 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         harness.initializeLlmAssistance(harness::getCurrentGoals, false);
         // ASYNC mode leaves the SYNC hooks null; set them directly too, so the four
         // pre-existing LLM_Semantic_* counters are exercised in the same pass.
-        harness.llmMutation = new LanguageModelMutation(new LlmSemanticMutation(), null);
-        harness.llmCrossover = new LanguageModelCrossover(new LlmSemanticCrossover(), null);
+        harness.llmOperators.mutation = new LanguageModelMutation(new LlmSemanticMutation(), null);
+        harness.llmOperators.crossover = new LanguageModelCrossover(new LlmSemanticCrossover(), null);
 
         @SuppressWarnings("unchecked")
         ClientNodeLocal<TestChromosome> clientNode = mock(ClientNodeLocal.class);
