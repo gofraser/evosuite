@@ -391,19 +391,6 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
             }
         }
 
-        // non-static replacement methods
-        //        if (!isReplaced) {
-        //            iterator = MethodCallReplacementCache.getInstance().getVirtualReplacementCalls();
-        //            while(iterator.hasNext()) {
-        //                MethodCallReplacement replacement = iterator.next();
-        //                if (replacement.isTarget(owner, name, desc)) {
-        //                    isReplaced = true;
-        //                    replacement.insertMethodCall(this, Opcodes.INVOKEVIRTUAL);
-        //                    break;
-        //                }
-        //            }
-        //        }
-
         if (!isReplaced) {
             super.visitMethodInsn(opcode, owner, name, desc, itf);
         }
