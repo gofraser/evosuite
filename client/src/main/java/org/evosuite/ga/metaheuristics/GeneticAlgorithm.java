@@ -48,6 +48,7 @@ import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
+import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.StagnationDetector;
@@ -574,7 +575,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (asyncProducer == null) {
             return;
         }
-        injectLlmTests(asyncProducer.drainAvailable());
+        injectLlmTests(AttributedCandidate.candidatesOf(asyncProducer.drainAvailable()));
     }
 
     /**

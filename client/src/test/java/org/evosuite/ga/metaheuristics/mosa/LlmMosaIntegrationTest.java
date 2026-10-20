@@ -23,6 +23,7 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
 import org.evosuite.llm.search.AttemptTicket;
+import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.StagnationDetector;
@@ -42,7 +43,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -162,11 +162,10 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
             }
 
             @Override
-            public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                    List<TestChromosome> candidates) {
-                return Collections.singletonMap(injected, new InjectionAttemptMetadata(
+            public List<AttributedCandidate> drainAttributed() {
+                return Collections.singletonList(new AttributedCandidate(injected, new InjectionAttemptMetadata(
                         AttemptTicket.untracked(),
-                        Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP)));
+                        Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP))));
             }
         });
 
@@ -205,11 +204,10 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
             }
 
             @Override
-            public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                    List<TestChromosome> candidates) {
-                return Collections.singletonMap(injected, new InjectionAttemptMetadata(
+            public List<AttributedCandidate> drainAttributed() {
+                return Collections.singletonList(new AttributedCandidate(injected, new InjectionAttemptMetadata(
                         AttemptTicket.untracked(),
-                        Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP)));
+                        Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP))));
             }
         });
 
@@ -546,7 +544,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
         }
 
         @Override
-        public List<TestChromosome> drainAvailable() {
+        public List<AttributedCandidate> drainAvailable() {
             return Collections.emptyList();
         }
     }

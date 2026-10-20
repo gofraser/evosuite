@@ -22,6 +22,7 @@ package org.evosuite.llm.search.operator;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.AttemptTicket;
+import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.llm.search.LlmSemanticCrossover;
@@ -34,13 +35,10 @@ import org.evosuite.testcase.TestChromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -78,10 +76,8 @@ public final class LlmOperatorExecutor {
     private final int batchSize;
     private final ExecutorService pool;
 
-    private final ConcurrentLinkedQueue<Map.Entry<TestChromosome, InjectionAttemptMetadata>> queue =
-            new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<AttributedCandidate> queue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<DeferredResponse> deferredResponses = new ConcurrentLinkedQueue<>();
-    private final Map<TestChromosome, InjectionAttemptMetadata> pendingMetadata = new IdentityHashMap<>();
     private final Set<AttemptTicket> openTickets = ConcurrentHashMap.newKeySet();
     private final AtomicInteger inFlight = new AtomicInteger();
     private final AtomicInteger workerCounter = new AtomicInteger();
@@ -313,7 +309,7 @@ public final class LlmOperatorExecutor {
         if (shutDown) {
             return false;
         }
-        queue.add(new AbstractMap.SimpleImmutableEntry<>(chromosome, metadata));
+        queue.add(new AttributedCandidate(chromosome, metadata));
         return true;
     }
 
@@ -323,20 +319,21 @@ public final class LlmOperatorExecutor {
     }
 
     /**
-     * Drains every candidate produced so far. Empty once shut down. First finishes any
-     * response a worker deferred because parsing it needed the test cluster expanded
-     * (see {@link #runBatch}) — this thread is the only one allowed to do that.
+     * Drains every candidate produced so far, with its attribution. Empty once shut down. First
+     * finishes any response a worker deferred because parsing it needed the test cluster expanded
+     * (see {@link #runBatch}) — this thread is the only one allowed to do that. The caller now
+     * owns the drained candidates' tickets and must settle them.
      */
-    public List<TestChromosome> drain() {
+    public List<AttributedCandidate> drain() {
         if (shutDown) {
             return Collections.emptyList();
         }
         finishDeferredResponses();
-        List<TestChromosome> result = new ArrayList<>();
-        Map.Entry<TestChromosome, InjectionAttemptMetadata> entry;
+        List<AttributedCandidate> result = new ArrayList<>();
+        AttributedCandidate entry;
         while ((entry = queue.poll()) != null) {
-            pendingMetadata.put(entry.getKey(), entry.getValue());
-            result.add(entry.getKey());
+            openTickets.remove(entry.getMetadata().getTicket());
+            result.add(entry);
         }
         return result;
     }
@@ -365,18 +362,6 @@ public final class LlmOperatorExecutor {
                 }
             }
         }
-    }
-
-    /**
-     * Removes and returns the attribution metadata for a candidate drawn from {@link #drain()}. The
-     * caller now owns the candidate's ticket and must settle it.
-     */
-    public InjectionAttemptMetadata consumeAttemptMetadata(TestChromosome candidate) {
-        InjectionAttemptMetadata metadata = candidate == null ? null : pendingMetadata.remove(candidate);
-        if (metadata != null) {
-            openTickets.remove(metadata.getTicket());
-        }
-        return metadata;
     }
 
     /** Whether another call could be submitted right now (capacity left, not shut down). */
@@ -436,12 +421,9 @@ public final class LlmOperatorExecutor {
         // Candidates still queued here were already delivered and parsed (their row already
         // carries a status, e.g. PARSED); they just never made it through drain(), so their
         // attempt is closed with zero gain rather than released as undelivered.
-        Map.Entry<TestChromosome, InjectionAttemptMetadata> entry;
+        AttributedCandidate entry;
         while ((entry = queue.poll()) != null) {
-            InjectionAttemptMetadata metadata = entry.getValue();
-            if (metadata != null) {
-                closeAttempt(metadata.getTicket(), 0);
-            }
+            closeAttempt(entry.getMetadata().getTicket(), 0);
         }
         for (AttemptTicket ticket : openTickets) {
             OperatorAttemptLog.getInstance().recordUndelivered(ticket.getId());
@@ -449,7 +431,6 @@ public final class LlmOperatorExecutor {
         }
         openTickets.clear();
         queue.clear();
-        pendingMetadata.clear();
         deferredResponses.clear();
     }
 

@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
 import org.evosuite.llm.search.BlendChannel;
 import org.evosuite.llm.search.AttemptTicket;
+import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
@@ -40,7 +41,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -369,23 +369,21 @@ class LlmBlendingTest extends MosaTestSupport {
 
             @Override
             public List<TestChromosome> drain() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<AttributedCandidate> drainAttributed() {
                 if (drained) {
                     return Collections.emptyList();
                 }
                 drained = true;
-                return Collections.singletonList(candidate);
+                return Collections.singletonList(new AttributedCandidate(candidate, metadata));
             }
 
             @Override
             public InjectionSource injectionSource() {
                 return source;
-            }
-
-            @Override
-            public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                    List<TestChromosome> candidates) {
-                return metadata == null ? Collections.emptyMap()
-                        : Collections.singletonMap(candidate, metadata);
             }
         };
     }

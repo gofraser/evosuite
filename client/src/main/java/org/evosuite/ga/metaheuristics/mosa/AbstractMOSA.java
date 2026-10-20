@@ -54,6 +54,7 @@ import org.evosuite.llm.search.DisruptionHelper;
 import org.evosuite.llm.search.DisruptionRecorder;
 import org.evosuite.llm.search.ExtractorTraceSink;
 import org.evosuite.llm.search.AttemptTicket;
+import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.IsolatedEvaluation;
 import org.evosuite.llm.search.IsolatedProbe;
@@ -97,7 +98,6 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.*;
-import java.util.function.Function;
 
 /**
  * Abstract class for MOSA or variants of MOSA.
@@ -132,46 +132,51 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
 
         /**
-         * Hands over the attribution of {@code candidates}. Each returned metadata's ticket is then
-         * owed a settlement, which {@link #collectExternalCandidates} makes however processing
-         * goes.
+         * Drains this source's candidates with the attribution of the attempts that produced them.
+         * Each tracked ticket among them is then owed a settlement, which {@link
+         * #collectExternalCandidates} makes however processing goes. By default {@link #drain()}
+         * without attribution.
          */
-        default Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                List<TestChromosome> candidates) {
-            return Collections.emptyMap();
+        default List<AttributedCandidate> drainAttributed() {
+            List<TestChromosome> drained = drain();
+            if (drained == null) {
+                return Collections.emptyList();
+            }
+            List<AttributedCandidate> entries = new ArrayList<>(drained.size());
+            for (TestChromosome candidate : drained) {
+                entries.add(new AttributedCandidate(candidate, null));
+            }
+            return entries;
         }
     }
 
     /**
-     * An LLM-backed candidate source: drains from one helper and hands over that helper's
-     * per-attempt metadata through {@link #metadataByCandidate}.
+     * An LLM-backed candidate source: drains one helper's queue, whose entries carry each
+     * candidate's attribution.
      */
     private static class LlmCandidateSource implements ExternalCandidateSource {
-        private final java.util.function.Supplier<List<TestChromosome>> drain;
+        private final java.util.function.Supplier<List<AttributedCandidate>> drain;
         private final InjectionSource tag;
-        private final Function<TestChromosome, InjectionAttemptMetadata> lookup;
 
-        LlmCandidateSource(java.util.function.Supplier<List<TestChromosome>> drain, InjectionSource tag,
-                           Function<TestChromosome, InjectionAttemptMetadata> lookup) {
+        LlmCandidateSource(java.util.function.Supplier<List<AttributedCandidate>> drain, InjectionSource tag) {
             this.drain = drain;
             this.tag = tag;
-            this.lookup = lookup;
+        }
+
+        /** Not used: dropping the attribution would leave the drained tickets unsettled. */
+        @Override
+        public List<TestChromosome> drain() {
+            throw new UnsupportedOperationException("drained through drainAttributed()");
         }
 
         @Override
-        public List<TestChromosome> drain() {
+        public List<AttributedCandidate> drainAttributed() {
             return drain.get();
         }
 
         @Override
         public InjectionSource injectionSource() {
             return tag;
-        }
-
-        @Override
-        public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                List<TestChromosome> candidates) {
-            return metadataByCandidate(candidates, lookup);
         }
     }
 
@@ -2274,28 +2279,27 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
 
         for (ExternalCandidateSource source : externalCandidateSources) {
-            List<TestChromosome> candidates;
+            List<AttributedCandidate> drained;
             InjectionSource tag;
-            Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate;
             try {
-                candidates = source.drain();
-                if (candidates == null || candidates.isEmpty()) {
+                drained = source.drainAttributed();
+                if (drained == null || drained.isEmpty()) {
                     continue;
                 }
                 tag = source.injectionSource();
-                // Consumes the source's metadata for these candidates; from here on each of their
-                // tickets is owed a settlement, however processing goes, so the closing below
-                // must run in a finally.
-                attemptMetadataByCandidate = source.consumeAttemptMetadata(candidates);
             } catch (Exception e) {
                 logger.debug("External candidate source failed while draining; skipping", e);
                 continue;
             }
+            // From here on each drained ticket is owed a settlement, however processing goes, so
+            // the closing below must run in a finally.
+            List<TestChromosome> candidates = AttributedCandidate.candidatesOf(drained);
+            Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate = metadataByCandidate(drained);
             attempts += candidates.size();
             if (tag != null) {
                 attemptCounts.merge(tag, candidates.size(), Integer::sum);
             }
-            Map<AttemptTicket, Integer> gainsByTicket = initializeAttemptOutcomeMap(attemptMetadataByCandidate);
+            Map<AttemptTicket, Integer> gainsByTicket = initializeAttemptOutcomeMap(drained);
             try {
                 List<TestChromosome> safe = filterOrphanedTestChromosomes(
                         candidates, "external candidate source " + source.getClass().getSimpleName());
@@ -3054,18 +3058,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Seeds a zero gain for every tracked ticket among {@code attemptMetadataByCandidate}, so each
+     * Seeds a zero gain for every tracked ticket among {@code drained}, in drain order, so each
      * one is closed even when its candidate never gets evaluated.
      */
-    private Map<AttemptTicket, Integer> initializeAttemptOutcomeMap(
-            Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate) {
-        if (attemptMetadataByCandidate == null || attemptMetadataByCandidate.isEmpty()) {
-            return Collections.emptyMap();
-        }
+    private static Map<AttemptTicket, Integer> initializeAttemptOutcomeMap(List<AttributedCandidate> drained) {
         Map<AttemptTicket, Integer> gainsByTicket = new LinkedHashMap<>();
-        for (InjectionAttemptMetadata metadata : attemptMetadataByCandidate.values()) {
+        for (AttributedCandidate entry : drained) {
+            InjectionAttemptMetadata metadata = entry.getMetadata();
             if (metadata != null && metadata.getTicket().isTracked()) {
-                gainsByTicket.put(metadata.getTicket(), 0);
+                gainsByTicket.putIfAbsent(metadata.getTicket(), 0);
             }
         }
         return gainsByTicket;
@@ -3101,39 +3102,29 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // maybeSubmit/drain are documented to be safe no-ops post-shutdown.
         if (asyncProducer != null) {
             final org.evosuite.llm.search.AsyncLlmTestProducer producer = asyncProducer;
-            externalCandidateSources.add(new LlmCandidateSource(producer::drainAvailable,
-                    InjectionSource.LLM_ASYNC, producer::consumeAttemptMetadata));
+            externalCandidateSources.add(new LlmCandidateSource(producer::drainAvailable, InjectionSource.LLM_ASYNC));
         }
         if (stagnationLlmHelper != null) {
             final StagnationLlmHelper helper = stagnationLlmHelper;
             externalCandidateSources.add(new LlmCandidateSource(
                     () -> driveStagnationHelper(helper, coveredGoalCountSupplier, currentGoalsSupplier),
-                    InjectionSource.LLM_STAGNATION, helper::consumeAttemptMetadata));
+                    InjectionSource.LLM_STAGNATION));
         }
         if (operatorExecutor != null) {
             final LlmOperatorExecutor executor = operatorExecutor;
             externalCandidateSources.add(new LlmCandidateSource(() -> driveOperatorExecutor(executor),
-                    InjectionSource.LLM_OPERATOR, executor::consumeAttemptMetadata));
+                    InjectionSource.LLM_OPERATOR));
         }
         registerAdditionalCandidateSources();
     }
 
-    /**
-     * Builds the {@code candidate -> metadata} map an {@link ExternalCandidateSource} returns from
-     * {@link ExternalCandidateSource#consumeAttemptMetadata}, skipping candidates {@code lookup}
-     * has no metadata for. Shared by every LLM-backed source (async producer, stagnation helper,
-     * operator executor), which otherwise differ only in which object owns {@code lookup}.
-     */
+    /** Indexes the attribution of {@code drained} by candidate identity, skipping entries without one. */
     private static Map<TestChromosome, InjectionAttemptMetadata> metadataByCandidate(
-            List<TestChromosome> candidates, Function<TestChromosome, InjectionAttemptMetadata> lookup) {
-        if (candidates == null || candidates.isEmpty()) {
-            return Collections.emptyMap();
-        }
+            List<AttributedCandidate> drained) {
         Map<TestChromosome, InjectionAttemptMetadata> byCandidate = new IdentityHashMap<>();
-        for (TestChromosome candidate : candidates) {
-            InjectionAttemptMetadata metadata = lookup.apply(candidate);
-            if (metadata != null) {
-                byCandidate.put(candidate, metadata);
+        for (AttributedCandidate entry : drained) {
+            if (entry.getMetadata() != null) {
+                byCandidate.put(entry.getCandidate(), entry.getMetadata());
             }
         }
         return byCandidate;
@@ -3151,9 +3142,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * candidates returned here immediately afterwards, in {@link #collectExternalCandidates}, which
      * then closes each one's ticket with its coverage gain.
      */
-    private List<TestChromosome> driveOperatorExecutor(LlmOperatorExecutor executor) {
+    private List<AttributedCandidate> driveOperatorExecutor(LlmOperatorExecutor executor) {
         executor.tickGeneration();
-        List<TestChromosome> ready = executor.drain();
+        List<AttributedCandidate> ready = executor.drain();
         int callsPerGeneration = Properties.LLM_OPERATOR_CALLS_PER_GENERATION;
         if (callsPerGeneration > 0 && executor.hasCapacity() && operatorTargetSelector != null) {
             try {
@@ -3179,7 +3170,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * #registerExternalCandidateSources} so the snapshot logic lives in one named place — easier to
      * extend (e.g., tracing) and to test.
      */
-    private List<TestChromosome> driveStagnationHelper(
+    private List<AttributedCandidate> driveStagnationHelper(
             org.evosuite.llm.search.StagnationLlmHelper helper,
             java.util.function.IntSupplier coveredGoalCountSupplier,
             java.util.function.Supplier<Set<TestFitnessFunction>> currentGoalsSupplier) {

@@ -26,6 +26,7 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
+import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.StagnationDetector;
 import org.evosuite.llm.search.TestSuiteChromosomeInjectionAdapter;
@@ -335,10 +336,10 @@ class LlmWholeSuiteIntegrationTest {
         public void stop() { }
 
         @Override
-        public List<TestChromosome> drainAvailable() {
+        public List<AttributedCandidate> drainAvailable() {
             TestChromosome tc = new TestChromosome();
             tc.setTestCase(new DefaultTestCase());
-            return Collections.singletonList(tc);
+            return Collections.singletonList(new AttributedCandidate(tc, null));
         }
     }
 

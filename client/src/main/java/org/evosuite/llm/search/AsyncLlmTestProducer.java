@@ -47,7 +47,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +64,7 @@ public class AsyncLlmTestProducer {
 
     private static final Logger logger = LoggerFactory.getLogger(AsyncLlmTestProducer.class);
 
-    private final BlockingQueue<TestChromosome> testQueue;
+    private final BlockingQueue<AttributedCandidate> testQueue;
     private final int queueCapacity;
     private final Thread producerThread;
     private final Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
@@ -78,13 +77,9 @@ public class AsyncLlmTestProducer {
     private final ProblemCardExtractor problemCardExtractor = new ProblemCardExtractor();
     private final DiagnosticCardSelector diagnosticCardSelector = new DiagnosticCardSelector();
     private final ExceptionBarrierTracker exceptionBarrierTracker = new ExceptionBarrierTracker();
-    private final Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate =
-            Collections.synchronizedMap(new IdentityHashMap<>());
     /**
-     * Makes a candidate and its attribution visible as one hand-off.  The
-     * queue is deliberately still exposed as chromosomes for compatibility,
-     * but consumers must never be able to drain a chromosome before its
-     * metadata has been installed.
+     * Makes all candidates of one response visible in a single drain, and
+     * lets a producer facing a full queue wait for the consumer.
      */
     private final Object publicationLock = new Object();
     private final AtomicLong diagnosticCallsAttempted = new AtomicLong();
@@ -164,9 +159,12 @@ public class AsyncLlmTestProducer {
         return loopIterations.get();
     }
 
-    /** Drains and returns all currently queued test chromosomes without blocking. */
-    public List<TestChromosome> drainAvailable() {
-        List<TestChromosome> tests = new ArrayList<>();
+    /**
+     * Drains and returns all currently queued candidates with their attribution, without
+     * blocking. The caller now owns the drained candidates' tickets.
+     */
+    public List<AttributedCandidate> drainAvailable() {
+        List<AttributedCandidate> tests = new ArrayList<>();
         synchronized (publicationLock) {
             testQueue.drainTo(tests);
             if (!tests.isEmpty()) {
@@ -174,18 +172,6 @@ public class AsyncLlmTestProducer {
             }
         }
         return tests;
-    }
-
-    /**
-     * Removes and returns the metadata of the injection attempt that produced a candidate.
-     * @param candidate the candidate test, may be null
-     * @return the attempt metadata, or null if there is none
-     */
-    public InjectionAttemptMetadata consumeAttemptMetadata(TestChromosome candidate) {
-        if (candidate == null) {
-            return null;
-        }
-        return attemptMetadataByCandidate.remove(candidate);
     }
 
     private void produceLoop() {
@@ -324,9 +310,8 @@ public class AsyncLlmTestProducer {
 
     /**
      * Publishes all candidates of one response together with their
-     * attribution.  Holding the same lock in drainAvailable() closes the
-     * otherwise observable interval between queue insertion and metadata
-     * insertion, and makes the response's candidates visible in a single
+     * attribution.  Holding the same lock in drainAvailable() makes the
+     * response's candidates visible in a single
      * drain: the consumer closes an attempt after the first drain that
      * contains one of its candidates, so a split response would leave the
      * later candidates crediting an attempt that no longer exists.  When the
@@ -345,10 +330,11 @@ public class AsyncLlmTestProducer {
         synchronized (publicationLock) {
             while (running) {
                 if (testQueue.size() < queueCapacity) {
+                    List<AttributedCandidate> entries = new ArrayList<>(batch.size());
                     for (TestChromosome chromosome : batch) {
-                        attemptMetadataByCandidate.put(chromosome, metadata);
-                        testQueue.add(chromosome);
+                        entries.add(new AttributedCandidate(chromosome, metadata));
                     }
+                    testQueue.addAll(entries);
                     if (running) {
                         // Hold back the next LLM request until the consumer has made room.
                         while (running && testQueue.size() >= queueCapacity) {
@@ -356,10 +342,7 @@ public class AsyncLlmTestProducer {
                         }
                         return running;
                     }
-                    for (TestChromosome chromosome : batch) {
-                        testQueue.remove(chromosome);
-                        attemptMetadataByCandidate.remove(chromosome);
-                    }
+                    testQueue.removeAll(entries);
                     return false;
                 }
                 awaitQueueSpace();

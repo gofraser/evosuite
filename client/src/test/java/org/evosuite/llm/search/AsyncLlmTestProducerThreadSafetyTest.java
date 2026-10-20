@@ -44,7 +44,6 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -108,7 +107,7 @@ class AsyncLlmTestProducerThreadSafetyTest {
 
         try {
             producer.start();
-            List<TestChromosome> produced = Collections.emptyList();
+            List<AttributedCandidate> produced = Collections.emptyList();
             long deadline = System.currentTimeMillis() + 2000L;
             while (produced.isEmpty() && System.currentTimeMillis() < deadline) {
                 Thread.sleep(10L);
@@ -163,7 +162,6 @@ class AsyncLlmTestProducerThreadSafetyTest {
             assertTrue(requestReturned.await(1, TimeUnit.SECONDS));
             assertTrue(producer.drainAvailable().isEmpty(),
                     "A candidate returned after stop() must not be published");
-            assertNull(producer.consumeAttemptMetadata(lateCandidate));
         } finally {
             releaseRequest.countDown();
             producer.stop();
@@ -200,7 +198,7 @@ class AsyncLlmTestProducerThreadSafetyTest {
             Thread.sleep(300L);
             assertEquals(1, requests.get(), "producer must not query the LLM while its queue is full");
 
-            List<TestChromosome> drained = new ArrayList<>();
+            List<AttributedCandidate> drained = new ArrayList<>();
             deadline = System.currentTimeMillis() + 2000L;
             while (drained.size() < firstResponse.size() && System.currentTimeMillis() < deadline) {
                 drained.addAll(producer.drainAvailable());
@@ -208,8 +206,8 @@ class AsyncLlmTestProducerThreadSafetyTest {
             }
             assertEquals(firstResponse.size(), drained.size(), "every candidate must reach the consumer");
             for (int i = 0; i < firstResponse.size(); i++) {
-                assertSame(firstResponse.get(i), drained.get(i));
-                assertNotNull(producer.consumeAttemptMetadata(drained.get(i)));
+                assertSame(firstResponse.get(i), drained.get(i).getCandidate());
+                assertNotNull(drained.get(i).getMetadata());
             }
         } finally {
             producer.stop();
@@ -243,10 +241,10 @@ class AsyncLlmTestProducerThreadSafetyTest {
 
         assertTrue(elapsedMs < 1000L, "stop() must not wait out its join timeout, took " + elapsedMs + " ms");
         assertEquals(AsyncLlmTestProducer.StopReason.STOP_REQUESTED, producer.getStoppedReason());
-        List<TestChromosome> drained = producer.drainAvailable();
+        List<AttributedCandidate> drained = producer.drainAvailable();
         // The response was published as a whole before the producer began to
         // wait for the consumer.
-        assertEquals(Arrays.asList(first, blocked), drained);
+        assertEquals(Arrays.asList(first, blocked), AttributedCandidate.candidatesOf(drained));
     }
 
     private static final class StubProducingAsyncLlmTestProducer extends AsyncLlmTestProducer {

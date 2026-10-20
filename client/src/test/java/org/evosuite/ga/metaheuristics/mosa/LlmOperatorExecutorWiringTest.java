@@ -24,6 +24,7 @@ import org.evosuite.coverage.method.MethodCoverageTestFitness;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.llm.search.AttemptTicket;
+import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
@@ -184,11 +185,10 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         TestChromosome candidate1 = arrayListConstructorChromosome(1);
         TestChromosome candidate2 = arrayListConstructorChromosome(2);
-        when(mockExecutor.drain()).thenReturn(Arrays.asList(candidate1, candidate2));
         AttemptTicket ticket = openTicket("attempt-1");
         InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(ticket, Collections.emptyList());
-        when(mockExecutor.consumeAttemptMetadata(candidate1)).thenReturn(metadata);
-        when(mockExecutor.consumeAttemptMetadata(candidate2)).thenReturn(null);
+        when(mockExecutor.drain()).thenReturn(Arrays.asList(
+                new AttributedCandidate(candidate1, metadata), new AttributedCandidate(candidate2, null)));
 
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         List<TestChromosome> union = new ArrayList<>();
@@ -219,13 +219,12 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         TestChromosome candidate1 = arrayListConstructorChromosome(1);
         TestChromosome candidate2 = arrayListConstructorChromosome(2);
         harness.throwOnFitness = candidate1;
-        when(mockExecutor.drain()).thenReturn(Arrays.asList(candidate1, candidate2));
         AttemptTicket ticket1 = openTicket("attempt-1");
         AttemptTicket ticket2 = openTicket("attempt-2");
         InjectionAttemptMetadata metadata1 = new InjectionAttemptMetadata(ticket1, Collections.emptyList());
         InjectionAttemptMetadata metadata2 = new InjectionAttemptMetadata(ticket2, Collections.emptyList());
-        when(mockExecutor.consumeAttemptMetadata(candidate1)).thenReturn(metadata1);
-        when(mockExecutor.consumeAttemptMetadata(candidate2)).thenReturn(metadata2);
+        when(mockExecutor.drain()).thenReturn(Arrays.asList(
+                new AttributedCandidate(candidate1, metadata1), new AttributedCandidate(candidate2, metadata2)));
 
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         List<TestChromosome> union = new ArrayList<>();
@@ -308,7 +307,8 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         TestChromosome first = arrayListConstructorChromosome(5);
         TestChromosome duplicate = arrayListConstructorChromosome(5);
-        when(mockExecutor.drain()).thenReturn(Arrays.asList(first, duplicate));
+        when(mockExecutor.drain()).thenReturn(Arrays.asList(
+                new AttributedCandidate(first, null), new AttributedCandidate(duplicate, null)));
 
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         List<TestChromosome> union = new ArrayList<>();
@@ -409,10 +409,9 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         AttemptTicket ticket = openTicket("attempt-log-1");
         ticket.openLogRow(0, target, "ASYNC", 1);
 
-        when(mockExecutor.drain()).thenReturn(Collections.singletonList(candidate));
         InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(
                 ticket, Collections.emptyList(), Collections.singletonList(goal));
-        when(mockExecutor.consumeAttemptMetadata(candidate)).thenReturn(metadata);
+        when(mockExecutor.drain()).thenReturn(Collections.singletonList(new AttributedCandidate(candidate, metadata)));
 
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         List<TestChromosome> union = new ArrayList<>();
@@ -447,13 +446,12 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         TestChromosome candidate1 = arrayListConstructorChromosome(1);
         TestChromosome candidate2 = arrayListConstructorChromosome(2);
-        when(mockExecutor.drain()).thenReturn(Arrays.asList(candidate1, candidate2));
         InjectionAttemptMetadata metadata1 = new InjectionAttemptMetadata(
                 openTicket("attempt-1"), Collections.emptyList(), Collections.singletonList(goal));
         InjectionAttemptMetadata metadata2 = new InjectionAttemptMetadata(
                 openTicket("attempt-2"), Collections.emptyList(), Collections.singletonList(goal));
-        when(mockExecutor.consumeAttemptMetadata(candidate1)).thenReturn(metadata1);
-        when(mockExecutor.consumeAttemptMetadata(candidate2)).thenReturn(metadata2);
+        when(mockExecutor.drain()).thenReturn(Arrays.asList(
+                new AttributedCandidate(candidate1, metadata1), new AttributedCandidate(candidate2, metadata2)));
 
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         harness.collectExternalCandidates(new ArrayList<>());

@@ -125,7 +125,7 @@ class StagnationLlmHelperTest {
             // Advance past the 1s threshold; second call ticks stagnation, SYNC runs inline.
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
             helper.maybeSubmit(0, Collections.singleton(goal), pop);
-            List<TestChromosome> tests = helper.drain();
+            List<TestChromosome> tests = AttributedCandidate.candidatesOf(helper.drain());
             assertFalse(tests.isEmpty(), "SYNC mode should produce tests on the same call");
             assertEquals(1L, helper.getPromptsSubmitted());
             assertEquals(1L, helper.getResponsesReceived());
@@ -383,7 +383,7 @@ class StagnationLlmHelperTest {
             // call should fire without waiting another stagnation_timeout.
             remainingBudget.set(600L);
             helper.maybeSubmit(0, Collections.singleton(goal), pop);
-            List<TestChromosome> tests = helper.drain();
+            List<TestChromosome> tests = AttributedCandidate.candidatesOf(helper.drain());
             assertFalse(tests.isEmpty(),
                     "After the budget guard relaxes, the helper must fire immediately "
                             + "instead of waiting for a fresh stagnation window.");
@@ -525,7 +525,7 @@ class StagnationLlmHelperTest {
             boolean terminated = helper.awaitTermination(2, TimeUnit.SECONDS);
             assertTrue(terminated, "Worker should finish in-flight call after stopAcceptingSubmissions");
 
-            List<TestChromosome> tests = helper.drain();
+            List<TestChromosome> tests = AttributedCandidate.candidatesOf(helper.drain());
             assertFalse(tests.isEmpty(),
                     "Graceful shutdown must allow the in-flight call's tests to be drained");
         } finally {
@@ -674,9 +674,9 @@ class StagnationLlmHelperTest {
                 helper.maybeSubmit(0, Collections.singleton(goal), Collections.singletonList(popEntry));
                 clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
                 helper.maybeSubmit(0, Collections.singleton(goal), Collections.singletonList(popEntry));
-                List<TestChromosome> drained = helper.drain();
+                List<AttributedCandidate> drained = helper.drain();
                 assertFalse(drained.isEmpty());
-                assertTrue(helper.consumeAttemptMetadata(drained.get(0)).getDiagnosticCardTypes()
+                assertTrue(drained.get(0).getMetadata().getDiagnosticCardTypes()
                                 .contains(ProblemCardType.UNREACHED_METHOD),
                         "Expected diagnostic card metadata to be available for drained candidates");
             } finally {
@@ -911,13 +911,13 @@ class StagnationLlmHelperTest {
             throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
-            List<TestChromosome> drained = helper.drain();
+            List<AttributedCandidate> drained = helper.drain();
             if (!drained.isEmpty()) {
-                return drained;
+                return AttributedCandidate.candidatesOf(drained);
             }
             TimeUnit.MILLISECONDS.sleep(25);
         }
-        return helper.drain();
+        return AttributedCandidate.candidatesOf(helper.drain());
     }
 
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {

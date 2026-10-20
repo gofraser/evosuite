@@ -34,6 +34,7 @@ import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmTraceRecorder;
 import org.evosuite.llm.mock.MockChatLanguageModel;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
+import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -326,7 +327,7 @@ class LlmGaIntegrationTest {
         }
 
         @Override
-        public List<TestChromosome> drainAvailable() {
+        public List<AttributedCandidate> drainAvailable() {
             return Collections.emptyList();
         }
     }

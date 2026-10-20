@@ -35,7 +35,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -95,8 +94,7 @@ public final class StagnationLlmHelper {
     private static final int DEFAULT_BUDGET_GUARD_SECONDS = 45;
     private static final long SYNC_RETURN_MARGIN_NANOS = TimeUnit.SECONDS.toNanos(2);
 
-    private final BlockingQueue<TestChromosome> resultQueue;
-    private final Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate;
+    private final BlockingQueue<AttributedCandidate> resultQueue;
     /** Serializes completion publication with drain() and hard shutdown. */
     private final Object lifecycleLock = new Object();
     private final ExecutorService worker;
@@ -142,7 +140,6 @@ public final class StagnationLlmHelper {
         // Stagnation accepts all parsed tests from the LLM response, including
         // over-production beyond the requested count.
         this.resultQueue = new LinkedBlockingQueue<>();
-        this.attemptMetadataByCandidate = Collections.synchronizedMap(new IdentityHashMap<>());
         // A single-thread daemon executor is allocated for both modes. ASYNC
         // submits and returns immediately; SYNC submits and waits with a
         // truncated timeout so the call can be interrupted via Future.cancel
@@ -284,10 +281,11 @@ public final class StagnationLlmHelper {
      * Removes and returns any LLM-produced tests that are ready. Non-blocking.
      * In SYNC mode this typically returns the tests of the call that just
      * completed; in ASYNC mode it may be empty for many generations and then
-     * return a batch.
+     * return a batch. Each test comes with its attribution; the caller now
+     * owns the drained tickets.
      */
-    public List<TestChromosome> drain() {
-        List<TestChromosome> out = new ArrayList<>();
+    public List<AttributedCandidate> drain() {
+        List<AttributedCandidate> out = new ArrayList<>();
         synchronized (lifecycleLock) {
             resultQueue.drainTo(out);
         }
@@ -555,16 +553,15 @@ public final class StagnationLlmHelper {
                 continue;
             }
             tc.setDiagnosticCardTypes(cardTypes);
-            attemptMetadataByCandidate.put(tc, new InjectionAttemptMetadata(
+            InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(
                     ticket,
                     cardTypes == null ? Collections.<ProblemCardType>emptyList()
                             : new ArrayList<>(cardTypes),
-                    targetGoals));
+                    targetGoals);
             if (hardShutdown) {
-                attemptMetadataByCandidate.remove(tc);
                 return;
             }
-            resultQueue.offer(tc);
+            resultQueue.offer(new AttributedCandidate(tc, metadata));
             published++;
         }
         if (published <= 0) {
@@ -587,18 +584,6 @@ public final class StagnationLlmHelper {
             }
         }
         return goals;
-    }
-
-    /**
-     * Removes and returns the metadata of the injection attempt that produced a candidate.
-     * @param candidate the candidate test, may be null
-     * @return the attempt metadata, or null if there is none
-     */
-    public InjectionAttemptMetadata consumeAttemptMetadata(TestChromosome candidate) {
-        if (candidate == null) {
-            return null;
-        }
-        return attemptMetadataByCandidate.remove(candidate);
     }
 
     long getPromptsSubmitted() {

@@ -80,7 +80,7 @@ class AsyncLlmTestProducerIntegrationTest {
 
         try {
             producer.start();
-            List<TestChromosome> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
+            List<AttributedCandidate> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
             assertFalse(produced.isEmpty(), "producer should provide at least one chromosome");
         } finally {
             producer.stop();
@@ -110,9 +110,9 @@ class AsyncLlmTestProducerIntegrationTest {
 
         try {
             producer.start();
-            List<TestChromosome> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
+            List<AttributedCandidate> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
             assertFalse(produced.isEmpty(), "producer should provide at least one chromosome");
-            InjectionAttemptMetadata metadata = producer.consumeAttemptMetadata(produced.get(0));
+            InjectionAttemptMetadata metadata = produced.get(0).getMetadata();
             assertNotNull(metadata);
             assertFalse(metadata.getAttemptId().isEmpty());
         } finally {
@@ -143,7 +143,7 @@ class AsyncLlmTestProducerIntegrationTest {
 
         try {
             producer.start();
-            List<TestChromosome> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
+            List<AttributedCandidate> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
             assertFalse(produced.isEmpty(),
                     "DIAGNOSTIC mode must fall back to the pool prompt when no cards can be extracted");
         } finally {
@@ -207,11 +207,11 @@ class AsyncLlmTestProducerIntegrationTest {
 
         try {
             producer.start();
-            List<TestChromosome> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
+            List<AttributedCandidate> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
             assertEquals(2, produced.size(),
                     "both candidates of one response must be drained together");
-            InjectionAttemptMetadata first = producer.consumeAttemptMetadata(produced.get(0));
-            InjectionAttemptMetadata second = producer.consumeAttemptMetadata(produced.get(1));
+            InjectionAttemptMetadata first = produced.get(0).getMetadata();
+            InjectionAttemptMetadata second = produced.get(1).getMetadata();
             assertNotNull(first);
             assertEquals(first.getAttemptId(), second.getAttemptId());
         } finally {
@@ -280,12 +280,12 @@ class AsyncLlmTestProducerIntegrationTest {
                 new LlmTraceRecorder(configuration));
     }
 
-    private static List<TestChromosome> awaitAvailable(AsyncLlmTestProducer producer,
+    private static List<AttributedCandidate> awaitAvailable(AsyncLlmTestProducer producer,
                                                         long timeout,
                                                         TimeUnit unit) throws InterruptedException {
         long deadline = System.nanoTime() + unit.toNanos(timeout);
         do {
-            List<TestChromosome> produced = producer.drainAvailable();
+            List<AttributedCandidate> produced = producer.drainAvailable();
             if (!produced.isEmpty()) {
                 return produced;
             }

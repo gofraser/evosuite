@@ -26,6 +26,7 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.QueryResult;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.DiagnosticCardSelector;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LlmSemanticCrossover;
@@ -184,15 +185,15 @@ class LlmOperatorExecutorTest {
                 memory, () -> remainingSeconds, budgetGuardSeconds, maxInFlight, batchSize);
     }
 
-    private static List<TestChromosome> awaitDrain(LlmOperatorExecutor executor, int timeoutSeconds)
+    private static List<AttributedCandidate> awaitDrain(LlmOperatorExecutor executor, int timeoutSeconds)
             throws InterruptedException {
         return awaitDrain(executor, timeoutSeconds, 1);
     }
 
     /** Polls {@link LlmOperatorExecutor#drain()} until at least {@code atLeast} candidates arrive. */
-    private static List<TestChromosome> awaitDrain(LlmOperatorExecutor executor, int timeoutSeconds, int atLeast)
+    private static List<AttributedCandidate> awaitDrain(LlmOperatorExecutor executor, int timeoutSeconds, int atLeast)
             throws InterruptedException {
-        List<TestChromosome> collected = new ArrayList<>();
+        List<AttributedCandidate> collected = new ArrayList<>();
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
         while (collected.size() < atLeast && System.nanoTime() < deadline) {
             collected.addAll(executor.drain());
@@ -217,11 +218,11 @@ class LlmOperatorExecutorTest {
 
         try {
             assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
-            List<TestChromosome> produced = awaitDrain(executor, 5);
+            List<AttributedCandidate> produced = awaitDrain(executor, 5);
             assertEquals(1, produced.size());
 
-            TestChromosome candidate = produced.get(0);
-            InjectionAttemptMetadata metadata = executor.consumeAttemptMetadata(candidate);
+            TestChromosome candidate = produced.get(0).getCandidate();
+            InjectionAttemptMetadata metadata = produced.get(0).getMetadata();
             assertNotNull(metadata);
             assertFalse(metadata.getAttemptId().isEmpty());
             assertEquals(Collections.singletonList(goal), metadata.getTargetGoals());
@@ -342,7 +343,7 @@ class LlmOperatorExecutorTest {
             assertFalse(executor.hasCapacity());
 
             latch.countDown();
-            List<TestChromosome> produced = awaitDrain(executor, 5);
+            List<AttributedCandidate> produced = awaitDrain(executor, 5);
             assertEquals(1, produced.size());
         } finally {
             executor.shutdown();
@@ -469,11 +470,11 @@ class LlmOperatorExecutorTest {
 
         try {
             assertEquals(1, executor.submit(Arrays.asList(target1, target2), 1, 0));
-            List<TestChromosome> produced = awaitDrain(executor, 5, 2);
+            List<AttributedCandidate> produced = awaitDrain(executor, 5, 2);
             assertEquals(2, produced.size());
 
-            InjectionAttemptMetadata matchedMetadata = executor.consumeAttemptMetadata(produced.get(0));
-            InjectionAttemptMetadata unmatchedMetadata = executor.consumeAttemptMetadata(produced.get(1));
+            InjectionAttemptMetadata matchedMetadata = produced.get(0).getMetadata();
+            InjectionAttemptMetadata unmatchedMetadata = produced.get(1).getMetadata();
             assertNotNull(matchedMetadata);
             assertNotNull(unmatchedMetadata);
             assertFalse(matchedMetadata.getAttemptId().isEmpty());
@@ -508,11 +509,11 @@ class LlmOperatorExecutorTest {
 
         try {
             assertEquals(1, executor.submit(Arrays.asList(target1, target2), 1, 3));
-            List<TestChromosome> produced = awaitDrain(executor, 5, 2);
+            List<AttributedCandidate> produced = awaitDrain(executor, 5, 2);
             assertEquals(2, produced.size());
 
-            InjectionAttemptMetadata firstMetadata = executor.consumeAttemptMetadata(produced.get(0));
-            InjectionAttemptMetadata secondMetadata = executor.consumeAttemptMetadata(produced.get(1));
+            InjectionAttemptMetadata firstMetadata = produced.get(0).getMetadata();
+            InjectionAttemptMetadata secondMetadata = produced.get(1).getMetadata();
             assertNotEquals(firstMetadata.getAttemptId(), secondMetadata.getAttemptId());
 
             // Both targets of the delivered batch get a PARSED row, tagged with this generation
