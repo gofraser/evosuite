@@ -276,11 +276,13 @@ public class LlmStrategy extends TestGenerationStrategy {
             LoggingUtils.getEvoLogger().info(
                     "* Initial broad-coverage query produced no usable tests: {}",
                     initial.failureSummary);
-            previousFailureHint = initial.failureSummary;
-            if (!initial.droppedAtExecution) {
-                parseFailureCount++;
+            if (!initial.callFailed) {
+                previousFailureHint = initial.failureSummary;
+                if (!initial.droppedAtExecution) {
+                    parseFailureCount++;
+                }
+                failedRoundStreak++;
             }
-            failedRoundStreak++;
         }
 
         if (isFinishedWithTests(suite, stoppingCondition)) {
@@ -408,7 +410,8 @@ public class LlmStrategy extends TestGenerationStrategy {
             }
 
             // Update failed-round streak/hint.
-            boolean failedRound = outcome.failureSummary != null && added == 0;
+            boolean failedRound = outcome.failureSummary != null && added == 0
+                    && !outcome.callFailed;
             if (failedRound) {
                 if (!outcome.droppedAtExecution) {
                     parseFailureCount++;
@@ -443,7 +446,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                             : ExitReason.PARSE_FAIL_STREAK;
                     break;
                 }
-            } else {
+            } else if (!outcome.callFailed) {
                 failedRoundStreak = 0;
                 previousFailureHint = null;
                 if (added > 0) {
@@ -740,11 +743,11 @@ public class LlmStrategy extends TestGenerationStrategy {
             LlmService llmService, long deadlineNanos) {
         if (!llmService.isAvailable()) {
             LoggingUtils.getEvoLogger().info("* LLM broad-coverage query skipped: service is not available");
-            return QueryOutcome.failure("LLM service not available");
+            return QueryOutcome.callFailure("LLM service not available", 0L);
         }
         if (!llmService.hasBudget(LlmFeature.ITERATIVE_STRATEGY)) {
             LoggingUtils.getEvoLogger().info("* LLM broad-coverage query skipped: call budget exhausted");
-            return QueryOutcome.failure("LLM call budget exhausted");
+            return QueryOutcome.callFailure("LLM call budget exhausted", 0L);
         }
         PromptResult prompt = new PromptBuilder()
                 .withSystemPrompt()
@@ -835,17 +838,24 @@ public class LlmStrategy extends TestGenerationStrategy {
         final long latencyMillis;
         /** The response parsed, but every candidate test failed at execution. */
         final boolean droppedAtExecution;
+        /**
+         * The provider produced no response (unavailable, out of budget or
+         * failed). This says nothing about the model's output, so it is neither
+         * fed back as a hint nor counted as a parse failure.
+         */
+        final boolean callFailed;
 
         QueryOutcome(List<TestChromosome> tests, String failureSummary,
-                     long latencyMillis, boolean droppedAtExecution) {
+                     long latencyMillis, boolean droppedAtExecution, boolean callFailed) {
             this.tests = tests;
             this.failureSummary = failureSummary;
             this.latencyMillis = latencyMillis;
             this.droppedAtExecution = droppedAtExecution;
+            this.callFailed = callFailed;
         }
 
         static QueryOutcome success(List<TestChromosome> tests, long latencyMillis) {
-            return new QueryOutcome(tests, null, latencyMillis, false);
+            return new QueryOutcome(tests, null, latencyMillis, false, false);
         }
 
         static QueryOutcome failure(String summary) {
@@ -854,12 +864,17 @@ public class LlmStrategy extends TestGenerationStrategy {
 
         static QueryOutcome failure(String summary, long latencyMillis) {
             return new QueryOutcome(Collections.<TestChromosome>emptyList(),
-                    summary, latencyMillis, false);
+                    summary, latencyMillis, false, false);
+        }
+
+        static QueryOutcome callFailure(String summary, long latencyMillis) {
+            return new QueryOutcome(Collections.<TestChromosome>emptyList(),
+                    summary, latencyMillis, false, true);
         }
 
         static QueryOutcome droppedAtExecution(String summary, long latencyMillis) {
             return new QueryOutcome(Collections.<TestChromosome>emptyList(),
-                    summary, latencyMillis, true);
+                    summary, latencyMillis, true, false);
         }
     }
 
@@ -908,7 +923,7 @@ public class LlmStrategy extends TestGenerationStrategy {
             LoggingUtils.getEvoLogger().info(
                     "* LLM query failed during generation: {}", e.getMessage());
             logger.warn("LLM query failed during generation: {}", e.getMessage());
-            return QueryOutcome.failure("LLM call failed: " + e.getMessage(),
+            return QueryOutcome.callFailure("LLM call failed: " + e.getMessage(),
                     elapsedMillis(startedNanos));
         } catch (RuntimeException e) {
             LoggingUtils.getEvoLogger().info(

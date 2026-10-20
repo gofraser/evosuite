@@ -311,6 +311,41 @@ class LlmStrategyBehaviorTest {
         }
     }
 
+    @Test
+    void providerOutageIsNotFedBackAsAFailedResponse() {
+        Properties.LLM_STRATEGY_MODE = Properties.LlmStrategyMode.ITERATIVE_BUDGETED;
+        int originalLimit = Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT;
+        Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT = 2;
+
+        List<String> prompts = new ArrayList<>();
+        LlmService.ChatLanguageModel downProvider = (messages, feature) -> {
+            StringBuilder text = new StringBuilder();
+            for (LlmMessage message : messages) {
+                text.append(message.getContent()).append('\n');
+            }
+            prompts.add(text.toString());
+            throw new RuntimeException("invalid api key");
+        };
+        LlmService service = createService(downProvider, 30);
+
+        LlmStrategy strategy = createTestableIterativeStrategyWithGenLimit(service, 50);
+        try {
+            strategy.generateTests();
+            assertTrue(prompts.size() >= 2, "the strategy must try again after the first failed call");
+            for (String prompt : prompts) {
+                assertFalse(prompt.contains("could not be used"),
+                        "an unreachable provider must not be reported to the model as a bad response");
+            }
+            // Without a parse failure streak to restart from, the call failures
+            // end the run through the no-progress limit rather than by
+            // re-prompting from scratch (which would take 8 calls).
+            assertEquals(1 + Properties.LLM_STRATEGY_NO_PROGRESS_LIMIT, prompts.size());
+        } finally {
+            Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT = originalLimit;
+            service.close();
+        }
+    }
+
     // ----------------------------------------------------------------
     // 3. Follow-up prompts target uncovered goals
     // ----------------------------------------------------------------
