@@ -73,6 +73,13 @@ public class TestClusterHeadlessModeTest {
     }
 
     @Test
+    public void testOperatingSystemDependentDefaultsComeFromOneDecision() {
+        boolean mac = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+        Assertions.assertEquals(mac, DEFAULT_FILTER_JDK_GUI_CAST);
+        Assertions.assertEquals(!mac, DEFAULT_ALLOW_JDK_GUI_WRAPPERS);
+    }
+
+    @Test
     public void testSwingGeneratorFilteredForParametersByDefault() throws Exception {
         Assertions.assertTrue(DEFAULT_FILTER_JDK_GUI,
                 "a JTable parameter must be served by a mock, not by a default real JTable");

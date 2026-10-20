@@ -126,6 +126,11 @@ public class TestClusterGenerator {
          */
         Set<String> blackList = new LinkedHashSet<>(SetupConstants.BLACKLIST_EVOSUITE_PRIMITIVES);
 
+        logger.info("Headless GUI generator filters: jdk_gui_generators={}, jdk_gui_cast_generators={}, "
+                        + "jdk_gui_wrapping_constructors_allowed={}",
+                Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS, Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS,
+                Properties.HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS);
+
         logger.info("Handling cast classes");
         handleCastClasses();
 

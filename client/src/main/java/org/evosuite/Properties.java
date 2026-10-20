@@ -439,6 +439,13 @@ public class Properties {
     @Parameter(key = "headless_mode", group = "Test Generation", description = "Run Java in AWT Headless mode")
     public static boolean HEADLESS_MODE = true;
 
+    /**
+     * Whether the JVM runs on macOS. Two headless defaults depend on it, so a run on a Mac and a run
+     * on Linux search different spaces unless those properties are set explicitly.
+     */
+    private static final boolean MAC_OS =
+            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+
     @Parameter(key = "headless_filter_jdk_gui_generators", group = "Test Generation",
             description = "In headless mode, never use constructors/methods declared on JDK java.awt/javax.swing "
                     + "Component classes (e.g. JTable) to create objects. Typed parameters of such a type are "
@@ -451,8 +458,7 @@ public class Properties {
                     + "for an Object. Turning this off lets a cast of an Object to a Swing type be satisfied "
                     + "with a real component. Defaults to on only on macOS, where constructing such a component "
                     + "can load the Aqua look-and-feel and abort the JVM")
-    public static boolean HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS =
-            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+    public static boolean HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS = MAC_OS;
 
     @Parameter(key = "headless_allow_jdk_gui_wrapping_constructors", group = "Test Generation",
             description = "Exempt from headless_filter_jdk_gui_generators the JDK Swing/AWT constructors that take "
@@ -460,8 +466,7 @@ public class Properties {
                     + "in for a typed parameter, and give it a real parent such as a JViewport. Defaults to on "
                     + "except on macOS, where constructing such a component can load the Aqua look-and-feel and "
                     + "abort the JVM")
-    public static boolean HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS =
-            !System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+    public static boolean HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS = !MAC_OS;
 
     @Parameter(key = "headless_filter_cut_calls", group = "Test Generation",
             description = "If true, filter out headless-incompatible constructors/methods of the class under test")
