@@ -267,14 +267,10 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                             .add(fitness);
                 }
             }
-            Branch workingBranch =
-                    TestGenerationContext.getInstance()
-                            .getObjectRuleRuntime()
-                            .getBranchSelector()
-                            .selectWorkingBranch(uncoveredBranches);
-            List<BranchCoverageTestFitness> workingGoals =
-                    uncoveredGoalsByBranch.get(workingBranch);
-            session.setWorkingTarget(this.currentIteration, workingBranch, workingGoals);
+            TestGenerationContext.getInstance()
+                    .getObjectRuleRuntime()
+                    .selectWorkingTarget(this.currentIteration, uncoveredBranches,
+                            uncoveredGoalsByBranch);
             // Evict cached templates for branches that are now covered.
 
             TestGenerationContext.getInstance()

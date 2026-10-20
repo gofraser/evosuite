@@ -83,7 +83,6 @@ import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testcase.factories.ObjectRuleSession;
 import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
@@ -757,14 +756,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     Branch workingBranch =
                             TestGenerationContext.getInstance()
                                     .getObjectRuleRuntime()
-                                    .getBranchSelector()
-                                    .selectWorkingBranch(uncoveredBranches);
-                    ObjectRuleSession session =
-                            TestGenerationContext.getInstance().getObjectRuleRuntime().getSession();
-                    session.setWorkingTarget(
-                            this.currentIteration,
-                            workingBranch,
-                            objectRuleWorkingGoals(workingBranch, uncoveredGoalsByBranch));
+                                    .selectWorkingTarget(this.currentIteration,
+                                            uncoveredBranches, uncoveredGoalsByBranch);
                     if (workingBranch == null
                             && !TestGenerationContext.getInstance()
                                     .getObjectRuleRuntime()
@@ -939,15 +932,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         LoggingUtils.getEvoLogger().info(
                 "* Prepared EvoObj eligibility for {} branches in {} ms (eligible={}, inert={})",
                 branches.size(), elapsed, selector.getEverEligibleCount(), objectRulePermanentlyInert);
-    }
-
-    private static List<BranchCoverageTestFitness> objectRuleWorkingGoals(Branch branch,
-            Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch) {
-        if (branch == null || uncoveredGoalsByBranch == null) {
-            return new ArrayList<>();
-        }
-        List<BranchCoverageTestFitness> goals = uncoveredGoalsByBranch.get(branch);
-        return goals == null ? new ArrayList<>() : new ArrayList<>(goals);
     }
 
     /**

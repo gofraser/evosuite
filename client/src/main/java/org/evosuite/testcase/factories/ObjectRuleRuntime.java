@@ -4,6 +4,7 @@
 package org.evosuite.testcase.factories;
 
 import org.evosuite.coverage.branch.Branch;
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.fbranch.FBranchDefUseAnalyzer;
 import org.evosuite.graphs.interprocedural.DefUseAnalyzer;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
@@ -12,6 +13,7 @@ import org.evosuite.testcase.synthesizer.FunctionalMockSetupCoordinator;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.synthesizer.TemplateCache;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -70,6 +72,27 @@ public final class ObjectRuleRuntime {
      */
     public ObjectRuleBranchSelector getBranchSelector() {
         return branchSelector;
+    }
+
+    /**
+     * Chooses the branch that object-construction templates should target next and records it,
+     * with its uncovered goals, as the session's working target. The choice is delegated to the
+     * {@link ObjectRuleBranchSelector}; {@code null} (no eligible branch) leaves the target empty,
+     * which disables template synthesis until the next selection.
+     *
+     * @param iteration the search iteration the target is chosen for
+     * @param uncoveredBranches the branches the selector may choose from
+     * @param uncoveredGoalsByBranch the uncovered goals of each branch; may be {@code null}
+     * @return the chosen branch, or {@code null}
+     */
+    public Branch selectWorkingTarget(int iteration, Collection<Branch> uncoveredBranches,
+            Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch) {
+        Branch workingBranch = branchSelector.selectWorkingBranch(uncoveredBranches);
+        List<BranchCoverageTestFitness> workingGoals =
+                workingBranch == null || uncoveredGoalsByBranch == null
+                        ? null : uncoveredGoalsByBranch.get(workingBranch);
+        session.setWorkingTarget(iteration, workingBranch, workingGoals);
+        return workingBranch;
     }
 
     /**
