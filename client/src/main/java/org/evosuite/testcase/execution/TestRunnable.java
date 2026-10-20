@@ -1024,7 +1024,7 @@ public class TestRunnable implements InterfaceTestRunnable {
                                                         Object receiver,
                                                         Class<?> dependencyType,
                                                         String fieldName) {
-        Method setter = findInstanceSetter(ownerClass, dependencyType, fieldName);
+        Method setter = DmonInjectionDiscovery.findInstanceSetter(ownerClass, dependencyType, fieldName);
         if (setter == null) {
             return false;
         }
@@ -1068,44 +1068,6 @@ public class TestRunnable implements InterfaceTestRunnable {
             logger.debug("DMoN ephemeral instance field injection failed: {}", t.getMessage(), t);
             return false;
         }
-    }
-
-    private static Method findInstanceSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint) {
-        if (ownerClass == null || dependencyType == null) {
-            return null;
-        }
-        Method best = null;
-        int bestScore = Integer.MIN_VALUE;
-        String normalizedFieldHint = fieldNameHint == null ? "" : fieldNameHint.toLowerCase(Locale.ROOT);
-        for (Method method : ownerClass.getMethods()) {
-            int mods = method.getModifiers();
-            if (java.lang.reflect.Modifier.isStatic(mods) || !java.lang.reflect.Modifier.isPublic(mods)) {
-                continue;
-            }
-            if (method.getParameterTypes().length != 1) {
-                continue;
-            }
-            Class<?> param = method.getParameterTypes()[0];
-            if (!param.isAssignableFrom(dependencyType) && !dependencyType.isAssignableFrom(param)) {
-                continue;
-            }
-            String lowerName = method.getName().toLowerCase(Locale.ROOT);
-            if (!lowerName.startsWith("set")) {
-                continue;
-            }
-            int score = 20;
-            if (!normalizedFieldHint.isEmpty() && lowerName.contains(normalizedFieldHint)) {
-                score += 30;
-            }
-            if (param.equals(dependencyType)) {
-                score += 5;
-            }
-            if (best == null || score > bestScore) {
-                best = method;
-                bestScore = score;
-            }
-        }
-        return best;
     }
 
     private boolean tryEphemeralFieldInjection(Field field, Class<?> dependencyType) {

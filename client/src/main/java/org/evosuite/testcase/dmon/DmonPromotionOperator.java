@@ -207,7 +207,7 @@ public final class DmonPromotionOperator {
         if (staticTargetMethod == null && staticTargetField == null) {
             instanceAccessor = DmonInjectionDiscovery.findStaticInstanceAccessor(ownerClass);
             if (instanceAccessor != null) {
-                instanceSetter = findInstanceSetter(ownerClass, mockType, fieldHint);
+                instanceSetter = DmonInjectionDiscovery.findInstanceSetter(ownerClass, mockType, fieldHint);
                 if (instanceSetter == null && Properties.DMON_ALLOW_REFLECTION_FALLBACK) {
                     instanceField = findInstanceInjectionField(ownerClass, mockType, fieldHint);
                 }
@@ -233,7 +233,7 @@ public final class DmonPromotionOperator {
                     if (staticTargetMethod == null && staticTargetField == null) {
                         instanceAccessor = DmonInjectionDiscovery.findStaticInstanceAccessor(ownerClass);
                         if (instanceAccessor != null) {
-                            instanceSetter = findInstanceSetter(ownerClass, mockType, fieldHint);
+                            instanceSetter = DmonInjectionDiscovery.findInstanceSetter(ownerClass, mockType, fieldHint);
                             if (instanceSetter == null && Properties.DMON_ALLOW_REFLECTION_FALLBACK) {
                                 instanceField = findInstanceInjectionField(ownerClass, mockType, fieldHint);
                             }
@@ -834,43 +834,5 @@ public final class DmonPromotionOperator {
             logger.debug("DMoN cannot make {} accessible: {}", member, e.toString());
             return false;
         }
-    }
-
-    private static Method findInstanceSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint) {
-        if (ownerClass == null || dependencyType == null) {
-            return null;
-        }
-        Method best = null;
-        int bestScore = Integer.MIN_VALUE;
-        String normalizedFieldHint = fieldNameHint == null ? "" : fieldNameHint.toLowerCase();
-        for (Method method : ownerClass.getMethods()) {
-            int mods = method.getModifiers();
-            if (Modifier.isStatic(mods) || !Modifier.isPublic(mods)) {
-                continue;
-            }
-            if (method.getParameterTypes().length != 1) {
-                continue;
-            }
-            Class<?> param = method.getParameterTypes()[0];
-            if (!param.isAssignableFrom(dependencyType) && !dependencyType.isAssignableFrom(param)) {
-                continue;
-            }
-            String methodName = method.getName().toLowerCase();
-            if (!methodName.startsWith("set")) {
-                continue;
-            }
-            int score = 20;
-            if (!normalizedFieldHint.isEmpty() && methodName.contains(normalizedFieldHint)) {
-                score += 30;
-            }
-            if (param.equals(dependencyType)) {
-                score += 5;
-            }
-            if (best == null || score > bestScore) {
-                best = method;
-                bestScore = score;
-            }
-        }
-        return best;
     }
 }

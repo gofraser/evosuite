@@ -378,4 +378,51 @@ public final class DmonInjectionDiscovery {
         }
         return "";
     }
+
+    /**
+     * Finds the public instance setter that best accepts a value of the dependency type,
+     * preferring one whose name mentions the field.
+     *
+     * @param ownerClass     the class to search
+     * @param dependencyType the type of the value to inject
+     * @param fieldNameHint  the field the value is meant for, or null
+     * @return the best matching setter, or null
+     */
+    public static Method findInstanceSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint) {
+        if (ownerClass == null || dependencyType == null) {
+            return null;
+        }
+        Method best = null;
+        int bestScore = Integer.MIN_VALUE;
+        String normalizedFieldHint = fieldNameHint == null ? "" : fieldNameHint.toLowerCase(Locale.ROOT);
+        for (Method method : ownerClass.getMethods()) {
+            int mods = method.getModifiers();
+            if (Modifier.isStatic(mods) || !Modifier.isPublic(mods)) {
+                continue;
+            }
+            if (method.getParameterTypes().length != 1) {
+                continue;
+            }
+            Class<?> param = method.getParameterTypes()[0];
+            if (!param.isAssignableFrom(dependencyType) && !dependencyType.isAssignableFrom(param)) {
+                continue;
+            }
+            String methodName = method.getName().toLowerCase(Locale.ROOT);
+            if (!methodName.startsWith("set")) {
+                continue;
+            }
+            int score = 20;
+            if (!normalizedFieldHint.isEmpty() && methodName.contains(normalizedFieldHint)) {
+                score += 30;
+            }
+            if (param.equals(dependencyType)) {
+                score += 5;
+            }
+            if (best == null || score > bestScore) {
+                best = method;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
 }
