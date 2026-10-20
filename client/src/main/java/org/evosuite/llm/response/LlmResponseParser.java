@@ -22,9 +22,19 @@ package org.evosuite.llm.response;
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.expr.ClassExpr;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.LambdaExpr;
+import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
+import com.github.javaparser.ast.stmt.Statement;
 import org.evosuite.Properties;
 
 import java.util.ArrayList;
@@ -442,5 +452,194 @@ public class LlmResponseParser {
             builder.append("    ").append(line).append(System.lineSeparator());
         }
         return builder.toString();
+    }
+
+    /**
+     * Rejects a block whose truncation or wrapper recovery still left invalid Java.
+     *
+     * @throws IllegalArgumentException when the recovered source does not parse
+     */
+    static void validateRecoveredSource(String source) {
+        try {
+            StaticJavaParser.parse(source);
+        } catch (ParseProblemException parseProblemException) {
+            throw new IllegalArgumentException("Recovered source is still not valid Java: "
+                    + parseProblemException.getMessage(), parseProblemException);
+        }
+    }
+
+    static final class ReflectiveAssertThrowsRewriteResult {
+        final String source;
+        final int rewrites;
+
+        private ReflectiveAssertThrowsRewriteResult(String source, int rewrites) {
+            this.source = source;
+            this.rewrites = rewrites;
+        }
+    }
+
+    /**
+     * Rewrites {@code assertThrows(X.class, () -> method.invoke(..))} on a reflective
+     * {@code Method} so that it expects the {@code InvocationTargetException} and casts its
+     * cause to {@code X}. Best effort: the source is returned unchanged when it does not parse.
+     */
+    static ReflectiveAssertThrowsRewriteResult rewriteReflectiveAssertThrowsAssertions(String source) {
+        if (source == null || source.isEmpty()) {
+            return new ReflectiveAssertThrowsRewriteResult(source, 0);
+        }
+        final CompilationUnit compilationUnit;
+        try {
+            compilationUnit = StaticJavaParser.parse(source);
+        } catch (Throwable ignored) {
+            // Best-effort normalization only; keep original source if parsing fails.
+            return new ReflectiveAssertThrowsRewriteResult(source, 0);
+        }
+
+        int rewrites = 0;
+        List<MethodCallExpr> assertThrowsCalls = new ArrayList<>(compilationUnit.findAll(MethodCallExpr.class));
+        for (MethodCallExpr call : assertThrowsCalls) {
+            if (!"assertThrows".equals(call.getNameAsString()) || call.getArguments().size() != 2) {
+                continue;
+            }
+
+            Expression expectedArg = call.getArgument(0);
+            if (!(expectedArg instanceof ClassExpr)) {
+                continue;
+            }
+            String expectedType = ((ClassExpr) expectedArg).getType().toString();
+            if (expectedType.endsWith("InvocationTargetException")
+                    || "java.lang.reflect.InvocationTargetException".equals(expectedType)) {
+                continue;
+            }
+
+            Expression executableArg = call.getArgument(1);
+            if (!(executableArg instanceof LambdaExpr)) {
+                continue;
+            }
+            LambdaExpr lambdaExpr = (LambdaExpr) executableArg;
+
+            MethodCallExpr invokeCall = extractSingleReflectiveInvokeCall(lambdaExpr);
+            if (invokeCall == null) {
+                continue;
+            }
+
+            Node parent = call.getParentNode().orElse(null);
+            if (!(parent instanceof ExpressionStmt)) {
+                continue;
+            }
+            ExpressionStmt expressionStmt = (ExpressionStmt) parent;
+            BlockStmt blockStmt = expressionStmt.findAncestor(BlockStmt.class).orElse(null);
+            if (blockStmt == null) {
+                continue;
+            }
+
+            int statementIndex = blockStmt.getStatements().indexOf(expressionStmt);
+            if (statementIndex < 0) {
+                continue;
+            }
+            if (!isReflectiveMethodInvokeReceiver(invokeCall, blockStmt, statementIndex)) {
+                continue;
+            }
+
+            String variableName = "invocationTargetException" + rewrites;
+            String causeVariableName = "expectedCause" + rewrites;
+            String rewrittenThrow = "java.lang.reflect.InvocationTargetException " + variableName
+                    + " = org.junit.jupiter.api.Assertions.assertThrows("
+                    + "java.lang.reflect.InvocationTargetException.class, "
+                    + lambdaExpr.toString() + ");";
+            String rewrittenCauseAssert = expectedType + " " + causeVariableName
+                    + " = (" + expectedType + ") " + variableName + ".getCause();";
+
+            Statement rewrittenThrowStmt;
+            Statement rewrittenCauseAssertStmt;
+            try {
+                rewrittenThrowStmt = StaticJavaParser.parseStatement(rewrittenThrow);
+                rewrittenCauseAssertStmt = StaticJavaParser.parseStatement(rewrittenCauseAssert);
+            } catch (Throwable ignored) {
+                continue;
+            }
+
+            blockStmt.getStatements().set(statementIndex, rewrittenThrowStmt);
+            blockStmt.addStatement(statementIndex + 1, rewrittenCauseAssertStmt);
+            rewrites++;
+        }
+
+        if (rewrites == 0) {
+            return new ReflectiveAssertThrowsRewriteResult(source, 0);
+        }
+        return new ReflectiveAssertThrowsRewriteResult(compilationUnit.toString(), rewrites);
+    }
+
+    private static MethodCallExpr extractSingleReflectiveInvokeCall(LambdaExpr lambdaExpr) {
+        if (lambdaExpr == null) {
+            return null;
+        }
+        if (lambdaExpr.getBody() instanceof ExpressionStmt) {
+            Expression expression = ((ExpressionStmt) lambdaExpr.getBody()).getExpression();
+            if (expression instanceof MethodCallExpr) {
+                MethodCallExpr callExpr = (MethodCallExpr) expression;
+                return "invoke".equals(callExpr.getNameAsString()) ? callExpr : null;
+            }
+            return null;
+        }
+        if (lambdaExpr.getBody() instanceof BlockStmt) {
+            BlockStmt blockStmt = (BlockStmt) lambdaExpr.getBody();
+            if (blockStmt.getStatements().size() != 1) {
+                return null;
+            }
+            Statement single = blockStmt.getStatement(0);
+            if (!(single instanceof ExpressionStmt)) {
+                return null;
+            }
+            Expression expression = ((ExpressionStmt) single).getExpression();
+            if (expression instanceof MethodCallExpr) {
+                MethodCallExpr callExpr = (MethodCallExpr) expression;
+                return "invoke".equals(callExpr.getNameAsString()) ? callExpr : null;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isReflectiveMethodInvokeReceiver(MethodCallExpr invokeCall,
+                                                     BlockStmt blockStmt,
+                                                     int statementIndex) {
+        if (invokeCall == null || blockStmt == null || statementIndex < 0) {
+            return false;
+        }
+        if (!invokeCall.getScope().isPresent()) {
+            return false;
+        }
+        Expression scope = invokeCall.getScope().get();
+        if (!(scope instanceof NameExpr)) {
+            return false;
+        }
+        String receiverName = ((NameExpr) scope).getNameAsString();
+        if (receiverName == null || receiverName.isEmpty()) {
+            return false;
+        }
+
+        // Only treat invoke(...) as reflective when we can find a prior local declaration
+        // of that receiver as java.lang.reflect.Method (or Method via import).
+        for (int i = statementIndex - 1; i >= 0; i--) {
+            Statement statement = blockStmt.getStatement(i);
+            if (!(statement instanceof ExpressionStmt)) {
+                continue;
+            }
+            Expression expression = ((ExpressionStmt) statement).getExpression();
+            if (!(expression instanceof VariableDeclarationExpr)) {
+                continue;
+            }
+            VariableDeclarationExpr declarationExpr = (VariableDeclarationExpr) expression;
+            for (com.github.javaparser.ast.body.VariableDeclarator variable : declarationExpr.getVariables()) {
+                if (!receiverName.equals(variable.getNameAsString())) {
+                    continue;
+                }
+                String typeName = variable.getType().asString();
+                return "Method".equals(typeName)
+                        || "java.lang.reflect.Method".equals(typeName)
+                        || typeName.endsWith(".Method");
+            }
+        }
+        return false;
     }
 }
