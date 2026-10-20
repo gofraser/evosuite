@@ -27,6 +27,7 @@ import org.benf.cfr.reader.bytecode.analysis.parse.utils.Pair;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.utils.ReplaceableWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,9 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -65,13 +63,9 @@ public class DecompiledContextProvider implements SutContextProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(DecompiledContextProvider.class);
 
-    /** Shared single-thread executor for decompilation tasks. Daemon thread so JVM exit is not blocked. */
-    private static final Object EXECUTOR_LOCK = new Object();
-    private static volatile ExecutorService decompilerExecutor = createExecutor();
-
-    private static ExecutorService createExecutor() {
-        return Executors.newSingleThreadExecutor(r -> LlmPrivilegedThreads.newThread(r, "decompiler"));
-    }
+    /** Shared decompilation worker. Daemon thread so JVM exit is not blocked. */
+    private static final ReplaceableWorker WORKER =
+            new ReplaceableWorker(r -> LlmPrivilegedThreads.newThread(r, "decompiler"));
 
     @Override
     public Optional<String> getContext(String className, TestCluster cluster) {
@@ -80,23 +74,12 @@ public class DecompiledContextProvider implements SutContextProvider {
         }
 
         int timeoutSeconds = Math.max(1, Properties.LLM_DECOMPILER_TIMEOUT_SECONDS);
-        ExecutorService executor = decompilerExecutor;
-        Future<Optional<String>> future = null;
         try {
-            future = executor.submit(createDecompileTask(className));
-            return future.get(timeoutSeconds, TimeUnit.SECONDS);
+            return WORKER.call(createDecompileTask(className), timeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
-            if (future != null) {
-                future.cancel(true);
-            }
-            replaceExecutor(executor);
             logger.warn("CFR decompiler timed out after {}s for {}; falling back", timeoutSeconds, className);
             return Optional.empty();
         } catch (InterruptedException e) {
-            if (future != null) {
-                future.cancel(true);
-            }
-            replaceExecutor(executor);
             Thread.currentThread().interrupt();
             return Optional.empty();
         } catch (ExecutionException e) {
@@ -111,20 +94,7 @@ public class DecompiledContextProvider implements SutContextProvider {
 
     /** Cancel current decompilation work and give the next EvoSuite run a clean worker. */
     public static void resetForRunCompletion() {
-        replaceExecutor(decompilerExecutor);
-    }
-
-    private static void replaceExecutor(ExecutorService expected) {
-        synchronized (EXECUTOR_LOCK) {
-            if (decompilerExecutor != expected) {
-                return;
-            }
-            try {
-                expected.shutdownNow();
-            } finally {
-                decompilerExecutor = createExecutor();
-            }
-        }
+        WORKER.reset();
     }
 
     @Override
