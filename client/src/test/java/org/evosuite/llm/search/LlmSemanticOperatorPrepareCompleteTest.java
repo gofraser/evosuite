@@ -36,17 +36,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static org.evosuite.llm.LlmRequestMatchers.anyRepairRequest;
+import static org.evosuite.llm.LlmRequestMatchers.anyInitialRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.longThat;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -82,7 +79,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
         assertTrue(mutation.applyMapped(null).isEmpty());
         assertTrue(mutation.applyMapped(Collections.emptyList()).isEmpty());
-        verify(llmService, never()).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, never()).query(anyInitialRequest());
     }
 
     @Test
@@ -95,7 +92,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         TargetedResponse response = mutation.applyMapped(Collections.singletonList(target));
         assertTrue(response.isEmpty());
         assertEquals(TargetedResponse.Status.NO_BUDGET, response.getStatus());
-        verify(llmService, never()).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, never()).query(anyInitialRequest());
     }
 
     @Test
@@ -115,7 +112,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenThrow(new LlmBudgetExceededException("no budget left"));
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -132,7 +129,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenThrow(new LlmCallFailedException("boom", null, false));
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -149,7 +146,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenThrow(new IllegalStateException("unexpected"));
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -170,7 +167,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult("some response", 5, 1, 7, 42L));
 
         LlmSemanticMutation mutation = org.mockito.Mockito.spy(new LlmSemanticMutation(llmService));
@@ -195,7 +192,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult("some other response", 9, 2, 11, 99L));
 
         LlmSemanticMutation mutation = org.mockito.Mockito.spy(new LlmSemanticMutation(llmService));
@@ -221,7 +218,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(
+        when(llmService.query(anyInitialRequest())).thenReturn(
                 new QueryResult(
                         "```java\n"
                                 + "import org.junit.Test;\n"
@@ -271,7 +268,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
                         + "  }\n"
                         + "}\n"
                         + "```";
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(response, 1, 2, 3, 4L));
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
@@ -294,9 +291,9 @@ class LlmSemanticOperatorPrepareCompleteTest {
                 "the original call's usage must be reused, since no new call is made");
         assertEquals(0, finished.getRepairTurns(),
                 "a local re-parse over the same raw text must never be counted as an LLM repair turn");
-        verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, times(1)).query(anyInitialRequest());
         verify(llmService, never())
-                .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
+                .query(anyRepairRequest());
     }
 
     @Test
@@ -304,9 +301,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class), anyLong()))
-                .thenReturn(new QueryResult("some response", 5, 1, 7, 42L));
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult("some response", 5, 1, 7, 42L));
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         mutation.setRemainingSearchSeconds(() -> 5L);
@@ -317,8 +312,9 @@ class LlmSemanticOperatorPrepareCompleteTest {
         long after = System.nanoTime();
 
         long budget = TimeUnit.SECONDS.toNanos(5);
-        verify(llmService).queryWithUsage(any(PromptResult.class), eq(LlmFeature.SEMANTIC_MUTATION),
-                longThat(deadline -> deadline >= before + budget && deadline <= after + budget));
-        verify(llmService, never()).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService).query(argThat(request -> request.getRepairAttempt() == 1
+                && request.getFeature() == LlmFeature.SEMANTIC_MUTATION
+                && request.getDeadlineNanos() >= before + budget
+                && request.getDeadlineNanos() <= after + budget));
     }
 }

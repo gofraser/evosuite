@@ -25,6 +25,7 @@ import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmWaitBudget;
@@ -257,7 +258,8 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         }
         PromptResult prompt = buildPrompt();
         try {
-            String response = llmService.query(prompt, LlmFeature.SEEDING, repairDeadlineNanos);
+            String response = llmService.query(LlmRequest.of(prompt, LlmFeature.SEEDING)
+                    .withDeadlineNanos(repairDeadlineNanos)).getText();
             if (!acceptingSeeds.get() || Thread.currentThread().isInterrupted()) {
                 LoggingUtils.getEvoLogger().info("* LLM seeding interrupted after LLM query");
                 return Collections.emptyList();

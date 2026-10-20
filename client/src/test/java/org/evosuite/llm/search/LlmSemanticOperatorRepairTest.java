@@ -23,7 +23,6 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.QueryResult;
-import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.testcase.DefaultTestCase;
@@ -37,14 +36,14 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.evosuite.llm.LlmRequestMatchers.text;
+import static org.evosuite.llm.LlmRequestMatchers.anyRepairRequest;
+import static org.evosuite.llm.LlmRequestMatchers.anyInitialRequest;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -129,16 +128,16 @@ class LlmSemanticOperatorRepairTest {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
 
         LlmService llmService = mockAvailableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         TestCase result = mutation.applyMapped(Collections.singletonList(mutationTarget())).forTarget(1).orElse(null);
 
         assertNull(result, "a malformed response with no repair budget must not produce a mutant");
-        verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, times(1)).query(anyInitialRequest());
         verify(llmService, never())
-                .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
+                .query(anyRepairRequest());
     }
 
     @Test
@@ -147,16 +146,16 @@ class LlmSemanticOperatorRepairTest {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
 
         LlmService llmService = mockAvailableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
         LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
         TestCase result = crossover.applyMapped(Collections.singletonList(crossoverTarget())).forTarget(1).orElse(null);
 
         assertNull(result, "a malformed response with no repair budget must not produce a child");
-        verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, times(1)).query(anyInitialRequest());
         verify(llmService, never())
-                .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
+                .query(anyRepairRequest());
     }
 
     @Test
@@ -164,18 +163,18 @@ class LlmSemanticOperatorRepairTest {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 1;
 
         LlmService llmService = mockAvailableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
-        when(llmService.query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList()))
-                .thenReturn(MALFORMED_RESPONSE);
+        when(llmService.query(anyRepairRequest()))
+                .thenReturn(text(MALFORMED_RESPONSE));
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         TestCase result = mutation.applyMapped(Collections.singletonList(mutationTarget())).forTarget(1).orElse(null);
 
         assertNull(result);
-        verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, times(1)).query(anyInitialRequest());
         verify(llmService, times(1))
-                .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
+                .query(anyRepairRequest());
     }
 
     @Test

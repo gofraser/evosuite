@@ -30,6 +30,7 @@ import org.evosuite.llm.IterativeLlmSidecarRecorder;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
@@ -680,7 +681,8 @@ public class LlmStrategy extends TestGenerationStrategy {
             LlmFeature feature, long deadlineNanos) {
         long startedNanos = System.nanoTime();
         try {
-            String response = llmService.query(prompt, feature, deadlineNanos);
+            String response = llmService.query(LlmRequest.of(prompt, feature)
+                    .withDeadlineNanos(deadlineNanos)).getText();
             RepairResult result = createRepairLoop(
                     llmService,
                     TestRepairLoop.RepairOptions.forAssertionPolicy(

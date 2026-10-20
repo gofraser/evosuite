@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
@@ -88,7 +89,7 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
     @Override
     protected EnrichmentResult doEnrich(String className, TestCluster cluster) {
         PromptResult promptResult = buildPrompt(className, cluster);
-        String response = llmService.query(promptResult, feature);
+        String response = llmService.query(LlmRequest.of(promptResult, feature)).getText();
 
         List<String> suggestions = parseSuggestions(response);
         if (suggestions.isEmpty()) {

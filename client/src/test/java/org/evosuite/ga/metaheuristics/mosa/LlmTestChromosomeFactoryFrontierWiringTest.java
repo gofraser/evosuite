@@ -26,6 +26,7 @@ import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.llm.prompt.PromptResult;
@@ -38,10 +39,11 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Collections;
 
+import static org.evosuite.llm.LlmRequestMatchers.text;
+import static org.evosuite.llm.LlmRequestMatchers.initialRequest;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -96,8 +98,8 @@ class LlmTestChromosomeFactoryFrontierWiringTest extends MosaTestSupport {
         LlmService mockLlmService = mock(LlmService.class);
         when(mockLlmService.isAvailable()).thenReturn(true);
         when(mockLlmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(mockLlmService.query(any(PromptResult.class), eq(LlmFeature.TEST_FACTORY)))
-                .thenReturn("not valid java, forces the fallback path");
+        when(mockLlmService.query(initialRequest(LlmFeature.TEST_FACTORY)))
+                .thenReturn(text("not valid java, forces the fallback path"));
 
         ChromosomeFactory<TestChromosome> fallback = TestChromosome::new;
         LlmTestChromosomeFactory factory = new LlmTestChromosomeFactory(
@@ -119,10 +121,10 @@ class LlmTestChromosomeFactoryFrontierWiringTest extends MosaTestSupport {
 
         factory.getChromosome();
 
-        ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
-        verify(mockLlmService).query(promptCaptor.capture(), eq(LlmFeature.TEST_FACTORY));
+        ArgumentCaptor<LlmRequest> promptCaptor = ArgumentCaptor.forClass(LlmRequest.class);
+        verify(mockLlmService).query(promptCaptor.capture());
 
-        String promptText = promptCaptor.getValue().getMessages().stream()
+        String promptText = promptCaptor.getValue().getContext().getMessages().stream()
                 .map(LlmMessage::getContent)
                 .reduce("", (a, b) -> a + "\n" + b);
 
@@ -135,8 +137,8 @@ class LlmTestChromosomeFactoryFrontierWiringTest extends MosaTestSupport {
         LlmService mockLlmService = mock(LlmService.class);
         when(mockLlmService.isAvailable()).thenReturn(true);
         when(mockLlmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(mockLlmService.query(any(PromptResult.class), eq(LlmFeature.TEST_FACTORY)))
-                .thenReturn("not valid java, forces the fallback path");
+        when(mockLlmService.query(initialRequest(LlmFeature.TEST_FACTORY)))
+                .thenReturn(text("not valid java, forces the fallback path"));
 
         ChromosomeFactory<TestChromosome> fallback = TestChromosome::new;
         LlmTestChromosomeFactory factory = new LlmTestChromosomeFactory(
@@ -146,10 +148,10 @@ class LlmTestChromosomeFactoryFrontierWiringTest extends MosaTestSupport {
         // (empty) supplier.
         factory.getChromosome();
 
-        ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
-        verify(mockLlmService).query(promptCaptor.capture(), eq(LlmFeature.TEST_FACTORY));
+        ArgumentCaptor<LlmRequest> promptCaptor = ArgumentCaptor.forClass(LlmRequest.class);
+        verify(mockLlmService).query(promptCaptor.capture());
 
-        String promptText = promptCaptor.getValue().getMessages().stream()
+        String promptText = promptCaptor.getValue().getContext().getMessages().stream()
                 .map(LlmMessage::getContent)
                 .reduce("", (a, b) -> a + "\n" + b);
 

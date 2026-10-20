@@ -27,6 +27,7 @@ import org.evosuite.junit.UnitTestAdapter;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.ClusterGrowthDelta;
 import org.evosuite.llm.prompt.PromptResult;
@@ -1009,13 +1010,10 @@ public class TestRepairLoop {
         conversation.add(LlmMessage.user(repairMessage.toString()));
 
         boolean expanded = state.takeExpansionAttempted();
-        if (repairDeadlineNanos == NO_REPAIR_DEADLINE
-                || repairDeadlineNanos <= 0L) {
-            return llmService.query(conversation, feature, repairAttempt,
-                    expanded, expandedClasses);
-        }
-        return llmService.query(conversation, feature, repairAttempt,
-                expanded, expandedClasses, repairDeadlineNanos);
+        return llmService.query(LlmRequest.of(conversation, feature)
+                .withRepairAttempt(repairAttempt)
+                .withExpansion(expanded, expandedClasses)
+                .withDeadlineNanos(repairDeadlineNanos)).getText();
     }
 
     private String buildNoTestMethodsParseError(String extractedClass) {

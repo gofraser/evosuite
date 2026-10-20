@@ -22,6 +22,7 @@ package org.evosuite.llm.seeding;
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.PromptBuilder;
@@ -112,7 +113,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         }
 
         PromptResult promptResult = buildPrompt(className, cluster, typeNames);
-        String response = llmService.query(promptResult, feature);
+        String response = llmService.query(LlmRequest.of(promptResult, feature)).getText();
         if (isCancelled()) {
             return EnrichmentResult.failure("Cancelled after LLM query");
         }

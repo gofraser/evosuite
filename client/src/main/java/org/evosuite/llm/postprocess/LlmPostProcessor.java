@@ -30,6 +30,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmTraceRecorder;
@@ -296,10 +297,11 @@ public class LlmPostProcessor {
                                                MinimizationResult minimizationResult,
                                                int repairAttempt) {
         return queryWithPostProcessingTraceContext(phaseContext, testIndex, minimizationResult,
-                deadlineNanos -> repairAttempt <= 1
-                        ? llmService.query(prompt, LlmFeature.POST_PROCESSING, deadlineNanos)
-                        : llmService.query(prompt.getMessages(), LlmFeature.POST_PROCESSING, repairAttempt,
-                        false, Collections.<String>emptyList(), deadlineNanos));
+                deadlineNanos -> llmService.query((repairAttempt <= 1
+                        ? LlmRequest.of(prompt, LlmFeature.POST_PROCESSING)
+                        : LlmRequest.of(prompt.getMessages(), LlmFeature.POST_PROCESSING)
+                                .withRepairAttempt(repairAttempt))
+                        .withDeadlineNanos(deadlineNanos)).getText());
     }
 
     String queryWithPostProcessingTraceContext(LlmPostProcessingPhaseContext phaseContext,
@@ -307,8 +309,9 @@ public class LlmPostProcessor {
                                                MinimizationResult minimizationResult,
                                                int repairAttempt) {
         return queryWithPostProcessingTraceContext(phaseContext, testIndex, minimizationResult,
-                deadlineNanos -> llmService.query(messages, LlmFeature.POST_PROCESSING, repairAttempt,
-                        false, Collections.<String>emptyList(), deadlineNanos));
+                deadlineNanos -> llmService.query(LlmRequest.of(messages, LlmFeature.POST_PROCESSING)
+                        .withRepairAttempt(repairAttempt)
+                        .withDeadlineNanos(deadlineNanos)).getText());
     }
 
     private String queryWithPostProcessingTraceContext(LlmPostProcessingPhaseContext phaseContext,

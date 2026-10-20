@@ -19,13 +19,11 @@
  */
 package org.evosuite.llm;
 
-import org.evosuite.llm.prompt.PromptResult;
-
 import java.util.List;
 
 /**
- * Sends plain message lists through {@link LlmService}, whose public entry
- * points take a {@link PromptResult}.
+ * Sends plain message lists through {@link LlmService#query(LlmRequest)} and
+ * returns the text of the reply.
  */
 public final class LlmServiceTestQueries {
 
@@ -33,15 +31,11 @@ public final class LlmServiceTestQueries {
     }
 
     public static String query(LlmService service, List<LlmMessage> messages, LlmFeature feature) {
-        return service.query(prompt(messages), feature);
+        return service.query(LlmRequest.of(messages, feature)).getText();
     }
 
     public static String query(LlmService service, List<LlmMessage> messages, LlmFeature feature,
                                long deadlineNanos) {
-        return service.query(prompt(messages), feature, deadlineNanos);
-    }
-
-    private static PromptResult prompt(List<LlmMessage> messages) {
-        return new PromptResult.Builder().messages(messages).build();
+        return service.query(LlmRequest.of(messages, feature).withDeadlineNanos(deadlineNanos)).getText();
     }
 }

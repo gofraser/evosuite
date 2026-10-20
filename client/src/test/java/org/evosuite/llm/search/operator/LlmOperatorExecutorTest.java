@@ -53,6 +53,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.evosuite.llm.LlmRequestMatchers.anyInitialRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -207,7 +208,7 @@ class LlmOperatorExecutorTest {
     @Test
     void oneMutationTargetProducesOneChromosomeWithAttribution() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
+        when(llmService.query(anyInitialRequest())).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
 
@@ -242,7 +243,7 @@ class LlmOperatorExecutorTest {
     @Test
     void threeMutationTargetsWithBatchSizeTwoMakeTwoCalls() {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
+        when(llmService.query(anyInitialRequest())).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         LlmOperatorExecutor executor = newExecutor(llmService, null, -1L, 0, 3, 2);
 
         List<OperatorTarget> targets = Arrays.asList(
@@ -261,7 +262,7 @@ class LlmOperatorExecutorTest {
     @Test
     void mixedKindsNeverMixButSameKindCombinesAcrossNonAdjacentPositions() {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
+        when(llmService.query(anyInitialRequest())).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         LlmOperatorExecutor executor = newExecutor(llmService, null, -1L, 0, 3, 3);
 
         OperatorTarget mutationA = OperatorTarget.builder(chromosome(), goal("g1")).build();
@@ -282,7 +283,7 @@ class LlmOperatorExecutorTest {
     @Test
     void callBudgetOfOneSubmitsOnlyTheEarliestFormingBatch() {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
+        when(llmService.query(anyInitialRequest())).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 3, 3);
 
@@ -304,7 +305,7 @@ class LlmOperatorExecutorTest {
     @Test
     void callBudgetOfTwoAlsoSubmitsTheRemainingOpenBatch() {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
+        when(llmService.query(anyInitialRequest())).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 3, 3);
 
@@ -327,7 +328,7 @@ class LlmOperatorExecutorTest {
     void inFlightCapDropsSecondSubmission() throws Exception {
         LlmService llmService = availableService();
         CountDownLatch latch = new CountDownLatch(1);
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenAnswer(invocation -> {
+        when(llmService.query(anyInitialRequest())).thenAnswer(invocation -> {
             awaitLatch(latch);
             return new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L);
         });
@@ -372,7 +373,7 @@ class LlmOperatorExecutorTest {
     @Test
     void timeGuardDropsWhenTooLittleTimeRemains() {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
+        when(llmService.query(anyInitialRequest())).thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
 
         LlmOperatorExecutor tight = newExecutor(llmService, null, 10L, 45, 2, 1);
         OperatorTarget target1 = OperatorTarget.builder(chromosome(), goal("g1")).build();
@@ -395,7 +396,7 @@ class LlmOperatorExecutorTest {
     @Test
     void budgetExceededDuringTheCallReleasesRatherThanRecordsTheAttempt() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenThrow(new LlmBudgetExceededException("exhausted mid-flight"));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
@@ -431,7 +432,7 @@ class LlmOperatorExecutorTest {
     @Test
     void callFailureReleasesRatherThanRecordsTheAttempt() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenThrow(new LlmCallFailedException("boom", null, false));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
@@ -460,7 +461,7 @@ class LlmOperatorExecutorTest {
     @Test
     void missingTargetIsClosedImmediatelyWhileMatchedStaysOpenAndUnmatchedGetsNoAttemptId() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(ONE_MATCH_ONE_UNMATCHED_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 2);
@@ -500,7 +501,7 @@ class LlmOperatorExecutorTest {
     @Test
     void twoTargetBatchFullyMatchedProducesTwoIndependentlyTrackedAttempts() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new QueryResult(TWO_TARGET_RESPONSE, 0, 0, 0, 0L));
+        when(llmService.query(anyInitialRequest())).thenReturn(new QueryResult(TWO_TARGET_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 2);
 
@@ -558,7 +559,7 @@ class LlmOperatorExecutorTest {
     @Test
     void deferredExpansionResponseIsNotPublishedUntilDrainFinishesIt() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
@@ -600,7 +601,7 @@ class LlmOperatorExecutorTest {
         // thread must not be treated as an undelivered call to release. Every target gets a
         // PARSE_FAILED row carrying that call's usage, and its attempt is closed with zero gain.
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 5, 1, 7, 42L));
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LlmSemanticMutation mutation = spy(new LlmSemanticMutation(llmService));
@@ -641,7 +642,7 @@ class LlmOperatorExecutorTest {
         // returned) but never finished; it must be recorded DROPPED with that call's usage and
         // its attempt closed with zero gain, not released as if the call never happened.
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 5, 1, 7, 42L));
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
@@ -675,7 +676,7 @@ class LlmOperatorExecutorTest {
         // delivered and parsed (its row already carries PARSED); it just never made it through
         // drain() to the GA, so its attempt is closed with zero gain rather than released.
         LlmService llmService = availableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
@@ -703,7 +704,7 @@ class LlmOperatorExecutorTest {
         LlmService llmService = availableService();
         CountDownLatch latch = new CountDownLatch(1);
         AtomicInteger calls = new AtomicInteger();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenAnswer(invocation -> {
+        when(llmService.query(anyInitialRequest())).thenAnswer(invocation -> {
             calls.incrementAndGet();
             awaitLatch(latch);
             return new QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L);

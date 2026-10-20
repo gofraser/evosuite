@@ -27,6 +27,7 @@ import org.evosuite.ga.metaheuristics.SearchListener;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
@@ -251,9 +252,8 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         boolean handedToLedger = false;
         long deadlineNanos = LlmWaitBudget.deadlineNanos(remainingSearchSeconds);
         try {
-            String response = deadlineNanos == Long.MAX_VALUE
-                    ? llmService.query(prompt, LlmFeature.TEST_FACTORY)
-                    : llmService.query(prompt, LlmFeature.TEST_FACTORY, deadlineNanos);
+            String response = llmService.query(LlmRequest.of(prompt, LlmFeature.TEST_FACTORY)
+                    .withDeadlineNanos(deadlineNanos)).getText();
             RepairResult repairResult = TestRepairLoop
                     .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
                     .attemptParse(response, prompt, LlmFeature.TEST_FACTORY, deadlineNanos);

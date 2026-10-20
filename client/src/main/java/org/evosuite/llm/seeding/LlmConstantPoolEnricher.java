@@ -21,6 +21,7 @@ package org.evosuite.llm.seeding;
 
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.PromptBuilder;
@@ -62,7 +63,7 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
     @Override
     protected EnrichmentResult doEnrich(String className, TestCluster cluster) {
         PromptResult promptResult = buildPrompt(className, cluster);
-        String response = llmService.query(promptResult, feature);
+        String response = llmService.query(LlmRequest.of(promptResult, feature)).getText();
         if (isCancelled()) {
             return EnrichmentResult.failure("Cancelled after LLM query");
         }
@@ -86,7 +87,7 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                 }
                 try {
                     PromptResult depPrompt = buildDependencyPrompt(className, dependencyClass, cluster);
-                    String depResponse = llmService.query(depPrompt, feature);
+                    String depResponse = llmService.query(LlmRequest.of(depPrompt, feature)).getText();
                     if (isCancelled()) {
                         logger.debug("Cancelled after dependency constant query, stopping");
                         break;

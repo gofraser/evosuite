@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
@@ -302,7 +303,7 @@ public class AsyncLlmTestProducer {
 
     /** Queries the LLM and parses candidate tests for one producer iteration. */
     protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
-        String response = llmService.query(prompt, LlmFeature.ASYNC_PRODUCER);
+        String response = llmService.query(LlmRequest.of(prompt, LlmFeature.ASYNC_PRODUCER)).getText();
         RepairResult result = repairLoop.attemptParse(
                 response, prompt, LlmFeature.ASYNC_PRODUCER);
         return result.isSuccess() ? result.toChromosomes() : Collections.emptyList();

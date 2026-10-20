@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifies that {@link LlmService#queryWithUsage(PromptResult, LlmFeature)}
+ * Verifies that {@link LlmService#query(LlmRequest)}
  * exposes the same token usage and latency that is otherwise only recorded
  * into {@link LlmStatistics} and the trace file, with the same call/budget/
  * retry semantics as {@link LlmService#query(PromptResult, LlmFeature)}.
@@ -58,7 +58,7 @@ class LlmServiceQueryWithUsageTest {
                 .build();
 
         try {
-            QueryResult result = service.queryWithUsage(prompt, LlmFeature.SEMANTIC_MUTATION);
+            QueryResult result = service.query(LlmRequest.of(prompt, LlmFeature.SEMANTIC_MUTATION));
 
             assertEquals("ok", result.getText());
             assertEquals(11, result.getInputTokens());
@@ -97,7 +97,7 @@ class LlmServiceQueryWithUsageTest {
                 .build();
 
         try {
-            QueryResult result = service.queryWithUsage(prompt, LlmFeature.SEMANTIC_CROSSOVER);
+            QueryResult result = service.query(LlmRequest.of(prompt, LlmFeature.SEMANTIC_CROSSOVER));
 
             assertEquals("retried", result.getText());
             assertEquals(5, result.getInputTokens());

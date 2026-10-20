@@ -22,6 +22,7 @@ package org.evosuite.llm.search;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.QueryResult;
 import org.evosuite.llm.prompt.PromptResult;
@@ -39,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static org.evosuite.llm.LlmRequestMatchers.anyInitialRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -109,7 +111,7 @@ class LlmSemanticOperatorTest {
     @Test
     void applyMapsTwoMutationTargetsInTargetOrder() {
         LlmService llmService = mockAvailableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
 
         OperatorTarget target1 = OperatorTarget.builder(makeChromosome(), makeGoal("g1")).build();
@@ -147,16 +149,16 @@ class LlmSemanticOperatorTest {
     @Test
     void mutationPromptContainsTargetHeadingAndStartFromWording() {
         LlmService llmService = mockAvailableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
-        ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
+        ArgumentCaptor<LlmRequest> promptCaptor = ArgumentCaptor.forClass(LlmRequest.class);
 
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         mutation.applyMapped(Collections.singletonList(target));
 
-        verify(llmService).queryWithUsage(promptCaptor.capture(), any(LlmFeature.class));
-        String userText = userText(promptCaptor.getValue());
+        verify(llmService).query(promptCaptor.capture());
+        String userText = userText(promptCaptor.getValue().getContext());
 
         assertTrue(userText.contains("Target #1"), userText);
         assertTrue(userText.contains("Start from Existing test #1."), userText);
@@ -166,17 +168,17 @@ class LlmSemanticOperatorTest {
     @Test
     void crossoverPromptContainsCombineAndRecombineWording() {
         LlmService llmService = mockAvailableService();
-        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
-        ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
+        ArgumentCaptor<LlmRequest> promptCaptor = ArgumentCaptor.forClass(LlmRequest.class);
 
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g"))
                 .partner(makeChromosome()).build();
         LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
         crossover.applyMapped(Collections.singletonList(target));
 
-        verify(llmService).queryWithUsage(promptCaptor.capture(), any(LlmFeature.class));
-        String userText = userText(promptCaptor.getValue());
+        verify(llmService).query(promptCaptor.capture());
+        String userText = userText(promptCaptor.getValue().getContext());
 
         assertTrue(userText.contains("Combine Existing test #1 (A) with Existing test #2 (B)."), userText);
         assertTrue(userText.contains("combines the setup from"), userText);
@@ -203,6 +205,6 @@ class LlmSemanticOperatorTest {
                 () -> new LlmSemanticMutation(llmService).applyMapped(Collections.singletonList(crossover)));
         assertThrows(IllegalArgumentException.class,
                 () -> new LlmSemanticCrossover(llmService).applyMapped(Collections.singletonList(mutation)));
-        verify(llmService, never()).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, never()).query(anyInitialRequest());
     }
 }

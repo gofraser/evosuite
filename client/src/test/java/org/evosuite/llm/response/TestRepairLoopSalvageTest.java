@@ -49,12 +49,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static org.evosuite.llm.LlmRequestMatchers.text;
+import static org.evosuite.llm.LlmRequestMatchers.repairRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -114,8 +112,8 @@ class TestRepairLoopSalvageTest {
     @Test
     void keepPolicySalvagesCandidatesDroppedInEarlierAttempts() {
         LlmService llmService = mock(LlmService.class);
-        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
-                .thenReturn("```java\n@org.junit.Test public void repaired(){}\n```");
+        when(llmService.query(repairRequest(LlmFeature.TEST_REPAIR)))
+                .thenReturn(text("```java\n@org.junit.Test public void repaired(){}\n```"));
         AtomicInteger parseCalls = new AtomicInteger();
         TestRepairLoop loop = keepAssertionLoop(llmService, 1, source -> {
             if (parseCalls.getAndIncrement() == 0) {

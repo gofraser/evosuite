@@ -24,6 +24,7 @@ import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
@@ -294,7 +295,8 @@ public class StagnationDetector {
         }
         String response;
         try {
-            response = llmService.query(prompt, LlmFeature.STAGNATION, repairDeadlineNanos);
+            response = llmService.query(LlmRequest.of(prompt, LlmFeature.STAGNATION)
+                    .withDeadlineNanos(repairDeadlineNanos)).getText();
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             logger.debug("Stagnation LLM request failed: {}", e.getMessage());
             return CallResult.UNDELIVERED;

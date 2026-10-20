@@ -221,7 +221,7 @@ class Phase2cReviewFixTest {
                     .buildWithMetadata();
 
             // Query using PromptResult overload
-            String response = service.query(promptResult, LlmFeature.SEEDING);
+            String response = service.query(LlmRequest.of(promptResult, LlmFeature.SEEDING)).getText();
             assertEquals("test response", response);
 
             // Verify trace file contains context mode
@@ -343,7 +343,7 @@ class Phase2cReviewFixTest {
             assertThrows(IllegalArgumentException.class, new org.junit.jupiter.api.function.Executable() {
                 @Override
                 public void execute() {
-                    service.query((PromptResult) null, LlmFeature.SEEDING);
+                    service.query(LlmRequest.of((PromptResult) null, LlmFeature.SEEDING));
                 }
             });
         } finally {

@@ -28,10 +28,12 @@ import org.evosuite.llm.LlmBudgetCoordinator;
 import org.evosuite.llm.LlmConfiguration;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmResponse;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmTraceRecorder;
+import org.evosuite.llm.QueryResult;
 import org.evosuite.llm.mock.MockChatLanguageModel;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.rmi.ClientServices;
@@ -2012,18 +2014,9 @@ class LlmPostProcessorTest {
         }
 
         @Override
-        public String query(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
-            deadlines.add(deadlineNanos);
-            return super.query(promptResult, feature, deadlineNanos);
-        }
-
-        @Override
-        public String query(List<LlmMessage> messages, LlmFeature feature, int repairAttempt,
-                            boolean expansionAttempted, List<String> expandedClasses,
-                            long deadlineNanos) {
-            deadlines.add(deadlineNanos);
-            return super.query(messages, feature, repairAttempt, expansionAttempted,
-                    expandedClasses, deadlineNanos);
+        public QueryResult query(LlmRequest request) {
+            deadlines.add(request.getDeadlineNanos());
+            return super.query(request);
         }
     }
 
