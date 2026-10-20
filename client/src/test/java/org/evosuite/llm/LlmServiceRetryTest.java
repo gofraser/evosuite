@@ -67,7 +67,7 @@ class LlmServiceRetryTest {
                 new LlmBudgetCoordinator.Local(1), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
         try {
-            assertEquals("ok", service.query(
+            assertEquals("ok", LlmServiceTestQueries.query(service, 
                     Collections.singletonList(LlmMessage.user("generate")),
                     LlmFeature.TEST_REPAIR));
         } finally {
@@ -110,7 +110,7 @@ class LlmServiceRetryTest {
                 recorder);
 
         try {
-            String output = service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
+            String output = LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
 
             assertEquals("ok", output);
             assertEquals(2, calls.get());
@@ -158,7 +158,7 @@ class LlmServiceRetryTest {
 
         try {
             LlmCallFailedException thrown = assertThrows(LlmCallFailedException.class,
-                    () -> service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR));
+                    () -> LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR));
 
             assertFalse(thrown.isRetryable());
             assertEquals(1, calls.get());
@@ -201,7 +201,7 @@ class LlmServiceRetryTest {
 
         try {
             LlmBudgetExceededException thrown = assertThrows(LlmBudgetExceededException.class,
-                    () -> service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR));
+                    () -> LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR));
 
             assertTrue(thrown.getMessage().contains("attempt 2"));
             assertEquals(1, calls.get());
@@ -292,7 +292,7 @@ class LlmServiceRetryTest {
         try {
             LlmCallFailedException failure = assertThrows(
                     LlmCallFailedException.class,
-                    () -> service.query(
+                    () -> LlmServiceTestQueries.query(service, 
                             Collections.singletonList(LlmMessage.user("generate")),
                             LlmFeature.TEST_REPAIR, System.nanoTime() - 1L));
 
@@ -319,7 +319,7 @@ class LlmServiceRetryTest {
                 configuration, statistics, recorder);
 
         try {
-            assertThrows(LlmBudgetExceededException.class, () -> service.query(
+            assertThrows(LlmBudgetExceededException.class, () -> LlmServiceTestQueries.query(service, 
                     Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR));
 
             assertEquals(1, statistics.getTotalCalls());
@@ -350,7 +350,7 @@ class LlmServiceRetryTest {
                 configuration, statistics, recorder);
 
         try {
-            assertThrows(LlmCallFailedException.class, () -> service.query(
+            assertThrows(LlmCallFailedException.class, () -> LlmServiceTestQueries.query(service, 
                     Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR,
                     System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(200)));
 
@@ -381,7 +381,7 @@ class LlmServiceRetryTest {
                 statistics, new LlmTraceRecorder(configuration));
         Thread caller = new Thread(() -> {
             try {
-                service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
+                LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
             } catch (LlmCallFailedException expected) {
                 // The interruption is the expected outcome.
             }
@@ -427,7 +427,7 @@ class LlmServiceRetryTest {
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         try {
-            assertThrows(LlmCallFailedException.class, () -> service.query(
+            assertThrows(LlmCallFailedException.class, () -> LlmServiceTestQueries.query(service, 
                     Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR));
             assertTrue(started.await(1L, TimeUnit.SECONDS));
             assertEquals(2L, service.getExecutorGenerationForTesting(),
@@ -462,7 +462,7 @@ class LlmServiceRetryTest {
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
         Thread caller = new Thread(() -> {
             try {
-                service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
+                LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
             } catch (Throwable throwable) {
                 failure.set(throwable);
                 callerInterrupted.set(Thread.currentThread().isInterrupted());

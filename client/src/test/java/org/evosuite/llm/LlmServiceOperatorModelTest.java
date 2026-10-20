@@ -99,8 +99,8 @@ class LlmServiceOperatorModelTest {
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         try {
-            service.query(oneMessage(), LlmFeature.SEMANTIC_MUTATION);
-            service.query(oneMessage(), LlmFeature.SEMANTIC_CROSSOVER);
+            LlmServiceTestQueries.query(service, oneMessage(), LlmFeature.SEMANTIC_MUTATION);
+            LlmServiceTestQueries.query(service, oneMessage(), LlmFeature.SEMANTIC_CROSSOVER);
 
             assertEquals(0, primary.callCount());
             assertEquals(2, operator.callCount());
@@ -121,8 +121,8 @@ class LlmServiceOperatorModelTest {
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         try {
-            service.query(oneMessage(), LlmFeature.STAGNATION);
-            service.query(oneMessage(), LlmFeature.SEEDING);
+            LlmServiceTestQueries.query(service, oneMessage(), LlmFeature.STAGNATION);
+            LlmServiceTestQueries.query(service, oneMessage(), LlmFeature.SEEDING);
 
             assertEquals(2, primary.callCount());
             assertEquals(0, operator.callCount());
@@ -140,9 +140,9 @@ class LlmServiceOperatorModelTest {
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         try {
-            service.query(oneMessage(), LlmFeature.SEMANTIC_MUTATION);
-            service.query(oneMessage(), LlmFeature.SEMANTIC_CROSSOVER);
-            service.query(oneMessage(), LlmFeature.STAGNATION);
+            LlmServiceTestQueries.query(service, oneMessage(), LlmFeature.SEMANTIC_MUTATION);
+            LlmServiceTestQueries.query(service, oneMessage(), LlmFeature.SEMANTIC_CROSSOVER);
+            LlmServiceTestQueries.query(service, oneMessage(), LlmFeature.STAGNATION);
 
             assertEquals(3, primary.callCount());
         } finally {

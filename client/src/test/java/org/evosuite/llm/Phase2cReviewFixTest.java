@@ -255,7 +255,7 @@ class Phase2cReviewFixTest {
         LlmService service = new LlmService(model, budget, config, new LlmStatistics(), recorder);
 
         try {
-            service.query(Collections.singletonList(LlmMessage.user("test")), LlmFeature.TEST_REPAIR);
+            LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("test")), LlmFeature.TEST_REPAIR);
 
             String traceContent = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
             assertTrue(traceContent.contains("\"sut_context_mode\":\"\""),

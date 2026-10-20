@@ -87,7 +87,7 @@ class LlmServiceProviderHttpContractTest {
             LlmService.resetInstanceForTesting();
 
             LlmService service = LlmService.getInstance();
-            String response = service.query(Collections.singletonList(
+            String response = LlmServiceTestQueries.query(service, Collections.singletonList(
                     LlmMessage.user("generate a test")), LlmFeature.TEST_REPAIR);
 
             assertEquals("contract-ok", response);
@@ -131,7 +131,7 @@ class LlmServiceProviderHttpContractTest {
             LlmService.resetInstanceForTesting();
 
             LlmService service = LlmService.getInstance();
-            String response = service.query(Collections.singletonList(
+            String response = LlmServiceTestQueries.query(service, Collections.singletonList(
                     LlmMessage.user("generate a test")), LlmFeature.SEEDING);
 
             assertEquals("cached-ok", response);
@@ -177,7 +177,7 @@ class LlmServiceProviderHttpContractTest {
             LlmService.resetInstanceForTesting();
 
             LlmService service = LlmService.getInstance();
-            String response = service.query(Collections.singletonList(
+            String response = LlmServiceTestQueries.query(service, Collections.singletonList(
                     LlmMessage.user("generate a test")), LlmFeature.TEST_REPAIR);
 
             assertEquals("ollama-ok", response);
@@ -226,7 +226,7 @@ class LlmServiceProviderHttpContractTest {
             LlmService.resetInstanceForTesting();
 
             LlmService service = LlmService.getInstance();
-            String response = service.query(Arrays.asList(
+            String response = LlmServiceTestQueries.query(service, Arrays.asList(
                     LlmMessage.system("system context"),
                     LlmMessage.user("hi"),
                     LlmMessage.assistant("hello"),
@@ -283,7 +283,7 @@ class LlmServiceProviderHttpContractTest {
             LlmService.resetInstanceForTesting();
 
             LlmService service = LlmService.getInstance();
-            service.query(Arrays.asList(LlmMessage.system("system context"),
+            LlmServiceTestQueries.query(service, Arrays.asList(LlmMessage.system("system context"),
                     LlmMessage.user("hi")), LlmFeature.TEST_REPAIR);
 
             assertFalse(requestBody.get().contains("cache_control"));
@@ -319,7 +319,7 @@ class LlmServiceProviderHttpContractTest {
             LlmService.resetInstanceForTesting();
 
             LlmService service = LlmService.getInstance();
-            assertThrows(LlmCallFailedException.class, () -> service.query(
+            assertThrows(LlmCallFailedException.class, () -> LlmServiceTestQueries.query(service, 
                     Collections.singletonList(LlmMessage.user("generate a test")),
                     LlmFeature.TEST_REPAIR));
 
@@ -362,7 +362,7 @@ class LlmServiceProviderHttpContractTest {
             LlmService.resetInstanceForTesting();
 
             LlmService service = LlmService.getInstance();
-            service.query(Collections.singletonList(LlmMessage.user("generate a test")),
+            LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate a test")),
                     LlmFeature.TEST_REPAIR);
 
             assertTrue(requestBody.get().contains(expectedParam));

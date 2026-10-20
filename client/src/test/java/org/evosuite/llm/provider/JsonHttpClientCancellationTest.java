@@ -27,6 +27,7 @@ import org.evosuite.llm.LlmConfiguration;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmServiceTestQueries;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmTraceRecorder;
 import org.junit.jupiter.api.AfterEach;
@@ -203,7 +204,7 @@ class JsonHttpClientCancellationTest {
             try {
                 long start = System.currentTimeMillis();
                 LlmCallFailedException failure = assertThrows(LlmCallFailedException.class,
-                        () -> service.query(Collections.singletonList(LlmMessage.user("generate a test")),
+                        () -> LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate a test")),
                                 LlmFeature.TEST_REPAIR));
                 long elapsedMs = System.currentTimeMillis() - start;
 
@@ -303,7 +304,7 @@ class JsonHttpClientCancellationTest {
                 AtomicReference<Throwable> slowFailure = new AtomicReference<>();
                 Thread slowCall = new Thread(() -> {
                     try {
-                        service.query(Collections.singletonList(LlmMessage.user("generate a test")),
+                        LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate a test")),
                                 LlmFeature.TEST_REPAIR, System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
                     } catch (Throwable t) {
                         slowFailure.set(t);
@@ -317,7 +318,7 @@ class JsonHttpClientCancellationTest {
                 AtomicReference<Throwable> normalFailure = new AtomicReference<>();
                 Thread normalCall = new Thread(() -> {
                     try {
-                        normalResult.set(service.query(
+                        normalResult.set(LlmServiceTestQueries.query(service, 
                                 Collections.singletonList(LlmMessage.user("generate a test")),
                                 LlmFeature.TEST_REPAIR));
                     } catch (Throwable t) {

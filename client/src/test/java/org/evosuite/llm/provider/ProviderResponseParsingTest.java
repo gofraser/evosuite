@@ -27,6 +27,7 @@ import org.evosuite.llm.LlmConfiguration;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmServiceTestQueries;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmTraceRecorder;
 import org.junit.jupiter.api.Test;
@@ -260,7 +261,7 @@ class ProviderResponseParsingTest {
 
         try {
             LlmCallFailedException failure = assertThrows(LlmCallFailedException.class,
-                    () -> service.query(Collections.singletonList(LlmMessage.user("generate a test")),
+                    () -> LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate a test")),
                             LlmFeature.TEST_REPAIR));
             assertTrue(failure.isRetryable());
             assertEquals(0, statistics.getSuccessfulCalls());

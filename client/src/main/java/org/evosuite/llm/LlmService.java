@@ -391,19 +391,6 @@ public class LlmService implements AutoCloseable {
         return statistics;
     }
 
-    public String query(List<LlmMessage> messages, LlmFeature feature) {
-        return queryInternal(messages, feature, new QueryOptions()).getText();
-    }
-
-    /**
-     * Query bounded by an absolute {@link System#nanoTime()} deadline.
-     */
-    public String query(List<LlmMessage> messages, LlmFeature feature,
-                        long deadlineNanos) {
-        return queryInternal(messages, feature,
-                new QueryOptions().withDeadlineNanos(deadlineNanos)).getText();
-    }
-
     /**
      * Query with repair attempt number and cluster expansion metadata for trace recording.
      *
