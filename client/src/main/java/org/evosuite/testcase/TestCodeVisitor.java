@@ -2981,77 +2981,16 @@ public class TestCodeVisitor extends TestVisitor {
         return getSimpleTypeName(type);
     }
 
-    /** See {@link #declarationTypeName}: the type a constructor's variable is declared with. */
+    /** See {@link DeclaredType}: the type a constructor's variable is declared with. */
     private String getConstructorDeclarationTypeName(ConstructorStatement statement) {
-        GenericConstructor constructor = statement.getConstructor();
-        Constructor<?> rawConstructor = constructor.getConstructor();
-        VariableReference retval = statement.getReturnValue();
-        List<VariableReference> parameters = statement.getParameterReferences();
-        boolean isNonStaticMemberClass = rawConstructor.getDeclaringClass().isMemberClass()
-                && !constructor.isStatic()
-                && !Modifier.isStatic(rawConstructor.getDeclaringClass().getModifiers());
-        // Use the constructor's owner type for the LHS declaration so that it
-        // always matches the RHS "new OwnerType(...)".  The retval's variable class
-        // can diverge from the constructor owner (e.g. java.sql.Date retval with a
-        // java.util.Date constructor), and when both simple names collide the import
-        // picks one while the other is fully qualified, producing uncompilable code.
-        //
-        // Whether the CONSTRUCTOR is source-accessible (-> direct "new Owner(...)"
-        // vs. reflective fallback, see visitConstructorStatement) is a different
-        // question from whether the declaring TYPE itself can be named at all. A
-        // private constructor on an otherwise perfectly nameable public class is a
-        // common idiom (factory-method-only construction): the constructor needs
-        // reflection, but the type name is entirely fine to declare and cast to.
-        // Only when the type itself is not nameable (see
-        // isDeclaredTypeNameableInGeneratedTest) does the declared/cast type need to
-        // fall back to the nearest accessible supertype instead.
-        Type constructorDeclarationType = isNonStaticMemberClass
-                ? CastPolicy.withEnclosingInstanceOwner(constructor.getOwnerType(), parameters.get(0))
-                : castPolicy.rawIfOutsideOfBounds(constructor.getOwnerType());
-        if (isNonStaticMemberClass
-                && constructorDeclarationType.equals(constructor.getOwnerType())
-                && retval.getVariableClass() == rawConstructor.getDeclaringClass()
-                && (retval.getType() instanceof Class<?>
-                || retval.getGenericClass().hasWildcardOrTypeVariables())
-                && retval.getGenericClass().isAssignableFrom(constructorDeclarationType)) {
-            // A mutation can bind the constructor to Outer<String>.Inner while retaining a
-            // raw or wildcard result variable. Narrowing that declaration changes the types
-            // accepted by later calls, such as a raw inner.set(Integer).
-            constructorDeclarationType = retval.getType();
-        }
-        String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
-                ? getDeclarationTypeName(constructorDeclarationType)
-                : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
-        if (!isNonStaticMemberClass && isReassignedLocal(statement)
-                && rawConstructor.getDeclaringClass() != retval.getVariableClass()
-                && retval.getVariableClass().isAssignableFrom(rawConstructor.getDeclaringClass())
-                && isDeclaredTypeNameableInGeneratedTest(retval.getVariableClass())) {
-            // The variable is written again later, with a value of the variable's own type, not
-            // of the constructor's: java.io.File built by the MockFile constructor, then given a
-            // de.schlichtherle.io.File. Declared as the narrower constructor owner it cannot take
-            // that value.
-            constructorTypeName = getDeclarationTypeName(retval.getType());
+        DeclaredType declared = DeclaredType.of(statement, test);
+        String constructorTypeName = declared.nameable
+                ? getDeclarationTypeName(declared.ownerType)
+                : getTypeName(findAccessibleRenderableSupertype(declared.constructedClass));
+        if (declared.declaredWithVariableType) {
+            constructorTypeName = getDeclarationTypeName(statement.getReturnValue().getType());
         }
         return constructorTypeName;
-    }
-
-    /** True when a later statement of the test assigns to the local variable this one defines. */
-    private boolean isReassignedLocal(Statement definition) {
-        if (test == null) {
-            return false;
-        }
-        VariableReference defined = definition.getReturnValue();
-        for (int i = definition.getPosition() + 1; i < test.size(); i++) {
-            Statement later = test.getStatement(i);
-            if (later instanceof AssignmentStatement) {
-                VariableReference target = later.getReturnValue();
-                if (!(target instanceof FieldReference) && !(target instanceof ArrayIndex)
-                        && target.equals(defined)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     /*
@@ -3135,7 +3074,7 @@ public class TestCodeVisitor extends TestVisitor {
             } else {
                 invocation += declarationPrefix + declarationVarName + " = new "
                         + getConstructorInvocationTypeName(
-                                castPolicy.rawIfOutsideOfBounds(constructor.getOwnerType()))
+                                DeclaredType.rawIfOutsideOfBounds(constructor.getOwnerType()))
                         + "(" + parameterString + ");";
             }
         } else {

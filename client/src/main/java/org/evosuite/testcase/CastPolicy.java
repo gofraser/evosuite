@@ -25,7 +25,6 @@ import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.testcase.statements.ClassPrimitiveStatement;
-import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
@@ -38,7 +37,6 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericClassUtils;
-import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.evosuite.utils.generic.GenericUtils;
 
@@ -1263,29 +1261,13 @@ class CastPolicy {
 
     /** See {@link #declaredReceiverType}: the type javac sees for a variable. */
     Type declaredVariableType(TestCase testCase, VariableReference callee) {
-        int calleePosition = testCase != null ? testCase.positionOfReturnValue(callee) : -1;
-        if (calleePosition >= 0) {
-            Statement definition = testCase.getStatement(calleePosition);
-            if (definition instanceof ConstructorStatement
-                    && definition.getReturnValue() == callee) {
-                GenericConstructor constructor = ((ConstructorStatement) definition).getConstructor();
-                Class<?> declaringClass = constructor.getConstructor().getDeclaringClass();
-                if (constructor.getOwnerType() instanceof ParameterizedType
-                        && !(declaringClass.isMemberClass() && !Modifier.isStatic(declaringClass.getModifiers()))
-                        && isDeclaredTypeNameableInGeneratedTest(declaringClass)) {
-                    return rawIfOutsideOfBounds(constructor.getOwnerType());
-                }
-                // An inner class whose model owner disagrees with the enclosing instance is
-                // declared raw, and javac erases the members of a raw inner class.
-                if (constructor.getOwnerType() instanceof ParameterizedType
-                        && isInnerClassOfGenericClass(declaringClass)
-                        && isDeclaredTypeNameableInGeneratedTest(declaringClass)
-                        && withEnclosingInstanceOwner(constructor.getOwnerType(),
-                        ((ConstructorStatement) definition).getParameterReferences().get(0))
-                        instanceof Class<?>) {
-                    return declaringClass;
-                }
-            }
+        DeclaredType declared = DeclaredType.ofVariable(testCase, callee);
+        // An inner class whose model owner disagrees with the enclosing instance is declared
+        // raw, and javac erases the members of a raw inner class.
+        if (declared != null && declared.nameable
+                && declared.definition.getConstructor().getOwnerType() instanceof ParameterizedType
+                && (!declared.inner || declared.ownerType instanceof Class<?>)) {
+            return declared.ownerType;
         }
         return callee.getType();
     }
@@ -1300,39 +1282,6 @@ class CastPolicy {
             }
         }
         return false;
-    }
-
-    /**
-     * The type javac gives {@code outer.new Inner(...)} is {@code Outer<X>.Inner}, where X comes
-     * from the declared type of the enclosing instance, not from the constructor model's own
-     * owner type (which can carry a different instantiation of the outer's type parameters).
-     * Declaring the variable with the model's owner type then fails to compile, so only an
-     * owner type that agrees with the enclosing instance keeps its qualifier.
-     */
-    static Type withEnclosingInstanceOwner(Type ownerType, VariableReference enclosingInstance) {
-        Class<?> rawInner = safeErasure(ownerType);
-        if (rawInner == null || rawInner.getDeclaringClass() == null
-                || !(ownerType instanceof ParameterizedType)
-                || !(((ParameterizedType) ownerType).getOwnerType() instanceof ParameterizedType)) {
-            return ownerType;
-        }
-        // The enclosing instance may only inherit the outer class (class Derived extends
-        // Outer<String>), so look at its supertype that is the inner class's declaring class.
-        Type enclosingOuter = null;
-        try {
-            enclosingOuter = GenericUtils.getExactSuperType(
-                    enclosingInstance.getType(), rawInner.getDeclaringClass());
-        } catch (RuntimeException e) {
-            // unresolvable: fall through to the raw declaration
-        }
-        if (enclosingOuter instanceof ParameterizedType
-                && enclosingOuter.equals(((ParameterizedType) ownerType).getOwnerType())) {
-            return ownerType;
-        }
-        // The model's instantiation of the outer disagrees with, or cannot be reconciled with,
-        // the enclosing instance's type; later calls are chosen against the model, so a
-        // qualified declaration would only move the compile error. Stay raw.
-        return rawInner;
     }
 
     private Type[] resolveMethodParameterTypesForReceiver(GenericMethod method, Type receiverType) {
@@ -1529,41 +1478,6 @@ class CastPolicy {
                 && !declared.equals(statement.getCallee().getType());
     }
 
-    /**
-     * A type argument that implements only the raw form of a parameterized bound (UURI, which
-     * is a raw Comparable, for E extends Comparable&lt;E&gt;) is not within the bound for javac,
-     * although the search treats the raw interface as satisfying it. Such a type is declared
-     * and constructed raw, as no parameterization of it compiles.
-     */
-    Type rawIfOutsideOfBounds(Type type) {
-        if (!(type instanceof ParameterizedType)
-                || !(((ParameterizedType) type).getRawType() instanceof Class<?>)) {
-            return type;
-        }
-        ParameterizedType parameterized = (ParameterizedType) type;
-        Class<?> rawClass = (Class<?>) parameterized.getRawType();
-        TypeVariable<?>[] parameters = rawClass.getTypeParameters();
-        Type[] arguments = parameterized.getActualTypeArguments();
-        for (int i = 0; i < parameters.length && i < arguments.length; i++) {
-            if (!(arguments[i] instanceof Class<?> || arguments[i] instanceof ParameterizedType)) {
-                continue;
-            }
-            Class<?> argumentClass = GenericTypeReflector.erase(arguments[i]);
-            for (Type bound : parameters[i].getBounds()) {
-                if (!(bound instanceof ParameterizedType)) {
-                    continue;
-                }
-                Class<?> boundClass = GenericTypeReflector.erase(bound);
-                if (boundClass.isAssignableFrom(argumentClass)
-                        && GenericUtils.getExactSuperType(arguments[i], boundClass)
-                        instanceof Class<?>) {
-                    return rawClass;
-                }
-            }
-        }
-        return type;
-    }
-
     private boolean requiresReturnValueCastForRawReceiver(MethodStatement statement,
                                                           GenericMethod method,
                                                           VariableReference retval) {
@@ -1642,26 +1556,18 @@ class CastPolicy {
         if (receiver instanceof FieldReference || receiver instanceof ArrayIndex) {
             return null;
         }
-        TestCase testCase = host.test() != null ? host.test() : receiver.getTestCase();
-        VariableReference normalized = host.normalizeVariableReference(receiver);
-        int position = testCase != null ? testCase.positionOfReturnValue(normalized) : -1;
-        if (position < 0) {
+        DeclaredType declared = DeclaredType.ofVariable(
+                host.test() != null ? host.test() : receiver.getTestCase(),
+                host.normalizeVariableReference(receiver));
+        if (declared == null
+                || !(declared.definition.getConstructor().getOwnerType() instanceof Class<?>)
+                || declared.constructedClass.getTypeParameters().length > 0
+                || declared.inner
+                || declared.constructedClass == receiver.getVariableClass()
+                || !declared.nameable) {
             return null;
         }
-        Statement definition = testCase.getStatement(position);
-        if (!(definition instanceof ConstructorStatement) || definition.getReturnValue() != normalized) {
-            return null;
-        }
-        GenericConstructor constructor = ((ConstructorStatement) definition).getConstructor();
-        Class<?> declaringClass = constructor.getConstructor().getDeclaringClass();
-        if (!(constructor.getOwnerType() instanceof Class<?>)
-                || declaringClass.getTypeParameters().length > 0
-                || (declaringClass.isMemberClass() && !Modifier.isStatic(declaringClass.getModifiers()))
-                || declaringClass == receiver.getVariableClass()
-                || !isDeclaredTypeNameableInGeneratedTest(declaringClass)) {
-            return null;
-        }
-        return declaringClass;
+        return declared.constructedClass;
     }
 
     /**
