@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class holds static methods used to calculate ControlFlowDistances or in
@@ -82,17 +81,6 @@ public class ControlFlowDistanceCalculator {
     private static final int TIMEOUT_APPROACH_LEVEL = 20;
     private static final int MAX_BFS_EXPANSIONS =
             Integer.getInteger("evosuite.cfd.max_expansions", 2_000);
-    private static final Map<Integer, Integer> CDG_DEPTH_CACHE = new ConcurrentHashMap<>();
-    private static final Map<Integer, CdgAncestorInfo> CDG_ANCESTOR_CACHE = new ConcurrentHashMap<>();
-
-    /**
-     * Drops the cached CDG depths and ancestor info. Branch IDs restart when the
-     * branch pool is reset, so a cached entry may describe a different branch afterwards.
-     */
-    public static void clearCaches() {
-        CDG_DEPTH_CACHE.clear();
-        CDG_ANCESTOR_CACHE.clear();
-    }
 
     /**
      * Calculates the ControlFlowDistance indicating how far away the given
@@ -275,11 +263,15 @@ public class ControlFlowDistanceCalculator {
      * Returns the cached CDG ancestor info for the given branch, computing it
      * via BFS on the first call.  The result is purely structural (depends only
      * on the control-dependency graph, not on any execution trace) and is
-     * therefore safe to cache globally.
+     * therefore safe to cache on the branch.
      */
     private static CdgAncestorInfo getAncestorInfo(Branch branch) {
-        return CDG_ANCESTOR_CACHE.computeIfAbsent(branch.getActualBranchId(),
-                ignored -> computeAncestorInfo(branch));
+        CdgAncestorInfo info = branch.cachedAncestorInfo;
+        if (info == null) {
+            info = computeAncestorInfo(branch);
+            branch.cachedAncestorInfo = info;
+        }
+        return info;
     }
 
     /**
@@ -445,8 +437,12 @@ public class ControlFlowDistanceCalculator {
      * @return the CDG depth, or {@link Integer#MAX_VALUE} if a cycle is detected or depth cannot be determined
      */
     static int getCDGDepth(Branch branch) {
-        return CDG_DEPTH_CACHE.computeIfAbsent(branch.getActualBranchId(),
-                ignored -> computeCDGDepth(branch.getInstruction()));
+        Integer depth = branch.cachedCdgDepth;
+        if (depth == null) {
+            depth = computeCDGDepth(branch.getInstruction());
+            branch.cachedCdgDepth = depth;
+        }
+        return depth;
     }
 
     private static int computeCDGDepth(BytecodeInstruction startInstruction) {
@@ -529,7 +525,7 @@ public class ControlFlowDistanceCalculator {
      * via control dependencies, plus the terminal approach level for paths
      * that reach a root-dependent or exception-handler node.
      */
-    private static final class CdgAncestorInfo {
+    static final class CdgAncestorInfo {
         /** Ancestor (branchId, value) keys grouped by approach level; index 0 is unused. */
         final List<long[]> ancestorsByLevel;
         final int terminalApproachLevel;

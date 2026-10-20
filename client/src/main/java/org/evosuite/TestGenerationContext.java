@@ -25,7 +25,6 @@ import org.evosuite.classpath.ResourceList;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.contracts.FailingTestSet;
 import org.evosuite.coverage.branch.BranchPool;
-import org.evosuite.coverage.branch.ControlFlowDistanceCalculator;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
@@ -255,7 +254,6 @@ public class TestGenerationContext {
 
         // TODO: Clear only pool of current classloader?
         GraphPool.clearAll();
-        ControlFlowDistanceCalculator.clearCaches();
         DefUsePool.clear();
 
         // Reset all run-scoped object-construction analysis and synthesis state.

@@ -164,6 +164,18 @@ public class ControlFlowDistanceCalculatorTest {
     }
 
     @Test
+    public void testCachesAreNotSharedBetweenBranchesWithTheSameId() {
+        // Every branch pool numbers its branches from 1, so branches of two live class
+        // loaders can carry the same ID. Their cached CDG data must stay apart.
+        Branch outer = findBranchAtLine(CLASS_NAME, OUTER_LINE);
+        Branch inner = findBranchAtLine(CLASS_NAME, INNER_LINE);
+        Branch innerFromOtherLoader = new Branch(inner.getInstruction(), outer.getActualBranchId());
+
+        assertEquals(0, ControlFlowDistanceCalculator.getCDGDepth(outer));
+        assertEquals(1, ControlFlowDistanceCalculator.getCDGDepth(innerFromOtherLoader));
+    }
+
+    @Test
     public void testBranchCoveredExact() {
         // Outer branch reached and covered in the desired direction (false = fall-through = x > 0)
         Branch outer = findBranchAtLine(CLASS_NAME, OUTER_LINE);

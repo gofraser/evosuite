@@ -64,6 +64,13 @@ public class Branch implements Serializable, Comparable<Branch> {
      */
     private boolean isInstrumented = false;
 
+    // Control-dependency data derived by ControlFlowDistanceCalculator. It is kept on the
+    // branch rather than in a table keyed by branch ID because every branch pool numbers its
+    // branches from 1, so the IDs of branches from different class loaders collide.
+    // The cached values are structural, so recomputing them after a race is harmless.
+    transient volatile Integer cachedCdgDepth;
+    transient volatile ControlFlowDistanceCalculator.CdgAncestorInfo cachedAncestorInfo;
+
     /**
      * Constructor for usual jump instruction Branches, that are not SWITCH
      * instructions.
