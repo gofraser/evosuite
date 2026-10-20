@@ -22,18 +22,22 @@ package org.evosuite.llm.search;
 import org.evosuite.Properties;
 import org.evosuite.llm.*;
 import org.evosuite.llm.mock.MockChatLanguageModel;
+import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Paths;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -137,6 +141,72 @@ class StagnationDetectorIntegrationTest {
         } finally {
             service.close();
         }
+    }
+
+    @Test
+    void requestHelpCreditsTheGoalsItsTestsCover() {
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("uncovered-goal");
+        when(goal.isCovered(any(TestChromosome.class))).thenReturn(true);
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:g", "goal:g:v1");
+        // An earlier attempt on the same target gained nothing.
+        memory.recordAttemptOutcome(memory.registerAttempt(Collections.singletonList(target), true)
+                .getAttemptId(), 0);
+
+        try {
+            List<TestChromosome> help = detectorTargeting(service, memory, target).requestHelp(
+                    Collections.singleton(goal), Collections.singletonList(new TestChromosome()));
+            assertFalse(help.isEmpty());
+            memory.beginSelectionRound();
+            // A gain resets the no-gain streak, leaving the shortest (one-round) cooldown.
+            assertFalse(memory.adjustPriority(target, 1.0, true).isSuppressed(),
+                    "an attempt whose tests cover a goal must be credited with that gain");
+        } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void requestHelpReleasesAnAttemptWhoseCallFailed() {
+        // Nothing queued: the provider call fails, so no response is ever delivered.
+        LlmService service = createService(new MockChatLanguageModel(), 2);
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("uncovered-goal");
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:g", "goal:g:v1");
+
+        try {
+            List<TestChromosome> help = detectorTargeting(service, memory, target).requestHelp(
+                    Collections.singleton(goal), Collections.singletonList(new TestChromosome()));
+            assertTrue(help.isEmpty());
+            memory.beginSelectionRound();
+            assertFalse(memory.adjustPriority(target, 1.0, true).isSuppressed(),
+                    "a call that never delivered a response must not count as a no-gain attempt");
+        } finally {
+            service.close();
+        }
+    }
+
+    /** A detector whose prompts carry {@code target} as their repeated-injection target. */
+    private static StagnationDetector detectorTargeting(LlmService service, RepeatedInjectionMemory memory,
+                                                        RepeatedInjectionTarget target) {
+        return new StagnationDetector(service, false, 1, 1, System::nanoTime, memory) {
+            @Override
+            public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                            List<TestChromosome> currentPopulation,
+                                            int totalGoals, int coveredGoalCount,
+                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal,
+                                            boolean suppressInFlightRepeats) {
+                return super.buildPrompt(uncoveredGoals, currentPopulation, totalGoals, coveredGoalCount,
+                        bestFitnessPerGoal, suppressInFlightRepeats).toBuilder()
+                        .repeatedInjectionTargets(Collections.singletonList(target))
+                        .build();
+            }
+        };
     }
 
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {

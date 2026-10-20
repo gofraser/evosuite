@@ -398,34 +398,37 @@ public class StagnationDetector {
         PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation,
                 totalGoals, coveredGoalCount, bestFitnessPerGoal, false);
         RepeatedInjectionMemory.PromptAttemptRegistration registration =
-                registerRepeatedAttempt(prompt, false);
-        try {
-            String response = llmService.query(prompt, LlmFeature.STAGNATION);
-            RepairResult result = repairLoop()
-                    .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION);
-            if (!result.isSuccess()) {
-                if (registration != null && !registration.isEmpty()) {
-                    repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
-                }
-                return Collections.emptyList();
-            }
-            if (registration != null && !registration.isEmpty()) {
-                repeatedInjectionMemory.clearAttempt(registration.getAttemptId());
-            }
-            return result.toChromosomes();
-        } catch (LlmBudgetExceededException | LlmCallFailedException e) {
-            logger.debug("Stagnation LLM request failed: {}", e.getMessage());
-            if (registration != null && !registration.isEmpty()) {
-                repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
-            }
-            return Collections.emptyList();
-        } catch (RuntimeException e) {
-            logger.debug("Stagnation LLM request crashed: {}", e.getMessage());
-            if (registration != null && !registration.isEmpty()) {
-                repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
-            }
-            return Collections.emptyList();
+                registerRepeatedAttempt(prompt, true);
+        CallResult result = executeWithPrompt(prompt);
+        if (!result.isDelivered()) {
+            releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
+        } else if (!registration.isEmpty()) {
+            recordRepeatedAttemptOutcome(registration.getAttemptId(),
+                    countCoveredGoals(uncoveredGoals, result.getTests()));
         }
+        return result.getTests();
+    }
+
+    /**
+     * Counts the goals among {@code goals} that at least one of {@code tests}
+     * covers. Executes each test at most once; its result is cached on the
+     * chromosome, so the search does not run it again when it evaluates it.
+     */
+    private static int countCoveredGoals(Collection<TestFitnessFunction> goals, List<TestChromosome> tests) {
+        int covered = 0;
+        for (TestFitnessFunction goal : goals) {
+            for (TestChromosome test : tests) {
+                try {
+                    if (goal.isCovered(test)) {
+                        covered++;
+                        break;
+                    }
+                } catch (RuntimeException e) {
+                    logger.debug("Could not check goal {} against an injected test: {}", goal, e.getMessage());
+                }
+            }
+        }
+        return covered;
     }
 
     public void reset() {
