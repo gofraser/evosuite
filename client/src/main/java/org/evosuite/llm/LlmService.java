@@ -27,7 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import javax.tools.ToolProvider;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -311,6 +310,22 @@ public class LlmService implements AutoCloseable {
     }
 
     /**
+     * Sends {@code request} to the provider, retrying retryable failures within
+     * the configured attempts, the call budget and the request's deadline.
+     *
+     * @return the text of the successful call with its token usage and latency
+     * @throws LlmBudgetExceededException when no budget is left for an attempt
+     * @throws LlmCallFailedException     when the call fails, times out, runs past
+     *                                    the deadline or is interrupted
+     */
+    public QueryResult query(LlmRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        return queryInternal(request);
+    }
+
+    /**
      * Query with repair attempt number and cluster expansion metadata for trace recording.
      *
      * @param repairAttempt      the 1-based repair attempt number
@@ -320,7 +335,7 @@ public class LlmService implements AutoCloseable {
     public String query(List<LlmMessage> messages, LlmFeature feature,
                         int repairAttempt, boolean expansionAttempted,
                         List<String> expandedClasses) {
-        return queryInternal(messages, feature, new QueryOptions()
+        return query(LlmRequest.of(messages, feature)
                 .withRepairAttempt(repairAttempt)
                 .withExpansion(expansionAttempted, expandedClasses)).getText();
     }
@@ -332,22 +347,15 @@ public class LlmService implements AutoCloseable {
     public String query(List<LlmMessage> messages, LlmFeature feature,
                         int repairAttempt, boolean expansionAttempted,
                         List<String> expandedClasses, long deadlineNanos) {
-        return queryInternal(messages, feature, new QueryOptions()
+        return query(LlmRequest.of(messages, feature)
                 .withRepairAttempt(repairAttempt)
                 .withExpansion(expansionAttempted, expandedClasses)
                 .withDeadlineNanos(deadlineNanos)).getText();
     }
 
-    /**
-     * Query with context metadata propagated to trace recording.
-     * Prefer this overload when building prompts via {@link PromptResult}.
-     */
+    /** Query with context metadata propagated to trace recording. */
     public String query(PromptResult promptResult, LlmFeature feature) {
-        if (promptResult == null) {
-            throw new IllegalArgumentException("promptResult must not be null");
-        }
-        return queryInternal(promptResult.getMessages(), feature,
-                QueryOptions.fromPromptResult(promptResult)).getText();
+        return query(LlmRequest.of(promptResult, feature)).getText();
     }
 
     /**
@@ -356,26 +364,12 @@ public class LlmService implements AutoCloseable {
      */
     public String query(PromptResult promptResult, LlmFeature feature,
                         long deadlineNanos) {
-        if (promptResult == null) {
-            throw new IllegalArgumentException("promptResult must not be null");
-        }
-        return queryInternal(promptResult.getMessages(), feature,
-                QueryOptions.fromPromptResult(promptResult)
-                        .withDeadlineNanos(deadlineNanos)).getText();
+        return query(LlmRequest.of(promptResult, feature).withDeadlineNanos(deadlineNanos)).getText();
     }
 
-    /**
-     * Same as {@link #query(PromptResult, LlmFeature)}, but also returns the
-     * token usage and latency of the successful call so the caller can credit
-     * them to whatever the response produced (e.g. one row per operator
-     * target sharing a single batched call).
-     */
+    /** Same as {@link #query(PromptResult, LlmFeature)}, but also returns the token usage and latency. */
     public QueryResult queryWithUsage(PromptResult promptResult, LlmFeature feature) {
-        if (promptResult == null) {
-            throw new IllegalArgumentException("promptResult must not be null");
-        }
-        return queryInternal(promptResult.getMessages(), feature,
-                QueryOptions.fromPromptResult(promptResult));
+        return query(LlmRequest.of(promptResult, feature));
     }
 
     /**
@@ -383,82 +377,28 @@ public class LlmService implements AutoCloseable {
      * absolute {@link System#nanoTime()} deadline.
      */
     public QueryResult queryWithUsage(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
-        if (promptResult == null) {
-            throw new IllegalArgumentException("promptResult must not be null");
-        }
-        return queryInternal(promptResult.getMessages(), feature,
-                QueryOptions.fromPromptResult(promptResult).withDeadlineNanos(deadlineNanos));
+        return query(LlmRequest.of(promptResult, feature).withDeadlineNanos(deadlineNanos));
     }
 
-    /**
-     * Mutable option bag threaded through {@link #queryInternal}. Replaces the
-     * former chain of overloaded private {@code queryInternal} methods with a
-     * single entry point that consumes a typed options object. All fields have
-     * safe defaults, so callers only set the values they care about.
-     */
-    private static final class QueryOptions {
-        Properties.LlmSutContextMode sutContextMode = null;
-        boolean contextUnavailable = false;
-        boolean contextTruncated = false;
-        boolean contextCommentsStripped = false;
-        boolean contextSelectivelyTruncated = false;
-        boolean clusterSummaryTruncated = false;
-        int clusterSummaryChars = 0;
-        PromptResult.DependencySummaryMetadata dependencySummaryMetadata =
-                PromptResult.DependencySummaryMetadata.empty();
-        int repairAttempt = 1;
-        boolean expansionAttempted = false;
-        List<String> expandedClasses = Collections.emptyList();
-        long deadlineNanos = Long.MAX_VALUE;
-
-        QueryOptions withRepairAttempt(int attempt) {
-            this.repairAttempt = attempt;
-            return this;
-        }
-
-        QueryOptions withExpansion(boolean attempted, List<String> classes) {
-            this.expansionAttempted = attempted;
-            this.expandedClasses = classes == null ? Collections.<String>emptyList() : classes;
-            return this;
-        }
-
-        QueryOptions withDeadlineNanos(long deadlineNanos) {
-            this.deadlineNanos = deadlineNanos > 0 ? deadlineNanos : Long.MAX_VALUE;
-            return this;
-        }
-
-        static QueryOptions fromPromptResult(PromptResult promptResult) {
-            QueryOptions options = new QueryOptions();
-            options.sutContextMode = promptResult.getSutContextMode();
-            options.contextUnavailable = promptResult.isContextUnavailable();
-            options.contextTruncated = promptResult.isContextTruncated();
-            options.contextCommentsStripped = promptResult.isContextCommentsStripped();
-            options.contextSelectivelyTruncated = promptResult.isContextSelectivelyTruncated();
-            options.clusterSummaryTruncated = promptResult.isClusterSummaryTruncated();
-            options.clusterSummaryChars = promptResult.getClusterSummaryChars();
-            options.dependencySummaryMetadata = promptResult.getDependencySummaryMetadata();
-            return options;
-        }
-    }
-
-    private QueryResult queryInternal(List<LlmMessage> messages, LlmFeature feature, QueryOptions options) {
+    private QueryResult queryInternal(LlmRequest request) {
+        List<LlmMessage> messages = request.getMessages();
+        LlmFeature feature = request.getFeature();
+        long deadlineNanos = request.getDeadlineNanos();
         if (!available) {
             throw new LlmCallFailedException("LLM service is unavailable",
                     new IllegalStateException("LLM provider is not configured"), false);
         }
-        List<String> safeExpandedClasses = options.expandedClasses == null
-                ? Collections.<String>emptyList() : options.expandedClasses;
         int maxTries = Math.max(1, configuration.getRetryMaxAttempts() + 1);
         Throwable lastError = null;
 
         for (int attempt = 1; attempt <= maxTries; attempt++) {
-            if (lastError != null && remainingNanos(options.deadlineNanos) <= 0) {
-                recordAbandonedRetries(feature, messages, options, safeExpandedClasses, lastError);
+            if (lastError != null && remainingNanos(deadlineNanos) <= 0) {
+                recordAbandonedRetries(request, lastError);
             }
-            ensureBeforeDeadline(options.deadlineNanos);
+            ensureBeforeDeadline(deadlineNanos);
             if (!budgetCoordinator.tryAcquire(feature)) {
                 if (lastError != null) {
-                    recordAbandonedRetries(feature, messages, options, safeExpandedClasses, lastError);
+                    recordAbandonedRetries(request, lastError);
                     throw new LlmBudgetExceededException("LLM call budget exhausted on attempt " + attempt
                             + " after: " + LlmErrorClassifier.friendlyMessage(lastError), lastError);
                 }
@@ -467,7 +407,7 @@ public class LlmService implements AutoCloseable {
             long start = System.currentTimeMillis();
             try {
                 LlmResponse response = invokeWithTimeout(
-                        messages, feature, options.deadlineNanos);
+                        messages, feature, deadlineNanos);
                 long latency = System.currentTimeMillis() - start;
                 boolean truncated = response.getOutputTokens() > 0
                         && response.getOutputTokens() >= configuration.getMaxTokens() - 1;
@@ -479,9 +419,8 @@ public class LlmService implements AutoCloseable {
                 String status = truncated ? "TRUNCATED" : "SUCCESS";
                 statistics.recordCall(feature, response.getInputTokens(), response.getCachedInputTokens(),
                         response.getOutputTokens(), latency);
-                safeRecordTrace(feature, messages, response.getText(), response.getInputTokens(),
-                        response.getCachedInputTokens(), response.getOutputTokens(), latency, status,
-                        options.repairAttempt, options.expansionAttempted, safeExpandedClasses, "", options);
+                safeRecordTrace(request, response.getText(), response.getInputTokens(),
+                        response.getCachedInputTokens(), response.getOutputTokens(), latency, status, "");
                 return new QueryResult(response.getText(), response.getInputTokens(),
                         response.getCachedInputTokens(), response.getOutputTokens(), latency);
             } catch (Exception e) {
@@ -493,15 +432,13 @@ public class LlmService implements AutoCloseable {
                     // Do not turn a shutdown request into an ordinary provider
                     // failure or continue with a retry.
                     statistics.recordInterruptedAttempt(feature, latency);
-                    safeRecordTrace(feature, messages, "", 0, 0, 0, latency,
-                            "INTERRUPTED", options.repairAttempt,
-                            options.expansionAttempted, safeExpandedClasses,
-                            lastError.getClass().getSimpleName(), options);
+                    safeRecordTrace(request, "", 0, 0, 0, latency,
+                            "INTERRUPTED", lastError.getClass().getSimpleName());
                     Thread.currentThread().interrupt();
                     throw new LlmCallFailedException("LLM query interrupted", lastError, false);
                 }
                 boolean retryable = LlmErrorClassifier.isRetryable(lastError);
-                if (!retryable || attempt == maxTries || remainingNanos(options.deadlineNanos) <= 0L) {
+                if (!retryable || attempt == maxTries || remainingNanos(deadlineNanos) <= 0L) {
                     String friendly = LlmErrorClassifier.friendlyMessage(lastError);
                     if (!retryable) {
                         logger.warn("LLM call failed (attempt {}/{}): {}", attempt, maxTries, friendly);
@@ -509,17 +446,15 @@ public class LlmService implements AutoCloseable {
                         logger.warn("LLM call failed after {} attempts: {}", attempt, friendly);
                     }
                     LlmModelListDiagnostics.logIfModelRejected(configuration, feature, friendly,
-                            options.deadlineNanos);
+                            deadlineNanos);
                     logger.debug("Full LLM error detail", lastError);
                     if (lastError instanceof TimeoutException) {
                         statistics.recordTimeout(feature, latency);
                     } else {
                         statistics.recordFailure(feature, latency);
                     }
-                    safeRecordTrace(feature, messages, "", 0, 0, 0,
-                            latency, "FAILED", options.repairAttempt,
-                            options.expansionAttempted, safeExpandedClasses,
-                            lastError.getClass().getSimpleName(), options);
+                    safeRecordTrace(request, "", 0, 0, 0,
+                            latency, "FAILED", lastError.getClass().getSimpleName());
                     throw new LlmCallFailedException(
                             "LLM query failed after " + attempt + " attempt(s): " + friendly, lastError, retryable);
                 }
@@ -528,13 +463,11 @@ public class LlmService implements AutoCloseable {
                 // semantics.  Record retries separately so costs and traces
                 // do not hide transient provider work.
                 statistics.recordRetryAttempt(feature, latency);
-                safeRecordTrace(feature, messages, "", 0, 0, 0, latency,
-                        "RETRYING", options.repairAttempt,
-                        options.expansionAttempted, safeExpandedClasses,
-                        lastError.getClass().getSimpleName(), options);
+                safeRecordTrace(request, "", 0, 0, 0, latency,
+                        "RETRYING", lastError.getClass().getSimpleName());
                 logger.debug("LLM call failed (attempt {}/{}): {}; retrying...",
                         attempt, maxTries, LlmErrorClassifier.friendlyMessage(lastError));
-                if (!sleepBackoff(attempt, options.deadlineNanos)) {
+                if (!sleepBackoff(attempt, deadlineNanos)) {
                     Thread.currentThread().interrupt();
                     throw new LlmCallFailedException("LLM retry interrupted", lastError, false);
                 }
@@ -549,13 +482,9 @@ public class LlmService implements AutoCloseable {
      * when no further attempt can start, so the counters and the trace do not
      * end on a retry that never completed.
      */
-    private void recordAbandonedRetries(LlmFeature feature, List<LlmMessage> messages,
-                                        QueryOptions options, List<String> expandedClasses,
-                                        Throwable lastError) {
-        statistics.recordRetriesAbandoned(feature, lastError instanceof TimeoutException);
-        safeRecordTrace(feature, messages, "", 0, 0, 0, 0L, "FAILED", options.repairAttempt,
-                options.expansionAttempted, expandedClasses,
-                lastError.getClass().getSimpleName(), options);
+    private void recordAbandonedRetries(LlmRequest request, Throwable lastError) {
+        statistics.recordRetriesAbandoned(request.getFeature(), lastError instanceof TimeoutException);
+        safeRecordTrace(request, "", 0, 0, 0, 0L, "FAILED", lastError.getClass().getSimpleName());
     }
 
     private LlmResponse invokeWithTimeout(List<LlmMessage> messages, LlmFeature feature,
@@ -637,42 +566,40 @@ public class LlmService implements AutoCloseable {
         return deadlineNanos - System.nanoTime();
     }
 
-    private void safeRecordTrace(LlmFeature feature,
-                                 List<LlmMessage> messages,
+    private void safeRecordTrace(LlmRequest request,
                                  String responseText,
                                  int inputTokens,
                                  int cachedInputTokens,
                                  int outputTokens,
                                  long latencyMs,
                                  String parseStatus,
-                                 int repairAttempt,
-                                 boolean expansionAttempted,
-                                 List<String> expandedClasses,
-                                 String errorType,
-                                 QueryOptions options) {
+                                 String errorType) {
         try {
-            traceRecorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                    .feature(feature)
-                    .messages(messages)
+            LlmTraceRecorder.CallRecord.Builder record = new LlmTraceRecorder.CallRecord.Builder()
+                    .feature(request.getFeature())
+                    .messages(request.getMessages())
                     .responseText(responseText)
                     .inputTokens(inputTokens)
                     .cachedInputTokens(cachedInputTokens)
                     .outputTokens(outputTokens)
                     .latencyMs(latencyMs)
                     .parseStatus(parseStatus)
-                    .repairAttempt(repairAttempt)
-                    .expansionAttempted(expansionAttempted)
-                    .expandedClasses(expandedClasses)
-                    .errorType(errorType)
-                    .sutContextMode(options.sutContextMode)
-                    .contextUnavailable(options.contextUnavailable)
-                    .contextTruncated(options.contextTruncated)
-                    .contextCommentsStripped(options.contextCommentsStripped)
-                    .contextSelectivelyTruncated(options.contextSelectivelyTruncated)
-                    .clusterSummaryTruncated(options.clusterSummaryTruncated)
-                    .clusterSummaryChars(options.clusterSummaryChars)
-                    .dependencySummaryMetadata(options.dependencySummaryMetadata)
-                    .build());
+                    .repairAttempt(request.getRepairAttempt())
+                    .expansionAttempted(request.isExpansionAttempted())
+                    .expandedClasses(request.getExpandedClasses())
+                    .errorType(errorType);
+            PromptResult context = request.getContext();
+            if (context != null) {
+                record.sutContextMode(context.getSutContextMode())
+                        .contextUnavailable(context.isContextUnavailable())
+                        .contextTruncated(context.isContextTruncated())
+                        .contextCommentsStripped(context.isContextCommentsStripped())
+                        .contextSelectivelyTruncated(context.isContextSelectivelyTruncated())
+                        .clusterSummaryTruncated(context.isClusterSummaryTruncated())
+                        .clusterSummaryChars(context.getClusterSummaryChars())
+                        .dependencySummaryMetadata(context.getDependencySummaryMetadata());
+            }
+            traceRecorder.recordCall(record.build());
         } catch (Throwable traceFailure) {
             logTraceFailure("call", traceFailure);
         }
