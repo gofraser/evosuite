@@ -42,6 +42,7 @@ import org.evosuite.utils.FileIOUtils;
 import org.evosuite.utils.Listener;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
+import org.evosuite.utils.ReplaceableWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,18 +105,21 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     private Thread statisticsThread;
 
     /**
-     * Runs the best-effort remote actions (state notifications, result export). Guarded by
-     * {@link #remoteActionLock}; created on first use, and replaced when an action does not
-     * finish in time, as its thread may then be stuck in RMI I/O.
+     * Runs the best-effort remote actions (state notifications, result export). Replaced when
+     * an action does not finish in time, as its thread may then be stuck in RMI I/O.
+     *
+     * <p>Status notifications are sent for every goal during minimization, and this used to
+     * start (and register as privileged) a new thread for each of them; tens of thousands of
+     * dead threads then accumulated in the sandbox's privileged set. A single daemon thread
+     * serves them all now.
      */
-    private ExecutorService remoteActionExecutor;
-
-    /**
-     * The thread of {@link #remoteActionExecutor}, once it has been created.
-     */
-    private volatile Thread remoteActionThread;
-
-    private final Object remoteActionLock = new Object();
+    private final ReplaceableWorker remoteActionWorker = new ReplaceableWorker(r -> {
+        Thread t = new Thread(r, "RMI ClientNodeRemoteAction");
+        t.setDaemon(true);
+        // The factory runs on the submitting thread, before the new thread starts.
+        markRemoteActionThreadPrivileged(t);
+        return t;
+    });
 
     /**
      * Test-only override for the {@code CoverageAnalysis.analyzeCoverage()} call in {@link
@@ -705,10 +709,14 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     }
 
     private boolean runRemoteActionBestEffort(String actionName, long timeoutMs, RemoteAction action) {
-        ExecutorService executor = remoteActionExecutor();
-        Future<Boolean> future;
+        // The sandbox may have been re-initialized since the thread was created (the JUnit
+        // check does this), so make sure it is still privileged.
+        Thread existing = remoteActionWorker.thread();
+        if (existing != null) {
+            markRemoteActionThreadPrivileged(existing);
+        }
         try {
-            future = executor.submit(() -> {
+            return remoteActionWorker.call(() -> {
                 try {
                     action.execute();
                     return true;
@@ -718,14 +726,10 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     logger.error("Unexpected error during remote action: " + actionName, t);
                 }
                 return false;
-            });
+            }, timeoutMs, TimeUnit.MILLISECONDS);
         } catch (RejectedExecutionException e) {
             logger.debug("Remote action executor is shut down; skipping remote action {}", actionName);
             return false;
-        }
-
-        try {
-            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;
@@ -735,40 +739,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         } catch (TimeoutException e) {
             logger.warn("Remote action {} did not finish within {} ms; continuing locally.",
                     actionName, timeoutMs);
-            future.cancel(true);
-            discardRemoteActionExecutor(executor);
             return false;
         }
-    }
-
-    /**
-     * Returns the executor for remote actions. Status notifications are sent for every goal
-     * during minimization, and this used to start (and register as privileged) a new thread
-     * for each of them; tens of thousands of dead threads then accumulated in the sandbox's
-     * privileged set. A single daemon thread serves them all now.
-     */
-    private ExecutorService remoteActionExecutor() {
-        ExecutorService executor;
-        synchronized (remoteActionLock) {
-            if (remoteActionExecutor == null) {
-                remoteActionExecutor = Executors.newSingleThreadExecutor(r -> {
-                    Thread t = new Thread(r, "RMI ClientNodeRemoteAction");
-                    t.setDaemon(true);
-                    // The factory runs on the submitting thread, before the new thread starts.
-                    markRemoteActionThreadPrivileged(t);
-                    remoteActionThread = t;
-                    return t;
-                });
-            }
-            executor = remoteActionExecutor;
-        }
-        // The sandbox may have been re-initialized since the thread was created (the JUnit
-        // check does this), so make sure it is still privileged.
-        Thread existing = remoteActionThread;
-        if (existing != null) {
-            markRemoteActionThreadPrivileged(existing);
-        }
-        return executor;
     }
 
     private static void markRemoteActionThreadPrivileged(Thread t) {
@@ -779,16 +751,6 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         } catch (SecurityException e) {
             logger.debug("Could not mark remote action thread as privileged; relying on RMI allowlist", e);
         }
-    }
-
-    private void discardRemoteActionExecutor(ExecutorService executor) {
-        synchronized (remoteActionLock) {
-            if (remoteActionExecutor == executor) {
-                remoteActionExecutor = null;
-                remoteActionThread = null;
-            }
-        }
-        executor.shutdownNow();
     }
 
     private void notifyMasterOfStateChangeBestEffort(ClientState state, ClientStateInformation information) {
