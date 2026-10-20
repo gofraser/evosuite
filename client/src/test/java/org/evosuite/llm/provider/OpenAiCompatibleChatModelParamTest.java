@@ -17,31 +17,31 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.llm;
+package org.evosuite.llm.provider;
 
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class LlmServiceModelParamTest {
+class OpenAiCompatibleChatModelParamTest {
 
     @Test
     void usesMaxCompletionTokensForGpt5AndReasoningFamilies() {
-        assertTrue(LlmService.usesMaxCompletionTokens("gpt-5.4-nano"));
-        assertTrue(LlmService.usesMaxCompletionTokens("gpt-5"));
-        assertTrue(LlmService.usesMaxCompletionTokens("o3-mini"));
-        assertTrue(LlmService.usesMaxCompletionTokens("o4-mini"));
-        assertTrue(LlmService.usesMaxCompletionTokens("o1-preview"));
+        assertTrue(OpenAiCompatibleChatModel.usesMaxCompletionTokens("gpt-5.4-nano"));
+        assertTrue(OpenAiCompatibleChatModel.usesMaxCompletionTokens("gpt-5"));
+        assertTrue(OpenAiCompatibleChatModel.usesMaxCompletionTokens("o3-mini"));
+        assertTrue(OpenAiCompatibleChatModel.usesMaxCompletionTokens("o4-mini"));
+        assertTrue(OpenAiCompatibleChatModel.usesMaxCompletionTokens("o1-preview"));
     }
 
     @Test
     void keepsMaxTokensForOlderChatFamilies() {
-        assertFalse(LlmService.usesMaxCompletionTokens("gpt-4o-mini"));
-        assertFalse(LlmService.usesMaxCompletionTokens("gpt-4.1-mini"));
-        assertFalse(LlmService.usesMaxCompletionTokens("qwen35-397b"));
-        assertFalse(LlmService.usesMaxCompletionTokens(""));
-        assertFalse(LlmService.usesMaxCompletionTokens(null));
+        assertFalse(OpenAiCompatibleChatModel.usesMaxCompletionTokens("gpt-4o-mini"));
+        assertFalse(OpenAiCompatibleChatModel.usesMaxCompletionTokens("gpt-4.1-mini"));
+        assertFalse(OpenAiCompatibleChatModel.usesMaxCompletionTokens("qwen35-397b"));
+        assertFalse(OpenAiCompatibleChatModel.usesMaxCompletionTokens(""));
+        assertFalse(OpenAiCompatibleChatModel.usesMaxCompletionTokens(null));
     }
 }
 

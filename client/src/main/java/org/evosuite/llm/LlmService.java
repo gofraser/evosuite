@@ -23,8 +23,6 @@ import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TargetedResponse;
-import org.evosuite.llm.provider.AnthropicChatModel;
-import org.evosuite.llm.provider.OpenAiCompatibleChatModel;
 import org.evosuite.llm.provider.RequestCancellation;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -236,12 +234,10 @@ public class LlmService implements AutoCloseable {
         }
 
         try {
-            ChatLanguageModel model = createProviderModel(config, config.getModel());
-            ChatLanguageModel operatorModel = config.hasSeparateOperatorModel()
-                    ? createProviderModel(config, config.getOperatorModel())
-                    : null;
+            ProviderModelFactory.Models models = ProviderModelFactory.createModels(config);
             logActiveLlmConfiguration(config);
-            return new LlmService(model, operatorModel, budget, config, stats, recorder, new Random(), true);
+            return new LlmService(models.primary, models.operator, budget, config, stats, recorder,
+                    new Random(), true);
         } catch (IllegalArgumentException e) {
             logger.warn("LLM provider '{}' misconfigured: {}", config.getProvider(), e.getMessage());
         } catch (RuntimeException e) {
@@ -300,59 +296,6 @@ public class LlmService implements AutoCloseable {
 
     static void setCompilerAvailableForTesting(Boolean available) {
         compilerAvailableOverrideForTesting = available;
-    }
-
-    private static ChatLanguageModel createProviderModel(LlmConfiguration config, String modelName) {
-        switch (config.getProvider()) {
-            case OPENAI:
-                return createOpenAiModel(config, modelName);
-            case OLLAMA:
-                return createOllamaModel(config, modelName);
-            case ANTHROPIC:
-                return createAnthropicModel(config, modelName);
-            default:
-                throw new IllegalArgumentException("Unsupported LLM provider: " + config.getProvider());
-        }
-    }
-
-    private static ChatLanguageModel createOpenAiModel(LlmConfiguration config, String modelName) {
-        String checkedModelName = requireNonBlank(modelName, "LLM model must be configured for OPENAI");
-        String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for OPENAI");
-        return new OpenAiCompatibleChatModel(Properties.LlmProvider.OPENAI, checkedModelName, apiKey,
-                config.getBaseUrl(), config.getTemperature(), config.getMaxTokens(),
-                config.getTimeoutSeconds());
-    }
-
-    public static boolean usesMaxCompletionTokens(String modelName) {
-        if (isBlank(modelName)) {
-            return false;
-        }
-        String name = modelName.trim().toLowerCase();
-        return name.startsWith("gpt-5")
-                || name.startsWith("o1")
-                || name.startsWith("o3")
-                || name.startsWith("o4");
-    }
-
-    private static ChatLanguageModel createOllamaModel(LlmConfiguration config, String modelName) {
-        String checkedModelName = requireNonBlank(modelName, "LLM model must be configured for OLLAMA");
-        String baseUrl = requireNonBlank(config.getBaseUrl(), "LLM base URL must be configured for OLLAMA");
-        return new OpenAiCompatibleChatModel(Properties.LlmProvider.OLLAMA, checkedModelName, config.getApiKey(),
-                baseUrl, config.getTemperature(), config.getMaxTokens(), config.getTimeoutSeconds());
-    }
-
-    private static ChatLanguageModel createAnthropicModel(LlmConfiguration config, String modelName) {
-        String checkedModelName = requireNonBlank(modelName, "LLM model must be configured for ANTHROPIC");
-        String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for ANTHROPIC");
-        return new AnthropicChatModel(checkedModelName, apiKey, config.getBaseUrl(), config.getTemperature(),
-                config.getMaxTokens(), config.getTimeoutSeconds());
-    }
-
-    private static String requireNonBlank(String value, String message) {
-        if (isBlank(value)) {
-            throw new IllegalArgumentException(message);
-        }
-        return value.trim();
     }
 
     private static boolean isBlank(String value) {
@@ -765,18 +708,15 @@ public class LlmService implements AutoCloseable {
         executorGeneration.incrementAndGet();
         if (available && configuration.getProvider() != Properties.LlmProvider.NONE) {
             try {
-                ChatLanguageModel rebuiltModel = createProviderModel(configuration, configuration.getModel());
-                ChatLanguageModel rebuiltOperatorModel = configuration.hasSeparateOperatorModel()
-                        ? createProviderModel(configuration, configuration.getOperatorModel())
-                        : null;
+                ProviderModelFactory.Models rebuilt = ProviderModelFactory.createModels(configuration);
                 // Publish both together, only once both constructions succeeded, so a
                 // failure part-way through (e.g. the operator model throwing) can never
                 // leave model/operatorModel as a pair inconsistent with
                 // configuration.hasSeparateOperatorModel() — the invariant the
                 // constructor enforces.
-                this.model = rebuiltModel;
-                this.operatorModel = rebuiltOperatorModel;
-                if (rebuiltOperatorModel != null) {
+                this.model = rebuilt.primary;
+                this.operatorModel = rebuilt.operator;
+                if (rebuilt.operator != null) {
                     LoggingUtils.getEvoLogger().info(
                             "* LLM: rebuilt {} client after stuck call (model={}, operatorModel={})",
                             configuration.getProvider(), configuration.getModel(), configuration.getOperatorModel());

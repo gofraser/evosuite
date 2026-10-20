@@ -118,12 +118,23 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
         }
         root.put("temperature", temperature);
         root.put("stream", false);
-        if (LlmService.usesMaxCompletionTokens(modelName)) {
+        if (usesMaxCompletionTokens(modelName)) {
             root.put("max_completion_tokens", maxTokens);
         } else {
             root.put("max_tokens", maxTokens);
         }
         return root.toString();
+    }
+
+    static boolean usesMaxCompletionTokens(String modelName) {
+        if (modelName == null || modelName.trim().isEmpty()) {
+            return false;
+        }
+        String name = modelName.trim().toLowerCase();
+        return name.startsWith("gpt-5")
+                || name.startsWith("o1")
+                || name.startsWith("o3")
+                || name.startsWith("o4");
     }
 
     private static String roleName(LlmMessage.Role role) {
