@@ -3079,12 +3079,12 @@ class TestRepairLoopTest {
     void normalizeErrorReplacesLineNumbers() {
         assertEquals(
                 "ERROR (line N): Failed at position N",
-                TestRepairLoop.normalizeError("ERROR (line 42): Failed at position 7"));
+                RepairConversation.normalizeError("ERROR (line 42): Failed at position 7"));
         assertEquals(
                 "ERROR (line N): something\nERROR (line N): other",
-                TestRepairLoop.normalizeError("ERROR (line 10): something\nERROR (line 20): other"));
-        assertEquals("", TestRepairLoop.normalizeError(null));
-        assertEquals("no numbers here", TestRepairLoop.normalizeError("no numbers here"));
+                RepairConversation.normalizeError("ERROR (line 10): something\nERROR (line 20): other"));
+        assertEquals("", RepairConversation.normalizeError(null));
+        assertEquals("no numbers here", RepairConversation.normalizeError("no numbers here"));
     }
 
     @Test
@@ -3102,7 +3102,7 @@ class TestRepairLoopTest {
 
     @Test
     void identicalErrorEscalationHintNamesActionsAndShadedMockSignal() {
-        String hintForShadedMock = TestRepairLoop.buildIdenticalErrorEscalationHint(
+        String hintForShadedMock = RepairConversation.buildIdenticalErrorEscalationHint(
                 "Execution error in test 'x': "
                         + "shaded.org.evosuite.runtime.mock.java.lang.MockIllegalStateException "
                         + "- Workspace is closed.");
@@ -3112,7 +3112,7 @@ class TestRepairLoopTest {
         assertTrue(hintForShadedMock.contains("Remove the test"));
         assertTrue(hintForShadedMock.contains(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "*"));
 
-        String hintForPlainError = TestRepairLoop.buildIdenticalErrorEscalationHint(
+        String hintForPlainError = RepairConversation.buildIdenticalErrorEscalationHint(
                 "Execution error in test 'x': java.lang.NullPointerException - foo");
         assertTrue(hintForPlainError.contains("STOP"));
         // No shaded-mock note when no such marker is present in the error.

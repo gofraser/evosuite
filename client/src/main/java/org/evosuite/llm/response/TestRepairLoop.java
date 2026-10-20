@@ -104,9 +104,6 @@ public class TestRepairLoop {
     private static final int MAX_FALLBACK_DIAGNOSTIC_CHARS = 1200;
     private static final int MAX_FALLBACK_DIAGNOSTICS = 2;
 
-    /** Pattern to normalize line numbers for fuzzy error comparison. */
-    private static final Pattern LINE_NUMBER_PATTERN = Pattern.compile(
-            "(?<=\\(line |line |Line )\\d+|(?<=position )\\d+");
     private static final Pattern NPE_NULL_VARIABLE_PATTERN = Pattern.compile(
             "because\\s+\"([^\"]+)\"\\s+is null");
     private static final Pattern NPE_CANNOT_INVOKE_PATTERN = Pattern.compile(
@@ -241,8 +238,7 @@ public class TestRepairLoop {
     private final RepairOptions repairOptions;
     private final DependencyCodeContextResolver dependencyCodeResolver = new DependencyCodeContextResolver();
     private final RepairHintResolver repairHintResolver = new RepairHintResolver();
-    private boolean expansionAttempted;
-    /** Signature summarizer for {@link #describedDependencyClasses}'s cluster-growth delta. */
+    /** Signature summarizer for the cluster-growth delta of a repair conversation. */
     private final TestClusterSummarizer dependencyGrowthSummarizer = new TestClusterSummarizer();
     /**
      * Test-only seam: overrides the {@code TestCluster.getInstance()} used to render
@@ -250,50 +246,6 @@ public class TestRepairLoop {
      * singleton that is awkward to control from a unit test.
      */
     private Supplier<TestCluster> testClusterSupplier = TestCluster::getInstance;
-    /**
-     * Classes whose dependency signatures have already been sent to the model this
-     * repair conversation (cluster-growth delta). Conversation-scoped like
-     * {@link #expansionAttempted}: reset per {@link #attemptParse} call, never static.
-     */
-    private final Set<String> describedDependencyClasses = new LinkedHashSet<>();
-    /** FQCNs whose static initializer has failed during this repair conversation. */
-    private final Set<String> poisonedClasses = new LinkedHashSet<>();
-    /** Hint-id -> last repair attempt where it was emitted, for cooldown/dedup. */
-    private final Map<String, Integer> hintLastShownAttemptById = new LinkedHashMap<>();
-    /**
-     * Access-violation tracking keys ("memberName:declaringClass") accumulated
-     * across repair attempts. Used to detect recurrent inaccessible-member
-     * errors and escalate to early termination.
-     */
-    private final Set<String> seenAccessViolations = new LinkedHashSet<>();
-
-    /**
-     * One-shot flag: set when the loop encounters an identical-error retry on
-     * a headless/AWT failure and decides to escalate (do not skip; instead
-     * inject a stronger "use Mockito.mock(SUT.class)" instruction). The next
-     * repair message includes the escalation hint, after which this flag stays
-     * true so we do not bypass the identical-error skip again in the same
-     * conversation.
-     */
-    private boolean headlessRepairEscalated;
-
-    /**
-     * One-shot flag: set when the loop encounters an identical-error retry
-     * that does not match any of the more specific escalation paths (headless,
-     * access-violation, dependency-missing). Allows exactly one more repair
-     * turn with a generic "the environment cannot satisfy this assumption,
-     * change the expected exception or drop the test" nudge prepended to the
-     * user message before falling back to abort.
-     */
-    private boolean identicalErrorEscalated;
-
-    /**
-     * Transient text injected at the top of the next repair user message. Used
-     * by escalation paths to communicate a single high-priority directive that
-     * must not be diluted by the rest of the rule-based hint blocks. Cleared
-     * after it is consumed so the same hint is not repeated on later turns.
-     */
-    private String pendingTopOfMessageEscalationHint;
 
     /**
      * Per-test execution failure: the formatted error string, the originating
@@ -572,17 +524,7 @@ public class TestRepairLoop {
         Map<String, ParseResult> salvagedExecutableTests = new LinkedHashMap<>();
         String currentResponse = llmResponse;
         int attemptsUsed = 0;
-        // Conversation-scoped state: any class poisoned in a previous turn must
-        // remain in the avoidance instructions, even when later turns surface
-        // different errors.
-        poisonedClasses.clear();
-        hintLastShownAttemptById.clear();
-        seenAccessViolations.clear();
-        headlessRepairEscalated = false;
-        identicalErrorEscalated = false;
-        pendingTopOfMessageEscalationHint = null;
-        expansionAttempted = false;
-        describedDependencyClasses.clear();
+        RepairConversation state = new RepairConversation();
         boolean observedExecutionDrop = false;
         boolean strictContractReaskUsed = false;
         // Candidates that failed at execution in any attempt. The LLM often
@@ -663,7 +605,7 @@ public class TestRepairLoop {
                 if (parseResults.isEmpty() && !parserFailures.isEmpty()) {
                     String parserFailureText = String.join("\n", parserFailures);
                     diagnostics.add(parserFailureText);
-                    String next = tryRepair(parserFailureText, attempt, previousError, diagnostics,
+                    String next = tryRepair(state, parserFailureText, attempt, previousError, diagnostics,
                             conversation, currentResponse, feature, expandedClasses,
                             Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
                             repairDeadlineNanos);
@@ -677,7 +619,7 @@ public class TestRepairLoop {
             } catch (Throwable parserFailure) {
                 String parserFailureText = "Parser failure: " + formatThrowable(parserFailure);
                 diagnostics.add(parserFailureText);
-                String next = tryRepair(parserFailureText, attempt, previousError, diagnostics,
+                String next = tryRepair(state, parserFailureText, attempt, previousError, diagnostics,
                         conversation, currentResponse, feature, expandedClasses,
                         Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
                         repairDeadlineNanos);
@@ -699,7 +641,7 @@ public class TestRepairLoop {
                     String strictContractError = buildStrictContractRepairRequest(
                             parseErrorText, extractedClassForDiagnostics);
                     diagnostics.add("Detected hard output-contract violation; issuing strict contract re-ask.");
-                    String next = tryStrictContractRepair(strictContractError, attempt, diagnostics,
+                    String next = tryStrictContractRepair(state, strictContractError, attempt, diagnostics,
                             conversation, currentResponse, feature, expandedClasses,
                             repairDeadlineNanos);
                     if (next == null) {
@@ -709,7 +651,7 @@ public class TestRepairLoop {
                     currentResponse = next;
                     continue;
                 }
-                String next = tryRepair(parseErrorText, attempt, previousError, diagnostics,
+                String next = tryRepair(state, parseErrorText, attempt, previousError, diagnostics,
                         conversation, currentResponse, feature, expandedClasses,
                         Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
                         repairDeadlineNanos);
@@ -748,7 +690,7 @@ public class TestRepairLoop {
                     return RepairResult.needsClusterExpansion(diagnostics, attemptsUsed, expandedClasses);
                 }
                 boolean expanded = false;
-                this.expansionAttempted = true;
+                state.markExpansionAttempted();
                 try {
                     expanded = clusterExpansionManager.tryExpandFrom(parseResults);
                 } catch (Throwable expansionFailure) {
@@ -868,7 +810,7 @@ public class TestRepairLoop {
                 observedExecutionDrop = true;
             }
 
-            String next = tryRepair(combinedError, attempt, previousError, diagnostics,
+            String next = tryRepair(state, combinedError, attempt, previousError, diagnostics,
                     conversation, currentResponse, feature, expandedClasses,
                     executionErrorByTest, repairDeadlineNanos);
             if (next == null) {
@@ -2138,7 +2080,8 @@ public class TestRepairLoop {
      * Sends a repair request and accumulates the conversation with the assistant's
      * previous response and the error feedback, so subsequent repairs have full context.
      */
-    private String requestRepair(List<LlmMessage> conversation,
+    private String requestRepair(RepairConversation state,
+                                 List<LlmMessage> conversation,
                                  String previousResponse,
                                  String error,
                                  LlmFeature feature,
@@ -2171,11 +2114,11 @@ public class TestRepairLoop {
         }
         // Build repair message with error + SUT context reminder
         StringBuilder repairMessage = new StringBuilder();
-        if (pendingTopOfMessageEscalationHint != null && !pendingTopOfMessageEscalationHint.isEmpty()) {
+        String priorityDirective = state.takePriorityDirective();
+        if (priorityDirective != null && !priorityDirective.isEmpty()) {
             repairMessage.append("=== PRIORITY DIRECTIVE ===\n")
-                         .append(pendingTopOfMessageEscalationHint)
+                         .append(priorityDirective)
                          .append("\n=== END PRIORITY DIRECTIVE ===\n\n");
-            pendingTopOfMessageEscalationHint = null;
         }
         if (!expandedClasses.isEmpty()) {
             repairMessage.append("Note: The test cluster has been expanded with newly resolved classes: ")
@@ -2185,15 +2128,13 @@ public class TestRepairLoop {
             // catalogue lives in the cached system message, render a bounded
             // signature delta here instead — once per class per conversation.
             if (Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT) {
-                Set<String> newlyDescribed = new LinkedHashSet<>(expandedClasses);
-                newlyDescribed.removeAll(describedDependencyClasses);
+                Set<String> newlyDescribed = state.takeUndescribedDependencyClasses(expandedClasses);
                 if (!newlyDescribed.isEmpty()) {
                     String growthDelta = ClusterGrowthDelta.render(dependencyGrowthSummarizer,
                             testClusterSupplier.get(), Properties.TARGET_CLASS, newlyDescribed);
                     if (growthDelta != null) {
                         repairMessage.append(growthDelta).append("\n\n");
                     }
-                    describedDependencyClasses.addAll(newlyDescribed);
                 }
             }
         }
@@ -2208,7 +2149,7 @@ public class TestRepairLoop {
                             + "GUI/network/plugin containers.");
         }
         appendInitializationFailureRepairInstructions(error, repairMessage);
-        appendHeadlessEscalationRepairInstructions(error, repairMessage);
+        appendHeadlessEscalationRepairInstructions(state, error, repairMessage);
         appendInstantiationFailureRepairInstructions(error, repairMessage);
         appendExpectationMismatchRepairInstructions(executionFailures, repairMessage);
         appendNpePreconditionRepairInstructions(error, executionFailures, repairMessage);
@@ -2219,7 +2160,7 @@ public class TestRepairLoop {
         appendReflectiveInvocationRepairInstructions(error, repairMessage);
         appendReflectiveAssertThrowsFallbackRepairInstructions(error, repairMessage);
         appendMissingMethodOnVariableRepairInstructions(error, repairMessage);
-        appendMemberAccessRepairInstructions(error, repairMessage);
+        appendMemberAccessRepairInstructions(state, error, repairMessage);
         appendFalsePositiveMockRepairInstructions(error, repairMessage);
         appendNoTestMethodsRepairInstructions(error, previousResponse, repairMessage);
         appendSpyUnsupportedRepairInstructions(error, repairMessage);
@@ -2228,8 +2169,8 @@ public class TestRepairLoop {
         appendNotAMockRepairInstructions(error, repairMessage);
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
         appendContextSpecificRepairFacts(error, previousResponse, repairMessage);
-        appendDependencyCodeContext(executionFailures, repairMessage);
-        appendRuleBasedRepairHints(error, executionFailures, repairAttempt, repairMessage);
+        appendDependencyCodeContext(state, executionFailures, repairMessage);
+        appendRuleBasedRepairHints(state, error, executionFailures, repairAttempt, repairMessage);
         // Include the bulk dependency-types catalog only on the first repair
         // turn (repairAttempt == 2 in the conversation numbering: 1 = initial
         // seed, 2 = first repair). On later turns the LLM already has it in
@@ -2249,8 +2190,7 @@ public class TestRepairLoop {
 
         conversation.add(LlmMessage.user(repairMessage.toString()));
 
-        boolean expanded = this.expansionAttempted;
-        this.expansionAttempted = false;
+        boolean expanded = state.takeExpansionAttempted();
         if (repairDeadlineNanos == NO_REPAIR_DEADLINE
                 || repairDeadlineNanos <= 0L) {
             return llmService.query(conversation, feature, repairAttempt,
@@ -2706,7 +2646,8 @@ public class TestRepairLoop {
         }
     }
 
-    private void appendMemberAccessRepairInstructions(String error, StringBuilder repairMessage) {
+    private void appendMemberAccessRepairInstructions(RepairConversation state, String error,
+                                                      StringBuilder repairMessage) {
         if (error == null || error.isEmpty()) {
             return;
         }
@@ -2724,14 +2665,7 @@ public class TestRepairLoop {
         for (AccessViolationDiagnosticParser.AccessViolation v : violations) {
             currentKeys.add(v.toTrackingKey());
         }
-        boolean hasRecurrent = false;
-        for (String key : currentKeys) {
-            if (seenAccessViolations.contains(key)) {
-                hasRecurrent = true;
-                break;
-            }
-        }
-        seenAccessViolations.addAll(currentKeys);
+        boolean hasRecurrent = state.recordAccessViolations(currentKeys);
 
         repairMessage.append("\n\nMember-access repair hint:");
         repairMessage.append("\n- The failing test directly accesses private or protected members (which are not "
@@ -2742,7 +2676,7 @@ public class TestRepairLoop {
         if (!violations.isEmpty()) {
             repairMessage.append("\n- Specifically inaccessible members detected:");
             for (AccessViolationDiagnosticParser.AccessViolation v : violations) {
-                if (hasRecurrent && seenAccessViolations.contains(v.toTrackingKey())) {
+                if (hasRecurrent && state.hasSeenAccessViolation(v.toTrackingKey())) {
                     // Escalation language for members that recurred across retries
                     repairMessage.append("\n  * CRITICAL (recurrent): You MUST NOT call `")
                             .append(v.getMemberName()).append("()` — it has ")
@@ -3332,7 +3266,8 @@ public class TestRepairLoop {
      *       rest of this run, so showing its source would only mislead the LLM.</li>
      * </ol>
      */
-    private void appendDependencyCodeContext(Map<ParseResult, ExecutionFailureContext> executionFailures,
+    private void appendDependencyCodeContext(RepairConversation state,
+                                             Map<ParseResult, ExecutionFailureContext> executionFailures,
                                              StringBuilder repairMessage) {
         if (!Properties.LLM_INCLUDE_DEPENDENCY_CODE_ON_REPAIR) {
             return;
@@ -3353,7 +3288,7 @@ public class TestRepairLoop {
                     case CLASS_INIT_FAILURE:
                     case CLASS_INIT_AFTERSHOCK:
                         if (analysis.getPoisonedClass() != null) {
-                            poisonedClasses.add(analysis.getPoisonedClass());
+                            state.recordPoisonedClass(analysis.getPoisonedClass());
                         }
                         break;
                     case DEP_MEMBER_FAILURE:
@@ -3368,11 +3303,11 @@ public class TestRepairLoop {
             }
         }
 
-        appendPoisonedClassAvoidance(repairMessage);
+        appendPoisonedClassAvoidance(state.getPoisonedClasses(), repairMessage);
         appendDependencyCodeExcerpt(depFrame, repairMessage);
     }
 
-    private void appendPoisonedClassAvoidance(StringBuilder repairMessage) {
+    private void appendPoisonedClassAvoidance(Set<String> poisonedClasses, StringBuilder repairMessage) {
         if (poisonedClasses.isEmpty()) {
             return;
         }
@@ -3418,7 +3353,8 @@ public class TestRepairLoop {
                 + "inputs to it.");
     }
 
-    private void appendRuleBasedRepairHints(String error,
+    private void appendRuleBasedRepairHints(RepairConversation state,
+                                            String error,
                                             Map<ParseResult, ExecutionFailureContext> executionFailures,
                                             int repairAttempt,
                                             StringBuilder repairMessage) {
@@ -3429,9 +3365,9 @@ public class TestRepairLoop {
         RepairHintResolver.Resolution resolution = repairHintResolver.resolve(
                 error,
                 throwables,
-                poisonedClasses,
+                state.getPoisonedClasses(),
                 repairAttempt,
-                hintLastShownAttemptById,
+                state.getHintLastShownAttempts(),
                 Properties.LLM_REPAIR_HINTS_MAX_PER_ATTEMPT,
                 Properties.LLM_REPAIR_HINTS_COOLDOWN_ATTEMPTS,
                 Properties.LLM_REPAIR_HINTS_ALWAYS_ON);
@@ -3451,7 +3387,7 @@ public class TestRepairLoop {
         repairMessage.append("\n\nTargeted repair hints:");
         for (RepairHintRule hint : resolution.getHints()) {
             repairMessage.append("\n- ").append(hint.getText());
-            hintLastShownAttemptById.put(hint.getId(), repairAttempt);
+            state.recordHintShown(hint.getId(), repairAttempt);
         }
     }
 
@@ -3499,8 +3435,9 @@ public class TestRepairLoop {
      * gentler guidance has already failed; the LLM is stuck on a SUT it cannot
      * construct in this JVM. Tell it explicitly to drop the constructor.
      */
-    private void appendHeadlessEscalationRepairInstructions(String error, StringBuilder repairMessage) {
-        if (!headlessRepairEscalated || !containsHeadlessGuiSignal(error)) {
+    private void appendHeadlessEscalationRepairInstructions(RepairConversation state, String error,
+                                                            StringBuilder repairMessage) {
+        if (!state.isHeadlessRepairEscalated() || !containsHeadlessGuiSignal(error)) {
             return;
         }
         String sut = Properties.TARGET_CLASS;
@@ -3524,7 +3461,7 @@ public class TestRepairLoop {
                         + "zero executable tests.");
     }
 
-    private boolean containsHeadlessGuiSignal(String error) {
+    static boolean containsHeadlessGuiSignal(String error) {
         if (error == null || error.isEmpty()) {
             return false;
         }
@@ -4083,129 +4020,12 @@ public class TestRepairLoop {
     }
 
     /**
-     * Returns true if the error should not be sent to the LLM for repair
-     * (either because it is an environment-level error that the LLM cannot fix,
-     * or because it is identical to the previous error, indicating a stuck loop).
-     */
-    private boolean shouldSkipRepair(String error, String previousError, List<String> diagnostics) {
-        if (isUnfixableError(error)) {
-            logger.info("Aborting repair: unfixable environment error detected: {}", error);
-            diagnostics.add("Skipped repair: unfixable environment error");
-            return true;
-        }
-        if (previousError != null && normalizeError(previousError).equals(normalizeError(error))) {
-            if (isDependencyMissingError(error)) {
-                logger.info("Aborting repair: dependency-missing error persisted after targeted guidance: {}", error);
-                diagnostics.add("Skipped repair: dependency-missing error persisted");
-                return true;
-            }
-            // Headless escalation: when the LLM keeps producing tests that crash on
-            // AWT/Swing initialization, the diagnostics fed back to it usually
-            // describe downstream NPEs (because the parser elided the GUI ctor with
-            // a typed null), not the original headless error. Give the LLM one more
-            // turn with an explicit "use Mockito.mock(SUT.class)" instruction
-            // before bailing out.
-            if (!headlessRepairEscalated && containsHeadlessGuiSignal(error)) {
-                headlessRepairEscalated = true;
-                logger.info("Continuing repair with headless escalation hint after identical-error retry: {}", error);
-                diagnostics.add("Continuing repair: headless escalation hint injected for identical-error retry");
-                return false;
-            }
-            // Generic identical-error escalation: the LLM has produced essentially
-            // the same source as last turn (same normalized error). Before
-            // bailing out, give it exactly one more turn with a strong, top-of-
-            // message directive to either change the expected exception class
-            // to what was actually observed or drop the test entirely.
-            if (!identicalErrorEscalated) {
-                identicalErrorEscalated = true;
-                pendingTopOfMessageEscalationHint = buildIdenticalErrorEscalationHint(error);
-                logger.info("Continuing repair with identical-error escalation hint: {}", error);
-                diagnostics.add("Continuing repair: identical-error escalation hint injected");
-                return false;
-            }
-            logger.info("Aborting repair: equivalent error on consecutive attempts: {}", error);
-            diagnostics.add("Skipped repair: identical error repeated");
-            return true;
-        }
-        // Escalation: if every access violation in the current error has already
-        // been reported in a previous attempt, the LLM is stuck retrying the same
-        // inaccessible members — stop the loop.
-        if (hasOnlyRecurrentAccessViolations(error)) {
-            logger.info("Aborting repair: all access violations are recurrent: {}", error);
-            diagnostics.add("Skipped repair: recurrent access violations");
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Returns true when the error contains access-violation diagnostics and
-     * every single one has already been seen in a previous repair attempt.
-     * This detects the pattern where the LLM keeps retrying the same
-     * inaccessible members despite being told they are off-limits.
-     */
-    private boolean hasOnlyRecurrentAccessViolations(String error) {
-        if (!AccessViolationDiagnosticParser.containsAccessViolation(error)) {
-            return false;
-        }
-        Set<String> currentKeys = AccessViolationDiagnosticParser.extractTrackingKeys(error);
-        if (currentKeys.isEmpty()) {
-            return false;
-        }
-        // All current violations must have been seen before
-        return seenAccessViolations.containsAll(currentKeys);
-    }
-
-    /**
-     * Builds the one-shot top-of-message escalation hint sent on the bonus
-     * turn after the LLM produced an identical normalized error. The text is
-     * intentionally generic: it tells the LLM that the previous repair did not
-     * change the failure, so the previous response was effectively the same
-     * source, and that on this turn it must either change the assertThrows
-     * expectation to whatever was actually observed or drop the offending
-     * tests entirely.
-     */
-    static String buildIdenticalErrorEscalationHint(String error) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("STOP: identical failure repeated.\n");
-        sb.append("Your previous repair produced the same normalized error as the turn before.\n");
-        sb.append("That means the test source for the failing tests is effectively unchanged.\n");
-        sb.append("Do NOT submit another response that tweaks the same tests in the same shape.\n");
-        sb.append("On this turn you MUST do one of the following for every failing test:\n");
-        sb.append("  1) Change the assertThrows expectation to the EXACT exception class observed\n");
-        sb.append("     at runtime (look at \"actual=...\" in the failure list above).\n");
-        sb.append("  2) Replace the test with a different one that does NOT reach the failing call\n");
-        sb.append("     (e.g. exercise a different SUT method, constructor, or pure-logic path).\n");
-        sb.append("  3) Remove the test from the class entirely.\n");
-        if (errorMentionsMockRuntimeException(error)) {
-            sb.append("Note: the failure list mentions an exception under ")
-                    .append(MOCK_RUNTIME_PACKAGE_PREFIX).append("*.\n");
-            sb.append("That is the EvoSuite mock harness, not the SUT, and it is unavoidable in this\n");
-            sb.append("environment for any test reaching that call site. Treat it as ground truth.\n");
-        }
-        sb.append("Returning the same tests with cosmetic changes (renamed locals, reordered imports)\n");
-        sb.append("will be rejected as no progress.");
-        return sb.toString();
-    }
-
-    /**
-     * Normalizes an error string for fuzzy comparison by replacing line numbers
-     * with a placeholder, so that the same logical error at different positions
-     * is recognized as a stuck loop.
-     */
-    static String normalizeError(String error) {
-        if (error == null) {
-            return "";
-        }
-        return LINE_NUMBER_PATTERN.matcher(error).replaceAll("N");
-    }
-
-    /**
      * Returns the LLM's repair response, or {@code null} if the repair loop
      * should stop. Stop conditions: the attempt budget is exhausted, the error
      * is unfixable / a repeat, or the repair request itself failed.
      */
-    private String tryRepair(String errorText,
+    private String tryRepair(RepairConversation state,
+                             String errorText,
                              int attempt,
                              String previousError,
                              List<String> diagnostics,
@@ -4215,19 +4035,20 @@ public class TestRepairLoop {
                              List<String> expandedClasses,
                              Map<ParseResult, ExecutionFailureContext> executionFailures,
                              long repairDeadlineNanos) {
-        if (attempt == maxAttempts || shouldSkipRepair(errorText, previousError, diagnostics)) {
+        if (attempt == maxAttempts || state.shouldSkipRepair(errorText, previousError, diagnostics)) {
             return null;
         }
         if (!hasTimeForAnotherRepairRequest(repairDeadlineNanos)) {
             diagnostics.add("Skipped repair: sync deadline too close; returning partial/salvaged tests if available");
             return null;
         }
-        return requestRepairSafely(conversation, currentResponse, errorText,
+        return requestRepairSafely(state, conversation, currentResponse, errorText,
                 feature, expandedClasses, diagnostics, attempt + 2,
                 executionFailures, repairDeadlineNanos);
     }
 
-    private String tryStrictContractRepair(String errorText,
+    private String tryStrictContractRepair(RepairConversation state,
+                                           String errorText,
                                            int attempt,
                                            List<String> diagnostics,
                                            List<LlmMessage> conversation,
@@ -4243,7 +4064,7 @@ public class TestRepairLoop {
                     + "if available");
             return null;
         }
-        return requestRepairSafely(conversation, currentResponse, errorText,
+        return requestRepairSafely(state, conversation, currentResponse, errorText,
                 feature, expandedClasses, diagnostics, attempt + 2,
                 Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
                 repairDeadlineNanos);
@@ -4259,7 +4080,8 @@ public class TestRepairLoop {
         return remainingNanos > minRepairCallNanos + REPAIR_DEADLINE_RETURN_MARGIN_NANOS;
     }
 
-    private String requestRepairSafely(List<LlmMessage> conversation,
+    private String requestRepairSafely(RepairConversation state,
+                                       List<LlmMessage> conversation,
                                        String previousResponse,
                                        String error,
                                        LlmFeature feature,
@@ -4269,7 +4091,7 @@ public class TestRepairLoop {
                                        Map<ParseResult, ExecutionFailureContext> executionFailures,
                                        long repairDeadlineNanos) {
         try {
-            return requestRepair(conversation, previousResponse, error, feature,
+            return requestRepair(state, conversation, previousResponse, error, feature,
                     expandedClasses, repairAttempt, executionFailures,
                     repairDeadlineNanos);
         } catch (Throwable repairFailure) {
