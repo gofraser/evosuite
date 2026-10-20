@@ -1968,6 +1968,7 @@ public class TestCodeVisitor extends TestVisitor {
         StringBuilder builder = new StringBuilder();
 
         VariableReference retval = statement.getReturnValue();
+        String localName = getDeclarationVariableName(retval);
         GenericField field = statement.getField();
         boolean needsCast = !retval.isAssignableFrom(field.getFieldType())
                 || isFieldReadErasedByRawReceiver(field.getField(), statement.getSource(),
@@ -1991,7 +1992,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (exception != null) {
             builder.append(declarationTypeName(retval, statement));
             builder.append(" ");
-            builder.append(getVariableName(retval));
+            builder.append(localName);
             // A primitive field (boolean flag = PropsValues.FLAG) cannot be pre-declared as null.
             builder.append(" = ").append(retval.isPrimitive() ? retval.getDefaultValueString() : "null")
                     .append(";");
@@ -2005,11 +2006,11 @@ public class TestCodeVisitor extends TestVisitor {
         }
         if (!field.isStatic()) {
             VariableReference source = statement.getSource();
-            builder.append(getVariableName(retval));
+            builder.append(localName);
             builder.append(" = ");
             builder.append(getFieldAccess(field.getField(), source, castTypeName, needsCast));
         } else {
-            builder.append(getVariableName(retval));
+            builder.append(localName);
             builder.append(" = ");
             builder.append(getFieldAccess(field.getField(), null, castTypeName, needsCast));
         }
@@ -2022,7 +2023,7 @@ public class TestCodeVisitor extends TestVisitor {
             builder.append(NEWLINE);
             builder.append("} catch(");
             builder.append(getClassName(ex));
-            builder.append(" e) {}");
+            builder.append(" ").append(chooseFreshCatchVariableName()).append(") {}");
         }
         builder.append(NEWLINE);
 
