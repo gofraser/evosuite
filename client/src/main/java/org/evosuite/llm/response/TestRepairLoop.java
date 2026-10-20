@@ -1527,37 +1527,17 @@ public class TestRepairLoop {
         ImportCollector importCollector = new ImportCollector(sb);
         appendUniqueImportLines(importCollector, adapter.getImports());
 
+        // The names as this build of EvoSuite sees them, relocated in the shaded jar.
         String mockitoCanonical = org.mockito.Mockito.class.getCanonicalName();
-        if (mockitoCanonical != null) {
-            importCollector.append("import " + mockitoCanonical + ";");
-            importCollector.append("import static " + mockitoCanonical + ".*;");
-        } else {
-            importCollector.append("import org.mockito.Mockito;");
-            importCollector.append("import static org.mockito.Mockito.*;");
-        }
-
+        importCollector.append("import " + mockitoCanonical + ";");
+        importCollector.append("import static " + mockitoCanonical + ".*;");
         String matchersCanonical = org.mockito.ArgumentMatchers.class.getCanonicalName();
-        if (matchersCanonical != null) {
-            importCollector.append("import " + matchersCanonical + ";");
-            importCollector.append("import static " + matchersCanonical + ".*;");
-        } else {
-            importCollector.append("import org.mockito.ArgumentMatchers;");
-            importCollector.append("import static org.mockito.ArgumentMatchers.*;");
-        }
-
-        String evoAssertionsCanonical = org.evosuite.runtime.EvoAssertions.class.getCanonicalName();
-        if (evoAssertionsCanonical != null && evoAssertionsCanonical.startsWith("shaded.")) {
-            importCollector.append("import static " + evoAssertionsCanonical + ".*;");
-        } else {
-            importCollector.append("import static org.evosuite.runtime.EvoAssertions.*;");
-        }
-
-        String vaaCanonical = org.evosuite.runtime.ViolatedAssumptionAnswer.class.getCanonicalName();
-        if (vaaCanonical != null && vaaCanonical.startsWith("shaded.")) {
-            importCollector.append("import " + vaaCanonical + ";");
-        } else {
-            importCollector.append("import org.evosuite.runtime.ViolatedAssumptionAnswer;");
-        }
+        importCollector.append("import " + matchersCanonical + ";");
+        importCollector.append("import static " + matchersCanonical + ".*;");
+        importCollector.append("import static "
+                + org.evosuite.runtime.EvoAssertions.class.getCanonicalName() + ".*;");
+        importCollector.append("import "
+                + org.evosuite.runtime.ViolatedAssumptionAnswer.class.getCanonicalName() + ";");
         
         sb.append("import java.lang.reflect.Field;\n");
         sb.append("import java.lang.reflect.Method;\n");
