@@ -30,9 +30,11 @@ import java.util.function.LongSupplier;
  *
  * <p>{@link Properties#LLM_TIMEOUT_SECONDS} is the per-call HTTP timeout used
  * by {@code LlmService.query()}. A repair-capable producer may issue up to
- * {@code 1 + LLM_REPAIR_ATTEMPTS} LLM calls per parse attempt, so any
- * orchestrator waiting on its completion should budget
- * {@code LLM_TIMEOUT_SECONDS × (LLM_REPAIR_ATTEMPTS + 1)} seconds at worst.
+ * {@code 1 + LLM_REPAIR_ATTEMPTS} LLM calls per parse attempt, and each call
+ * may be tried {@code 1 + LLM_RETRY_MAX_ATTEMPTS} times with a backoff before
+ * every retry. An orchestrator waiting on its completion should therefore
+ * budget {@code (LLM_REPAIR_ATTEMPTS + 1)} times the worst case of one call:
+ * {@code LLM_TIMEOUT_SECONDS × (LLM_RETRY_MAX_ATTEMPTS + 1)} plus the backoffs.
  *
  * <p>The clamped variants additionally cap the wait at a caller-supplied
  * remaining-budget value (e.g. the search-phase remaining time), so a slow
@@ -52,16 +54,42 @@ public final class LlmWaitBudget {
      * outside an active search phase (pre-search smoke, tests).
      */
     public static long repairAwareWaitSeconds() {
-        long timeout = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS);
-        long attempts = Math.max(0L, Properties.LLM_REPAIR_ATTEMPTS);
-        return Math.max(1L, saturatingMultiply(timeout, attempts + 1L));
+        long millis = repairAwareWaitMillis();
+        if (millis == Long.MAX_VALUE) {
+            return Long.MAX_VALUE / 1000L;
+        }
+        return Math.max(1L, (millis + 999L) / 1000L);
     }
 
     /**
      * Worst-case wall-clock wait in milliseconds, unclamped.
      */
     public static long repairAwareWaitMillis() {
-        return saturatingMultiply(repairAwareWaitSeconds(), 1000L);
+        long attempts = Math.max(0L, Properties.LLM_REPAIR_ATTEMPTS);
+        long perCall = saturatingMultiply(worstCaseCallMillis(), attempts + 1L);
+        return Math.max(1000L, perCall);
+    }
+
+    /**
+     * Worst case for one {@code LlmService} call: every try runs into the
+     * timeout, and every retry is preceded by its (jittered, capped) backoff.
+     */
+    private static long worstCaseCallMillis() {
+        long timeoutMillis = saturatingMultiply(Math.max(1L, Properties.LLM_TIMEOUT_SECONDS), 1000L);
+        long retries = Math.max(0L, Properties.LLM_RETRY_MAX_ATTEMPTS);
+        long total = saturatingAdd(timeoutMillis, saturatingMultiply(timeoutMillis, retries));
+        long baseDelay = Math.max(1L, Properties.LLM_RETRY_BASE_DELAY_MS);
+        for (long retry = 1; retry <= retries && total < Long.MAX_VALUE; retry++) {
+            // Mirrors LlmService.sleepBackoff: base * 2^(retry-1), up to +20% jitter, 60 s cap.
+            long exponent = Math.min(retry - 1L, 20L);
+            long delay = Math.min(60_000L, baseDelay * (1L << exponent) * 6L / 5L);
+            total = saturatingAdd(total, delay);
+            if (delay == 60_000L) {
+                total = saturatingAdd(total, saturatingMultiply(60_000L, retries - retry));
+                break;
+            }
+        }
+        return total;
     }
 
     /**
@@ -98,6 +126,10 @@ public final class LlmWaitBudget {
             return derived;
         }
         return Math.max(1L, Math.min(derived, remaining));
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
     }
 
     private static long saturatingMultiply(long left, long right) {

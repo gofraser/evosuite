@@ -1897,9 +1897,10 @@ public class Properties {
             description = "Per-LLM-call HTTP timeout in seconds (applies to one request to the model). "
                     + "Orchestrator-level waits for repair-capable producers (initial seeding, pool enrichment, "
                     + "stagnation injection, single-prompt strategy) are derived as "
-                    + "llm_timeout_seconds * (llm_repair_attempts + 1) via LlmWaitBudget, then clamped to the "
-                    + "remaining search budget. To change the per-call cap, change this; to change the orchestrator "
-                    + "wait, change llm_repair_attempts.")
+                    + "llm_timeout_seconds * (llm_retry_max_attempts + 1) plus the retry backoffs, times "
+                    + "(llm_repair_attempts + 1), via LlmWaitBudget, then clamped to the remaining search budget. "
+                    + "To change the per-call cap, change this; to change the orchestrator wait, change "
+                    + "llm_repair_attempts or llm_retry_max_attempts.")
     @IntValue(min = 1)
     public static int LLM_TIMEOUT_SECONDS = 60;
 

@@ -30,17 +30,56 @@ class LlmWaitBudgetTest {
 
     private int savedTimeout;
     private int savedAttempts;
+    private int savedRetries;
+    private int savedBaseDelay;
 
     @BeforeEach
     void snapshotProperties() {
         savedTimeout = Properties.LLM_TIMEOUT_SECONDS;
         savedAttempts = Properties.LLM_REPAIR_ATTEMPTS;
+        savedRetries = Properties.LLM_RETRY_MAX_ATTEMPTS;
+        savedBaseDelay = Properties.LLM_RETRY_BASE_DELAY_MS;
+        // The tests below isolate the repair multiplier; retries have their own tests.
+        Properties.LLM_RETRY_MAX_ATTEMPTS = 0;
     }
 
     @AfterEach
     void restoreProperties() {
         Properties.LLM_TIMEOUT_SECONDS = savedTimeout;
         Properties.LLM_REPAIR_ATTEMPTS = savedAttempts;
+        Properties.LLM_RETRY_MAX_ATTEMPTS = savedRetries;
+        Properties.LLM_RETRY_BASE_DELAY_MS = savedBaseDelay;
+    }
+
+    @Test
+    void retriesAndBackoffExtendTheWorstCaseOfOneCall() {
+        Properties.LLM_TIMEOUT_SECONDS = 60;
+        Properties.LLM_REPAIR_ATTEMPTS = 0;
+        Properties.LLM_RETRY_MAX_ATTEMPTS = 2;
+        Properties.LLM_RETRY_BASE_DELAY_MS = 250;
+        // Three attempts of 60 s plus at most 300 ms and 600 ms of backoff (20% jitter),
+        // rounded up to whole seconds.
+        assertEquals(181L, LlmWaitBudget.repairAwareWaitSeconds());
+        assertEquals(180_900L, LlmWaitBudget.repairAwareWaitMillis());
+    }
+
+    @Test
+    void retryBudgetIsPaidOncePerRepairCall() {
+        Properties.LLM_TIMEOUT_SECONDS = 10;
+        Properties.LLM_REPAIR_ATTEMPTS = 1;
+        Properties.LLM_RETRY_MAX_ATTEMPTS = 1;
+        Properties.LLM_RETRY_BASE_DELAY_MS = 1000;
+        // Per call: 2 x 10 s + 1.2 s backoff; two calls.
+        assertEquals(2 * 21_200L, LlmWaitBudget.repairAwareWaitMillis());
+    }
+
+    @Test
+    void backoffOfASingleRetryIsCappedAtOneMinute() {
+        Properties.LLM_TIMEOUT_SECONDS = 1;
+        Properties.LLM_REPAIR_ATTEMPTS = 0;
+        Properties.LLM_RETRY_MAX_ATTEMPTS = 1;
+        Properties.LLM_RETRY_BASE_DELAY_MS = 1_000_000;
+        assertEquals(2_000L + 60_000L, LlmWaitBudget.repairAwareWaitMillis());
     }
 
     @Test
