@@ -158,6 +158,23 @@ public class InnerClassOwnerCompileTest {
         assertCompiles(tc);
     }
 
+    @Test
+    public void testNextThroughInnerDeclaredAgainstTheEnclosingInstanceCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference outer = addOuter(tc, TypeUtils.parameterize(Outer.class, String.class));
+        Type modelOwner = TypeUtils.parameterizeWithOwner(
+                TypeUtils.parameterize(Outer.class, Integer.class), Outer.Inner.class);
+        VariableReference inner = addInner(tc, modelOwner, outer);
+        GenericMethod next = new GenericMethod(Outer.Inner.class.getMethod("next"), modelOwner);
+        VariableReference element = tc.addStatement(
+                new MethodStatement(tc, next, inner, Arrays.asList()));
+        GenericMethod use = new GenericMethod(
+                InnerClassOwnerCompileTest.class.getMethod("use", Integer.class),
+                InnerClassOwnerCompileTest.class);
+        tc.addStatement(new MethodStatement(tc, use, null, Arrays.asList(element)));
+        assertCompiles(tc);
+    }
+
     /**
      * The enclosing instance's class only inherits the outer's type arguments
      * (Derived extends Outer&lt;String&gt;); a model owner of Outer&lt;Integer&gt;.Inner

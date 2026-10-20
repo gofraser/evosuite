@@ -1275,9 +1275,31 @@ class CastPolicy {
                         && isDeclaredTypeNameableInGeneratedTest(declaringClass)) {
                     return rawIfOutsideOfBounds(constructor.getOwnerType());
                 }
+                // An inner class whose model owner disagrees with the enclosing instance is
+                // declared raw, and javac erases the members of a raw inner class.
+                if (constructor.getOwnerType() instanceof ParameterizedType
+                        && isInnerClassOfGenericClass(declaringClass)
+                        && isDeclaredTypeNameableInGeneratedTest(declaringClass)
+                        && withEnclosingInstanceOwner(constructor.getOwnerType(),
+                        ((ConstructorStatement) definition).getParameterReferences().get(0))
+                        instanceof Class<?>) {
+                    return declaringClass;
+                }
             }
         }
         return callee.getType();
+    }
+
+    /** Whether {@code type} is a non-static member of a class with type parameters, at any depth. */
+    private static boolean isInnerClassOfGenericClass(Class<?> type) {
+        Class<?> current = type;
+        while (current.isMemberClass() && !Modifier.isStatic(current.getModifiers())) {
+            current = current.getDeclaringClass();
+            if (current.getTypeParameters().length > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1594,6 +1616,13 @@ class CastPolicy {
                     || (!(receiver instanceof FieldReference) && !(receiver instanceof ArrayIndex)
                     && declaredVariableType(host.test() != null ? host.test() : receiver.getTestCase(),
                             host.normalizeVariableReference(receiver)) instanceof Class<?>);
+        }
+        // Outer.Inner without the outer's type arguments is a raw type as well.
+        if (isInnerClassOfGenericClass(receiverClass)
+                && !(receiver instanceof FieldReference) && !(receiver instanceof ArrayIndex)
+                && declaredVariableType(host.test() != null ? host.test() : receiver.getTestCase(),
+                        host.normalizeVariableReference(receiver)) instanceof Class<?>) {
+            return true;
         }
         if (declaringClass.getTypeParameters().length == 0
                 || !declaringClass.isAssignableFrom(receiverClass)) {
