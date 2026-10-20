@@ -285,41 +285,4 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
         int decayed = (int) Math.ceil(base * Math.pow(decay, Math.max(0, age)));
         return Math.max(floor, decayed);
     }
-
-    @Override
-    public List<TestChromosome> balanceParentPool(
-            List<TestChromosome> population,
-            Map<Integer, List<TestChromosome>> speciesMap) {
-
-        if (!Properties.SPECIES_BALANCE_PARENT_SELECTION || speciesMap.size() <= 1) {
-            // Always return a defensive copy so callers doing clear+addAll are safe
-            return new ArrayList<>(population);
-        }
-
-        // Round-robin across species to build a balanced pool
-        int targetSize = population.size();
-        List<TestChromosome> balanced = new ArrayList<>(targetSize);
-        List<List<TestChromosome>> speciesLists = new ArrayList<>(speciesMap.values());
-
-        int maxLen = 0;
-        for (List<TestChromosome> members : speciesLists) {
-            maxLen = Math.max(maxLen, members.size());
-        }
-
-        outer:
-        for (int i = 0; i < maxLen; i++) {
-            for (List<TestChromosome> members : speciesLists) {
-                if (balanced.size() >= targetSize) {
-                    break outer;
-                }
-                if (i < members.size()) {
-                    balanced.add(members.get(i));
-                }
-            }
-        }
-
-        logger.debug("Balanced parent pool: {} individuals from {} species",
-                balanced.size(), speciesLists.size());
-        return balanced;
-    }
 }

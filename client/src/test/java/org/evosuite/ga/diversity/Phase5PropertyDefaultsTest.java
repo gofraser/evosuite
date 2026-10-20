@@ -67,7 +67,6 @@ class Phase5PropertyDefaultsTest {
         assertEquals(0.6, Properties.SPECIES_INCUBATOR_QUOTA_DECAY, 1e-9);
         assertTrue(Properties.SPECIES_INCUBATOR_ONLY_LLM_STAGNATION);
         assertTrue(Properties.SPECIES_FITNESS_SHARING_ENABLED);
-        assertFalse(Properties.SPECIES_BALANCE_PARENT_SELECTION);
         assertFalse(Properties.SPECIES_RESTRICT_MATING);
         assertTrue(Properties.SPECIES_TIMELINE_ENABLED);
         assertFalse(Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED);

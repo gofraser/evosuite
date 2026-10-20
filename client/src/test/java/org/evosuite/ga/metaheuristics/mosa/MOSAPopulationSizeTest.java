@@ -48,7 +48,6 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
 
     private int savedPopulation;
     private boolean savedSpeciationEnabled;
-    private boolean savedBalanceParentSelection;
     private double savedSurvivalCap;
     private boolean savedTimelineEnabled;
     private boolean savedTrackWhenSpeciationDisabled;
@@ -58,7 +57,6 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
     void saveProperties() {
         savedPopulation = Properties.POPULATION;
         savedSpeciationEnabled = Properties.SPECIATION_ENABLED;
-        savedBalanceParentSelection = Properties.SPECIES_BALANCE_PARENT_SELECTION;
         savedSurvivalCap = Properties.SPECIES_SURVIVAL_CAP;
         savedTimelineEnabled = Properties.SPECIES_TIMELINE_ENABLED;
         savedTrackWhenSpeciationDisabled = Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED;
@@ -69,7 +67,6 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
     void restoreProperties() {
         Properties.POPULATION = savedPopulation;
         Properties.SPECIATION_ENABLED = savedSpeciationEnabled;
-        Properties.SPECIES_BALANCE_PARENT_SELECTION = savedBalanceParentSelection;
         Properties.SPECIES_SURVIVAL_CAP = savedSurvivalCap;
         Properties.SPECIES_TIMELINE_ENABLED = savedTimelineEnabled;
         Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED = savedTrackWhenSpeciationDisabled;
@@ -83,7 +80,6 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
     @Test
     void front0LargerThanTargetPreservesAllFront0Members() {
         Properties.SPECIATION_ENABLED = true;
-        Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
         Properties.SPECIES_SURVIVAL_CAP = 1.0;
         Properties.SPECIES_TIMELINE_ENABLED = false;
         Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;
@@ -118,7 +114,6 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
     @Test
     void front0SmallerThanTargetFillsRemainingSlots() {
         Properties.SPECIATION_ENABLED = true;
-        Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
         Properties.SPECIES_SURVIVAL_CAP = 1.0;
         Properties.SPECIES_TIMELINE_ENABLED = false;
         Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;
@@ -153,7 +148,6 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
     @Test
     void front0ExactlyEqualsTargetProducesExactSize() {
         Properties.SPECIATION_ENABLED = true;
-        Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
         Properties.SPECIES_SURVIVAL_CAP = 1.0;
         Properties.SPECIES_TIMELINE_ENABLED = false;
         Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;
@@ -177,7 +171,6 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
     @Test
     void populationSizeIsDeterministic() {
         Properties.SPECIATION_ENABLED = true;
-        Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
         Properties.SPECIES_SURVIVAL_CAP = 1.0;
         Properties.SPECIES_TIMELINE_ENABLED = false;
         Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;
@@ -251,7 +244,6 @@ class MOSAPopulationSizeTest extends MosaTestSupport {
     @Test
     void speciationFailureFallbackStillPreservesFront0() {
         Properties.SPECIATION_ENABLED = true;
-        Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
         Properties.SPECIES_SURVIVAL_CAP = 1.0;
         Properties.SPECIES_TIMELINE_ENABLED = true;
         Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;

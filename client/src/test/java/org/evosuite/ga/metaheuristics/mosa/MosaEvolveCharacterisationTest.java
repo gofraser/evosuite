@@ -336,7 +336,6 @@ class MosaEvolveCharacterisationTest extends MosaTestSupport {
         Randomness.setSeed(42L);
         // survivors are not cut by the species cap, as in MOSAPopulationSizeTest
         Properties.SPECIES_SURVIVAL_CAP = 1.0;
-        Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
         Properties.SPECIES_TIMELINE_ENABLED = false;
         Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;
     }

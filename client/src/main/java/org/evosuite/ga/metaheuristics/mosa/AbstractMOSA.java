@@ -1423,15 +1423,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
                 emitSpeciesTimeline(effectiveSpeciesMap);
 
-                if (Properties.SPECIES_BALANCE_PARENT_SELECTION) {
-                    Map<Integer, List<TestChromosome>> survivingSpecies =
-                            speciesAssigner.groupBySpecies(this.population);
-                    List<TestChromosome> balanced =
-                            speciesPolicy.balanceParentPool(this.population, survivingSpecies);
-                    this.population.clear();
-                    this.population.addAll(balanced);
-                }
-
                 ensureFront0Preserved(front0, effectiveTarget);
                 this.currentSpeciesMap = speciesAssigner.groupBySpecies(this.population);
                 if (Properties.SPECIES_INCUBATOR_ENABLED && !this.currentSpeciesMap.isEmpty()) {

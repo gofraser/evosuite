@@ -57,17 +57,6 @@ public interface SpeciesPolicy {
             SpeciesProtectionStats stats);
 
     /**
-     * Optionally balance parent selection pool across species.
-     *
-     * @param population  the current population
-     * @param speciesMap  species assignment
-     * @return a balanced selection pool (may be the same as input if balancing is disabled)
-     */
-    List<TestChromosome> balanceParentPool(
-            List<TestChromosome> population,
-            Map<Integer, List<TestChromosome>> speciesMap);
-
-    /**
      * Adjust crowding-distance-like density scores inside a front to penalize
      * crowded species (fitness sharing). Implementations may leave the front
      * unchanged when sharing is disabled.

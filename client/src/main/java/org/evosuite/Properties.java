@@ -3019,10 +3019,6 @@ public class Properties {
             description = "If true, apply species-density fitness sharing in crowding tie-breaking")
     public static boolean SPECIES_FITNESS_SHARING_ENABLED = true;
 
-    @Parameter(key = "species_balance_parent_selection", group = "Speciation",
-            description = "If true, balance parent selection across species to promote diversity")
-    public static boolean SPECIES_BALANCE_PARENT_SELECTION = false;
-
     @Parameter(key = "species_restrict_mating", group = "Speciation",
             description = "If true, restrict crossover pairing so the second parent is selected "
                     + "from the same species as the first parent")

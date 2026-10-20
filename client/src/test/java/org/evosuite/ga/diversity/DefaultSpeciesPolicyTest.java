@@ -146,71 +146,6 @@ class DefaultSpeciesPolicyTest {
     }
 
     @Test
-    void balanceParentPoolDisabledReturnsSafeCopy() {
-        boolean prev = Properties.SPECIES_BALANCE_PARENT_SELECTION;
-        try {
-            Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
-            List<TestChromosome> pop = makeChromosomes(6);
-            Map<Integer, List<TestChromosome>> speciesMap = new LinkedHashMap<>();
-            speciesMap.put(0, pop.subList(0, 3));
-            speciesMap.put(1, pop.subList(3, 6));
-
-            List<TestChromosome> result = policy.balanceParentPool(pop, speciesMap);
-            // Must be a safe copy (not same reference) to prevent population wipe
-            assertNotSame(pop, result);
-            assertEquals(pop, result);
-        } finally {
-            Properties.SPECIES_BALANCE_PARENT_SELECTION = prev;
-        }
-    }
-
-    @Test
-    void balanceParentPoolRoundRobins() {
-        boolean prev = Properties.SPECIES_BALANCE_PARENT_SELECTION;
-        try {
-            Properties.SPECIES_BALANCE_PARENT_SELECTION = true;
-            List<TestChromosome> s0 = makeChromosomes(3);
-            List<TestChromosome> s1 = makeChromosomes(3);
-            List<TestChromosome> all = new ArrayList<>();
-            all.addAll(s0);
-            all.addAll(s1);
-
-            Map<Integer, List<TestChromosome>> speciesMap = new LinkedHashMap<>();
-            speciesMap.put(0, s0);
-            speciesMap.put(1, s1);
-
-            List<TestChromosome> result = policy.balanceParentPool(all, speciesMap);
-
-            assertEquals(6, result.size());
-            // Round-robin: s0[0], s1[0], s0[1], s1[1], s0[2], s1[2]
-            assertSame(s0.get(0), result.get(0));
-            assertSame(s1.get(0), result.get(1));
-            assertSame(s0.get(1), result.get(2));
-            assertSame(s1.get(1), result.get(3));
-        } finally {
-            Properties.SPECIES_BALANCE_PARENT_SELECTION = prev;
-        }
-    }
-
-    @Test
-    void balanceParentPoolSingleSpeciesReturnsSafeCopy() {
-        boolean prev = Properties.SPECIES_BALANCE_PARENT_SELECTION;
-        try {
-            Properties.SPECIES_BALANCE_PARENT_SELECTION = true;
-            List<TestChromosome> pop = makeChromosomes(4);
-            Map<Integer, List<TestChromosome>> speciesMap = new LinkedHashMap<>();
-            speciesMap.put(0, pop);
-
-            List<TestChromosome> result = policy.balanceParentPool(pop, speciesMap);
-            // Must be a safe copy (not same reference)
-            assertNotSame(pop, result);
-            assertEquals(pop.size(), result.size());
-        } finally {
-            Properties.SPECIES_BALANCE_PARENT_SELECTION = prev;
-        }
-    }
-
-    @Test
     void survivalCapStrictEnforcementWithOverflow() {
         // 8 from species 0, 2 from species 1, target=8, cap=0.5 → max 4 per species
         // First pass: 4 from s0, 2 from s1 = 6 accepted, 4 s0 overflow
@@ -240,32 +175,6 @@ class DefaultSpeciesPolicyTest {
         // Second pass allows s0 overflow up to cap (already at 4), so they go to fallback.
         // Fallback fills remaining 2 slots from s0 overflow.
         assertEquals(6, spec0Count, "Species 0: 4 (cap) + 2 (fallback for unfilled slots)");
-    }
-
-    @Test
-    void balanceParentPoolClearAddAllSafe() {
-        // Simulates the MOSA caller pattern: population.clear(); population.addAll(balanced)
-        // This must NOT wipe the population when balancing is disabled.
-        boolean prev = Properties.SPECIES_BALANCE_PARENT_SELECTION;
-        try {
-            Properties.SPECIES_BALANCE_PARENT_SELECTION = false;
-            List<TestChromosome> population = new ArrayList<>(makeChromosomes(6));
-            int originalSize = population.size();
-
-            Map<Integer, List<TestChromosome>> speciesMap = new LinkedHashMap<>();
-            speciesMap.put(0, new ArrayList<>(population.subList(0, 3)));
-            speciesMap.put(1, new ArrayList<>(population.subList(3, 6)));
-
-            List<TestChromosome> balanced = policy.balanceParentPool(population, speciesMap);
-            // Simulate MOSA caller pattern
-            population.clear();
-            population.addAll(balanced);
-
-            assertEquals(originalSize, population.size(),
-                    "Population must not be wiped by clear+addAll pattern");
-        } finally {
-            Properties.SPECIES_BALANCE_PARENT_SELECTION = prev;
-        }
     }
 
     @Test
