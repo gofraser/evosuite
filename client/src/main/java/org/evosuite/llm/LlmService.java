@@ -945,7 +945,6 @@ public class LlmService implements AutoCloseable {
     @Override
     public void close() {
         executorService.shutdownNow();
-        traceRecorder.close();
     }
 
     private Throwable unwrap(Throwable error) {

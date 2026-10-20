@@ -348,10 +348,6 @@ public class LlmPostProcessor {
         publishMetrics(phaseContext, new PostProcessingMetrics(skipReason));
     }
 
-    public static int countUnifiedTemplateAssertions(TestSuiteChromosome suite) {
-        return PostProcessingAssertionReconciler.countTemplateAssertions(suite);
-    }
-
     /** Publish final reconciliation for this phase's explicit context. */
     public void publishFinalAssertionReconciliation(LlmPostProcessingPhaseContext phaseContext,
                                                     TestSuiteChromosome suite,

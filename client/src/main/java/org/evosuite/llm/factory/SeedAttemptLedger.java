@@ -146,7 +146,7 @@ final class SeedAttemptLedger {
         while (it.hasNext()) {
             Pending entry = it.next().getValue();
             if (generation - entry.generation > MAX_PENDING_GENERATIONS) {
-                memory.clearAttempt(entry.attemptId);
+                memory.releaseUndeliveredAttempt(entry.attemptId);
                 it.remove();
             }
         }

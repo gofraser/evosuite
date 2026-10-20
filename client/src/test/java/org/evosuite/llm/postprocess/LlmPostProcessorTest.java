@@ -409,11 +409,11 @@ class LlmPostProcessorTest {
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped));
         assertEquals(2, assertionsAppliedByPhase);
-        assertEquals(2, LlmPostProcessor.countUnifiedTemplateAssertions(suite));
+        assertEquals(2, PostProcessingAssertionReconciler.countTemplateAssertions(suite));
 
         Assertion noLongerPresent = second.getAssertions().get(0);
         noLongerPresent.getStatement().removeAssertion(noLongerPresent);
-        assertEquals(1, LlmPostProcessor.countUnifiedTemplateAssertions(suite));
+        assertEquals(1, PostProcessingAssertionReconciler.countTemplateAssertions(suite));
 
         phaseProcessor.publishFinalAssertionReconciliation(phaseContext, suite, assertionsAppliedByPhase);
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
@@ -1181,7 +1181,7 @@ class LlmPostProcessorTest {
 
         // No LLM template assertion shipped, and the mutation baseline is intact:
         // same instance, same rendered code, and it is still the test's only assertion.
-        assertEquals(0, LlmPostProcessor.countUnifiedTemplateAssertions(suite));
+        assertEquals(0, PostProcessingAssertionReconciler.countTemplateAssertions(suite));
         assertEquals(1, test.getAssertions().size());
         assertSame(baseline, test.getAssertions().get(0));
         assertEquals(baselineCode, test.getAssertions().get(0).getCode());

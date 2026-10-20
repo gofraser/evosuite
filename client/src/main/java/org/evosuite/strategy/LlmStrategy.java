@@ -79,14 +79,6 @@ public class LlmStrategy extends TestGenerationStrategy {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmStrategy.class);
 
-    /**
-     * Whether this strategy operates as the LLMSTRATEGY (vs. an LLM helper
-     * embedded in another strategy). Used by {@link LlmAssertionPolicyResolver}
-     * to resolve the effective assertion-handling policy. Centralized so the
-     * resolver argument has a single source of truth.
-     */
-    private static final boolean LLM_STRATEGY_CONTEXT = true;
-
     @Override
     public TestSuiteChromosome generateTests() {
         // JUnit 5 tests are incompatible with the separate-classloader scaffolding.
@@ -123,7 +115,9 @@ public class LlmStrategy extends TestGenerationStrategy {
             suite = runSinglePrompt(fitnessFunctions);
         }
 
-        emitParsedStatementRatio(suite);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio,
+                        computeParsedRatio(suite));
         ClientServices.track(RuntimeVariable.LLM_Strategy_Assertions_Retained,
                 countAssertions(suite));
         ClientServices.track(RuntimeVariable.LLM_Strategy_Tests_With_Assertions,
@@ -135,26 +129,6 @@ public class LlmStrategy extends TestGenerationStrategy {
         getLlmService().getStatistics().publishRuntimeVariables();
         sendExecutionStatistics();
         return suite;
-    }
-
-    /**
-     * Computes and emits the ratio of LLM-parsed statements to total statements.
-     */
-    private void emitParsedStatementRatio(TestSuiteChromosome suite) {
-        int totalStatements = 0;
-        int parsedStatements = 0;
-        for (TestChromosome tc : suite.getTestChromosomes()) {
-            for (int i = 0; i < tc.getTestCase().size(); i++) {
-                totalStatements++;
-                if (tc.getTestCase().getStatement(i).isParsedFromLlm()) {
-                    parsedStatements++;
-                }
-            }
-        }
-        double ratio = totalStatements > 0
-                ? (double) parsedStatements / totalStatements : 0.0;
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio, ratio);
     }
 
     /**
@@ -523,10 +497,6 @@ public class LlmStrategy extends TestGenerationStrategy {
                 totalUniqueTests);
         ClientServices.track(RuntimeVariable.LLM_Iterative_Duplicates,
                 totalDuplicates);
-        ClientServices.track(RuntimeVariable.LLM_Strategy_Assertions_Retained,
-                countAssertions(suite));
-        ClientServices.track(RuntimeVariable.LLM_Strategy_Tests_With_Assertions,
-                countTestsWithAssertions(suite));
         ClientServices.track(
                 RuntimeVariable.LLM_Iterative_Round_Elapsed_Millis_Timeline,
                 joinLongs(elapsedTimeline));
@@ -759,7 +729,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                         + "Focus on diverse paths, edge cases, and branch coverage."
                         + optionalTestCountGuidance(Properties.LLM_STRATEGY_INITIAL_TARGET_TESTS,
                         "broadly covering")
-                        + LlmAssertionPolicyResolver.instructionSuffix(LLM_STRATEGY_CONTEXT))
+                        + LlmAssertionPolicyResolver.instructionSuffix(true))
                 .buildWithMetadata();
 
         return queryAndParse(llmService, prompt,
@@ -809,7 +779,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                 + "important than exhaustive assertion detail."
                 + optionalTestCountGuidance(Properties.LLM_STRATEGY_FOLLOWUP_TARGET_TESTS,
                 "focused")
-                + LlmAssertionPolicyResolver.instructionSuffix(LLM_STRATEGY_CONTEXT));
+                + LlmAssertionPolicyResolver.instructionSuffix(true));
 
         if (currentTests != null && !currentTests.isEmpty()) {
             List<org.evosuite.testcase.TestCase> existing =
@@ -896,7 +866,7 @@ public class LlmStrategy extends TestGenerationStrategy {
             RepairResult result = createRepairLoop(
                     llmService,
                     TestRepairLoop.RepairOptions.forAssertionPolicy(
-                            LlmAssertionPolicyResolver.keepAssertions(LLM_STRATEGY_CONTEXT)))
+                            LlmAssertionPolicyResolver.keepAssertions(true)))
                     .attemptParse(response, prompt.getMessages(), feature,
                             deadlineNanos);
             long latencyMillis = elapsedMillis(startedNanos);

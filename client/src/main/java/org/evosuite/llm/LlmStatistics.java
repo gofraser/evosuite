@@ -103,16 +103,6 @@ public class LlmStatistics {
         }
     }
 
-    /** Records the wall-clock time spent blocking on pre-search pool enrichment. */
-    public static void recordEnrichmentElapsedMs(long elapsedMs) {
-        recordPoolEnrichmentElapsedMs(elapsedMs);
-    }
-
-    /** Returns the pool-enrichment blocking time; retained for source compatibility. */
-    public static long getEnrichmentElapsedMs() {
-        return getPoolEnrichmentElapsedMs();
-    }
-
     /** Resets all pre-search timing counters (test/utility use). */
     public static void resetEnrichmentElapsedMs() {
         poolEnrichmentElapsedMs.set(0L);

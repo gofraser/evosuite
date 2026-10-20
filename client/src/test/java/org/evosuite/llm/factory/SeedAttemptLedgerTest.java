@@ -141,7 +141,7 @@ class SeedAttemptLedgerTest {
 
         ledger.evaluated(test(), 1L + SeedAttemptLedger.MAX_PENDING_GENERATIONS + 1L);
 
-        verify(memory).clearAttempt(stale);
+        verify(memory).releaseUndeliveredAttempt(stale);
         verify(memory, never()).recordAttemptOutcome(any(String.class), anyInt());
         assertEquals(0, ledger.openAttempts());
     }

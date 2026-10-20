@@ -186,26 +186,6 @@ public class RepeatedInjectionMemory {
     }
 
     /**
-     * Releases an attempt without counting it as success or failure.
-     * @param attemptId identifier of the attempt
-     */
-    public synchronized void clearAttempt(String attemptId) {
-        PromptAttempt attempt = attempts.remove(attemptId == null ? "" : attemptId.trim());
-        if (attempt == null) {
-            return;
-        }
-        if (!attempt.inFlight) {
-            return;
-        }
-        for (RepeatedInjectionTarget target : attempt.targets) {
-            TargetState state = targetStates.get(target.getKey());
-            if (state != null && state.inFlightAttempts > 0) {
-                state.inFlightAttempts--;
-            }
-        }
-    }
-
-    /**
      * Releases an attempt without touching {@code consecutiveNoGainAttempts}.
      * Use this when the prompt never reached an "outcome can be judged" state
      * (e.g., sync call was cancelled or hit the wall-clock budget) so the

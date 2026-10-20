@@ -755,8 +755,4 @@ public class LlmTraceRecorder {
                     StandardOpenOption.APPEND);
         }
     }
-
-    public void close() {
-        // No-op: writes are synchronous.
-    }
 }
