@@ -169,7 +169,7 @@ class AssertionParser {
         // assertion is dropped or kept as source, so the test must not also expect the exception.
         result.setExpectedExceptionClass(expectedExceptionBefore);
 
-        if (parser.isMarkParsedFromLlm() && containsMemberAccess(args)) {
+        if (parser.isBestEffort() && containsMemberAccess(args)) {
             parser.addWarning(assertCall, DiagnosticKind.ASSERTION_ARGUMENT_UNRESOLVED,
                     "Nested member access in assertion could not be safely preserved in LLM mode; dropping assertion");
             return;
@@ -180,7 +180,7 @@ class AssertionParser {
             parser.rollbackTo(checkpointSize);
         }
 
-        if (parser.isMarkParsedFromLlm()
+        if (parser.isBestEffort()
                 && shouldDropAssertionPreservation(methodCallResolutionAttempts)) {
             return;
         }
@@ -417,7 +417,7 @@ class AssertionParser {
                 } catch (ClassNotFoundException ignored) {
                     // fall through
                 }
-                if (parser.isMarkParsedFromLlm()) {
+                if (parser.isBestEffort()) {
                     parser.addWarning(assertCall, DiagnosticKind.ASSERTION_ARGUMENT_UNRESOLVED,
                             token + " — dropping assertion in LLM best-effort mode");
                 } else {

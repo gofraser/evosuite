@@ -92,7 +92,7 @@ public class StatementParser {
     private final ParseResult result;
     private final AssertionParser assertionParser;
     private final OverloadResolver overloadResolver;
-    private final Map<String, MethodDeclaration> inlineHelperMethods = new LinkedHashMap<>();
+    private final Map<String, MethodDeclaration> inlineHelperMethods;
     /** LLM-mode declarations without initializer; consumed by subsequent NameExpr assignments. */
     private final Map<String, PendingLlmDeclaration> pendingLlmDeclarations = new LinkedHashMap<>();
     /**
@@ -110,8 +110,11 @@ public class StatementParser {
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
     private int syntheticVarCounter = 0;
 
+    /** Enables the LLM salvage heuristics. */
+    private final boolean bestEffort;
+
     /** When true, all statements created by this parser are marked as LLM-parsed. */
-    private boolean markParsedFromLlm = false;
+    private final boolean markProvenance;
 
     /**
      * Create a new StatementParser.
@@ -123,6 +126,23 @@ public class StatementParser {
      */
     public StatementParser(DefaultTestCase testCase, TypeResolver typeResolver,
                            VariableScope scope, ParseResult result) {
+        this(testCase, typeResolver, scope, result, ParseOptions.strict());
+    }
+
+    /**
+     * Create a new StatementParser.
+     *
+     * @param testCase the test case.
+     * @param typeResolver the type resolver.
+     * @param scope the variable scope.
+     * @param result the parse result.
+     * @param options the parse options.
+     */
+    public StatementParser(DefaultTestCase testCase, TypeResolver typeResolver,
+                           VariableScope scope, ParseResult result, ParseOptions options) {
+        this.bestEffort = options.isBestEffort();
+        this.markProvenance = options.isMarkProvenance();
+        this.inlineHelperMethods = options.getInlineHelperMethods();
         this.testCase = testCase;
         this.javaParser = new JavaParser(new ParserConfiguration().setAttributeComments(false));
         this.typeResolver = typeResolver;
@@ -135,27 +155,20 @@ public class StatementParser {
                 testCase, typeResolver, scope, result, this);
     }
 
-    /**
-     * Sets whether statements created by this parser should be marked
-     * as originating from LLM-generated code.
-     */
-    public void setMarkParsedFromLlm(boolean mark) {
-        this.markParsedFromLlm = mark;
-    }
-
-    public boolean isMarkParsedFromLlm() {
-        return markParsedFromLlm;
+    /** Whether the LLM salvage heuristics are enabled. */
+    public boolean isBestEffort() {
+        return bestEffort;
     }
 
     VariableReference addStatement(Statement stmt) {
-        if (markParsedFromLlm) {
+        if (markProvenance) {
             stmt.setParsedFromLlm(true);
         }
         return testCase.addStatement(stmt);
     }
 
     VariableReference addStatement(Statement stmt, int position) {
-        if (markParsedFromLlm) {
+        if (markProvenance) {
             stmt.setParsedFromLlm(true);
         }
         return testCase.addStatement(stmt, position);
@@ -187,17 +200,6 @@ public class StatementParser {
         return overloadResolver;
     }
 
-    /**
-     * Registers helper methods (arity 0/1) that can be inlined as a plain
-     * return expression.
-     */
-    public void setInlineHelperMethods(Map<String, MethodDeclaration> helpers) {
-        inlineHelperMethods.clear();
-        if (helpers != null) {
-            inlineHelperMethods.putAll(helpers);
-        }
-    }
-
     // ========================================================================
     // Top-level dispatch
     // ========================================================================
@@ -225,7 +227,7 @@ public class StatementParser {
         if (astStmt instanceof ExpressionStmt) {
             ExpressionStmt exprStmt = (ExpressionStmt) astStmt;
             String exprText = exprStmt.toString().trim();
-            if (markParsedFromLlm && exprText.contains("thenThrow(")) {
+            if (bestEffort && exprText.contains("thenThrow(")) {
                 String rewrittenThrow = mockitoPatternParser.rewriteThenThrowSource(exprText);
                 if (rewrittenThrow != null) {
                     addStatement(createUninterpretedStatement(exprStmt, rewrittenThrow));
@@ -236,12 +238,12 @@ public class StatementParser {
         } else if (astStmt instanceof AssertStmt) {
             assertionParser.handleAssertStatement((AssertStmt) astStmt);
             return 1;
-        } else if (markParsedFromLlm && astStmt instanceof TryStmt) {
+        } else if (bestEffort && astStmt instanceof TryStmt) {
             // Best-effort: flatten try-body statements instead of preserving raw source,
             // which often leaks undeclared local assignments from LLM snippets.
             handleTryStatement((TryStmt) astStmt);
             return 1;
-        } else if (markParsedFromLlm && astStmt instanceof IfStmt) {
+        } else if (bestEffort && astStmt instanceof IfStmt) {
             // Best-effort: flatten one branch of LLM-produced if-statements to
             // avoid preserving raw control-flow with lambdas that can fail javac
             // capture checks (e.g., non-effectively-final locals in assertDoesNotThrow).
@@ -251,7 +253,7 @@ public class StatementParser {
             // Fallback: preserve as UninterpretedStatement
             int line = astStmt.getBegin().map(p -> p.line).orElse(0);
             com.github.javaparser.ast.stmt.Statement preserved = astStmt;
-            if (markParsedFromLlm) {
+            if (bestEffort) {
                 preserved = inlineHelperCallsInUnsupportedStatement(astStmt);
                 if (shouldDropUnsupportedStatement(preserved)) {
                     return 1;
@@ -300,7 +302,7 @@ public class StatementParser {
             // In LLM best-effort mode, avoid emitting raw unsupported expression
             // statements (e.g., ternary expressions) because they can be
             // non-compilable as standalone statements.
-            if (markParsedFromLlm) {
+            if (bestEffort) {
                 fallbackForUnresolvedExpression(
                         expr,
                         Object.class,
@@ -334,7 +336,7 @@ public class StatementParser {
                 try {
                     declaredType = typeResolver.resolveType(declarator.getType());
                 } catch (ClassNotFoundException e) {
-                    if (markParsedFromLlm) {
+                    if (bestEffort) {
                         declaredType = mockitoPatternParser.tryResolveDemockedDeclaredType(declarator.getType());
                         if (declaredType == null) {
                             declaredType = Object.class;
@@ -360,7 +362,7 @@ public class StatementParser {
                     }
                 }
 
-                if (markParsedFromLlm) {
+                if (bestEffort) {
                     // Defer emission until first assignment to avoid uncompilable declarations
                     // with inaccessible type arguments (e.g., Constructor<Outer.Inner>).
                     pendingLlmDeclarations.put(varName,
@@ -387,7 +389,7 @@ public class StatementParser {
             try {
                 declaredType = typeResolver.resolveType(declarator.getType());
             } catch (ClassNotFoundException e) {
-                if (markParsedFromLlm) {
+                if (bestEffort) {
                     declaredType = mockitoPatternParser.tryResolveDemockedDeclaredType(declarator.getType());
                     if (declaredType != null) {
                         addWarning(initializer, DiagnosticKind.MOCK_PREFIX_TYPE_INFERRED,
@@ -408,7 +410,7 @@ public class StatementParser {
                 }
             }
 
-            if (markParsedFromLlm && assertionParser.shouldPreserveAssertionReturningDeclaration(initializer)) {
+            if (bestEffort && assertionParser.shouldPreserveAssertionReturningDeclaration(initializer)) {
                 Expression preservedInitializer =
                         assertionParser.normalizeAssertionExpressionForPreservation(initializer);
                 String code = getFallbackTypeName(declaredType) + " " + emittedVarName
@@ -429,7 +431,7 @@ public class StatementParser {
             // render as literal "null", producing invalid code such as "null = value;"
             // or "null.method()".
             if (initializer instanceof NullLiteralExpr) {
-                if (!markParsedFromLlm) {
+                if (!bestEffort) {
                     VariableReference strictNull = handleNullLiteral(declaredType);
                     if (strictNull != null) {
                         scope.register(varName, strictNull, null);
@@ -438,7 +440,7 @@ public class StatementParser {
                 }
                 Class<?> rawDeclared = getRawClass(declaredType);
                 if (rawDeclared != null && rawDeclared.isPrimitive()) {
-                    if (markParsedFromLlm) {
+                    if (bestEffort) {
                         addWarning(initializer, DiagnosticKind.PRIMITIVE_INIT_WITH_NULL,
                                 declarator.getType() + " " + varName + " — using typed default value");
                         VariableReference primitiveFallback = fallbackForInaccessibleMember(
@@ -510,7 +512,7 @@ public class StatementParser {
     }
 
     private String chooseDeclarationName(String requestedName, com.github.javaparser.ast.Node declarationNode) {
-        if (!markParsedFromLlm || requestedName == null || requestedName.isEmpty() || !scope.isDefined(requestedName)) {
+        if (!bestEffort || requestedName == null || requestedName.isEmpty() || !scope.isDefined(requestedName)) {
             return requestedName;
         }
         String candidate;
@@ -555,7 +557,7 @@ public class StatementParser {
         String castExpr = "(" + castType + ") " + rhsName;
         String code = lhsType + " " + varName + " = " + castExpr + ";";
 
-        if (!markParsedFromLlm) {
+        if (!bestEffort) {
             addError(initializer, DiagnosticKind.INCOMPATIBLE_ALIAS_DECLARATION,
                     "cannot assign " + actual.getTypeName() + " to " + formal.getTypeName());
             return null;
@@ -625,7 +627,7 @@ public class StatementParser {
         // Unwrap cast: (Type) expr → handle inner expression with cast type
         if (expr instanceof CastExpr) {
             CastExpr castExpr = (CastExpr) expr;
-            if (markParsedFromLlm && castExpr.getExpression() instanceof NullLiteralExpr) {
+            if (bestEffort && castExpr.getExpression() instanceof NullLiteralExpr) {
                 // LLM output frequently over-casts null literals (e.g. (Object) null),
                 // which can force false argument mismatches for generic APIs and leak
                 // uncompilable casts into emitted tests. Keep only the null literal and
@@ -637,7 +639,7 @@ public class StatementParser {
                 Type castType = typeResolver.resolveType(castExpr.getType());
                 return handleExpression(varName, castExpr.getExpression(), castType, depth + 1, originalExpr);
             } catch (ClassNotFoundException e) {
-                if (markParsedFromLlm && castExpr.getExpression() instanceof NullLiteralExpr) {
+                if (bestEffort && castExpr.getExpression() instanceof NullLiteralExpr) {
                     // LLMs sometimes cast null to invented/unresolvable helper types
                     // (eg "(OutputDestination[]) null"). Keep the null literal and let
                     // method/constructor resolution retype it to the actual formal type.
@@ -762,7 +764,7 @@ public class StatementParser {
             Type effectiveType = declaredType == null ? Object.class : declaredType;
             if (!isFunctionalInterfaceType(effectiveType)) {
                 String message = "Lambda expression requires a functional interface target type";
-                if (markParsedFromLlm) {
+                if (bestEffort) {
                     return fallbackForUnresolvedExpression(expr, effectiveType, message);
                 }
                 addError(expr, DiagnosticKind.LAMBDA_TARGET_TYPE_REQUIRED, effectiveType.getTypeName());
@@ -774,7 +776,7 @@ public class StatementParser {
                 return addStatement(stmt);
             }
             String message = "Standalone lambda expression has no declaration target type";
-            if (markParsedFromLlm) {
+            if (bestEffort) {
                 return fallbackForUnresolvedExpression(expr, effectiveType, message);
             }
             addError(expr, DiagnosticKind.LAMBDA_TARGET_TYPE_REQUIRED, message);
@@ -949,7 +951,7 @@ public class StatementParser {
     private VariableReference handleObjectCreation(ObjectCreationExpr expr, Type declaredType, String targetVarName) {
         Class<?> rawClass = null;
         try {
-            if (markParsedFromLlm && expr.getAnonymousClassBody().isPresent()) {
+            if (bestEffort && expr.getAnonymousClassBody().isPresent()) {
                 VariableReference normalizedAnonymousMock =
                         mockitoPatternParser.tryNormalizeAnonymousInterfaceCreationToMock(expr, declaredType);
                 if (normalizedAnonymousMock != null) {
@@ -1210,7 +1212,7 @@ public class StatementParser {
         // LLM rather than letting the test run to NPE. Non-SUT typed-null
         // fallbacks remain a warning so collaborators that legitimately accept
         // null are not over-demoted.
-        if (markParsedFromLlm && isTargetClassType(preservedType)) {
+        if (bestEffort && isTargetClassType(preservedType)) {
             addError(expr, DiagnosticKind.ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK, details);
         } else {
             addWarning(expr, DiagnosticKind.ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK, details);
@@ -1282,7 +1284,7 @@ public class StatementParser {
 
             if (expr.getScope().isPresent()) {
                 Expression scopeExpr = expr.getScope().get();
-                if (markParsedFromLlm
+                if (bestEffort
                         && scopeExpr instanceof ObjectCreationExpr
                         && tryHandleLegacyScopedInvokeHelperCall(expr, (ObjectCreationExpr) scopeExpr)) {
                     return null; // helper wrapper call handled as reflective private method call
@@ -1303,10 +1305,10 @@ public class StatementParser {
                     }
                 }
             } else {
-                if (markParsedFromLlm && tryHandleLegacyFieldHelperCall(expr)) {
+                if (bestEffort && tryHandleLegacyFieldHelperCall(expr)) {
                     return null; // void helper call handled as reflective statement
                 }
-                if (markParsedFromLlm && tryHandleLegacyInvokeHelperCall(expr)) {
+                if (bestEffort && tryHandleLegacyInvokeHelperCall(expr)) {
                     return null; // helper wrapper call handled as reflective private method call
                 }
                 // Unscoped method call — could be static import
@@ -1315,7 +1317,7 @@ public class StatementParser {
                     staticCall = true;
                     targetClass = typeResolver.resolveClass(staticClass);
                 } else {
-                    if (markParsedFromLlm) {
+                    if (bestEffort) {
                         MethodDeclaration inlineHelper = inlineHelperMethods.get(
                                 inlineHelperKey(methodName, expr.getArguments().size()));
                         if (inlineHelper != null) {
@@ -1461,7 +1463,7 @@ public class StatementParser {
     private MethodResolutionFallback tryResolveMethodWithBooleanLiteralCoercion(Class<?> targetClass,
                                                                                  String methodName,
                                                                                  List<VariableReference> argRefs) {
-        if (!markParsedFromLlm || targetClass == null || methodName == null || argRefs == null) {
+        if (!bestEffort || targetClass == null || methodName == null || argRefs == null) {
             return null;
         }
         if (argRefs.isEmpty()) {
@@ -1593,7 +1595,7 @@ public class StatementParser {
     private VariableReference tryRewriteAssertDoesNotThrowSupplierAssignment(MethodCallExpr expr,
                                                                              Type declaredType,
                                                                              String targetVarName) {
-        if (!markParsedFromLlm || targetVarName == null || targetVarName.trim().isEmpty()) {
+        if (!bestEffort || targetVarName == null || targetVarName.trim().isEmpty()) {
             return null;
         }
         if (!"assertDoesNotThrow".equals(expr.getNameAsString()) || expr.getArguments().isEmpty()) {
@@ -2508,7 +2510,7 @@ public class StatementParser {
         } else if (mockitoPatternParser.tryPreserveStandaloneThrowStubbingCall(methodCall)) {
             // Preserve Mockito throw-stubbing chains that cannot be represented as FunctionalMockStatement
         } else {
-            if (markParsedFromLlm && shouldElideTopLevelAccessorChain(methodCall)) {
+            if (bestEffort && shouldElideTopLevelAccessorChain(methodCall)) {
                 addWarning(methodCall, DiagnosticKind.ACCESSOR_CHAIN_ELIDED,
                         methodCall.toString() + " — dropped to avoid uncompilable no-op chain");
                 return;
@@ -3166,7 +3168,7 @@ public class StatementParser {
             ClassPrimitiveStatement stmt = new ClassPrimitiveStatement(testCase, clazz);
             return addStatement(stmt);
         } catch (ClassNotFoundException e) {
-            if (markParsedFromLlm) {
+            if (bestEffort) {
                 return fallbackForUnresolvedExpression(
                         expr,
                         Class.class,
@@ -3266,7 +3268,7 @@ public class StatementParser {
             String description = (current instanceof NameExpr)
                     ? ((NameExpr) current).getNameAsString()
                     : current.toString();
-            if (markParsedFromLlm) {
+            if (bestEffort) {
                 addWarning(diagnosticExpr, DiagnosticKind.UNKNOWN_ARRAY_VAR, description);
             } else {
                 addError(diagnosticExpr, DiagnosticKind.UNKNOWN_ARRAY_VAR, description);
@@ -3277,7 +3279,7 @@ public class StatementParser {
             String description = (current instanceof NameExpr)
                     ? ((NameExpr) current).getNameAsString()
                     : current.toString();
-            if (markParsedFromLlm) {
+            if (bestEffort) {
                 addWarning(diagnosticExpr, DiagnosticKind.VARIABLE_NOT_ARRAY, description);
             } else {
                 addError(diagnosticExpr, DiagnosticKind.VARIABLE_NOT_ARRAY, description);
@@ -3574,7 +3576,7 @@ public class StatementParser {
         }
 
         // String concatenation: try to evaluate "a" + b + c into a single String literal
-        if (!markParsedFromLlm
+        if (!bestEffort
                 && expr.getOperator() == BinaryExpr.Operator.PLUS
                 && isStringConcat(expr, declaredType)) {
             String result = evaluateStringConcat(expr);
@@ -3770,7 +3772,7 @@ public class StatementParser {
                 }
                 AssignmentStatement stmt = new AssignmentStatement(testCase, lhs, rhs);
                 if (!stmt.isValid()) {
-                    if (markParsedFromLlm) {
+                    if (bestEffort) {
                         addWarning(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT,
                                 "variable assignment preserved as uninterpreted: " + assignExpr);
                         addStatement(createUninterpretedStatement(assignExpr,
@@ -3781,7 +3783,7 @@ public class StatementParser {
                     return;
                 }
                 addStatement(stmt);
-                if (markParsedFromLlm) {
+                if (bestEffort) {
                     // In LLM mode, keep subsequent reads bound to the latest assigned value
                     // so assertions parsed after this assignment are emitted in the correct order.
                     scope.register(targetName, rhs, scope.resolveGenericType(targetName));
@@ -3791,7 +3793,7 @@ public class StatementParser {
                 ArrayAccessExpr arrayAccess = (ArrayAccessExpr) target;
                 ArrayIndex arrayIndex = resolveArrayAccess(arrayAccess, assignExpr);
                 if (arrayIndex == null) {
-                    if (markParsedFromLlm) {
+                    if (bestEffort) {
                         addWarning(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT,
                                 "unresolved array assignment preserved as uninterpreted: " + assignExpr);
                         addStatement(createUninterpretedStatement(assignExpr,
@@ -3811,7 +3813,7 @@ public class StatementParser {
                 // Create ArrayIndex and AssignmentStatement
                 AssignmentStatement stmt = new AssignmentStatement(testCase, arrayIndex, valueRef);
                 if (!stmt.isValid()) {
-                    if (markParsedFromLlm) {
+                    if (bestEffort) {
                         addWarning(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT,
                                 "array assignment for modeled bounds preserved as uninterpreted: " + assignExpr);
                         addStatement(createUninterpretedStatement(assignExpr,
@@ -3891,7 +3893,7 @@ public class StatementParser {
                 FieldReference fieldRef = new FieldReference(testCase, genericField, sourceRef);
                 AssignmentStatement stmt = new AssignmentStatement(testCase, fieldRef, valueRef);
                 if (!stmt.isValid()) {
-                    if (markParsedFromLlm) {
+                    if (bestEffort) {
                         addWarning(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT,
                                 "field assignment preserved as uninterpreted: " + assignExpr);
                         addStatement(createUninterpretedStatement(assignExpr,
@@ -3949,7 +3951,7 @@ public class StatementParser {
                                              Type declaredType,
                                              Type knownType,
                                              DiagnosticMessage diagnostic) {
-        if (markParsedFromLlm) {
+        if (bestEffort) {
             return fallbackForUnresolvedExpression(expr, chooseFallbackType(declaredType, knownType), diagnostic);
         }
         addError(expr, diagnostic);
@@ -3975,7 +3977,7 @@ public class StatementParser {
                                                   Type knownType,
                                                   String targetVarName,
                                                   DiagnosticMessage diagnostic) {
-        if (markParsedFromLlm) {
+        if (bestEffort) {
             if (!isSyntheticArgumentTarget(targetVarName)
                     && shouldSkipTypedFallbackForDeclaration(diagnostic)) {
                 addWarning(expr, diagnostic.withAppendedText(" — unresolved declaration value skipped "
@@ -4014,7 +4016,7 @@ public class StatementParser {
                                                                           String targetVarName,
                                                                           int checkpointSize,
                                                                           DiagnosticMessage diagnostic) {
-        if (!markParsedFromLlm
+        if (!bestEffort
                 || expr == null
                 || targetVarName != null
                 || !isVoidContext(declaredType, targetVarName)
@@ -4118,7 +4120,7 @@ public class StatementParser {
         }
         pendingLlmDeclarations.clear();
 
-        if (markParsedFromLlm) {
+        if (bestEffort) {
             Map<String, String> corrections = typeResolver.drainPackageCorrections();
             for (Map.Entry<String, String> entry : corrections.entrySet()) {
                 String details = "you wrote `" + entry.getKey()
@@ -4139,7 +4141,7 @@ public class StatementParser {
     }
 
     private void addFinalizeDiagnostic(com.github.javaparser.ast.Node node, DiagnosticKind kind, String details) {
-        if (markParsedFromLlm) {
+        if (bestEffort) {
             addWarning(node, kind, details);
         } else {
             addError(node, kind, details);

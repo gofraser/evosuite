@@ -238,9 +238,10 @@ public class TestParser {
 
         TypeResolver typeResolver = new TypeResolver(classLoader, imports);
         VariableScope scope = new VariableScope();
-        StatementParser stmtParser = new StatementParser(testCase, typeResolver, scope, result);
-        stmtParser.setMarkParsedFromLlm(this.markParsedFromLlm);
-        stmtParser.setInlineHelperMethods(inlineHelperMethods);
+        ParseOptions options = this.markParsedFromLlm
+                ? ParseOptions.llm(inlineHelperMethods)
+                : ParseOptions.strict();
+        StatementParser stmtParser = new StatementParser(testCase, typeResolver, scope, result, options);
 
         if (this.markParsedFromLlm && llmFieldInitializers != null && !llmFieldInitializers.isEmpty()) {
             for (com.github.javaparser.ast.stmt.Statement fieldStmt : llmFieldInitializers) {

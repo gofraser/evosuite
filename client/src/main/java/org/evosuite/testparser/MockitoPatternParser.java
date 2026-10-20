@@ -161,7 +161,7 @@ class MockitoPatternParser {
                                                   Class<?> targetClass,
                                                   boolean staticCall,
                                                   List<VariableReference> argRefs) {
-        if (!parser.isMarkParsedFromLlm()
+        if (!parser.isBestEffort()
                 || !staticCall
                 || !"mock".equals(methodName)
                 || !isMockitoClass(targetClass)) {
@@ -203,7 +203,7 @@ class MockitoPatternParser {
                                                                          String methodName,
                                                                          Class<?> targetClass,
                                                                          boolean staticCall) {
-        if (!parser.isMarkParsedFromLlm()
+        if (!parser.isBestEffort()
                 || !"mock".equals(methodName)
                 || expr.getArguments().isEmpty()) {
             return null;
@@ -212,7 +212,7 @@ class MockitoPatternParser {
         boolean looksLikeMockitoStaticMock =
                 (staticCall && isMockitoClass(targetClass))
                         || isLikelyMockitoMockScope(expr.getScope().orElse(null))
-                        || (parser.isMarkParsedFromLlm() && !expr.getScope().isPresent()); // LLM often omits 'Mockito.'
+                        || (parser.isBestEffort() && !expr.getScope().isPresent()); // LLM often omits 'Mockito.'
         if (!looksLikeMockitoStaticMock) {
             return null;
         }
@@ -281,7 +281,7 @@ class MockitoPatternParser {
     Class<?> chooseOverrideMockStaticMethodTarget(Class<?> rawClass,
                                                   String methodName,
                                                   Class<?>[] argTypes) {
-        if (!parser.isMarkParsedFromLlm() || rawClass == null) {
+        if (!parser.isBestEffort() || rawClass == null) {
             return rawClass;
         }
         Class<?> mockClass = getCompatibleStaticMethodMockClass(rawClass);
@@ -303,7 +303,7 @@ class MockitoPatternParser {
         try {
             return typeResolver.resolveClass(typeName);
         } catch (ClassNotFoundException e) {
-            if (!parser.isMarkParsedFromLlm()) {
+            if (!parser.isBestEffort()) {
                 throw e;
             }
             String democked = demockTypeTokens(typeName);
@@ -371,7 +371,7 @@ class MockitoPatternParser {
             return true;
         }
 
-        if (parser.isMarkParsedFromLlm() && "thenThrow".equals(methodName)) {
+        if (parser.isBestEffort() && "thenThrow".equals(methodName)) {
             MethodCallExpr reconstructed = new MethodCallExpr(
                     StatementParser.copySyntheticRange(context.whenCall.clone(), context.whenCall),
                     "thenThrow",
@@ -394,7 +394,7 @@ class MockitoPatternParser {
 
         VariableReference mockRef = scope.resolve(mockVarName);
         if (mockRef == null) {
-            if (parser.isMarkParsedFromLlm()) {
+            if (parser.isBestEffort()) {
                 parser.addWarning(methodCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                         "Dropped Mockito stubbing with unresolved receiver '" + mockVarName
                                 + "'. Do not use spy/fallback receivers; stub only Mockito.mock(...) values.");
@@ -405,7 +405,7 @@ class MockitoPatternParser {
 
         Statement stmt = testCase.getStatement(mockRef.getStPosition());
         if (!(stmt instanceof FunctionalMockStatement)) {
-            if (parser.isMarkParsedFromLlm()) {
+            if (parser.isBestEffort()) {
                 parser.addWarning(methodCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                         "Dropped Mockito stubbing on non-functional-mock receiver '" + mockVarName
                                 + "'. EvoSuite LLM parsing does not support spy-style stubbing "
@@ -485,7 +485,7 @@ class MockitoPatternParser {
     }
 
     boolean tryPreserveStandaloneThrowStubbingCall(MethodCallExpr methodCall) {
-        if (!parser.isMarkParsedFromLlm() || methodCall == null
+        if (!parser.isBestEffort() || methodCall == null
                 || !"thenThrow".equals(methodCall.getNameAsString())) {
             return false;
         }
@@ -503,7 +503,7 @@ class MockitoPatternParser {
     }
 
     boolean tryPreserveStandaloneThrowStubbingSource(String source) {
-        if (!parser.isMarkParsedFromLlm() || source == null || !source.contains("thenThrow(")) {
+        if (!parser.isBestEffort() || source == null || !source.contains("thenThrow(")) {
             return false;
         }
 
@@ -669,7 +669,7 @@ class MockitoPatternParser {
             String aliasName = context.aliasName != null ? context.aliasName : entry.getKey();
             String details = "captured `when(...)` alias `" + aliasName
                     + "` had no matching terminal `thenReturn`/`thenThrow`; complete the stubbing or remove the call.";
-            if (parser.isMarkParsedFromLlm()) {
+            if (parser.isBestEffort()) {
                 parser.addWarning(context.whenCall, DiagnosticKind.STRANDED_WHEN_ALIAS, details);
             } else {
                 parser.addError(context.whenCall, DiagnosticKind.STRANDED_WHEN_ALIAS, details);
@@ -785,7 +785,7 @@ class MockitoPatternParser {
             if ("thenReturn".equals(methodName)) {
                 return true;
             }
-            return parser.isMarkParsedFromLlm() && "thenThrow".equals(methodName);
+            return parser.isBestEffort() && "thenThrow".equals(methodName);
         }
         return false;
     }
@@ -985,7 +985,7 @@ class MockitoPatternParser {
 
         Method method = OverloadResolver.findByNameLoose(targetClass, stubbedMethodName);
         if (method == null) {
-            if (parser.isMarkParsedFromLlm()) {
+            if (parser.isBestEffort()) {
                 parser.addWarning(outerCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                         "Ignored invalid Mockito doReturn(...).when(...)." + stubbedMethodName
                                 + "(...) stubbing: no matching method on mock target type");
@@ -993,7 +993,7 @@ class MockitoPatternParser {
             }
             return null;
         }
-        if (isVoidReturn(method) && parser.isMarkParsedFromLlm()) {
+        if (isVoidReturn(method) && parser.isBestEffort()) {
             parser.addWarning(outerCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                     "Ignored invalid Mockito doReturn(...).when(...)." + stubbedMethodName
                             + "(...) stubbing on void method");
@@ -1053,7 +1053,7 @@ class MockitoPatternParser {
 
         Method method = OverloadResolver.findByNameLoose(targetClass, stubbedMethodName);
         if (method == null) {
-            if (parser.isMarkParsedFromLlm()) {
+            if (parser.isBestEffort()) {
                 parser.addWarning(outerCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                         "Ignored invalid Mockito when(...).thenReturn(...) stubbing: no method named "
                                 + stubbedMethodName + " on mock target type");
@@ -1061,7 +1061,7 @@ class MockitoPatternParser {
             }
             return null;
         }
-        if (isVoidReturn(method) && parser.isMarkParsedFromLlm()) {
+        if (isVoidReturn(method) && parser.isBestEffort()) {
             parser.addWarning(outerCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                     "Ignored invalid Mockito when(...).thenReturn(...) stubbing on void method");
             return StubbingInfo.consumeOnly();
@@ -1082,7 +1082,7 @@ class MockitoPatternParser {
         List<VariableReference> refs = new ArrayList<>();
         for (Expression arg : args) {
             VariableReference ref = parser.resolveArgument(arg, returnType != null ? returnType : Object.class);
-            if (ref == null && parser.isMarkParsedFromLlm()) {
+            if (ref == null && parser.isBestEffort()) {
                 ref = parser.fallbackForInaccessibleMember(
                         arg,
                         "Unresolved stubbing return value: " + arg,
@@ -1161,7 +1161,7 @@ class MockitoPatternParser {
                 continue;
             }
 
-            if (parser.isMarkParsedFromLlm()) {
+            if (parser.isBestEffort()) {
                 logger.debug("Could not hoist stubbing value '{}' before mock; using typed fallback value",
                         valueRef.getName());
                 if (diagnosticNode != null) {
@@ -1244,7 +1244,7 @@ class MockitoPatternParser {
     }
 
     private Class<?> getCompatibleOverrideMockClass(Class<?> rawClass) {
-        if (!parser.isMarkParsedFromLlm() || rawClass == null) {
+        if (!parser.isBestEffort() || rawClass == null) {
             return null;
         }
         String canonicalName = rawClass.getCanonicalName();
@@ -1270,7 +1270,7 @@ class MockitoPatternParser {
     }
 
     private Class<?> getCompatibleStaticMethodMockClass(Class<?> rawClass) {
-        if (!parser.isMarkParsedFromLlm() || rawClass == null) {
+        if (!parser.isBestEffort() || rawClass == null) {
             return null;
         }
         String canonicalName = rawClass.getCanonicalName();

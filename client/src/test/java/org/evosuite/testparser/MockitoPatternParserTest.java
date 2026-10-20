@@ -659,8 +659,8 @@ class MockitoPatternParserTest {
         ParseResult result = new ParseResult(testCase, "__testMethod__");
         TypeResolver typeResolver = new TypeResolver(getClass().getClassLoader(), methodParser.extractImports(cu));
         VariableScope scope = new VariableScope();
-        StatementParser statementParser = new StatementParser(testCase, typeResolver, scope, result);
-        statementParser.setMarkParsedFromLlm(markParsedFromLlm);
+        StatementParser statementParser = new StatementParser(testCase, typeResolver, scope, result,
+                markParsedFromLlm ? ParseOptions.llm(null) : ParseOptions.strict());
 
         return new Fixture(
                 testCase,
