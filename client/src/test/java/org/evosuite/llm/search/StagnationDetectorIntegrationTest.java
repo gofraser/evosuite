@@ -91,7 +91,7 @@ class StagnationDetectorIntegrationTest {
 
             List<TestChromosome> help = detector.requestHelp(
                     Collections.singleton(goal),
-                    Collections.singletonList(new TestChromosome()));
+                    Collections.singletonList(new TestChromosome()), 0, 0, null);
             assertFalse(help.isEmpty(), "stagnation detector should inject at least one chromosome");
         } finally {
             service.close();
@@ -112,7 +112,7 @@ class StagnationDetectorIntegrationTest {
         try {
             List<TestChromosome> help = detector.requestHelp(
                     Collections.singleton(goal),
-                    Collections.singletonList(new TestChromosome()));
+                    Collections.singletonList(new TestChromosome()), 0, 0, null);
 
             assertEquals(2, help.size(),
                     "stagnation detector should keep all tests parsed from all code blocks");
@@ -159,7 +159,7 @@ class StagnationDetectorIntegrationTest {
 
         try {
             List<TestChromosome> help = detectorTargeting(service, memory, target).requestHelp(
-                    Collections.singleton(goal), Collections.singletonList(new TestChromosome()));
+                    Collections.singleton(goal), Collections.singletonList(new TestChromosome()), 0, 0, null);
             assertFalse(help.isEmpty());
             memory.beginSelectionRound();
             // A gain resets the no-gain streak, leaving the shortest (one-round) cooldown.
@@ -181,7 +181,7 @@ class StagnationDetectorIntegrationTest {
 
         try {
             List<TestChromosome> help = detectorTargeting(service, memory, target).requestHelp(
-                    Collections.singleton(goal), Collections.singletonList(new TestChromosome()));
+                    Collections.singleton(goal), Collections.singletonList(new TestChromosome()), 0, 0, null);
             assertTrue(help.isEmpty());
             memory.beginSelectionRound();
             assertFalse(memory.adjustPriority(target, 1.0, true).isSuppressed(),

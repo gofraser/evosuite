@@ -270,12 +270,6 @@ public class StagnationDetector {
         return llmService;
     }
 
-    /** Requests LLM-generated tests targeting uncovered goals when the search has stagnated. */
-    public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
-                                            List<TestChromosome> currentPopulation) {
-        return requestHelp(uncoveredGoals, currentPopulation, 0, 0, null);
-    }
-
     /**
      * Executes the stagnation LLM call for a pre-built prompt: query, parse, and
      * repair. Performs no thread-unsafe reads of the population — safe to

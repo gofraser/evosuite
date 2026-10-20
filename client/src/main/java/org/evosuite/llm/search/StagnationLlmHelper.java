@@ -304,7 +304,7 @@ public final class StagnationLlmHelper {
      * caller can invoke this (runSync is synchronous), so it just sets the
      * "no more submissions" flag and quiesces the worker.
      */
-    public void stopAcceptingSubmissions() {
+    void stopAcceptingSubmissions() {
         shutdown = true;
         // shutdown() (not shutdownNow()) — keeps any in-flight task running.
         worker.shutdown();
@@ -316,7 +316,7 @@ public final class StagnationLlmHelper {
      * worker terminated within the timeout; {@code false} if the timeout
      * elapsed first.
      */
-    public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+    boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
         return worker.awaitTermination(timeout, unit);
     }
 
@@ -597,19 +597,6 @@ public final class StagnationLlmHelper {
             }
         }
         return goals;
-    }
-
-    /**
-     * Returns and clears diagnostic-card attribution for a drained stagnation candidate.
-     *
-     * <p>Empty when the candidate did not come from a diagnostic prompt.
-     */
-    public List<ProblemCardType> consumeDiagnosticCardTypes(TestChromosome candidate) {
-        InjectionAttemptMetadata metadata = consumeAttemptMetadata(candidate);
-        if (metadata != null) {
-            return metadata.getDiagnosticCardTypes();
-        }
-        return candidate == null ? Collections.<ProblemCardType>emptyList() : candidate.getDiagnosticCardTypes();
     }
 
     /**

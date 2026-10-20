@@ -626,7 +626,7 @@ class StagnationLlmHelperTest {
     void drainPreservesDiagnosticCardAttributionMetadata() {
         // Intent: when the diagnostic-prompt pathway produces card types, those
         // types must flow through prompt -> publishTests -> drained candidates so
-        // attribution telemetry can read them via consumeDiagnosticCardTypes.
+        // attribution telemetry can read them via consumeAttemptMetadata.
         // The extractor's card-emission heuristics have their own dedicated
         // coverage in ProblemCardExtractorTest; here we stub buildPrompt to
         // pin the metadata-propagation path without rebuilding the full
@@ -675,7 +675,7 @@ class StagnationLlmHelperTest {
                 helper.maybeSubmit(0, Collections.singleton(goal), Collections.singletonList(popEntry));
                 List<TestChromosome> drained = helper.drain();
                 assertFalse(drained.isEmpty());
-                assertTrue(helper.consumeDiagnosticCardTypes(drained.get(0))
+                assertTrue(helper.consumeAttemptMetadata(drained.get(0)).getDiagnosticCardTypes()
                                 .contains(ProblemCardType.UNREACHED_METHOD),
                         "Expected diagnostic card metadata to be available for drained candidates");
             } finally {

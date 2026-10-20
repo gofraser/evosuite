@@ -56,7 +56,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
         // Register stagnation as an external candidate source
         mosa.externalCandidateSources.add(() -> {
             AlwaysInjectingStagnationDetector det = new AlwaysInjectingStagnationDetector();
-            return det.requestHelp(mosa.getUncoveredGoals(), new ArrayList<>(mosa.getPopulation()));
+            return det.requestHelp(mosa.getUncoveredGoals(), new ArrayList<>(mosa.getPopulation()), 0, 0, null);
         });
 
         mosa.evolve();
@@ -520,16 +520,10 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
 
         @Override
         public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
-                                                List<TestChromosome> currentPopulation) {
-            return Collections.singletonList(new TestChromosome());
-        }
-
-        @Override
-        public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
                                                 List<TestChromosome> currentPopulation,
                                                 int totalGoals, int coveredGoalCount,
                                                 java.util.Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-            return requestHelp(uncoveredGoals, currentPopulation);
+            return Collections.singletonList(new TestChromosome());
         }
     }
 

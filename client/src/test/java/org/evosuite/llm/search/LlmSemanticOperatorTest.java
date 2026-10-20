@@ -121,17 +121,13 @@ class LlmSemanticOperatorTest {
         assertTrue(mapped.forTarget(2).isPresent(), "target 2 must be matched by test_target_2");
         assertEquals(TargetedResponse.Status.DELIVERED, mapped.getStatus());
 
-        List<TestChromosome> result = mutation.apply(Arrays.asList(target1, target2));
-        assertEquals(2, result.size());
-        for (TestChromosome chromosome : result) {
-            assertTrue(chromosome.isChanged());
-        }
+        assertEquals(2, mapped.all().size());
     }
 
     @Test
     void applyReturnsEmptyListForEmptyTargets() {
         LlmSemanticMutation mutation = new LlmSemanticMutation(mockAvailableService());
-        assertTrue(mutation.apply(Collections.emptyList()).isEmpty());
+        assertTrue(mutation.applyMapped(Collections.emptyList()).all().isEmpty());
     }
 
     @Test
@@ -140,7 +136,7 @@ class LlmSemanticOperatorTest {
         when(llmService.isAvailable()).thenReturn(false);
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
-        assertTrue(mutation.apply(Collections.singletonList(target)).isEmpty());
+        assertTrue(mutation.applyMapped(Collections.singletonList(target)).all().isEmpty());
         assertEquals(TargetedResponse.Status.NO_BUDGET,
                 mutation.applyMapped(Collections.singletonList(target)).getStatus());
     }
@@ -156,7 +152,7 @@ class LlmSemanticOperatorTest {
 
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
-        mutation.apply(Collections.singletonList(target));
+        mutation.applyMapped(Collections.singletonList(target));
 
         verify(llmService).queryWithUsage(promptCaptor.capture(), any(LlmFeature.class));
         String userText = userText(promptCaptor.getValue());
@@ -176,7 +172,7 @@ class LlmSemanticOperatorTest {
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g"))
                 .partner(makeChromosome()).build();
         LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
-        crossover.apply(Collections.singletonList(target));
+        crossover.applyMapped(Collections.singletonList(target));
 
         verify(llmService).queryWithUsage(promptCaptor.capture(), any(LlmFeature.class));
         String userText = userText(promptCaptor.getValue());

@@ -32,12 +32,9 @@ import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.llm.search.operator.OperatorTarget;
-import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestChromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -88,27 +85,6 @@ public abstract class LlmSemanticOperator {
     }
 
     /**
-     * Applies this operator to a batch of targets: builds one prompt, makes
-     * one LLM call, and returns one {@link TestChromosome} per parsed test,
-     * matched targets (in target order) first, then unmatched ones.
-     *
-     * @param targets the targets to apply the operator to
-     * @return the resulting chromosomes, or an empty list when there is
-     *     nothing to do, the service is unavailable, or the call fails
-     */
-    public List<TestChromosome> apply(List<OperatorTarget> targets) {
-        TargetedResponse mapped = applyMapped(targets);
-        List<TestChromosome> result = new ArrayList<>();
-        for (TestCase test : mapped.all()) {
-            TestChromosome chromosome = new TestChromosome();
-            chromosome.setTestCase(test);
-            chromosome.setChanged(true);
-            result.add(chromosome);
-        }
-        return result;
-    }
-
-    /**
      * Bounds the calls of {@link #complete(PromptResult, int)}, and so of {@link
      * #applyMapped(List)}, by the search budget: the call and its repair turns
      * give up once {@code remainingSearchSeconds} have passed. A supplier
@@ -124,9 +100,10 @@ public abstract class LlmSemanticOperator {
     }
 
     /**
-     * Same as {@link #apply(List)} but exposes the {@link TargetedResponse}
-     * so a caller can credit individual targets rather than just consuming
-     * the flat chromosome list.
+     * Applies this operator to a batch of targets: builds one prompt, makes
+     * one LLM call and returns the {@link TargetedResponse}, so a caller can
+     * credit individual targets. The response is empty when there is nothing
+     * to do, the service is unavailable, or the call fails.
      */
     public TargetedResponse applyMapped(List<OperatorTarget> targets) {
         if (targets == null || targets.isEmpty()) {

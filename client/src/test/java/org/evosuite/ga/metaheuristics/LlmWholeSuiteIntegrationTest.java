@@ -314,18 +314,12 @@ class LlmWholeSuiteIntegrationTest {
 
         @Override
         public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
-                                                List<TestChromosome> currentPopulation) {
-            TestChromosome tc = new TestChromosome();
-            tc.setTestCase(new DefaultTestCase());
-            return Collections.singletonList(tc);
-        }
-
-        @Override
-        public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
                                                 List<TestChromosome> currentPopulation,
                                                 int totalGoals, int coveredGoalCount,
                                                 java.util.Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-            return requestHelp(uncoveredGoals, currentPopulation);
+            TestChromosome tc = new TestChromosome();
+            tc.setTestCase(new DefaultTestCase());
+            return Collections.singletonList(tc);
         }
     }
 
