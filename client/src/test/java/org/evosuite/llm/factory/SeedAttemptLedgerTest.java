@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.factory;
 
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.testcase.DefaultTestCase;
@@ -45,20 +46,21 @@ class SeedAttemptLedgerTest {
         return tc;
     }
 
-    private static String register(RepeatedInjectionMemory memory) {
-        return memory.registerAttempt(Collections.singletonList(
-                new RepeatedInjectionTarget("operator|g", "operator|g|parent=x")), true).getAttemptId();
+    private static AttemptTicket register(RepeatedInjectionMemory memory) {
+        return AttemptTicket.open(memory, Collections.singletonList(
+                new RepeatedInjectionTarget("operator|g", "operator|g|parent=x")), true);
     }
 
     @Test
     void coveredGoalCountsAsGainWhenTheTestIsEvaluated() {
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
-        SeedAttemptLedger ledger = new SeedAttemptLedger(memory);
+        SeedAttemptLedger ledger = new SeedAttemptLedger();
         TestChromosome seeded = test();
-        String id = register(memory);
+        AttemptTicket ticket = register(memory);
+        String id = ticket.getId();
 
-        ledger.open(seeded, id, goal, 3L);
+        ledger.open(seeded, ticket, goal, 3L);
         seeded.setFitness(goal, 0.0);
         ledger.evaluated(seeded, 3L);
 
@@ -70,11 +72,12 @@ class SeedAttemptLedgerTest {
     void uncoveredGoalCountsAsNoGain() {
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
-        SeedAttemptLedger ledger = new SeedAttemptLedger(memory);
+        SeedAttemptLedger ledger = new SeedAttemptLedger();
         TestChromosome seeded = test();
-        String id = register(memory);
+        AttemptTicket ticket = register(memory);
+        String id = ticket.getId();
 
-        ledger.open(seeded, id, goal, 3L);
+        ledger.open(seeded, ticket, goal, 3L);
         seeded.setFitness(goal, 0.5);
         ledger.evaluated(seeded, 3L);
 
@@ -85,10 +88,11 @@ class SeedAttemptLedgerTest {
     void suiteNotificationWithoutEvidenceStaysPendingThenRecordsGainOnceCovered() {
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
-        SeedAttemptLedger ledger = new SeedAttemptLedger(memory);
+        SeedAttemptLedger ledger = new SeedAttemptLedger();
         TestChromosome seeded = test();
-        String id = register(memory);
-        ledger.open(seeded, id, goal, 1L);
+        AttemptTicket ticket = register(memory);
+        String id = ticket.getId();
+        ledger.open(seeded, ticket, goal, 1L);
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(seeded);
 
@@ -111,10 +115,11 @@ class SeedAttemptLedgerTest {
     void suiteNotificationsWithoutEvidenceRecordNoGainOnceTheGenerationHasMovedOn() {
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
-        SeedAttemptLedger ledger = new SeedAttemptLedger(memory);
+        SeedAttemptLedger ledger = new SeedAttemptLedger();
         TestChromosome seeded = test();
-        String id = register(memory);
-        ledger.open(seeded, id, goal, 1L);
+        AttemptTicket ticket = register(memory);
+        String id = ticket.getId();
+        ledger.open(seeded, ticket, goal, 1L);
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(seeded);
 
@@ -135,13 +140,13 @@ class SeedAttemptLedgerTest {
     void attemptsOfTestsNeverEvaluatedAreClearedWithoutJudgement() {
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
-        SeedAttemptLedger ledger = new SeedAttemptLedger(memory);
-        String stale = register(memory);
+        SeedAttemptLedger ledger = new SeedAttemptLedger();
+        AttemptTicket stale = register(memory);
         ledger.open(test(), stale, goal, 1L);
 
         ledger.evaluated(test(), 1L + SeedAttemptLedger.MAX_PENDING_GENERATIONS + 1L);
 
-        verify(memory).releaseUndeliveredAttempt(stale);
+        verify(memory).releaseUndeliveredAttempt(stale.getId());
         verify(memory, never()).recordAttemptOutcome(any(String.class), anyInt());
         assertEquals(0, ledger.openAttempts());
     }

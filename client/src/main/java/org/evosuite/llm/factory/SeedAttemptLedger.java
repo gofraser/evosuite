@@ -20,7 +20,7 @@
 package org.evosuite.llm.factory;
 
 import org.evosuite.ga.Chromosome;
-import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -66,28 +66,23 @@ final class SeedAttemptLedger {
     static final long MAX_PENDING_GENERATIONS = 2L;
 
     private static final class Pending {
-        final String attemptId;
+        final AttemptTicket ticket;
         final TestFitnessFunction goal;
         final long generation;
 
-        Pending(String attemptId, TestFitnessFunction goal, long generation) {
-            this.attemptId = attemptId;
+        Pending(AttemptTicket ticket, TestFitnessFunction goal, long generation) {
+            this.ticket = ticket;
             this.goal = goal;
             this.generation = generation;
         }
     }
 
-    private final RepeatedInjectionMemory memory;
     private final Map<TestChromosome, Pending> pending = new IdentityHashMap<>();
 
-    SeedAttemptLedger(RepeatedInjectionMemory memory) {
-        this.memory = memory;
-    }
-
-    /** Keeps {@code attemptId} open until {@code test} has been evaluated. */
-    synchronized void open(TestChromosome test, String attemptId, TestFitnessFunction goal, long generation) {
+    /** Keeps {@code ticket} open until {@code test} has been evaluated. */
+    synchronized void open(TestChromosome test, AttemptTicket ticket, TestFitnessFunction goal, long generation) {
         expire(generation);
-        pending.put(test, new Pending(attemptId, goal, generation));
+        pending.put(test, new Pending(ticket, goal, generation));
     }
 
     /**
@@ -124,18 +119,18 @@ final class SeedAttemptLedger {
             // Test-level path: the goal's fitness was computed on this test in
             // this very evaluation, so the value is a direct verdict.
             pending.remove(test);
-            memory.recordAttemptOutcome(entry.attemptId, distance == 0.0 ? 1 : 0);
+            entry.ticket.close(distance == 0.0 ? 1 : 0);
         } else if (test.getTestCase().getCoveredGoals().contains(entry.goal)) {
             // Suite-level path: the goal's own criterion has run and covered it.
             pending.remove(test);
-            memory.recordAttemptOutcome(entry.attemptId, 1);
+            entry.ticket.close(1);
         } else if (generation > entry.generation) {
             // Suite-level path, no evidence: every criterion of the opening
             // generation has certainly run by now (this notification belongs
             // to a later generation) without covering the goal, so the
             // absence of a covered-goal entry is finally a verdict.
             pending.remove(test);
-            memory.recordAttemptOutcome(entry.attemptId, 0);
+            entry.ticket.close(0);
         }
         // Otherwise the goal's criterion within the opening generation may not
         // have run yet — no evidence either way, so the attempt stays open.
@@ -146,7 +141,7 @@ final class SeedAttemptLedger {
         while (it.hasNext()) {
             Pending entry = it.next().getValue();
             if (generation - entry.generation > MAX_PENDING_GENERATIONS) {
-                memory.releaseUndeliveredAttempt(entry.attemptId);
+                entry.ticket.release();
                 it.remove();
             }
         }

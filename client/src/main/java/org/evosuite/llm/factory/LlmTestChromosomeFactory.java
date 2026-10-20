@@ -37,6 +37,7 @@ import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.response.TestRepairLoop;
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.OperatorTargetSelector;
@@ -129,7 +130,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         this.populationSupplier = population == null ? Collections::emptyList : population;
         this.generationSupplier = generation == null ? () -> 0L : generation;
         this.repeatedInjectionMemory = memory;
-        this.attemptLedger = memory == null ? null : new SeedAttemptLedger(memory);
+        this.attemptLedger = memory == null ? null : new SeedAttemptLedger();
         this.targetSelector = new OperatorTargetSelector(memory);
     }
 
@@ -246,10 +247,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
                 prompt = buildGoalListPrompt();
             }
         }
-        RepeatedInjectionMemory memory = repeatedInjectionMemory;
-        RepeatedInjectionMemory.PromptAttemptRegistration registration = memory == null
-                ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
-                : memory.registerAttempt(prompt.getRepeatedInjectionTargets(), true);
+        AttemptTicket ticket = AttemptTicket.open(repeatedInjectionMemory, prompt.getRepeatedInjectionTargets(), true);
         boolean handedToLedger = false;
         long deadlineNanos = LlmWaitBudget.deadlineNanos(remainingSearchSeconds);
         try {
@@ -267,21 +265,17 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
             }
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(testCase);
-            if (!registration.isEmpty() && target != null) {
-                attemptLedger.open(chromosome, registration.getAttemptId(), target.getGoal(),
-                        generationSupplier.getAsLong());
+            if (ticket.isTracked() && target != null) {
+                attemptLedger.open(chromosome, ticket, target.getGoal(), generationSupplier.getAsLong());
                 handedToLedger = true;
             }
             return chromosome;
-        } catch (LlmBudgetExceededException | LlmCallFailedException e) {
-            if (!registration.isEmpty()) {
-                memory.releaseUndeliveredAttempt(registration.getAttemptId());
-                registration = RepeatedInjectionMemory.PromptAttemptRegistration.empty();
-            }
+        } catch (RuntimeException e) {
+            ticket.settleWithoutGain(e);
             throw e;
         } finally {
-            if (!registration.isEmpty() && !handedToLedger) {
-                memory.recordAttemptOutcome(registration.getAttemptId(), 0);
+            if (!handedToLedger) {
+                ticket.close(0);
             }
         }
     }
