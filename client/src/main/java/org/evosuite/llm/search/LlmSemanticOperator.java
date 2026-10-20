@@ -20,15 +20,12 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
-import org.evosuite.llm.LlmBudgetExceededException;
-import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
-import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
-import org.evosuite.llm.QueryResult;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TargetedPromptFactory;
+import org.evosuite.llm.response.GeneratedTestRequest;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TargetedResponse;
@@ -185,34 +182,43 @@ public abstract class LlmSemanticOperator {
         if (!canCall()) {
             return TargetedResponse.noBudget();
         }
-        QueryResult queryResult;
-        try {
-            queryResult = llmService.query(LlmRequest.of(prompt, feature).withDeadlineNanos(deadlineNanos));
-        } catch (LlmBudgetExceededException e) {
-            logger.debug("LLM {} budget exceeded", feature);
-            return TargetedResponse.noBudget();
-        } catch (LlmCallFailedException e) {
-            logger.debug("LLM {} call failed: {}", feature, e.getMessage());
-            return TargetedResponse.failed();
-        } catch (RuntimeException e) {
-            logger.debug("LLM {} error: {}", feature, e.getMessage());
-            return TargetedResponse.failed();
+        GeneratedTestRequest.Outcome outcome = GeneratedTestRequest.of(prompt, feature)
+                .withDeadlineNanos(deadlineNanos)
+                .send(llmService, loop);
+        switch (outcome.getStatus()) {
+            case NO_BUDGET:
+                logger.debug("LLM {} budget exceeded", feature);
+                return TargetedResponse.noBudget();
+            case CALL_FAILED:
+                logger.debug("LLM {} call failed: {}", feature, outcome.getFailure().getMessage());
+                return TargetedResponse.failed();
+            case CALL_CRASHED:
+                logger.debug("LLM {} error: {}", feature, outcome.getFailure().getMessage());
+                return TargetedResponse.failed();
+            case PARSED:
+                try {
+                    if (stage != null) {
+                        logParseOutcome(stage, outcome.getResult());
+                    }
+                    return TargetedResponse.map(outcome.getResult(), targetCount, outcome.getUsage(),
+                            outcome.getResponse());
+                } catch (RuntimeException e) {
+                    return deliveredUnparsed(outcome, e);
+                }
+            default:
+                return deliveredUnparsed(outcome, outcome.getFailure());
         }
-        TargetedResponse.CallUsage usage = queryResult.getUsage();
-        try {
-            RepairResult result = loop.get().attemptParse(queryResult.getText(), prompt, feature,
-                    deadlineNanos);
-            if (stage != null) {
-                logParseOutcome(stage, result);
-            }
-            return TargetedResponse.map(result, targetCount, usage, queryResult.getText());
-        } catch (RuntimeException e) {
-            // The call was delivered and its tokens were spent; a failure past
-            // this point (parsing or mapping) is a legitimate zero-gain outcome
-            // for the targets, not an undelivered call to release.
-            logger.debug("LLM {} response delivered but could not be parsed: {}", feature, e.getMessage());
-            return TargetedResponse.deliveredUnparsed(usage, queryResult.getText());
-        }
+    }
+
+    /**
+     * The call was delivered and its tokens were spent; a failure past that
+     * point (parsing or mapping) is a legitimate zero-gain outcome for the
+     * targets, not an undelivered call to release.
+     */
+    private TargetedResponse deliveredUnparsed(GeneratedTestRequest.Outcome outcome, RuntimeException failure) {
+        logger.debug("LLM {} response delivered but could not be parsed: {}", feature,
+                failure == null ? null : failure.getMessage());
+        return TargetedResponse.deliveredUnparsed(outcome.getUsage(), outcome.getResponse());
     }
 
     /**
