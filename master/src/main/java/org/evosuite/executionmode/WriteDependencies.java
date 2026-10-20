@@ -26,14 +26,12 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
-import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.utils.ExternalProcessGroupHandler;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.rmi.RemoteException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -78,31 +76,8 @@ public class WriteDependencies {
         ExternalProcessGroupHandler handler = ExecutionModeUtils.createSingleClientHandler();
         handler.setAllowDoneAsFinished(true);
         int port = ExecutionModeUtils.openServer(handler);
-        List<String> cmdLine = new ArrayList<>();
-        cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);
-        cmdLine.add("-cp");
-        cmdLine.add(classPath);
-        ExecutionModeUtils.addProcessCommunicationPort(cmdLine, port);
-        ExecutionModeUtils.addHeadlessMode(cmdLine);
-        ExecutionModeUtils.addLogbackConfiguration(cmdLine);
-        ExecutionModeUtils.addJavaLibraryPath(cmdLine);
-        ExecutionModeUtils.addCommonModuleOpens(cmdLine);
-        ExecutionModeUtils.addCpProperty(cmdLine, cp);
-        // cmdLine.add("-Dminimize_values=true");
-
-        ExecutionModeUtils.addArgsExcludingCpProperty(cmdLine, args);
-
-        ExecutionModeUtils.addTargetClassProperty(cmdLine, targetClass);
-        ExecutionModeUtils.addProjectPrefixPropertyIfPresent(cmdLine);
-        ExecutionModeUtils.addClassloaderProperty(cmdLine);
-        ExecutionModeUtils.addClientMainClass(cmdLine);
-
-        /*
-         * TODO: here we start the client with several properties that are set through -D. These properties are not
-         * visible to the master process (ie this process), when we access the Properties file. At the moment, we only
-         * need few parameters, so we can hack them
-         */
-        ExecutionModeUtils.applyClientProperties(targetClass, port);
+        List<String> cmdLine = ExecutionModeUtils.buildStandardClientCommand(classPath, cp,
+                true, args, targetClass, null, port);
 
         LoggingUtils logUtils = ExecutionModeUtils.configureRemoteLoggingIfNeeded(cmdLine, logger);
         if (!Properties.CLIENT_ON_THREAD && logUtils == null) {

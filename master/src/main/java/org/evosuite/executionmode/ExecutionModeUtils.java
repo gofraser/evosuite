@@ -25,6 +25,7 @@ import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.runtime.ReflectionAccess;
+import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.utils.ExternalProcessGroupHandler;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -236,6 +237,54 @@ public final class ExecutionModeUtils {
         Properties.getInstance(); // should force the load, just to be sure
         Properties.TARGET_CLASS = targetClass;
         Properties.PROCESS_COMMUNICATION_PORT = port;
+    }
+
+    /**
+     * Builds the command line shared by the single-client launchers (dependency writing, statistics
+     * printing and coverage measurement) and publishes the target class and port to this process.
+     *
+     * @param classPath     The class path of the client process.
+     * @param cpProperty    The value of the {@code CP} property handed to the client.
+     * @param headless      Whether to start the client in headless mode.
+     * @param args          The master's java options, forwarded except for the {@code CP} property.
+     * @param targetClass   The fully qualified name of the target class (or prefix).
+     * @param extraProperty An additional {@code -D} property placed after the target class, or {@code null}.
+     * @param port          The port number for process communication.
+     * @return The command line, ready for remote logging to be appended.
+     */
+    static List<String> buildStandardClientCommand(String classPath, String cpProperty, boolean headless,
+                                                   List<String> args, String targetClass,
+                                                   String extraProperty, int port) {
+        List<String> cmdLine = new ArrayList<>();
+        cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);
+        cmdLine.add("-cp");
+        cmdLine.add(classPath);
+        addProcessCommunicationPort(cmdLine, port);
+        if (headless) {
+            addHeadlessMode(cmdLine);
+        }
+        addLogbackConfiguration(cmdLine);
+        addJavaLibraryPath(cmdLine);
+        addCommonModuleOpens(cmdLine);
+        addCpProperty(cmdLine, cpProperty);
+
+        addArgsExcludingCpProperty(cmdLine, args);
+
+        addTargetClassProperty(cmdLine, targetClass);
+        if (extraProperty != null) {
+            cmdLine.add(extraProperty);
+        }
+        addProjectPrefixPropertyIfPresent(cmdLine);
+        addClassloaderProperty(cmdLine);
+        addClientMainClass(cmdLine);
+
+        /*
+         * TODO: here we start the client with several properties that are set through -D. These properties are not
+         * visible to the master process (ie this process), when we access the Properties file. At the moment, we only
+         * need few parameters, so we can hack them
+         */
+        applyClientProperties(targetClass, port);
+        return cmdLine;
     }
 
     /**
