@@ -1,0 +1,1621 @@
+=== repair: dependency missing ===
+The following issue was found in the generated tests:
+java.lang.NoClassDefFoundError: org/apache/commons/Missing
+
+Dependency-missing repair instructions:
+- Do NOT reference or instantiate missing external/framework classes.
+- Avoid code paths that trigger static initialization of missing dependencies.
+- Replace such tests with alternatives that only use available SUT/JDK types.
+- Focus on pure constructors/methods that do not require GUI/network/plugin containers.
+
+Initialization/dependency failure hint:
+- Keep all already executable tests unchanged.
+- For failing tests only, avoid code paths that load or initialize unavailable framework/native classes.
+- Avoid static initialization triggers of missing dependencies.
+- Replace failing tests with alternatives that only use available SUT/JDK types.
+- Prefer pure constructors/methods and precondition checks that do not require GUI/native/plugin containers.
+
+Observed failure signals:
+- NoClassDefFoundError: org/apache/commons/Missing
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+- NoClassDefFoundError/ClassNotFound signals unavailable dependencies; avoid those paths and prefer pure SUT/JDK flows.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: missing class symbol ===
+The following issue was found in the generated tests:
+error: cannot find symbol
+  symbol:   class Widgetz
+  location: class FooTest
+
+Dependency-missing repair instructions:
+- Do NOT reference or instantiate missing external/framework classes.
+- Avoid code paths that trigger static initialization of missing dependencies.
+- Replace such tests with alternatives that only use available SUT/JDK types.
+- Focus on pure constructors/methods that do not require GUI/network/plugin containers.
+
+Context-specific repair facts:
+- Symbol 'Widgetz' is not present in provided context; replace it with a context-listed SUT/JDK type.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: initialization aftershock ===
+The following issue was found in the generated tests:
+java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
+
+Dependency-missing repair instructions:
+- Do NOT reference or instantiate missing external/framework classes.
+- Avoid code paths that trigger static initialization of missing dependencies.
+- Replace such tests with alternatives that only use available SUT/JDK types.
+- Focus on pure constructors/methods that do not require GUI/network/plugin containers.
+
+Initialization/dependency failure hint:
+- Detected failing initialization class: com.dep.Poisoned
+- Keep all already executable tests unchanged.
+- For failing tests only, avoid code paths that load or initialize unavailable framework/native classes.
+- Avoid static initialization triggers of missing dependencies.
+- Replace failing tests with alternatives that only use available SUT/JDK types.
+- Prefer pure constructors/methods and precondition checks that do not require GUI/native/plugin containers.
+
+Poisoned-class avoidance:
+- The following non-CUT class(es) failed to initialize during this run and are now permanently unusable in this JVM. Any test that touches them — directly or transitively — will fail with NoClassDefFoundError no matter how it is rewritten.
+  * com.dep.Poisoned
+- Do NOT reference these classes from any test in the corrected class, including via fields, parameters, return types, factories, or methods that internally construct or load them. Choose alternative SUT/JDK types from the dependency summary instead.
+
+Observed failure signals:
+- Class remains unusable after failed static init: com.dep.Poisoned
+- NoClassDefFoundError: Could not initialize class com.dep.Poisoned
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+- Static initialization failed. Do not touch the poisoned class path in this run; rewrite the test to avoid loading it.
+- NoClassDefFoundError/ClassNotFound signals unavailable dependencies; avoid those paths and prefer pure SUT/JDK flows.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: static initializer failure ===
+The following issue was found in the generated tests:
+java.lang.ExceptionInInitializerError
+
+Initialization/dependency failure hint:
+- Keep all already executable tests unchanged.
+- For failing tests only, avoid code paths that load or initialize unavailable framework/native classes.
+- Avoid static initialization triggers of missing dependencies.
+- Replace failing tests with alternatives that only use available SUT/JDK types.
+- Prefer pure constructors/methods and precondition checks that do not require GUI/native/plugin containers.
+
+Poisoned-class avoidance:
+- The following non-CUT class(es) failed to initialize during this run and are now permanently unusable in this JVM. Any test that touches them — directly or transitively — will fail with NoClassDefFoundError no matter how it is rewritten.
+  * com.dep.Poisoned
+- Do NOT reference these classes from any test in the corrected class, including via fields, parameters, return types, factories, or methods that internally construct or load them. Choose alternative SUT/JDK types from the dependency summary instead.
+
+Observed failure signals:
+- Static initialization failed for <unknown>
+- ExceptionInInitializerError
+- Static initialization failed for com.dep.Poisoned
+- Class remains unusable after failed static init: com.dep.Poisoned
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+- Static initialization failed. Do not touch the poisoned class path in this run; rewrite the test to avoid loading it.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: headless ===
+The following issue was found in the generated tests:
+java.awt.AWTError: Local GraphicsEnvironment must not be null (HeadlessException)
+
+Initialization/dependency failure hint:
+- Keep all already executable tests unchanged.
+- For failing tests only, avoid code paths that load or initialize unavailable framework/native classes.
+- Avoid static initialization triggers of missing dependencies.
+- Replace failing tests with alternatives that only use available SUT/JDK types.
+- Prefer pure constructors/methods and precondition checks that do not require GUI/native/plugin containers.
+- AWT/Swing initialization failed in headless execution: avoid UI construction paths that require a real display toolkit.
+- Prefer non-visual SUT logic and model-level methods; only create GUI objects when constructor preconditions are fully initialized.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: headless escalated ===
+The following issue was found in the generated tests:
+java.awt.AWTError: Local GraphicsEnvironment must not be null (HeadlessException)
+
+Initialization/dependency failure hint:
+- Keep all already executable tests unchanged.
+- For failing tests only, avoid code paths that load or initialize unavailable framework/native classes.
+- Avoid static initialization triggers of missing dependencies.
+- Replace failing tests with alternatives that only use available SUT/JDK types.
+- Prefer pure constructors/methods and precondition checks that do not require GUI/native/plugin containers.
+- AWT/Swing initialization failed in headless execution: avoid UI construction paths that require a real display toolkit.
+- Prefer non-visual SUT logic and model-level methods; only create GUI objects when constructor preconditions are fully initialized.
+
+HEADLESS ESCALATION (final attempt for this failure mode):
+- The previous repair attempt produced the same headless/AWT failure. The SUT cannot be constructed in this JVM.
+- Do NOT call `new Target(...)` anywhere in the test class — every call path through the constructor will hit `Local GraphicsEnvironment must not be null`.
+- Replace SUT instantiation with `Target sut = Mockito.mock(Target.class);` (or `mock(Target.class)` when static Mockito imports are present), then exercise only methods that do not require real GUI state.
+- For tests that need real behavior, restrict them to static methods or utility entry points reachable without instantiation.
+- Do NOT extract construction into a private helper method; the parser cannot inline GUI-touching helpers and the SUT will be elided to a typed null.
+- If a test fundamentally requires a real Target, remove that test from the class — partial coverage is preferable to a class that yields zero executable tests.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+Please provide the corrected complete test class with all test methods.
+=== repair: instantiation ===
+The following issue was found in the generated tests:
+java.lang.InstantiationException: com.example.Widget is abstract; cannot be instantiated
+
+Instantiation failure hint:
+- Keep all already executable tests unchanged.
+- For failing tests only, do NOT instantiate abstract classes or interfaces.
+- Prefer concrete implementations listed in the dependency summary (use concrete subtype constructors).
+- If only an abstract/interface type is available at the call site, use a known concrete subtype or a mock.
+- Avoid reflective instantiation or helper patterns that hide non-instantiable types.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: expectation mismatch ===
+The following issue was found in the generated tests:
+Expected java.io.IOException but got IllegalStateException
+
+Expected-vs-actual exception mismatch:
+- testMismatch: expected=java.io.IOException, actual=java.lang.IllegalStateException
+- The actual runtime exception is what executes; the expected class came from the method's declared `throws` clause but the SUT does not actually translate the runtime failure into that type in this environment.
+- For each test above, EITHER change the assertThrows expectation to the actually observed class, OR replace the test with one that does not reach the failing call. Do NOT keep the same expected class hoping a different setup will produce it.
+- Note: tests [testShaded] failed with an exception under org.evosuite.runtime.mock.*; that is the EvoSuite test harness, not the SUT, and you cannot eliminate it by changing test inputs. Either accept it via assertThrows on that exact class or drop those tests.
+
+Observed failure signals:
+- IllegalStateException: closed
+- RuntimeException: boom
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: npe direct test variable ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException: Cannot invoke "org.w3c.dom.Element.getAttribute(String)" because "elem" is null
+Parsed test code excerpt:
+```java
+Element elem = null;
+sut.read(elem);
+```
+
+NPE precondition hint:
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- For failing tests only, ensure the object named 'elem' is initialized before invoking the SUT.
+- Detected null dereference: 'elem' was used in call 'org.w3c.dom.Element.getAttribute(String)'.
+- Initialize 'elem' with a non-null value compatible with org.w3c.dom.Element before invoking the SUT.
+- For DOM collaborators, build a minimal in-memory element (DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument().createElement("model")) instead of null.
+- If this collaborator is required by the constructor, pass a concrete non-null argument during object construction (do not rely on later null-state assertions).
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Context-specific repair facts:
+- Null variable 'elem' is explicitly assigned null. Repair by initializing required precondition objects at construction site first.
+
+Observed failure signals:
+- Null receiver 'elem' in call 'org.w3c.dom.Element.getAttribute(String)'
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+- Receiver-null NPE indicates missing collaborator initialization. Initialize/stub upstream dependencies so the receiver is non-null before dereference.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: npe inside sut ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException: Cannot invoke "com.example.Shape.area()" because "shape" is null
+
+NPE precondition hint:
+- Applies to test(s): [testNpe].
+- These NPE-precondition hints apply ONLY to the test(s) above; do not apply them to sibling failing tests whose actual exception is different (those are listed separately and require different fixes).
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- The JVM-reported null receiver name 'shape' comes from inside the failing SUT call path and is not necessarily a direct test variable; it is likely a parameter or local variable inside the SUT.
+- Repair the upstream collaborator setup so the SUT receives a non-null value there before dereferencing it.
+- Detected null dereference: 'shape' was used in call 'com.example.Shape.area()'.
+- Here, 'shape' is the null receiver inside the SUT call 'com.example.Shape.area()', likely as a parameter or local variable there, not necessarily a same-named test variable.
+- Stub or initialize the upstream collaborator/return value so that receiver is a non-null com.example.Shape before the SUT reaches that call.
+- If this collaborator is required by the constructor, pass a concrete non-null argument during object construction (do not rely on later null-state assertions).
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Context-specific repair facts:
+- Null variable 'shape' has non-instantiable declared type 'Shape'. Repair construction first using a concrete subtype such as com.example.Circle, com.example.Square.
+
+Observed failure signals:
+- Null receiver 'shape' in call 'com.example.Shape.area()'
+- NullPointerException: npe
+- RuntimeException: x
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+- Receiver-null NPE indicates missing collaborator initialization. Initialize/stub upstream dependencies so the receiver is non-null before dereference.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: npe synthetic local ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException: because "<local1>" is null
+
+NPE precondition hint:
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- For failing tests only, initialize required provider/session objects before invoking the SUT.
+- The null receiver name is compiler-synthetic (for example '<local1>'); explicitly initialize each call receiver right before invoking the failing method.
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Observed failure signals:
+- NullPointerException
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: npe without receiver ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException
+
+NPE precondition hint:
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- For failing tests only, initialize required provider/session objects before invoking the SUT.
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Observed failure signals:
+- NullPointerException
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: npe only in sibling ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException in one test; IllegalStateException in another
+
+Observed failure signals:
+- NullPointerException
+- IllegalStateException: x
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: mockito misuse ===
+The following issue was found in the generated tests:
+org.mockito.exceptions.misusing.UnfinishedStubbingException: Unfinished stubbing
+
+Mockito usage hint:
+- Keep all already executable tests unchanged.
+- For failing tests only, ensure objects passed to Mockito.when(...), doThrow(...).when(...), and verify(...) are actual mocks/spies.
+- Do NOT stub or verify real objects created with constructors.
+- If a collaborator type is interface/abstract, use Mockito.mock(Type.class) or a concrete subtype; never use new on the interface/abstract type.
+- Do NOT use Mockito.spy(...) or doReturn(...).when(spy)...; regenerate failing tests using real instances or Mockito.mock(...) collaborators.
+- Complete each stubbing expression fully (avoid unfinished stubbing chains).
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: not a mock and spy ===
+The following issue was found in the generated tests:
+org.mockito.exceptions.misusing.NotAMockException: Argument passed to when() is not a mock! Mockito.spy(list) then doReturn(1).when(spy).size()
+
+Mockito usage hint:
+- Keep all already executable tests unchanged.
+- For failing tests only, ensure objects passed to Mockito.when(...), doThrow(...).when(...), and verify(...) are actual mocks/spies.
+- Do NOT stub or verify real objects created with constructors.
+- If a collaborator type is interface/abstract, use Mockito.mock(Type.class) or a concrete subtype; never use new on the interface/abstract type.
+- Do NOT use Mockito.spy(...) or doReturn(...).when(spy)...; regenerate failing tests using real instances or Mockito.mock(...) collaborators.
+- Complete each stubbing expression fully (avoid unfinished stubbing chains).
+
+Spy-unsupported repair instructions:
+- Do NOT use Mockito.spy(...) in EvoSuite-generated parsed tests.
+- Do NOT use spy-based stubbing such as doReturn(...).when(spy)... or when(spy.method(...)).thenReturn(...).
+- Replace spy-based setup with one of: (1) direct calls on real SUT instances without spy stubbing, or (2) Mockito.mock(...) collaborators that are stubbed minimally.
+- Never alias or stub through parser-generated '__llm_fallback...' variables.
+
+Not-a-mock repair instructions:
+- The failing test attempted to use Mockito.when() or Mockito.doReturn() on a real object.
+- Only use Mockito.when() or Mockito.doReturn() on objects created via Mockito.mock().
+- If the object was created using a 'new' constructor, it is a real instance. Remove the Mockito stubbing for this object.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: stream precondition ===
+The following issue was found in the generated tests:
+java.lang.IllegalArgumentException: InputStream cannot be null
+
+Stream precondition hint:
+- The failing test violates stream preconditions or stream lifecycle constraints.
+- Keep all already executable tests unchanged.
+- For failing tests only, avoid null InputStream/OutputStream/Reader/Writer arguments unless the method contract explicitly expects null.
+- Prefer in-memory data sources over filesystem/network I/O in tests:
+  ByteArrayInputStream for bytes, StringReader for text, ByteArrayOutputStream/StringWriter for outputs.
+- In EvoSuite sandbox, avoid direct file-writer constructors (e.g., FileOutputStream/FileWriter/PrintWriter on real files); use in-memory outputs or EvoSuite mock I/O types (MockFile*, MockPrint*) when file-like APIs are required.
+- Build minimally valid non-empty test payloads before invoking parser/configuration methods.
+- If the expected behavior is argument validation, assert the concrete thrown exception for null stream arguments.
+
+Argument precondition hint:
+- The failing test violates method preconditions for input arguments.
+- Keep all already executable tests unchanged.
+- For failing tests only, replace invalid empty/default inputs with minimally valid non-empty values before invoking the SUT.
+- Typical fixes: provide at least one required line/entry/token/element instead of empty structures or empty strings.
+- If testing validation behavior, use assertThrows(...) for the invalid-input case and add a separate valid-input smoke test.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: event source precondition ===
+The following issue was found in the generated tests:
+java.lang.IllegalArgumentException: null source at java.util.EventObject.<init>
+
+Argument precondition hint:
+- The failing test violates method preconditions for input arguments.
+- Keep all already executable tests unchanged.
+- For failing tests only, replace invalid empty/default inputs with minimally valid non-empty values before invoking the SUT.
+- Typical fixes: provide at least one required line/entry/token/element instead of empty structures or empty strings.
+- If testing validation behavior, use assertThrows(...) for the invalid-input case and add a separate valid-input smoke test.
+- Detected `IllegalArgumentException: null source` from EventObject/ActionEvent construction.
+- Never build `new ActionEvent(null, ...)`: the first constructor argument (event source) must be non-null.
+- If receiver construction collapsed to a typed null placeholder (`__llm_fallback...`), do not keep emitting event-driven tests on that null receiver; repair upstream construction or rewrite/drop those tests.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: indexed fixture ===
+The following issue was found in the generated tests:
+java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5
+
+Indexed fixture/bounds hint:
+- The failing test uses inconsistent dimensions, counts, or indices while building an indexed fixture or invoking an indexed API.
+- Keep all already executable tests unchanged.
+- For failing tests only, re-check each constructor size/count argument against every later indexed read/write in that test.
+- Do not assume constructor counts map 1:1 to all later accessible rows/elements/slots; some helpers reserve header or metadata positions, or derive internal storage differently.
+- Rebuild the fixture so every set/get index stays within the actual bounds created by the constructor and setup calls.
+- If the behavior under test is rejection of invalid sizes or indices, stop the test at the offending constructor/mutator with assertThrows(...) instead of continuing with normal-path assertions.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: reflective invocation ===
+The following issue was found in the generated tests:
+java.lang.reflect.InvocationTargetException at Method.invoke via getDeclaredMethod
+
+Reflection wrapper hint:
+- Keep all already executable tests unchanged.
+- Prefer direct invocation of accessible SUT methods over reflection.
+- If using Method.invoke(...), expect InvocationTargetException from assertThrows.
+- Then assert the wrapped cause type/message (e.getCause()) matches the expected SUT exception.
+- Avoid Class.forName/getDeclaredMethod/setAccessible when the target method is public or package-private.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: reflective assertThrows fallback ===
+The following issue was found in the generated tests:
+Snippet compilation failed: InvocationTargetException __llm_fallback3 = null;
+
+Reflective assertThrows fallback hint:
+- The shown InvocationTargetException/__llm_fallback line is a parser-generated fallback, not valid intended test logic.
+- Replace the entire failing reflective assertion fragment instead of keeping the synthetic fallback variable or aliasing it.
+- Prefer direct invocation of accessible SUT methods over reflection.
+- If reflection is unavoidable, capture InvocationTargetException with Assertions.assertThrows(...), then cast/check invocationTargetException.getCause() as the expected SUT exception type.
+- Do not assign assertThrows(...) results to synthetic null/fallback placeholders.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Fallback-strategy repair instructions:
+- __llm_fallback variables are parser-generated placeholders inserted because the previous LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback. Do not trigger synthetic __llm_fallback variables by reusing unsupported helper patterns.
+- Do NOT call methods on these fallback variables; they are 'null' placeholders and will throw NullPointerException at runtime.
+- Instead of using a fallback, fix the object instantiation that made the parser fail by using a valid SUT/JDK type or a proper Mockito.mock().
+- Use only existing SUT/JDK types and exact type names; never derive package/type names from variable names.
+- Do not reference non-public dependency types from other packages (diagnostics like 'X is not public in package Y; cannot be accessed from outside package').
+- If a constructor/method path requires a non-public cross-package type, do not force it with fallbacks; use a public alternative setup/factory/path from context or rewrite the test to avoid that path.
+- Do not use helper wrappers like setField/setStaticField unless those methods are explicitly available in the test class.
+- Do not define anonymous classes; replace them with concrete existing types or null when acceptable.
+
+Please provide the corrected complete test class with all test methods.
+=== repair: missing method on variable ===
+The following issue was found in the generated tests:
+error: cannot find symbol
+  symbol:   method radius()
+  location: variable radius of type com.example.Circle
+error: cannot find symbol
+  symbol:   method area2()
+  location: variable c of type com.example.Circle
+No method named perimeter in com.example.Circle
+
+Missing-method repair instructions:
+- Invalid self-call typo detected: `radius.radius(...)`. Remove this call entirely or replace it with a real existing API call on `com.example.Circle` from provided context. Do not invent methods from variable names.
+- Cannot resolve method `area2(...)` on variable `c` of type `com.example.Circle`. Replace with an existing method from context or remove this call/assertion.
+- Do not call subtype-only methods on a supertype reference. If the runtime object is a subtype, add an `instanceof` guard and cast before calling subtype APIs (for example `Component` -> `JLabel` before `getText()`).
+- No method named `perimeter` exists in `com.example.Circle`. Replace the invented call with a real API from context, or remove the call entirely.
+
+Context-specific repair facts:
+- Method call 'radius.radius(...)' is invalid: method name equals receiver variable name. Replace/remove this self-call typo and invoke a real method on 'com.example.Circle'.
+- Cannot resolve method 'area2(...)' on variable 'c' of type 'com.example.Circle'. Use an existing method from the provided context.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: missing member and package ===
+The following issue was found in the generated tests:
+error: cannot find symbol
+  symbol:   variable size
+  location: variable o of type java.lang.Object
+error: cannot find symbol
+  symbol:   variable radius
+  location: variable c of type com.example.Circle
+error: package Mode does not exist
+
+Context-specific repair facts:
+- Unresolved package/type prefix 'Mode' often means an unqualified nested type/enum constant (for example Foo.BAR). Use the declaring type qualifier from context (for example OuterType.Mode.BAR) or an already declared variable.
+- Invalid member access 'o.size': receiver is typed as Object (often a __llm_fallback alias). Remove this assertion/access and replace with assertions over real typed collaborators.
+- Cannot resolve member 'radius' on variable 'c' of type 'com.example.Circle'. Use accessible members that actually exist.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: unknown symbol without location ===
+The following issue was found in the generated tests:
+error: cannot find symbol in expression
+
+Context-specific repair facts:
+- Resolve symbol/package errors by using exact type names/packages from the provided context; do not invent FQCNs.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: missing class symbols with fallback ===
+The following issue was found in the generated tests:
+error: cannot find symbol
+  symbol:   class Node
+  location: class FooTest
+Node __llm_fallback1 = null; new Node( org.dom4j NodeComparator
+error: cannot find symbol
+  symbol:   class Circle
+  location: class FooTest
+
+Dependency-missing repair instructions:
+- Do NOT reference or instantiate missing external/framework classes.
+- Avoid code paths that trigger static initialization of missing dependencies.
+- Replace such tests with alternatives that only use available SUT/JDK types.
+- Focus on pure constructors/methods that do not require GUI/network/plugin containers.
+
+Collaborator fallback hint:
+- The shown 'Node __llm_fallback... = null;' line is a parser-generated placeholder, not a usable collaborator setup.
+- Do not alias that synthetic fallback, call methods on it, stub through it, or keep passing null instead of a real Node value.
+- Replace it with a real collaborator before invoking the SUT.
+- If Node is interface/abstract-like in context, prefer Mockito.mock(Node.class, new ViolatedAssumptionAnswer()) and stub only the minimal methods the SUT call actually uses.
+- If that collaborator cannot be constructed or mocked with available SUT/JDK types, rewrite the failing test to avoid that path instead of keeping the synthetic fallback.
+
+Context-specific repair facts:
+- Unresolved class 'Node' appears in a __llm_fallback declaration. Do not introduce short unresolved type aliases (e.g., 'Node __llm_fallback...'); use a resolvable fully-qualified type or Object.
+- Unresolved class 'Node' is being instantiated (`new Node(...)`). Do not invent helper/stub classes. Replace with an existing SUT/JDK type, or use Mockito.mock(ExpectedType.class, new ViolatedAssumptionAnswer()) for collaborator parameters.
+- For dom4j tests, unqualified cast type `Node` is unresolved here. Use `org.dom4j.Node` (or an already imported compatible type such as `org.dom4j.Element`) instead of bare `Node`.
+- Symbol 'Node' is not present in provided context; replace it with a context-listed SUT/JDK type.
+- Unresolved class 'Circle' appears in a __llm_fallback declaration. Do not introduce short unresolved type aliases (e.g., 'Circle __llm_fallback...'); use a resolvable fully-qualified type or Object.
+- Symbol 'Circle' exists in provided context; use its exact context form/package and avoid invented qualifiers.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Fallback-strategy repair instructions:
+- __llm_fallback variables are parser-generated placeholders inserted because the previous LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback. Do not trigger synthetic __llm_fallback variables by reusing unsupported helper patterns.
+- Do NOT call methods on these fallback variables; they are 'null' placeholders and will throw NullPointerException at runtime.
+- Instead of using a fallback, fix the object instantiation that made the parser fail by using a valid SUT/JDK type or a proper Mockito.mock().
+- Use only existing SUT/JDK types and exact type names; never derive package/type names from variable names.
+- Do not reference non-public dependency types from other packages (diagnostics like 'X is not public in package Y; cannot be accessed from outside package').
+- If a constructor/method path requires a non-public cross-package type, do not force it with fallbacks; use a public alternative setup/factory/path from context or rewrite the test to avoid that path.
+- Do not use helper wrappers like setField/setStaticField unless those methods are explicitly available in the test class.
+- Do not define anonymous classes; replace them with concrete existing types or null when acceptable.
+
+Please provide the corrected complete test class with all test methods.
+=== repair: member access recurrent ===
+The following issue was found in the generated tests:
+FooTest.java:12: error: secret() has private access in com.example.Vault
+lexer.state.type
+
+Member-access repair hint:
+- The failing test directly accesses private or protected members (which are not allowed). Note: Package-private members ARE allowed as tests are in the same package.
+- Keep all already executable tests unchanged.
+- Specifically inaccessible members detected:
+  * Do NOT call `secret()` — it has private access in `Vault`.
+- For failing tests only, remove direct field/member access assertions and replace them with checks via accessible public or package-visible methods.
+- Do not assert internal fields such as receiver.superclassField; assert externally visible behavior instead.
+- If no accessible API exposes the same state, drop that assertion rather than forcing illegal member access.
+- Also avoid non-public cross-package types in imports/declarations/constructors; use only public accessible types/paths from context.
+- ANTLR-specific: never access `lexer.state` / `BaseRecognizer.state` directly. Remove assertions like `lexer.state.type` and assert behavior via public lexer APIs or tokenization results.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+--- turn 2 ---
+The following issue was found in the generated tests:
+FooTest.java:12: error: secret() has private access in com.example.Vault
+lexer.state.type
+
+Member-access repair hint:
+- The failing test directly accesses private or protected members (which are not allowed). Note: Package-private members ARE allowed as tests are in the same package.
+- Keep all already executable tests unchanged.
+- Specifically inaccessible members detected:
+  * CRITICAL (recurrent): You MUST NOT call `secret()` — it has private access in `Vault`. Remove ALL calls to this member immediately.
+- For failing tests only, remove direct field/member access assertions and replace them with checks via accessible public or package-visible methods.
+- Do not assert internal fields such as receiver.superclassField; assert externally visible behavior instead.
+- If no accessible API exposes the same state, drop that assertion rather than forcing illegal member access.
+- Also avoid non-public cross-package types in imports/declarations/constructors; use only public accessible types/paths from context.
+- ANTLR-specific: never access `lexer.state` / `BaseRecognizer.state` directly. Remove assertions like `lexer.state.type` and assert behavior via public lexer APIs or tokenization results.
+
+Please provide the corrected complete test class with all test methods.
+=== repair: false positive mock ===
+The following issue was found in the generated tests:
+org.evosuite.runtime.FalsePositiveException: Mock call to findName which was not presented when the test was generated
+[Dependency Stack] com.example.Repo.findName(Repo.java:3)
+
+Mock-stubbing hint:
+- The rerun failed because a mocked collaborator used ViolatedAssumptionAnswer and the SUT called an unstubbed method.
+- Unstubbed mock call: `com.example.Repo.findName(...)`.
+- Add the minimal stub for the collaborator method the SUT actually calls, instead of leaving that mock on a bare ViolatedAssumptionAnswer path.
+- Keep the rest of the test unchanged unless it depends on the missing stub.
+- Do not replace the collaborator with null; make the mock return the value or nested collaborator the SUT needs.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: false positive mock without name ===
+The following issue was found in the generated tests:
+org.evosuite.runtime.FalsePositiveException: Mock call to something odd
+
+Mock-stubbing hint:
+- The rerun failed because a mocked collaborator used ViolatedAssumptionAnswer and the SUT called an unstubbed method.
+- Unstubbed mock call: the runtime reported a false-positive mock-policy failure, but the exact method name was not captured.
+- Add the minimal stub for the collaborator method the SUT actually calls, instead of leaving that mock on a bare ViolatedAssumptionAnswer path.
+- Keep the rest of the test unchanged unless it depends on the missing stub.
+- Do not replace the collaborator with null; make the mock return the value or nested collaborator the SUT needs.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: no test methods with path import ===
+The following issue was found in the generated tests:
+Parser produced no test methods.
+
+No-test-method parsing hint:
+- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
+- The previous response used invalid Java import syntax with file-path separators instead of package dots.
+- Invalid import from previous response: import com/example/Shape;
+- Java imports must use dotted package names, for example `import br.com.jnfe.base.service.SimpleSecurityHandlerBean;`.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: no test methods with alias import ===
+The following issue was found in the generated tests:
+Parser produced no test methods.
+
+No-test-method parsing hint:
+- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
+- The previous response used invalid 'import ... as ...' alias syntax, which Java does not support.
+- To resolve naming conflicts (e.g., between two classes named 'Query'), use the fully qualified name at the call site instead of aliasing the import.
+- Example: `net.sourceforge.beanbin.query.Query beanBinQuery = new net.sourceforge.beanbin.query.Query();`.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: no test methods empty response ===
+The following issue was found in the generated tests:
+Parser produced no test methods.
+The LLM response was empty or contained no Java code.
+
+No-test-method parsing hint:
+- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
+- Do not return only context, documentation, or bytecode disassembly.
+- Generate actual test code with concrete @Test methods that instantiate and interact with the target class.
+- If your previous response was cut off or hit a token limit, generate fewer test cases but include actual test code.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: no test methods with test annotation ===
+The following issue was found in the generated tests:
+Parser produced no test methods.
+
+No-test-method parsing hint:
+- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
+- The previous response already looked like a test class, so malformed Java syntax likely prevented method extraction. Recheck imports, class declaration, braces, and method headers.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: no test methods prose ===
+The following issue was found in the generated tests:
+Parser produced no test methods.
+
+No-test-method parsing hint:
+- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
+- Do not return prose or helper snippets only; include actual @Test methods in the final class.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: collaborator fallback ===
+The following issue was found in the generated tests:
+Snippet failure near: com.example.Shape __llm_fallback2 = null;
+
+Collaborator fallback hint:
+- The shown 'com.example.Shape __llm_fallback... = null;' line is a parser-generated placeholder, not a usable collaborator setup.
+- Do not alias that synthetic fallback, call methods on it, stub through it, or keep passing null instead of a real Shape value.
+- Replace it with a real collaborator before invoking the SUT.
+- If Shape is interface/abstract-like in context, prefer Mockito.mock(Shape.class, new ViolatedAssumptionAnswer()) and stub only the minimal methods the SUT call actually uses.
+- If that collaborator cannot be constructed or mocked with available SUT/JDK types, rewrite the failing test to avoid that path instead of keeping the synthetic fallback.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Fallback-strategy repair instructions:
+- __llm_fallback variables are parser-generated placeholders inserted because the previous LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback. Do not trigger synthetic __llm_fallback variables by reusing unsupported helper patterns.
+- Do NOT call methods on these fallback variables; they are 'null' placeholders and will throw NullPointerException at runtime.
+- Instead of using a fallback, fix the object instantiation that made the parser fail by using a valid SUT/JDK type or a proper Mockito.mock().
+- Use only existing SUT/JDK types and exact type names; never derive package/type names from variable names.
+- Do not reference non-public dependency types from other packages (diagnostics like 'X is not public in package Y; cannot be accessed from outside package').
+- If a constructor/method path requires a non-public cross-package type, do not force it with fallbacks; use a public alternative setup/factory/path from context or rewrite the test to avoid that path.
+- Do not use helper wrappers like setField/setStaticField unless those methods are explicitly available in the test class.
+- Do not define anonymous classes; replace them with concrete existing types or null when acceptable.
+
+Please provide the corrected complete test class with all test methods.
+=== repair: synthetic fallback npe ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException on __llm_fallback1.read()
+
+NPE precondition hint:
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- For failing tests only, initialize required provider/session objects before invoking the SUT.
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Synthetic fallback usage error:
+- You are attempting to call a method on a variable named '__llm_fallback...' which is 'null'.
+- This variable is a placeholder and should NEVER be used as a valid object instance.
+- You MUST fix the constructor call that led to this fallback by providing valid data (e.g., a valid byte array header like {0xCA, 0xFE, 0xBA, 0xBE} for ASM ClassReader).
+
+Observed failure signals:
+- NullPointerException
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Fallback-strategy repair instructions:
+- __llm_fallback variables are parser-generated placeholders inserted because the previous LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback. Do not trigger synthetic __llm_fallback variables by reusing unsupported helper patterns.
+- Do NOT call methods on these fallback variables; they are 'null' placeholders and will throw NullPointerException at runtime.
+- Instead of using a fallback, fix the object instantiation that made the parser fail by using a valid SUT/JDK type or a proper Mockito.mock().
+- Use only existing SUT/JDK types and exact type names; never derive package/type names from variable names.
+- Do not reference non-public dependency types from other packages (diagnostics like 'X is not public in package Y; cannot be accessed from outside package').
+- If a constructor/method path requires a non-public cross-package type, do not force it with fallbacks; use a public alternative setup/factory/path from context or rewrite the test to avoid that path.
+- Do not use helper wrappers like setField/setStaticField unless those methods are explicitly available in the test class.
+- Do not define anonymous classes; replace them with concrete existing types or null when acceptable.
+
+Please provide the corrected complete test class with all test methods.
+=== repair: anonymous interface ===
+The following issue was found in the generated tests:
+Snippet compilation failed: illegal start of type near new java.lang.Runnable() { void run }
+
+Anonymous implementation repair hint:
+- The failing test created an anonymous implementation/subclass of 'java.lang.Runnable', and that anonymous `new Runnable() { ... }` fragment is non-compilable in EvoSuite snippet execution here.
+- This is not a parser/import issue: the anonymous `new Runnable() { ... }` fragment itself is not a valid repair for this type.
+- 'Runnable' is an interface, so the one-off anonymous body still has to implement every required method.
+- The reported javac syntax errors (for example `illegal start of type`, `';' expected`, or stray `return` lines) are downstream effects of the malformed anonymous class, not evidence that EvoSuite parsed the body incorrectly.
+- Do NOT write new Runnable() { ... } just to override one method.
+- Replace it with Mockito.mock(java.lang.Runnable.class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.
+- Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.
+- If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: anonymous abstract ===
+The following issue was found in the generated tests:
+error: <anonymous FooTest$1> is not abstract and does not override abstract method get(int) in new java.util.AbstractList() {
+
+Anonymous implementation repair hint:
+- The failing test created an anonymous implementation/subclass of 'java.util.AbstractList', and that anonymous `new AbstractList() { ... }` fragment is non-compilable in EvoSuite snippet execution here.
+- This is not a parser/import issue: the anonymous `new AbstractList() { ... }` fragment itself is not a valid repair for this type.
+- 'AbstractList' is abstract and its constructors are not directly public, so a one-method anonymous subclass is especially brittle here.
+- Do NOT write new AbstractList() { ... } just to override one method.
+- Replace it with Mockito.mock(java.util.AbstractList.class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.
+- Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.
+- If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: anonymous concrete ===
+The following issue was found in the generated tests:
+Snippet compilation failed: ';' expected near new java.lang.Thread() { }
+
+Anonymous implementation repair hint:
+- The failing test created an anonymous implementation/subclass of 'java.lang.Thread', and that anonymous `new Thread() { ... }` fragment is non-compilable in EvoSuite snippet execution here.
+- This is not a parser/import issue: the anonymous `new Thread() { ... }` fragment itself is not a valid repair for this type.
+- Even though 'Thread' is concrete, keep avoiding `new Thread() { ... }` here; the anonymous override body is the failing pattern.
+- The reported javac syntax errors (for example `illegal start of type`, `';' expected`, or stray `return` lines) are downstream effects of the malformed anonymous class, not evidence that EvoSuite parsed the body incorrectly.
+- Do NOT write new Thread() { ... } just to override one method.
+- Replace it with Mockito.mock(java.lang.Thread.class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.
+- Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.
+- If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: context facts ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException: because "s" is null
+
+NPE precondition hint:
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- The JVM-reported null receiver name 's' comes from inside the failing SUT call path and is not necessarily a direct test variable; it is likely a parameter or local variable inside the SUT.
+- Repair the upstream collaborator setup so the SUT receives a non-null value there before dereferencing it.
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Context-specific repair facts:
+- Detected construction of non-instantiable type 'Shape'. Prefer one of these concrete subtypes from context: com.example.Circle, com.example.Square.
+- Null variable 's' has non-instantiable declared type 'Shape'. Repair construction first using a concrete subtype such as com.example.Circle, com.example.Square.
+
+Observed failure signals:
+- NullPointerException
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: context facts null declaration ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException: because "k" is null
+
+NPE precondition hint:
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- The JVM-reported null receiver name 'k' comes from inside the failing SUT call path and is not necessarily a direct test variable; it is likely a parameter or local variable inside the SUT.
+- Repair the upstream collaborator setup so the SUT receives a non-null value there before dereferencing it.
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Context-specific repair facts:
+- Null variable 'k' is explicitly assigned null. Repair by initializing required precondition objects at construction site first.
+
+Observed failure signals:
+- NullPointerException
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: context facts type mismatch ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException: because "w" is null
+
+NPE precondition hint:
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- The JVM-reported null receiver name 'w' comes from inside the failing SUT call path and is not necessarily a direct test variable; it is likely a parameter or local variable inside the SUT.
+- Repair the upstream collaborator setup so the SUT receives a non-null value there before dereferencing it.
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Context-specific repair facts:
+- Null variable 'w' has non-instantiable declared type 'Shape'. Repair construction first using a concrete subtype such as com.example.Circle, com.example.Square.
+
+Observed failure signals:
+- NullPointerException
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: fallback strategy ===
+The following issue was found in the generated tests:
+Preserved as UninterpretedStatement: setField(sut, "x", 1)
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Fallback-strategy repair instructions:
+- __llm_fallback variables are parser-generated placeholders inserted because the previous LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback. Do not trigger synthetic __llm_fallback variables by reusing unsupported helper patterns.
+- Do NOT call methods on these fallback variables; they are 'null' placeholders and will throw NullPointerException at runtime.
+- Instead of using a fallback, fix the object instantiation that made the parser fail by using a valid SUT/JDK type or a proper Mockito.mock().
+- Use only existing SUT/JDK types and exact type names; never derive package/type names from variable names.
+- Do not reference non-public dependency types from other packages (diagnostics like 'X is not public in package Y; cannot be accessed from outside package').
+- If a constructor/method path requires a non-public cross-package type, do not force it with fallbacks; use a public alternative setup/factory/path from context or rewrite the test to avoid that path.
+- Do not use helper wrappers like setField/setStaticField unless those methods are explicitly available in the test class.
+- Do not define anonymous classes; replace them with concrete existing types or null when acceptable.
+
+Please provide the corrected complete test class with all test methods.
+=== repair: rule hints with cooldown ===
+The following issue was found in the generated tests:
+java.lang.ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
+
+Observed failure signals:
+- Class cast mismatch: java.lang.String -> java.lang.Integer
+- ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+- ClassCastException indicates wrong-type setup/stubbing. Return the exact runtime type expected at that lookup/call site.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+--- turn 2 ---
+The following issue was found in the generated tests:
+java.lang.ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
+
+Please provide the corrected complete test class with all test methods.
+--- turn 3 ---
+The following issue was found in the generated tests:
+java.lang.ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
+
+Observed failure signals:
+- Class cast mismatch: java.lang.String -> java.lang.Integer
+- ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+- ClassCastException indicates wrong-type setup/stubbing. Return the exact runtime type expected at that lookup/call site.
+
+Please provide the corrected complete test class with all test methods.
+=== repair: catalogue on later turn ===
+The following issue was found in the generated tests:
+java.lang.IllegalStateException: plain failure
+
+Targeted repair hints:
+- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
+- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
+- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
+
+Please provide the corrected complete test class with all test methods.
+=== combined: shared npe with parse hints ===
+Batch attrition summary:
+- Started from 4 parsed candidate test(s); only 1 currently parse and execute cleanly.
+- Dropped 3 test(s) so far (1 parse-time, 2 execution-time).
+- Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
+- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
+- Multiple dropped tests share the same execution root cause: null receiver 'shape' inside SUT call 'com.example.Shape.area()'. Repair the shared object/collaborator setup that should initialize this Shape instance before that call, instead of deleting those tests one-by-one. (2 tests)
+
+The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
+- testKept
+
+The following tests were dropped because they failed to parse; please rewrite them:
+* testParseDropped:
+  - ERROR (line 3): Cannot resolve method scope: helper [helper.run()]
+  - ERROR (line 4): Cannot resolve unscoped method call: build() [build()]
+  - ERROR (line 5): No method named perimeter in com.example.Circle [c.perimeter()]
+  - ERROR (line 6): No matching method for call [c.x()]
+  - ERROR (line 7): Unknown array variable: arr [arr[0] = 1]
+  - ERROR (line 8): Unresolved variable: v [v.go()]
+  - ERROR (line 9): Cannot resolve type: InventedType [InventedType t;]
+  - WARNING (line 10): Stranded LLM_REPAIR_ACTION_REQUIRED: assign the variable [Foo f;]
+
+The following tests parsed but failed at execution; please repair them:
+* testNpeA:
+  - java.lang.NullPointerException: Cannot invoke "com.example.Shape.area()" because "shape" is null
+* testNpeB:
+  - java.lang.NullPointerException: Cannot invoke "com.example.Shape.area()" because "shape" is null
+Repair hints:
+- Declare the receiver variable earlier, or use a real static call in ClassName.method(...) form.
+- Avoid bare helper calls; inline helper logic or call an existing SUT/JDK method.
+- The parser rejected invented method `perimeter`; keep the raw failing line visible in the prompt instead of collapsing it into generic `llm_feedback`.
+- Source expression: c.perimeter()
+- Replace invented method calls with real APIs from the supplied context; keep the offending line visible in the repair prompt.
+- Declare the array before indexing it, including full rank/dimensions.
+- Declare the variable earlier and keep names consistent across statements.
+- Replace invented/unknown types with existing SUT or JDK types.
+- assign the variable
+
+Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
+=== combined: shared anonymous snippet ===
+Batch attrition summary:
+- Started from 2 parsed candidate test(s); only 0 currently parse and execute cleanly.
+- Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
+- Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
+- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
+- Multiple dropped tests share the same anonymous-class snippet failure around 'Runnable'. This is not a parser/import issue. Do not keep writing `new Runnable() { ... }`; replace it with Mockito.mock(java.lang.Runnable.class, new ViolatedAssumptionAnswer()) or a real concrete collaborator setup. (2 tests)
+
+The following tests parsed but failed at execution; please repair them:
+* testAnonA:
+  - Snippet compilation failed: illegal start of type near new java.lang.Runnable() {
+* testAnonB:
+  - Snippet compilation failed: illegal start of type near new java.lang.Runnable() {
+
+Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
+=== combined: shared initialization failure ===
+Batch attrition summary:
+- Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly.
+- Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
+- Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
+- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
+- Multiple dropped tests share the same initialization failure in 'com.dep.Poisoned'. Repair the shared environment/setup once or avoid that path instead of deleting those tests individually. (2 tests)
+
+The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
+- testKept
+
+The following tests parsed but failed at execution; please repair them:
+* testInitA:
+  - java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
+* testInitB:
+  - java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
+
+Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
+=== combined: shared indexed fixture ===
+Batch attrition summary:
+- Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly.
+- Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
+- Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
+- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
+- Multiple dropped tests share the same bounds/shape failure while constructing or populating indexed fixtures. Repair the shared setup pattern once: make constructor size/count arguments consistent with every later indexed get/set call, do not assume every helper/container stores all slots exactly 1:1 with its constructor arguments, and regenerate those fixtures instead of deleting the tests one-by-one. (2 tests)
+
+The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
+- testKept
+
+The following tests parsed but failed at execution; please repair them:
+* testBoundsA:
+  - java.lang.IndexOutOfBoundsException: Index 3 out of bounds for length 2
+* testBoundsB:
+  - java.lang.IndexOutOfBoundsException: Index 3 out of bounds for length 2
+
+Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
+=== combined: shared false positive mock ===
+Batch attrition summary:
+- Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly.
+- Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
+- Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
+- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
+- Multiple dropped tests fail because the SUT reaches an unstubbed mock call to `findName(...)` on a ViolatedAssumptionAnswer collaborator. Repair the shared mock setup once by stubbing that collaborator method (and any returned nested collaborator) instead of deleting those tests one-by-one. (2 tests)
+
+The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
+- testKept
+
+The following tests parsed but failed at execution; please repair them:
+* testMockA:
+  - org.evosuite.runtime.FalsePositiveException: Mock call to findName which was not presented when the test was generated
+* testMockB:
+  - org.evosuite.runtime.FalsePositiveException: Mock call to findName which was not presented when the test was generated
+
+Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
