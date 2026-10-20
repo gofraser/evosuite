@@ -281,4 +281,22 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("java/lang/reflect/AccessibleObject",
                 "setAccessible([Ljava/lang/reflect/AccessibleObject;Z)V"));
     }
+
+    @Test
+    public void testCacheFollowsAChangeOfSettings() throws Exception {
+        Method console = java.lang.System.class.getMethod("console");
+        String consoleKey = console.getName() + Type.getMethodDescriptor(console);
+
+        Assertions.assertTrue(MethodCallReplacementCache.getInstance()
+                .hasReplacementCall("java/lang/System", consoleKey));
+
+        // a second test class with other runner parameters, without a reset in between
+        RuntimeSettings.mockJVMNonDeterminism = false;
+        Assertions.assertFalse(MethodCallReplacementCache.getInstance()
+                .hasReplacementCall("java/lang/System", consoleKey));
+
+        RuntimeSettings.mockJVMNonDeterminism = true;
+        Assertions.assertTrue(MethodCallReplacementCache.getInstance()
+                .hasReplacementCall("java/lang/System", consoleKey));
+    }
 }

@@ -68,6 +68,9 @@ public class MethodCallReplacementCache {
      */
     private final Map<String, Map<String, MethodCallReplacement>> specialReplacementCalls = new HashMap<>();
 
+    /** The settings the replacements were built for. */
+    private final int settings = currentSettings();
+
     private MethodCallReplacementCache() {
 
         // Which replacements exist is decided here, once, and the instance is then reused for
@@ -512,10 +515,22 @@ public class MethodCallReplacementCache {
      * @return a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementCache} object.
      */
     public static MethodCallReplacementCache getInstance() {
-        if (instance == null) {
-            instance = new MethodCallReplacementCache();
+        int current = currentSettings();
+        MethodCallReplacementCache cache = instance;
+        if (cache == null || cache.settings != current) {
+            // Which replacements exist depends on the settings, so a change of any of them, as
+            // between test classes with different runner parameters, calls for a new cache.
+            cache = new MethodCallReplacementCache();
+            instance = cache;
         }
-        return instance;
+        return cache;
+    }
+
+    private static int currentSettings() {
+        return (RuntimeSettings.useVFS ? 1 : 0)
+                | (RuntimeSettings.mockJVMNonDeterminism ? 2 : 0)
+                | (RuntimeSettings.useVNET ? 4 : 0)
+                | (RuntimeSettings.mockGUI ? 8 : 0);
     }
 
     /**
