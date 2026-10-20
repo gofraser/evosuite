@@ -273,7 +273,7 @@ public final class EvoSuiteCommand {
             args.add("-Dllm_on_stagnation=true");
         }
         if (options.llmOperators) {
-            args.add("-Dllm_operator_enabled=true");
+            args.add("-Dllm_operator_mode=SYNC");
         }
         if (options.llmPostprocessing) {
             args.add("-Dllm_postprocessing_enabled=true");

@@ -189,7 +189,7 @@ and the LLM-only approaches disable the settings that only apply to the search:
 | Approach | search only (the LLM is off, the settings are kept), search assisted by the LLM, or LLM-only generation with one prompt or iterating on uncovered goals (`-Dstrategy=LLMSTRATEGY`) |
 | Seed the search | `llm_seeding_profile`: off, minimal, standard or full; search approach only |
 | When the search stagnates | `llm_on_stagnation`; search approach only |
-| Mutation and crossover | `llm_operator_enabled`; search approach only |
+| Mutation and crossover | `llm_operator_mode=SYNC`; search approach only |
 | Improve names, comments and assertions | `llm_postprocessing_enabled` |
 | LLM calls per class | `llm_max_calls`; empty for no limit |
 

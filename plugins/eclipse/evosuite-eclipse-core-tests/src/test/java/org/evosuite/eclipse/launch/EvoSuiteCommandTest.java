@@ -214,7 +214,7 @@ public class EvoSuiteCommandTest {
         options.llmMaxCalls = 25;
         List<String> args = arguments(options);
         assertTrue(args.containsAll(List.of("-Dllm_provider=ANTHROPIC", "-Dllm_model=claude-sonnet-5-5",
-                "-Dllm_seeding_profile=STANDARD", "-Dllm_on_stagnation=true", "-Dllm_operator_enabled=true",
+                "-Dllm_seeding_profile=STANDARD", "-Dllm_on_stagnation=true", "-Dllm_operator_mode=SYNC",
                 "-Dllm_postprocessing_enabled=true", "-Dllm_max_calls=25")), args.toString());
         assertFalse(args.stream().anyMatch(a -> a.contains("llm_base_url") || a.contains("strategy")
                 || a.contains("api_key")), args.toString());
