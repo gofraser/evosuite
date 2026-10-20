@@ -578,11 +578,11 @@ public class StagnationDetector {
     /**
      * Registers the repeated-injection targets of a prompt before it is sent.
      * @param prompt the prompt, may be null
-     * @param asyncInFlight whether the attempt runs asynchronously
+     * @param inFlight whether the attempt stays in flight until its outcome is recorded
      * @return the registration, empty if there is nothing to track
      */
     public RepeatedInjectionMemory.PromptAttemptRegistration registerRepeatedAttempt(PromptResult prompt,
-                                                                                     boolean asyncInFlight) {
+                                                                                     boolean inFlight) {
         if (prompt == null) {
             return RepeatedInjectionMemory.PromptAttemptRegistration.empty();
         }
@@ -593,7 +593,7 @@ public class StagnationDetector {
             registration = RepeatedInjectionMemory.PromptAttemptRegistration.empty();
         } else {
             registration = repeatedInjectionMemory.registerAttempt(
-                    prompt.getRepeatedInjectionTargets(), asyncInFlight);
+                    prompt.getRepeatedInjectionTargets(), inFlight);
         }
         if (ProblemCardLogRecorder.isEnabled() && !prompt.getDiagnosticCards().isEmpty()) {
             try {

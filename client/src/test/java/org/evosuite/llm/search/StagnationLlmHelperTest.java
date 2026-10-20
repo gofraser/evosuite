@@ -49,6 +49,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -772,6 +773,64 @@ class StagnationLlmHelperTest {
             helper.shutdown();
             service.close();
         }
+    }
+
+    @Test
+    void syncCallKeepsItsTargetInFlightWhileTheSearchBlocks() {
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:g", "goal:g:v1");
+        AtomicReference<DiagnosticCardSelector.DiscardReason> reasonDuringCall = new AtomicReference<>();
+        MockChatLanguageModel model = new MockChatLanguageModel() {
+            @Override
+            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                // Another feature's selection (e.g. the async producer) runs while the search
+                // thread blocks on this call; it must see the target as in flight.
+                reasonDuringCall.set(memory.adjustPriority(target, 1.0, true).getDiscardReason());
+                return super.generate(messages, feature);
+            }
+        };
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detectorTargeting(service, clock, memory, target), LlmStagnationMode.SYNC, () -> -1L, 0);
+
+        try {
+            fireOnce(helper, clock);
+            assertEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT, reasonDuringCall.get(),
+                    "a SYNC stagnation call must register its targets as in flight");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    /** Fires one stagnation call: the first submission starts the window, the second one fires. */
+    private static void fireOnce(StagnationLlmHelper helper, AtomicLong clock) {
+        TestFitnessFunction goal = makeGoal("g");
+        List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+        helper.maybeSubmit(0, Collections.singleton(goal), pop);
+        clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+        helper.maybeSubmit(0, Collections.singleton(goal), pop);
+    }
+
+    /** A detector whose prompts carry {@code target} as their repeated-injection target. */
+    private static StagnationDetector detectorTargeting(LlmService service, AtomicLong clock,
+                                                        RepeatedInjectionMemory memory,
+                                                        RepeatedInjectionTarget target) {
+        return new StagnationDetector(service, false, 1, 1, clock::get, memory) {
+            @Override
+            public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                            List<TestChromosome> currentPopulation,
+                                            int totalGoals, int coveredGoalCount,
+                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal,
+                                            boolean suppressInFlightRepeats) {
+                return super.buildPrompt(uncoveredGoals, currentPopulation, totalGoals, coveredGoalCount,
+                        bestFitnessPerGoal, suppressInFlightRepeats).toBuilder()
+                        .repeatedInjectionTargets(Collections.singletonList(target))
+                        .build();
+            }
+        };
     }
 
     private static TestFitnessFunction makeGoal(String name) {

@@ -352,7 +352,9 @@ public final class StagnationLlmHelper {
             if (hardShutdown) {
                 return;
             }
-            registration = detector.registerRepeatedAttempt(prompt, false);
+            // In flight although this thread blocks on it: other features keep selecting
+            // targets on their own threads meanwhile.
+            registration = detector.registerRepeatedAttempt(prompt, true);
         }
         Future<List<TestChromosome>> future;
         try {
