@@ -155,7 +155,6 @@ class AsyncLlmTestProducerIntegrationTest {
     void asyncProducerStopsAfterConsecutiveConfirmedEmptySnapshots() throws Exception {
         LlmService service = mock(LlmService.class);
         when(service.isAvailable()).thenReturn(true);
-        when(service.hasBudget()).thenReturn(true);
         when(service.hasBudget(any(LlmFeature.class))).thenReturn(true);
         AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
                 Collections::emptyList,

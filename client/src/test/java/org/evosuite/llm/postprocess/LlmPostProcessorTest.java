@@ -2041,7 +2041,7 @@ class LlmPostProcessorTest {
         }
 
         @Override
-        public boolean hasBudget() {
+        public boolean hasBudget(LlmFeature feature) {
             return false;
         }
 
@@ -2058,11 +2058,6 @@ class LlmPostProcessorTest {
                     testConfiguration(),
                     new LlmStatistics(),
                     new LlmTraceRecorder(testConfiguration()));
-        }
-
-        @Override
-        public boolean hasBudget() {
-            return false;
         }
 
         @Override

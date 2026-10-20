@@ -401,7 +401,7 @@ class LlmOperatorExecutorTest {
         OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();
 
         try {
-            // canCall() passed the pre-flight check (hasBudget() stubbed true); the race is
+            // canCall() passed the pre-flight check (hasBudget(feature) stubbed true); the race is
             // simulated by the service itself throwing once the call actually goes out.
             assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
             awaitInFlightZero(executor, 5);

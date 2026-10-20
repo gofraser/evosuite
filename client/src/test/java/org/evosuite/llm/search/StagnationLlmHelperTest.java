@@ -398,8 +398,8 @@ class StagnationLlmHelperTest {
         // call budget for the operator features (SEMANTIC_MUTATION/
         // SEMANTIC_CROSSOVER) and draws every other feature, including
         // STAGNATION, from what is left. With the operator share set to
-        // 100%, the "other" quota is zero: the service still has budget
-        // globally (hasBudget()), but STAGNATION does not, and the helper
+        // 100%, the "other" quota is zero: the operator features still have
+        // budget, but STAGNATION does not, and the helper
         // must gate on the latter -- otherwise it would consume the
         // stagnation window and record a submitted prompt that the
         // service's own per-feature check in queryInternal would then
@@ -412,8 +412,8 @@ class StagnationLlmHelperTest {
                 detector, LlmStagnationMode.SYNC, () -> -1L, 0);
 
         try {
-            assertTrue(service.hasBudget(),
-                    "Global view must still show budget: only the non-operator share is exhausted");
+            assertTrue(service.hasBudget(LlmFeature.SEMANTIC_MUTATION),
+                    "Operator quota must still show budget: only the non-operator share is exhausted");
             assertFalse(service.hasBudget(LlmFeature.STAGNATION),
                     "Non-operator quota must be exhausted");
 

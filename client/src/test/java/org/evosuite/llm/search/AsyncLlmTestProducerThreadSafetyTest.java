@@ -93,7 +93,6 @@ class AsyncLlmTestProducerThreadSafetyTest {
     void transientGoalSnapshotFailureDoesNotStopProduction() throws Exception {
         LlmService service = mock(LlmService.class);
         when(service.isAvailable()).thenReturn(true);
-        when(service.hasBudget()).thenReturn(true);
         when(service.hasBudget(any(LlmFeature.class))).thenReturn(true);
         TestFitnessFunction goal = new FixedFitnessGoal("example.Target", "method()V", 1.0);
         AtomicInteger snapshots = new AtomicInteger();
@@ -125,7 +124,6 @@ class AsyncLlmTestProducerThreadSafetyTest {
     void stopDropsCandidateThatArrivesAfterAnInterruptIgnoringRequest() throws Exception {
         LlmService service = mock(LlmService.class);
         when(service.isAvailable()).thenReturn(true);
-        when(service.hasBudget()).thenReturn(true);
         when(service.hasBudget(any(LlmFeature.class))).thenReturn(true);
         CountDownLatch requestEntered = new CountDownLatch(1);
         CountDownLatch releaseRequest = new CountDownLatch(1);
@@ -175,7 +173,6 @@ class AsyncLlmTestProducerThreadSafetyTest {
     void fullQueueWaitsForConsumerInsteadOfDroppingCandidates() throws Exception {
         LlmService service = mock(LlmService.class);
         when(service.isAvailable()).thenReturn(true);
-        when(service.hasBudget()).thenReturn(true);
         when(service.hasBudget(any(LlmFeature.class))).thenReturn(true);
         List<TestChromosome> firstResponse = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
@@ -222,7 +219,6 @@ class AsyncLlmTestProducerThreadSafetyTest {
     void stopReleasesProducerWaitingOnFullQueue() throws Exception {
         LlmService service = mock(LlmService.class);
         when(service.isAvailable()).thenReturn(true);
-        when(service.hasBudget()).thenReturn(true);
         when(service.hasBudget(any(LlmFeature.class))).thenReturn(true);
         CountDownLatch requestReturned = new CountDownLatch(1);
         TestChromosome first = new TestChromosome();

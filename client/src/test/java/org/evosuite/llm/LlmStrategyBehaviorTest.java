@@ -161,7 +161,7 @@ class LlmStrategyBehaviorTest {
             TestSuiteChromosome suite = strategy.generateTests();
             assertNotNull(suite);
             // Must have terminated via stopping condition, not LLM budget
-            assertTrue(service.hasBudget(),
+            assertTrue(service.hasBudget(LlmFeature.TEST_FACTORY),
                     "LLM should still have budget — termination must come from stopping condition");
         } finally {
             service.close();
@@ -304,7 +304,7 @@ class LlmStrategyBehaviorTest {
             // restarts the conversation, up to the restart bound, before stopping.
             int expected = 2 * (3 + 1); // three restarts allowed in a row
             assertEquals(expected, attempts[0]);
-            assertTrue(service.hasBudget());
+            assertTrue(service.hasBudget(LlmFeature.TEST_FACTORY));
         } finally {
             Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT = originalLimit;
             service.close();

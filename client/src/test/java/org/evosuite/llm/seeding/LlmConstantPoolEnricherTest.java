@@ -508,7 +508,6 @@ class LlmConstantPoolEnricherTest {
     private static LlmService createTrulyUnavailableService() {
         LlmService service = org.mockito.Mockito.mock(LlmService.class);
         org.mockito.Mockito.when(service.isAvailable()).thenReturn(false);
-        org.mockito.Mockito.when(service.hasBudget()).thenReturn(false);
         return service;
     }
 

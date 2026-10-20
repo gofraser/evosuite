@@ -98,7 +98,6 @@ class LlmSemanticOperatorRepairTest {
     private LlmService mockAvailableService() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
-        when(llmService.hasBudget()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         return llmService;
     }

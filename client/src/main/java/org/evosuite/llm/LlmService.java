@@ -374,22 +374,6 @@ public class LlmService implements AutoCloseable {
     }
 
     /**
-     * Returns true if the service has remaining LLM call budget, as seen
-     * globally across all features. Coordinators that partition the budget
-     * (see {@link LlmBudgetCoordinator.FeatureShare}) can have this return
-     * true while a specific feature's own quota is exhausted, so call gates
-     * should use {@link #hasBudget(LlmFeature)} instead; this global view
-     * remains for tests and statistics reporting.
-     */
-    public boolean hasBudget() {
-        if (!available) {
-            return false;
-        }
-        long remaining = budgetCoordinator.getRemaining();
-        return remaining < 0 || remaining > 0;
-    }
-
-    /**
      * Returns true if the service has remaining LLM call budget for the given
      * feature. Coordinators that partition the budget (see
      * {@link LlmBudgetCoordinator.FeatureShare}) report the feature-specific
@@ -418,17 +402,6 @@ public class LlmService implements AutoCloseable {
                         long deadlineNanos) {
         return queryInternal(messages, feature,
                 new QueryOptions().withDeadlineNanos(deadlineNanos)).getText();
-    }
-
-    /**
-     * Query with an explicit repair attempt number for trace recording.
-     * Use this when calling the LLM as part of a repair loop so that the
-     * trace correctly records which repair iteration produced this call.
-     *
-     * @param repairAttempt the 1-based repair attempt number (1 = initial, 2+ = repair)
-     */
-    public String query(List<LlmMessage> messages, LlmFeature feature, int repairAttempt) {
-        return queryInternal(messages, feature, new QueryOptions().withRepairAttempt(repairAttempt)).getText();
     }
 
     /**
@@ -1173,10 +1146,6 @@ public class LlmService implements AutoCloseable {
      * error, non-OpenAI provider, etc.) — this is a best-effort helper for
      * diagnostics only.
      */
-    List<String> fetchAvailableModelIds() {
-        return fetchAvailableModelIds(Long.MAX_VALUE);
-    }
-
     List<String> fetchAvailableModelIds(long deadlineNanos) {
         String base = configuration.getBaseUrl();
         if (isBlank(base)) {
