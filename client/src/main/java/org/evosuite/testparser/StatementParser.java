@@ -24,7 +24,6 @@ import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.Range;
 import com.github.javaparser.ast.ArrayCreationLevel;
-import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
@@ -103,6 +102,7 @@ public class StatementParser {
     private final MockitoPatternParser mockitoPatternParser;
     private final LegacyHelperRewriter legacyHelpers;
     private final HelperInliner helperInliner;
+    private final ControlFlowFlattener controlFlow;
     private final UnsupportedStatementScrubber statementScrubber;
 
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
@@ -154,6 +154,7 @@ public class StatementParser {
         this.helperInliner = new HelperInliner(this, testCase, scope, inlineHelperMethods);
         this.statementScrubber = new UnsupportedStatementScrubber(
                 this, typeResolver, scope, overloadResolver);
+        this.controlFlow = new ControlFlowFlattener(this, result);
         this.legacyHelpers = new LegacyHelperRewriter(
                 this, testCase, typeResolver, scope, overloadResolver);
     }
@@ -244,13 +245,13 @@ public class StatementParser {
         } else if (bestEffort && astStmt instanceof TryStmt) {
             // Best-effort: flatten try-body statements instead of preserving raw source,
             // which often leaks undeclared local assignments from LLM snippets.
-            handleTryStatement((TryStmt) astStmt);
+            controlFlow.handleTryStatement((TryStmt) astStmt);
             return 1;
         } else if (bestEffort && astStmt instanceof IfStmt) {
             // Best-effort: flatten one branch of LLM-produced if-statements to
             // avoid preserving raw control-flow with lambdas that can fail javac
             // capture checks (e.g., non-effectively-final locals in assertDoesNotThrow).
-            handleIfStatement((IfStmt) astStmt);
+            controlFlow.handleIfStatement((IfStmt) astStmt);
             return 1;
         } else {
             // Fallback: preserve as UninterpretedStatement
@@ -273,11 +274,11 @@ public class StatementParser {
         }
     }
 
-    private void handleExpressionStatement(Expression expr) {
+    void handleExpressionStatement(Expression expr) {
         handleExpressionStatement(expr, null, 0);
     }
 
-    private int handleExpressionStatement(Expression expr,
+    int handleExpressionStatement(Expression expr,
                                           List<com.github.javaparser.ast.stmt.Statement> allStatements,
                                           int currentIndex) {
         if (expr instanceof VariableDeclarationExpr) {
@@ -4027,83 +4028,6 @@ public class StatementParser {
             return DiagnosticKind.PARSE_FAILURE;
         }
         return null;
-    }
-
-    private void handleTryStatement(TryStmt tryStmt) {
-        if (tryStmt == null) {
-            return;
-        }
-        NodeList<Expression> resources = tryStmt.getResources();
-        for (Expression resource : resources) {
-            try {
-                handleExpressionStatement(resource);
-            } catch (Throwable t) {
-                int line = resource.getBegin().map(p -> p.line).orElse(0);
-                result.addDiagnostic(new ParseDiagnostic(
-                        ParseDiagnostic.Severity.WARNING,
-                        "Failed to parse try-with-resources declaration in LLM try-block; "
-                                + "preserving as UninterpretedStatement: "
-                                + t.getClass().getSimpleName()
-                                + (t.getMessage() == null ? "" : (": " + t.getMessage())),
-                        line,
-                        resource.toString()));
-                try {
-                    addStatement(createUninterpretedStatement(resource, resource.toString() + ";"));
-                } catch (Throwable ignored) {
-                    // Keep going to salvage subsequent resources/statements in the try block.
-                }
-            }
-        }
-        NodeList<com.github.javaparser.ast.stmt.Statement> stmts = tryStmt.getTryBlock().getStatements();
-        for (int i = 0; i < stmts.size(); ) {
-            com.github.javaparser.ast.stmt.Statement stmt = stmts.get(i);
-            try {
-                i += parseStatement(stmt, stmts, i);
-            } catch (Throwable t) {
-                int line = stmt.getBegin().map(p -> p.line).orElse(0);
-                result.addDiagnostic(new ParseDiagnostic(
-                        ParseDiagnostic.Severity.WARNING,
-                        "Failed to parse statement inside LLM try-block; preserving as UninterpretedStatement: "
-                                + t.getClass().getSimpleName()
-                                + (t.getMessage() == null ? "" : (": " + t.getMessage())),
-                        line,
-                        stmt.toString()));
-                try {
-                    addStatement(createUninterpretedStatementFromAst(stmt));
-                } catch (Throwable ignored) {
-                    // Keep going to salvage subsequent statements in the try block.
-                }
-                i++;
-            }
-        }
-    }
-
-    private void handleIfStatement(IfStmt ifStmt) {
-        if (ifStmt == null) {
-            return;
-        }
-        int line = ifStmt.getBegin().map(p -> p.line).orElse(0);
-        result.addDiagnostic(new ParseDiagnostic(
-                ParseDiagnostic.Severity.WARNING,
-                "Flattened LLM if-statement to a single branch for compilability",
-                line,
-                ifStmt.toString()));
-        parseFlattenedConditionalBranch(ifStmt.getThenStmt());
-    }
-
-    private void parseFlattenedConditionalBranch(com.github.javaparser.ast.stmt.Statement stmt) {
-        if (stmt == null) {
-            return;
-        }
-        if (stmt instanceof BlockStmt) {
-            NodeList<com.github.javaparser.ast.stmt.Statement> statements =
-                    ((BlockStmt) stmt).getStatements();
-            for (int i = 0; i < statements.size(); ) {
-                i += parseStatement(statements.get(i), statements, i);
-            }
-            return;
-        }
-        parseStatement(stmt, null, 0);
     }
 
     // Internal API for helpers: preserve a full AST statement as raw Java source.
