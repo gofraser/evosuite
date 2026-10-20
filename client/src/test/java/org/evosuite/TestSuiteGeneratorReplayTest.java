@@ -29,8 +29,8 @@ class TestSuiteGeneratorReplayTest {
     @Test
     void restoringReplayStructureTransfersOnlyAssertions() {
         TestSuiteChromosome assertedSuite = suiteWithValue(7);
-        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
-                TestSuiteGenerator.ReplayStructureSnapshot.capture(assertedSuite);
+        ReplayStructureSnapshot snapshot =
+                ReplayStructureSnapshot.capture(assertedSuite);
         TestCase asserted = assertedSuite.getTestChromosome(0).getTestCase();
         PrimitiveAssertion assertion = new PrimitiveAssertion();
         assertion.setSource(asserted.getStatement(0).getReturnValue());
@@ -39,7 +39,7 @@ class TestSuiteGeneratorReplayTest {
 
         String expectedFingerprint = StructuralSuiteFingerprint.compute(suiteWithValue(7));
 
-        TestSuiteGenerator.restoreReplayStructure(assertedSuite, snapshot);
+        snapshot.restore(assertedSuite);
 
         assertEquals(expectedFingerprint, StructuralSuiteFingerprint.compute(assertedSuite));
         assertFalse(assertedSuite.getTestChromosome(0).getTestCase().getAssertions().isEmpty());
@@ -48,11 +48,11 @@ class TestSuiteGeneratorReplayTest {
     @Test
     void restoringReplayStructureReinstatesJUnitRejectedTestWithoutAssertions() {
         TestSuiteChromosome suite = suiteWithValue(7);
-        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
-                TestSuiteGenerator.ReplayStructureSnapshot.capture(suite);
+        ReplayStructureSnapshot snapshot =
+                ReplayStructureSnapshot.capture(suite);
         suite.clearTests();
 
-        TestSuiteGenerator.restoreReplayStructure(suite, snapshot);
+        snapshot.restore(suite);
 
         assertEquals(1, suite.size());
         assertEquals(1, suite.getTestChromosome(0).getTestCase().size());
@@ -62,11 +62,11 @@ class TestSuiteGeneratorReplayTest {
     @Test
     void restoringReplayStructurePreservesUnstableVerdict() {
         TestSuiteChromosome suite = suiteWithValue(7);
-        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
-                TestSuiteGenerator.ReplayStructureSnapshot.capture(suite);
+        ReplayStructureSnapshot snapshot =
+                ReplayStructureSnapshot.capture(suite);
         suite.getTestChromosome(0).getTestCase().setUnstable(true);
 
-        TestSuiteGenerator.restoreReplayStructure(suite, snapshot);
+        snapshot.restore(suite);
 
         assertTrue(suite.getTestChromosome(0).getTestCase().isUnstable());
     }
@@ -111,11 +111,11 @@ class TestSuiteGeneratorReplayTest {
         mutationAssertion.setSource(mutationSource.getStatement(0).getReturnValue());
         mutationAssertion.setValue(7);
         mutationSource.getStatement(0).addAssertion(mutationAssertion);
-        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
-                TestSuiteGenerator.ReplayStructureSnapshot.captureWithFallbackAssertions(suite);
+        ReplayStructureSnapshot snapshot =
+                ReplayStructureSnapshot.captureWithFallbackAssertions(suite);
 
         suite.clearTests();
-        TestSuiteGenerator.restoreReplayStructure(suite, snapshot);
+        snapshot.restore(suite);
 
         assertEquals(1, suite.size());
         assertEquals(1, suite.getTestChromosome(0).getTestCase().getAssertions().size());
@@ -129,14 +129,14 @@ class TestSuiteGeneratorReplayTest {
         mutationAssertion.setSource(source.getStatement(0).getReturnValue());
         mutationAssertion.setValue(7);
         source.getStatement(0).addAssertion(mutationAssertion);
-        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
-                TestSuiteGenerator.ReplayStructureSnapshot.captureWithFallbackAssertions(suite);
+        ReplayStructureSnapshot snapshot =
+                ReplayStructureSnapshot.captureWithFallbackAssertions(suite);
         PrimitiveAssertion llmStandIn = new PrimitiveAssertion();
         llmStandIn.setSource(source.getStatement(0).getReturnValue());
         llmStandIn.setValue(8);
         source.getStatement(0).addAssertion(llmStandIn);
 
-        TestSuiteGenerator.restoreReplayStructure(suite, snapshot);
+        snapshot.restore(suite);
 
         assertEquals(2, suite.getTestChromosome(0).getTestCase().getAssertions().size());
     }
@@ -144,8 +144,8 @@ class TestSuiteGeneratorReplayTest {
     @Test
     void replaySnapshotDetectsSameSizeStatementReplacement() {
         TestSuiteChromosome suite = suiteWithValue(7);
-        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
-                TestSuiteGenerator.ReplayStructureSnapshot.capture(suite);
+        ReplayStructureSnapshot snapshot =
+                ReplayStructureSnapshot.capture(suite);
 
         assertTrue(snapshot.hasSameExecutableStructure(suite));
         TestCase test = suite.getTestChromosome(0).getTestCase();
@@ -157,14 +157,14 @@ class TestSuiteGeneratorReplayTest {
     @Test
     void restoringReplayStructureUsesAssertionGenerationClassLoader() {
         TestSuiteChromosome suite = suiteWithValue(7);
-        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
-                TestSuiteGenerator.ReplayStructureSnapshot.capture(suite);
+        ReplayStructureSnapshot snapshot =
+                ReplayStructureSnapshot.capture(suite);
         DefaultTestCase assertionSource = (DefaultTestCase)
                 suite.getTestChromosome(0).getTestCase();
         ClassLoader assertionLoader = new ClassLoader(getClass().getClassLoader()) { };
         assertionSource.changeClassLoader(assertionLoader);
 
-        TestSuiteGenerator.restoreReplayStructure(suite, snapshot);
+        snapshot.restore(suite);
 
         DefaultTestCase restored = (DefaultTestCase)
                 suite.getTestChromosome(0).getTestCase();
@@ -177,8 +177,8 @@ class TestSuiteGeneratorReplayTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         test.addStatement(new IntPrimitiveStatement(test, 8));
         TestSuiteChromosome suite = suiteContaining(test);
-        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
-                TestSuiteGenerator.ReplayStructureSnapshot.capture(suite);
+        ReplayStructureSnapshot snapshot =
+                ReplayStructureSnapshot.capture(suite);
 
         test.chop(1);
 

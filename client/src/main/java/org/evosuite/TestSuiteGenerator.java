@@ -71,7 +71,6 @@ import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
-import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testsuite.MinimizationResult;
 import org.evosuite.testsuite.MinimizationStopCause;
 import org.evosuite.testsuite.OracleReplayConfiguration;
@@ -1039,7 +1038,7 @@ public class TestSuiteGenerator {
             // replay structure before the LLM sees the suite, then retain that
             // mutation oracle as the fallback if final LLM/JUnit validation
             // rejects a hybrid test.
-            restoreReplayStructure(testSuite, replayStructure);
+            replayStructure.restore(testSuite);
             replayStructure = ReplayStructureSnapshot.captureWithFallbackAssertions(testSuite);
         }
 
@@ -1110,143 +1109,10 @@ public class TestSuiteGenerator {
             // If validation removed a test because its oracle did not compile or
             // was unstable, pure arms restore it without an oracle while the
             // hybrid arm restores its validated mutation-assertion baseline.
-            restoreReplayStructure(testSuite, replayStructure);
+            replayStructure.restore(testSuite);
         }
         activeLlmPostProcessor.publishFinalAssertionReconciliation(
                 postProcessingContext, testSuite, llmPostProcessingAssertionsApplied);
-    }
-
-    static void restoreReplayStructure(TestSuiteChromosome suite,
-                                       ReplayStructureSnapshot snapshot) {
-        Set<TestCase> retained = Collections.newSetFromMap(new IdentityHashMap<>());
-        retained.addAll(suite.getTests());
-        List<TestCase> restored = new ArrayList<>(snapshot.structuralTests.size());
-        for (int index = 0; index < snapshot.structuralTests.size(); index++) {
-            TestCase structural = snapshot.structuralTests.get(index);
-            TestCase assertionSource = snapshot.assertionSources.get(index);
-            TestCase fallbackSource = snapshot.fallbackAssertionSources == null
-                    ? null : snapshot.fallbackAssertionSources.get(index);
-            boolean useProcessedAssertions = retained.contains(assertionSource)
-                    && assertionSource.size() == structural.size();
-            TestCase retainedAssertionSource = useProcessedAssertions
-                    ? assertionSource : fallbackSource;
-            rebindRestoredReplayTest(structural,
-                    retainedAssertionSource == null ? assertionSource : retainedAssertionSource);
-            if (useProcessedAssertions) {
-                structural.addAssertions(assertionSource);
-                structural.setUnstable(structural.isUnstable() || assertionSource.isUnstable());
-            } else if (fallbackSource != null && fallbackSource.size() == structural.size()) {
-                structural.addAssertions(fallbackSource);
-                structural.setUnstable(structural.isUnstable() || fallbackSource.isUnstable());
-                logger.info("Restoring replay test {} with its baseline mutation assertions after "
-                        + "hybrid oracle validation rejected the LLM-processed oracle", index);
-            } else if (retained.contains(assertionSource)) {
-                logger.warn("Dropping replay assertions for test {} because oracle processing "
-                                + "changed its statement count from {} to {}",
-                        index, structural.size(), assertionSource.size());
-            } else {
-                logger.info("Restoring replay test {} without assertions after JUnit validation "
-                        + "rejected its oracle", index);
-            }
-            restored.add(structural);
-        }
-        suite.clearTests();
-        restored.forEach(suite::addTest);
-    }
-
-    /**
-     * Assertion generation may replace the SUT classloader used by every
-     * reflective statement in the live suite. The structural snapshots are
-     * deliberately captured before that happens, so restoring them without
-     * rebinding leaves a mixture of old-loader statements and new-loader
-     * assertions. The JUnit writer then observes {@link
-     * org.evosuite.testcase.execution.CodeUnderTestException}s and chops the
-     * affected tests while rendering them.
-     */
-    private static void rebindRestoredReplayTest(TestCase structural,
-                                                 TestCase assertionSource) {
-        if (!(structural instanceof DefaultTestCase)
-                || !(assertionSource instanceof DefaultTestCase)) {
-            return;
-        }
-        ClassLoader assertionLoader =
-                ((DefaultTestCase) assertionSource).getChangedClassLoader();
-        if (assertionLoader != null) {
-            ((DefaultTestCase) structural).changeClassLoader(assertionLoader);
-        }
-    }
-
-    static final class ReplayStructureSnapshot {
-        private final List<TestCase> structuralTests;
-        private final List<TestCase> assertionSources;
-        private final List<List<Statement>> statementSources;
-        private final List<TestCase> fallbackAssertionSources;
-
-        private ReplayStructureSnapshot(List<TestCase> structuralTests,
-                                        List<TestCase> assertionSources,
-                                        List<List<Statement>> statementSources,
-                                        List<TestCase> fallbackAssertionSources) {
-            this.structuralTests = structuralTests;
-            this.assertionSources = assertionSources;
-            this.statementSources = statementSources;
-            this.fallbackAssertionSources = fallbackAssertionSources;
-        }
-
-        static ReplayStructureSnapshot capture(TestSuiteChromosome suite) {
-            return capture(suite, false);
-        }
-
-        static ReplayStructureSnapshot captureWithFallbackAssertions(TestSuiteChromosome suite) {
-            return capture(suite, true);
-        }
-
-        private static ReplayStructureSnapshot capture(TestSuiteChromosome suite,
-                                                       boolean retainFallbackAssertions) {
-            List<TestCase> assertionSources = suite.getTests();
-            List<TestCase> structuralTests = assertionSources.stream()
-                    .map(TestCase::clone)
-                    .collect(java.util.stream.Collectors.toList());
-            List<TestCase> fallbackAssertionSources = retainFallbackAssertions
-                    ? assertionSources.stream()
-                    .map(TestCase::clone)
-                    .collect(java.util.stream.Collectors.toList())
-                    : null;
-            List<List<Statement>> statementSources = assertionSources.stream()
-                    .map(test -> {
-                        List<Statement> statements = new ArrayList<>(test.size());
-                        test.forEach(statements::add);
-                        return statements;
-                    })
-                    .collect(java.util.stream.Collectors.toList());
-            structuralTests.forEach(TestCase::removeAssertions);
-            return new ReplayStructureSnapshot(
-                    structuralTests, assertionSources, statementSources, fallbackAssertionSources);
-        }
-
-        boolean hasSameExecutableStructure(TestSuiteChromosome suite) {
-            List<TestCase> currentTests = suite.getTests();
-            if (currentTests.size() != assertionSources.size()) {
-                return false;
-            }
-            for (int testIndex = 0; testIndex < currentTests.size(); testIndex++) {
-                TestCase current = currentTests.get(testIndex);
-                if (current != assertionSources.get(testIndex)
-                        || current.size() != statementSources.get(testIndex).size()) {
-                    return false;
-                }
-                for (int statementIndex = 0; statementIndex < current.size(); statementIndex++) {
-                    if (current.getStatement(statementIndex)
-                            != statementSources.get(testIndex).get(statementIndex)) {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-
-        int totalStructuralStatements() {
-            return structuralTests.stream().mapToInt(TestCase::size).sum();
-        }
     }
 
     static boolean shouldGenerateStandardAssertions(boolean llmServiceReady) {
@@ -1831,7 +1697,7 @@ public class TestSuiteGenerator {
                                 + "->" + suiteToWrite.totalLengthOfTestCases() + ")");
             }
             if (replayStructure != null
-                    && (testSuite.size() != replayStructure.structuralTests.size()
+                    && (testSuite.size() != replayStructure.structuralTestCount()
                     || testSuite.totalLengthOfTestCases()
                     != replayStructure.totalStructuralStatements())) {
                 throw new IllegalStateException(
