@@ -137,6 +137,33 @@ class TestRepairLoopSalvageTest {
                 assertedValues(result.getTestCases().get(0).getStatement(2)));
     }
 
+    @Test
+    void dropPolicySalvageRunsCandidatesThroughTheInjectedExecutor() {
+        AtomicInteger executions = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(targetGetTest(), "getTest"));
+            }
+        };
+        TestRepairLoop loop = new TestRepairLoop(mock(LlmService.class), parser, new LlmResponseParser(),
+                mock(ClusterExpansionManager.class), testCase -> {
+                    executions.incrementAndGet();
+                    return simulate(testCase);
+                }, 0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(false));
+
+        RepairResult result = loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess(), String.valueOf(result.getDiagnostics()));
+        assertEquals(1, result.getTestCases().size());
+        // One execution to find the failure and at least one more by the salvage itself.
+        assertTrue(executions.get() >= 2, "executions: " + executions.get());
+        TestCase salvaged = result.getTestCases().get(0);
+        assertEquals(3, salvaged.size());
+        assertTrue(salvaged.getStatement(2) instanceof MethodStatement);
+    }
+
     /** Target class: {@code size()} returns 0 and {@code get(int)} always throws. */
     public static class SalvageTarget {
         public int size() {

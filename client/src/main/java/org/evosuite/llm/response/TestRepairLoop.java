@@ -1275,9 +1275,12 @@ public class TestRepairLoop {
         // 1. Initial attempt: remove assertions and assertion-only raw snippets.
         LlmAssertionSanitizer.sanitize(salvaged);
 
-        // Force reset to align with strict JUnitAnalyzer check
-        ClassReInitializer.getInstance().resetAllInitializedClasses(1);
-        ExecutionResult result = TestCaseExecutor.runTest(salvaged);
+        // The injected executor holds the execution lock, applies the mock and GUI
+        // settings and resets static fields when configured, as the earlier checks did.
+        ExecutionResult result = executeForSalvage(salvaged, failedTestCase);
+        if (result == null) {
+            return Optional.empty();
+        }
 
         if (result.noThrownExceptions()) {
             if (isMeaningful(salvaged)) {
@@ -1313,9 +1316,10 @@ public class TestRepairLoop {
             salvaged.chop(failIndex);
             LlmAssertionSanitizer.sanitize(salvaged);
 
-            // Force reset again for the truncated test
-            ClassReInitializer.getInstance().resetAllInitializedClasses(1);
-            result = TestCaseExecutor.runTest(salvaged);
+            result = executeForSalvage(salvaged, failedTestCase);
+            if (result == null) {
+                return Optional.empty();
+            }
 
             if (result.noThrownExceptions()) {
                 if (isMeaningful(salvaged)) {
@@ -1336,6 +1340,16 @@ public class TestRepairLoop {
 
         logger.warn("Failed to salvage test case: {}", failedTestCase.getID());
         return Optional.empty();
+    }
+
+    /** Runs a salvage candidate through the injected executor; null when it could not be executed. */
+    private ExecutionResult executeForSalvage(TestCase candidate, TestCase failedTestCase) {
+        try {
+            return testExecutor.execute(candidate);
+        } catch (Throwable executionFailure) {
+            logger.debug("Salvage execution failed for test {}", failedTestCase.getID(), executionFailure);
+            return null;
+        }
     }
 
     /**
