@@ -356,7 +356,7 @@ public final class StagnationLlmHelper {
             // targets on their own threads meanwhile.
             registration = detector.registerRepeatedAttempt(prompt, true);
         }
-        Future<List<TestChromosome>> future;
+        Future<StagnationDetector.CallResult> future;
         try {
             future = worker.submit(() -> detector.executeWithPrompt(prompt, deadlineNanos));
         } catch (RejectedExecutionException e) {
@@ -364,14 +364,14 @@ public final class StagnationLlmHelper {
             logger.debug("Sync stagnation submission rejected (shutting down): {}",
                     e.getMessage());
             if (!hardShutdown) {
-                detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+                detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
             }
             return;
         }
         inFlight.set(future);
-        List<TestChromosome> tests;
+        StagnationDetector.CallResult result;
         try {
-            tests = future.get(waitSeconds, TimeUnit.SECONDS);
+            result = future.get(waitSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             future.cancel(true);
             // Wall-clock timeout: the call never produced a response — don't penalize
@@ -406,9 +406,9 @@ public final class StagnationLlmHelper {
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
             recordResponseReceived();
             recordCallCompleted(elapsedMs, elapsedMs);
-            int produced = tests == null ? 0 : tests.size();
-            traceOutcome("completed:sync", coveredCount, uncoveredSize, targetCount, elapsedMs, produced);
-            publishTests(tests, prompt, registration);
+            traceOutcome("completed:sync", coveredCount, uncoveredSize, targetCount, elapsedMs,
+                    result.getTests().size());
+            publishResult(result, prompt, registration);
         }
     }
 
@@ -457,10 +457,10 @@ public final class StagnationLlmHelper {
             try {
                 inFlight.set(worker.submit(() -> {
                     long t0 = System.nanoTime();
-                    List<TestChromosome> tests;
+                    StagnationDetector.CallResult result;
                     boolean responseReceived = false;
                     try {
-                        tests = detector.executeWithPrompt(prompt);
+                        result = detector.executeWithPrompt(prompt);
                         responseReceived = true;
                     } catch (Throwable t) {
                         // Swallow Throwable (not just RuntimeException) so that an
@@ -469,7 +469,7 @@ public final class StagnationLlmHelper {
                         // (Future.cancel(true)) surfaces here as InterruptedException
                         // — also caught and logged.
                         logger.debug("Async stagnation worker crashed: {}", t.toString());
-                        tests = Collections.emptyList();
+                        result = StagnationDetector.CallResult.UNDELIVERED;
                     }
                     // Future.cancel(true) only requests interruption.  A provider
                     // can ignore it and return later, so hard shutdown is checked
@@ -491,9 +491,8 @@ public final class StagnationLlmHelper {
                             recordResponseReceived();
                         }
                         recordCallCompleted(elapsedMs, 0L);
-                        int produced = tests == null ? 0 : tests.size();
-                        traceOutcome("completed:async", -1, -1, -1, elapsedMs, produced);
-                        publishTests(tests, prompt, registration);
+                        traceOutcome("completed:async", -1, -1, -1, elapsedMs, result.getTests().size());
+                        publishResult(result, prompt, registration);
                     }
                 }));
             } catch (RejectedExecutionException e) {
@@ -502,7 +501,7 @@ public final class StagnationLlmHelper {
                 logger.debug("Async stagnation submission rejected (shutting down): {}",
                         e.getMessage());
                 if (!hardShutdown) {
-                    detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+                    detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
                 }
             }
         }
@@ -527,6 +526,23 @@ public final class StagnationLlmHelper {
     private void recordResponseReceived() {
         ClientServices.track(RuntimeVariable.LLM_StagnationResponsesReceived,
                 stagnationResponsesReceived.incrementAndGet());
+    }
+
+    /**
+     * Publishes a delivered call's tests; a call that never delivered a response
+     * just releases its attempt, since there is no outcome to judge.
+     */
+    private void publishResult(StagnationDetector.CallResult result,
+                               PromptResult prompt,
+                               RepeatedInjectionMemory.PromptAttemptRegistration registration) {
+        if (hardShutdown) {
+            return;
+        }
+        if (result.isDelivered()) {
+            publishTests(result.getTests(), prompt, registration);
+        } else {
+            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
+        }
     }
 
     private void publishTests(List<TestChromosome> tests,

@@ -278,11 +278,10 @@ public class StagnationDetector {
 
     /**
      * Executes the stagnation LLM call for a pre-built prompt: query, parse, and
-     * repair. Returns the tests produced (possibly empty). Performs no
-     * thread-unsafe reads of the population — safe to invoke from a background
-     * worker.
+     * repair. Performs no thread-unsafe reads of the population — safe to
+     * invoke from a background worker.
      */
-    public List<TestChromosome> executeWithPrompt(PromptResult prompt) {
+    public CallResult executeWithPrompt(PromptResult prompt) {
         return executeWithPrompt(prompt, Long.MAX_VALUE);
     }
 
@@ -292,28 +291,62 @@ public class StagnationDetector {
      * requests so already parsed or salvaged tests can be returned to the SYNC
      * caller before the outer future timeout cancels the worker.
      */
-    public List<TestChromosome> executeWithPrompt(PromptResult prompt, long repairDeadlineNanos) {
+    public CallResult executeWithPrompt(PromptResult prompt, long repairDeadlineNanos) {
         if (prompt == null) {
-            return Collections.emptyList();
+            return CallResult.UNDELIVERED;
         }
         if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.STAGNATION)) {
-            return Collections.emptyList();
+            return CallResult.UNDELIVERED;
+        }
+        String response;
+        try {
+            response = llmService.query(prompt, LlmFeature.STAGNATION);
+        } catch (LlmBudgetExceededException | LlmCallFailedException e) {
+            logger.debug("Stagnation LLM request failed: {}", e.getMessage());
+            return CallResult.UNDELIVERED;
+        } catch (RuntimeException e) {
+            logger.debug("Stagnation LLM request crashed: {}", e.getMessage());
+            return CallResult.UNDELIVERED;
         }
         try {
-            String response = llmService.query(prompt, LlmFeature.STAGNATION);
             RepairResult result = repairLoop()
                     .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION,
                             repairDeadlineNanos);
-            if (!result.isSuccess()) {
-                return Collections.emptyList();
-            }
-            return result.toChromosomes();
-        } catch (LlmBudgetExceededException | LlmCallFailedException e) {
-            logger.debug("Stagnation LLM request failed: {}", e.getMessage());
-            return Collections.emptyList();
+            return CallResult.delivered(result.isSuccess()
+                    ? result.toChromosomes() : Collections.<TestChromosome>emptyList());
         } catch (RuntimeException e) {
-            logger.debug("Stagnation LLM request crashed: {}", e.getMessage());
-            return Collections.emptyList();
+            logger.debug("Stagnation LLM response could not be parsed: {}", e.getMessage());
+            return CallResult.delivered(Collections.<TestChromosome>emptyList());
+        }
+    }
+
+    /**
+     * The tests one stagnation call produced, and whether the call delivered a
+     * response at all. A call that never did (no budget, provider failure) has
+     * no outcome to judge, so its repeated-injection attempt is released rather
+     * than counted as a no-gain attempt.
+     */
+    public static final class CallResult {
+        static final CallResult UNDELIVERED = new CallResult(Collections.<TestChromosome>emptyList(), false);
+
+        private final List<TestChromosome> tests;
+        private final boolean delivered;
+
+        private CallResult(List<TestChromosome> tests, boolean delivered) {
+            this.tests = tests;
+            this.delivered = delivered;
+        }
+
+        static CallResult delivered(List<TestChromosome> tests) {
+            return new CallResult(tests == null ? Collections.<TestChromosome>emptyList() : tests, true);
+        }
+
+        public List<TestChromosome> getTests() {
+            return tests;
+        }
+
+        public boolean isDelivered() {
+            return delivered;
         }
     }
 

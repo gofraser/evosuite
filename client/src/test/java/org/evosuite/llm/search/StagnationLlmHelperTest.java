@@ -805,6 +805,65 @@ class StagnationLlmHelperTest {
         }
     }
 
+    @Test
+    void syncCallThatFailsReleasesItsAttemptInsteadOfCountingNoGain() throws Exception {
+        assertFailedCallReleasesAttempt(LlmStagnationMode.SYNC);
+    }
+
+    @Test
+    void asyncCallThatFailsReleasesItsAttemptInsteadOfCountingNoGain() throws Exception {
+        assertFailedCallReleasesAttempt(LlmStagnationMode.ASYNC);
+    }
+
+    @Test
+    void asyncCallWithAnEmptyResponseCountsAsNoGain() throws Exception {
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:g", "goal:g:v1");
+        // A delivered response without tests; the repair turns it triggers find nothing queued.
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.STAGNATION, "I cannot write tests for this class.");
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detectorTargeting(service, clock, memory, target), LlmStagnationMode.ASYNC, () -> -1L, 0);
+
+        try {
+            fireOnce(helper, clock);
+            helper.stopAcceptingSubmissions();
+            assertTrue(helper.awaitTermination(10, TimeUnit.SECONDS));
+            memory.beginSelectionRound();
+            assertTrue(memory.adjustPriority(target, 1.0, true).isSuppressed(),
+                    "a delivered response that yields nothing must lengthen the cooldown");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    private void assertFailedCallReleasesAttempt(LlmStagnationMode mode) throws InterruptedException {
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:g", "goal:g:v1");
+        // Nothing queued: the provider call fails, so no response is ever delivered.
+        LlmService service = createService(new MockChatLanguageModel(), 2);
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detectorTargeting(service, clock, memory, target), mode, () -> -1L, 0);
+
+        try {
+            fireOnce(helper, clock);
+            helper.stopAcceptingSubmissions();
+            assertTrue(helper.awaitTermination(10, TimeUnit.SECONDS));
+            memory.beginSelectionRound();
+            // One selection round later a released attempt is off its (one-round) cooldown; a
+            // no-gain outcome would have lengthened the cooldown to two rounds.
+            assertFalse(memory.adjustPriority(target, 1.0, true).isSuppressed(),
+                    "a call that never delivered a response must not count as a no-gain attempt");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
     /** Fires one stagnation call: the first submission starts the window, the second one fires. */
     private static void fireOnce(StagnationLlmHelper helper, AtomicLong clock) {
         TestFitnessFunction goal = makeGoal("g");
