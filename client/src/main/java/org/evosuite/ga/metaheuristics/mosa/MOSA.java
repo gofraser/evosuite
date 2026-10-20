@@ -101,16 +101,16 @@ public class MOSA extends AbstractMOSA {
         this.fitnessFunctions.forEach(this::addUncoveredGoal);
 
         try {
+            // Start the LLM assistance before the initial population is created, as DynaMOSA
+            // does, so that the LLM test factory and its attempt bookkeeping are in place for it.
+            initializeLlmAssistance(this::getCurrentGoals, false);
+            registerExternalCandidateSources(
+                    this::getNumberOfCoveredGoals, this::getCurrentGoals);
+
             // initialize population
             if (this.population.isEmpty()) {
                 this.initializePopulation();
             }
-            // Unlike DynaMOSA, which starts the LLM assistance before the initial population is
-            // created, MOSA starts it afterwards. Kept as it is, as aligning the two would change
-            // the search.
-            initializeLlmAssistance(this::getCurrentGoals, false);
-            registerExternalCandidateSources(
-                    this::getNumberOfCoveredGoals, this::getCurrentGoals);
 
             // Calculate dominance ranks and crowding distance
             this.rankingFunction.computeRankingAssignment(this.population, this.getUncoveredGoals());

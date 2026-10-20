@@ -291,6 +291,15 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
     }
 
     @Test
+    void mosaStartsLlmAssistanceBeforeCreatingTheInitialPopulation() {
+        ThrowingMOSA mosa = new ThrowingMOSA(() -> new TestChromosome());
+
+        assertThrows(RuntimeException.class, mosa::generateSolution);
+        assertFalse(mosa.populationInitialised,
+                "the LLM assistance must be started before the initial population, as in DynaMOSA");
+    }
+
+    @Test
     void dynaMosaShutsDownLlmAssistanceWhenGenerationThrows() {
         ThrowingDynaMOSA mosa = new ThrowingDynaMOSA(() -> new TestChromosome());
 
@@ -459,6 +468,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
     private static class ThrowingMOSA extends MOSA {
         private static final long serialVersionUID = 1L;
         private final FakeAsyncProducer fakeProducer = new FakeAsyncProducer();
+        private boolean populationInitialised;
 
         private ThrowingMOSA(ChromosomeFactory<TestChromosome> factory) {
             super(factory);
@@ -466,6 +476,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
 
         @Override
         public void initializePopulation() {
+            populationInitialised = true;
             notifySearchStarted();
             currentIteration = 0;
             population.clear();

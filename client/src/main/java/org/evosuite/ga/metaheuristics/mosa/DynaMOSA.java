@@ -120,8 +120,7 @@ public class DynaMOSA extends AbstractMOSA {
         this.goalsManager = new MultiCriteriaManager(this.fitnessFunctions);
         publishCurrentGoals();
         try {
-            // MOSA starts the LLM assistance only after the initial population is created; see
-            // MOSA#generateSolution.
+            // Start the LLM assistance before the initial population is created, as MOSA does.
             initializeLlmAssistance(this::getCurrentGoals, false);
             registerExternalCandidateSources(
                     () -> goalsManager == null ? 0 : goalsManager.getCoveredGoals().size(),
