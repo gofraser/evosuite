@@ -832,8 +832,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
         operatorTargetSelector = new OperatorTargetSelector(repeatedInjectionMemory);
         if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.SYNC) {
-            llmMutation = new LanguageModelMutation(new LlmSemanticMutation(), repeatedInjectionMemory);
-            llmCrossover = new LanguageModelCrossover(new LlmSemanticCrossover(), repeatedInjectionMemory);
+            // The breeding loop blocks on these calls, so they must not outlast the search.
+            LlmSemanticMutation semanticMutation = new LlmSemanticMutation();
+            semanticMutation.setRemainingSearchSeconds(this::getRemainingSearchBudgetSeconds);
+            LlmSemanticCrossover semanticCrossover = new LlmSemanticCrossover();
+            semanticCrossover.setRemainingSearchSeconds(this::getRemainingSearchBudgetSeconds);
+            llmMutation = new LanguageModelMutation(semanticMutation, repeatedInjectionMemory);
+            llmCrossover = new LanguageModelCrossover(semanticCrossover, repeatedInjectionMemory);
             return;
         }
         operatorExecutor = createOperatorExecutor();

@@ -24,6 +24,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TargetedPromptFactory;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -53,6 +55,9 @@ public abstract class LlmSemanticOperator {
     private final LlmService llmService;
     private final LlmFeature feature;
     private final TargetedPromptFactory promptFactory;
+
+    /** Seconds the search has left, negative for no limit; bounds {@link #complete(PromptResult, int)}. */
+    private volatile LongSupplier remainingSearchSeconds = () -> -1L;
 
     /** One loop per calling thread; see {@link #repairLoop()}. */
     private final ThreadLocal<TestRepairLoop> repairLoops =
@@ -101,6 +106,16 @@ public abstract class LlmSemanticOperator {
             result.add(chromosome);
         }
         return result;
+    }
+
+    /**
+     * Bounds the calls of {@link #complete(PromptResult, int)}, and so of {@link
+     * #applyMapped(List)}, by the search budget: the call and its repair turns
+     * give up once {@code remainingSearchSeconds} have passed. A supplier
+     * returning a negative value (the default) sets no bound.
+     */
+    public void setRemainingSearchSeconds(LongSupplier remainingSearchSeconds) {
+        this.remainingSearchSeconds = remainingSearchSeconds == null ? () -> -1L : remainingSearchSeconds;
     }
 
     /** Whether a call could go out right now: the service is configured and has budget left. */
@@ -157,7 +172,8 @@ public abstract class LlmSemanticOperator {
      * @param targetCount the number of targets the prompt was built for
      */
     public TargetedResponse complete(PromptResult prompt, int targetCount) {
-        return complete(prompt, targetCount, this::repairLoop, null);
+        return complete(prompt, targetCount, this::repairLoop, null,
+                LlmWaitBudget.deadlineNanos(remainingSearchSeconds));
     }
 
     /**
@@ -175,7 +191,7 @@ public abstract class LlmSemanticOperator {
      * @param targetCount the number of targets the prompt was built for
      */
     public TargetedResponse completeDeferringExpansion(PromptResult prompt, int targetCount) {
-        return complete(prompt, targetCount, this::deferringRepairLoop, "worker");
+        return complete(prompt, targetCount, this::deferringRepairLoop, "worker", Long.MAX_VALUE);
     }
 
     /**
@@ -183,16 +199,19 @@ public abstract class LlmSemanticOperator {
      * parse with the loop {@code loop} supplies (resolved after the call, so a
      * failure to build it counts as a delivered-but-unparsed response like any
      * other parse failure). {@code stage} names the caller for parse-failure
-     * logging, or is null to log nothing.
+     * logging, or is null to log nothing. {@code deadlineNanos} bounds the call
+     * and its repair turns, {@link Long#MAX_VALUE} for no bound.
      */
     private TargetedResponse complete(PromptResult prompt, int targetCount, Supplier<TestRepairLoop> loop,
-                                      String stage) {
+                                      String stage, long deadlineNanos) {
         if (!canCall()) {
             return TargetedResponse.noBudget();
         }
         LlmService.QueryResult queryResult;
         try {
-            queryResult = llmService.queryWithUsage(prompt, feature);
+            queryResult = deadlineNanos == Long.MAX_VALUE
+                    ? llmService.queryWithUsage(prompt, feature)
+                    : llmService.queryWithUsage(prompt, feature, deadlineNanos);
         } catch (LlmBudgetExceededException e) {
             logger.debug("LLM {} budget exceeded", feature);
             return TargetedResponse.noBudget();
@@ -205,7 +224,8 @@ public abstract class LlmSemanticOperator {
         }
         TargetedResponse.CallUsage usage = queryResult.getUsage();
         try {
-            RepairResult result = loop.get().attemptParse(queryResult.getText(), prompt.getMessages(), feature);
+            RepairResult result = loop.get().attemptParse(queryResult.getText(), prompt.getMessages(), feature,
+                    deadlineNanos);
             if (stage != null) {
                 logParseOutcome(stage, result);
             }

@@ -132,6 +132,25 @@ public final class LlmWaitBudget {
         return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
     }
 
+    /**
+     * The absolute {@link System#nanoTime()} deadline at which the remaining
+     * budget returned by {@code remainingBudgetSecondsSupplier} runs out, or
+     * {@link Long#MAX_VALUE} when there is none: a null supplier, or one
+     * returning a negative value.
+     */
+    public static long deadlineNanos(LongSupplier remainingBudgetSecondsSupplier) {
+        if (remainingBudgetSecondsSupplier == null) {
+            return Long.MAX_VALUE;
+        }
+        long remaining = remainingBudgetSecondsSupplier.getAsLong();
+        if (remaining < 0) {
+            return Long.MAX_VALUE;
+        }
+        long now = System.nanoTime();
+        long remainingNanos = saturatingMultiply(remaining, 1_000_000_000L);
+        return now > Long.MAX_VALUE - remainingNanos ? Long.MAX_VALUE : now + remainingNanos;
+    }
+
     private static long saturatingMultiply(long left, long right) {
         if (left <= 0L || right <= 0L) {
             return 0L;

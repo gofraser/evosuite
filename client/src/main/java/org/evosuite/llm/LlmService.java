@@ -500,6 +500,18 @@ public class LlmService implements AutoCloseable {
     }
 
     /**
+     * Same as {@link #queryWithUsage(PromptResult, LlmFeature)}, bounded by an
+     * absolute {@link System#nanoTime()} deadline.
+     */
+    public QueryResult queryWithUsage(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
+        if (promptResult == null) {
+            throw new IllegalArgumentException("promptResult must not be null");
+        }
+        return queryInternal(promptResult.getMessages(), feature,
+                QueryOptions.fromPromptResult(promptResult).withDeadlineNanos(deadlineNanos));
+    }
+
+    /**
      * Mutable option bag threaded through {@link #queryInternal}. Replaces the
      * former chain of overloaded private {@code queryInternal} methods with a
      * single entry point that consumes a typed options object. All fields have

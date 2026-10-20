@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -42,6 +43,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.longThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -292,5 +296,28 @@ class LlmSemanticOperatorPrepareCompleteTest {
         verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
         verify(llmService, never())
                 .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void applyMappedBoundsTheCallByTheRemainingSearchBudget() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.isAvailable()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class), anyLong()))
+                .thenReturn(new LlmService.QueryResult("some response", 5, 1, 7, 42L));
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult("some response", 5, 1, 7, 42L));
+        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        mutation.setRemainingSearchSeconds(() -> 5L);
+        OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
+
+        long before = System.nanoTime();
+        mutation.applyMapped(Collections.singletonList(target));
+        long after = System.nanoTime();
+
+        long budget = TimeUnit.SECONDS.toNanos(5);
+        verify(llmService).queryWithUsage(any(PromptResult.class), eq(LlmFeature.SEMANTIC_MUTATION),
+                longThat(deadline -> deadline >= before + budget && deadline <= after + budget));
+        verify(llmService, never()).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
     }
 }
