@@ -4545,17 +4545,6 @@ public class StatementParser {
         return Object.class;
     }
 
-    private String formatTypes(Class<?>[] types) {
-        StringBuilder sb = new StringBuilder("(");
-        for (int i = 0; i < types.length; i++) {
-            if (i > 0) {
-                sb.append(", ");
-            }
-            sb.append(types[i].getSimpleName());
-        }
-        return sb.append(")").toString();
-    }
-
     /**
      * Returns true if the member is accessible from a generated test class.
      *
