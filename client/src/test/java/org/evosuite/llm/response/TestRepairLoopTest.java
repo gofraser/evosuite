@@ -64,7 +64,9 @@ import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 
 import java.awt.AWTError;
+import java.io.Writer;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -77,6 +79,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -206,6 +210,61 @@ class TestRepairLoopTest {
         assertTrue(error.contains("noSuchSymbolForProbe"), error);
         int fences = error.split("```", -1).length - 1;
         assertEquals(0, fences % 2, "every opened code fence must be closed exactly once: " + error);
+    }
+
+    @Test
+    void javacCrashDoesNotRejectTheParsedTest() throws Exception {
+        JavaCompiler system = ToolProvider.getSystemJavaCompiler();
+        String crashOutput = "An exception has occurred in the compiler (17.0.5). Please file a bug against "
+                + "the Java compiler via the Java bug reporting page\n"
+                + "java.lang.StackOverflowError\n"
+                + "\tat jdk.compiler/com.sun.tools.javac.comp.Attr.attribTree(Attr.java:662)\n";
+        JavaCompiler crashing = (JavaCompiler) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[]{JavaCompiler.class}, (proxy, method, args) -> {
+                    if (!method.getName().equals("getTask")) {
+                        return method.invoke(system, args);
+                    }
+                    Writer out = (Writer) args[0];
+                    return Proxy.newProxyInstance(getClass().getClassLoader(),
+                            new Class<?>[]{JavaCompiler.CompilationTask.class}, (task, taskMethod, taskArgs) -> {
+                                if (taskMethod.getName().equals("call")) {
+                                    out.write(crashOutput);
+                                    return Boolean.FALSE;
+                                }
+                                return null;
+                            });
+                });
+        TestRepairLoop loop = new TestRepairLoop(
+                mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
+                mock(ClusterExpansionManager.class),
+                testCase -> new ExecutionResult(testCase), 0);
+        ParseResult candidate = new ParseResult(new DefaultTestCase(), "testCrashingCompiler");
+        Method compileGate = TestRepairLoop.class.getDeclaredMethod(
+                "checkRenderedCompilation", ParseResult.class, long.class);
+        compileGate.setAccessible(true);
+
+        TestRepairLoop.setParseCompileCompilerForTesting(crashing);
+        try {
+            TestRepairLoop.CompileCheck check =
+                    (TestRepairLoop.CompileCheck) compileGate.invoke(loop, candidate, Long.MAX_VALUE);
+
+            assertFalse(check.isRejected(), "a javac crash is no verdict on the test: " + check.getRejection());
+            assertTrue(check.isNotJudged());
+            assertTrue(check.getCause().contains("An exception has occurred in the compiler"), check.getCause());
+        } finally {
+            TestRepairLoop.setParseCompileCompilerForTesting(null);
+        }
+    }
+
+    @Test
+    void quotedSourceMentioningCompilerErrorsIsNotACrash() {
+        String diagnostics = "/tmp/p/Probe.java:12: error: cannot find symbol\n"
+                + "    } catch (java.lang.StackOverflowError e) { foo(); }\n"
+                + "                                               ^\n"
+                + "1 error";
+        assertNull(TestRepairLoop.javacCrashLine(diagnostics));
+        assertEquals("java.lang.OutOfMemoryError: Java heap space",
+                TestRepairLoop.javacCrashLine("java.lang.OutOfMemoryError: Java heap space\n\tat x.Y.z(Y.java:1)"));
     }
 
     @Test

@@ -98,6 +98,7 @@ public class TestRepairLoop {
     private static final long DEFAULT_PARSE_COMPILE_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(10L);
     private static final ReplaceableWorker PARSE_COMPILE_WORKER =
             new ReplaceableWorker(r -> LlmPrivilegedThreads.newThread(r, "parse-compile"));
+    private static volatile JavaCompiler parseCompileCompilerForTesting;
 
     /** Error patterns that the LLM cannot fix (native libs, sandbox, etc.). */
     private static final Set<String> UNFIXABLE_ERROR_PATTERNS = new HashSet<>(Arrays.asList(
@@ -1298,7 +1299,7 @@ public class TestRepairLoop {
                     "Compilation error in parsed test '<unnamed>': missing parsed test case");
         }
         ensureParseCompileThreadPrivileged();
-        if (ToolProvider.getSystemJavaCompiler() == null) {
+        if (parseCompileCompiler() == null) {
             return CompileCheck.notJudged("No Java compiler available in current runtime");
         }
 
@@ -1314,9 +1315,8 @@ public class TestRepairLoop {
         try {
             final String method = safeMethodName(parseResult);
             final String finalSource = source;
-            String rejection = PARSE_COMPILE_WORKER.call(() -> runRenderedCompilationCheck(method, finalSource),
+            return PARSE_COMPILE_WORKER.call(() -> runRenderedCompilationCheck(method, finalSource),
                     parseCompileTimeoutNanos(repairDeadlineNanos), TimeUnit.NANOSECONDS);
-            return rejection == null ? CompileCheck.COMPILED : CompileCheck.rejected(rejection);
         } catch (TimeoutException timeout) {
             return CompileCheck.notJudged("compile check timed out");
         } catch (InterruptedException interrupted) {
@@ -1392,8 +1392,8 @@ public class TestRepairLoop {
         this.testClusterSupplier = supplier == null ? TestCluster::getInstance : supplier;
     }
 
-    private String runRenderedCompilationCheck(String methodName, String source) throws Exception {
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+    private CompileCheck runRenderedCompilationCheck(String methodName, String source) throws Exception {
+        JavaCompiler compiler = parseCompileCompiler();
         Path tmpDir = null;
         try {
             tmpDir = Files.createTempDirectory("evosuite-llm-parse-compile-");
@@ -1421,9 +1421,15 @@ public class TestRepairLoop {
                     throw (RuntimeException) failure;
                 }
                 if (attempt.isCompiled()) {
-                    return null;
+                    return CompileCheck.COMPILED;
                 }
                 String diagnostics = attempt.getCompilerOutput().trim();
+                String crash = javacCrashLine(diagnostics);
+                if (crash != null) {
+                    // javac died or ran out of heap instead of judging the test, as the JUnit
+                    // check also recognises: nothing the model could repair.
+                    return CompileCheck.notJudged("javac crashed: " + crash);
+                }
 
                 boolean repaired = false;
                 String repairedClasspath = org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
@@ -1434,13 +1440,13 @@ public class TestRepairLoop {
                 }
 
                 if (!repaired || pass == maxPasses) {
-                    return "Compilation error in parsed test '" + methodName
+                    return CompileCheck.rejected("Compilation error in parsed test '" + methodName
                             + "': " + diagnostics
                             + "\nNote: this error comes from EvoSuite-rendered synthesized test source (after "
                                     + "parsing), not directly from raw LLM text."
                             + "\nRendered compile-check class excerpt:\n```java\n"
                             + truncate(source, MAX_TEST_CODE_EXCERPT_CHARS)
-                            + "\n```";
+                            + "\n```");
                 }
             }
         } finally {
@@ -1448,6 +1454,36 @@ public class TestRepairLoop {
                 FileUtils.deleteQuietly(tmpDir.toFile());
             }
         }
+    }
+
+    /**
+     * The line with which javac reported a crash of its own (an internal exception, a stack
+     * overflow or an exhausted heap) instead of a verdict on the source, or {@code null}. Only
+     * lines that start with the marker count: javac quotes source lines as they stand in the
+     * probe class, where test code is indented, so a test mentioning these errors cannot match.
+     */
+    static String javacCrashLine(String compilerOutput) {
+        if (compilerOutput == null) {
+            return null;
+        }
+        for (String line : compilerOutput.split("\\R")) {
+            if (line.startsWith("An exception has occurred in the compiler")
+                    || line.startsWith("java.lang.StackOverflowError")
+                    || line.startsWith("java.lang.OutOfMemoryError")) {
+                return line.trim();
+            }
+        }
+        return null;
+    }
+
+    private static JavaCompiler parseCompileCompiler() {
+        JavaCompiler override = parseCompileCompilerForTesting;
+        return override != null ? override : ToolProvider.getSystemJavaCompiler();
+    }
+
+    /** Test-only seam: the compiler the parse-phase probe runs, {@code null} for the system one. */
+    static void setParseCompileCompilerForTesting(JavaCompiler compiler) {
+        parseCompileCompilerForTesting = compiler;
     }
 
     private boolean isSecurityInfrastructureError(Throwable throwable) {
