@@ -95,53 +95,36 @@ public class SyncOperatorHook {
             return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.NO_TARGET);
         }
 
-        RepeatedInjectionMemory.PromptAttemptRegistration registration = memory == null
-                ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
-                : memory.registerAttempt(Collections.singletonList(target.toRepeatedInjectionTarget()), true);
-        String attemptId = registration.isEmpty() ? null : registration.getAttemptId();
-        OperatorAttemptLog.getInstance().open(attemptId, plan.getGeneration(), target, "SYNC", 1);
+        AttemptTicket ticket = AttemptTicket.open(memory,
+                Collections.singletonList(target.toRepeatedInjectionTarget()), true);
+        ticket.openLogRow(plan.getGeneration(), target, "SYNC", 1);
 
         TargetedResponse response;
         try {
             response = operator.applyMapped(Collections.singletonList(target));
         } catch (RuntimeException e) {
             logger.debug("LLM operator call failed unexpectedly: {}", e.getMessage());
-            OperatorAttemptLog.getInstance().recordResponse(attemptId, TargetedResponse.Status.FAILED,
-                    false, false, 0, TargetedResponse.CallUsage.NONE, null);
-            return fallback(target, registration, TargetedResponse.Status.FAILED);
+            response = null;
         }
-
-        TestCase test = response.forTarget(1).orElse(null);
-        OperatorAttemptLog.getInstance().recordResponse(attemptId, response.getStatus(),
-                response.isParseSucceeded(), test != null, response.getRepairTurns(), response.getUsage(), test);
+        TargetedResponse.Status status = response == null ? TargetedResponse.Status.FAILED : response.getStatus();
+        TestCase test = response == null ? null : response.forTarget(1).orElse(null);
+        OperatorAttemptLog.getInstance().recordResponse(ticket.getId(), status,
+                response != null && response.isParseSucceeded(), test != null,
+                response == null ? 0 : response.getRepairTurns(),
+                response == null ? TargetedResponse.CallUsage.NONE : response.getUsage(), test);
         if (test != null) {
             offspring.setTestCase(test);
             offspring.setChanged(true);
             appliedCount.incrementAndGet();
-            // The attempt stays open; recordOutcome() closes it once the GA
+            // The ticket stays open; recordOutcome() closes it once the GA
             // has evaluated (or dropped) this offspring.
-            return OperatorAttemptResult.semanticApplied(target, attemptId, plan.getGeneration());
+            return OperatorAttemptResult.semanticApplied(target, ticket, plan.getGeneration());
         }
-        return fallback(target, registration, response.getStatus());
-    }
-
-    /**
-     * Falls back to the standard operator for {@code target}. A {@code NO_BUDGET}/{@code FAILED}
-     * response (or a call that threw) never reached a completed turn for this target, so its
-     * repeat-suppression attempt is released rather than counted as a spent, gainless turn — the
-     * same treatment the asynchronous executor gives an undelivered attempt. Only a delivered
-     * response that produced nothing usable for this target counts as a completed, gainless turn.
-     */
-    private OperatorAttemptResult fallback(OperatorTarget target,
-                                           RepeatedInjectionMemory.PromptAttemptRegistration registration,
-                                           TargetedResponse.Status status) {
-        if (!registration.isEmpty()) {
-            if (status == TargetedResponse.Status.NO_BUDGET || status == TargetedResponse.Status.FAILED) {
-                memory.releaseUndeliveredAttempt(registration.getAttemptId());
-            } else {
-                memory.recordAttemptOutcome(registration.getAttemptId(), 0);
-            }
-        }
+        // Falls back to the standard operator. A NO_BUDGET/FAILED response (or a call that threw)
+        // never reached a completed turn for this target, so its attempt is released rather than
+        // counted as a spent, gainless turn; only a delivered response that produced nothing
+        // usable for this target counts as one.
+        ticket.settleWithoutGain(status);
         fallbackCount.incrementAndGet();
         return OperatorAttemptResult.semanticFallback(target);
     }
@@ -155,16 +138,14 @@ public class SyncOperatorHook {
      * log's evaluation is skipped since nothing was actually judged. Does not
      * record admission — see {@link #recordAdmitted}, called separately once
      * the offspring actually enters the offspring population. No-op unless
-     * this result carries an open attempt id.
+     * this result carries an open attempt.
      */
     public final void recordOutcome(OperatorAttemptResult result, TestChromosome evaluatedOffspring) {
-        if (result == null || result.getAttemptId() == null) {
+        if (result == null) {
             return;
         }
         if (evaluatedOffspring == null) {
-            if (memory != null) {
-                memory.recordAttemptOutcome(result.getAttemptId(), 0);
-            }
+            result.getTicket().close(0);
             return;
         }
         Double value = result.getTarget() == null ? null
@@ -181,26 +162,22 @@ public class SyncOperatorHook {
      * reaches the offspring population.
      */
     public final void recordOutcome(OperatorAttemptResult result, double targetDistance) {
-        if (result == null || result.getAttemptId() == null) {
+        if (result == null) {
             return;
         }
-        boolean covered = targetDistance == 0.0;
-        if (memory != null) {
-            memory.recordAttemptOutcome(result.getAttemptId(), covered ? 1 : 0);
-        }
-        OperatorAttemptLog.getInstance().recordEvaluated(result.getAttemptId(), targetDistance, covered);
+        result.getTicket().close(targetDistance == 0.0 ? 1 : 0);
+        result.getTicket().evaluated(targetDistance);
     }
 
     /**
      * Records that {@code offspring} was actually added to the offspring population, at the point
      * the caller does so — the only moment a semantic child's survival scan can meaningfully start
-     * from. No-op unless this result carries an open attempt id.
+     * from. No-op unless this result carries a tracked attempt.
      */
     public final void recordAdmitted(OperatorAttemptResult result, TestChromosome offspring) {
-        if (result == null || result.getAttemptId() == null) {
-            return;
+        if (result != null) {
+            result.getTicket().admitted(offspring, result.getGeneration());
         }
-        OperatorAttemptLog.getInstance().recordAdmitted(result.getAttemptId(), offspring, result.getGeneration());
     }
 
     public int getAppliedCount() {

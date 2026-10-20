@@ -94,7 +94,7 @@ public final class AttemptTicket {
             return UNTRACKED;
         }
         RepeatedInjectionMemory.PromptAttemptRegistration registration = memory.registerAttempt(targets, inFlight);
-        return registration.isEmpty() ? UNTRACKED : new AttemptTicket(memory, registration.getAttemptId());
+        return registration == null || registration.isEmpty() ? UNTRACKED : new AttemptTicket(memory, registration.getAttemptId());
     }
 
     /** The ticket of an attempt nothing tracks: id {@code ""}, every method a no-op. */

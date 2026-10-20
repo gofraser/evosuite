@@ -44,15 +44,15 @@ public class OperatorAttemptResult {
     private final Path path;
     private final SkipReason skipReason;
     private final OperatorTarget target;
-    private final String attemptId;
+    private final AttemptTicket ticket;
     private final int generation;
 
     private OperatorAttemptResult(Path path, SkipReason skipReason,
-                                  OperatorTarget target, String attemptId, int generation) {
+                                  OperatorTarget target, AttemptTicket ticket, int generation) {
         this.path = path;
         this.skipReason = skipReason;
         this.target = target;
-        this.attemptId = attemptId;
+        this.ticket = ticket == null ? AttemptTicket.untracked() : ticket;
         this.generation = generation;
     }
 
@@ -61,17 +61,18 @@ public class OperatorAttemptResult {
         return new OperatorAttemptResult(Path.SEMANTIC_APPLIED, SkipReason.NONE, null, null, -1);
     }
 
-    /** Semantic path was attempted and successfully applied for {@code target}, under {@code attemptId} (nullable). */
-    public static OperatorAttemptResult semanticApplied(OperatorTarget target, String attemptId) {
-        return semanticApplied(target, attemptId, -1);
+    /** Semantic path was attempted and successfully applied for {@code target}, under {@code ticket} (nullable). */
+    public static OperatorAttemptResult semanticApplied(OperatorTarget target, AttemptTicket ticket) {
+        return semanticApplied(target, ticket, -1);
     }
 
     /**
      * Semantic path was attempted and successfully applied for {@code target}, under {@code
-     * attemptId} (nullable), from the {@code generation} the target's plan was built for.
+     * ticket} (nullable), from the {@code generation} the target's plan was built for.
      */
-    public static OperatorAttemptResult semanticApplied(OperatorTarget target, String attemptId, int generation) {
-        return new OperatorAttemptResult(Path.SEMANTIC_APPLIED, SkipReason.NONE, target, attemptId, generation);
+    public static OperatorAttemptResult semanticApplied(OperatorTarget target, AttemptTicket ticket,
+                                                        int generation) {
+        return new OperatorAttemptResult(Path.SEMANTIC_APPLIED, SkipReason.NONE, target, ticket, generation);
     }
 
     /** Semantic path was attempted but failed; standard fallback was used. */
@@ -110,9 +111,14 @@ public class OperatorAttemptResult {
         return target;
     }
 
-    /** The repeated-injection attempt id this outcome should be recorded under, or null. */
+    /** The ticket of the attempt this outcome is recorded under; untracked when there is none. */
+    public AttemptTicket getTicket() {
+        return ticket;
+    }
+
+    /** The repeated-injection attempt id this outcome is recorded under, or null when untracked. */
     public String getAttemptId() {
-        return attemptId;
+        return ticket.isTracked() ? ticket.getId() : null;
     }
 
     /** The generation the target's {@code SyncTargetPlan} was built for; {@code -1} when not tracked. */
