@@ -27,7 +27,6 @@ import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.llm.IterativeLlmSidecarRecorder;
-import org.evosuite.llm.IterativeLlmTimelineRecorder;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
@@ -181,166 +180,177 @@ public class LlmStrategy extends TestGenerationStrategy {
     private TestSuiteChromosome runIterativeBudgeted(
             List<TestSuiteFitnessFunction> fitnessFunctions,
             List<TestFitnessFunction> allGoals) {
-        StoppingCondition<TestSuiteChromosome> stoppingCondition = getStoppingCondition();
-        stoppingCondition.reset();
+        return new IterativeLoop(fitnessFunctions, allGoals).run();
+    }
 
-        LlmService llmService = getLlmService();
-        long strategyStartedNanos = System.nanoTime();
-        long deadlineNanos = phaseDeadlineNanos(strategyStartedNanos);
-        TestSuiteChromosome suite = new TestSuiteChromosome();
-        IterativeLlmTimelineRecorder timelineRecorder =
-                new IterativeLlmTimelineRecorder();
-        IterativeLlmSidecarRecorder sidecarRecorder =
-                new IterativeLlmSidecarRecorder(allGoals);
-        List<Integer> newGoalsTimeline = new ArrayList<>();
-        List<Integer> coverageTimeline = new ArrayList<>();
-        List<Long> elapsedTimeline = new ArrayList<>();
-        List<Long> queryLatencyTimeline = new ArrayList<>();
-        List<Integer> suiteSizeTimeline = new ArrayList<>();
-        List<Integer> parsedTestsTimeline = new ArrayList<>();
-        List<Integer> uniqueTestsTimeline = new ArrayList<>();
-        List<Integer> targetGoalsTimeline = new ArrayList<>();
-        int totalGoals = allGoals.size();
-        int parseFailureCount = 0;
-        // Consecutive rounds without usable tests, whether the response did not
-        // parse or every parsed test failed at execution.
-        int failedRoundStreak = 0;
-        long failedStreakStartedNanos = strategyStartedNanos;
-        int consecutiveRestarts = 0;
-        int parseFailLimit = Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT;
-        int totalParsedTests = 0;
-        int totalUniqueTests = 0;
-        int totalDuplicates = 0;
-        int rounds = 0;
-        ExitReason exitReason = ExitReason.STOPPING_CONDITION;
-
-        // Track uncovered goals for feedback between iterations
-        Set<TestFitnessFunction> previousUncovered = new HashSet<>(allGoals);
-
+    /**
+     * State and steps of one ITERATIVE_BUDGETED run. The initial and the
+     * follow-up rounds only differ in how their query is built, so they share
+     * {@link #round}.
+     */
+    private final class IterativeLoop {
+        private final List<TestSuiteFitnessFunction> fitnessFunctions;
+        private final List<TestFitnessFunction> allGoals;
+        private final StoppingCondition<TestSuiteChromosome> stoppingCondition;
+        private final LlmService llmService = getLlmService();
+        private final long strategyStartedNanos = System.nanoTime();
+        private final long deadlineNanos = phaseDeadlineNanos(strategyStartedNanos);
+        private final TestSuiteChromosome suite = new TestSuiteChromosome();
+        private final IterativeTelemetry telemetry;
+        private final FailureStreakPolicy streaks;
         // Dedup keys for tests already in the suite (structural equality via toCode()).
-        Set<String> suiteTestCodes = new HashSet<>();
+        private final Set<String> suiteTestCodes = new HashSet<>();
+        private Set<TestFitnessFunction> coveredGoals = Collections.emptySet();
 
-        // --- Initial broad-coverage query ---
-        QueryOutcome initial = queryForBroadCoverage(llmService, deadlineNanos);
-        int initialAdded = addUniqueTests(suite, initial.tests, suiteTestCodes);
-        int initialDuplicates = initial.tests.size() - initialAdded;
-        boolean initialEvaluated = evaluateSuiteAndGoals(
-                suite, lastAddedTests(suite, initialAdded),
-                fitnessFunctions, allGoals);
-        rounds++;
-        advanceStoppingCondition(stoppingCondition, rounds, suite,
-                initialEvaluated);
-        totalParsedTests += initial.tests.size();
-        totalUniqueTests += initialAdded;
-        totalDuplicates += initialDuplicates;
-        sampleParsedRatio(suite);
-        Set<TestFitnessFunction> coveredGoals = suite.getCoveredGoals();
-        coverageTimeline.add(coveredGoals.size());
-        newGoalsTimeline.add(coveredGoals.size());
-        recordRound(timelineRecorder, rounds, "INITIAL", strategyStartedNanos,
-                deadlineNanos, totalGoals, initial, initialAdded,
-                initialDuplicates, coveredGoals.size(), coveredGoals.size(),
-                totalGoals, suite, elapsedTimeline, queryLatencyTimeline,
-                suiteSizeTimeline, parsedTestsTimeline, uniqueTestsTimeline,
-                targetGoalsTimeline);
-        sidecarRecorder.record(rounds, elapsedMillis(strategyStartedNanos), suite);
-
-        String previousFailureHint = null;
-        if (initial.failureSummary != null) {
-            LoggingUtils.getEvoLogger().info(
-                    "* Initial broad-coverage query produced no usable tests: {}",
-                    initial.failureSummary);
-            if (!initial.callFailed) {
-                previousFailureHint = initial.failureSummary;
-                if (!initial.droppedAtExecution) {
-                    parseFailureCount++;
-                }
-                failedRoundStreak++;
-            }
+        IterativeLoop(List<TestSuiteFitnessFunction> fitnessFunctions,
+                      List<TestFitnessFunction> allGoals) {
+            this.fitnessFunctions = fitnessFunctions;
+            this.allGoals = allGoals;
+            this.stoppingCondition = getStoppingCondition();
+            stoppingCondition.reset();
+            this.telemetry = new IterativeTelemetry(strategyStartedNanos,
+                    deadlineNanos, allGoals.size(),
+                    new IterativeLlmSidecarRecorder(allGoals));
+            this.streaks = new FailureStreakPolicy(
+                    Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT, strategyStartedNanos);
         }
 
-        if (isFinishedWithTests(suite, stoppingCondition)) {
-            exitReason = isDeadlineExpired(deadlineNanos)
-                    ? ExitReason.TIME_BUDGET_EXHAUSTED
-                    : ExitReason.STOPPING_CONDITION;
-            return finishIterative(suite, 0, rounds, exitReason,
-                    parseFailureCount, totalParsedTests, totalUniqueTests,
-                    totalDuplicates, newGoalsTimeline,
-                    coverageTimeline, elapsedTimeline, queryLatencyTimeline,
-                    suiteSizeTimeline, parsedTestsTimeline,
-                    uniqueTestsTimeline, targetGoalsTimeline, timelineRecorder,
-                    sidecarRecorder);
-        }
+        TestSuiteChromosome run() {
+            int totalGoals = allGoals.size();
+            // Track uncovered goals for feedback between iterations
+            Set<TestFitnessFunction> previousUncovered = new HashSet<>(allGoals);
 
-        // --- Iterative follow-up queries ---
-        int iteration = 0;
-        int noProgressStreak = 0;
-        int maxIterations = Properties.LLM_STRATEGY_MAX_ITERATIONS;
-        int noProgressLimit = Properties.LLM_STRATEGY_NO_PROGRESS_LIMIT;
-        while (true) {
-            if (isDeadlineExpired(deadlineNanos)
-                    || !TimeController.getInstance().isThereStillTimeInThisPhase()) {
-                exitReason = ExitReason.TIME_BUDGET_EXHAUSTED;
-                break;
-            }
+            // --- Initial broad-coverage query ---
+            QueryOutcome initial = queryForBroadCoverage(llmService, deadlineNanos);
+            round("INITIAL", initial, totalGoals, 0);
+            streaks.onInitialRound(initial);
+
             if (isFinishedWithTests(suite, stoppingCondition)) {
-                exitReason = ExitReason.STOPPING_CONDITION;
-                break;
-            }
-            iteration++;
-            if (maxIterations > 0 && iteration > maxIterations) {
-                iteration--; // we never actually started this iteration
-                LoggingUtils.getEvoLogger().info(
-                        "* Reached iteration cap ({}), stopping", maxIterations);
-                exitReason = ExitReason.MAX_ITERATIONS;
-                break;
-            }
-            long roundStartedNanos = System.nanoTime();
-            final Set<TestFitnessFunction> coveredSnapshot = coveredGoals;
-            Collection<TestFitnessFunction> uncoveredGoals = allGoals.stream()
-                    .filter(g -> !coveredSnapshot.contains(g))
-                    .collect(Collectors.toList());
-
-            if (uncoveredGoals.isEmpty()) {
-                iteration--; // never executed
-                LoggingUtils.getEvoLogger().info(
-                        "* All goals covered after {} iterations", iteration);
-                exitReason = ExitReason.ALL_GOALS_COVERED;
-                break;
+                return finish(0, isDeadlineExpired(deadlineNanos)
+                        ? ExitReason.TIME_BUDGET_EXHAUSTED
+                        : ExitReason.STOPPING_CONDITION);
             }
 
-            if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.ITERATIVE_STRATEGY)) {
-                iteration--;
-                LoggingUtils.getEvoLogger().info(
-                        "* LLM budget exhausted after {} iterations", iteration);
-                exitReason = ExitReason.LLM_BUDGET_EXHAUSTED;
-                break;
+            // --- Iterative follow-up queries ---
+            ExitReason exitReason;
+            int iteration = 0;
+            int noProgressStreak = 0;
+            int maxIterations = Properties.LLM_STRATEGY_MAX_ITERATIONS;
+            int noProgressLimit = Properties.LLM_STRATEGY_NO_PROGRESS_LIMIT;
+            while (true) {
+                if (isDeadlineExpired(deadlineNanos)
+                        || !TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                    exitReason = ExitReason.TIME_BUDGET_EXHAUSTED;
+                    break;
+                }
+                if (isFinishedWithTests(suite, stoppingCondition)) {
+                    exitReason = ExitReason.STOPPING_CONDITION;
+                    break;
+                }
+                iteration++;
+                if (maxIterations > 0 && iteration > maxIterations) {
+                    iteration--; // we never actually started this iteration
+                    LoggingUtils.getEvoLogger().info(
+                            "* Reached iteration cap ({}), stopping", maxIterations);
+                    exitReason = ExitReason.MAX_ITERATIONS;
+                    break;
+                }
+                long roundStartedNanos = System.nanoTime();
+                final Set<TestFitnessFunction> coveredSnapshot = coveredGoals;
+                Collection<TestFitnessFunction> uncoveredGoals = allGoals.stream()
+                        .filter(g -> !coveredSnapshot.contains(g))
+                        .collect(Collectors.toList());
+
+                if (uncoveredGoals.isEmpty()) {
+                    iteration--; // never executed
+                    LoggingUtils.getEvoLogger().info(
+                            "* All goals covered after {} iterations", iteration);
+                    exitReason = ExitReason.ALL_GOALS_COVERED;
+                    break;
+                }
+
+                if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.ITERATIVE_STRATEGY)) {
+                    iteration--;
+                    LoggingUtils.getEvoLogger().info(
+                            "* LLM budget exhausted after {} iterations", iteration);
+                    exitReason = ExitReason.LLM_BUDGET_EXHAUSTED;
+                    break;
+                }
+
+                // Compute newly-covered delta for feedback
+                Set<TestFitnessFunction> currentUncovered = new HashSet<>(uncoveredGoals);
+                Set<TestFitnessFunction> newlyCovered = new HashSet<>(previousUncovered);
+                newlyCovered.removeAll(currentUncovered);
+                int coveredCount = coveredGoals.size();
+                previousUncovered = currentUncovered;
+
+                QueryOutcome outcome = queryForUncoveredGoals(
+                        llmService, uncoveredGoals, suite.getTestChromosomes(),
+                        newlyCovered, totalGoals, coveredCount,
+                        streaks.previousFailureHint(), deadlineNanos);
+                RoundResult result = round("FOLLOW_UP", outcome,
+                        uncoveredGoals.size(), iteration);
+
+                if (isDeadlineExpired(deadlineNanos)
+                        || !TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                    exitReason = ExitReason.TIME_BUDGET_EXHAUSTED;
+                    break;
+                }
+
+                FailureStreakPolicy.Verdict verdict = streaks.onFollowUpRound(
+                        outcome, result.added, roundStartedNanos, deadlineNanos);
+                if (verdict == FailureStreakPolicy.Verdict.NEXT_ROUND) {
+                    continue;
+                }
+                if (verdict == FailureStreakPolicy.Verdict.STOP_EXECUTION_FAIL_STREAK) {
+                    exitReason = ExitReason.EXECUTION_FAIL_STREAK;
+                    break;
+                }
+                if (verdict == FailureStreakPolicy.Verdict.STOP_PARSE_FAIL_STREAK) {
+                    exitReason = ExitReason.PARSE_FAIL_STREAK;
+                    break;
+                }
+
+                if (result.newGoals > 0) {
+                    noProgressStreak = 0;
+                } else {
+                    noProgressStreak++;
+                    if (noProgressLimit > 0 && noProgressStreak >= noProgressLimit) {
+                        LoggingUtils.getEvoLogger().info(
+                                "* No new coverage for {} consecutive iterations, stopping",
+                                noProgressStreak);
+                        exitReason = ExitReason.NO_PROGRESS;
+                        break;
+                    }
+                }
             }
+            return finish(iteration, exitReason);
+        }
 
-            // Compute newly-covered delta for feedback
-            Set<TestFitnessFunction> currentUncovered = new HashSet<>(uncoveredGoals);
-            Set<TestFitnessFunction> newlyCovered = new HashSet<>(previousUncovered);
-            newlyCovered.removeAll(currentUncovered);
-            int coveredCount = coveredGoals.size();
-            previousUncovered = currentUncovered;
-
-            QueryOutcome outcome = queryForUncoveredGoals(
-                    llmService, uncoveredGoals, suite.getTestChromosomes(),
-                    newlyCovered, totalGoals, coveredCount, previousFailureHint,
-                    deadlineNanos);
+        /**
+         * Adds the unique tests of one query to the suite, evaluates them and
+         * records the round. The initial round always evaluates, follow-up
+         * rounds only when they added something.
+         *
+         * @param iteration 0 for the initial round
+         */
+        private RoundResult round(String roundType, QueryOutcome outcome,
+                                  int targetGoals, int iteration) {
+            boolean initial = iteration == 0;
             List<TestChromosome> newTests = outcome.tests;
-
             int coveredBefore = coveredGoals.size();
             int added = addUniqueTests(suite, newTests, suiteTestCodes);
             int duplicates = newTests.size() - added;
             boolean evaluated = false;
-            if (added > 0) {
+            if (initial || added > 0) {
                 evaluated = evaluateSuiteAndGoals(
                         suite, lastAddedTests(suite, added),
                         fitnessFunctions, allGoals);
                 coveredGoals = suite.getCoveredGoals();
 
-                if (duplicates > 0) {
+                if (initial) {
+                    // The initial round is not an iteration and logs nothing.
+                } else if (duplicates > 0) {
                     LoggingUtils.getEvoLogger().info(
                             "* Iteration {}: suite size={}, covered goals={} "
                                     + "(skipped {} duplicate test(s))",
@@ -356,169 +366,33 @@ public class LlmStrategy extends TestGenerationStrategy {
                         iteration, newTests.size());
             }
 
-            // Per-iteration sample (gap-free).
+            // Per-round sample (gap-free).
             sampleParsedRatio(suite);
-            int newGoalsThisIter = coveredGoals.size() - coveredBefore;
-            newGoalsTimeline.add(newGoalsThisIter);
-            coverageTimeline.add(coveredGoals.size());
-            rounds++;
-            advanceStoppingCondition(stoppingCondition, rounds, suite,
-                    evaluated);
-            totalParsedTests += newTests.size();
-            totalUniqueTests += added;
-            totalDuplicates += duplicates;
-            recordRound(timelineRecorder, rounds, "FOLLOW_UP",
-                    strategyStartedNanos, deadlineNanos, uncoveredGoals.size(),
-                    outcome, added, duplicates, newGoalsThisIter,
-                    coveredGoals.size(), totalGoals, suite, elapsedTimeline,
-                    queryLatencyTimeline, suiteSizeTimeline,
-                    parsedTestsTimeline, uniqueTestsTimeline,
-                    targetGoalsTimeline);
-            sidecarRecorder.record(rounds,
-                    elapsedMillis(strategyStartedNanos), suite);
-
-            if (isDeadlineExpired(deadlineNanos)
-                    || !TimeController.getInstance().isThereStillTimeInThisPhase()) {
-                exitReason = ExitReason.TIME_BUDGET_EXHAUSTED;
-                break;
-            }
-
-            // Update failed-round streak/hint.
-            boolean failedRound = outcome.failureSummary != null && added == 0
-                    && !outcome.callFailed;
-            if (failedRound) {
-                if (!outcome.droppedAtExecution) {
-                    parseFailureCount++;
-                }
-                if (failedRoundStreak == 0) {
-                    failedStreakStartedNanos = roundStartedNanos;
-                }
-                failedRoundStreak++;
-                previousFailureHint = outcome.failureSummary;
-                if (parseFailLimit > 0 && failedRoundStreak >= parseFailLimit) {
-                    long streakMillis = elapsedMillis(failedStreakStartedNanos);
-                    if (canRestartAfterFailedRounds(remainingMillis(deadlineNanos),
-                            streakMillis, consecutiveRestarts)) {
-                        // Budget remains: drop the failure feedback, which tends to
-                        // anchor the LLM on its broken approach, and re-prompt from
-                        // scratch instead of ending the run.
-                        consecutiveRestarts++;
-                        LoggingUtils.getEvoLogger().info(
-                                "* {} consecutive iterations produced no usable tests; "
-                                        + "re-prompting without failure feedback (restart {} of {})",
-                                failedRoundStreak, consecutiveRestarts,
-                                MAX_CONSECUTIVE_FAILED_ROUND_RESTARTS);
-                        failedRoundStreak = 0;
-                        previousFailureHint = null;
-                        continue;
-                    }
-                    LoggingUtils.getEvoLogger().info(
-                            "* {} consecutive iterations produced no usable tests, stopping",
-                            failedRoundStreak);
-                    exitReason = outcome.droppedAtExecution
-                            ? ExitReason.EXECUTION_FAIL_STREAK
-                            : ExitReason.PARSE_FAIL_STREAK;
-                    break;
-                }
-            } else if (!outcome.callFailed) {
-                failedRoundStreak = 0;
-                previousFailureHint = null;
-                if (added > 0) {
-                    consecutiveRestarts = 0;
-                }
-            }
-            if (failedRound && parseFailLimit > 0) {
-                // Bounded by the failed-round guard above; a round without usable
-                // tests is not a round without new coverage.
-                continue;
-            }
-
-            if (newGoalsThisIter > 0) {
-                noProgressStreak = 0;
-            } else {
-                noProgressStreak++;
-                if (noProgressLimit > 0 && noProgressStreak >= noProgressLimit) {
-                    LoggingUtils.getEvoLogger().info(
-                            "* No new coverage for {} consecutive iterations, stopping",
-                            noProgressStreak);
-                    exitReason = ExitReason.NO_PROGRESS;
-                    break;
-                }
-            }
+            int newGoals = coveredGoals.size() - coveredBefore;
+            int round = telemetry.beginRound();
+            advanceStoppingCondition(stoppingCondition, round, suite, evaluated);
+            telemetry.recordRound(roundType, targetGoals, outcome, added,
+                    duplicates, newGoals, coveredGoals.size(), suite);
+            return new RoundResult(added, newGoals);
         }
 
-        return finishIterative(suite, iteration, rounds, exitReason,
-                parseFailureCount, totalParsedTests, totalUniqueTests,
-                totalDuplicates, newGoalsTimeline,
-                coverageTimeline, elapsedTimeline, queryLatencyTimeline,
-                suiteSizeTimeline, parsedTestsTimeline, uniqueTestsTimeline,
-                targetGoalsTimeline, timelineRecorder, sidecarRecorder);
+        private TestSuiteChromosome finish(int iteration, ExitReason exitReason) {
+            telemetry.finish(iteration, exitReason.name(),
+                    streaks.parseFailureCount());
+            iterativeEmittedGenerations = true;
+            return suite;
+        }
     }
 
-    /**
-     * Emits ITERATIVE_BUDGETED telemetry RuntimeVariables and returns the suite.
-     * Centralized so all exit paths emit consistent data.
-     */
-    private TestSuiteChromosome finishIterative(TestSuiteChromosome suite,
-                                                int iteration,
-                                                int rounds,
-                                                ExitReason exitReason,
-                                                int parseFailureCount,
-                                                int totalParsedTests,
-                                                int totalUniqueTests,
-                                                int totalDuplicates,
-                                                List<Integer> newGoalsTimeline,
-                                                List<Integer> coverageTimeline,
-                                                List<Long> elapsedTimeline,
-                                                List<Long> queryLatencyTimeline,
-                                                List<Integer> suiteSizeTimeline,
-                                                List<Integer> parsedTestsTimeline,
-                                                List<Integer> uniqueTestsTimeline,
-                                                List<Integer> targetGoalsTimeline,
-                                                IterativeLlmTimelineRecorder timelineRecorder,
-                                                IterativeLlmSidecarRecorder sidecarRecorder) {
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Iterations, iteration);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Rounds, rounds);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Exit_Reason, exitReason.name());
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Parse_Failures, parseFailureCount);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_New_Goals_Timeline,
-                        joinInts(newGoalsTimeline));
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Coverage_Timeline,
-                        joinInts(coverageTimeline));
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Parsed,
-                totalParsedTests);
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Unique,
-                totalUniqueTests);
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Duplicates,
-                totalDuplicates);
-        ClientServices.track(
-                RuntimeVariable.LLM_Iterative_Round_Elapsed_Millis_Timeline,
-                joinLongs(elapsedTimeline));
-        ClientServices.track(
-                RuntimeVariable.LLM_Iterative_Query_Latency_Millis_Timeline,
-                joinLongs(queryLatencyTimeline));
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Suite_Size_Timeline,
-                joinInts(suiteSizeTimeline));
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Parsed_Timeline,
-                joinInts(parsedTestsTimeline));
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Unique_Timeline,
-                joinInts(uniqueTestsTimeline));
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Target_Goals_Timeline,
-                joinInts(targetGoalsTimeline));
-        timelineRecorder.flush();
-        sidecarRecorder.flush();
-        // Each LLM request/evaluation round is the iterative strategy's
-        // generation-equivalent unit, including the initial request.
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Generations, rounds);
-        iterativeEmittedGenerations = true;
-        return suite;
+    /** What one round added to the suite. */
+    private static final class RoundResult {
+        final int added;
+        final int newGoals;
+
+        RoundResult(int added, int newGoals) {
+            this.added = added;
+            this.newGoals = newGoals;
+        }
     }
 
     /**
@@ -561,22 +435,6 @@ public class LlmStrategy extends TestGenerationStrategy {
      */
     private boolean iterativeEmittedGenerations = false;
 
-    private static String joinInts(List<Integer> values) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < values.size(); i++) {
-            if (i > 0) {
-                sb.append(';');
-            }
-            sb.append(values.get(i));
-        }
-        return sb.toString();
-    }
-
-    private static String joinLongs(List<Long> values) {
-        return values.stream().map(String::valueOf)
-                .collect(Collectors.joining(";"));
-    }
-
     private static String optionalTestCountGuidance(int target, String description) {
         if (target <= 0) {
             return "";
@@ -605,12 +463,12 @@ public class LlmStrategy extends TestGenerationStrategy {
                 && System.nanoTime() >= deadlineNanos;
     }
 
-    private static long elapsedMillis(long startedNanos) {
+    static long elapsedMillis(long startedNanos) {
         return TimeUnit.NANOSECONDS.toMillis(
                 Math.max(0L, System.nanoTime() - startedNanos));
     }
 
-    private static long remainingMillis(long deadlineNanos) {
+    static long remainingMillis(long deadlineNanos) {
         if (deadlineNanos == Long.MAX_VALUE) {
             return Long.MAX_VALUE;
         }
@@ -649,46 +507,7 @@ public class LlmStrategy extends TestGenerationStrategy {
         }
     }
 
-    private void recordRound(
-            IterativeLlmTimelineRecorder recorder,
-            int round, String roundType,
-            long strategyStartedNanos, long deadlineNanos,
-            int targetGoals, QueryOutcome outcome,
-            int added, int duplicates, int newGoals,
-            int coveredGoals, int totalGoals,
-            TestSuiteChromosome suite,
-            List<Long> elapsedTimeline,
-            List<Long> queryLatencyTimeline,
-            List<Integer> suiteSizeTimeline,
-            List<Integer> parsedTestsTimeline,
-            List<Integer> uniqueTestsTimeline,
-            List<Integer> targetGoalsTimeline) {
-        long elapsedMs = elapsedMillis(strategyStartedNanos);
-        elapsedTimeline.add(elapsedMs);
-        queryLatencyTimeline.add(outcome.latencyMillis);
-        suiteSizeTimeline.add(suite.size());
-        parsedTestsTimeline.add(outcome.tests.size());
-        uniqueTestsTimeline.add(added);
-        targetGoalsTimeline.add(targetGoals);
-        recorder.record(round, roundType, elapsedMs,
-                remainingMillis(deadlineNanos), targetGoals,
-                outcome.latencyMillis, outcome.tests.size(), added, duplicates,
-                newGoals, coveredGoals, totalGoals, suite.size(),
-                suite.totalLengthOfTestCases(), suite.getCoverage(),
-                countAssertions(suite), countTestsWithAssertions(suite),
-                outcome.failureSummary);
-        // Covered_Goals_Timeline / Remaining_Goals_Timeline are backed by
-        // DirectSequenceOutputVariableFactory, so setting them directly is valid.
-        // The Coverage/Fitness/Size/Length timelines are NOT direct factories and
-        // must not be set via track(); their per-round values are exported through
-        // the LLM_Iterative_* variables and the iterative_llm_timeline sidecar.
-        ClientServices.track(RuntimeVariable.Covered_Goals_Timeline,
-                coveredGoals);
-        ClientServices.track(RuntimeVariable.Remaining_Goals_Timeline,
-                Math.max(0, totalGoals - coveredGoals));
-    }
-
-    private static int countAssertions(TestSuiteChromosome suite) {
+    static int countAssertions(TestSuiteChromosome suite) {
         int count = 0;
         for (TestChromosome test : suite.getTestChromosomes()) {
             count += test.getTestCase().getAssertions().size();
@@ -696,7 +515,7 @@ public class LlmStrategy extends TestGenerationStrategy {
         return count;
     }
 
-    private static int countTestsWithAssertions(TestSuiteChromosome suite) {
+    static int countTestsWithAssertions(TestSuiteChromosome suite) {
         int count = 0;
         for (TestChromosome test : suite.getTestChromosomes()) {
             if (test.getTestCase().hasAssertions()) {
@@ -798,7 +617,7 @@ public class LlmStrategy extends TestGenerationStrategy {
      * (possibly empty) list of parsed tests, captures a short failure summary
      * so the next iteration can feed it back to the LLM as corrective context.
      */
-    private static final class QueryOutcome {
+    static final class QueryOutcome {
         final List<TestChromosome> tests;
         /**
          * Short, single-line summary of what went wrong; {@code null} on success.
