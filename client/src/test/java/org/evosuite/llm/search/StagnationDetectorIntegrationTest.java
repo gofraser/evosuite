@@ -209,7 +209,46 @@ class StagnationDetectorIntegrationTest {
         };
     }
 
+    @Test
+    void executeWithPromptBoundsTheInitialQueryByTheDeadline() {
+        // A provider far slower than the deadline; the per-call timeout alone would let it run on.
+        MockChatLanguageModel model = new MockChatLanguageModel() {
+            @Override
+            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                try {
+                    Thread.sleep(TimeUnit.SECONDS.toMillis(10));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return new LlmService.LlmResponse(SIMPLE_JUNIT_RESPONSE, 0, 0);
+            }
+        };
+        LlmService service = createService(model, 2, 30);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, System::nanoTime);
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("uncovered-goal");
+
+        try {
+            PromptResult prompt = detector.buildPrompt(Collections.singleton(goal),
+                    Collections.singletonList(new TestChromosome()), 1, 0, Collections.emptyMap());
+            long start = System.nanoTime();
+            StagnationDetector.CallResult result = detector.executeWithPrompt(
+                    prompt, start + TimeUnit.SECONDS.toNanos(1));
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+            assertFalse(result.isDelivered());
+            assertTrue(elapsedMillis < 5_000L,
+                    "the initial query must give up at the deadline, but took " + elapsedMillis + " ms");
+        } finally {
+            service.close();
+        }
+    }
+
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {
+        return createService(model, budget, 2);
+    }
+
+    private static LlmService createService(LlmService.ChatLanguageModel model, int budget, int timeoutSeconds) {
         LlmConfiguration configuration = new LlmConfiguration(
                 Properties.LlmProvider.NONE,
                 "mock",
@@ -217,7 +256,7 @@ class StagnationDetectorIntegrationTest {
                 "",
                 0.0,
                 1024,
-                2,
+                timeoutSeconds,
                 0,
                 1,
                 false,

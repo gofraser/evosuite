@@ -286,10 +286,10 @@ public class StagnationDetector {
     }
 
     /**
-     * Executes the stagnation LLM call with a soft parse/repair deadline. The
-     * deadline is intentionally enforced before launching additional repair
-     * requests so already parsed or salvaged tests can be returned to the SYNC
-     * caller before the outer future timeout cancels the worker.
+     * Executes the stagnation LLM call with a deadline. The initial query gives
+     * up at the deadline, and repair requests are not launched past it, so
+     * already parsed or salvaged tests can be returned to the SYNC caller
+     * before the outer future timeout cancels the worker.
      */
     public CallResult executeWithPrompt(PromptResult prompt, long repairDeadlineNanos) {
         if (prompt == null) {
@@ -300,7 +300,7 @@ public class StagnationDetector {
         }
         String response;
         try {
-            response = llmService.query(prompt, LlmFeature.STAGNATION);
+            response = llmService.query(prompt, LlmFeature.STAGNATION, repairDeadlineNanos);
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             logger.debug("Stagnation LLM request failed: {}", e.getMessage());
             return CallResult.UNDELIVERED;
