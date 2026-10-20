@@ -4879,10 +4879,10 @@ public class StatementParser {
             }
         }
         NodeList<com.github.javaparser.ast.stmt.Statement> stmts = tryStmt.getTryBlock().getStatements();
-        for (int i = 0; i < stmts.size(); i++) {
+        for (int i = 0; i < stmts.size(); ) {
             com.github.javaparser.ast.stmt.Statement stmt = stmts.get(i);
             try {
-                parseStatement(stmt, stmts, i);
+                i += parseStatement(stmt, stmts, i);
             } catch (Throwable t) {
                 int line = stmt.getBegin().map(p -> p.line).orElse(0);
                 result.addDiagnostic(new ParseDiagnostic(
@@ -4897,6 +4897,7 @@ public class StatementParser {
                 } catch (Throwable ignored) {
                     // Keep going to salvage subsequent statements in the try block.
                 }
+                i++;
             }
         }
     }
@@ -4921,8 +4922,8 @@ public class StatementParser {
         if (stmt instanceof BlockStmt) {
             NodeList<com.github.javaparser.ast.stmt.Statement> statements =
                     ((BlockStmt) stmt).getStatements();
-            for (int i = 0; i < statements.size(); i++) {
-                parseStatement(statements.get(i), statements, i);
+            for (int i = 0; i < statements.size(); ) {
+                i += parseStatement(statements.get(i), statements, i);
             }
             return;
         }

@@ -1,10 +1,14 @@
 package org.evosuite.testparser;
 
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -115,5 +119,49 @@ class StatementParserTryFlatteningTest {
                 "assertDoesNotThrow should be flattened to its body in LLM mode:\n" + code);
         assertFalse(code.contains("->"),
                 "No raw lambda should remain after LLM if/assertion flattening:\n" + code);
+    }
+
+    @Test
+    void llmTryFlatteningParsesMockStubbingLookaheadOnce() {
+        assertStubbingParsedOnce(
+                "try {\n"
+                        + "  java.util.List mockList = org.mockito.Mockito.mock(java.util.List.class);\n"
+                        + "  org.mockito.Mockito.when(mockList.size()).thenReturn(42);\n"
+                        + "  mockList.isEmpty();\n"
+                        + "} catch (Exception e) {\n"
+                        + "}\n");
+    }
+
+    @Test
+    void llmIfFlatteningParsesMockStubbingLookaheadOnce() {
+        assertStubbingParsedOnce(
+                "if (true) {\n"
+                        + "  java.util.List mockList = org.mockito.Mockito.mock(java.util.List.class);\n"
+                        + "  org.mockito.Mockito.when(mockList.size()).thenReturn(42);\n"
+                        + "  mockList.isEmpty();\n"
+                        + "}\n");
+    }
+
+    private void assertStubbingParsedOnce(String body) {
+        TestParser parser = new TestParser(getClass().getClassLoader());
+        parser.setMarkParsedFromLlm(true);
+
+        ParseResult r = parser.parseTestMethodBody(body, List.of());
+
+        TestCase tc = r.getTestCase();
+        int mocks = 0;
+        int stubbedReturns = 0;
+        for (int i = 0; i < tc.size(); i++) {
+            if (tc.getStatement(i) instanceof FunctionalMockStatement) {
+                mocks++;
+            }
+            if (tc.getStatement(i) instanceof PrimitiveStatement
+                    && Integer.valueOf(42).equals(((PrimitiveStatement<?>) tc.getStatement(i)).getValue())) {
+                stubbedReturns++;
+            }
+        }
+        String code = tc.toCode();
+        assertEquals(1, mocks, "The mock must be created once:\n" + code);
+        assertEquals(1, stubbedReturns, "The stubbed return value must be defined once:\n" + code);
     }
 }
