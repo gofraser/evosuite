@@ -19,8 +19,10 @@
  */
 package org.evosuite.llm.response;
 
+import org.apache.commons.io.FileUtils;
 import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
+import org.evosuite.junit.GeneratedTestCompiler;
 import org.evosuite.junit.UnitTestAdapter;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.llm.LlmFeature;
@@ -49,9 +51,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -1410,20 +1410,21 @@ public class TestRepairLoop {
             String classPath = System.getProperty("java.class.path", "");
             int maxPasses = 3;
             for (int pass = 0; ; pass++) {
-                ByteArrayOutputStream err = new ByteArrayOutputStream();
-                List<String> args = new ArrayList<>();
-                args.add("-proc:none");
-                args.add("-classpath");
-                args.add(classPath);
-                args.add("-d");
-                args.add(tmpDir.toString());
-                args.add(sourceFile.toString());
-                int result = compiler.run(null, null, err, args.toArray(new String[0]));
-                if (result == 0) {
+                GeneratedTestCompiler.CompilerAttemptResult attempt = GeneratedTestCompiler
+                        .compileWithPrintedDiagnostics(compiler, Collections.singletonList(sourceFile.toFile()),
+                                classPath);
+                if (attempt.hasInfrastructureFailure()) {
+                    Throwable failure = attempt.getInfrastructureFailure();
+                    if (failure instanceof Error) {
+                        throw (Error) failure;
+                    }
+                    throw (RuntimeException) failure;
+                }
+                if (attempt.isCompiled()) {
                     return null;
                 }
-                String diagnostics = err.toString(StandardCharsets.UTF_8.name()).trim();
-                
+                String diagnostics = attempt.getCompilerOutput().trim();
+
                 boolean repaired = false;
                 String repairedClasspath = org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
                         .sanitizeClasspathForKnownCompileIssues(classPath, diagnostics);
@@ -1431,7 +1432,7 @@ public class TestRepairLoop {
                     classPath = repairedClasspath;
                     repaired = true;
                 }
-                
+
                 if (!repaired || pass == maxPasses) {
                     return "Compilation error in parsed test '" + methodName
                             + "': " + diagnostics
@@ -1444,11 +1445,7 @@ public class TestRepairLoop {
             }
         } finally {
             if (tmpDir != null) {
-                try {
-                    deleteRecursively(tmpDir.toFile());
-                } catch (Throwable ignored) {
-                    // best-effort cleanup
-                }
+                FileUtils.deleteQuietly(tmpDir.toFile());
             }
         }
     }
@@ -1639,22 +1636,6 @@ public class TestRepairLoop {
         }
         return out.toString();
     }
-
-    private void deleteRecursively(File root) throws IOException {
-        if (root == null || !root.exists()) {
-            return;
-        }
-        File[] children = root.listFiles();
-        if (children != null) {
-            for (File child : children) {
-                deleteRecursively(child);
-            }
-        }
-        if (!root.delete() && root.exists()) {
-            throw new IOException("Could not delete " + root.getAbsolutePath());
-        }
-    }
-
 
     public interface TestExecutor {
         ExecutionResult execute(org.evosuite.testcase.TestCase testCase);

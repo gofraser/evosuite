@@ -49,7 +49,7 @@ import java.util.Objects;
  * fails without judging the source (a crash, running out of heap, a broken classpath).
  * What to do with an outcome is up to the caller.
  */
-final class GeneratedTestCompiler {
+public final class GeneratedTestCompiler {
 
     private static final Logger logger = LoggerFactory.getLogger(GeneratedTestCompiler.class);
 
@@ -96,7 +96,29 @@ final class GeneratedTestCompiler {
                                                     String classpath,
                                                     Locale locale,
                                                     Charset charset) throws IOException {
-        BoundedDiagnosticListener diagnostics = new BoundedDiagnosticListener(MAX_STORED_COMPILER_DIAGNOSTICS);
+        return runCompilerAttempt(compiler, generated, classpath, locale, charset,
+                new BoundedDiagnosticListener(MAX_STORED_COMPILER_DIAGNOSTICS));
+    }
+
+    /**
+     * Runs javac once on {@code sources} without a diagnostic listener, so javac prints its
+     * diagnostics to the compiler output exactly as the command-line compiler does, with the
+     * source line and a caret. The source encoding is the platform default. Infrastructure
+     * failures are returned rather than thrown, as for the JUnit check.
+     */
+    public static CompilerAttemptResult compileWithPrintedDiagnostics(JavaCompiler compiler,
+                                                                      List<File> sources,
+                                                                      String classpath) throws IOException {
+        return runCompilerAttempt(compiler, sources, classpath, null, null, null);
+    }
+
+    private static CompilerAttemptResult runCompilerAttempt(JavaCompiler compiler,
+                                                            List<File> generated,
+                                                            String classpath,
+                                                            Locale locale,
+                                                            Charset charset,
+                                                            BoundedDiagnosticListener diagnostics)
+            throws IOException {
         // A null Writer here would make javac fall back to System.err for the compiler's own
         // output stream (e.g. usage/internal errors not routed through the DiagnosticListener
         // above). A leaked class-under-test thread that holds the System.err monitor then blocks
@@ -247,7 +269,8 @@ final class GeneratedTestCompiler {
         return false;
     }
 
-    static final class CompilerAttemptResult {
+    /** What one javac run reported. */
+    public static final class CompilerAttemptResult {
         private final boolean compiled;
         private final BoundedDiagnosticListener diagnostics;
         private final Throwable infrastructureFailure;
@@ -274,7 +297,7 @@ final class GeneratedTestCompiler {
             return new CompilerAttemptResult(false, diagnostics, failure, compilerOutput);
         }
 
-        boolean isCompiled() {
+        public boolean isCompiled() {
             return compiled;
         }
 
@@ -282,15 +305,15 @@ final class GeneratedTestCompiler {
             return diagnostics;
         }
 
-        Throwable getInfrastructureFailure() {
+        public Throwable getInfrastructureFailure() {
             return infrastructureFailure;
         }
 
-        boolean hasInfrastructureFailure() {
+        public boolean hasInfrastructureFailure() {
             return infrastructureFailure != null;
         }
 
-        String getCompilerOutput() {
+        public String getCompilerOutput() {
             return compilerOutput;
         }
     }

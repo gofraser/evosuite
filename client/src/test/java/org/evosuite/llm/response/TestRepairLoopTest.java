@@ -209,6 +209,32 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void compileRejectionQuotesJavacOutputAsTheCommandLineCompilerPrintsIt() throws Exception {
+        TestRepairLoop loop = new TestRepairLoop(
+                mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
+                mock(ClusterExpansionManager.class),
+                testCase -> new ExecutionResult(testCase), 0);
+        DefaultTestCase testCase = new DefaultTestCase();
+        testCase.addStatement(new UninterpretedStatement(testCase, "int x = noSuchSymbolForProbe;"));
+        ParseResult candidate = new ParseResult(testCase, "testBroken");
+        Method compileGate = TestRepairLoop.class.getDeclaredMethod(
+                "checkRenderedCompilation", ParseResult.class, long.class);
+        compileGate.setAccessible(true);
+
+        TestRepairLoop.CompileCheck check =
+                (TestRepairLoop.CompileCheck) compileGate.invoke(loop, candidate, Long.MAX_VALUE);
+
+        assertTrue(check.isRejected());
+        String error = check.getRejection();
+        // The model sees javac's own rendering: the source line, a caret under the symbol and
+        // the error count, not only the bare diagnostic message.
+        assertTrue(error.contains("error: cannot find symbol"), error);
+        assertTrue(error.contains("int x = noSuchSymbolForProbe;\n"), error);
+        assertTrue(error.contains("  symbol:   variable noSuchSymbolForProbe"), error);
+        assertTrue(error.contains("1 error\nNote: this error comes from EvoSuite-rendered"), error);
+    }
+
+    @Test
     void proseOnlyReplyIsNotReportedAsSuccessfulEmptyTest() {
         LlmService llmService = mock(LlmService.class);
         TestRepairLoop loop = new TestRepairLoop(
