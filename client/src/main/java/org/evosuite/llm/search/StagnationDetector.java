@@ -21,10 +21,7 @@ package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
-import org.evosuite.llm.LlmBudgetExceededException;
-import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
-import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
@@ -35,8 +32,8 @@ import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.TargetSection;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
+import org.evosuite.llm.response.GeneratedTestRequest;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
-import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.InjectionSource;
@@ -293,26 +290,23 @@ public class StagnationDetector {
         if (!llmService.canCall(LlmFeature.STAGNATION)) {
             return CallResult.UNDELIVERED;
         }
-        String response;
-        try {
-            response = llmService.query(LlmRequest.of(prompt, LlmFeature.STAGNATION)
-                    .withDeadlineNanos(repairDeadlineNanos)).getText();
-        } catch (LlmBudgetExceededException | LlmCallFailedException e) {
-            logger.debug("Stagnation LLM request failed: {}", e.getMessage());
-            return CallResult.UNDELIVERED;
-        } catch (RuntimeException e) {
-            logger.debug("Stagnation LLM request crashed: {}", e.getMessage());
-            return CallResult.UNDELIVERED;
-        }
-        try {
-            RepairResult result = repairLoop()
-                    .attemptParse(response, prompt, LlmFeature.STAGNATION,
-                            repairDeadlineNanos);
-            return CallResult.delivered(result.isSuccess()
-                    ? result.toChromosomes() : Collections.<TestChromosome>emptyList());
-        } catch (RuntimeException e) {
-            logger.debug("Stagnation LLM response could not be parsed: {}", e.getMessage());
-            return CallResult.delivered(Collections.<TestChromosome>emptyList());
+        GeneratedTestRequest.Outcome outcome = GeneratedTestRequest.of(prompt, LlmFeature.STAGNATION)
+                .withDeadlineNanos(repairDeadlineNanos)
+                .send(llmService, this::repairLoop);
+        switch (outcome.getStatus()) {
+            case NO_BUDGET:
+            case CALL_FAILED:
+                logger.debug("Stagnation LLM request failed: {}", outcome.getFailure().getMessage());
+                return CallResult.UNDELIVERED;
+            case CALL_CRASHED:
+                logger.debug("Stagnation LLM request crashed: {}", outcome.getFailure().getMessage());
+                return CallResult.UNDELIVERED;
+            case PARSE_CRASHED:
+                logger.debug("Stagnation LLM response could not be parsed: {}",
+                        outcome.getFailure().getMessage());
+                return CallResult.delivered(Collections.<TestChromosome>emptyList());
+            default:
+                return CallResult.delivered(outcome.toChromosomes());
         }
     }
 
