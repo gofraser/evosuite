@@ -23,7 +23,6 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
-import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
@@ -32,8 +31,8 @@ import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
+import org.evosuite.llm.response.GeneratedTestRequest;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
-import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.setup.TestCluster;
@@ -301,12 +300,15 @@ public class AsyncLlmTestProducer {
         }
     }
 
-    /** Queries the LLM and parses candidate tests for one producer iteration. */
+    /**
+     * Queries the LLM and parses candidate tests for one producer iteration.
+     * A failed call or parse is thrown, for the caller to settle the attempt by.
+     */
     protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
-        String response = llmService.query(LlmRequest.of(prompt, LlmFeature.ASYNC_PRODUCER)).getText();
-        RepairResult result = repairLoop.attemptParse(
-                response, prompt, LlmFeature.ASYNC_PRODUCER);
-        return result.isSuccess() ? result.toChromosomes() : Collections.emptyList();
+        GeneratedTestRequest.Outcome outcome = GeneratedTestRequest.of(prompt, LlmFeature.ASYNC_PRODUCER)
+                .send(llmService, () -> repairLoop);
+        outcome.rethrowFailure();
+        return outcome.toChromosomes();
     }
 
     /**
