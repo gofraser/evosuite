@@ -34,6 +34,7 @@ import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmTraceRecorder;
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.postprocess.LlmPostProcessingResponse.AssertionProposal;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.rmi.ClientServices;
@@ -256,11 +257,11 @@ public class LlmPostProcessor {
     long phaseDeadlineNanos(LlmPostProcessingPhaseContext phaseContext) {
         int timeoutSeconds = phaseContext.options().phaseBudget().timeoutSeconds();
         if (timeoutSeconds <= 0) {
-            return Long.MAX_VALUE;
+            return PhaseDeadline.NONE;
         }
         long elapsedMillis = phaseContext.phaseClock().currentTimeMillis() - phaseContext.startMillis();
         long remainingMillis = Math.max(0L, timeoutSeconds * 1000L - elapsedMillis);
-        return System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(remainingMillis);
+        return PhaseDeadline.fromNow(TimeUnit.MILLISECONDS.toNanos(remainingMillis));
     }
 
     /**

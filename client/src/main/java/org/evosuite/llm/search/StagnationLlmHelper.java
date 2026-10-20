@@ -24,6 +24,7 @@ import org.evosuite.Properties.LlmStagnationMode;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmWaitBudget;
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
@@ -428,11 +429,9 @@ public final class StagnationLlmHelper {
     }
 
     private static long deadlineAfterWait(long waitSeconds, long returnMarginNanos) {
-        long now = System.nanoTime();
         long waitNanos = TimeUnit.SECONDS.toNanos(Math.max(1L, waitSeconds));
-        long effectiveWait = waitNanos <= returnMarginNanos
-                ? 1L : waitNanos - returnMarginNanos;
-        return now > Long.MAX_VALUE - effectiveWait ? Long.MAX_VALUE : now + effectiveWait;
+        return PhaseDeadline.fromNow(waitNanos <= returnMarginNanos
+                ? 1L : waitNanos - returnMarginNanos);
     }
 
     private void runAsync(PromptResult prompt) {

@@ -346,7 +346,7 @@ public class LlmService implements AutoCloseable {
         Throwable lastError = null;
 
         for (int attempt = 1; attempt <= maxTries; attempt++) {
-            if (lastError != null && remainingNanos(deadlineNanos) <= 0) {
+            if (lastError != null && PhaseDeadline.remainingNanos(deadlineNanos) <= 0) {
                 recordAbandonedRetries(request, lastError);
             }
             ensureBeforeDeadline(deadlineNanos);
@@ -392,7 +392,7 @@ public class LlmService implements AutoCloseable {
                     throw new LlmCallFailedException("LLM query interrupted", lastError, false);
                 }
                 boolean retryable = LlmErrorClassifier.isRetryable(lastError);
-                if (!retryable || attempt == maxTries || remainingNanos(deadlineNanos) <= 0L) {
+                if (!retryable || attempt == maxTries || PhaseDeadline.remainingNanos(deadlineNanos) <= 0L) {
                     String friendly = LlmErrorClassifier.friendlyMessage(lastError);
                     if (!retryable) {
                         logger.warn("LLM call failed (attempt {}/{}): {}", attempt, maxTries, friendly);
@@ -492,7 +492,7 @@ public class LlmService implements AutoCloseable {
         if (deadlineNanos != Long.MAX_VALUE) {
             delay = Math.min(delay,
                     TimeUnit.NANOSECONDS.toMillis(
-                            Math.max(0L, remainingNanos(deadlineNanos))));
+                            Math.max(0L, PhaseDeadline.remainingNanos(deadlineNanos))));
         }
         if (delay <= 0) {
             return true;
@@ -507,17 +507,10 @@ public class LlmService implements AutoCloseable {
     }
 
     private static void ensureBeforeDeadline(long deadlineNanos) {
-        if (remainingNanos(deadlineNanos) <= 0) {
+        if (PhaseDeadline.remainingNanos(deadlineNanos) <= 0) {
             throw new LlmCallFailedException("LLM phase deadline exhausted",
                     new TimeoutException("LLM phase deadline exhausted"), false);
         }
-    }
-
-    static long remainingNanos(long deadlineNanos) {
-        if (deadlineNanos == Long.MAX_VALUE) {
-            return Long.MAX_VALUE;
-        }
-        return deadlineNanos - System.nanoTime();
     }
 
     private void safeRecordTrace(LlmRequest request,

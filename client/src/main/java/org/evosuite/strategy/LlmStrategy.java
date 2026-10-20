@@ -33,6 +33,7 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
@@ -227,7 +228,7 @@ public class LlmStrategy extends TestGenerationStrategy {
             streaks.onInitialRound(initial);
 
             if (isFinishedWithTests(suite, stoppingCondition)) {
-                return finish(0, isDeadlineExpired(deadlineNanos)
+                return finish(0, PhaseDeadline.isExpired(deadlineNanos)
                         ? ExitReason.TIME_BUDGET_EXHAUSTED
                         : ExitReason.STOPPING_CONDITION);
             }
@@ -239,7 +240,7 @@ public class LlmStrategy extends TestGenerationStrategy {
             int maxIterations = Properties.LLM_STRATEGY_MAX_ITERATIONS;
             int noProgressLimit = Properties.LLM_STRATEGY_NO_PROGRESS_LIMIT;
             while (true) {
-                if (isDeadlineExpired(deadlineNanos)
+                if (PhaseDeadline.isExpired(deadlineNanos)
                         || !TimeController.getInstance().isThereStillTimeInThisPhase()) {
                     exitReason = ExitReason.TIME_BUDGET_EXHAUSTED;
                     break;
@@ -292,7 +293,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                 RoundResult result = round("FOLLOW_UP", outcome,
                         uncoveredGoals.size(), iteration);
 
-                if (isDeadlineExpired(deadlineNanos)
+                if (PhaseDeadline.isExpired(deadlineNanos)
                         || !TimeController.getInstance().isThereStillTimeInThisPhase()) {
                     exitReason = ExitReason.TIME_BUDGET_EXHAUSTED;
                     break;
@@ -449,32 +450,14 @@ public class LlmStrategy extends TestGenerationStrategy {
         long remainingMs =
                 TimeController.getInstance().getRemainingTimeInPhaseMs();
         if (remainingMs == Long.MAX_VALUE) {
-            return Long.MAX_VALUE;
+            return PhaseDeadline.NONE;
         }
-        long remainingNanos = TimeUnit.MILLISECONDS.toNanos(
-                Math.max(0L, remainingMs));
-        if (Long.MAX_VALUE - nowNanos < remainingNanos) {
-            return Long.MAX_VALUE;
-        }
-        return nowNanos + remainingNanos;
-    }
-
-    private static boolean isDeadlineExpired(long deadlineNanos) {
-        return deadlineNanos != Long.MAX_VALUE
-                && System.nanoTime() >= deadlineNanos;
+        return PhaseDeadline.after(nowNanos, TimeUnit.MILLISECONDS.toNanos(remainingMs));
     }
 
     static long elapsedMillis(long startedNanos) {
         return TimeUnit.NANOSECONDS.toMillis(
                 Math.max(0L, System.nanoTime() - startedNanos));
-    }
-
-    static long remainingMillis(long deadlineNanos) {
-        if (deadlineNanos == Long.MAX_VALUE) {
-            return Long.MAX_VALUE;
-        }
-        return TimeUnit.NANOSECONDS.toMillis(
-                Math.max(0L, deadlineNanos - System.nanoTime()));
     }
 
     /**

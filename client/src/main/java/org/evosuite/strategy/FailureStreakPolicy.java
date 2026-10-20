@@ -19,6 +19,7 @@
  */
 package org.evosuite.strategy;
 
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.utils.LoggingUtils;
 
 /**
@@ -102,7 +103,7 @@ final class FailureStreakPolicy {
             if (parseFailLimit > 0 && failedRoundStreak >= parseFailLimit) {
                 long streakMillis = LlmStrategy.elapsedMillis(failedStreakStartedNanos);
                 if (LlmStrategy.canRestartAfterFailedRounds(
-                        LlmStrategy.remainingMillis(deadlineNanos),
+                        PhaseDeadline.remainingMillis(deadlineNanos),
                         streakMillis, consecutiveRestarts)) {
                     // Budget remains: drop the failure feedback, which tends to
                     // anchor the LLM on its broken approach, and re-prompt from

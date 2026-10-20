@@ -100,7 +100,7 @@ final class TimeoutGuardedRunner implements AutoCloseable {
             }
         });
         try {
-            long remainingNanos = LlmService.remainingNanos(deadlineNanos);
+            long remainingNanos = PhaseDeadline.remainingNanos(deadlineNanos);
             if (remainingNanos <= 0) {
                 future.cancel(true);
                 throw new TimeoutException("LLM phase deadline exhausted");

@@ -146,9 +146,7 @@ public final class LlmWaitBudget {
         if (remaining < 0) {
             return Long.MAX_VALUE;
         }
-        long now = System.nanoTime();
-        long remainingNanos = saturatingMultiply(remaining, 1_000_000_000L);
-        return now > Long.MAX_VALUE - remainingNanos ? Long.MAX_VALUE : now + remainingNanos;
+        return PhaseDeadline.fromNow(saturatingMultiply(remaining, 1_000_000_000L));
     }
 
     private static long saturatingMultiply(long left, long right) {

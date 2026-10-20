@@ -121,7 +121,7 @@ final class LlmModelListDiagnostics {
                     new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    if (LlmService.remainingNanos(deadlineNanos) <= 0) {
+                    if (PhaseDeadline.remainingNanos(deadlineNanos) <= 0) {
                         return Collections.emptyList();
                     }
                     sb.append(line);
@@ -152,7 +152,7 @@ final class LlmModelListDiagnostics {
         if (deadlineNanos == Long.MAX_VALUE) {
             return 5_000;
         }
-        long remaining = LlmService.remainingNanos(deadlineNanos);
+        long remaining = PhaseDeadline.remainingNanos(deadlineNanos);
         if (remaining <= 0L) {
             return 0;
         }

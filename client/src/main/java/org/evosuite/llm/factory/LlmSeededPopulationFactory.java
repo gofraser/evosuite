@@ -29,6 +29,7 @@ import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmWaitBudget;
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
@@ -133,7 +134,8 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         // deadline is installed first.  awaitAndDrainSeeds() may use a
         // shorter caller wait and cancel the task; it must never be the point
         // at which a repair deadline is first made visible to the worker.
-        this.repairDeadlineNanos = computeDeadlineNanos(LlmWaitBudget.repairAwareWaitMillis());
+        this.repairDeadlineNanos = PhaseDeadline.fromNow(
+                TimeUnit.MILLISECONDS.toNanos(Math.max(1L, LlmWaitBudget.repairAwareWaitMillis())));
         this.pendingSeeds = CompletableFuture.supplyAsync(this::generateSeeds, this.executor);
     }
 
@@ -396,15 +398,6 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             // Fall back to identity below if the test cannot be rendered.
         }
         return "id_" + System.identityHashCode(testCase);
-    }
-
-    private long computeDeadlineNanos(long waitMillis) {
-        long now = System.nanoTime();
-        long waitNanos = TimeUnit.MILLISECONDS.toNanos(Math.max(1L, waitMillis));
-        if (now > Long.MAX_VALUE - waitNanos) {
-            return Long.MAX_VALUE;
-        }
-        return now + waitNanos;
     }
 
     private static boolean isRecoverableSeedingError(Throwable throwable) {

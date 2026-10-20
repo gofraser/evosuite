@@ -21,6 +21,7 @@ package org.evosuite.strategy;
 
 import org.evosuite.llm.IterativeLlmSidecarRecorder;
 import org.evosuite.llm.IterativeLlmTimelineRecorder;
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -90,7 +91,7 @@ final class IterativeTelemetry {
         uniqueTestsTimeline.add(added);
         targetGoalsTimeline.add(targetGoals);
         timelineRecorder.record(rounds, roundType, elapsedMs,
-                LlmStrategy.remainingMillis(deadlineNanos), targetGoals,
+                PhaseDeadline.remainingMillis(deadlineNanos), targetGoals,
                 outcome.latencyMillis, outcome.tests.size(), added, duplicates,
                 newGoals, coveredGoals, totalGoals, suite.size(),
                 suite.totalLengthOfTestCases(), suite.getCoverage(),
