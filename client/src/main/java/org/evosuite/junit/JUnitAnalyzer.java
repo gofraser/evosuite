@@ -867,7 +867,7 @@ public abstract class JUnitAnalyzer {
                 if (result.wasSuccessful()) {
                     return Collections.emptySet();
                 }
-                return mapUnexpectedFailureNames(result, tests);
+                return mapUnexpectedFailureNames(result, tests, testClasses);
             }
 
             @Override
@@ -884,13 +884,15 @@ public abstract class JUnitAnalyzer {
         });
     }
 
-    private static Set<String> mapUnexpectedFailureNames(JUnitResult result, List<TestCase> tests) {
+    private static Set<String> mapUnexpectedFailureNames(JUnitResult result, List<TestCase> tests,
+                                                          Class<?>[] testClasses) {
         Map<String, TestCase> testByName = new LinkedHashMap<>();
         for (int i = 0; i < tests.size(); i++) {
             testByName.put(TestSuiteWriterUtils.getNameOfTest(tests, i), tests.get(i));
         }
 
         Set<String> failures = new LinkedHashSet<>();
+        AtomicBoolean watchdogCulpritSeen = new AtomicBoolean(false);
         for (JUnitFailure failure : result.getFailures()) {
             String testName = failure.getDescriptionMethodName();
             if (testName == null) {
@@ -898,12 +900,13 @@ public abstract class JUnitAnalyzer {
                 continue;
             }
             TestCase mapped = testByName.get(testName);
-            if (mapped != null && mapped.isFailing()) {
+            if (mapped != null && JUnitFailurePolicy.isExpectedFailure(mapped, failure)) {
                 continue;
             }
-            if (testName.equals("initializationError")
-                    && failure.getMessage() != null
-                    && failure.getMessage().contains("Failed to attach Java Agent")) {
+            if (JUnitFailurePolicy.isAgentAttachFailure(testName, failure)
+                    || JUnitFailurePolicy.isResourceLimitFailure(failure, testClasses)
+                    || JUnitFailurePolicy.isTimeoutException(failure)
+                    || JUnitFailurePolicy.isWatchdogCasualty(result, failure, watchdogCulpritSeen)) {
                 continue;
             }
             failures.add(testName);
