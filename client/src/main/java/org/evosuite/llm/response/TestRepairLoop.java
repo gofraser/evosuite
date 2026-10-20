@@ -108,10 +108,6 @@ public class TestRepairLoop {
             "<local\\d+>");
     private static final Pattern INIT_FAILURE_CLASS_PATTERN = Pattern.compile(
             "Could not initialize class\\s+([A-Za-z0-9_.$]+)");
-    private static final Pattern CONTEXT_TYPE_HEADER_PATTERN = Pattern.compile(
-            "^\\s*//\\s*([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\[(interface|abstract|class|enum)\\].*$");
-    private static final Pattern CONTEXT_CONCRETE_SUBTYPES_PATTERN = Pattern.compile(
-            "^\\s*concrete subtypes:\\s*(.*)$");
     private static final Pattern NEW_DECLARATION_PATTERN = Pattern.compile(
             "\\b([A-Za-z_][A-Za-z0-9_$.<>]*)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*new"
                     + "\\s+([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\(");
@@ -3736,104 +3732,6 @@ public class TestRepairLoop {
         return diagnostic.getSeverity() == ParseDiagnostic.Severity.WARNING
                 && diagnostic.getMessage() != null
                 && diagnostic.getMessage().contains(EXPLICIT_REPAIR_ACTION_MARKER);
-    }
-
-    private static final class ContextTypeIndex {
-        private final Map<String, String> typeKind;
-        private final Map<String, List<String>> concreteSubtypes;
-
-        private ContextTypeIndex(Map<String, String> typeKind,
-                                 Map<String, List<String>> concreteSubtypes) {
-            this.typeKind = typeKind;
-            this.concreteSubtypes = concreteSubtypes;
-        }
-
-        static ContextTypeIndex fromSummary(String summary) {
-            Map<String, String> typeKind = new LinkedHashMap<>();
-            Map<String, List<String>> concreteSubtypes = new LinkedHashMap<>();
-            if (summary == null || summary.trim().isEmpty()) {
-                return new ContextTypeIndex(typeKind, concreteSubtypes);
-            }
-
-            String currentType = null;
-            String[] lines = summary.split("\\r?\\n");
-            for (String raw : lines) {
-                if (raw == null) {
-                    continue;
-                }
-                String line = raw.trim();
-                java.util.regex.Matcher typeHeader = CONTEXT_TYPE_HEADER_PATTERN.matcher(line);
-                if (typeHeader.matches()) {
-                    currentType = typeHeader.group(1);
-                    String kind = typeHeader.group(2);
-                    String simple = simpleOf(currentType);
-                    typeKind.put(simple, kind);
-                    continue;
-                }
-                if (currentType == null) {
-                    continue;
-                }
-                java.util.regex.Matcher concrete = CONTEXT_CONCRETE_SUBTYPES_PATTERN.matcher(line);
-                if (!concrete.matches()) {
-                    continue;
-                }
-                String payload = concrete.group(1);
-                List<String> values = parseSubtypeList(payload);
-                if (!values.isEmpty()) {
-                    concreteSubtypes.put(simpleOf(currentType), values);
-                }
-            }
-            return new ContextTypeIndex(typeKind, concreteSubtypes);
-        }
-
-        boolean isEmpty() {
-            return typeKind.isEmpty();
-        }
-
-        boolean isKnownType(String simple) {
-            return simple != null && typeKind.containsKey(simple);
-        }
-
-        boolean isNonInstantiable(String simple) {
-            if (simple == null) {
-                return false;
-            }
-            String kind = typeKind.get(simple);
-            return "interface".equals(kind) || "abstract".equals(kind);
-        }
-
-        String getKind(String simple) {
-            return typeKind.get(simple);
-        }
-
-        List<String> getConcreteSubtypes(String simple) {
-            List<String> values = concreteSubtypes.get(simple);
-            return values == null ? Collections.<String>emptyList() : values;
-        }
-
-        private static String simpleOf(String name) {
-            if (name == null || name.isEmpty()) {
-                return "";
-            }
-            int dot = name.lastIndexOf('.');
-            return dot >= 0 ? name.substring(dot + 1) : name;
-        }
-
-        private static List<String> parseSubtypeList(String payload) {
-            List<String> out = new ArrayList<>();
-            if (payload == null || payload.trim().isEmpty()) {
-                return out;
-            }
-            String[] tokens = payload.split(",");
-            for (String token : tokens) {
-                String t = token == null ? "" : token.trim();
-                if (t.isEmpty()) {
-                    continue;
-                }
-                out.add(t);
-            }
-            return out;
-        }
     }
 
     /**
