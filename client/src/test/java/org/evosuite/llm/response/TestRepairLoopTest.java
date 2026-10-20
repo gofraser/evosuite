@@ -3089,15 +3089,15 @@ class TestRepairLoopTest {
 
     @Test
     void mockRuntimeExceptionsAreRecognized() {
-        assertTrue(TestRepairLoop.errorMentionsMockRuntimeException(
+        assertTrue(MockRuntimeExceptions.errorMentionsMockRuntimeException(
                 "Execution error in test 'x': "
-                        + TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "java.lang.MockIllegalStateException "
+                        + MockRuntimeExceptions.MOCK_RUNTIME_PACKAGE_PREFIX + "java.lang.MockIllegalStateException "
                         + "- Workspace is closed."));
-        assertFalse(TestRepairLoop.errorMentionsMockRuntimeException(
+        assertFalse(MockRuntimeExceptions.errorMentionsMockRuntimeException(
                 "Execution error in test 'x': java.lang.NullPointerException - foo"));
-        assertFalse(TestRepairLoop.errorMentionsMockRuntimeException(null));
-        assertFalse(TestRepairLoop.isRaisedByEvoSuiteRuntime(new RuntimeException("not mock")));
-        assertFalse(TestRepairLoop.isRaisedByEvoSuiteRuntime(null));
+        assertFalse(MockRuntimeExceptions.errorMentionsMockRuntimeException(null));
+        assertFalse(MockRuntimeExceptions.isRaisedByEvoSuiteRuntime(new RuntimeException("not mock")));
+        assertFalse(MockRuntimeExceptions.isRaisedByEvoSuiteRuntime(null));
     }
 
     @Test
@@ -3110,13 +3110,13 @@ class TestRepairLoopTest {
         assertTrue(hintForShadedMock.contains("Change the assertThrows expectation"));
         assertTrue(hintForShadedMock.contains("Replace the test"));
         assertTrue(hintForShadedMock.contains("Remove the test"));
-        assertTrue(hintForShadedMock.contains(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "*"));
+        assertTrue(hintForShadedMock.contains(MockRuntimeExceptions.MOCK_RUNTIME_PACKAGE_PREFIX + "*"));
 
         String hintForPlainError = RepairConversation.buildIdenticalErrorEscalationHint(
                 "Execution error in test 'x': java.lang.NullPointerException - foo");
         assertTrue(hintForPlainError.contains("STOP"));
         // No shaded-mock note when no such marker is present in the error.
-        assertFalse(hintForPlainError.contains(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "*"));
+        assertFalse(hintForPlainError.contains(MockRuntimeExceptions.MOCK_RUNTIME_PACKAGE_PREFIX + "*"));
     }
 
     @Test

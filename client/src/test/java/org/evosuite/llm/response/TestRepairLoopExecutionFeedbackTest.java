@@ -84,7 +84,7 @@ class TestRepairLoopExecutionFeedbackTest {
         // in SUT code into: the mock class, thrown from a SUT frame.
         Throwable sutException = new MockIllegalArgumentException(
                 "Duplicate declaration of OAIVerb 'ListRecords'");
-        assertFalse(TestRepairLoop.isRaisedByEvoSuiteRuntime(sutException));
+        assertFalse(MockRuntimeExceptions.isRaisedByEvoSuiteRuntime(sutException));
 
         RepairResult result = runWithExceptionAtFirstStatement(testCase -> sutException);
 
@@ -97,10 +97,10 @@ class TestRepairLoopExecutionFeedbackTest {
     void exceptionThrownByMockRuntimeIsAcceptedAsEnvironmentInduced() {
         IOException simulated = new IOException("Simulated IO exception");
         simulated.setStackTrace(new StackTraceElement[]{
-                new StackTraceElement(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "java.net.MockSocket",
+                new StackTraceElement(MockRuntimeExceptions.MOCK_RUNTIME_PACKAGE_PREFIX + "java.net.MockSocket",
                         "connect", "MockSocket.java", 42),
                 new StackTraceElement(FeedbackTarget.class.getName(), "open", "FeedbackTarget.java", 7)});
-        assertTrue(TestRepairLoop.isRaisedByEvoSuiteRuntime(simulated));
+        assertTrue(MockRuntimeExceptions.isRaisedByEvoSuiteRuntime(simulated));
 
         RepairResult result = runWithExceptionAtFirstStatement(testCase -> simulated);
 
@@ -115,16 +115,16 @@ class TestRepairLoopExecutionFeedbackTest {
         NullPointerException npe = new NullPointerException();
         npe.setStackTrace(new StackTraceElement[]{
                 new StackTraceElement("java.util.Objects", "requireNonNull", "Objects.java", 209),
-                new StackTraceElement(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "java.io.MockFile",
+                new StackTraceElement(MockRuntimeExceptions.MOCK_RUNTIME_PACKAGE_PREFIX + "java.io.MockFile",
                         "<init>", "MockFile.java", 10)});
-        assertTrue(TestRepairLoop.isRaisedByEvoSuiteRuntime(npe));
+        assertTrue(MockRuntimeExceptions.isRaisedByEvoSuiteRuntime(npe));
 
         npe.setStackTrace(new StackTraceElement[]{
                 new StackTraceElement("java.util.Objects", "requireNonNull", "Objects.java", 209),
                 new StackTraceElement(FeedbackTarget.class.getName(), "<init>", "FeedbackTarget.java", 3),
-                new StackTraceElement(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "java.lang.MockThread",
+                new StackTraceElement(MockRuntimeExceptions.MOCK_RUNTIME_PACKAGE_PREFIX + "java.lang.MockThread",
                         "run", "MockThread.java", 10)});
-        assertFalse(TestRepairLoop.isRaisedByEvoSuiteRuntime(npe));
+        assertFalse(MockRuntimeExceptions.isRaisedByEvoSuiteRuntime(npe));
     }
 
     @Test

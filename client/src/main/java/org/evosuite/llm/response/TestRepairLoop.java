@@ -84,6 +84,11 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
+import static org.evosuite.llm.response.MockRuntimeExceptions.MOCK_RUNTIME_PACKAGE_PREFIX;
+import static org.evosuite.llm.response.MockRuntimeExceptions.errorMentionsMockRuntimeException;
+import static org.evosuite.llm.response.MockRuntimeExceptions.isRaisedByEvoSuiteRuntime;
+import static org.evosuite.llm.response.MockRuntimeExceptions.reportedExceptionName;
+import static org.evosuite.llm.response.MockRuntimeExceptions.unmockedExceptionClass;
 import static org.evosuite.llm.response.RepairText.MISSING_METHOD_DIAGNOSTIC_PATTERN;
 import static org.evosuite.llm.response.RepairText.NEW_CALL_PATTERN;
 import static org.evosuite.llm.response.RepairText.NULL_DECLARATION_PATTERN;
@@ -171,12 +176,6 @@ public class TestRepairLoop {
             "AccessControlException",
             "java.security.AccessControlException"
     ));
-    /**
-     * Package prefix of EvoSuite's mock runtime. Derived from a class literal
-     * so that it is {@code shaded.org.evosuite.runtime.mock.} in the shaded
-     * jar and {@code org.evosuite.runtime.mock.} in an unshaded build.
-     */
-    static final String MOCK_RUNTIME_PACKAGE_PREFIX = packagePrefixOf(MockFramework.class);
     private static final Set<String> DEPENDENCY_MISSING_MARKERS = new HashSet<>(Arrays.asList(
             "NoClassDefFoundError",
             "ClassNotFoundException",
@@ -1795,71 +1794,6 @@ public class TestRepairLoop {
         Set<Class<?>> declared = testCase.getStatement(position).getDeclaredExceptions();
         return !declared.contains(thrown.getClass())
                 && !declared.contains(unmockedExceptionClass(thrown.getClass()));
-    }
-
-    /**
-     * Returns true when the throwable was raised by EvoSuite's runtime rather
-     * than by the SUT: either the {@code System.exit} replacement, or an
-     * exception whose throwing frame (ignoring JDK frames) is in the mock
-     * runtime package. The exception class alone says nothing about its
-     * origin, because instrumentation rewrites SUT code such as
-     * {@code new IllegalArgumentException(..)} to the corresponding mock
-     * class and re-parents SUT exception classes onto mock superclasses.
-     */
-    static boolean isRaisedByEvoSuiteRuntime(Throwable thrown) {
-        if (thrown == null) {
-            return false;
-        }
-        if (thrown instanceof org.evosuite.runtime.System.SystemExitException) {
-            return true;
-        }
-        StackTraceElement[] trace = thrown.getStackTrace();
-        if (trace == null) {
-            return false;
-        }
-        for (StackTraceElement frame : trace) {
-            String className = frame == null ? null : frame.getClassName();
-            if (className == null || isJdkClassName(className)) {
-                continue;
-            }
-            return className.startsWith(MOCK_RUNTIME_PACKAGE_PREFIX);
-        }
-        return false;
-    }
-
-    private static boolean isJdkClassName(String className) {
-        return className.startsWith("java.")
-                || className.startsWith("javax.")
-                || className.startsWith("jdk.")
-                || className.startsWith("sun.")
-                || className.startsWith("com.sun.");
-    }
-
-    /**
-     * Maps a mock exception class (e.g. {@code MockIllegalArgumentException})
-     * to the JDK class it replaces, so feedback names the exception the SUT
-     * source actually throws. Other classes are returned unchanged.
-     */
-    static Class<?> unmockedExceptionClass(Class<?> exceptionClass) {
-        Class<?> current = exceptionClass;
-        while (current != null && current.getName().startsWith(MOCK_RUNTIME_PACKAGE_PREFIX)) {
-            current = current.getSuperclass();
-        }
-        return current == null ? exceptionClass : current;
-    }
-
-    private static String packagePrefixOf(Class<?> type) {
-        String name = type.getName();
-        return name.substring(0, name.lastIndexOf('.') + 1);
-    }
-
-    /**
-     * Returns true when the diagnostic error string contains a reference to
-     * an exception under the mock runtime package, suggesting the
-     * underlying failure is environment-induced rather than test-fixable.
-     */
-    static boolean errorMentionsMockRuntimeException(String error) {
-        return error != null && error.contains(MOCK_RUNTIME_PACKAGE_PREFIX);
     }
 
     private boolean matchesExpectedException(String expected, Throwable thrown) {
@@ -3859,14 +3793,6 @@ public class TestRepairLoop {
         String message = throwable.getMessage() == null ? "" : throwable.getMessage();
         return unmockedExceptionClass(throwable.getClass()).getSimpleName()
                 + (message.isEmpty() ? "" : (": " + message));
-    }
-
-    /**
-     * Exception class name as reported to the LLM: mock replacements are
-     * shown as the JDK exception the SUT source throws.
-     */
-    static String reportedExceptionName(Throwable throwable) {
-        return unmockedExceptionClass(throwable.getClass()).getName();
     }
 
     private String formatThrowableWithStackExcerpt(Throwable throwable,

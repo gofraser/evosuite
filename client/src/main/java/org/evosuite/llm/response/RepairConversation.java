@@ -260,9 +260,9 @@ final class RepairConversation {
         sb.append("  2) Replace the test with a different one that does NOT reach the failing call\n");
         sb.append("     (e.g. exercise a different SUT method, constructor, or pure-logic path).\n");
         sb.append("  3) Remove the test from the class entirely.\n");
-        if (TestRepairLoop.errorMentionsMockRuntimeException(error)) {
+        if (MockRuntimeExceptions.errorMentionsMockRuntimeException(error)) {
             sb.append("Note: the failure list mentions an exception under ")
-                    .append(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX).append("*.\n");
+                    .append(MockRuntimeExceptions.MOCK_RUNTIME_PACKAGE_PREFIX).append("*.\n");
             sb.append("That is the EvoSuite mock harness, not the SUT, and it is unavoidable in this\n");
             sb.append("environment for any test reaching that call site. Treat it as ground truth.\n");
         }
