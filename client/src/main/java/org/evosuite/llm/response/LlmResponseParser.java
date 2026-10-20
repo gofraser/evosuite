@@ -122,11 +122,26 @@ public class LlmResponseParser {
         private final String source;
         private final boolean recoveryApplied;
         private final String recoveryReason;
+        private final boolean emptyFallback;
 
         ExtractionResult(String source, boolean recoveryApplied, String recoveryReason) {
+            this(source, recoveryApplied, recoveryReason, false);
+        }
+
+        private ExtractionResult(String source, boolean recoveryApplied, String recoveryReason,
+                                 boolean emptyFallback) {
             this.source = source;
             this.recoveryApplied = recoveryApplied;
             this.recoveryReason = recoveryReason;
+            this.emptyFallback = emptyFallback;
+        }
+
+        /**
+         * True when the response held no code and {@link #getSource()} is a placeholder class
+         * with an empty test method, which callers must not treat as a generated test.
+         */
+        public boolean isEmptyFallback() {
+            return emptyFallback;
         }
 
         public String getSource() {
@@ -168,7 +183,7 @@ public class LlmResponseParser {
         List<ExtractionResult> extractions =
                 extractAllTestClassesWithMetadata(response, className, packageName);
         if (extractions.isEmpty()) {
-            return maybeRecover(emptyFallbackClass(className, packageName));
+            return emptyFallbackResult(className, packageName);
         }
         return extractions.get(0);
     }
@@ -183,7 +198,7 @@ public class LlmResponseParser {
         List<String> blocks = extractCodeBlocks(response);
         if (blocks.isEmpty()) {
             return Collections.singletonList(
-                    maybeRecover(emptyFallbackClass(className, packageName)));
+                    emptyFallbackResult(className, packageName));
         }
         List<ExtractionResult> results = new ArrayList<>();
         for (String block : blocks) {
@@ -197,7 +212,7 @@ public class LlmResponseParser {
                                                               String packageName) {
         code = sanitizeAliasImports(code);
         if (code.isEmpty()) {
-            return maybeRecover(emptyFallbackClass(className, packageName));
+            return emptyFallbackResult(className, packageName);
         }
 
         ExtractionResult normalizedWrapper = normalizeSingleWrapperClass(code, className, packageName);
@@ -294,6 +309,10 @@ public class LlmResponseParser {
         }
         source.append("}");
         return maybeRecover(source.toString(), true, "wrapper-normalized");
+    }
+
+    private ExtractionResult emptyFallbackResult(String className, String packageName) {
+        return new ExtractionResult(emptyFallbackClass(className, packageName), false, "disabled", true);
     }
 
     private String emptyFallbackClass(String className, String packageName) {

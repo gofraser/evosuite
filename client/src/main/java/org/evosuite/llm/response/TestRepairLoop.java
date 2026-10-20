@@ -614,6 +614,12 @@ public class TestRepairLoop {
                 int blockIndex = 0;
                 for (LlmResponseParser.ExtractionResult extraction : extractions) {
                     blockIndex++;
+                    if (extraction.isEmptyFallback()) {
+                        // A reply without code is not an empty test; let the no-test-methods
+                        // path ask the model again.
+                        diagnostics.add("No Java code found in block #" + blockIndex);
+                        continue;
+                    }
                     String extractedClass = extraction.getSource();
                     if (extraction.isRecoveryApplied()) {
                         String recoveryReason = extraction.getRecoveryReason() == null
