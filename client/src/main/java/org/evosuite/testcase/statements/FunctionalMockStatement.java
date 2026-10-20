@@ -1539,22 +1539,28 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 MockSettings settings = createMockSettings();
                 // Check if a more specific type should be used (e.g., Graphics2D
                 // instead of Graphics) because the SUT downcasts the parameter.
-                String upgrade = getMockTypeUpgrade(targetClass.getRawClass().getName());
+                Class<?> mockedClass = targetClass.getRawClass();
+                String upgrade = getMockTypeUpgrade(mockedClass.getName());
                 if (upgrade != null) {
                     try {
                         Class<?> upgraded = Class.forName(upgrade, false,
                                 targetClass.getRawClass().getClassLoader());
                         if (targetClass.getRawClass().isAssignableFrom(upgraded)
                                 && canBeFunctionalMocked(upgraded)) {
-                            targetClass = GenericClassFactory.get(upgraded);
-                            retval.setType(upgraded);
+                            mockedClass = upgraded;
+                            // The target class is part of hashCode() and of how the statement
+                            // is rendered: only a real execution changes it.
+                            if (MutationObserver.activeMutation == -1) {
+                                targetClass = GenericClassFactory.get(upgraded);
+                                retval.setType(upgraded);
+                            }
                         }
                     } catch (ClassNotFoundException e) {
                         logger.debug("Could not load upgraded mock type {}: {}", upgrade, e.getMessage());
                     }
                 }
                 logger.debug("Mockito: create mock for {}", targetClass);
-                ret = mock(targetClass.getRawClass(), settings);
+                ret = mock(mockedClass, settings);
 
                 // When the lenient default answer is active, skip explicit when/thenReturn
                 // stubs entirely — the default answer already handles all method calls with

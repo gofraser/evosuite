@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.statements;
 
+import org.evosuite.coverage.mutation.MutationObserver;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.Scope;
@@ -32,6 +33,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockSettings;
 
 import java.io.PrintStream;
+import java.util.AbstractCollection;
+import java.util.AbstractList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -107,5 +112,31 @@ public class FunctionalMockStatementStateTest {
         assertNotNull(statement.listener);
         assertSame(lastGood, statement.listener,
                 "the stubs are rebuilt from the listener, so an empty one drops them all");
+    }
+
+    @Test
+    public void mockTypeUpgradeIsAppliedByRealExecutionsOnly() throws Exception {
+        FunctionalMockStatement.registerMockTypeUpgrade(
+                AbstractCollection.class.getName(), AbstractList.class.getName());
+        TestCase tc = new DefaultTestCase();
+        FunctionalMockStatement statement = new FunctionalMockStatement(tc,
+                AbstractCollection.class, GenericClassFactory.get(AbstractCollection.class));
+        tc.addStatement(statement);
+        Set<Object> statements = new HashSet<>();
+        statements.add(statement);
+        PrintStream out = new PrintStream(new java.io.ByteArrayOutputStream());
+
+        MutationObserver.activeMutation = 0;
+        try {
+            statement.execute(new Scope(), out);
+        } finally {
+            MutationObserver.activeMutation = -1;
+        }
+        assertEquals(AbstractCollection.class, statement.getTargetClass(),
+                "a mutant's run must not rewrite the statement");
+        assertTrue(statements.contains(statement));
+
+        statement.execute(new Scope(), out);
+        assertEquals(AbstractList.class, statement.getTargetClass());
     }
 }
