@@ -112,6 +112,7 @@ class AssertionParser {
         List<Expression> args = assertCall.getArguments();
         boolean handled = false;
         int checkpointSize = testCase.size();
+        String expectedExceptionBefore = result.getExpectedExceptionClass();
         List<MethodCallResolutionAttempt> methodCallResolutionAttempts = new ArrayList<>();
 
         try {
@@ -163,6 +164,10 @@ class AssertionParser {
         if (handled) {
             return;
         }
+
+        // A failed assertThrows may have recorded its exception class before giving up. The
+        // assertion is dropped or kept as source, so the test must not also expect the exception.
+        result.setExpectedExceptionClass(expectedExceptionBefore);
 
         if (parser.isMarkParsedFromLlm() && containsMemberAccess(args)) {
             parser.addWarning(assertCall, DiagnosticKind.ASSERTION_ARGUMENT_UNRESOLVED,

@@ -31,6 +31,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class StatementParserAssertionRollbackTest {
 
@@ -82,6 +83,26 @@ class StatementParserAssertionRollbackTest {
                 "StatementParserAssertionRollbackTest.RollbackTarget target = "
                         + "new StatementParserAssertionRollbackTest.RollbackTarget();\n",
                 "assertNotSame(new Object(), target.object());");
+    }
+
+    @Test
+    void unparsedAssertThrowsDoesNotLeaveAnExpectedException() {
+        ParseResult result = parser.parseTestMethodBody(
+                "assertThrows(IllegalStateException.class, StatementParserAssertionRollbackTest::boom);",
+                List.of(
+                        "import static org.junit.jupiter.api.Assertions.*;",
+                        "import org.evosuite.testparser.StatementParserAssertionRollbackTest;"
+                ));
+
+        assertInstanceOf(UninterpretedStatement.class,
+                result.getTestCase().getStatement(result.getTestCase().size() - 1));
+        assertNull(result.getExpectedExceptionClass(),
+                "The assertion is kept as source, so the test must not also expect the exception:\n"
+                        + result.getTestCase().toCode());
+    }
+
+    public static void boom() {
+        throw new IllegalStateException();
     }
 
     private void assertFallbackRollbackClearsInlineMethodCall(String setup, String assertionSource) {
