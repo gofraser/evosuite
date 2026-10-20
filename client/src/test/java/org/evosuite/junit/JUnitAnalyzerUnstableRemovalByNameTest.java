@@ -93,13 +93,37 @@ public class JUnitAnalyzerUnstableRemovalByNameTest {
         return builder.getDefaultTestCase();
     }
 
+    @Test
+    public void initializationErrorWithoutMessageDoesNotHideTheFailuresAfterIt() throws Exception {
+        TestCase first = compilingTestCase();
+        TestCase second = compilingTestCase();
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(first);
+        tests.add(second);
+
+        // Runners often report a failure without a message; judging it must not abort the loop.
+        int numUnstable = checkWith(null, tests, "initializationError");
+        assertEquals(0, numUnstable);
+        assertEquals(2, tests.size());
+
+        int afterwards = checkWith(null, tests, "initializationError", "test0");
+        assertEquals(1, afterwards);
+        assertEquals(1, tests.size(), "test0 failed after the initialization error and must be removed");
+        assertSame(second, tests.get(0));
+    }
+
     private static int checkWith(List<TestCase> tests, String... failingTestNames) throws Exception {
+        return checkWith("message", tests, failingTestNames);
+    }
+
+    private static int checkWith(String message, List<TestCase> tests, String... failingTestNames)
+            throws Exception {
         Field override = JUnitAnalyzer.class.getDeclaredField("VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
         override.setAccessible(true);
         Class<?> analyzerType = Class.forName("org.evosuite.junit.JUnitAnalyzer$VersionDependentAnalyzing");
         JUnitResult result = new JUnitResult(false, failingTestNames.length, tests.size());
         for (String name : failingTestNames) {
-            result.addFailure(new JUnitFailure("message", "java.lang.IllegalStateException", name,
+            result.addFailure(new JUnitFailure(message, "java.lang.IllegalStateException", name,
                     false, "trace"));
         }
         Object analyzer = Mockito.mock(analyzerType, invocation -> result);
