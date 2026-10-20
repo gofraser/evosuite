@@ -141,7 +141,7 @@ public class CompilerClasspathTest {
         String input = String.join(File.pathSeparator, good1.getPath(), broken.getPath(), dir.getPath(),
                 missing.getPath(), good2.getPath());
 
-        Method sanitize = JUnitAnalyzer.class.getDeclaredMethod("sanitizeClasspathForCompiler", String.class);
+        Method sanitize = GeneratedTestCompiler.class.getDeclaredMethod("sanitizeClasspathForCompiler", String.class);
         sanitize.setAccessible(true);
         String[] out = ((String) sanitize.invoke(null, input)).split(File.pathSeparator);
 

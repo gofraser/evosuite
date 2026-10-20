@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class JUnitAnalyzerCompilerCrashTest {
 
     private static boolean crashed(String compilerOutput) throws Exception {
-        Method m = JUnitAnalyzer.class.getDeclaredMethod("crashedInsteadOfRejecting", String.class);
+        Method m = GeneratedTestCompiler.class.getDeclaredMethod("crashedInsteadOfRejecting", String.class);
         m.setAccessible(true);
         return (Boolean) m.invoke(null, compilerOutput);
     }
@@ -54,11 +54,11 @@ public class JUnitAnalyzerCompilerCrashTest {
     @Test
     public void compilerOutOfMemoryIsMemoryExhaustion() {
         // What javac printed when its heap, shared with the client, ran out while opening a jar.
-        assertTrue(JUnitAnalyzer.reportsOutOfMemory("An exception has occurred in the compiler (17.0.20.1).\n"
+        assertTrue(GeneratedTestCompiler.reportsOutOfMemory("An exception has occurred in the compiler (17.0.20.1).\n"
                 + "java.lang.OutOfMemoryError: Java heap space\n"
                 + "\tat jdk.zipfs/jdk.nio.zipfs.ZipFileSystem.initCEN(ZipFileSystem.java:1536)\n"));
-        assertFalse(JUnitAnalyzer.reportsOutOfMemory("java.lang.StackOverflowError\n"));
-        assertFalse(JUnitAnalyzer.reportsOutOfMemory(null));
+        assertFalse(GeneratedTestCompiler.reportsOutOfMemory("java.lang.StackOverflowError\n"));
+        assertFalse(GeneratedTestCompiler.reportsOutOfMemory(null));
     }
 
     @Test
@@ -66,10 +66,10 @@ public class JUnitAnalyzerCompilerCrashTest {
         RuntimeException wrapped = new RuntimeException("provider failed",
                 new java.io.UncheckedIOException(new java.io.IOException(
                         new OutOfMemoryError("Java heap space"))));
-        assertTrue(JUnitAnalyzer.isOutOfMemory(wrapped));
-        assertTrue(JUnitAnalyzer.isOutOfMemory(new OutOfMemoryError()));
-        assertFalse(JUnitAnalyzer.isOutOfMemory(new java.util.NoSuchElementException()));
-        assertFalse(JUnitAnalyzer.isOutOfMemory(null));
+        assertTrue(GeneratedTestCompiler.isOutOfMemory(wrapped));
+        assertTrue(GeneratedTestCompiler.isOutOfMemory(new OutOfMemoryError()));
+        assertFalse(GeneratedTestCompiler.isOutOfMemory(new java.util.NoSuchElementException()));
+        assertFalse(GeneratedTestCompiler.isOutOfMemory(null));
     }
 
     @Test

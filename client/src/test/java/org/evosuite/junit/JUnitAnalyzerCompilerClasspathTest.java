@@ -58,9 +58,9 @@ public class JUnitAnalyzerCompilerClasspathTest {
         assertTrue(first.mkdir());
         ClassPathHandler.getInstance().changeTargetClassPath(new String[]{first.getAbsolutePath()});
 
-        String classpath = JUnitAnalyzer.compilerClasspathForGeneratedTests();
+        String classpath = GeneratedTestCompiler.compilerClasspathForGeneratedTests();
 
-        assertSame(classpath, JUnitAnalyzer.compilerClasspathForGeneratedTests());
+        assertSame(classpath, GeneratedTestCompiler.compilerClasspathForGeneratedTests());
     }
 
     @Test
@@ -70,10 +70,10 @@ public class JUnitAnalyzerCompilerClasspathTest {
         assertTrue(first.mkdir());
         assertTrue(second.mkdir());
         ClassPathHandler.getInstance().changeTargetClassPath(new String[]{first.getAbsolutePath()});
-        List<String> before = entries(JUnitAnalyzer.compilerClasspathForGeneratedTests());
+        List<String> before = entries(GeneratedTestCompiler.compilerClasspathForGeneratedTests());
 
         ClassPathHandler.getInstance().changeTargetClassPath(new String[]{second.getAbsolutePath()});
-        List<String> after = entries(JUnitAnalyzer.compilerClasspathForGeneratedTests());
+        List<String> after = entries(GeneratedTestCompiler.compilerClasspathForGeneratedTests());
 
         assertTrue(before.contains(first.getAbsolutePath()));
         assertTrue(after.contains(second.getAbsolutePath()));

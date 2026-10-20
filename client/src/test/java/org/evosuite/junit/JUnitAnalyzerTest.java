@@ -526,9 +526,20 @@ public class JUnitAnalyzerTest {
             out.closeEntry();
         }
 
-        Method sanitizeEntry = JUnitAnalyzer.class.getDeclaredMethod("sanitizeClasspathEntryForCompiler", String.class);
+        Method sanitizeEntry = GeneratedTestCompiler.class.getDeclaredMethod(
+                "sanitizeClasspathEntryForCompiler", String.class);
         sanitizeEntry.setAccessible(true);
-        String sanitized = (String) sanitizeEntry.invoke(null, malformedJar.getAbsolutePath());
+        Logger compilerLogger = (Logger) LoggerFactory.getLogger(GeneratedTestCompiler.class);
+        ListAppender<ILoggingEvent> compilerLogAppender = new ListAppender<>();
+        compilerLogAppender.start();
+        compilerLogger.addAppender(compilerLogAppender);
+        String sanitized;
+        try {
+            sanitized = (String) sanitizeEntry.invoke(null, malformedJar.getAbsolutePath());
+        } finally {
+            compilerLogger.detachAppender(compilerLogAppender);
+            compilerLogAppender.stop();
+        }
 
         Assertions.assertNotNull(sanitized);
         Assertions.assertNotEquals(malformedJar.getAbsolutePath(), sanitized);
@@ -536,7 +547,7 @@ public class JUnitAnalyzerTest {
         Assertions.assertTrue(sanitizedEntry.exists());
         Assertions.assertTrue(sanitizedEntry.isDirectory());
 
-        List<ILoggingEvent> sanitizationWarnings = eventsContaining(analyzerLogAppender,
+        List<ILoggingEvent> sanitizationWarnings = eventsContaining(compilerLogAppender,
                 Level.WARN, "Using sanitized compiler classpath entry for malformed jar");
         Assertions.assertEquals(1, sanitizationWarnings.size());
         Assertions.assertNull(sanitizationWarnings.get(0).getThrowableProxy());
@@ -690,7 +701,7 @@ public class JUnitAnalyzerTest {
 
     @Test
     public void testJavacInfrastructureFailureDetectionSupportsErrorAndCauseChains() throws Exception {
-        Method detector = JUnitAnalyzer.class.getDeclaredMethod(
+        Method detector = GeneratedTestCompiler.class.getDeclaredMethod(
                 "isJavacInfrastructureFailure", Throwable.class);
         detector.setAccessible(true);
 

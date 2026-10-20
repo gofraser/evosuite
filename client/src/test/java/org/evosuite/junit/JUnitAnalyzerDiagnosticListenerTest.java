@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@code JUnitAnalyzer.BoundedDiagnosticListener} used to store every diagnostic javac reported,
+ * {@code GeneratedTestCompiler.BoundedDiagnosticListener} used to store every diagnostic javac reported,
  * errors and warnings alike, in one bounded list. When a file failed to compile for a real
  * reason, the accompanying warnings and notes were then logged at ERROR level right next to the
  * actual errors, which made us count warning-only output as a compile failure while triaging
@@ -101,7 +101,7 @@ public class JUnitAnalyzerDiagnosticListenerTest {
 
     @SuppressWarnings("unchecked")
     private static DiagnosticListener<JavaFileObject> newListener(int maxDiagnostics) throws Exception {
-        Class<?> listenerClass = Class.forName("org.evosuite.junit.JUnitAnalyzer$BoundedDiagnosticListener");
+        Class<?> listenerClass = Class.forName("org.evosuite.junit.GeneratedTestCompiler$BoundedDiagnosticListener");
         Constructor<?> ctor = listenerClass.getDeclaredConstructor(int.class);
         ctor.setAccessible(true);
         return (DiagnosticListener<JavaFileObject>) ctor.newInstance(maxDiagnostics);
