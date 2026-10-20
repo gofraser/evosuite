@@ -39,7 +39,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AsyncLlmTestProducerIntegrationTest {
@@ -206,6 +212,45 @@ class AsyncLlmTestProducerIntegrationTest {
             InjectionAttemptMetadata second = producer.consumeAttemptMetadata(produced.get(1));
             assertNotNull(first);
             assertEquals(first.getAttemptId(), second.getAttemptId());
+        } finally {
+            producer.stop();
+            service.close();
+        }
+    }
+
+    @Test
+    void failedAndUnaffordableCallsReleaseTheirAttempts() throws Exception {
+        LlmService service = createService(new MockChatLanguageModel(), 2);
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("goal-1");
+        when(goal.getTargetClass()).thenReturn("com.example.Foo");
+        when(goal.getTargetMethod()).thenReturn("work()V");
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        AtomicBoolean failedOnce = new AtomicBoolean();
+
+        // First call fails at the provider, the second finds the budget spent; neither delivers a
+        // response, so neither may count as a no-gain attempt.
+        AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
+                () -> Collections.singleton(goal), null, service, 5, 1, 0, memory) {
+            @Override
+            protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
+                if (failedOnce.compareAndSet(false, true)) {
+                    throw new LlmCallFailedException("provider down", null, true);
+                }
+                throw new LlmBudgetExceededException("no budget left");
+            }
+        };
+
+        try {
+            producer.start();
+            long deadline = System.currentTimeMillis() + 10_000L;
+            while (producer.getStoppedReason() == AsyncLlmTestProducer.StopReason.NONE
+                    && System.currentTimeMillis() < deadline) {
+                Thread.sleep(10L);
+            }
+            assertEquals(AsyncLlmTestProducer.StopReason.BUDGET_EXHAUSTED, producer.getStoppedReason());
+            verify(memory, times(2)).releaseUndeliveredAttempt(anyString());
+            verify(memory, never()).recordAttemptOutcome(anyString(), anyInt());
         } finally {
             producer.stop();
             service.close();

@@ -342,15 +342,17 @@ public class AsyncLlmTestProducer {
                 generatedSinceRefresh++;
                 sleepDelay();
             } catch (LlmBudgetExceededException e) {
+                // No response was delivered, so there is no outcome to judge: release the
+                // attempt rather than count it as a no-gain one.
                 if (repeatedInjectionMemory != null && !registration.isEmpty()) {
-                    repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
+                    repeatedInjectionMemory.releaseUndeliveredAttempt(registration.getAttemptId());
                 }
                 recordStopReason(StopReason.BUDGET_EXHAUSTED);
                 break;
             } catch (LlmCallFailedException e) {
                 logger.debug("Async LLM producer call failed: {}", e.getMessage());
                 if (repeatedInjectionMemory != null && !registration.isEmpty()) {
-                    repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
+                    repeatedInjectionMemory.releaseUndeliveredAttempt(registration.getAttemptId());
                 }
                 sleepDelay();
             } catch (RuntimeException e) {
