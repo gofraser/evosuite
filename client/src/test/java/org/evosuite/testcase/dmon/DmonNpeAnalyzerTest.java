@@ -79,13 +79,13 @@ public class DmonNpeAnalyzerTest {
     @Test
     public void asmFallbackInfersFieldAndTypeWhenHelpfulNpeParsingIsDisabled() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         boolean oldHelpful = Properties.DMON_HELPFUL_NPE_PARSE;
         boolean oldAsm = Properties.DMON_ASM_FALLBACK;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.DMON_HELPFUL_NPE_PARSE = false;
             Properties.DMON_ASM_FALLBACK = true;
             Properties.TARGET_CLASS = AsmFallbackTarget.class.getCanonicalName();
@@ -111,7 +111,7 @@ public class DmonNpeAnalyzerTest {
                     plan.getInferredMissingTypeName().get().contains("."));
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.DMON_HELPFUL_NPE_PARSE = oldHelpful;
             Properties.DMON_ASM_FALLBACK = oldAsm;
             Properties.TARGET_CLASS = oldTargetClass;
@@ -126,13 +126,13 @@ public class DmonNpeAnalyzerTest {
         // DmonNpeAnalyzer had no analyzeMethodNpe entry point and the Method-specific branch
         // of analyzeWithAsmFallback (Type.getMethodDescriptor) did not exist.
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         boolean oldHelpful = Properties.DMON_HELPFUL_NPE_PARSE;
         boolean oldAsm = Properties.DMON_ASM_FALLBACK;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.DMON_HELPFUL_NPE_PARSE = false;
             Properties.DMON_ASM_FALLBACK = true;
             Properties.TARGET_CLASS = AsmFallbackMethodTarget.class.getCanonicalName();
@@ -159,7 +159,7 @@ public class DmonNpeAnalyzerTest {
                     plan.getInferredMissingTypeName().get().contains("."));
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.DMON_HELPFUL_NPE_PARSE = oldHelpful;
             Properties.DMON_ASM_FALLBACK = oldAsm;
             Properties.TARGET_CLASS = oldTargetClass;
@@ -170,12 +170,12 @@ public class DmonNpeAnalyzerTest {
     @Test
     public void helpfulInvokeMessageInfersDeclaringTypeInsteadOfMethodToken() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         boolean oldHelpful = Properties.DMON_HELPFUL_NPE_PARSE;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.DMON_HELPFUL_NPE_PARSE = true;
             Properties.TARGET_CLASS = HelpfulInvokeTarget.class.getCanonicalName();
 
@@ -196,7 +196,7 @@ public class DmonNpeAnalyzerTest {
             Assert.assertEquals(ConfigurationService.class.getName(), plan.getInferredMissingTypeName().get());
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.DMON_HELPFUL_NPE_PARSE = oldHelpful;
             Properties.TARGET_CLASS = oldTargetClass;
         }
@@ -205,13 +205,13 @@ public class DmonNpeAnalyzerTest {
     @Test
     public void asmFallbackSkipsNullGuardedInstruction() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         boolean oldHelpful = Properties.DMON_HELPFUL_NPE_PARSE;
         boolean oldAsm = Properties.DMON_ASM_FALLBACK;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.DMON_HELPFUL_NPE_PARSE = false;
             Properties.DMON_ASM_FALLBACK = true;
             Properties.TARGET_CLASS = NullGuardedTarget.class.getCanonicalName();
@@ -240,7 +240,7 @@ public class DmonNpeAnalyzerTest {
             Assert.assertEquals("nameSource", plan.getMemberToken().get());
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.DMON_HELPFUL_NPE_PARSE = oldHelpful;
             Properties.DMON_ASM_FALLBACK = oldAsm;
             Properties.TARGET_CLASS = oldTargetClass;

@@ -113,11 +113,11 @@ public class DmonEphemeralAssistTest {
     @Test
     public void constructorNpeIsEphemerallyAssistedAndRolledBack() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.TARGET_CLASS = StaticNullCtorTarget.class.getCanonicalName();
 
             StaticNullCtorTarget.dep = null;
@@ -142,7 +142,7 @@ public class DmonEphemeralAssistTest {
             }
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.TARGET_CLASS = oldTargetClass;
             StaticNullCtorTarget.dep = null;
             StaticNullCtorTarget.ctorCalls = 0;
@@ -160,11 +160,11 @@ public class DmonEphemeralAssistTest {
         // target class. This test fails (getDmonPromotionPlan() == null) if that gate is
         // reinstated.
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.TARGET_CLASS = StaticNullMethodTarget.class.getCanonicalName();
 
             StaticNullMethodTarget.dep = null;
@@ -192,7 +192,7 @@ public class DmonEphemeralAssistTest {
             }
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.TARGET_CLASS = oldTargetClass;
             StaticNullMethodTarget.dep = null;
             StaticNullMethodTarget.callCount = 0;
@@ -204,12 +204,12 @@ public class DmonEphemeralAssistTest {
     @Test
     public void setterBasedEphemeralAssistIsUsedWhenAvailable() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = false;
             Properties.TARGET_CLASS = SetterNullCtorTarget.class.getCanonicalName();
 
@@ -231,7 +231,7 @@ public class DmonEphemeralAssistTest {
             Assert.assertTrue("Constructor should execute at least once", SetterNullCtorTarget.ctorCalls >= 1);
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
             Properties.TARGET_CLASS = oldTargetClass;
             SetterNullCtorTarget.dep = null;
@@ -245,12 +245,12 @@ public class DmonEphemeralAssistTest {
     @Test
     public void rollbackFailureMarksContamination() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = false;
             Properties.TARGET_CLASS = SetterRollbackFailureTarget.class.getCanonicalName();
 
@@ -267,7 +267,7 @@ public class DmonEphemeralAssistTest {
             Assert.assertNotNull("DMoN should record a promotion candidate", result.getDmonPromotionPlan());
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
             Properties.TARGET_CLASS = oldTargetClass;
             SetterRollbackFailureTarget.dep = null;
@@ -280,11 +280,11 @@ public class DmonEphemeralAssistTest {
     @Test
     public void instanceSingletonEphemeralAssistIsRolledBack() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.TARGET_CLASS = UsesInstanceConfigInCtor.class.getCanonicalName();
 
             InstanceConfigTarget.getInstance().dep = null;
@@ -303,7 +303,7 @@ public class DmonEphemeralAssistTest {
             Assert.assertTrue("Constructor should execute at least once", UsesInstanceConfigInCtor.ctorCalls >= 1);
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.TARGET_CLASS = oldTargetClass;
             InstanceConfigTarget.getInstance().dep = null;
             UsesInstanceConfigInCtor.ctorCalls = 0;

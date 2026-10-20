@@ -83,14 +83,14 @@ public class DmonFitnessHookIntegrationTest {
     @Test
     public void fitnessHookPromotesAndNextEvaluationExecutesPromotedTest() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
@@ -122,7 +122,7 @@ public class DmonFitnessHookIntegrationTest {
             Assert.assertTrue(chromosome.getLastExecutionResult().noThrownExceptions());
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;

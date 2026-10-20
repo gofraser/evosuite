@@ -56,7 +56,6 @@ public class DmonSystemTest extends SystemTestBase {
         Properties.FUNCTIONAL_MOCKING_PERCENT = 1.0;
 
         Properties.getInstance().setValue("dmon_enabled", dmonEnabled);
-        Properties.getInstance().setValue("dmon_only_target_class_constructor", true);
         Properties.getInstance().setValue("dmon_helpful_npe_parse", true);
         Properties.getInstance().setValue("dmon_asm_fallback", true);
         Properties.getInstance().setValue("dmon_allow_reflection_fallback", true);

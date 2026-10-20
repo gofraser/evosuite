@@ -139,7 +139,7 @@ public class DmonNpeAnalyzer {
             return Optional.empty();
         }
 
-        if (enforceTargetClassRestriction && Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR
+        if (enforceTargetClassRestriction && Properties.DMON_ONLY_TARGET_CLASS
                 && !Properties.TARGET_CLASS.equals(declaringClassName)) {
             return Optional.empty();
         }

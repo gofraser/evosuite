@@ -49,12 +49,12 @@ public class DmonCoordinatorTest {
     public void cacheReturnsSameOptionalInstanceForSameFailureSignature() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldCache = Properties.DMON_CACHE_ANALYSIS;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         String oldTarget = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_CACHE_ANALYSIS = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.TARGET_CLASS = CacheCtorTarget.class.getCanonicalName();
 
             DefaultTestCase test = new DefaultTestCase();
@@ -78,7 +78,7 @@ public class DmonCoordinatorTest {
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_CACHE_ANALYSIS = oldCache;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.TARGET_CLASS = oldTarget;
         }
     }
@@ -90,12 +90,12 @@ public class DmonCoordinatorTest {
         // generalisation of DMoN.
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldCache = Properties.DMON_CACHE_ANALYSIS;
-        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
         String oldTarget = Properties.TARGET_CLASS;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_CACHE_ANALYSIS = true;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
             Properties.TARGET_CLASS = CacheMethodTarget.class.getCanonicalName();
 
             DefaultTestCase test = new DefaultTestCase();
@@ -120,7 +120,7 @@ public class DmonCoordinatorTest {
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_CACHE_ANALYSIS = oldCache;
-            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
             Properties.TARGET_CLASS = oldTarget;
         }
     }

@@ -547,11 +547,17 @@ public class Properties {
             description = "Enable Dynamic Mock-on-Null (DMoN) support for constructor NPE bottlenecks")
     public static boolean DMON_ENABLED = true;
 
-    @Parameter(key = "dmon_only_target_class_constructor", group = "Test Creation",
+    @Parameter(key = "dmon_only_target_class", group = "Test Creation",
             description = "Restrict DMoN's promotable-candidate detection to statements that directly call the "
                     + "target class (its constructors, and, since method-call NPEs were added, its methods too); "
                     + "the NPE itself may still occur deeper in the call stack. Does not restrict the relaxed "
                     + "ephemeral-assist analysis used mid-execution to chase cascading dependencies")
+    public static boolean DMON_ONLY_TARGET_CLASS = true;
+
+    @Parameter(key = "dmon_only_target_class_constructor", group = "Test Creation",
+            description = "Deprecated alias for dmon_only_target_class; only honoured when "
+                    + "dmon_only_target_class is not set")
+    @Deprecated
     public static boolean DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
 
     @Parameter(key = "dmon_helpful_npe_parse", group = "Test Creation",
@@ -3764,6 +3770,24 @@ public class Properties {
             }
         }
         resolveLlmOperatorModeAlias();
+        resolveDmonOnlyTargetClassAlias();
+    }
+
+    /**
+     * Copies the deprecated {@code dmon_only_target_class_constructor} onto
+     * {@code dmon_only_target_class} when only the old key was set. Runtime code reads only
+     * {@link #DMON_ONLY_TARGET_CLASS}.
+     */
+    static void resolveDmonOnlyTargetClassAlias() {
+        resolveDmonOnlyTargetClassAlias(changedFields.contains("dmon_only_target_class_constructor"),
+                changedFields.contains("dmon_only_target_class"));
+    }
+
+    static void resolveDmonOnlyTargetClassAlias(boolean oldKeySet, boolean newKeySet) {
+        if (oldKeySet && !newKeySet) {
+            logger.warn("dmon_only_target_class_constructor is deprecated; use dmon_only_target_class");
+            DMON_ONLY_TARGET_CLASS = DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        }
     }
 
     /**
