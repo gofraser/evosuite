@@ -230,7 +230,7 @@ class LlmOperatorExecutorTest {
             // Still open: a fresh check for the same target key is suppressed as in-flight.
             assertEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
                     memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
-            executor.reportAttemptOutcome(metadata.getAttemptId(), 1);
+            metadata.getTicket().close(1);
             assertNotEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
                     memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
         } finally {
@@ -488,7 +488,7 @@ class LlmOperatorExecutorTest {
             assertNotEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
                     memory.adjustPriority(target2.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
 
-            executor.reportAttemptOutcome(matchedMetadata.getAttemptId(), 1);
+            matchedMetadata.getTicket().close(1);
             assertNotEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
                     memory.adjustPriority(target1.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
         } finally {
@@ -528,7 +528,7 @@ class LlmOperatorExecutorTest {
 
             // Reporting one target's outcome must not affect the other's: both started in
             // flight, and only the reported one should close.
-            executor.reportAttemptOutcome(firstMetadata.getAttemptId(), 1);
+            firstMetadata.getTicket().close(1);
             assertNotEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
                     memory.adjustPriority(target1.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
             assertEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,

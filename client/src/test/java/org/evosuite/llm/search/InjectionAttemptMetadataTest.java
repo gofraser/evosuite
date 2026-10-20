@@ -39,7 +39,7 @@ class InjectionAttemptMetadataTest {
     @Test
     void twoArgConstructorYieldsEmptyTargetGoals() {
         InjectionAttemptMetadata metadata =
-                new InjectionAttemptMetadata("attempt-1", Collections.emptyList());
+                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList());
         assertTrue(metadata.getTargetGoals().isEmpty());
     }
 
@@ -50,7 +50,7 @@ class InjectionAttemptMetadataTest {
         goals.add(goal);
 
         InjectionAttemptMetadata metadata =
-                new InjectionAttemptMetadata("attempt-2", Collections.emptyList(), goals);
+                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList(), goals);
         goals.clear();
 
         assertEquals(1, metadata.getTargetGoals().size(),
@@ -62,7 +62,7 @@ class InjectionAttemptMetadataTest {
     @Test
     void nullTargetGoalsBecomeEmpty() {
         InjectionAttemptMetadata metadata =
-                new InjectionAttemptMetadata("attempt-3", Collections.emptyList(), null);
+                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList(), null);
         assertTrue(metadata.getTargetGoals().isEmpty());
     }
 }

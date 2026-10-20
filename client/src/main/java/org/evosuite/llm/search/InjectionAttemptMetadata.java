@@ -27,27 +27,28 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Candidate-side attribution metadata for one prompt attempt.
+ * Candidate-side attribution metadata for one prompt attempt. It carries the attempt's {@link
+ * AttemptTicket}, so whoever evaluates the candidate settles the attempt directly.
  */
 public final class InjectionAttemptMetadata {
 
-    private final String attemptId;
+    private final AttemptTicket ticket;
     private final List<ProblemCardType> diagnosticCardTypes;
     private final List<TestFitnessFunction> targetGoals;
 
-    public InjectionAttemptMetadata(String attemptId, List<ProblemCardType> diagnosticCardTypes) {
-        this(attemptId, diagnosticCardTypes, null);
+    public InjectionAttemptMetadata(AttemptTicket ticket, List<ProblemCardType> diagnosticCardTypes) {
+        this(ticket, diagnosticCardTypes, null);
     }
 
     /**
      * Creates metadata describing one injection attempt.
-     * @param attemptId identifier of the attempt, null is treated as empty
+     * @param ticket the attempt's ticket, null is treated as untracked
      * @param diagnosticCardTypes the types of the cards in the prompt
      * @param targetGoals the uncovered goals the prompt targeted
      */
-    public InjectionAttemptMetadata(String attemptId, List<ProblemCardType> diagnosticCardTypes,
+    public InjectionAttemptMetadata(AttemptTicket ticket, List<ProblemCardType> diagnosticCardTypes,
                                     Collection<TestFitnessFunction> targetGoals) {
-        this.attemptId = attemptId == null ? "" : attemptId.trim();
+        this.ticket = ticket == null ? AttemptTicket.untracked() : ticket;
         this.diagnosticCardTypes = diagnosticCardTypes == null
                 ? Collections.<ProblemCardType>emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(diagnosticCardTypes));
@@ -56,8 +57,14 @@ public final class InjectionAttemptMetadata {
                 : Collections.unmodifiableList(new ArrayList<>(targetGoals));
     }
 
+    /** The attempt this candidate came from; untracked when nothing tracks it. */
+    public AttemptTicket getTicket() {
+        return ticket;
+    }
+
+    /** The attempt's id, {@code ""} when untracked. */
     public String getAttemptId() {
-        return attemptId;
+        return ticket.getId();
     }
 
     public List<ProblemCardType> getDiagnosticCardTypes() {

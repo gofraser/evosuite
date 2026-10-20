@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.search.operator;
 
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -52,16 +53,16 @@ final class OperatorBatchAttribution {
     /**
      * Adds one target, already registered as its own attempt.
      *
-     * @param target    the target being added
-     * @param attemptId that target's own attempt id ({@code ""} when it could not be registered,
-     *                  e.g. no memory is wired up)
+     * @param target the target being added
+     * @param ticket that target's own attempt (untracked when it could not be registered, e.g.
+     *               no memory is wired up)
      */
-    void add(OperatorTarget target, String attemptId) {
+    void add(OperatorTarget target, AttemptTicket ticket) {
         Set<Long> targetLineages = new TreeSet<>(target.getParent().effectiveLineages());
         target.getPartner().ifPresent(partner -> targetLineages.addAll(partner.effectiveLineages()));
         ProblemCardType cardType = target.getCard().map(ProblemCard::getType).orElse(null);
-        String safeAttemptId = attemptId == null ? "" : attemptId;
-        snapshots.add(new TargetSnapshot(targetLineages, target.getGoal(), cardType, safeAttemptId));
+        snapshots.add(new TargetSnapshot(targetLineages, target.getGoal(), cardType,
+                ticket == null ? AttemptTicket.untracked() : ticket));
         lineages.addAll(targetLineages);
         if (cardType != null) {
             cardTypes.add(cardType);
@@ -94,13 +95,13 @@ final class OperatorBatchAttribution {
         return goals;
     }
 
-    /** This batch's per-target attempt ids, in the order targets were added (may contain {@code ""}). */
-    List<String> getAttemptIds() {
-        List<String> ids = new ArrayList<>(snapshots.size());
+    /** This batch's per-target tickets, in the order targets were added (some may be untracked). */
+    List<AttemptTicket> getTickets() {
+        List<AttemptTicket> tickets = new ArrayList<>(snapshots.size());
         for (TargetSnapshot snapshot : snapshots) {
-            ids.add(snapshot.getAttemptId());
+            tickets.add(snapshot.getTicket());
         }
-        return ids;
+        return tickets;
     }
 
     /** Per-target attribution captured on the search thread before the call goes out. */
@@ -108,14 +109,14 @@ final class OperatorBatchAttribution {
         private final Set<Long> lineages;
         private final TestFitnessFunction goal;
         private final ProblemCardType cardType;
-        private final String attemptId;
+        private final AttemptTicket ticket;
 
         private TargetSnapshot(Set<Long> lineages, TestFitnessFunction goal, ProblemCardType cardType,
-                               String attemptId) {
+                               AttemptTicket ticket) {
             this.lineages = lineages;
             this.goal = goal;
             this.cardType = cardType;
-            this.attemptId = attemptId;
+            this.ticket = ticket;
         }
 
         Set<Long> getLineages() {
@@ -130,9 +131,9 @@ final class OperatorBatchAttribution {
             return cardType;
         }
 
-        /** This target's own attempt id ({@code ""} when it could not be registered). */
-        String getAttemptId() {
-            return attemptId;
+        /** This target's own attempt (untracked when it could not be registered). */
+        AttemptTicket getTicket() {
+            return ticket;
         }
     }
 }

@@ -23,11 +23,14 @@ import org.evosuite.Properties;
 import org.evosuite.coverage.method.MethodCoverageTestFitness;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.LlmSemanticCrossover;
 import org.evosuite.llm.search.LlmSemanticMutation;
+import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.llm.search.operator.LlmOperatorExecutor;
 import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.llm.search.operator.OperatorTarget;
@@ -182,7 +185,8 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         TestChromosome candidate1 = arrayListConstructorChromosome(1);
         TestChromosome candidate2 = arrayListConstructorChromosome(2);
         when(mockExecutor.drain()).thenReturn(Arrays.asList(candidate1, candidate2));
-        InjectionAttemptMetadata metadata = new InjectionAttemptMetadata("attempt-1", Collections.emptyList());
+        AttemptTicket ticket = openTicket("attempt-1");
+        InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(ticket, Collections.emptyList());
         when(mockExecutor.consumeAttemptMetadata(candidate1)).thenReturn(metadata);
         when(mockExecutor.consumeAttemptMetadata(candidate2)).thenReturn(null);
 
@@ -196,7 +200,8 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         assertTrue(union.contains(candidate2));
         assertEquals(InjectionSource.LLM_OPERATOR, candidate1.getInjectionSource());
         assertEquals(InjectionSource.LLM_OPERATOR, candidate2.getInjectionSource());
-        verify(mockExecutor, times(1)).reportAttemptOutcome(eq("attempt-1"), eq(0));
+        assertEquals(AttemptTicket.State.CLOSED, ticket.getState());
+        assertEquals(0, ticket.getGainedGoals());
         verify(mockExecutor).submit(anyList(), anyInt(), anyInt());
     }
 
@@ -215,8 +220,10 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         TestChromosome candidate2 = arrayListConstructorChromosome(2);
         harness.throwOnFitness = candidate1;
         when(mockExecutor.drain()).thenReturn(Arrays.asList(candidate1, candidate2));
-        InjectionAttemptMetadata metadata1 = new InjectionAttemptMetadata("attempt-1", Collections.emptyList());
-        InjectionAttemptMetadata metadata2 = new InjectionAttemptMetadata("attempt-2", Collections.emptyList());
+        AttemptTicket ticket1 = openTicket("attempt-1");
+        AttemptTicket ticket2 = openTicket("attempt-2");
+        InjectionAttemptMetadata metadata1 = new InjectionAttemptMetadata(ticket1, Collections.emptyList());
+        InjectionAttemptMetadata metadata2 = new InjectionAttemptMetadata(ticket2, Collections.emptyList());
         when(mockExecutor.consumeAttemptMetadata(candidate1)).thenReturn(metadata1);
         when(mockExecutor.consumeAttemptMetadata(candidate2)).thenReturn(metadata2);
 
@@ -227,10 +234,12 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         assertFalse(union.contains(candidate1),
                 "the candidate whose fitness evaluation threw must not be admitted");
         assertTrue(union.contains(candidate2), "the other candidate must still be admitted");
-        // Both attempts must still be reported (from the finally), including the one whose
+        // Both attempts must still be closed (from the finally), including the one whose
         // candidate never got past calculateFitness — it keeps the 0 seeded up front.
-        verify(mockExecutor).reportAttemptOutcome(eq("attempt-1"), eq(0));
-        verify(mockExecutor).reportAttemptOutcome(eq("attempt-2"), eq(0));
+        assertEquals(AttemptTicket.State.CLOSED, ticket1.getState());
+        assertEquals(0, ticket1.getGainedGoals());
+        assertEquals(AttemptTicket.State.CLOSED, ticket2.getState());
+        assertEquals(0, ticket2.getGainedGoals());
     }
 
     @Test
@@ -397,11 +406,12 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         TestChromosome candidate = arrayListConstructorChromosome(2);
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         OperatorTarget target = OperatorTarget.builder(parent, goal).build();
-        OperatorAttemptLog.getInstance().open("attempt-log-1", 0, target, "ASYNC", 1);
+        AttemptTicket ticket = openTicket("attempt-log-1");
+        ticket.openLogRow(0, target, "ASYNC", 1);
 
         when(mockExecutor.drain()).thenReturn(Collections.singletonList(candidate));
         InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(
-                "attempt-log-1", Collections.emptyList(), Collections.singletonList(goal));
+                ticket, Collections.emptyList(), Collections.singletonList(goal));
         when(mockExecutor.consumeAttemptMetadata(candidate)).thenReturn(metadata);
 
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
@@ -439,9 +449,9 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         TestChromosome candidate2 = arrayListConstructorChromosome(2);
         when(mockExecutor.drain()).thenReturn(Arrays.asList(candidate1, candidate2));
         InjectionAttemptMetadata metadata1 = new InjectionAttemptMetadata(
-                "attempt-1", Collections.emptyList(), Collections.singletonList(goal));
+                openTicket("attempt-1"), Collections.emptyList(), Collections.singletonList(goal));
         InjectionAttemptMetadata metadata2 = new InjectionAttemptMetadata(
-                "attempt-2", Collections.emptyList(), Collections.singletonList(goal));
+                openTicket("attempt-2"), Collections.emptyList(), Collections.singletonList(goal));
         when(mockExecutor.consumeAttemptMetadata(candidate1)).thenReturn(metadata1);
         when(mockExecutor.consumeAttemptMetadata(candidate2)).thenReturn(metadata2);
 
@@ -452,6 +462,12 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         ClientNodeLocal<TestChromosome> clientNode = mock(ClientNodeLocal.class);
         harness.emitOperatorStats(clientNode);
         verify(clientNode).trackOutputVariable(RuntimeVariable.LLM_Operator_Candidates_StaleTarget, 0L);
+    }
+
+    /** Opens a ticket for a single target {@code key} with a memory of its own. */
+    private static AttemptTicket openTicket(String key) {
+        return AttemptTicket.open(new RepeatedInjectionMemory(),
+                Collections.singletonList(new RepeatedInjectionTarget(key, key + ":v1")), true);
     }
 
     /** Builds a one-statement {@code new ArrayList<>(capacity)} test chromosome. */

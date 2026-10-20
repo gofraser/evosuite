@@ -22,6 +22,7 @@ package org.evosuite.ga.metaheuristics.mosa;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.StagnationDetector;
@@ -164,7 +165,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
             public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
                     List<TestChromosome> candidates) {
                 return Collections.singletonMap(injected, new InjectionAttemptMetadata(
-                        "attempt-1",
+                        AttemptTicket.untracked(),
                         Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP)));
             }
         });
@@ -207,7 +208,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
             public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
                     List<TestChromosome> candidates) {
                 return Collections.singletonMap(injected, new InjectionAttemptMetadata(
-                        "attempt-1",
+                        AttemptTicket.untracked(),
                         Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP)));
             }
         });

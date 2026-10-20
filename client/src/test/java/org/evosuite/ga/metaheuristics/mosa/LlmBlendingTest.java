@@ -22,6 +22,9 @@ package org.evosuite.ga.metaheuristics.mosa;
 import org.evosuite.Properties;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
 import org.evosuite.llm.search.BlendChannel;
+import org.evosuite.llm.search.AttemptTicket;
+import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.InjectionSource;
@@ -35,7 +38,6 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -117,8 +119,8 @@ class LlmBlendingTest extends MosaTestSupport {
         TestChromosome raw = chromosome();
         raw.setFitness(goal, 0.5);
         mosa.externalCandidateSources.add(sourceOf(InjectionSource.LLM_STAGNATION, raw,
-                new InjectionAttemptMetadata("attempt-1", Collections.emptyList(),
-                        Collections.singletonList(goal)), null));
+                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList(),
+                        Collections.singletonList(goal))));
 
         List<TestChromosome> union = mosa.drainIntoUnion();
 
@@ -166,10 +168,11 @@ class LlmBlendingTest extends MosaTestSupport {
         TestChromosome raw = chromosome();
         raw.setFitness(target, 0.5);
         raw.setFitness(bonus, 1.0);
-        Map<String, Integer> reportedGains = new LinkedHashMap<>();
+        AttemptTicket ticket = AttemptTicket.open(new RepeatedInjectionMemory(),
+                Collections.singletonList(new RepeatedInjectionTarget("goal:target", "goal:target:v1")), true);
         mosa.externalCandidateSources.add(sourceOf(InjectionSource.LLM_ASYNC, raw,
-                new InjectionAttemptMetadata("attempt-7", Collections.emptyList(),
-                        Collections.singletonList(target)), reportedGains));
+                new InjectionAttemptMetadata(ticket, Collections.emptyList(),
+                        Collections.singletonList(target))));
 
         List<TestChromosome> union = mosa.drainIntoUnion();
 
@@ -177,7 +180,7 @@ class LlmBlendingTest extends MosaTestSupport {
         assertEquals(1, variants.size(), "admission ceiling of 1 must hold");
         assertEquals(0.0, variants.get(0).getFitness(bonus), 1e-9,
                 "the variant covering a new goal is admitted before the fitness-improver");
-        assertEquals(Integer.valueOf(1), reportedGains.get("attempt-7"),
+        assertEquals(1, ticket.getGainedGoals(),
                 "the blend's covered goal must credit the originating attempt");
     }
 
@@ -195,8 +198,8 @@ class LlmBlendingTest extends MosaTestSupport {
         TestChromosome raw = chromosome();
         raw.setFitness(goal, 0.5);
         mosa.externalCandidateSources.add(sourceOf(InjectionSource.LLM_STAGNATION, raw,
-                new InjectionAttemptMetadata("attempt-2", Collections.emptyList(),
-                        Collections.singletonList(goal)), null));
+                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList(),
+                        Collections.singletonList(goal))));
 
         List<TestChromosome> union = mosa.drainIntoUnion();
 
@@ -224,8 +227,8 @@ class LlmBlendingTest extends MosaTestSupport {
         TestChromosome raw = chromosome();
         raw.setFitness(goal, 0.5);
         mosa.externalCandidateSources.add(sourceOf(InjectionSource.LLM_STAGNATION, raw,
-                new InjectionAttemptMetadata("attempt-3", Collections.emptyList(),
-                        Collections.singletonList(goal)), null));
+                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList(),
+                        Collections.singletonList(goal))));
 
         List<TestChromosome> union = mosa.drainIntoUnion();
 
@@ -255,8 +258,8 @@ class LlmBlendingTest extends MosaTestSupport {
         TestChromosome raw = chromosome();
         raw.setFitness(goal, 0.5);
         mosa.externalCandidateSources.add(sourceOf(InjectionSource.LLM_STAGNATION, raw,
-                new InjectionAttemptMetadata("attempt-4", Collections.emptyList(),
-                        Collections.singletonList(goal)), null));
+                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList(),
+                        Collections.singletonList(goal))));
 
         mosa.drainIntoUnion();
 
@@ -277,8 +280,8 @@ class LlmBlendingTest extends MosaTestSupport {
         TestChromosome raw = chromosome();
         raw.setFitness(goal, 0.5);
         mosa.externalCandidateSources.add(sourceOf(InjectionSource.LLM_STAGNATION, raw,
-                new InjectionAttemptMetadata("attempt-5", Collections.emptyList(),
-                        Collections.singletonList(goal)), null));
+                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList(),
+                        Collections.singletonList(goal))));
 
         List<TestChromosome> union = mosa.drainIntoUnion();
 
@@ -311,8 +314,8 @@ class LlmBlendingTest extends MosaTestSupport {
         TestChromosome raw = chromosomeWithInt(42);
         raw.setFitness(goal, 0.5);
         mosa.externalCandidateSources.add(sourceOf(InjectionSource.LLM_STAGNATION, raw,
-                new InjectionAttemptMetadata("attempt-6", Collections.emptyList(),
-                        Collections.singletonList(goal)), null));
+                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList(),
+                        Collections.singletonList(goal))));
 
         List<TestChromosome> union = mosa.drainIntoUnion();
 
@@ -360,7 +363,7 @@ class LlmBlendingTest extends MosaTestSupport {
 
     private static AbstractMOSA.ExternalCandidateSource sourceOf(
             InjectionSource source, TestChromosome candidate,
-            InjectionAttemptMetadata metadata, Map<String, Integer> reportedGains) {
+            InjectionAttemptMetadata metadata) {
         return new AbstractMOSA.ExternalCandidateSource() {
             private boolean drained;
 
@@ -383,13 +386,6 @@ class LlmBlendingTest extends MosaTestSupport {
                     List<TestChromosome> candidates) {
                 return metadata == null ? Collections.emptyMap()
                         : Collections.singletonMap(candidate, metadata);
-            }
-
-            @Override
-            public void reportAttemptOutcomes(Map<String, Integer> gains) {
-                if (reportedGains != null) {
-                    reportedGains.putAll(gains);
-                }
             }
         };
     }

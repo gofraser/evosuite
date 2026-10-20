@@ -391,14 +391,13 @@ public class StagnationDetector {
 
         PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation,
                 totalGoals, coveredGoalCount, bestFitnessPerGoal, false);
-        RepeatedInjectionMemory.PromptAttemptRegistration registration =
-                registerRepeatedAttempt(prompt, true);
+        AttemptTicket ticket = registerRepeatedAttempt(prompt, true);
         CallResult result = executeWithPrompt(prompt);
         if (!result.isDelivered()) {
-            releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
-        } else if (!registration.isEmpty()) {
-            recordRepeatedAttemptOutcome(registration.getAttemptId(),
-                    countCoveredGoals(uncoveredGoals, result.getTests()));
+            ticket.release();
+        } else if (ticket.isTracked()) {
+            // Counting executes the tests, so it is only done when an attempt is owed the gain.
+            ticket.close(countCoveredGoals(uncoveredGoals, result.getTests()));
         }
         return result.getTests();
     }
@@ -607,56 +606,25 @@ public class StagnationDetector {
     /**
      * Registers the repeated-injection targets of a prompt before it is sent.
      * @param prompt the prompt, may be null
-     * @param inFlight whether the attempt stays in flight until its outcome is recorded
-     * @return the registration, empty if there is nothing to track
+     * @param inFlight whether the attempt stays in flight until it is settled
+     * @return the attempt's ticket, untracked if there is nothing to track
      */
-    public RepeatedInjectionMemory.PromptAttemptRegistration registerRepeatedAttempt(PromptResult prompt,
-                                                                                     boolean inFlight) {
+    public AttemptTicket registerRepeatedAttempt(PromptResult prompt, boolean inFlight) {
         if (prompt == null) {
-            return RepeatedInjectionMemory.PromptAttemptRegistration.empty();
+            return AttemptTicket.untracked();
         }
-        RepeatedInjectionMemory.PromptAttemptRegistration registration;
-        if (repeatedInjectionMemory == null
-                || prompt.getRepeatedInjectionTargets() == null
-                || prompt.getRepeatedInjectionTargets().isEmpty()) {
-            registration = RepeatedInjectionMemory.PromptAttemptRegistration.empty();
-        } else {
-            registration = repeatedInjectionMemory.registerAttempt(
-                    prompt.getRepeatedInjectionTargets(), inFlight);
-        }
+        AttemptTicket ticket = AttemptTicket.open(repeatedInjectionMemory,
+                prompt.getRepeatedInjectionTargets(), inFlight);
         if (ProblemCardLogRecorder.isEnabled() && !prompt.getDiagnosticCards().isEmpty()) {
             try {
                 ProblemCardLogRecorder.getInstance().recordSelected(
-                        registration.getAttemptId(), InjectionSource.LLM_STAGNATION,
+                        ticket.getId(), InjectionSource.LLM_STAGNATION,
                         prompt.getDiagnosticCards());
             } catch (Exception e) {
                 logger.debug("Failed to log selected problem cards: {}", e.getMessage());
             }
         }
-        return registration;
-    }
-
-    /**
-     * Reports the outcome of a registered prompt attempt.
-     * @param attemptId identifier of the attempt, ignored if null or blank
-     * @param gainedGoals number of goals the attempt newly covered
-     */
-    public void recordRepeatedAttemptOutcome(String attemptId, int gainedGoals) {
-        if (repeatedInjectionMemory == null || attemptId == null || attemptId.trim().isEmpty()) {
-            return;
-        }
-        repeatedInjectionMemory.recordAttemptOutcome(attemptId, gainedGoals);
-    }
-
-    /**
-     * Release an attempt that never completed (timeout, cancellation, interrupt) so
-     * the repeated-injection cooldown does not treat it as a "no gain" outcome.
-     */
-    public void releaseUndeliveredRepeatedAttempt(String attemptId) {
-        if (repeatedInjectionMemory == null || attemptId == null || attemptId.trim().isEmpty()) {
-            return;
-        }
-        repeatedInjectionMemory.releaseUndeliveredAttempt(attemptId);
+        return ticket;
     }
 
     private Set<String> collectGoalMethodKeys(Collection<TestFitnessFunction> uncoveredGoals) {

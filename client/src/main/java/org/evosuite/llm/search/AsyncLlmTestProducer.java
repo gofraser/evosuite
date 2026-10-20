@@ -188,18 +188,6 @@ public class AsyncLlmTestProducer {
         return attemptMetadataByCandidate.remove(candidate);
     }
 
-    /**
-     * Reports how many goals an earlier injection attempt covered, so repeated attempts can be prioritised.
-     * @param attemptId identifier of the attempt, ignored if null or blank
-     * @param gainedGoals number of goals the attempt newly covered
-     */
-    public void reportAttemptOutcome(String attemptId, int gainedGoals) {
-        if (repeatedInjectionMemory == null || attemptId == null || attemptId.trim().isEmpty()) {
-            return;
-        }
-        repeatedInjectionMemory.recordAttemptOutcome(attemptId, gainedGoals);
-    }
-
     private void produceLoop() {
         boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
         TestRepairLoop repairLoop = TestRepairLoop.createDefault(
@@ -271,13 +259,12 @@ public class AsyncLlmTestProducer {
                 cardTypes = Collections.emptyList();
                 attemptTargetGoals = promptGoals;
             }
-            RepeatedInjectionMemory.PromptAttemptRegistration registration = repeatedInjectionMemory == null
-                    ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
-                    : repeatedInjectionMemory.registerAttempt(prompt.getRepeatedInjectionTargets(), true);
+            AttemptTicket ticket = AttemptTicket.open(repeatedInjectionMemory,
+                    prompt.getRepeatedInjectionTargets(), true);
             if (ProblemCardLogRecorder.isEnabled() && !cardTypes.isEmpty()) {
                 try {
                     ProblemCardLogRecorder.getInstance().recordSelected(
-                            registration.getAttemptId(), InjectionSource.LLM_ASYNC,
+                            ticket.getId(), InjectionSource.LLM_ASYNC,
                             cachedDiagnosticCards);
                 } catch (Exception e) {
                     logger.debug("Failed to log selected problem cards: {}", e.getMessage());
@@ -292,7 +279,7 @@ public class AsyncLlmTestProducer {
                         }
                     }
                     if (!publishBatch(candidates, new InjectionAttemptMetadata(
-                            registration.getAttemptId(),
+                            ticket,
                             cardTypes.isEmpty()
                                     ? Collections.<ProblemCardType>emptyList()
                                     : new ArrayList<>(cardTypes),
@@ -303,30 +290,21 @@ public class AsyncLlmTestProducer {
                     if (!cardTypes.isEmpty()) {
                         LlmStatistics.recordDiagnosticCandidatesPublished(cardTypes, candidates.size());
                     }
-                } else if (repeatedInjectionMemory != null && !registration.isEmpty()) {
-                    repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
+                } else {
+                    ticket.close(0);
                 }
                 generatedSinceRefresh++;
                 sleepDelay();
-            } catch (LlmBudgetExceededException e) {
-                // No response was delivered, so there is no outcome to judge: release the
-                // attempt rather than count it as a no-gain one.
-                if (repeatedInjectionMemory != null && !registration.isEmpty()) {
-                    repeatedInjectionMemory.releaseUndeliveredAttempt(registration.getAttemptId());
-                }
-                recordStopReason(StopReason.BUDGET_EXHAUSTED);
-                break;
-            } catch (LlmCallFailedException e) {
-                logger.debug("Async LLM producer call failed: {}", e.getMessage());
-                if (repeatedInjectionMemory != null && !registration.isEmpty()) {
-                    repeatedInjectionMemory.releaseUndeliveredAttempt(registration.getAttemptId());
-                }
-                sleepDelay();
             } catch (RuntimeException e) {
-                logger.debug("Async LLM producer failed: {}", e.getMessage());
-                if (repeatedInjectionMemory != null && !registration.isEmpty()) {
-                    repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
+                // A budget refusal or failed call delivered nothing, so the attempt is released;
+                // any other failure counts as a delivered response without gain.
+                ticket.settleWithoutGain(e);
+                if (e instanceof LlmBudgetExceededException) {
+                    recordStopReason(StopReason.BUDGET_EXHAUSTED);
+                    break;
                 }
+                logger.debug(e instanceof LlmCallFailedException
+                        ? "Async LLM producer call failed: {}" : "Async LLM producer failed: {}", e.getMessage());
                 sleepDelay();
             }
         }

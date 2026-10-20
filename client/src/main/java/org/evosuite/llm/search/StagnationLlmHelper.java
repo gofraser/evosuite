@@ -347,14 +347,14 @@ public final class StagnationLlmHelper {
         long t0 = System.nanoTime();
         long waitSeconds = computeSyncWaitSeconds();
         long deadlineNanos = deadlineAfterWait(waitSeconds, SYNC_RETURN_MARGIN_NANOS);
-        RepeatedInjectionMemory.PromptAttemptRegistration registration;
+        AttemptTicket ticket;
         synchronized (lifecycleLock) {
             if (hardShutdown) {
                 return;
             }
             // In flight although this thread blocks on it: other features keep selecting
             // targets on their own threads meanwhile.
-            registration = detector.registerRepeatedAttempt(prompt, true);
+            ticket = detector.registerRepeatedAttempt(prompt, true);
         }
         Future<StagnationDetector.CallResult> future;
         try {
@@ -364,7 +364,7 @@ public final class StagnationLlmHelper {
             logger.debug("Sync stagnation submission rejected (shutting down): {}",
                     e.getMessage());
             if (!hardShutdown) {
-                detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
+                ticket.release();
             }
             return;
         }
@@ -376,17 +376,17 @@ public final class StagnationLlmHelper {
             future.cancel(true);
             // Wall-clock timeout: the call never produced a response — don't penalize
             // the repeated-injection cooldown for what is effectively a non-delivery.
-            recordSyncNonResponse(registration, false, "timeout:sync", t0, coveredCount, uncoveredSize, targetCount);
+            recordSyncNonResponse(ticket, false, "timeout:sync", t0, coveredCount, uncoveredSize, targetCount);
             return;
         } catch (CancellationException e) {
             // Cancelled before completion — treat as non-delivery.
-            recordSyncNonResponse(registration, false, "cancelled:sync", t0, coveredCount, uncoveredSize, targetCount);
+            recordSyncNonResponse(ticket, false, "cancelled:sync", t0, coveredCount, uncoveredSize, targetCount);
             return;
         } catch (InterruptedException e) {
             future.cancel(true);
             Thread.currentThread().interrupt();
             // Interrupt during the wait — non-delivery.
-            recordSyncNonResponse(registration, false, "interrupted:sync", t0, coveredCount, uncoveredSize,
+            recordSyncNonResponse(ticket, false, "interrupted:sync", t0, coveredCount, uncoveredSize,
                     targetCount);
             return;
         } catch (ExecutionException e) {
@@ -396,7 +396,7 @@ public final class StagnationLlmHelper {
             Throwable cause = e.getCause();
             logger.debug("Sync stagnation call failed: {}",
                     cause == null ? e.toString() : cause.toString());
-            recordSyncNonResponse(registration, true, "error:sync", t0, coveredCount, uncoveredSize, targetCount);
+            recordSyncNonResponse(ticket, true, "error:sync", t0, coveredCount, uncoveredSize, targetCount);
             return;
         }
         synchronized (lifecycleLock) {
@@ -408,7 +408,7 @@ public final class StagnationLlmHelper {
             recordCallCompleted(elapsedMs, elapsedMs);
             traceOutcome("completed:sync", coveredCount, uncoveredSize, targetCount, elapsedMs,
                     result.getTests().size());
-            publishResult(result, prompt, registration);
+            publishResult(result, prompt, ticket);
         }
     }
 
@@ -416,17 +416,12 @@ public final class StagnationLlmHelper {
      * Settles a sync call that produced no tests. Only a delivered call ({@code delivered}) counts
      * against the repeated-injection cooldown; a non-delivery just releases its attempt.
      */
-    private void recordSyncNonResponse(RepeatedInjectionMemory.PromptAttemptRegistration registration,
-                                       boolean delivered, String label, long t0,
+    private void recordSyncNonResponse(AttemptTicket ticket, boolean delivered, String label, long t0,
                                        int coveredCount, int uncoveredSize, int targetCount) {
         if (hardShutdown) {
             return;
         }
-        if (delivered) {
-            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
-        } else {
-            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
-        }
+        ticket.settleWithoutGain(delivered);
         long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
         traceOutcome(label, coveredCount, uncoveredSize, targetCount, elapsedMs, 0);
     }
@@ -452,8 +447,7 @@ public final class StagnationLlmHelper {
             if (hardShutdown) {
                 return;
             }
-            RepeatedInjectionMemory.PromptAttemptRegistration registration =
-                    detector.registerRepeatedAttempt(prompt, true);
+            AttemptTicket ticket = detector.registerRepeatedAttempt(prompt, true);
             try {
                 inFlight.set(worker.submit(() -> {
                     long t0 = System.nanoTime();
@@ -492,7 +486,7 @@ public final class StagnationLlmHelper {
                         }
                         recordCallCompleted(elapsedMs, 0L);
                         traceOutcome("completed:async", -1, -1, -1, elapsedMs, result.getTests().size());
-                        publishResult(result, prompt, registration);
+                        publishResult(result, prompt, ticket);
                     }
                 }));
             } catch (RejectedExecutionException e) {
@@ -501,7 +495,7 @@ public final class StagnationLlmHelper {
                 logger.debug("Async stagnation submission rejected (shutting down): {}",
                         e.getMessage());
                 if (!hardShutdown) {
-                    detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
+                    ticket.release();
                 }
             }
         }
@@ -532,27 +526,23 @@ public final class StagnationLlmHelper {
      * Publishes a delivered call's tests; a call that never delivered a response
      * just releases its attempt, since there is no outcome to judge.
      */
-    private void publishResult(StagnationDetector.CallResult result,
-                               PromptResult prompt,
-                               RepeatedInjectionMemory.PromptAttemptRegistration registration) {
+    private void publishResult(StagnationDetector.CallResult result, PromptResult prompt, AttemptTicket ticket) {
         if (hardShutdown) {
             return;
         }
         if (result.isDelivered()) {
-            publishTests(result.getTests(), prompt, registration);
+            publishTests(result.getTests(), prompt, ticket);
         } else {
-            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
+            ticket.release();
         }
     }
 
-    private void publishTests(List<TestChromosome> tests,
-                              PromptResult prompt,
-                              RepeatedInjectionMemory.PromptAttemptRegistration registration) {
+    private void publishTests(List<TestChromosome> tests, PromptResult prompt, AttemptTicket ticket) {
         if (hardShutdown) {
             return;
         }
         if (tests == null || tests.isEmpty()) {
-            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+            ticket.close(0);
             return;
         }
         List<ProblemCardType> cardTypes = prompt == null
@@ -566,7 +556,7 @@ public final class StagnationLlmHelper {
             }
             tc.setDiagnosticCardTypes(cardTypes);
             attemptMetadataByCandidate.put(tc, new InjectionAttemptMetadata(
-                    registration.getAttemptId(),
+                    ticket,
                     cardTypes == null ? Collections.<ProblemCardType>emptyList()
                             : new ArrayList<>(cardTypes),
                     targetGoals));
@@ -578,7 +568,7 @@ public final class StagnationLlmHelper {
             published++;
         }
         if (published <= 0) {
-            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+            ticket.close(0);
             return;
         }
         ClientServices.track(RuntimeVariable.LLM_StagnationTestsPublished,
@@ -609,10 +599,6 @@ public final class StagnationLlmHelper {
             return null;
         }
         return attemptMetadataByCandidate.remove(candidate);
-    }
-
-    public void reportAttemptOutcome(String attemptId, int gainedGoals) {
-        detector.recordRepeatedAttemptOutcome(attemptId, gainedGoals);
     }
 
     long getPromptsSubmitted() {

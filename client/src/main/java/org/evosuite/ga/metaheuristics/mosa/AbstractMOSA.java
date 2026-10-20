@@ -53,6 +53,7 @@ import org.evosuite.llm.search.BreedingDisruptionObserver;
 import org.evosuite.llm.search.DisruptionHelper;
 import org.evosuite.llm.search.DisruptionRecorder;
 import org.evosuite.llm.search.ExtractorTraceSink;
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.IsolatedEvaluation;
 import org.evosuite.llm.search.IsolatedProbe;
@@ -97,7 +98,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.function.Function;
-import java.util.function.ObjIntConsumer;
 
 /**
  * Abstract class for MOSA or variants of MOSA.
@@ -131,45 +131,31 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             return null;
         }
 
+        /**
+         * Hands over the attribution of {@code candidates}. Each returned metadata's ticket is then
+         * owed a settlement, which {@link #collectExternalCandidates} makes however processing
+         * goes.
+         */
         default Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
                 List<TestChromosome> candidates) {
             return Collections.emptyMap();
         }
-
-        default void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
-            // no-op
-        }
-
-        /** Called once {@code candidate} has been evaluated by the GA; {@code metadata} may be null. */
-        default void onCandidateEvaluated(TestChromosome candidate, InjectionAttemptMetadata metadata) {
-            // no-op
-        }
-
-        /** Called once {@code candidate} actually entered the union of {@code generation}; metadata may be null. */
-        default void onCandidateAdmitted(TestChromosome candidate, InjectionAttemptMetadata metadata,
-                                         int generation) {
-            // no-op
-        }
     }
 
     /**
-     * An LLM-backed candidate source: drains from one helper and routes that helper's
-     * per-attempt metadata and outcome reports through {@link #metadataByCandidate} and
-     * {@link #reportGains}.
+     * An LLM-backed candidate source: drains from one helper and hands over that helper's
+     * per-attempt metadata through {@link #metadataByCandidate}.
      */
     private static class LlmCandidateSource implements ExternalCandidateSource {
         private final java.util.function.Supplier<List<TestChromosome>> drain;
         private final InjectionSource tag;
         private final Function<TestChromosome, InjectionAttemptMetadata> lookup;
-        private final ObjIntConsumer<String> report;
 
         LlmCandidateSource(java.util.function.Supplier<List<TestChromosome>> drain, InjectionSource tag,
-                           Function<TestChromosome, InjectionAttemptMetadata> lookup,
-                           ObjIntConsumer<String> report) {
+                           Function<TestChromosome, InjectionAttemptMetadata> lookup) {
             this.drain = drain;
             this.tag = tag;
             this.lookup = lookup;
-            this.report = report;
         }
 
         @Override
@@ -186,11 +172,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
                 List<TestChromosome> candidates) {
             return metadataByCandidate(candidates, lookup);
-        }
-
-        @Override
-        public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
-            reportGains(gainsByAttemptId, report);
         }
     }
 
@@ -2302,8 +2283,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     continue;
                 }
                 tag = source.injectionSource();
-                // Consumes the source's metadata for these candidates; from here on an attempt
-                // outcome is owed for each of them, however processing goes, so the report below
+                // Consumes the source's metadata for these candidates; from here on each of their
+                // tickets is owed a settlement, however processing goes, so the closing below
                 // must run in a finally.
                 attemptMetadataByCandidate = source.consumeAttemptMetadata(candidates);
             } catch (Exception e) {
@@ -2314,7 +2295,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             if (tag != null) {
                 attemptCounts.merge(tag, candidates.size(), Integer::sum);
             }
-            Map<String, Integer> gainsByAttemptId = initializeAttemptOutcomeMap(attemptMetadataByCandidate);
+            Map<AttemptTicket, Integer> gainsByTicket = initializeAttemptOutcomeMap(attemptMetadataByCandidate);
             try {
                 List<TestChromosome> safe = filterOrphanedTestChromosomes(
                         candidates, "external candidate source " + source.getClass().getSimpleName());
@@ -2355,7 +2336,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         }
                         maybeRecordStaleTarget(tag, metadata, uncoveredAtDrainStart);
                         this.calculateFitness(candidate);
-                        source.onCandidateEvaluated(candidate, metadata);
+                        recordTargetDistance(candidate, metadata);
                         List<TestFitnessFunction> coveredNow =
                                 coveredGoalsAndRemoveList(candidate, remainingUncoveredBeforeInjection);
                         int gained = coveredNow.size();
@@ -2370,9 +2351,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                         metadata.getAttemptId(), e);
                             }
                         }
-                        if (metadata != null && metadata.getAttemptId() != null
-                                && !metadata.getAttemptId().trim().isEmpty()) {
-                            gainsByAttemptId.merge(metadata.getAttemptId(), gained, Integer::sum);
+                        if (metadata != null && metadata.getTicket().isTracked()) {
+                            gainsByTicket.merge(metadata.getTicket(), gained, Integer::sum);
                         }
                         boolean blendingActive = Properties.LLM_BLEND_ENABLED && isLlmInjectionSource(tag);
                         if (blendingActive) {
@@ -2380,7 +2360,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         }
                         if (!blendingActive || Properties.LLM_BLEND_KEEP_RAW) {
                             union.add(candidate);
-                            source.onCandidateAdmitted(candidate, metadata, this.currentIteration);
+                            if (metadata != null) {
+                                metadata.getTicket().admitted(candidate, this.currentIteration);
+                            }
                             if (isLlmInjectionSource(tag)) {
                                 lastGenInjectedCandidatesAdmittedCount++;
                                 llmInjectedCandidatesAdmittedTotal++;
@@ -2395,7 +2377,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         if (blendingActive) {
                             try {
                                 blendInjectedCandidate(candidate, tag, metadata, union,
-                                        remainingUncoveredBeforeInjection, gainsByAttemptId,
+                                        remainingUncoveredBeforeInjection, gainsByTicket,
                                         seenInjectedCallSignatures);
                             } catch (Exception e) {
                                 logger.debug("Blending failed for injected candidate; "
@@ -2405,7 +2387,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     } catch (Exception e) {
                         // This candidate's attempt keeps the 0 already seeded by
                         // initializeAttemptOutcomeMap; move on so one bad candidate cannot sink
-                        // the rest of the batch (or, worse, the source's outcome report below).
+                        // the rest of the batch (or, worse, the closing of the tickets below).
                         logger.debug("Failed to process an injected candidate from {}; skipping",
                                 source.getClass().getSimpleName(), e);
                     }
@@ -2416,7 +2398,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 // candidates are optional; losing them must not end the search.
                 logger.debug("External candidate source failed; skipping", e);
             } finally {
-                source.reportAttemptOutcomes(gainsByAttemptId);
+                for (Map.Entry<AttemptTicket, Integer> gain : gainsByTicket.entrySet()) {
+                    gain.getKey().close(gain.getValue());
+                }
             }
         }
         if (deduplicatedInjectedCandidates > 0) {
@@ -2722,7 +2706,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             InjectionAttemptMetadata metadata,
             List<TestChromosome> union,
             Set<TestFitnessFunction> remainingUncovered,
-            Map<String, Integer> gainsByAttemptId,
+            Map<AttemptTicket, Integer> gainsByTicket,
             Set<String> seenInjectedCallSignatures) {
         if (blendEvalsSpentThisGen >= Properties.LLM_BLEND_MAX_EVALS_PER_GEN || this.isFinished()) {
             return;
@@ -2854,9 +2838,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                             metadata.getAttemptId(), e);
                 }
             }
-            if (metadata != null && metadata.getAttemptId() != null
-                    && !metadata.getAttemptId().trim().isEmpty()) {
-                gainsByAttemptId.merge(metadata.getAttemptId(), gained, Integer::sum);
+            if (metadata != null && metadata.getTicket().isTracked()) {
+                gainsByTicket.merge(metadata.getTicket(), gained, Integer::sum);
             }
             gainedByVariant.put(variant, gained);
             evaluatedOrder.add(variant);
@@ -3070,19 +3053,34 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         return age <= Properties.LLM_LINEAGE_ELITISM_GENERATIONS;
     }
 
-    private Map<String, Integer> initializeAttemptOutcomeMap(
+    /**
+     * Seeds a zero gain for every tracked ticket among {@code attemptMetadataByCandidate}, so each
+     * one is closed even when its candidate never gets evaluated.
+     */
+    private Map<AttemptTicket, Integer> initializeAttemptOutcomeMap(
             Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate) {
         if (attemptMetadataByCandidate == null || attemptMetadataByCandidate.isEmpty()) {
             return Collections.emptyMap();
         }
-        Map<String, Integer> gainsByAttemptId = new LinkedHashMap<>();
+        Map<AttemptTicket, Integer> gainsByTicket = new LinkedHashMap<>();
         for (InjectionAttemptMetadata metadata : attemptMetadataByCandidate.values()) {
-            if (metadata != null && metadata.getAttemptId() != null
-                    && !metadata.getAttemptId().trim().isEmpty()) {
-                gainsByAttemptId.put(metadata.getAttemptId(), 0);
+            if (metadata != null && metadata.getTicket().isTracked()) {
+                gainsByTicket.put(metadata.getTicket(), 0);
             }
         }
-        return gainsByAttemptId;
+        return gainsByTicket;
+    }
+
+    /**
+     * Records the evaluated distance to the prompted goal on the attempt-log row of {@code
+     * candidate}'s ticket. Only operator attempts own such a row.
+     */
+    private static void recordTargetDistance(TestChromosome candidate, InjectionAttemptMetadata metadata) {
+        if (metadata == null || !metadata.getTicket().hasLogRow()) {
+            return;
+        }
+        List<TestFitnessFunction> targetGoals = metadata.getTargetGoals();
+        metadata.getTicket().evaluated(targetGoals.isEmpty() ? Double.NaN : candidate.getFitness(targetGoals.get(0)));
     }
 
     /**
@@ -3104,41 +3102,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         if (asyncProducer != null) {
             final org.evosuite.llm.search.AsyncLlmTestProducer producer = asyncProducer;
             externalCandidateSources.add(new LlmCandidateSource(producer::drainAvailable,
-                    InjectionSource.LLM_ASYNC, producer::consumeAttemptMetadata, producer::reportAttemptOutcome));
+                    InjectionSource.LLM_ASYNC, producer::consumeAttemptMetadata));
         }
         if (stagnationLlmHelper != null) {
             final StagnationLlmHelper helper = stagnationLlmHelper;
             externalCandidateSources.add(new LlmCandidateSource(
                     () -> driveStagnationHelper(helper, coveredGoalCountSupplier, currentGoalsSupplier),
-                    InjectionSource.LLM_STAGNATION, helper::consumeAttemptMetadata, helper::reportAttemptOutcome));
+                    InjectionSource.LLM_STAGNATION, helper::consumeAttemptMetadata));
         }
         if (operatorExecutor != null) {
             final LlmOperatorExecutor executor = operatorExecutor;
             externalCandidateSources.add(new LlmCandidateSource(() -> driveOperatorExecutor(executor),
-                    InjectionSource.LLM_OPERATOR, executor::consumeAttemptMetadata, executor::reportAttemptOutcome) {
-                // The operator source is the only one with per-target telemetry: the attempt log
-                // wants the evaluated distance to the prompted goal and the moment of admission.
-                @Override
-                public void onCandidateEvaluated(TestChromosome candidate, InjectionAttemptMetadata metadata) {
-                    if (metadata == null || metadata.getAttemptId().isEmpty()) {
-                        return;
-                    }
-                    List<TestFitnessFunction> targetGoals = metadata.getTargetGoals();
-                    double distanceAfter = targetGoals.isEmpty()
-                            ? Double.NaN : candidate.getFitness(targetGoals.get(0));
-                    OperatorAttemptLog.getInstance().recordEvaluated(
-                            metadata.getAttemptId(), distanceAfter, distanceAfter == 0.0);
-                }
-
-                @Override
-                public void onCandidateAdmitted(TestChromosome candidate, InjectionAttemptMetadata metadata,
-                                                int generation) {
-                    if (metadata != null && !metadata.getAttemptId().isEmpty()) {
-                        OperatorAttemptLog.getInstance().recordAdmitted(metadata.getAttemptId(), candidate,
-                                generation);
-                    }
-                }
-            });
+                    InjectionSource.LLM_OPERATOR, executor::consumeAttemptMetadata));
         }
         registerAdditionalCandidateSources();
     }
@@ -3165,19 +3140,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Forwards each {@code (attemptId, gain)} pair to {@code reporter}. Shared by every
-     * LLM-backed source's {@link ExternalCandidateSource#reportAttemptOutcomes}.
-     */
-    private static void reportGains(Map<String, Integer> gainsByAttemptId, ObjIntConsumer<String> reporter) {
-        if (gainsByAttemptId == null) {
-            return;
-        }
-        for (Map.Entry<String, Integer> entry : gainsByAttemptId.entrySet()) {
-            reporter.accept(entry.getKey(), entry.getValue());
-        }
-    }
-
-    /**
      * Single drive step for the ASYNC operator executor: first drains the candidates produced from
      * a batch this method submitted on an earlier generation, then — capacity and the
      * calls-per-generation budget permitting — selects and submits this generation's targets for a
@@ -3187,8 +3149,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * population: this generation's offspring are already bred but still only in the union
      * being assembled by the caller. The GA evaluates the
      * candidates returned here immediately afterwards, in {@link #collectExternalCandidates}, which
-     * then reports each one's coverage gain back to {@code executor} via {@link
-     * ExternalCandidateSource#reportAttemptOutcomes}.
+     * then closes each one's ticket with its coverage gain.
      */
     private List<TestChromosome> driveOperatorExecutor(LlmOperatorExecutor executor) {
         executor.tickGeneration();

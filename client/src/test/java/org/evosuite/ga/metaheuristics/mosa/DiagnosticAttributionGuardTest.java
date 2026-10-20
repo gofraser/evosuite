@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga.metaheuristics.mosa;
 
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.testcase.InjectionSource;
@@ -37,12 +38,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DiagnosticAttributionGuardTest {
 
     private static InjectionAttemptMetadata withCards() {
-        return new InjectionAttemptMetadata("attempt-1",
+        return new InjectionAttemptMetadata(AttemptTicket.untracked(),
                 Collections.singletonList(ProblemCardType.ENVIRONMENT_BARRIER));
     }
 
     private static InjectionAttemptMetadata withoutCards() {
-        return new InjectionAttemptMetadata("attempt-2", Collections.emptyList());
+        return new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList());
     }
 
     @Test

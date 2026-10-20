@@ -21,6 +21,7 @@ package org.evosuite.llm.search.operator;
 
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TargetedResponse;
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.llm.search.LlmSemanticCrossover;
@@ -81,7 +82,7 @@ public final class LlmOperatorExecutor {
             new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<DeferredResponse> deferredResponses = new ConcurrentLinkedQueue<>();
     private final Map<TestChromosome, InjectionAttemptMetadata> pendingMetadata = new IdentityHashMap<>();
-    private final Set<String> openAttemptIds = ConcurrentHashMap.newKeySet();
+    private final Set<AttemptTicket> openTickets = ConcurrentHashMap.newKeySet();
     private final AtomicInteger inFlight = new AtomicInteger();
     private final AtomicInteger workerCounter = new AtomicInteger();
     private volatile boolean shutDown = false;
@@ -165,9 +166,9 @@ public final class LlmOperatorExecutor {
         }
         OperatorBatchAttribution attribution = new OperatorBatchAttribution(batch.size());
         for (OperatorTarget target : batch) {
-            String attemptId = registerAttempt(target);
-            attribution.add(target, attemptId);
-            OperatorAttemptLog.getInstance().open(attemptId, generation, target, "ASYNC", batch.size());
+            AttemptTicket ticket = openTicket(target);
+            attribution.add(target, ticket);
+            ticket.openLogRow(generation, target, "ASYNC", batch.size());
         }
 
         inFlight.incrementAndGet();
@@ -182,17 +183,14 @@ public final class LlmOperatorExecutor {
         return true;
     }
 
-    /** Registers {@code target} as its own attempt and tracks it as open; {@code ""} without memory. */
-    private String registerAttempt(OperatorTarget target) {
-        if (memory == null) {
-            return "";
+    /** Registers {@code target} as its own attempt and tracks it as open; untracked without memory. */
+    private AttemptTicket openTicket(OperatorTarget target) {
+        AttemptTicket ticket = AttemptTicket.open(memory,
+                Collections.singletonList(target.toRepeatedInjectionTarget()), true);
+        if (ticket.isTracked()) {
+            openTickets.add(ticket);
         }
-        String attemptId = memory.registerAttempt(
-                Collections.singletonList(target.toRepeatedInjectionTarget()), true).getAttemptId();
-        if (!attemptId.isEmpty()) {
-            openAttemptIds.add(attemptId);
-        }
-        return attemptId;
+        return ticket;
     }
 
     /** Worker-thread body: makes the LLM call, then publishes or releases the batch's attempts. */
@@ -244,29 +242,24 @@ public final class LlmOperatorExecutor {
 
     /** Releases every attempt of {@code attribution} without recording a (mis-attributed) outcome. */
     private void release(OperatorBatchAttribution attribution) {
-        for (String attemptId : attribution.getAttemptIds()) {
-            if (attemptId.isEmpty()) {
-                continue;
-            }
-            openAttemptIds.remove(attemptId);
-            if (memory != null) {
-                memory.releaseUndeliveredAttempt(attemptId);
-            }
+        for (AttemptTicket ticket : attribution.getTickets()) {
+            openTickets.remove(ticket);
+            ticket.release();
         }
     }
 
     /** Records a NO_BUDGET/FAILED response against every target of the batch. */
     private static void recordBatchResponse(TargetedResponse response, OperatorBatchAttribution attribution) {
-        for (String attemptId : attribution.getAttemptIds()) {
-            OperatorAttemptLog.getInstance().recordResponse(attemptId, response.getStatus(), false, false,
+        for (AttemptTicket ticket : attribution.getTickets()) {
+            OperatorAttemptLog.getInstance().recordResponse(ticket.getId(), response.getStatus(), false, false,
                     response.getRepairTurns(), response.getUsage(), null);
         }
     }
 
     /** Abandons a batch that never got a response: records every target as undelivered, then releases the attempts. */
     private void abandon(OperatorBatchAttribution attribution) {
-        for (String attemptId : attribution.getAttemptIds()) {
-            OperatorAttemptLog.getInstance().recordUndelivered(attemptId);
+        for (AttemptTicket ticket : attribution.getTickets()) {
+            OperatorAttemptLog.getInstance().recordUndelivered(ticket.getId());
         }
         release(attribution);
     }
@@ -275,20 +268,20 @@ public final class LlmOperatorExecutor {
         int produced = 0;
         for (int i = 1; i <= attribution.size(); i++) {
             OperatorBatchAttribution.TargetSnapshot snapshot = attribution.snapshot(i - 1);
-            String attemptId = snapshot.getAttemptId();
+            AttemptTicket ticket = snapshot.getTicket();
             TestCase test = mapped.forTarget(i).orElse(null);
-            OperatorAttemptLog.getInstance().recordResponse(attemptId, mapped.getStatus(),
+            OperatorAttemptLog.getInstance().recordResponse(ticket.getId(), mapped.getStatus(),
                     mapped.isParseSucceeded(), test != null, mapped.getRepairTurns(), mapped.getUsage(), test);
             if (test == null) {
                 // Target i is not in the response: judged now, not credited to any candidate.
-                closeAttempt(attemptId, 0);
+                closeAttempt(ticket, 0);
                 continue;
             }
             List<ProblemCardType> cardTypes = snapshot.getCardType() == null
                     ? Collections.<ProblemCardType>emptyList()
                     : Collections.singletonList(snapshot.getCardType());
             InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(
-                    attemptId, cardTypes, Collections.singletonList(snapshot.getGoal()));
+                    ticket, cardTypes, Collections.singletonList(snapshot.getGoal()));
             if (!offer(newChromosome(test, snapshot.getLineages()), metadata)) {
                 return;
             }
@@ -297,7 +290,8 @@ public final class LlmOperatorExecutor {
         for (TestCase test : mapped.unmatched()) {
             // Cannot be tied to one target's attempt; carries the batch's card types/goals only.
             InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(
-                    "", attribution.getCardTypes(), new LinkedHashSet<>(attribution.getGoals()));
+                    AttemptTicket.untracked(), attribution.getCardTypes(),
+                    new LinkedHashSet<>(attribution.getGoals()));
             if (!offer(newChromosome(test, attribution.getLineages()), metadata)) {
                 return;
             }
@@ -323,14 +317,9 @@ public final class LlmOperatorExecutor {
         return true;
     }
 
-    private void closeAttempt(String attemptId, int gainedGoals) {
-        if (attemptId == null || attemptId.isEmpty()) {
-            return;
-        }
-        openAttemptIds.remove(attemptId);
-        if (memory != null) {
-            memory.recordAttemptOutcome(attemptId, gainedGoals);
-        }
+    private void closeAttempt(AttemptTicket ticket, int gainedGoals) {
+        openTickets.remove(ticket);
+        ticket.close(gainedGoals);
     }
 
     /**
@@ -378,14 +367,16 @@ public final class LlmOperatorExecutor {
         }
     }
 
-    /** Removes and returns the attribution metadata for a candidate drawn from {@link #drain()}. */
+    /**
+     * Removes and returns the attribution metadata for a candidate drawn from {@link #drain()}. The
+     * caller now owns the candidate's ticket and must settle it.
+     */
     public InjectionAttemptMetadata consumeAttemptMetadata(TestChromosome candidate) {
-        return candidate == null ? null : pendingMetadata.remove(candidate);
-    }
-
-    /** Reports how many goals a previously produced candidate ended up covering; closes its attempt. */
-    public void reportAttemptOutcome(String attemptId, int gainedGoals) {
-        closeAttempt(attemptId, gainedGoals);
+        InjectionAttemptMetadata metadata = candidate == null ? null : pendingMetadata.remove(candidate);
+        if (metadata != null) {
+            openTickets.remove(metadata.getTicket());
+        }
+        return metadata;
     }
 
     /** Whether another call could be submitted right now (capacity left, not shut down). */
@@ -427,19 +418,19 @@ public final class LlmOperatorExecutor {
         // runBatch's shutDown check keeps an interrupted worker from publishing into these
         // queues afterwards, but a worker that ignores interruption between its shutDown check
         // and adding to a queue could still race the draining below. Any such straggler is not
-        // lost: it stays in openAttemptIds and is picked up by the generic loop that follows.
+        // lost: it stays in openTickets and is picked up by the generic loop that follows.
         //
         // Responses still queued here were delivered (their LLM call returned) but never
         // finished/published, so they are DROPPED with their usage, not released as
         // undelivered.
         DeferredResponse deferred;
         while ((deferred = deferredResponses.poll()) != null) {
-            for (String attemptId : deferred.attribution.getAttemptIds()) {
-                if (attemptId.isEmpty()) {
+            for (AttemptTicket ticket : deferred.attribution.getTickets()) {
+                if (!ticket.isTracked()) {
                     continue;
                 }
-                OperatorAttemptLog.getInstance().recordDropped(attemptId, deferred.usage);
-                closeAttempt(attemptId, 0);
+                OperatorAttemptLog.getInstance().recordDropped(ticket.getId(), deferred.usage);
+                closeAttempt(ticket, 0);
             }
         }
         // Candidates still queued here were already delivered and parsed (their row already
@@ -449,16 +440,14 @@ public final class LlmOperatorExecutor {
         while ((entry = queue.poll()) != null) {
             InjectionAttemptMetadata metadata = entry.getValue();
             if (metadata != null) {
-                closeAttempt(metadata.getAttemptId(), 0);
+                closeAttempt(metadata.getTicket(), 0);
             }
         }
-        for (String attemptId : openAttemptIds) {
-            OperatorAttemptLog.getInstance().recordUndelivered(attemptId);
-            if (memory != null) {
-                memory.releaseUndeliveredAttempt(attemptId);
-            }
+        for (AttemptTicket ticket : openTickets) {
+            OperatorAttemptLog.getInstance().recordUndelivered(ticket.getId());
+            ticket.release();
         }
-        openAttemptIds.clear();
+        openTickets.clear();
         queue.clear();
         pendingMetadata.clear();
         deferredResponses.clear();
@@ -468,7 +457,7 @@ public final class LlmOperatorExecutor {
      * A worker's response that needed the test cluster expanded before it could finish
      * parsing, waiting for {@link #drain()} to complete it via {@link
      * LlmSemanticOperator#reparseWithExpansion}. Its attempts are left open in {@link
-     * #openAttemptIds} until then.
+     * #openTickets} until then.
      */
     private static final class DeferredResponse {
         private final LlmSemanticOperator operator;
