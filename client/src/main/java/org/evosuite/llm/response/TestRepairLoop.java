@@ -793,14 +793,23 @@ public class TestRepairLoop {
             if (!validTests.isEmpty()) {
                 List<ParseResult> compileChecked = new ArrayList<>();
                 for (ParseResult pr : validTests) {
-                    String compileError = checkRenderedCompilation(pr, repairDeadlineNanos);
-                    if (compileError == null) {
-                        compileChecked.add(pr);
-                    } else {
+                    CompileCheck compileCheck = checkRenderedCompilation(pr, repairDeadlineNanos);
+                    if (compileCheck.isRejected()) {
+                        String compileError = compileCheck.getRejection();
                         pr.addDiagnostic(new org.evosuite.testparser.ParseDiagnostic(
                                 org.evosuite.testparser.ParseDiagnostic.Severity.ERROR, compileError, -1, ""));
                         droppedAtParse.add(pr);
                         diagnostics.add(compileError);
+                    } else {
+                        if (compileCheck.isNotJudged()) {
+                            // The check itself could not run: keep the test, as the
+                            // JUnit analyzer does, rather than spend a repair turn on it.
+                            logger.warn("Parse-phase compile check did not run for '{}': {}",
+                                    safeMethodName(pr), compileCheck.getCause());
+                            diagnostics.add("Compile check skipped for parsed test '" + safeMethodName(pr)
+                                    + "': " + compileCheck.getCause());
+                        }
+                        compileChecked.add(pr);
                     }
                 }
                 validTests = compileChecked;
@@ -5183,23 +5192,62 @@ public class TestRepairLoop {
         }
     }
 
-    private String checkRenderedCompilation(ParseResult parseResult, long repairDeadlineNanos) {
+    /**
+     * Outcome of the parse-phase compile probe: the rendered test compiled, javac rejected it, or
+     * the probe could not run (no compiler, timeout, sandbox restriction, internal failure) and
+     * therefore says nothing about the test.
+     */
+    static final class CompileCheck {
+        private static final CompileCheck COMPILED = new CompileCheck(null, null);
+
+        private final String rejection;
+        private final String cause;
+
+        private CompileCheck(String rejection, String cause) {
+            this.rejection = rejection;
+            this.cause = cause;
+        }
+
+        static CompileCheck rejected(String rejection) {
+            return new CompileCheck(rejection, null);
+        }
+
+        static CompileCheck notJudged(String cause) {
+            return new CompileCheck(null, cause);
+        }
+
+        boolean isRejected() {
+            return rejection != null;
+        }
+
+        boolean isNotJudged() {
+            return cause != null;
+        }
+
+        String getRejection() {
+            return rejection;
+        }
+
+        String getCause() {
+            return cause;
+        }
+    }
+
+    private CompileCheck checkRenderedCompilation(ParseResult parseResult, long repairDeadlineNanos) {
         if (parseResult == null || parseResult.getTestCase() == null) {
-            return "Compilation error in parsed test '<unnamed>': missing parsed test case";
+            return CompileCheck.rejected(
+                    "Compilation error in parsed test '<unnamed>': missing parsed test case");
         }
         ensureParseCompileThreadPrivileged();
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            return "Compilation error in parsed test '" + safeMethodName(parseResult)
-                    + "': No Java compiler available in current runtime";
+        if (ToolProvider.getSystemJavaCompiler() == null) {
+            return CompileCheck.notJudged("No Java compiler available in current runtime");
         }
 
         org.evosuite.testcase.TestCodeVisitor visitor = new org.evosuite.testcase.TestCodeVisitor();
         try {
             parseResult.getTestCase().accept(visitor);
         } catch (Throwable t) {
-            return "Compilation error in parsed test '" + safeMethodName(parseResult)
-                    + "': failed to render parsed test code: " + formatThrowable(t);
+            return CompileCheck.notJudged("failed to render parsed test code: " + formatThrowable(t));
         }
         String methodBody = visitor.getCode() == null ? "" : visitor.getCode();
         String source = buildCompilationProbeSource(parseResult, methodBody, visitor.getImports());
@@ -5210,14 +5258,14 @@ public class TestRepairLoop {
             final String method = safeMethodName(parseResult);
             final String finalSource = source;
             future = executor.submit(() -> runRenderedCompilationCheck(method, finalSource));
-            return future.get(parseCompileTimeoutNanos(repairDeadlineNanos), TimeUnit.NANOSECONDS);
+            String rejection = future.get(parseCompileTimeoutNanos(repairDeadlineNanos), TimeUnit.NANOSECONDS);
+            return rejection == null ? CompileCheck.COMPILED : CompileCheck.rejected(rejection);
         } catch (TimeoutException timeout) {
             if (future != null) {
                 future.cancel(true);
             }
             replaceParseCompileExecutor(executor);
-            return "Compilation error in parsed test '" + safeMethodName(parseResult)
-                    + "': parse-phase compile check timed out";
+            return CompileCheck.notJudged("compile check timed out");
         } catch (InterruptedException interrupted) {
             if (future != null) {
                 future.cancel(true);
@@ -5226,29 +5274,14 @@ public class TestRepairLoop {
             Thread.currentThread().interrupt();
             throw new CancellationException("Interrupted during parse-phase compile check");
         } catch (SecurityException securityException) {
-            return "Compilation error in parsed test '" + safeMethodName(parseResult)
-                    + "': parse-phase compile check failed due to sandbox/security restrictions: "
-                    + securityException.getMessage()
-                    + "\nNote: parse-phase compile checks are required; this test cannot be accepted when the check is "
-                            + "unavailable.";
+            return CompileCheck.notJudged("compile check failed due to sandbox/security restrictions: "
+                    + securityException.getMessage());
         } catch (Throwable t) {
             if (isSecurityInfrastructureError(t)) {
-                return "Compilation error in parsed test '" + safeMethodName(parseResult)
-                        + "': parse-phase compile check failed due to security infrastructure error: "
-                        + t.toString()
-                        + "\nNote: parse-phase compile checks are required; this test cannot be accepted when the "
-                                + "check is unavailable.";
+                return CompileCheck.notJudged(
+                        "compile check failed due to security infrastructure error: " + t);
             }
-            return "Compilation error in parsed test '" + safeMethodName(parseResult)
-                    + "': " + formatThrowable(t)
-                    + "\nNote: this error comes from EvoSuite-rendered synthesized test source (after parsing), not "
-                            + "directly from raw LLM text."
-                    + "\nRendered compile-check class excerpt:\n```java\n"
-                    + truncate(source, MAX_TEST_CODE_EXCERPT_CHARS)
-                    + "\n```"
-                    + "\nParsed test code excerpt:\n```java\n"
-                    + truncate(methodBody, MAX_TEST_CODE_EXCERPT_CHARS)
-                    + "\n```";
+            return CompileCheck.notJudged("compile check failed: " + formatThrowable(t));
         }
     }
 
@@ -5343,10 +5376,6 @@ public class TestRepairLoop {
 
     private String runRenderedCompilationCheck(String methodName, String source) throws Exception {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            return "Compilation error in parsed test '" + methodName
-                    + "': No Java compiler available in current runtime";
-        }
         Path tmpDir = null;
         try {
             tmpDir = Files.createTempDirectory("evosuite-llm-parse-compile-");
@@ -5362,7 +5391,7 @@ public class TestRepairLoop {
 
             String classPath = System.getProperty("java.class.path", "");
             int maxPasses = 3;
-            for (int pass = 0; pass <= maxPasses; pass++) {
+            for (int pass = 0; ; pass++) {
                 ByteArrayOutputStream err = new ByteArrayOutputStream();
                 List<String> args = new ArrayList<>();
                 args.add("-proc:none");
@@ -5395,7 +5424,6 @@ public class TestRepairLoop {
                             + "\n```";
                 }
             }
-            return "Compilation check failed"; // Fallback, shouldn't be reached
         } finally {
             if (tmpDir != null) {
                 try {

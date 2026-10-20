@@ -171,12 +171,14 @@ class TestRepairLoopTest {
         compileGate.setAccessible(true);
 
         try {
-            String timedOut = (String) compileGate.invoke(
+            TestRepairLoop.CompileCheck timedOut = (TestRepairLoop.CompileCheck) compileGate.invoke(
                     loop, candidate, System.nanoTime() + 100_000_000L);
-            assertTrue(timedOut.contains("compile check timed out"));
+            assertTrue(timedOut.isNotJudged());
+            assertTrue(timedOut.getCause().contains("compile check timed out"));
 
-            String recovered = (String) compileGate.invoke(loop, candidate, Long.MAX_VALUE);
-            assertNull(recovered,
+            TestRepairLoop.CompileCheck recovered = (TestRepairLoop.CompileCheck) compileGate.invoke(
+                    loop, candidate, Long.MAX_VALUE);
+            assertFalse(recovered.isRejected() || recovered.isNotJudged(),
                     "a timed-out compile worker must not block the replacement executor");
         } finally {
             releaseBlockedWorker.set(true);
@@ -196,12 +198,67 @@ class TestRepairLoopTest {
                 "checkRenderedCompilation", ParseResult.class, long.class);
         compileGate.setAccessible(true);
 
-        String error = (String) compileGate.invoke(loop, candidate, Long.MAX_VALUE);
+        TestRepairLoop.CompileCheck check =
+                (TestRepairLoop.CompileCheck) compileGate.invoke(loop, candidate, Long.MAX_VALUE);
 
-        assertNotNull(error);
+        assertTrue(check.isRejected());
+        String error = check.getRejection();
         assertTrue(error.contains("noSuchSymbolForProbe"), error);
         int fences = error.split("```", -1).length - 1;
         assertEquals(0, fences % 2, "every opened code fence must be closed exactly once: " + error);
+    }
+
+    @Test
+    void testIsKeptWhenCompileCheckCannotRun() {
+        LlmService llmService = mock(LlmService.class);
+        ExecutorService rejectingExecutor = new java.util.concurrent.AbstractExecutorService() {
+            @Override
+            public void shutdown() {
+            }
+
+            @Override
+            public List<Runnable> shutdownNow() {
+                return Collections.emptyList();
+            }
+
+            @Override
+            public boolean isShutdown() {
+                return false;
+            }
+
+            @Override
+            public boolean isTerminated() {
+                return false;
+            }
+
+            @Override
+            public boolean awaitTermination(long timeout, java.util.concurrent.TimeUnit unit) {
+                return true;
+            }
+
+            @Override
+            public void execute(Runnable command) {
+                throw new java.util.concurrent.RejectedExecutionException("compile worker unavailable");
+            }
+        };
+        TestRepairLoop.setParseCompileExecutorForTesting(rejectingExecutor);
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "test"));
+            }
+        };
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService, parser, new LlmResponseParser(), mock(ClusterExpansionManager.class),
+                testCase -> new ExecutionResult(testCase), 2);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess(), "an infrastructure failure of the compile probe must not drop the test");
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
     }
 
     @Test
