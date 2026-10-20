@@ -4,6 +4,7 @@
 package org.evosuite.llm;
 
 import org.evosuite.llm.prompt.DecompiledContextProvider;
+import org.evosuite.llm.prompt.ParsedFewShotExampleSource;
 import org.evosuite.llm.prompt.StaticPromptContext;
 import org.evosuite.llm.prompt.SutContextProviderFactory;
 import org.evosuite.llm.response.TestRepairLoop;
@@ -31,6 +32,9 @@ public final class LlmRunLifecycle {
         cleanup("service", LlmService::closeAndResetForRunCompletion);
         cleanup("SUT context cache", SutContextProviderFactory::resetForRunCompletion);
         cleanup("static prompt context cache", StaticPromptContext::resetForRunCompletion);
+        // Keyed by target class and seed sources, so a rerun of the same class in this JVM would
+        // otherwise reuse test cases loaded by the previous run's classloader.
+        cleanup("parsed few-shot examples", ParsedFewShotExampleSource::reset);
         // These workers exist only when an LLM response can be parsed; a default run must not
         // initialise their classes just to reset them.
         if (LlmRunFeatures.parsePathPossible()) {
