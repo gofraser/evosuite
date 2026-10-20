@@ -60,7 +60,6 @@ public class DmonSystemTest extends SystemTestBase {
         Properties.getInstance().setValue("dmon_asm_fallback", true);
         Properties.getInstance().setValue("dmon_allow_reflection_fallback", true);
         Properties.getInstance().setValue("dmon_promote_in_place", true);
-        Properties.getInstance().setValue("dmon_validate_promoted_once", false);
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         Object result = evosuite.parseCommandLine(command);

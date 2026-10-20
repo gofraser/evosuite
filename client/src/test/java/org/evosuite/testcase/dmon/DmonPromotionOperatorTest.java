@@ -250,7 +250,7 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // Checks the shape of the promoted test, not its validation.
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -267,7 +267,6 @@ public class DmonPromotionOperatorTest {
             DmonPromotionOperator.applyIfNeeded(chromosome, result);
 
             Assert.assertTrue(result.isDmonPromotionConsumed());
-            Assert.assertTrue(chromosome.isChanged());
             Assert.assertEquals(2, chromosome.getTestCase().size());
             Assert.assertTrue(chromosome.getTestCase().getStatement(0) instanceof FunctionalMockStatement);
             Assert.assertTrue(chromosome.getTestCase().getStatement(1) instanceof MethodStatement);
@@ -290,7 +289,7 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // Checks the shape of the promoted test, not its validation.
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -307,7 +306,6 @@ public class DmonPromotionOperatorTest {
             DmonPromotionOperator.applyIfNeeded(chromosome, result);
 
             Assert.assertTrue(result.isDmonPromotionConsumed());
-            Assert.assertTrue(chromosome.isChanged());
             Assert.assertEquals(2, chromosome.getTestCase().size());
             Assert.assertTrue(chromosome.getTestCase().getStatement(0) instanceof FunctionalMockStatement);
             Assert.assertTrue(chromosome.getTestCase().getStatement(1) instanceof AssignmentStatement);
@@ -654,7 +652,7 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // Checks the shape of the promoted test, not its validation.
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = false;
+            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -671,7 +669,6 @@ public class DmonPromotionOperatorTest {
             DmonPromotionOperator.applyIfNeeded(chromosome, result);
 
             Assert.assertTrue(result.isDmonPromotionConsumed());
-            Assert.assertTrue(chromosome.isChanged());
             Assert.assertEquals(3, chromosome.getTestCase().size());
             Assert.assertTrue(chromosome.getTestCase().getStatement(0) instanceof FunctionalMockStatement);
             Assert.assertTrue("Accessor call should be inserted before field write",

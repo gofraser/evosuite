@@ -301,10 +301,6 @@ public final class DmonPromotionOperator {
             for (Statement statement : newStatements) {
                 test.addStatement(statement, insertionIndex++);
             }
-            if (!Properties.DMON_VALIDATE_PROMOTED_ONCE) {
-                individual.setChanged(true);
-                return new PromotionAttempt(originalResult, true, "PROMOTED_PENDING_REEVALUATION");
-            }
             ValidationStaticRestore restore = buildValidationRestore(ownerClass, staticTargetMethod, staticTargetField,
                     instanceAccessor, instanceSetter, instanceField, fieldHint);
             return validateOrRollback(individual, backup, originalResult, restore, plan);

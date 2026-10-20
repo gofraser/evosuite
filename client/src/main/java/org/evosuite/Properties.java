@@ -581,8 +581,10 @@ public class Properties {
     public static boolean DMON_PROMOTE_IN_PLACE = true;
 
     @Parameter(key = "dmon_validate_promoted_once", group = "Test Creation",
-            description = "Immediately re-run once with DMoN disabled after promotion, and roll the promotion back "
-                    + "if the test now throws at an earlier statement, or still hits the null but fails differently")
+            description = "Deprecated, no effect: a DMoN promotion is always validated by re-running the test once "
+                    + "with DMoN disabled, and rolled back if it now throws at an earlier statement or still hits "
+                    + "the null but fails differently. Setting it to false only logs a warning")
+    @Deprecated
     public static boolean DMON_VALIDATE_PROMOTED_ONCE = true;
 
     @Parameter(key = "dmon_max_ephemeral_retries", group = "Test Creation",
@@ -3771,6 +3773,17 @@ public class Properties {
         }
         resolveLlmOperatorModeAlias();
         resolveDmonOnlyTargetClassAlias();
+        warnIfPromotionValidationDisabled();
+    }
+
+    /**
+     * Warns when {@code dmon_validate_promoted_once=false} is set: promotions are always
+     * validated now, so the setting is ignored.
+     */
+    static void warnIfPromotionValidationDisabled() {
+        if (!DMON_VALIDATE_PROMOTED_ONCE) {
+            logger.warn("dmon_validate_promoted_once=false is ignored: DMoN promotions are always validated");
+        }
     }
 
     /**
