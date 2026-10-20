@@ -27,12 +27,13 @@ import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.statistics.RuntimeVariable;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class LlmStatisticsDiagnosticAttributionTest {
 
@@ -174,25 +175,23 @@ class LlmStatisticsDiagnosticAttributionTest {
     }
 
     @Test
-    void concreteProblemCardTypesDoNotMapToAggregateRuntimeVariables() throws Exception {
-        assertPerTypeMapping("toExtractedRuntimeVariable",
-                RuntimeVariable.LLM_Diagnostic_Cards_Extracted,
-                RuntimeVariable.LLM_Diagnostic_Cards_Extracted_TypeNeverAttempted);
-        assertPerTypeMapping("toRuntimeVariable",
-                RuntimeVariable.LLM_Diagnostic_Cards_Selected,
-                RuntimeVariable.LLM_Diagnostic_Cards_TypeNeverAttempted);
-        assertPerTypeMapping("toPublishedCandidateRuntimeVariable",
-                RuntimeVariable.LLM_Diagnostic_Candidates_Published,
-                RuntimeVariable.LLM_Diagnostic_Candidates_Published_TypeNeverAttempted);
-        assertPerTypeMapping("toAdmittedCandidateRuntimeVariable",
-                RuntimeVariable.LLM_Diagnostic_Candidates_Admitted,
-                RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_TypeNeverAttempted);
-        assertPerTypeMapping("toSurvivedCandidateRuntimeVariable",
-                RuntimeVariable.LLM_Diagnostic_Candidates_Survived,
-                RuntimeVariable.LLM_Diagnostic_Candidates_Survived_TypeNeverAttempted);
-        assertPerTypeMapping("toCoverageGainRuntimeVariable",
-                RuntimeVariable.LLM_Diagnostic_Coverage_Gains,
-                RuntimeVariable.LLM_Diagnostic_Coverage_Gains_TypeNeverAttempted);
+    void everyStageHasADedicatedColumnForEveryProblemCardType() {
+        for (DiagnosticStage stage : DiagnosticStage.values()) {
+            for (ProblemCardType type : ProblemCardType.values()) {
+                RuntimeVariable column = stage.counters().column(type);
+                assertNotNull(column, stage + " has no column for " + type);
+                assertNotEquals(stage.counters().totalColumn(), column,
+                        type + " must have a dedicated per-type runtime variable in " + stage);
+            }
+        }
+        assertEquals(RuntimeVariable.LLM_Diagnostic_Cards_Extracted_TypeNeverAttempted,
+                DiagnosticStage.EXTRACTED.counters().column(ProblemCardType.TYPE_NEVER_ATTEMPTED));
+        assertEquals(RuntimeVariable.LLM_Diagnostic_Cards_TypeNeverAttempted,
+                DiagnosticStage.SELECTED.counters().column(ProblemCardType.TYPE_NEVER_ATTEMPTED));
+        assertEquals(RuntimeVariable.LLM_Diagnostic_Candidates_Survived_TypeNeverAttempted,
+                DiagnosticStage.SURVIVED.counters().column(ProblemCardType.TYPE_NEVER_ATTEMPTED));
+        assertEquals(RuntimeVariable.LLM_Diagnostic_Coverage_Gains_TypeNeverAttempted,
+                DiagnosticStage.COVERAGE_GAIN.counters().column(ProblemCardType.TYPE_NEVER_ATTEMPTED));
     }
 
     @Test
@@ -268,23 +267,5 @@ class LlmStatisticsDiagnosticAttributionTest {
                 .blockage(0.8)
                 .confidence(0.9)
                 .build();
-    }
-
-    private static void assertPerTypeMapping(String methodName,
-                                             RuntimeVariable aggregateVariable,
-                                             RuntimeVariable expectedTypeNeverAttemptedVariable) throws Exception {
-        Method method = LlmStatistics.class.getDeclaredMethod(methodName, ProblemCardType.class);
-        method.setAccessible(true);
-
-        for (ProblemCardType type : ProblemCardType.values()) {
-            RuntimeVariable mapped = (RuntimeVariable) method.invoke(null, type);
-            if (type == ProblemCardType.TYPE_NEVER_ATTEMPTED) {
-                assertEquals(expectedTypeNeverAttemptedVariable, mapped);
-            }
-            if (type != null) {
-                org.junit.jupiter.api.Assertions.assertNotEquals(aggregateVariable, mapped,
-                        type + " must have a dedicated per-type runtime variable");
-            }
-        }
     }
 }

@@ -31,12 +31,19 @@ import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Aggregated runtime metrics for LLM usage.
@@ -59,49 +66,16 @@ public class LlmStatistics {
     private static final AtomicLong objectPoolSequencesAdded = new AtomicLong();
     private static final AtomicLong castClassSuggestions = new AtomicLong();
     private static final AtomicLong castClassesAccepted = new AtomicLong();
-    private static final AtomicLong diagnosticCardsExtracted = new AtomicLong();
-    private static final AtomicLong diagnosticCardsSelected = new AtomicLong();
     private static final AtomicLong diagnosticCardsDiscarded = new AtomicLong();
     private static final AtomicLong diagnosticCardsDeduplicated = new AtomicLong();
-    private static final AtomicLong diagnosticCoverageGains = new AtomicLong();
-    private static final AtomicLong diagnosticCandidatesPublished = new AtomicLong();
-    private static final AtomicLong diagnosticCandidatesAdmitted = new AtomicLong();
-    private static final AtomicLong diagnosticCandidatesSurvived = new AtomicLong();
     private static final AtomicLong diagnosticCoverageGainAttributionAmbiguous = new AtomicLong();
     private static final AtomicLong diagnosticCoverageGainAttributionAmbiguousGoals = new AtomicLong();
-    private static final Map<ExtractorCandidateMetric, AtomicLong> diagnosticExtractorCandidates =
-            new EnumMap<>(ExtractorCandidateMetric.class);
-    private static final Map<ExtractorRejectReason, AtomicLong> diagnosticExtractorRejects =
-            new EnumMap<>(ExtractorRejectReason.class);
-    private static final Map<ProblemCardType, AtomicLong> diagnosticCardsExtractedByType =
-            new EnumMap<>(ProblemCardType.class);
-    private static final Map<ProblemCardType, AtomicLong> diagnosticCardsByType =
-            new EnumMap<>(ProblemCardType.class);
-    private static final Map<ProblemCardType, AtomicLong> diagnosticCoverageGainsByType =
-            new EnumMap<>(ProblemCardType.class);
-    private static final Map<ProblemCardType, AtomicLong> diagnosticCandidatesPublishedByType =
-            new EnumMap<>(ProblemCardType.class);
-    private static final Map<ProblemCardType, AtomicLong> diagnosticCandidatesAdmittedByType =
-            new EnumMap<>(ProblemCardType.class);
-    private static final Map<ProblemCardType, AtomicLong> diagnosticCandidatesSurvivedByType =
-            new EnumMap<>(ProblemCardType.class);
-
-    static {
-        for (ProblemCardType type : ProblemCardType.values()) {
-            diagnosticCardsExtractedByType.put(type, new AtomicLong());
-            diagnosticCardsByType.put(type, new AtomicLong());
-            diagnosticCoverageGainsByType.put(type, new AtomicLong());
-            diagnosticCandidatesPublishedByType.put(type, new AtomicLong());
-            diagnosticCandidatesAdmittedByType.put(type, new AtomicLong());
-            diagnosticCandidatesSurvivedByType.put(type, new AtomicLong());
-        }
-        for (ExtractorCandidateMetric metric : ExtractorCandidateMetric.values()) {
-            diagnosticExtractorCandidates.put(metric, new AtomicLong());
-        }
-        for (ExtractorRejectReason reason : ExtractorRejectReason.values()) {
-            diagnosticExtractorRejects.put(reason, new AtomicLong());
-        }
-    }
+    private static final ColumnCounters<ExtractorCandidateMetric> diagnosticExtractorCandidates =
+            new ColumnCounters<>(ExtractorCandidateMetric.class, null, "LLM_Diagnostic_Extractor_Candidates_");
+    private static final ColumnCounters<ExtractorRejectReason> diagnosticExtractorRejects =
+            new ColumnCounters<>(ExtractorRejectReason.class, null, "LLM_Diagnostic_Extractor_Rejects_");
+    private static final Map<LlmFeature, RuntimeVariable> cachedInputTokensVariables =
+            ColumnCounters.columns(LlmFeature.class, "LLM_", "_Cached_Input_Tokens");
 
     /** Resets all pre-search timing counters (test/utility use). */
     public static void resetEnrichmentElapsedMs() {
@@ -221,54 +195,44 @@ public class LlmStatistics {
      * outside the mutable seed managers so cleanup cannot erase accepted counts.
      */
     public static void flushSeedingMetrics() {
-        ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, getCastClassSuggestions());
-        ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, getCastClassesAccepted());
-        ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, getSutConstantsAdded());
-        ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, getNonSutConstantsAdded());
-        ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, getObjectPoolSequencesAdded());
-        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Validated,
-                getInitialPopulationCandidatesValidated());
-        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Queued,
-                getInitialPopulationCandidatesQueued());
-        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Injected,
-                getInitialPopulationCandidatesInjected());
+        for (Metric metric : METRICS) {
+            if (metric.seeding) {
+                ClientServices.track(metric.variable, metric.reader.apply(Publication.NONE));
+            }
+        }
     }
 
     /** Records all extracted problem cards before selection/truncation. */
     public static void recordDiagnosticCardsExtracted(Collection<ProblemCard> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return;
-        }
-        long added = 0L;
-        for (ProblemCard card : cards) {
-            if (card == null || card.getType() == null) {
-                continue;
-            }
-            added++;
-            AtomicLong byType = diagnosticCardsExtractedByType.get(card.getType());
-            if (byType != null) {
-                ClientServices.track(toExtractedRuntimeVariable(card.getType()), byType.incrementAndGet());
-            }
-        }
-        if (added > 0L) {
-            ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted,
-                    diagnosticCardsExtracted.addAndGet(added));
-        }
+        recordDiagnosticCards(DiagnosticStage.EXTRACTED, cards);
     }
 
     /** Returns the total number of extracted diagnostic cards. */
     public static long getDiagnosticCardsExtracted() {
-        return diagnosticCardsExtracted.get();
+        return DiagnosticStage.EXTRACTED.counters().total();
     }
 
     /** Returns extracted-card count for a specific problem-card type. */
     public static long getDiagnosticCardsExtracted(ProblemCardType type) {
-        AtomicLong counter = diagnosticCardsExtractedByType.get(type);
-        return counter == null ? 0L : counter.get();
+        return DiagnosticStage.EXTRACTED.counters().get(type);
     }
 
     /** Records selected problem cards from a diagnostic stagnation prompt. */
     public static void recordDiagnosticCardsSelected(Collection<ProblemCard> cards) {
+        recordDiagnosticCards(DiagnosticStage.SELECTED, cards);
+    }
+
+    /** Returns the total number of selected diagnostic cards. */
+    public static long getDiagnosticCardsSelected() {
+        return DiagnosticStage.SELECTED.counters().total();
+    }
+
+    /** Returns selected-card count for a specific problem-card type. */
+    public static long getDiagnosticCardsSelected(ProblemCardType type) {
+        return DiagnosticStage.SELECTED.counters().get(type);
+    }
+
+    private static void recordDiagnosticCards(DiagnosticStage stage, Collection<ProblemCard> cards) {
         if (cards == null || cards.isEmpty()) {
             return;
         }
@@ -278,26 +242,11 @@ public class LlmStatistics {
                 continue;
             }
             added++;
-            AtomicLong byType = diagnosticCardsByType.get(card.getType());
-            if (byType != null) {
-                ClientServices.track(toRuntimeVariable(card.getType()), byType.incrementAndGet());
-            }
+            stage.counters().add(card.getType(), 1L);
         }
         if (added > 0L) {
-            ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Selected,
-                    diagnosticCardsSelected.addAndGet(added));
+            stage.counters().addToTotal(added);
         }
-    }
-
-    /** Returns the total number of selected diagnostic cards. */
-    public static long getDiagnosticCardsSelected() {
-        return diagnosticCardsSelected.get();
-    }
-
-    /** Returns selected-card count for a specific problem-card type. */
-    public static long getDiagnosticCardsSelected(ProblemCardType type) {
-        AtomicLong counter = diagnosticCardsByType.get(type);
-        return counter == null ? 0L : counter.get();
     }
 
     /** Records discarded cards after selector deduplication/diversification. */
@@ -342,19 +291,15 @@ public class LlmStatistics {
      * @param candidateCount the number of candidates to add
      */
     public static void recordDiagnosticCandidatesPublished(Collection<ProblemCardType> cardTypes, int candidateCount) {
-        recordDiagnosticCandidateStage(cardTypes, candidateCount,
-                diagnosticCandidatesPublished,
-                RuntimeVariable.LLM_Diagnostic_Candidates_Published,
-                diagnosticCandidatesPublishedByType,
-                StageRuntimeVariable.PUBLISHED);
+        recordDiagnosticCandidateStage(DiagnosticStage.PUBLISHED, cardTypes, candidateCount);
     }
 
     public static long getDiagnosticCandidatesPublished() {
-        return diagnosticCandidatesPublished.get();
+        return DiagnosticStage.PUBLISHED.counters().total();
     }
 
     public static long getDiagnosticCandidatesPublished(ProblemCardType type) {
-        return getCounterValue(diagnosticCandidatesPublishedByType, type);
+        return DiagnosticStage.PUBLISHED.counters().get(type);
     }
 
     /**
@@ -364,19 +309,15 @@ public class LlmStatistics {
      * @param candidateCount the number of candidates to add
      */
     public static void recordDiagnosticCandidatesAdmitted(Collection<ProblemCardType> cardTypes, int candidateCount) {
-        recordDiagnosticCandidateStage(cardTypes, candidateCount,
-                diagnosticCandidatesAdmitted,
-                RuntimeVariable.LLM_Diagnostic_Candidates_Admitted,
-                diagnosticCandidatesAdmittedByType,
-                StageRuntimeVariable.ADMITTED);
+        recordDiagnosticCandidateStage(DiagnosticStage.ADMITTED, cardTypes, candidateCount);
     }
 
     public static long getDiagnosticCandidatesAdmitted() {
-        return diagnosticCandidatesAdmitted.get();
+        return DiagnosticStage.ADMITTED.counters().total();
     }
 
     public static long getDiagnosticCandidatesAdmitted(ProblemCardType type) {
-        return getCounterValue(diagnosticCandidatesAdmittedByType, type);
+        return DiagnosticStage.ADMITTED.counters().get(type);
     }
 
     /**
@@ -386,19 +327,15 @@ public class LlmStatistics {
      * @param candidateCount the number of candidates to add
      */
     public static void recordDiagnosticCandidatesSurvived(Collection<ProblemCardType> cardTypes, int candidateCount) {
-        recordDiagnosticCandidateStage(cardTypes, candidateCount,
-                diagnosticCandidatesSurvived,
-                RuntimeVariable.LLM_Diagnostic_Candidates_Survived,
-                diagnosticCandidatesSurvivedByType,
-                StageRuntimeVariable.SURVIVED);
+        recordDiagnosticCandidateStage(DiagnosticStage.SURVIVED, cardTypes, candidateCount);
     }
 
     public static long getDiagnosticCandidatesSurvived() {
-        return diagnosticCandidatesSurvived.get();
+        return DiagnosticStage.SURVIVED.counters().total();
     }
 
     public static long getDiagnosticCandidatesSurvived(ProblemCardType type) {
-        return getCounterValue(diagnosticCandidatesSurvivedByType, type);
+        return DiagnosticStage.SURVIVED.counters().get(type);
     }
 
     /**
@@ -407,20 +344,7 @@ public class LlmStatistics {
      * @param rejectCounts the number of rejected candidates per reason; null or empty is ignored
      */
     public static void recordDiagnosticExtractorRejects(Map<ExtractorRejectReason, Integer> rejectCounts) {
-        if (rejectCounts == null || rejectCounts.isEmpty()) {
-            return;
-        }
-        for (Map.Entry<ExtractorRejectReason, Integer> entry : rejectCounts.entrySet()) {
-            if (entry.getKey() == null || entry.getValue() == null || entry.getValue() <= 0) {
-                continue;
-            }
-            AtomicLong counter = diagnosticExtractorRejects.get(entry.getKey());
-            if (counter == null) {
-                continue;
-            }
-            ClientServices.track(toExtractorRejectRuntimeVariable(entry.getKey()),
-                    counter.addAndGet(entry.getValue()));
-        }
+        addPositive(diagnosticExtractorRejects, rejectCounts);
     }
 
     /**
@@ -429,68 +353,40 @@ public class LlmStatistics {
      * @param candidateCounts the number of candidates per metric; null or empty is ignored
      */
     public static void recordDiagnosticExtractorCandidates(Map<ExtractorCandidateMetric, Integer> candidateCounts) {
-        if (candidateCounts == null || candidateCounts.isEmpty()) {
+        addPositive(diagnosticExtractorCandidates, candidateCounts);
+    }
+
+    private static <E extends Enum<E>> void addPositive(ColumnCounters<E> counters, Map<E, Integer> counts) {
+        if (counts == null || counts.isEmpty()) {
             return;
         }
-        for (Map.Entry<ExtractorCandidateMetric, Integer> entry : candidateCounts.entrySet()) {
+        for (Map.Entry<E, Integer> entry : counts.entrySet()) {
             if (entry.getKey() == null || entry.getValue() == null || entry.getValue() <= 0) {
                 continue;
             }
-            AtomicLong counter = diagnosticExtractorCandidates.get(entry.getKey());
-            if (counter == null) {
-                continue;
-            }
-            ClientServices.track(toExtractorCandidateRuntimeVariable(entry.getKey()),
-                    counter.addAndGet(entry.getValue()));
+            counters.add(entry.getKey(), entry.getValue());
         }
     }
 
     public static long getDiagnosticExtractorCandidates(ExtractorCandidateMetric metric) {
-        AtomicLong counter = diagnosticExtractorCandidates.get(metric);
-        return counter == null ? 0L : counter.get();
+        return diagnosticExtractorCandidates.get(metric);
     }
 
     public static long getDiagnosticExtractorRejects(ExtractorRejectReason reason) {
-        AtomicLong counter = diagnosticExtractorRejects.get(reason);
-        return counter == null ? 0L : counter.get();
+        return diagnosticExtractorRejects.get(reason);
     }
 
     /** Resets diagnostic-card counters (test/utility use). */
     public static void resetDiagnosticCardCounters() {
-        diagnosticCardsExtracted.set(0L);
-        diagnosticCardsSelected.set(0L);
         diagnosticCardsDiscarded.set(0L);
         diagnosticCardsDeduplicated.set(0L);
-        diagnosticCoverageGains.set(0L);
-        diagnosticCandidatesPublished.set(0L);
-        diagnosticCandidatesAdmitted.set(0L);
-        diagnosticCandidatesSurvived.set(0L);
         diagnosticCoverageGainAttributionAmbiguous.set(0L);
         diagnosticCoverageGainAttributionAmbiguousGoals.set(0L);
-        for (AtomicLong counter : diagnosticCardsExtractedByType.values()) {
-            counter.set(0L);
+        for (DiagnosticStage stage : DiagnosticStage.values()) {
+            stage.counters().reset();
         }
-        for (AtomicLong counter : diagnosticCardsByType.values()) {
-            counter.set(0L);
-        }
-        for (AtomicLong counter : diagnosticCoverageGainsByType.values()) {
-            counter.set(0L);
-        }
-        for (AtomicLong counter : diagnosticCandidatesPublishedByType.values()) {
-            counter.set(0L);
-        }
-        for (AtomicLong counter : diagnosticCandidatesAdmittedByType.values()) {
-            counter.set(0L);
-        }
-        for (AtomicLong counter : diagnosticCandidatesSurvivedByType.values()) {
-            counter.set(0L);
-        }
-        for (AtomicLong counter : diagnosticExtractorCandidates.values()) {
-            counter.set(0L);
-        }
-        for (AtomicLong counter : diagnosticExtractorRejects.values()) {
-            counter.set(0L);
-        }
+        diagnosticExtractorCandidates.reset();
+        diagnosticExtractorRejects.reset();
     }
 
     /**
@@ -511,25 +407,19 @@ public class LlmStatistics {
         if (type == null || gain <= 0) {
             return;
         }
-        AtomicLong byType = diagnosticCoverageGainsByType.get(type);
-        if (byType == null) {
-            return;
-        }
-        long added = gain;
-        ClientServices.track(toCoverageGainRuntimeVariable(type), byType.addAndGet(added));
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gains,
-                diagnosticCoverageGains.addAndGet(added));
+        ColumnCounters<ProblemCardType> gains = DiagnosticStage.COVERAGE_GAIN.counters();
+        gains.add(type, gain);
+        gains.addToTotal(gain);
     }
 
     /** Returns the total number of uncovered-goal gains attributed to diagnostic cards. */
     public static long getDiagnosticCoverageGains() {
-        return diagnosticCoverageGains.get();
+        return DiagnosticStage.COVERAGE_GAIN.counters().total();
     }
 
     /** Returns attributed uncovered-goal gains for a specific diagnostic-card type. */
     public static long getDiagnosticCoverageGains(ProblemCardType type) {
-        AtomicLong counter = diagnosticCoverageGainsByType.get(type);
-        return counter == null ? 0L : counter.get();
+        return DiagnosticStage.COVERAGE_GAIN.counters().get(type);
     }
 
     /**
@@ -710,102 +600,233 @@ public class LlmStatistics {
         return snapshots;
     }
 
-    /** Returns the per-feature cached-input-tokens runtime variable for {@code feature}. */
-    static RuntimeVariable cachedInputTokensVariable(LlmFeature feature) {
-        if (feature == null) {
-            return RuntimeVariable.LLM_Cached_Input_Tokens;
+    /** What a metric reads when it is published: one service, its feature snapshots and their operator sums. */
+    private static final class Publication {
+        static final Publication NONE = new Publication(null, Collections.emptyMap());
+
+        final LlmStatistics service;
+        final Map<LlmFeature, FeatureSnapshot> features;
+        final OperatorFeatureTotals operator;
+
+        Publication(LlmStatistics service, Map<LlmFeature, FeatureSnapshot> features) {
+            this.service = service;
+            this.features = features;
+            this.operator = OperatorFeatureTotals.of(features);
         }
-        switch (feature) {
-            case SEEDING:
-                return RuntimeVariable.LLM_Seeding_Cached_Input_Tokens;
-            case TEST_FACTORY:
-                return RuntimeVariable.LLM_TestFactory_Cached_Input_Tokens;
-            case ASYNC_PRODUCER:
-                return RuntimeVariable.LLM_AsyncProducer_Cached_Input_Tokens;
-            case STAGNATION:
-                return RuntimeVariable.LLM_Stagnation_Cached_Input_Tokens;
-            case CONSTANT_POOL_ENRICHMENT:
-                return RuntimeVariable.LLM_ConstantPoolEnrichment_Cached_Input_Tokens;
-            case OBJECT_POOL_ENRICHMENT:
-                return RuntimeVariable.LLM_ObjectPoolEnrichment_Cached_Input_Tokens;
-            case CAST_CLASS_ENRICHMENT:
-                return RuntimeVariable.LLM_CastClassEnrichment_Cached_Input_Tokens;
-            case TEST_REPAIR:
-                return RuntimeVariable.LLM_TestRepair_Cached_Input_Tokens;
-            case POST_PROCESSING:
-                return RuntimeVariable.LLM_PostProcessing_Cached_Input_Tokens;
-            case SEMANTIC_MUTATION:
-                return RuntimeVariable.LLM_SemanticMutation_Cached_Input_Tokens;
-            case SEMANTIC_CROSSOVER:
-                return RuntimeVariable.LLM_SemanticCrossover_Cached_Input_Tokens;
-            case ITERATIVE_STRATEGY:
-                return RuntimeVariable.LLM_IterativeStrategy_Cached_Input_Tokens;
-            default:
-                throw new IllegalArgumentException("Unhandled LLM feature: " + feature);
+
+        long cachedInputTokens(LlmFeature feature) {
+            FeatureSnapshot snapshot = features.get(feature);
+            return snapshot == null ? 0L : snapshot.getCachedInputTokens();
         }
+    }
+
+    /**
+     * One runtime variable of the LLM statistics: the default it has before the search and, for the
+     * variables this class owns, how to read its final value. A variable without a reader is
+     * published by the component that tracks it during the run.
+     */
+    private static final class Metric {
+        final RuntimeVariable variable;
+        final Object defaultValue;
+        final Function<Publication, Object> reader;
+        final boolean seeding;
+
+        Metric(RuntimeVariable variable, Object defaultValue, Function<Publication, Object> reader,
+               boolean seeding) {
+            this.variable = variable;
+            this.defaultValue = defaultValue;
+            this.reader = reader;
+            this.seeding = seeding;
+        }
+    }
+
+    /** Collects the metrics and rejects a variable that is listed twice. */
+    private static final class MetricList {
+        private final List<Metric> metrics = new ArrayList<>();
+        private final Set<RuntimeVariable> variables = EnumSet.noneOf(RuntimeVariable.class);
+
+        /** A variable that only has a default. */
+        void defaultOnly(RuntimeVariable variable, Object defaultValue) {
+            add(new Metric(variable, defaultValue, null, false));
+        }
+
+        /** A variable read from the service or the process-wide counters when it is published. */
+        void published(RuntimeVariable variable, Object defaultValue, Function<Publication, Object> reader) {
+            add(new Metric(variable, defaultValue, reader, false));
+        }
+
+        /** A process-wide seeding counter, which {@link #flushSeedingMetrics()} publishes on its own. */
+        void seeding(RuntimeVariable variable, Supplier<Long> counter) {
+            add(new Metric(variable, 0, publication -> counter.get(), true));
+        }
+
+        /** The columns of a table of counters, including its total if it has one. */
+        <E extends Enum<E>> void counters(ColumnCounters<E> counters) {
+            if (counters.totalColumn() != null) {
+                published(counters.totalColumn(), 0, publication -> counters.total());
+            }
+            for (E key : counters.keys()) {
+                published(counters.column(key), 0, publication -> counters.get(key));
+            }
+        }
+
+        private void add(Metric metric) {
+            if (!variables.add(metric.variable)) {
+                throw new IllegalStateException("Listed twice: " + metric.variable);
+            }
+            metrics.add(metric);
+        }
+
+        List<Metric> build() {
+            return Collections.unmodifiableList(metrics);
+        }
+    }
+
+    /**
+     * Every runtime variable of the LLM statistics, with its default and its reader. The defaults
+     * are published before the search in every mode and the readers at the end of a run with a
+     * provider, so a variable is present in the output whether or not its feature ran.
+     */
+    private static final List<Metric> METRICS = metrics();
+
+    private static List<Metric> metrics() {
+        MetricList m = new MetricList();
+        m.published(RuntimeVariable.LLM_Model, "", p -> p.service.configuredModel);
+        m.published(RuntimeVariable.LLM_Operator_Model, "", p -> p.service.configuredOperatorModel);
+        m.published(RuntimeVariable.LLM_Calls, 0, p -> p.service.getTotalCalls());
+        m.published(RuntimeVariable.LLM_Calls_Succeeded, 0, p -> p.service.getSuccessfulCalls());
+        m.published(RuntimeVariable.LLM_Calls_Failed, 0, p -> p.service.getFailedCalls());
+        m.published(RuntimeVariable.LLM_Calls_TimedOut, 0, p -> p.service.getTimedOutCalls());
+        m.published(RuntimeVariable.LLM_Input_Tokens, 0, p -> p.service.getInputTokens());
+        m.published(RuntimeVariable.LLM_Cached_Input_Tokens, 0, p -> p.service.getCachedInputTokens());
+        m.published(RuntimeVariable.LLM_Output_Tokens, 0, p -> p.service.getOutputTokens());
+        m.published(RuntimeVariable.LLM_Latency_Millis, 0, p -> p.service.getTotalLatencyMs());
+        for (Map.Entry<LlmFeature, RuntimeVariable> column : cachedInputTokensVariables.entrySet()) {
+            LlmFeature feature = column.getKey();
+            m.published(column.getValue(), 0, p -> p.cachedInputTokens(feature));
+        }
+        m.published(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, 0, p -> getPoolEnrichmentElapsedMs());
+        m.published(RuntimeVariable.LLM_Pool_Enrichment_Elapsed_Millis, 0, p -> getPoolEnrichmentElapsedMs());
+        m.published(RuntimeVariable.LLM_Initial_Population_Elapsed_Millis, 0,
+                p -> getInitialPopulationElapsedMs());
+        m.published(RuntimeVariable.LLM_Total_Pre_Search_Elapsed_Millis, 0, p -> getTotalPreSearchElapsedMs());
+        m.seeding(RuntimeVariable.LLM_Cast_Class_Suggestions, LlmStatistics::getCastClassSuggestions);
+        m.seeding(RuntimeVariable.LLM_Cast_Class_Accepted, LlmStatistics::getCastClassesAccepted);
+        m.seeding(RuntimeVariable.LLM_Constants_Added_SUT, LlmStatistics::getSutConstantsAdded);
+        m.seeding(RuntimeVariable.LLM_Constants_Added_NonSUT, LlmStatistics::getNonSutConstantsAdded);
+        m.seeding(RuntimeVariable.LLM_Object_Pool_Sequences_Added, LlmStatistics::getObjectPoolSequencesAdded);
+        m.seeding(RuntimeVariable.LLM_Initial_Population_Candidates_Validated,
+                LlmStatistics::getInitialPopulationCandidatesValidated);
+        m.seeding(RuntimeVariable.LLM_Initial_Population_Candidates_Queued,
+                LlmStatistics::getInitialPopulationCandidatesQueued);
+        m.seeding(RuntimeVariable.LLM_Initial_Population_Candidates_Injected,
+                LlmStatistics::getInitialPopulationCandidatesInjected);
+
+        m.published(RuntimeVariable.LLM_Diagnostic_Cards_Discarded, 0, p -> getDiagnosticCardsDiscarded());
+        m.published(RuntimeVariable.LLM_Diagnostic_Cards_Deduplicated, 0, p -> getDiagnosticCardsDeduplicated());
+        m.published(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous, 0,
+                p -> getDiagnosticCoverageGainAttributionAmbiguous());
+        m.published(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous_Goals, 0,
+                p -> getDiagnosticCoverageGainAttributionAmbiguousGoals());
+        for (DiagnosticStage stage : DiagnosticStage.values()) {
+            m.counters(stage.counters());
+        }
+        m.counters(diagnosticExtractorCandidates);
+        m.counters(diagnosticExtractorRejects);
+
+        m.published(RuntimeVariable.LLM_Operator_Calls, 0, p -> p.operator.calls);
+        m.published(RuntimeVariable.LLM_Operator_Input_Tokens, 0, p -> p.operator.inputTokens);
+        m.published(RuntimeVariable.LLM_Operator_Cached_Input_Tokens, 0, p -> p.operator.cachedInputTokens);
+        m.published(RuntimeVariable.LLM_Operator_Output_Tokens, 0, p -> p.operator.outputTokens);
+        m.published(RuntimeVariable.LLM_Operator_Latency_Millis, 0, p -> p.operator.latencyMs);
+
+        // Tracked by other components during the run; these are only the defaults.
+        m.defaultOnly(RuntimeVariable.LLM_All_Candidates_Dropped_Execution, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Semantic_Mutations, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Semantic_Mutation_Fallbacks, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Semantic_Crossovers, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Semantic_Crossover_Fallbacks, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Parsed_Statement_Ratio, 0.0);
+        m.defaultOnly(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline, 0.0);
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Iterations, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Rounds, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Exit_Reason, "");
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Parse_Failures, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_New_Goals_Timeline, "");
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Coverage_Timeline, "");
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Tests_Parsed, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Tests_Unique, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Duplicates, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Strategy_Assertions_Retained, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Strategy_Tests_With_Assertions, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Round_Elapsed_Millis_Timeline, "");
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Query_Latency_Millis_Timeline, "");
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Suite_Size_Timeline, "");
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Suite_Length_Timeline, "");
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Tests_Parsed_Timeline, "");
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Tests_Unique_Timeline, "");
+        m.defaultOnly(RuntimeVariable.LLM_Iterative_Target_Goals_Timeline, "");
+        m.defaultOnly(RuntimeVariable.LLM_StagnationCalls, 0);
+        m.defaultOnly(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls, 0);
+        m.defaultOnly(RuntimeVariable.LLM_AsyncProducer_Cards_Used, 0);
+        m.defaultOnly(RuntimeVariable.LLM_AsyncProducer_LoopIterations, 0);
+        m.defaultOnly(RuntimeVariable.LLM_AsyncProducer_Stopped_Reason, "");
+        m.defaultOnly(RuntimeVariable.LLM_StagnationPromptsSubmitted, 0);
+        m.defaultOnly(RuntimeVariable.LLM_StagnationResponsesReceived, 0);
+        m.defaultOnly(RuntimeVariable.LLM_StagnationTestsPublished, 0);
+        m.defaultOnly(RuntimeVariable.LLM_StagnationLatencyMsTotal, 0);
+        m.defaultOnly(RuntimeVariable.LLM_StagnationBlockedMsTotal, 0);
+        m.defaultOnly(RuntimeVariable.LLM_StagnationInFlightGenerations, 0);
+        m.defaultOnly(RuntimeVariable.LLM_StagnationSkippedBudget, 0);
+        m.defaultOnly(RuntimeVariable.LLM_StagnationSkippedInFlight, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Injected_Candidates_OrphanFiltered, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Injected_Candidates_Deduplicated, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Injected_Candidates_Admitted, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Injected_Candidates_Survived, 0);
+        m.defaultOnly(RuntimeVariable.Species_Largest_Share_Timeline, 0.0);
+        m.defaultOnly(RuntimeVariable.Species_Count_Timeline, 0);
+        m.defaultOnly(RuntimeVariable.Species_Quota_Protected_Timeline, 0);
+        m.defaultOnly(RuntimeVariable.Species_Newborn_Protected_Timeline, 0);
+        m.defaultOnly(RuntimeVariable.Species_Incubator_Protected_Timeline, 0);
+        m.defaultOnly(RuntimeVariable.Species_Sharing_Adjusted_Timeline, 0);
+        m.defaultOnly(RuntimeVariable.DiversityTimeline, 0.0);
+        m.defaultOnly(RuntimeVariable.Covered_Goals_Timeline, 0);
+        m.defaultOnly(RuntimeVariable.Remaining_Goals_Timeline, 0);
+        m.defaultOnly(RuntimeVariable.Fronts_Count_Timeline, 0);
+        m.defaultOnly(RuntimeVariable.Disruption_Events_Total, 0);
+        m.defaultOnly(RuntimeVariable.Disruption_Standard_Mutations, 0);
+        m.defaultOnly(RuntimeVariable.Disruption_Semantic_Mutations, 0);
+        m.defaultOnly(RuntimeVariable.Disruption_Standard_Crossovers, 0);
+        m.defaultOnly(RuntimeVariable.Disruption_Semantic_Crossovers, 0);
+        m.defaultOnly(RuntimeVariable.Disruption_Semantic_Fallbacks, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Targets_Selected, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Targets_Mutation, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Targets_Crossover, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Calls_Dropped_Budget, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Calls_Dropped_InFlight, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Calls_Dropped_Time, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Calls_Failed, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Offspring_Parsed, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Offspring_Admitted, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Offspring_Survived, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Target_Hits, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Target_Improved, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_InFlight_Generations, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Candidates_StaleTarget, 0);
+        m.defaultOnly(RuntimeVariable.LLM_Operator_Sidecar_Path, "");
+        return m.build();
     }
 
     /** Publishes collected LLM statistics as EvoSuite runtime variables. */
     public void publishRuntimeVariables() {
         // Do not reset counters here: they are accumulated during the run and
         // must be published as-is at shutdown.
-        ClientServices.track(RuntimeVariable.LLM_Model, configuredModel);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Model, configuredOperatorModel);
-        ClientServices.track(RuntimeVariable.LLM_Calls, getTotalCalls());
-        ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, getSuccessfulCalls());
-        ClientServices.track(RuntimeVariable.LLM_Calls_Failed, getFailedCalls());
-        ClientServices.track(RuntimeVariable.LLM_Calls_TimedOut, getTimedOutCalls());
-        ClientServices.track(RuntimeVariable.LLM_Input_Tokens, getInputTokens());
-        ClientServices.track(RuntimeVariable.LLM_Cached_Input_Tokens, getCachedInputTokens());
-        ClientServices.track(RuntimeVariable.LLM_Output_Tokens, getOutputTokens());
-        ClientServices.track(RuntimeVariable.LLM_Latency_Millis, getTotalLatencyMs());
-        Map<LlmFeature, FeatureSnapshot> featureSnapshots = getFeatureSnapshots();
-        for (LlmFeature feature : LlmFeature.values()) {
-            FeatureSnapshot snapshot = featureSnapshots.get(feature);
-            ClientServices.track(cachedInputTokensVariable(feature),
-                    snapshot == null ? 0L : snapshot.getCachedInputTokens());
+        Publication publication = new Publication(this, getFeatureSnapshots());
+        for (Metric metric : METRICS) {
+            if (metric.reader != null) {
+                ClientServices.track(metric.variable, metric.reader.apply(publication));
+            }
         }
-        ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, getPoolEnrichmentElapsedMs());
-        ClientServices.track(RuntimeVariable.LLM_Pool_Enrichment_Elapsed_Millis, getPoolEnrichmentElapsedMs());
-        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Elapsed_Millis,
-                getInitialPopulationElapsedMs());
-        ClientServices.track(RuntimeVariable.LLM_Total_Pre_Search_Elapsed_Millis,
-                getTotalPreSearchElapsedMs());
-        flushSeedingMetrics();
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted, getDiagnosticCardsExtracted());
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal,
-                getDiagnosticExtractorRejects(ExtractorRejectReason.UPSTREAM_EXCEPTION_WITHOUT_BLOCKED_GOAL));
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure,
-                getDiagnosticExtractorRejects(ExtractorRejectReason.BLOCKED_TYPE_MAPPING_FAILURE));
-        for (ExtractorCandidateMetric metric : ExtractorCandidateMetric.values()) {
-            ClientServices.track(toExtractorCandidateRuntimeVariable(metric), getDiagnosticExtractorCandidates(metric));
-        }
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Selected, getDiagnosticCardsSelected());
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Discarded, getDiagnosticCardsDiscarded());
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Deduplicated,
-                getDiagnosticCardsDeduplicated());
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Published, getDiagnosticCandidatesPublished());
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Admitted, getDiagnosticCandidatesAdmitted());
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Survived, getDiagnosticCandidatesSurvived());
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gains, getDiagnosticCoverageGains());
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous,
-                getDiagnosticCoverageGainAttributionAmbiguous());
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous_Goals,
-                getDiagnosticCoverageGainAttributionAmbiguousGoals());
-        for (ProblemCardType type : ProblemCardType.values()) {
-            ClientServices.track(toExtractedRuntimeVariable(type), getDiagnosticCardsExtracted(type));
-            ClientServices.track(toRuntimeVariable(type), getDiagnosticCardsSelected(type));
-            ClientServices.track(toPublishedCandidateRuntimeVariable(type), getDiagnosticCandidatesPublished(type));
-            ClientServices.track(toAdmittedCandidateRuntimeVariable(type), getDiagnosticCandidatesAdmitted(type));
-            ClientServices.track(toSurvivedCandidateRuntimeVariable(type), getDiagnosticCandidatesSurvived(type));
-            ClientServices.track(toCoverageGainRuntimeVariable(type), getDiagnosticCoverageGains(type));
-        }
-        OperatorFeatureTotals operatorTotals = OperatorFeatureTotals.of(featureSnapshots);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Calls, operatorTotals.calls);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Input_Tokens, operatorTotals.inputTokens);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Cached_Input_Tokens, operatorTotals.cachedInputTokens);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Output_Tokens, operatorTotals.outputTokens);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Latency_Millis, operatorTotals.latencyMs);
     }
 
     /**
@@ -886,271 +907,16 @@ public class LlmStatistics {
      * {@code shutdownLlmAssistance()} path in {@code GeneticAlgorithm}.
      */
     public static void initializeRuntimeVariables() {
-        ClientServices.track(RuntimeVariable.LLM_Model, "");
-        ClientServices.track(RuntimeVariable.LLM_Operator_Model, "");
-        ClientServices.track(RuntimeVariable.LLM_Calls, 0);
-        ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, 0);
-        ClientServices.track(RuntimeVariable.LLM_Calls_Failed, 0);
-        ClientServices.track(RuntimeVariable.LLM_Calls_TimedOut, 0);
-        ClientServices.track(RuntimeVariable.LLM_Input_Tokens, 0);
-        ClientServices.track(RuntimeVariable.LLM_Cached_Input_Tokens, 0);
-        ClientServices.track(RuntimeVariable.LLM_Output_Tokens, 0);
-        ClientServices.track(RuntimeVariable.LLM_Latency_Millis, 0);
-        for (LlmFeature feature : LlmFeature.values()) {
-            ClientServices.track(cachedInputTokensVariable(feature), 0);
+        for (Metric metric : METRICS) {
+            ClientServices.track(metric.variable, metric.defaultValue);
         }
-        ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, 0);
-        ClientServices.track(RuntimeVariable.LLM_Pool_Enrichment_Elapsed_Millis, 0);
-        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Elapsed_Millis, 0);
-        ClientServices.track(RuntimeVariable.LLM_Total_Pre_Search_Elapsed_Millis, 0);
-        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Validated, 0);
-        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Queued, 0);
-        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Injected, 0);
-        ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, 0);
-        ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, 0);
-        ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, 0);
-        ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, 0);
-        ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, 0);
         publishRunTotals();
-        ClientServices.track(RuntimeVariable.LLM_All_Candidates_Dropped_Execution, 0);
-        ClientServices.track(RuntimeVariable.LLM_Semantic_Mutations, 0);
-        ClientServices.track(RuntimeVariable.LLM_Semantic_Mutation_Fallbacks, 0);
-        ClientServices.track(RuntimeVariable.LLM_Semantic_Crossovers, 0);
-        ClientServices.track(RuntimeVariable.LLM_Semantic_Crossover_Fallbacks, 0);
-        ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio, 0.0);
-        ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline, 0.0);
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Iterations, 0);
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Rounds, 0);
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Exit_Reason, "");
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Parse_Failures, 0);
-        ClientServices.track(RuntimeVariable.LLM_Iterative_New_Goals_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Coverage_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Parsed, 0);
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Unique, 0);
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Duplicates, 0);
-        ClientServices.track(RuntimeVariable.LLM_Strategy_Assertions_Retained, 0);
-        ClientServices.track(RuntimeVariable.LLM_Strategy_Tests_With_Assertions, 0);
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Round_Elapsed_Millis_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Query_Latency_Millis_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Suite_Size_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Suite_Length_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Parsed_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Unique_Timeline, "");
-        ClientServices.track(RuntimeVariable.LLM_Iterative_Target_Goals_Timeline, "");
         LlmPostProcessor.initializeRuntimeVariables();
-        ClientServices.track(RuntimeVariable.LLM_StagnationCalls, 0);
-        ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls, 0);
-        ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Cards_Used, 0);
-        ClientServices.track(RuntimeVariable.LLM_AsyncProducer_LoopIterations, 0);
-        ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Stopped_Reason, "");
-        ClientServices.track(RuntimeVariable.LLM_StagnationPromptsSubmitted, 0);
-        ClientServices.track(RuntimeVariable.LLM_StagnationResponsesReceived, 0);
-        ClientServices.track(RuntimeVariable.LLM_StagnationTestsPublished, 0);
-        ClientServices.track(RuntimeVariable.LLM_StagnationLatencyMsTotal, 0);
-        ClientServices.track(RuntimeVariable.LLM_StagnationBlockedMsTotal, 0);
-        ClientServices.track(RuntimeVariable.LLM_StagnationInFlightGenerations, 0);
-        ClientServices.track(RuntimeVariable.LLM_StagnationSkippedBudget, 0);
-        ClientServices.track(RuntimeVariable.LLM_StagnationSkippedInFlight, 0);
-        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_OrphanFiltered, 0);
-        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Deduplicated, 0);
-        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted, 0);
-        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Survived, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure, 0);
-        for (ExtractorCandidateMetric metric : ExtractorCandidateMetric.values()) {
-            ClientServices.track(toExtractorCandidateRuntimeVariable(metric), 0);
-        }
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Selected, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Discarded, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Deduplicated, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Published, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Admitted, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Survived, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gains, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous_Goals, 0);
-        for (ProblemCardType type : ProblemCardType.values()) {
-            ClientServices.track(toExtractedRuntimeVariable(type), 0);
-            ClientServices.track(toRuntimeVariable(type), 0);
-            ClientServices.track(toPublishedCandidateRuntimeVariable(type), 0);
-            ClientServices.track(toAdmittedCandidateRuntimeVariable(type), 0);
-            ClientServices.track(toSurvivedCandidateRuntimeVariable(type), 0);
-            ClientServices.track(toCoverageGainRuntimeVariable(type), 0);
-        }
-        ClientServices.track(RuntimeVariable.Species_Largest_Share_Timeline, 0.0);
-        ClientServices.track(RuntimeVariable.Species_Count_Timeline, 0);
-        ClientServices.track(RuntimeVariable.Species_Quota_Protected_Timeline, 0);
-        ClientServices.track(RuntimeVariable.Species_Newborn_Protected_Timeline, 0);
-        ClientServices.track(RuntimeVariable.Species_Incubator_Protected_Timeline, 0);
-        ClientServices.track(RuntimeVariable.Species_Sharing_Adjusted_Timeline, 0);
-        ClientServices.track(RuntimeVariable.DiversityTimeline, 0.0);
-        ClientServices.track(RuntimeVariable.Covered_Goals_Timeline, 0);
-        ClientServices.track(RuntimeVariable.Remaining_Goals_Timeline, 0);
-        ClientServices.track(RuntimeVariable.Fronts_Count_Timeline, 0);
-        ClientServices.track(RuntimeVariable.Disruption_Events_Total, 0);
-        ClientServices.track(RuntimeVariable.Disruption_Standard_Mutations, 0);
-        ClientServices.track(RuntimeVariable.Disruption_Semantic_Mutations, 0);
-        ClientServices.track(RuntimeVariable.Disruption_Standard_Crossovers, 0);
-        ClientServices.track(RuntimeVariable.Disruption_Semantic_Crossovers, 0);
-        ClientServices.track(RuntimeVariable.Disruption_Semantic_Fallbacks, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Targets_Selected, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Targets_Mutation, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Targets_Crossover, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Calls, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Calls_Dropped_Budget, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Calls_Dropped_InFlight, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Calls_Dropped_Time, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Calls_Failed, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Offspring_Parsed, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Offspring_Admitted, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Offspring_Survived, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Target_Hits, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Target_Improved, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_InFlight_Generations, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Candidates_StaleTarget, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Input_Tokens, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Cached_Input_Tokens, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Output_Tokens, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Latency_Millis, 0);
-        ClientServices.track(RuntimeVariable.LLM_Operator_Sidecar_Path, "");
     }
 
-    private static RuntimeVariable toExtractedRuntimeVariable(ProblemCardType type) {
-        if (type == null) {
-            return RuntimeVariable.LLM_Diagnostic_Cards_Extracted;
-        }
-        switch (type) {
-            case UNREACHED_METHOD:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_UnreachedMethod;
-            case BRANCH_POLARITY_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_BranchPolarityGap;
-            case STATE_DIVERSIFICATION_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_StateDiversificationGap;
-            case EXCEPTION_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_ExceptionBarrier;
-            case CDG_BOTTLENECK:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_CdgBottleneck;
-            case INDIRECT_REACHABILITY_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_IndirectReachabilityBarrier;
-            case TYPE_NEVER_ATTEMPTED:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_TypeNeverAttempted;
-            case MOCK_NEEDED_DEPENDENCY:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_MockNeededDependency;
-            case ENVIRONMENT_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_EnvironmentBarrier;
-            default:
-                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
-        }
-    }
-
-    private static RuntimeVariable toExtractorRejectRuntimeVariable(ExtractorRejectReason reason) {
-        if (reason == null) {
-            return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal;
-        }
-        switch (reason) {
-            case UPSTREAM_EXCEPTION_WITHOUT_BLOCKED_GOAL:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal;
-            case BLOCKED_TYPE_MAPPING_FAILURE:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure;
-            default:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal;
-        }
-    }
-
-    private static RuntimeVariable toExtractorCandidateRuntimeVariable(ExtractorCandidateMetric metric) {
-        if (metric == null) {
-            return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionRepeatedSources;
-        }
-        switch (metric) {
-            case UPSTREAM_EXCEPTION_REPEATED_SOURCES:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionRepeatedSources;
-            case UPSTREAM_EXCEPTION_BLOCKED_GOAL_METHODS:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionBlockedGoalMethods;
-            case EXCEPTION_BARRIER_METHOD_CANDIDATES:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierMethodCandidates;
-            case EXCEPTION_BARRIER_CONTEXT_CANDIDATES:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierContextCandidates;
-            case EXCEPTION_BARRIER_UPSTREAM_CANDIDATES:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierUpstreamCandidates;
-            case EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS:
-                return RuntimeVariable
-                        .LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedInsufficientAttempts;
-            case EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedLowFailureRate;
-            case MOCK_NEEDED_DEPENDENCY_CANDIDATES:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_MockNeededDependencyCandidates;
-            case MOCK_NEEDED_DEPENDENCY_SUPPRESSED_MATERIALIZED:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_MockNeededDependencySuppressedMaterialized;
-            case ENVIRONMENT_BARRIER_CANDIDATES:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_EnvironmentBarrierCandidates;
-            default:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionRepeatedSources;
-        }
-    }
-
-    private static RuntimeVariable toRuntimeVariable(ProblemCardType type) {
-        if (type == null) {
-            return RuntimeVariable.LLM_Diagnostic_Cards_Selected;
-        }
-        switch (type) {
-            case UNREACHED_METHOD:
-                return RuntimeVariable.LLM_Diagnostic_Cards_UnreachedMethod;
-            case BRANCH_POLARITY_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Cards_BranchPolarityGap;
-            case STATE_DIVERSIFICATION_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Cards_StateDiversificationGap;
-            case EXCEPTION_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Cards_ExceptionBarrier;
-            case CDG_BOTTLENECK:
-                return RuntimeVariable.LLM_Diagnostic_Cards_CdgBottleneck;
-            case INDIRECT_REACHABILITY_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Cards_IndirectReachabilityBarrier;
-            case TYPE_NEVER_ATTEMPTED:
-                return RuntimeVariable.LLM_Diagnostic_Cards_TypeNeverAttempted;
-            case MOCK_NEEDED_DEPENDENCY:
-                return RuntimeVariable.LLM_Diagnostic_Cards_MockNeededDependency;
-            case ENVIRONMENT_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Cards_EnvironmentBarrier;
-            default:
-                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
-        }
-    }
-
-    private static RuntimeVariable toCoverageGainRuntimeVariable(ProblemCardType type) {
-        if (type == null) {
-            return RuntimeVariable.LLM_Diagnostic_Coverage_Gains;
-        }
-        switch (type) {
-            case UNREACHED_METHOD:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_UnreachedMethod;
-            case BRANCH_POLARITY_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_BranchPolarityGap;
-            case STATE_DIVERSIFICATION_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_StateDiversificationGap;
-            case EXCEPTION_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_ExceptionBarrier;
-            case CDG_BOTTLENECK:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_CdgBottleneck;
-            case INDIRECT_REACHABILITY_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_IndirectReachabilityBarrier;
-            case TYPE_NEVER_ATTEMPTED:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_TypeNeverAttempted;
-            case MOCK_NEEDED_DEPENDENCY:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_MockNeededDependency;
-            case ENVIRONMENT_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_EnvironmentBarrier;
-            default:
-                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
-        }
-    }
-
-    private static void recordDiagnosticCandidateStage(Collection<ProblemCardType> cardTypes,
-                                                       int candidateCount,
-                                                       AtomicLong totalCounter,
-                                                       RuntimeVariable totalVariable,
-                                                       Map<ProblemCardType, AtomicLong> byTypeCounters,
-                                                       StageRuntimeVariable stage) {
+    private static void recordDiagnosticCandidateStage(DiagnosticStage stage,
+                                                       Collection<ProblemCardType> cardTypes,
+                                                       int candidateCount) {
         if (candidateCount <= 0) {
             return;
         }
@@ -1158,12 +924,9 @@ public class LlmStatistics {
         if (normalizedTypes.isEmpty()) {
             return;
         }
-        ClientServices.track(totalVariable, totalCounter.addAndGet(candidateCount));
+        stage.counters().addToTotal(candidateCount);
         for (ProblemCardType type : normalizedTypes) {
-            AtomicLong counter = byTypeCounters.get(type);
-            if (counter != null) {
-                ClientServices.track(stage.toRuntimeVariable(type), counter.addAndGet(candidateCount));
-            }
+            stage.counters().add(type, candidateCount);
         }
     }
 
@@ -1178,118 +941,6 @@ public class LlmStatistics {
             }
         }
         return uniqueTypes;
-    }
-
-    private static long getCounterValue(Map<ProblemCardType, AtomicLong> counters, ProblemCardType type) {
-        AtomicLong counter = counters.get(type);
-        return counter == null ? 0L : counter.get();
-    }
-
-    private enum StageRuntimeVariable {
-        PUBLISHED {
-            @Override
-            RuntimeVariable toRuntimeVariable(ProblemCardType type) {
-                return toPublishedCandidateRuntimeVariable(type);
-            }
-        },
-        ADMITTED {
-            @Override
-            RuntimeVariable toRuntimeVariable(ProblemCardType type) {
-                return toAdmittedCandidateRuntimeVariable(type);
-            }
-        },
-        SURVIVED {
-            @Override
-            RuntimeVariable toRuntimeVariable(ProblemCardType type) {
-                return toSurvivedCandidateRuntimeVariable(type);
-            }
-        };
-
-        abstract RuntimeVariable toRuntimeVariable(ProblemCardType type);
-    }
-
-    private static RuntimeVariable toPublishedCandidateRuntimeVariable(ProblemCardType type) {
-        if (type == null) {
-            return RuntimeVariable.LLM_Diagnostic_Candidates_Published;
-        }
-        switch (type) {
-            case UNREACHED_METHOD:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_UnreachedMethod;
-            case BRANCH_POLARITY_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_BranchPolarityGap;
-            case STATE_DIVERSIFICATION_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_StateDiversificationGap;
-            case EXCEPTION_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_ExceptionBarrier;
-            case CDG_BOTTLENECK:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_CdgBottleneck;
-            case INDIRECT_REACHABILITY_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_IndirectReachabilityBarrier;
-            case TYPE_NEVER_ATTEMPTED:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_TypeNeverAttempted;
-            case MOCK_NEEDED_DEPENDENCY:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_MockNeededDependency;
-            case ENVIRONMENT_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_EnvironmentBarrier;
-            default:
-                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
-        }
-    }
-
-    private static RuntimeVariable toAdmittedCandidateRuntimeVariable(ProblemCardType type) {
-        if (type == null) {
-            return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted;
-        }
-        switch (type) {
-            case UNREACHED_METHOD:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_UnreachedMethod;
-            case BRANCH_POLARITY_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_BranchPolarityGap;
-            case STATE_DIVERSIFICATION_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_StateDiversificationGap;
-            case EXCEPTION_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_ExceptionBarrier;
-            case CDG_BOTTLENECK:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_CdgBottleneck;
-            case INDIRECT_REACHABILITY_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_IndirectReachabilityBarrier;
-            case TYPE_NEVER_ATTEMPTED:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_TypeNeverAttempted;
-            case MOCK_NEEDED_DEPENDENCY:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_MockNeededDependency;
-            case ENVIRONMENT_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_EnvironmentBarrier;
-            default:
-                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
-        }
-    }
-
-    private static RuntimeVariable toSurvivedCandidateRuntimeVariable(ProblemCardType type) {
-        if (type == null) {
-            return RuntimeVariable.LLM_Diagnostic_Candidates_Survived;
-        }
-        switch (type) {
-            case UNREACHED_METHOD:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_UnreachedMethod;
-            case BRANCH_POLARITY_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_BranchPolarityGap;
-            case STATE_DIVERSIFICATION_GAP:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_StateDiversificationGap;
-            case EXCEPTION_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_ExceptionBarrier;
-            case CDG_BOTTLENECK:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_CdgBottleneck;
-            case INDIRECT_REACHABILITY_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_IndirectReachabilityBarrier;
-            case TYPE_NEVER_ATTEMPTED:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_TypeNeverAttempted;
-            case MOCK_NEEDED_DEPENDENCY:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_MockNeededDependency;
-            case ENVIRONMENT_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_EnvironmentBarrier;
-            default:
-                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
-        }
     }
 
     private static final class FeatureStats {
