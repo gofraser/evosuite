@@ -28,7 +28,7 @@ import java.util.*;
 
 /**
  * Default species policy that enforces per-species survival caps and
- * optionally balances parent selection across species.
+ * applies species-density fitness sharing.
  */
 public class DefaultSpeciesPolicy implements SpeciesPolicy {
 
@@ -71,6 +71,8 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
                 continue;
             }
             int size = Math.max(1, speciesSizes.getOrDefault(species, 1));
+            // Deliberately overwrites the raw crowding distance: the shared value is what the
+            // crowding comparator, lineage elitism and the next generation's selection read.
             tc.setDistance(distance / size);
             if (stats != null) {
                 stats.incrementSharingAdjusted();
