@@ -37,21 +37,21 @@ public class JUnitAnalyzerWrappedLimitTest {
         String quoted = "javax.persistence.PersistenceException: " + limit
                 + ": Loop has been executed more times than the allowed 10000";
 
-        assertTrue(JUnitAnalyzer.isWrappedTooManyResourcesFailure(
+        assertTrue(JUnitFailurePolicy.isWrappedTooManyResourcesFailure(
                 new JUnitFailure(quoted, "javax.persistence.PersistenceException", "test0", false, "")));
-        assertTrue(JUnitAnalyzer.isWrappedTooManyResourcesFailure(
+        assertTrue(JUnitFailurePolicy.isWrappedTooManyResourcesFailure(
                 new JUnitFailure("wrapped", "java.lang.IllegalStateException", "test0", false,
                         "java.lang.IllegalStateException: wrapped\nCaused by: " + limit + ": Loop")));
     }
 
     @Test
     public void otherFailuresAreNotTheLimit() {
-        assertFalse(JUnitAnalyzer.isWrappedTooManyResourcesFailure(
+        assertFalse(JUnitFailurePolicy.isWrappedTooManyResourcesFailure(
                 new JUnitFailure("boom", "java.lang.IllegalStateException", "test0", false,
                         "java.lang.IllegalStateException: boom\n\tat Foo.bar(Foo.java:1)")));
-        assertFalse(JUnitAnalyzer.isWrappedTooManyResourcesFailure(
+        assertFalse(JUnitFailurePolicy.isWrappedTooManyResourcesFailure(
                 new JUnitFailure(null, "java.lang.IllegalStateException", "test0", false, null)));
-        assertFalse(JUnitAnalyzer.isWrappedTooManyResourcesFailure(null));
+        assertFalse(JUnitFailurePolicy.isWrappedTooManyResourcesFailure(null));
     }
 
     public static class Probe {
@@ -71,15 +71,15 @@ public class JUnitAnalyzerWrappedLimitTest {
 
         String wrappedTrace = "java.lang.RuntimeException: x\nCaused by: " + overflow + "\n\tat Foo.bar(Foo.java:1)";
 
-        assertTrue(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+        assertTrue(JUnitFailurePolicy.isStackOverflowOfTestEndingOnLimit(
                 new JUnitFailure(null, overflow, cls, "marked", false, ""), classes));
-        assertTrue(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+        assertTrue(JUnitFailurePolicy.isStackOverflowOfTestEndingOnLimit(
                 new JUnitFailure("x", "java.lang.RuntimeException", cls, "marked", false, wrappedTrace), classes));
-        assertFalse(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+        assertFalse(JUnitFailurePolicy.isStackOverflowOfTestEndingOnLimit(
                 new JUnitFailure(null, overflow, cls, "unmarked", false, ""), classes));
-        assertFalse(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+        assertFalse(JUnitFailurePolicy.isStackOverflowOfTestEndingOnLimit(
                 new JUnitFailure(null, "java.lang.IllegalStateException", cls, "marked", false, ""), classes));
-        assertFalse(JUnitAnalyzer.isStackOverflowOfTestEndingOnLimit(
+        assertFalse(JUnitFailurePolicy.isStackOverflowOfTestEndingOnLimit(
                 new JUnitFailure(null, overflow, cls, "marked", false, ""), null));
     }
 }

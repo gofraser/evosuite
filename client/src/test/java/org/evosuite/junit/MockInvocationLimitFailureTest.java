@@ -18,17 +18,17 @@ public class MockInvocationLimitFailureTest {
 
     @Test
     public void wrappedLimitIsRecognisedPlainAndShaded() {
-        assertTrue(JUnitAnalyzer.isMockInvocationLimitFailure(
+        assertTrue(JUnitFailurePolicy.isMockInvocationLimitFailure(
                 failure("org.mockito.exceptions.base.MockitoException", WRAPPED)));
-        assertTrue(JUnitAnalyzer.isMockInvocationLimitFailure(failure(
+        assertTrue(JUnitFailurePolicy.isMockInvocationLimitFailure(failure(
                 "shaded.org.evosuite.shaded.org.mockito.exceptions.base.MockitoException", WRAPPED)));
     }
 
     @Test
     public void otherMockitoFailuresAreNot() {
-        assertFalse(JUnitAnalyzer.isMockInvocationLimitFailure(
+        assertFalse(JUnitFailurePolicy.isMockInvocationLimitFailure(
                 failure("org.mockito.exceptions.base.MockitoException", "Cannot mock final class")));
-        assertFalse(JUnitAnalyzer.isMockInvocationLimitFailure(
+        assertFalse(JUnitFailurePolicy.isMockInvocationLimitFailure(
                 failure("java.lang.IllegalStateException", WRAPPED)));
     }
 }

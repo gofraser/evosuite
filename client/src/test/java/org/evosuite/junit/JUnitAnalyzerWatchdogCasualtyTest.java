@@ -50,10 +50,10 @@ public class JUnitAnalyzerWatchdogCasualtyTest {
         JUnitResult result = stoppedRun();
         AtomicBoolean culpritSeen = new AtomicBoolean(false);
 
-        assertFalse(JUnitAnalyzer.isWatchdogCasualty(result, failure("test008", TIMEOUT), culpritSeen),
+        assertFalse(JUnitFailurePolicy.isWatchdogCasualty(result, failure("test008", TIMEOUT), culpritSeen),
                 "the test that hung is judged like any other");
-        assertTrue(JUnitAnalyzer.isWatchdogCasualty(result, failure("test009", TIMEOUT), culpritSeen));
-        assertTrue(JUnitAnalyzer.isWatchdogCasualty(result, failure("test010", TIMEOUT), culpritSeen));
+        assertTrue(JUnitFailurePolicy.isWatchdogCasualty(result, failure("test009", TIMEOUT), culpritSeen));
+        assertTrue(JUnitFailurePolicy.isWatchdogCasualty(result, failure("test010", TIMEOUT), culpritSeen));
     }
 
     @Test
@@ -61,7 +61,7 @@ public class JUnitAnalyzerWatchdogCasualtyTest {
         JUnitResult result = stoppedRun();
         AtomicBoolean culpritSeen = new AtomicBoolean(true);
 
-        assertFalse(JUnitAnalyzer.isWatchdogCasualty(
+        assertFalse(JUnitFailurePolicy.isWatchdogCasualty(
                 result, failure("test001", "java.lang.IllegalStateException"), culpritSeen));
     }
 
@@ -70,7 +70,7 @@ public class JUnitAnalyzerWatchdogCasualtyTest {
         JUnitResult result = new JUnitResult(false, 2, 2);
         AtomicBoolean culpritSeen = new AtomicBoolean(false);
 
-        assertFalse(JUnitAnalyzer.isWatchdogCasualty(result, failure("test001", TIMEOUT), culpritSeen));
-        assertFalse(JUnitAnalyzer.isWatchdogCasualty(result, failure("test002", TIMEOUT), culpritSeen));
+        assertFalse(JUnitFailurePolicy.isWatchdogCasualty(result, failure("test001", TIMEOUT), culpritSeen));
+        assertFalse(JUnitFailurePolicy.isWatchdogCasualty(result, failure("test002", TIMEOUT), culpritSeen));
     }
 }

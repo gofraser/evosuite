@@ -28,13 +28,11 @@ import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.NonInstrumentingClassLoader;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
-import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.InitializingListener;
 import org.evosuite.runtime.InitializingListenerUtils;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.TooManyResourcesException;
-import org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit;
 import org.evosuite.runtime.classhandling.ClassStateSupport;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.mock.MockFramework;
@@ -380,10 +378,9 @@ public abstract class JUnitAnalyzer {
                 String testName = failure.getDescriptionMethodName();//TODO check if correct
                 // A test that hung is not one whose failure was expected: a test recorded as
                 // failing during the search may well be the one that was killed there.
-                boolean hung = JUnitCheckProgress.HUNG_TEST_EXCEPTION.equals(failure.getExceptionClassName());
                 for (int i = 0; i < written.size(); i++) {
                     if (TestSuiteWriterUtils.getNameOfTest(written, i).equals(testName)) {
-                        if (written.get(i).isFailing() && !hung) {
+                        if (JUnitFailurePolicy.isExpectedFailure(written.get(i), failure)) {
                             logger.info("Failure is expected, continuing...");
                             continue failure_loop;
                         }
@@ -409,8 +406,7 @@ public abstract class JUnitAnalyzer {
 
                 // On the Sheffield cluster, the "well-known fle is not secure" issue is impossible to understand,
                 // so it might be best to ignore it for now.
-                if (testName.equals("initializationError") && failure.getMessage() != null
-                        && failure.getMessage().contains("Failed to attach Java Agent")) {
+                if (JUnitFailurePolicy.isAgentAttachFailure(testName, failure)) {
                     logger.warn("Likely error with EvoSuite instrumentation, ignoring failure in test execution");
                     continue failure_loop;
                 }
@@ -421,10 +417,7 @@ public abstract class JUnitAnalyzer {
                 // completion during generation must also have terminated this way; the
                 // rerun is reproducing the same termination, not exposing a new bug.
                 // Treat the test as valid and keep it in the suite.
-                if ("org.evosuite.runtime.TooManyResourcesException".equals(failure.getExceptionClassName())
-                        || isMockInvocationLimitFailure(failure)
-                        || isWrappedTooManyResourcesFailure(failure)
-                        || isStackOverflowOfTestEndingOnLimit(failure, testClasses)) {
+                if (JUnitFailurePolicy.isResourceLimitFailure(failure, testClasses)) {
                     logger.debug("Ignoring expected TooManyResourcesException for test {} "
                             + "(SUT loop terminated by iteration cap, same as during search): {}",
                             testName, failure.getMessage());
@@ -433,7 +426,7 @@ public abstract class JUnitAnalyzer {
                 // In JUnit re-checks, watchdog timeouts can race with loop-cap termination.
                 // Treat TimeoutException as equivalent to TooManyResourcesException to avoid
                 // dropping tests solely due to phase-specific watchdog scheduling.
-                if ("java.util.concurrent.TimeoutException".equals(failure.getExceptionClassName())) {
+                if (JUnitFailurePolicy.isTimeoutException(failure)) {
                     logger.debug("Ignoring expected TimeoutException for test {} "
                                     + "(equivalent to loop-cap termination during JUnit re-check): {}",
                             testName, failure.getMessage());
@@ -445,7 +438,7 @@ public abstract class JUnitAnalyzer {
                 // first such failure is evidence about a test (the one that hung); the others
                 // were never given a chance to run, and removing them used to throw away most of
                 // the suite for a single stuck static initializer.
-                if (isWatchdogCasualty(result, failure, watchdogCulpritSeen)) {
+                if (JUnitFailurePolicy.isWatchdogCasualty(result, failure, watchdogCulpritSeen)) {
                     logger.warn("Keeping test {}: it timed out only because the JUnit-check watchdog "
                             + "had already stopped the run", testName);
                     continue failure_loop;
@@ -454,13 +447,13 @@ public abstract class JUnitAnalyzer {
                 // Class initialization failures are deterministic environmental issues
                 // (e.g., broken static initializers) rather than assertion instability.
                 // Remove those tests, but do not count them as unstable.
-                if (isClassInitializerFailure(failure)) {
+                if (JUnitFailurePolicy.isClassInitializerFailure(failure)) {
                     logger.warn("Removing test {} due deterministic class-initializer failure: {}: {}",
                             testName, failure.getExceptionClassName(), failure.getMessage());
                     removeTestByName(tests, written, testName);
                     continue failure_loop;
                 }
-                if (isDeterministicGuiEnvironmentFailure(failure)) {
+                if (JUnitFailurePolicy.isDeterministicGuiEnvironmentFailure(failure)) {
                     logger.warn("Removing test {} due deterministic GUI-environment failure: {}: {}",
                             testName, failure.getExceptionClassName(), failure.getMessage());
                     removeTestByName(tests, written, testName);
@@ -529,129 +522,6 @@ public abstract class JUnitAnalyzer {
         }
     }
 
-    /**
-     * A mock that exceeded the invocation limit of the runtime. Mockito wraps what an invocation
-     * listener throws, so the TooManyResourcesException reaches the test inside a MockitoException
-     * whose message names it.
-     */
-    static boolean isMockInvocationLimitFailure(JUnitFailure failure) {
-        if (failure == null) {
-            return false;
-        }
-        String cls = normalizeFailureClassName(failure.getExceptionClassName());
-        String message = failure.getMessage();
-        // the class name carries the shading prefix when Mockito is the relocated copy
-        return cls.endsWith("org.mockito.exceptions.base.MockitoException")
-                && message != null && message.contains("MockInvocationLimit")
-                && message.contains("TooManyResourcesException");
-    }
-
-    /**
-     * Whether a timeout in a run the watchdog stopped says nothing about the test. The watchdog
-     * raises the kill switch when the run exceeds its budget, and from then on every test that
-     * reaches instrumented code fails at once; only the first such failure, the test that hung,
-     * is evidence about a test.
-     *
-     * @param result          the result the failure belongs to
-     * @param failure         the failure to judge
-     * @param culpritSeen     whether the test that hung has been seen already; set by the first
-     *                        timeout of a stopped run
-     * @return true if the failure is a casualty of the stopped run and its test should be kept
-     */
-    static boolean isWatchdogCasualty(JUnitResult result, JUnitFailure failure,
-                                      AtomicBoolean culpritSeen) {
-        if (!result.wasWatchdogFired() || !isTimeoutExceeded(failure)) {
-            return false;
-        }
-        return culpritSeen.getAndSet(true);
-    }
-
-    /**
-     * A test stopped by the test executor's kill switch, whose time budget had run out.
-     */
-    static boolean isTimeoutExceeded(JUnitFailure failure) {
-        return failure != null
-                && normalizeFailureClassName(failure.getExceptionClassName())
-                .endsWith("org.evosuite.testcase.execution.TestCaseExecutor$TimeoutExceeded");
-    }
-
-    /**
-     * The JUnit check reads the failures itself instead of running the tests through the
-     * non-functional requirement rule, so it applies the rule's allowance here: a stack overflow
-     * is the expected end of a test that carries
-     * {@link EvoSuiteEndsOnResourceLimit}, because unbounded recursion ends on the stack when
-     * that runs out before a resource limit fires (see
-     * {@link TooManyResourcesException#isExpectedLimitFailure(Throwable, boolean)}).
-     */
-    static boolean isStackOverflowOfTestEndingOnLimit(JUnitFailure failure, Class<?>[] testClasses) {
-        if (failure == null || testClasses == null || failure.getDescriptionMethodName() == null) {
-            return false;
-        }
-        String overflow = StackOverflowError.class.getName();
-        String trace = failure.getTrace();
-        boolean isOverflow = overflow.equals(failure.getExceptionClassName())
-                || (trace != null && trace.contains("Caused by: " + overflow));
-        if (!isOverflow) {
-            return false;
-        }
-        for (Class<?> testClass : testClasses) {
-            if (failure.getDescriptionClassName() != null
-                    && !failure.getDescriptionClassName().equals(testClass.getName())) {
-                continue;
-            }
-            for (java.lang.reflect.Method method : testClass.getDeclaredMethods()) {
-                if (!method.getName().equals(failure.getDescriptionMethodName())) {
-                    continue;
-                }
-                // by name: the tests may have been loaded by a loader with its own copy of the runtime
-                for (java.lang.annotation.Annotation annotation : method.getAnnotations()) {
-                    if (annotation.annotationType().getName().equals(EvoSuiteEndsOnResourceLimit.class.getName())) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * A failure that is a wrapper around the runtime's resource limit. The code under test can
-     * catch the TooManyResourcesException and throw an exception of its own, as a persistence
-     * layer does with {@code new PersistenceException(e.toString())}. Whether the wrapper is
-     * thrown depends on which handler the limit happens to meet, so its type and message are as
-     * little reproducible as the limit itself: it is the same outcome as the limit.
-     */
-    static boolean isWrappedTooManyResourcesFailure(JUnitFailure failure) {
-        if (failure == null) {
-            return false;
-        }
-        String limit = TooManyResourcesException.class.getName();
-        String message = failure.getMessage();
-        String trace = failure.getTrace();
-        return (message != null && message.contains(limit)) || (trace != null && trace.contains(limit));
-    }
-
-    private static boolean isClassInitializerFailure(JUnitFailure failure) {
-        if (failure == null) {
-            return false;
-        }
-        String cls = normalizeFailureClassName(failure.getExceptionClassName());
-        if (!"java.lang.ExceptionInInitializerError".equals(cls)
-                && !"java.lang.NoClassDefFoundError".equals(cls)) {
-            return false;
-        }
-        List<String> trace = failure.getExceptionStackTrace();
-        if (trace == null || trace.isEmpty()) {
-            return true;
-        }
-        for (String frame : trace) {
-            if (frame != null && frame.contains("<clinit>")) {
-                return true;
-            }
-        }
-        return "java.lang.ExceptionInInitializerError".equals(cls);
-    }
-
     private static void removeTestByName(List<TestCase> tests, List<TestCase> written, String testName) {
         for (int i = 0; i < written.size(); i++) {
             if (TestSuiteWriterUtils.getNameOfTest(written, i).equals(testName)) {
@@ -668,37 +538,6 @@ public abstract class JUnitAnalyzer {
                 return;
             }
         }
-    }
-
-    private static boolean isDeterministicGuiEnvironmentFailure(JUnitFailure failure) {
-        if (failure == null) {
-            return false;
-        }
-        String failureClass = normalizeFailureClassName(failure.getExceptionClassName());
-        String message = failure.getMessage();
-        List<String> trace = failure.getExceptionStackTrace();
-
-        if ("java.awt.AWTError".equals(failureClass)
-                && isGraphicsEnvironmentNullFailure(message, trace)) {
-            return true;
-        }
-
-        if (!"java.awt.HeadlessException".equals(failureClass)) {
-            return false;
-        }
-
-        if (message != null && message.toLowerCase(Locale.ROOT).contains("headless")) {
-            return true;
-        }
-        if (trace == null || trace.isEmpty()) {
-            return true;
-        }
-        return containsAny(trace,
-                "java.awt.GraphicsEnvironment.checkHeadless",
-                "java.awt.Window.<init>",
-                "javax.swing.JFrame.<init>",
-                "javax.swing.JDialog.<init>",
-                "javax.swing.JWindow.<init>");
     }
 
     private static JUnitResult runTests(Class<?>[] testClasses, File testClassDir, Collection<File> generatedFiles)
@@ -726,7 +565,7 @@ public abstract class JUnitAnalyzer {
             return result;
         }
 
-        boolean needsInstrumentedRetry = shouldRetryWithInstrumentingAfterFailure(result);
+        boolean needsInstrumentedRetry = JUnitFailurePolicy.shouldRetryWithInstrumentingAfterFailure(result);
 
         if (!needsInstrumentedRetry) {
             return result;
@@ -757,53 +596,6 @@ public abstract class JUnitAnalyzer {
             releaseCheckLoader();
             loader = savedLoader;
         }
-    }
-
-    private static boolean shouldRetryWithInstrumentingAfterFailure(JUnitResult result) {
-        for (JUnitFailure failure : result.getFailures()) {
-            String failureClass = normalizeFailureClassName(failure.getExceptionClassName());
-            String message = failure.getMessage();
-            List<String> trace = failure.getExceptionStackTrace();
-            if ("java.awt.HeadlessException".equals(failureClass)) {
-                return true;
-            }
-            if ("java.awt.AWTError".equals(failureClass)
-                    && isGraphicsEnvironmentNullFailure(message, trace)) {
-                return true;
-            }
-            if ("java.lang.ClassCastException".equals(failureClass)) {
-                if (trace != null
-                        && (containsAny(trace, "org.evosuite.instrumentation.InstrumentingClassLoader")
-                        || containsAny(trace, "org.evosuite.runtime.GuiSupport$StubGraphicsConfiguration"))) {
-                    return true;
-                }
-                if (message != null
-                        && (message.contains("InstrumentingClassLoader")
-                        || message.contains("StubGraphicsConfiguration"))) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static String normalizeFailureClassName(String rawClassName) {
-        if (rawClassName == null) {
-            return "";
-        }
-        String trimmed = rawClassName.trim();
-        if (trimmed.startsWith("class ")) {
-            return trimmed.substring("class ".length()).trim();
-        }
-        return trimmed;
-    }
-
-    private static boolean isGraphicsEnvironmentNullFailure(String message, List<String> trace) {
-        if (message != null
-                && message.toLowerCase(Locale.ROOT).contains("local graphicsenvironment must not be null")) {
-            return true;
-        }
-        return trace != null && containsAny(trace, "GraphicsEnvironment.getLocalGraphicsEnvironment");
     }
 
     /**
@@ -844,7 +636,7 @@ public abstract class JUnitAnalyzer {
         String firstLoopCounterFrame = firstFrameContaining(trace, "org.evosuite.runtime.LoopCounter.checkLoop");
         String firstHeadlessFrame = firstFrameContaining(trace, "java.awt.HeadlessException");
         String firstAwtFrame = firstFrameContaining(trace, "java.awt.");
-        String failureClass = normalizeFailureClassName(failure.getExceptionClassName());
+        String failureClass = JUnitFailurePolicy.normalizeFailureClassName(failure.getExceptionClassName());
         String failureMessage = failure.getMessage();
 
         StringBuilder sb = new StringBuilder();
@@ -875,7 +667,7 @@ public abstract class JUnitAnalyzer {
         if ("java.awt.HeadlessException".equals(failureClass)) {
             sb.append(", hint=Headless mismatch likely indicates missing/late GUI replacement during JUnit recheck");
         } else if ("java.awt.AWTError".equals(failureClass)
-                && isGraphicsEnvironmentNullFailure(failureMessage, trace)) {
+                && JUnitFailurePolicy.isGraphicsEnvironmentNullFailure(failureMessage, trace)) {
             sb.append(", hint=GraphicsEnvironment initialization/reset issue during JUnit recheck");
         }
         return sb.toString();
@@ -895,7 +687,7 @@ public abstract class JUnitAnalyzer {
         if (trace == null || trace.isEmpty()) {
             return "unknown";
         }
-        if (containsAny(trace,
+        if (JUnitFailurePolicy.containsAny(trace,
                 "org.evosuite.runtime.EvoSuiteExtension.beforeEach",
                 "org.evosuite.runtime.EvoSuiteExtension.afterEach",
                 "org.evosuite.runtime.classhandling.ClassResetter",
@@ -903,29 +695,18 @@ public abstract class JUnitAnalyzer {
                 "org.evosuite.runtime.classhandling.ClassStateSupport")) {
             return "extension_or_reset";
         }
-        if (containsAny(trace,
+        if (JUnitFailurePolicy.containsAny(trace,
                 "org.junit.jupiter.api.Assertions",
                 "org.junit.Assert")) {
             return "assertion";
         }
-        if (containsAny(trace, "." + testName + "(")) {
+        if (JUnitFailurePolicy.containsAny(trace, "." + testName + "(")) {
             return "test_body";
         }
-        if (containsAny(trace, "org.evosuite.runtime.LoopCounter.checkLoop")) {
+        if (JUnitFailurePolicy.containsAny(trace, "org.evosuite.runtime.LoopCounter.checkLoop")) {
             return "loop_counter_no_user_frame";
         }
         return "other_runtime";
-    }
-
-    private static boolean containsAny(List<String> trace, String... needles) {
-        for (String frame : trace) {
-            for (String needle : needles) {
-                if (frame != null && frame.contains(needle)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private static boolean isReflectiveAssertThrowsMismatch(JUnitFailure failure) {
@@ -938,7 +719,7 @@ public abstract class JUnitAnalyzer {
             return false;
         }
         List<String> trace = failure.getExceptionStackTrace();
-        return trace != null && containsAny(trace, "java.lang.reflect.Method.invoke");
+        return trace != null && JUnitFailurePolicy.containsAny(trace, "java.lang.reflect.Method.invoke");
     }
 
     private static String firstInterestingFrame(List<String> trace) {

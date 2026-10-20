@@ -601,7 +601,7 @@ public class JUnitAnalyzerTest {
 
     @Test
     public void testInstrumentingRetryDetectsHeadlessFailuresWithJUnit4ClassPrefix() throws Exception {
-        Method shouldRetry = JUnitAnalyzer.class.getDeclaredMethod(
+        Method shouldRetry = JUnitFailurePolicy.class.getDeclaredMethod(
                 "shouldRetryWithInstrumentingAfterFailure", JUnitResult.class);
         shouldRetry.setAccessible(true);
 
@@ -620,7 +620,7 @@ public class JUnitAnalyzerTest {
 
     @Test
     public void testInstrumentingRetryDetectsLocalGraphicsEnvironmentAwtError() throws Exception {
-        Method shouldRetry = JUnitAnalyzer.class.getDeclaredMethod(
+        Method shouldRetry = JUnitFailurePolicy.class.getDeclaredMethod(
                 "shouldRetryWithInstrumentingAfterFailure", JUnitResult.class);
         shouldRetry.setAccessible(true);
 
@@ -640,7 +640,7 @@ public class JUnitAnalyzerTest {
 
     @Test
     public void testDeterministicGuiFailureDetectionForLocalGraphicsEnvironmentAwtError() throws Exception {
-        Method detector = JUnitAnalyzer.class.getDeclaredMethod(
+        Method detector = JUnitFailurePolicy.class.getDeclaredMethod(
                 "isDeterministicGuiEnvironmentFailure", JUnitFailure.class);
         detector.setAccessible(true);
 
@@ -658,7 +658,7 @@ public class JUnitAnalyzerTest {
 
     @Test
     public void testDeterministicGuiFailureDetectionForHeadlessException() throws Exception {
-        Method detector = JUnitAnalyzer.class.getDeclaredMethod(
+        Method detector = JUnitFailurePolicy.class.getDeclaredMethod(
                 "isDeterministicGuiEnvironmentFailure", JUnitFailure.class);
         detector.setAccessible(true);
 
@@ -677,7 +677,7 @@ public class JUnitAnalyzerTest {
 
     @Test
     public void testDeterministicGuiFailureDetectionIgnoresNonGuiFailure() throws Exception {
-        Method detector = JUnitAnalyzer.class.getDeclaredMethod(
+        Method detector = JUnitFailurePolicy.class.getDeclaredMethod(
                 "isDeterministicGuiEnvironmentFailure", JUnitFailure.class);
         detector.setAccessible(true);
 
