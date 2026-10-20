@@ -3130,15 +3130,8 @@ public class TestCodeVisitor extends TestVisitor {
         if (!this.methodNames.containsKey(retval) && VariableNameStrategyFactory.gatherInformation()) {
             this.methodNames.put(retval, method.getName());
         }
-        if (!this.argumentNames.containsKey(retval) && VariableNameStrategyFactory.gatherInformation()) {
-            final List<String> parameterNames = (List<String>)statement.obtainParameterNameListInOrder();
-            int idx = 0;
-            for (final VariableReference param : parameters) {
-                this.argumentNames.put(param, parameterNames.get(idx));
-                ++idx;
-            }
-        }
-        if (retval.isVoid() && VariableNameStrategyFactory.gatherInformation()) {
+        if ((!this.argumentNames.containsKey(retval) || retval.isVoid())
+                && VariableNameStrategyFactory.gatherInformation()) {
             final List<String> parameterNames = (List<String>)statement.obtainParameterNameListInOrder();
             int idx = 0;
             for (final VariableReference param : parameters) {
