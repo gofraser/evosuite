@@ -621,7 +621,13 @@ public class TestRepairLoop {
                             diagnostics.add("Applied truncation recovery (block #" + blockIndex + "): "
                                     + recoveryReason);
                         }
-                        validateRecoveredSource(extractedClass);
+                        try {
+                            validateRecoveredSource(extractedClass);
+                        } catch (IllegalArgumentException recoveryFailure) {
+                            parserFailures.add("Parser failure in code block #" + blockIndex + ": "
+                                    + formatThrowable(recoveryFailure));
+                            continue;
+                        }
                     }
                     ReflectiveAssertThrowsRewriteResult rewriteResult =
                             rewriteReflectiveAssertThrowsAssertions(extractedClass);

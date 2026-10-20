@@ -223,6 +223,42 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void unrecoverableBlockDoesNotDiscardParsedBlocks() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        LlmResponseParser responseParser = new LlmResponseParser() {
+            @Override
+            public List<ExtractionResult> extractAllTestClassesWithMetadata(
+                    String response, String className, String packageName) {
+                return Arrays.asList(
+                        new ExtractionResult("public class GoodTest { public void a() {} }",
+                                false, "none"),
+                        new ExtractionResult("public class BrokenTest { public void b( {",
+                                true, "truncation recovery"));
+            }
+        };
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "a"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService, parser, responseParser, expansionManager,
+                testCase -> new ExecutionResult(testCase), 2);
+
+        RepairResult result = loop.attemptParse("ignored",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess(), "the parsed block must survive the unrecoverable one");
+        assertEquals(1, result.getParseResults().size());
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
     void expectedExceptionFromAssertThrowsPreventsSpuriousRepair() {
         LlmService llmService = mock(LlmService.class);
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
