@@ -19,7 +19,6 @@
  */
 package org.evosuite.llm;
 
-import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TargetedResponse;
@@ -32,9 +31,8 @@ import javax.tools.ToolProvider;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Entry-point for all LLM calls, including budget and retry enforcement.
@@ -53,8 +51,7 @@ public class LlmService implements AutoCloseable {
     private final LlmStatistics statistics;
     private final LlmTraceRecorder traceRecorder;
     private final Random jitterRandom;
-    private volatile ExecutorService executorService;
-    private final AtomicLong executorGeneration = new AtomicLong(1L);
+    private final TimeoutGuardedRunner timeoutRunner;
     private final boolean available;
 
     public LlmService(ChatLanguageModel model,
@@ -114,7 +111,8 @@ public class LlmService implements AutoCloseable {
         this.statistics.setConfiguration(configuration);
         this.traceRecorder = traceRecorder;
         this.jitterRandom = jitterRandom;
-        this.executorService = createExecutorService();
+        this.timeoutRunner = new TimeoutGuardedRunner(TimeoutGuardedRunner::newDefaultExecutor,
+                this::rebuildModelsAfterStuckCall);
         this.available = available;
     }
 
@@ -137,7 +135,7 @@ public class LlmService implements AutoCloseable {
     }
 
     long getExecutorGenerationForTesting() {
-        return executorGeneration.get();
+        return timeoutRunner.getGeneration();
     }
 
     /** Returns the process-scoped singleton instance, creating it lazily on first access. */
@@ -563,125 +561,20 @@ public class LlmService implements AutoCloseable {
 
     private LlmResponse invokeWithTimeout(List<LlmMessage> messages, LlmFeature feature,
                                           long deadlineNanos) throws Exception {
-        ExecutorService runner = executorService;
         ChatLanguageModel snapshot = modelFor(feature);
-        RequestCancellation cancellation = new RequestCancellation();
-        AtomicBoolean workerEntered = new AtomicBoolean();
-        CountDownLatch workerExited = new CountDownLatch(1);
-        Future<LlmResponse> future = runner.submit(new Callable<LlmResponse>() {
-            @Override
-            public LlmResponse call() throws Exception {
-                workerEntered.set(true);
-                try {
-                    return snapshot.generate(messages, feature, cancellation);
-                } finally {
-                    workerExited.countDown();
-                }
-            }
-        });
-        try {
-            long configuredNanos = TimeUnit.SECONDS.toNanos(
-                    Math.max(1, configuration.getTimeoutSeconds()));
-            long remainingNanos = remainingNanos(deadlineNanos);
-            if (remainingNanos <= 0) {
-                future.cancel(true);
-                throw new TimeoutException("LLM phase deadline exhausted");
-            }
-            return future.get(Math.min(configuredNanos, remainingNanos),
-                    TimeUnit.NANOSECONDS);
-        } catch (TimeoutException e) {
-            // Interrupt the worker first. A blocked HttpURLConnection read
-            // normally ends on its own once the socket's read timeout elapses,
-            // but that timeout is a much coarser bound than the phase deadline
-            // being enforced here, so cancelling the future lets the worker
-            // notice sooner if it happens to be at an interruptible point.
-            future.cancel(true);
-            // Future.cancel(true) cannot interrupt a thread blocked inside
-            // HttpURLConnection I/O, so force this specific request's
-            // connection closed directly; that turns the blocked read into
-            // an IOException immediately instead of waiting for the read
-            // timeout, which is a much coarser bound than this deadline. Only
-            // this call's own connection is affected — other concurrent calls
-            // sharing the same model are untouched.
-            cancellation.abort();
-            if (!waitForWorkerToFinish(workerEntered, workerExited, 2_000L)) {
-                // Worker is still running — the read timeout hasn't elapsed yet
-                // and the socket read isn't interruptible on this JVM. Drop the
-                // executor entirely so the leaked worker can't keep the sandbox
-                // lock (or anything else) alive forever; the read timeout will
-                // eventually unblock and terminate the leaked thread on its own.
-                // A fresh executor is created lazily on the next call.
-                logger.warn("LLM worker did not terminate after cancel; shutting down executor to drop the stuck call");
-                replaceExecutorService(runner);
-            }
-            throw e;
-        } catch (InterruptedException e) {
-            // Cancelling is just as important for caller interruption as for a
-            // timeout: otherwise a completed request can mutate state after a
-            // search worker has been stopped. As above, only this call's own
-            // connection is aborted.
-            future.cancel(true);
-            cancellation.abort();
-            if (!waitForWorkerToFinish(workerEntered, workerExited, 2_000L)) {
-                logger.warn("LLM worker did not terminate after caller interruption; replacing executor");
-                replaceExecutorService(runner);
-            }
-            Thread.currentThread().interrupt();
-            throw e;
-        }
-    }
-
-    private boolean waitForWorkerToFinish(AtomicBoolean workerEntered,
-                                          CountDownLatch workerExited,
-                                          long waitMs) {
-        // Future.isDone() is not a worker-liveness signal: cancellation marks
-        // a FutureTask done before its callable has necessarily returned.
-        // The callable's finally block is the only reliable acknowledgement.
-        if (!workerEntered.get()) {
-            // A task cancelled while queued never enters the callable. Give the
-            // narrow runner-registration race a short chance to become visible.
-            try {
-                if (!workerExited.await(Math.min(50L, waitMs), TimeUnit.MILLISECONDS)
-                        && !workerEntered.get()) {
-                    return true;
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return false;
-            }
-        }
-        try {
-            return workerExited.await(Math.max(0L, waitMs), TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        }
+        long configuredNanos = TimeUnit.SECONDS.toNanos(
+                Math.max(1, configuration.getTimeoutSeconds()));
+        return timeoutRunner.run(cancellation -> snapshot.generate(messages, feature, cancellation),
+                configuredNanos, deadlineNanos);
     }
 
     /**
-     * Replaces the per-service executor with a fresh one when its worker is
-     * stuck inside an unresponsive HTTP call. {@link ExecutorService#shutdownNow()}
-     * interrupts all workers; on a worker blocked in a non-interruptible
-     * socket read this won't return immediately, but the new executor lets
-     * subsequent calls proceed unimpeded.
-     *
-     * <p>Also rebuilds the {@link ChatLanguageModel} so the next call opens a
-     * fresh {@code HttpURLConnection} rather than risk any connection reuse
-     * tied to the leaked worker. The leaked worker itself is left to unblock
-     * on its own once its read timeout elapses.
+     * Rebuilds the {@link ChatLanguageModel}s after a stuck worker forced the
+     * {@link TimeoutGuardedRunner} to replace its executor, so that the next
+     * call opens a fresh {@code HttpURLConnection} rather than risk any
+     * connection reuse tied to the leaked worker.
      */
-    private synchronized void replaceExecutorService(ExecutorService stuck) {
-        if (this.executorService != stuck) {
-            // Already replaced by a concurrent call.
-            return;
-        }
-        try {
-            stuck.shutdownNow();
-        } catch (Throwable ignored) {
-            // Best effort — even if shutdown throws, we still want a fresh executor below.
-        }
-        this.executorService = createExecutorService();
-        executorGeneration.incrementAndGet();
+    private void rebuildModelsAfterStuckCall() {
         if (available && configuration.getProvider() != Properties.LlmProvider.NONE) {
             try {
                 ProviderModelFactory.Models rebuilt = ProviderModelFactory.createModels(configuration);
@@ -706,10 +599,6 @@ public class LlmService implements AutoCloseable {
                         t.getMessage());
             }
         }
-    }
-
-    private static ExecutorService createExecutorService() {
-        return Executors.newCachedThreadPool(r -> LlmPrivilegedThreads.newThread(r, "timeout-guard"));
     }
 
     private boolean sleepBackoff(int attempt, long deadlineNanos) {
@@ -838,7 +727,7 @@ public class LlmService implements AutoCloseable {
 
     @Override
     public void close() {
-        executorService.shutdownNow();
+        timeoutRunner.close();
     }
 
     public interface ChatLanguageModel {
