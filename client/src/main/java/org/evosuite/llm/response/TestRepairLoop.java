@@ -85,7 +85,7 @@ import static org.evosuite.llm.response.MockRuntimeExceptions.MOCK_RUNTIME_PACKA
 import static org.evosuite.llm.response.MockRuntimeExceptions.errorMentionsMockRuntimeException;
 import static org.evosuite.llm.response.MockRuntimeExceptions.isRaisedByEvoSuiteRuntime;
 import static org.evosuite.llm.response.MockRuntimeExceptions.reportedExceptionName;
-import static org.evosuite.llm.response.MockRuntimeExceptions.unmockedExceptionClass;
+import static org.evosuite.llm.response.ParsedTestExecutionCheck.matchesExpectedExceptionName;
 import static org.evosuite.llm.response.RepairText.MISSING_METHOD_DIAGNOSTIC_PATTERN;
 import static org.evosuite.llm.response.RepairText.NEW_CALL_PATTERN;
 import static org.evosuite.llm.response.RepairText.NULL_DECLARATION_PATTERN;
@@ -211,6 +211,7 @@ public class TestRepairLoop {
     private final String sutContextSummary;
     private final RepairOptions repairOptions;
     private final ExecutionFailureFormatter failureFormatter;
+    private final ParsedTestExecutionCheck executionCheck;
     private final DependencyCodeContextResolver dependencyCodeResolver = new DependencyCodeContextResolver();
     private final RepairHintResolver repairHintResolver = new RepairHintResolver();
     /** Signature summarizer for the cluster-growth delta of a repair conversation. */
@@ -221,23 +222,6 @@ public class TestRepairLoop {
      * singleton that is awkward to control from a unit test.
      */
     private Supplier<TestCluster> testClusterSupplier = TestCluster::getInstance;
-
-    /**
-     * Per-test execution failure: the formatted error string, the originating
-     * throwable (used for dependency-code lookup), and the failing statement
-     * position when known.
-     */
-    private static final class ExecutionFailureContext {
-        final String errorMessage;
-        final Throwable throwable;
-        final Integer failingPosition;
-
-        ExecutionFailureContext(String errorMessage, Throwable throwable, Integer failingPosition) {
-            this.errorMessage = errorMessage;
-            this.throwable = throwable;
-            this.failingPosition = failingPosition;
-        }
-    }
 
     /**
      * Options controlling parse-repair behavior.
@@ -457,6 +441,8 @@ public class TestRepairLoop {
         this.sutContextSummary = sutContextSummary;
         this.repairOptions = repairOptions == null ? RepairOptions.defaults() : repairOptions;
         this.failureFormatter = new ExecutionFailureFormatter(sutContextSummary, testParser);
+        this.executionCheck = new ParsedTestExecutionCheck(testExecutor,
+                this.repairOptions.isRepairOnAssertionFailures(), failureFormatter);
     }
 
     /** Returns the {@link RepairOptions} this loop was configured with. */
@@ -748,7 +734,7 @@ public class TestRepairLoop {
             Map<ParseResult, ExecutionFailureContext> executionErrorByTest = new LinkedHashMap<>();
             if (repairOptions.isExecuteParsedTests()) {
                 for (ParseResult pr : validTests) {
-                    ExecutionFailureContext failure = checkExecution(pr);
+                    ExecutionFailureContext failure = executionCheck.checkExecution(pr);
                     if (failure == null) {
                         finalTests.add(pr);
                     } else {
@@ -1086,7 +1072,7 @@ public class TestRepairLoop {
             Integer failIndex = firstUndeclaredExceptionPosition(failed, salvaged, result);
             if (failIndex == null) {
                 // Assertions of statements that never completed cannot hold.
-                int executedCount = executedStatementCount(salvaged, result);
+                int executedCount = ParsedTestExecutionCheck.executedStatementCount(salvaged, result);
                 int removed = removeFailingAssertions(salvaged, result, executedCount);
                 for (int i = executedCount; i < salvaged.size(); i++) {
                     removed += salvaged.getStatement(i).getAssertions().size();
@@ -1149,7 +1135,8 @@ public class TestRepairLoop {
         Collections.sort(positions);
         for (Integer position : positions) {
             Throwable thrown = result.getExceptionThrownAtPosition(position);
-            if (countsAsExecutionFailure(testCase, origin.getExpectedExceptionClass(), position, thrown)) {
+            if (executionCheck.countsAsExecutionFailure(testCase, origin.getExpectedExceptionClass(),
+                    position, thrown)) {
                 return position;
             }
         }
@@ -1605,209 +1592,6 @@ public class TestRepairLoop {
         }
         String name = parseResult.getOriginalMethodName();
         return (name == null || name.isEmpty()) ? "<unnamed>" : name;
-    }
-
-    /**
-     * Whether {@code thrown} at {@code position} is a failure the repair loop acts on: an
-     * exception the test does not declare, and an assertion failure only when repairing those.
-     */
-    private boolean countsAsExecutionFailure(TestCase testCase, String expectedExceptionClass,
-                                             Integer position, Throwable thrown) {
-        return isUndeclaredException(testCase, expectedExceptionClass, position, thrown)
-                && (repairOptions.isRepairOnAssertionFailures() || !(thrown instanceof AssertionError));
-    }
-
-    private ExecutionFailureContext checkExecution(ParseResult parseResult) {
-        ExecutionResult executionResult;
-        try {
-            executionResult = testExecutor.execute(parseResult.getTestCase());
-            if (executionResult != null) {
-                for (Integer position : executionResult.getPositionsWhereExceptionsWereThrown()) {
-                    Throwable thrown = executionResult.getExceptionThrownAtPosition(position);
-                    if (!countsAsExecutionFailure(parseResult.getTestCase(),
-                            parseResult.getExpectedExceptionClass(), position, thrown)) {
-                        continue;
-                    }
-                    Integer diagnosticPosition =
-                            failureFormatter.resolveDiagnosticStatementPosition(parseResult, position, thrown);
-                    String message = "Execution error in test '" + parseResult.getOriginalMethodName()
-                            + "': "
-                            + failureFormatter.formatThrowableWithStackExcerpt(thrown, parseResult, diagnosticPosition)
-                            + failureFormatter.buildExecutionContext(parseResult, diagnosticPosition, thrown);
-                    return new ExecutionFailureContext(message, thrown, diagnosticPosition);
-                }
-            }
-        } catch (Throwable executionFailure) {
-            String message = "Execution failure in test '" + parseResult.getOriginalMethodName()
-                    + "': " + failureFormatter.formatThrowableWithStackExcerpt(executionFailure, parseResult, null)
-                    + failureFormatter.buildExecutionContext(parseResult, null, executionFailure);
-            return new ExecutionFailureContext(message, executionFailure, null);
-        }
-        if (repairOptions.isRepairOnAssertionFailures()) {
-            ExecutionFailureContext assertionError = checkAssertions(parseResult, executionResult);
-            if (assertionError != null) {
-                return assertionError;
-            }
-        }
-        return null;
-    }
-
-    private ExecutionFailureContext checkAssertions(ParseResult parseResult, ExecutionResult executionResult) {
-        if (parseResult == null || parseResult.getTestCase() == null || executionResult == null) {
-            return null;
-        }
-        Scope finalScope = executionResult.getFinalScope();
-        if (finalScope == null) {
-            return null;
-        }
-        // Statements from the first exception onwards never completed, so their
-        // assertions say nothing about the SUT; evaluating them against the final
-        // scope reports misleading "Assertion failed at statement N" feedback.
-        int executedCount = executedStatementCount(parseResult.getTestCase(), executionResult);
-        if (executedCount < parseResult.getTestCase().size()) {
-            ExecutionFailureContext unreachable = checkUnreachableAssertions(
-                    parseResult, executionResult, executedCount);
-            if (unreachable != null) {
-                return unreachable;
-            }
-        }
-        for (int i = 0; i < executedCount; i++) {
-            org.evosuite.testcase.statements.Statement stmt = parseResult.getTestCase().getStatement(i);
-            if (stmt == null || stmt.getAssertions() == null || stmt.getAssertions().isEmpty()) {
-                continue;
-            }
-            for (Assertion assertion : stmt.getAssertions()) {
-                if (assertion == null) {
-                    continue;
-                }
-                final boolean holds;
-                try {
-                    holds = assertion.evaluate(finalScope);
-                } catch (Throwable assertionFailure) {
-                    String message = "Execution error in test '" + parseResult.getOriginalMethodName()
-                            + "': Assertion evaluation error at statement " + i + " - "
-                            + failureFormatter.formatThrowableWithStackExcerpt(assertionFailure, parseResult, i)
-                            + failureFormatter.buildExecutionContext(parseResult, i, assertionFailure);
-                    return new ExecutionFailureContext(message, assertionFailure, i);
-                }
-                if (!holds) {
-                    String message = "Execution error in test '" + parseResult.getOriginalMethodName()
-                            + "': Assertion failed at statement " + i + " - "
-                            + assertion.getCode()
-                            + failureFormatter.buildExecutionContext(parseResult, i, null);
-                    return new ExecutionFailureContext(message, null, i);
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Number of leading statements that completed: the position of the first
-     * thrown exception, or the test size when nothing was thrown or execution
-     * continued past the exception.
-     */
-    private static int executedStatementCount(TestCase testCase, ExecutionResult executionResult) {
-        Integer firstException = executionResult.getFirstPositionOfThrownException();
-        if (firstException == null || firstException < 0) {
-            return testCase.size();
-        }
-        if (!Properties.BREAK_ON_EXCEPTION && !(executionResult.getExceptionThrownAtPosition(firstException)
-                instanceof org.evosuite.runtime.System.SystemExitException)) {
-            return testCase.size();
-        }
-        return Math.min(firstException, testCase.size());
-    }
-
-    /**
-     * When statements carrying assertions were skipped because of an exception
-     * the test neither expects nor can avoid (it was not raised by the EvoSuite
-     * runtime), the intended oracles never ran: report the exception rather
-     * than the assertions. Returns null when no assertion was skipped or the
-     * exception is expected.
-     */
-    private ExecutionFailureContext checkUnreachableAssertions(ParseResult parseResult,
-                                                               ExecutionResult executionResult,
-                                                               int exceptionPosition) {
-        TestCase testCase = parseResult.getTestCase();
-        List<Integer> skipped = new ArrayList<>();
-        for (int i = exceptionPosition; i < testCase.size(); i++) {
-            org.evosuite.testcase.statements.Statement stmt = testCase.getStatement(i);
-            if (stmt != null && stmt.getAssertions() != null && !stmt.getAssertions().isEmpty()) {
-                skipped.add(i);
-            }
-        }
-        if (skipped.isEmpty()) {
-            return null;
-        }
-        Throwable thrown = executionResult.getExceptionThrownAtPosition(exceptionPosition);
-        if (thrown == null
-                || matchesExpectedException(parseResult.getExpectedExceptionClass(), thrown)
-                || isRaisedByEvoSuiteRuntime(thrown)) {
-            return null;
-        }
-        String message = "Execution error in test '" + parseResult.getOriginalMethodName()
-                + "': statement " + exceptionPosition + " threw "
-                + failureFormatter.formatThrowableWithStackExcerpt(thrown, parseResult, exceptionPosition)
-                + "\nThe assertions at statement(s) " + skipped
-                + " were never reached because of this exception."
-                + failureFormatter.buildExecutionContext(parseResult, exceptionPosition, thrown);
-        return new ExecutionFailureContext(message, thrown, exceptionPosition);
-    }
-
-    private boolean isUndeclaredException(TestCase testCase, String expectedExceptionClass,
-                                          Integer position, Throwable thrown) {
-        if (testCase == null || position == null || thrown == null) {
-            return false;
-        }
-        if (matchesExpectedException(expectedExceptionClass, thrown)) {
-            return false;
-        }
-        // Exceptions raised by the EvoSuite runtime itself (simulated I/O and
-        // network failures, System.exit) are environment-induced, deterministic,
-        // and unavoidable for any test that reaches the call site. Accept them as
-        // if they were declared so the test is kept as a covering chromosome.
-        if (isRaisedByEvoSuiteRuntime(thrown)) {
-            return false;
-        }
-        if (position < 0 || position >= testCase.size()) {
-            // If execution reports an exception at an invalid position, treat it as undeclared.
-            // Silently ignoring it can incorrectly mark a failing candidate as successful.
-            return true;
-        }
-        Set<Class<?>> declared = testCase.getStatement(position).getDeclaredExceptions();
-        return !declared.contains(thrown.getClass())
-                && !declared.contains(unmockedExceptionClass(thrown.getClass()));
-    }
-
-    private boolean matchesExpectedException(String expected, Throwable thrown) {
-        if (thrown == null) {
-            return false;
-        }
-        if (expected == null || expected.trim().isEmpty()) {
-            return false;
-        }
-        Class<?> current = thrown.getClass();
-        while (current != null) {
-            if (matchesExpectedExceptionName(current, expected)) {
-                return true;
-            }
-            current = current.getSuperclass();
-        }
-        return false;
-    }
-
-    private boolean matchesExpectedExceptionName(Class<?> actualClass, String expected) {
-        if (actualClass == null || expected == null) {
-            return false;
-        }
-        String normalized = expected.trim();
-        if (normalized.isEmpty()) {
-            return false;
-        }
-        return actualClass.getName().equals(normalized)
-                || actualClass.getSimpleName().equals(normalized)
-                || actualClass.getName().endsWith("." + normalized);
     }
 
     /**
