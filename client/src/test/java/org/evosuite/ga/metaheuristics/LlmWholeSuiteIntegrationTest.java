@@ -325,7 +325,7 @@ class LlmWholeSuiteIntegrationTest {
 
     private static class PreloadedAsyncProducer extends AsyncLlmTestProducer {
         PreloadedAsyncProducer() {
-            super(Collections::emptyList);
+            super(Collections::emptyList, null, null, 1, 1, 0, null);
         }
 
         @Override

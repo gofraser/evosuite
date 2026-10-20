@@ -36,14 +36,6 @@ import org.evosuite.llm.search.operator.SyncTargetPlan;
  */
 public class LanguageModelMutation extends SyncOperatorHook {
 
-    public LanguageModelMutation() {
-        this(new LlmSemanticMutation(), null);
-    }
-
-    public LanguageModelMutation(LlmSemanticMutation operator) {
-        this(operator, null);
-    }
-
     public LanguageModelMutation(LlmSemanticMutation operator, RepeatedInjectionMemory memory) {
         super(operator, OperatorTarget.Kind.MUTATION, () -> Properties.LLM_MUTATION_PROBABILITY, memory);
     }

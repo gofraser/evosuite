@@ -188,8 +188,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         when(mockSemanticCrossover.canCall()).thenReturn(true);
         LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
         when(mockSemanticMutation.canCall()).thenReturn(true);
-        harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
-        harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
+        harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, null);
+        harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, null);
 
         when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse());
@@ -308,8 +308,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             when(mockSemanticCrossover.canCall()).thenReturn(true);
             LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
             when(mockSemanticMutation.canCall()).thenReturn(true);
-            harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
-            harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
+            harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, null);
+            harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, null);
             when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse(2));
             when(mockSemanticMutation.applyMapped(anyList()))
@@ -381,8 +381,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             when(mockSemanticCrossover.canCall()).thenReturn(true);
             LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
             when(mockSemanticMutation.canCall()).thenReturn(true);
-            harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
-            harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
+            harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, null);
+            harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, null);
             when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse(2));
             when(mockSemanticMutation.applyMapped(anyList()))
@@ -441,8 +441,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         when(mockSemanticCrossover.canCall()).thenReturn(true);
         LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
         when(mockSemanticMutation.canCall()).thenReturn(true);
-        harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
-        harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
+        harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, null);
+        harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, null);
 
         TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
         TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);

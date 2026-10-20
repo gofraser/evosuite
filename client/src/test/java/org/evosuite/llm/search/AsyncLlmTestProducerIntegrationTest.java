@@ -75,7 +75,8 @@ class AsyncLlmTestProducerIntegrationTest {
                 service,
                 5,
                 1,
-                0);
+                0,
+                null);
 
         try {
             producer.start();
@@ -137,7 +138,8 @@ class AsyncLlmTestProducerIntegrationTest {
                 service,
                 5,
                 1,
-                0);
+                0,
+                null);
 
         try {
             producer.start();
@@ -162,7 +164,8 @@ class AsyncLlmTestProducerIntegrationTest {
                 service,
                 1,
                 1,
-                1);
+                1,
+                null);
 
         try {
             producer.start();

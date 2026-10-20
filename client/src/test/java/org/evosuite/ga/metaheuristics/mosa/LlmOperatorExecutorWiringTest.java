@@ -26,6 +26,8 @@ import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
+import org.evosuite.llm.search.LlmSemanticCrossover;
+import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.operator.LlmOperatorExecutor;
 import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.llm.search.operator.OperatorTarget;
@@ -341,8 +343,8 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         harness.initializeLlmAssistance(harness::getCurrentGoals, false);
         // ASYNC mode leaves the SYNC hooks null; set them directly too, so the four
         // pre-existing LLM_Semantic_* counters are exercised in the same pass.
-        harness.llmMutation = new LanguageModelMutation();
-        harness.llmCrossover = new LanguageModelCrossover();
+        harness.llmMutation = new LanguageModelMutation(new LlmSemanticMutation(), null);
+        harness.llmCrossover = new LanguageModelCrossover(new LlmSemanticCrossover(), null);
 
         @SuppressWarnings("unchecked")
         ClientNodeLocal<TestChromosome> clientNode = mock(ClientNodeLocal.class);

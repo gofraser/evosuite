@@ -109,41 +109,8 @@ public class AsyncLlmTestProducer {
         CONFIRMED_NO_GOALS
     }
 
-    /** Creates a producer using singleton LLM service and Properties-configured settings. */
-    public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
-        this(uncoveredGoalsSupplier,
-                null,
-                LlmService.getInstance(),
-                Properties.LLM_ASYNC_PRODUCER_QUEUE_SIZE,
-                Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL,
-                Properties.LLM_ASYNC_PRODUCER_DELAY_MS,
-                null);
-    }
-
-    /** Creates a producer with a population supplier for existing-test context. */
-    public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
-                                Supplier<List<TestChromosome>> populationSupplier) {
-        this(uncoveredGoalsSupplier,
-                populationSupplier,
-                LlmService.getInstance(),
-                Properties.LLM_ASYNC_PRODUCER_QUEUE_SIZE,
-                Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL,
-                Properties.LLM_ASYNC_PRODUCER_DELAY_MS,
-                null);
-    }
-
-    /** Creates a producer with explicit dependencies and configuration. */
-    public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
-                                Supplier<List<TestChromosome>> populationSupplier,
-                                LlmService llmService,
-                                int queueSize,
-                                int refreshInterval,
-                                int delayMs) {
-        this(uncoveredGoalsSupplier, populationSupplier, llmService, queueSize, refreshInterval, delayMs, null);
-    }
-
     /**
-     * Creates a producer that also records the outcome of each injection attempt in the given memory.
+     * Creates a producer that records the outcome of each injection attempt in the given memory.
      * @param uncoveredGoalsSupplier supplies the currently uncovered goals, may be null
      * @param populationSupplier supplies the current population
      * @param llmService the service used to query the model

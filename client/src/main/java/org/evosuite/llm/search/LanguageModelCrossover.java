@@ -35,14 +35,6 @@ import org.evosuite.llm.search.operator.SyncTargetPlan;
  */
 public class LanguageModelCrossover extends SyncOperatorHook {
 
-    public LanguageModelCrossover() {
-        this(new LlmSemanticCrossover(), null);
-    }
-
-    public LanguageModelCrossover(LlmSemanticCrossover operator) {
-        this(operator, null);
-    }
-
     public LanguageModelCrossover(LlmSemanticCrossover operator, RepeatedInjectionMemory memory) {
         super(operator, OperatorTarget.Kind.CROSSOVER, () -> Properties.LLM_CROSSOVER_PROBABILITY, memory);
     }

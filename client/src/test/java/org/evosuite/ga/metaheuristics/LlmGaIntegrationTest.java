@@ -312,7 +312,7 @@ class LlmGaIntegrationTest {
         private boolean stopped;
 
         private FakeAsyncProducer() {
-            super(Collections::emptyList);
+            super(Collections::emptyList, null, null, 1, 1, 0, null);
         }
 
         @Override

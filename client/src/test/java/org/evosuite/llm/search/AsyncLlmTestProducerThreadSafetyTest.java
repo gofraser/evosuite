@@ -68,7 +68,8 @@ class AsyncLlmTestProducerThreadSafetyTest {
                     mock(LlmService.class),
                     1,
                     1,
-                    0);
+                    0,
+                    null);
 
             Method snapshotMethod = AsyncLlmTestProducer.class
                     .getDeclaredMethod("safeChromosomeSnapshot");
@@ -131,7 +132,7 @@ class AsyncLlmTestProducerThreadSafetyTest {
         TestChromosome lateCandidate = new TestChromosome();
         AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
                 () -> Collections.singleton(new FixedFitnessGoal("example.Target", "method()V", 1.0)),
-                null, service, 1, 1, 0) {
+                null, service, 1, 1, 0, null) {
             @Override
             protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
                 requestEntered.countDown();
@@ -181,7 +182,7 @@ class AsyncLlmTestProducerThreadSafetyTest {
         AtomicInteger requests = new AtomicInteger();
         AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
                 () -> Collections.singleton(new FixedFitnessGoal("example.Target", "method()V", 1.0)),
-                null, service, 2, 1, 1) {
+                null, service, 2, 1, 1, null) {
             @Override
             protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
                 return requests.getAndIncrement() == 0 ? firstResponse : Collections.emptyList();
@@ -225,7 +226,7 @@ class AsyncLlmTestProducerThreadSafetyTest {
         TestChromosome blocked = new TestChromosome();
         AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
                 () -> Collections.singleton(new FixedFitnessGoal("example.Target", "method()V", 1.0)),
-                null, service, 1, 1, 0) {
+                null, service, 1, 1, 0, null) {
             @Override
             protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
                 requestReturned.countDown();
@@ -253,7 +254,7 @@ class AsyncLlmTestProducerThreadSafetyTest {
         private StubProducingAsyncLlmTestProducer(
                 Supplier<Collection<TestFitnessFunction>> goalsSupplier,
                 LlmService service) {
-            super(goalsSupplier, null, service, 1, 1, 1);
+            super(goalsSupplier, null, service, 1, 1, 1, null);
         }
 
         @Override
