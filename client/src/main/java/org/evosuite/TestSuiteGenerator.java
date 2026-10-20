@@ -189,6 +189,11 @@ public class TestSuiteGenerator {
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.INITIALIZATION);
 
+        // Publish the zero defaults of the LLM, speciation and disruption columns before anything
+        // else tracks them, so a feature the run never exercises reads 0 rather than blank in
+        // every mode. The master keeps the last value, so what the run tracks replaces them.
+        LlmStatistics.initializeRuntimeVariables();
+
         // Deactivate loop counter to make sure classes initialize properly
         LoopCounter.getInstance().setActive(false);
         ExceptionMapGenerator.initializeExceptionMap(Properties.TARGET_CLASS);
@@ -415,7 +420,7 @@ public class TestSuiteGenerator {
         if (LlmRunFeatures.providerConfigured()) {
             org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
         } else {
-            org.evosuite.llm.LlmStatistics.initializeRuntimeVariables();
+            org.evosuite.llm.LlmStatistics.publishRunTotals();
         }
         ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_STATISTICS);
 
@@ -535,7 +540,7 @@ public class TestSuiteGenerator {
         if (LlmRunFeatures.providerConfigured()) {
             LlmService.getInstance().getStatistics().publishRuntimeVariables();
         } else {
-            LlmStatistics.initializeRuntimeVariables();
+            LlmStatistics.publishRunTotals();
         }
         ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_STATISTICS);
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");

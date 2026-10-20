@@ -560,11 +560,12 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         // Pre-search enrichment (constants, object pool, cast classes) can run
         // even when stagnation assistance never activates. Publish whenever any
         // LLM mode is enabled so those counters survive into the statistics
-        // output; only zero-initialise when LLM is fully off.
+        // output. The zero defaults were published before the search; publishing
+        // them again here would overwrite what the search emitted.
         if (llmWasActive || LlmRunFeatures.providerConfigured()) {
             org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
         } else {
-            org.evosuite.llm.LlmStatistics.initializeRuntimeVariables();
+            org.evosuite.llm.LlmStatistics.publishRunTotals();
         }
     }
 

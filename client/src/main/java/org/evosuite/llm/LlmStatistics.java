@@ -837,11 +837,31 @@ public class LlmStatistics {
     }
 
     /**
+     * Publishes the totals of metrics that other components track during the run, such as how often
+     * an object-pool sequence was used. The master keeps the last value it receives for a variable,
+     * so the end of a run without an LLM provider publishes these totals instead of the zero
+     * defaults, and nothing else: the defaults would overwrite values the search emitted.
+     */
+    public static void publishRunTotals() {
+        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used,
+                ObjectPoolManager.getInstance().getSequenceUsageCount());
+        ExecutableSnippetEngine snippets = ExecutableSnippetEngine.INSTANCE;
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, snippets.getCompileFailures());
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, snippets.getRuntimeFailures());
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Statement_Execution_Failures,
+                snippets.getStatementExecutionFailures());
+        ClientServices.track(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures,
+                snippets.getAssertionEvaluationFailures());
+    }
+
+    /**
      * Initializes all LLM-related runtime variables to their zero/default values.
      * This ensures that requested statistics variables are present in the output
      * even if the corresponding features are disabled or never triggered.
      *
-     * <p>Safe to call regardless of whether LLM mode is enabled.
+     * <p>Call it before the search, in every mode: the master keeps the last value it
+     * receives, so values tracked later replace these defaults, whereas calling it after
+     * the search would overwrite the timelines and counters the search emitted.
      *
      * <p>Does NOT reset the in-process accumulators (the static {@code AtomicLong}s
      * and per-type maps). Pre-search enrichment populates those before the GA's
@@ -875,17 +895,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, 0);
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, 0);
         ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, 0);
-        // Tracked during the run by other components; publish their totals rather than zero,
-        // because the master keeps the last value it receives.
-        ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used,
-                ObjectPoolManager.getInstance().getSequenceUsageCount());
-        ExecutableSnippetEngine snippets = ExecutableSnippetEngine.INSTANCE;
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, snippets.getCompileFailures());
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, snippets.getRuntimeFailures());
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Statement_Execution_Failures,
-                snippets.getStatementExecutionFailures());
-        ClientServices.track(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures,
-                snippets.getAssertionEvaluationFailures());
+        publishRunTotals();
         ClientServices.track(RuntimeVariable.LLM_All_Candidates_Dropped_Execution, 0);
         ClientServices.track(RuntimeVariable.LLM_Semantic_Mutations, 0);
         ClientServices.track(RuntimeVariable.LLM_Semantic_Mutation_Fallbacks, 0);
