@@ -228,8 +228,8 @@ public class AsyncLlmTestProducer {
             Collection<TestFitnessFunction> attemptTargetGoals;
             if (diagnosticPrompt) {
                 prompt = buildDiagnosticPromptForAsync(currentGoals, currentTests, cachedDiagnosticCards);
-                cardTypes = extractCardTypes(cachedDiagnosticCards);
-                attemptTargetGoals = extractCardRelatedGoals(cachedDiagnosticCards);
+                cardTypes = ProblemCard.types(cachedDiagnosticCards);
+                attemptTargetGoals = ProblemCard.relatedGoals(cachedDiagnosticCards);
                 ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls,
                         diagnosticCallsAttempted.incrementAndGet());
                 ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Cards_Used,
@@ -433,12 +433,7 @@ public class AsyncLlmTestProducer {
         CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
         // Restrict the goals section to the goals related to the selected cards so the prompt
         // stays small. Falls back to the full uncovered-goal set when card relations are empty.
-        Set<TestFitnessFunction> cardRelatedGoals = new LinkedHashSet<>();
-        for (ProblemCard card : cards) {
-            if (card != null) {
-                cardRelatedGoals.addAll(card.getRelatedGoals());
-            }
-        }
+        Collection<TestFitnessFunction> cardRelatedGoals = ProblemCard.relatedGoals(cards);
         Collection<TestFitnessFunction> goalsForPrompt = cardRelatedGoals.isEmpty()
                 ? currentGoals : cardRelatedGoals;
         String goalsSection = goalFormatter.format(goalsForPrompt, null);
@@ -458,48 +453,9 @@ public class AsyncLlmTestProducer {
             builder.withExistingTests(currentTests);
         }
         return builder.buildWithMetadata().toBuilder()
-                .diagnosticCardTypes(extractCardTypes(cards))
-                .repeatedInjectionTargets(extractRepeatedTargetsFromCards(cards))
+                .diagnosticCardTypes(ProblemCard.types(cards))
+                .repeatedInjectionTargets(ProblemCard.repeatedInjectionTargets(cards))
                 .build();
-    }
-
-    private Collection<TestFitnessFunction> extractCardRelatedGoals(List<ProblemCard> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return Collections.emptyList();
-        }
-        Set<TestFitnessFunction> goals = new LinkedHashSet<>();
-        for (ProblemCard card : cards) {
-            if (card != null) {
-                goals.addAll(card.getRelatedGoals());
-            }
-        }
-        return goals;
-    }
-
-    private List<ProblemCardType> extractCardTypes(List<ProblemCard> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<ProblemCardType> types = new ArrayList<>(cards.size());
-        for (ProblemCard card : cards) {
-            if (card != null && card.getType() != null) {
-                types.add(card.getType());
-            }
-        }
-        return types;
-    }
-
-    private List<RepeatedInjectionTarget> extractRepeatedTargetsFromCards(List<ProblemCard> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<RepeatedInjectionTarget> targets = new ArrayList<>(cards.size());
-        for (ProblemCard card : cards) {
-            if (card != null) {
-                targets.add(card.toRepeatedInjectionTarget());
-            }
-        }
-        return targets;
     }
 
     /** Snapshots the population as detached chromosomes so the extractor can read traces safely. */

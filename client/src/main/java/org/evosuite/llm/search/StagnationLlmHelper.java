@@ -36,10 +36,8 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -543,7 +541,7 @@ public final class StagnationLlmHelper {
         }
         List<ProblemCardType> cardTypes = prompt == null
                 ? Collections.emptyList() : prompt.getDiagnosticCardTypes();
-        Collection<TestFitnessFunction> targetGoals = extractCardRelatedGoals(
+        Collection<TestFitnessFunction> targetGoals = ProblemCard.relatedGoals(
                 prompt == null ? null : prompt.getDiagnosticCards());
         int published = 0;
         for (TestChromosome tc : tests) {
@@ -569,19 +567,6 @@ public final class StagnationLlmHelper {
         ClientServices.track(RuntimeVariable.LLM_StagnationTestsPublished,
                 stagnationTestsPublished.addAndGet(published));
         LlmStatistics.recordDiagnosticCandidatesPublished(cardTypes, published);
-    }
-
-    private Collection<TestFitnessFunction> extractCardRelatedGoals(List<ProblemCard> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return Collections.emptyList();
-        }
-        Set<TestFitnessFunction> goals = new LinkedHashSet<>();
-        for (ProblemCard card : cards) {
-            if (card != null) {
-                goals.addAll(card.getRelatedGoals());
-            }
-        }
-        return goals;
     }
 
     long getPromptsSubmitted() {

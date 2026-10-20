@@ -23,9 +23,12 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFitnessFunction;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A compact diagnostic signal describing one likely blocker to further coverage.
@@ -298,6 +301,48 @@ public final class ProblemCard {
         }
         String fingerprint = selectionFingerprint.isEmpty() ? key : selectionFingerprint;
         return new RepeatedInjectionTarget(key, fingerprint, type);
+    }
+
+    /** The goals related to any of {@code cards}, in card order without duplicates; empty for none. */
+    public static Collection<TestFitnessFunction> relatedGoals(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Set<TestFitnessFunction> goals = new LinkedHashSet<>();
+        for (ProblemCard card : cards) {
+            if (card != null) {
+                goals.addAll(card.getRelatedGoals());
+            }
+        }
+        return goals;
+    }
+
+    /** The types of {@code cards}, one per card that has one, in card order. */
+    public static List<ProblemCardType> types(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<ProblemCardType> types = new ArrayList<>(cards.size());
+        for (ProblemCard card : cards) {
+            if (card != null && card.getType() != null) {
+                types.add(card.getType());
+            }
+        }
+        return types;
+    }
+
+    /** The repeated-injection target of each of {@code cards}, in card order. */
+    public static List<RepeatedInjectionTarget> repeatedInjectionTargets(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<RepeatedInjectionTarget> targets = new ArrayList<>(cards.size());
+        for (ProblemCard card : cards) {
+            if (card != null) {
+                targets.add(card.toRepeatedInjectionTarget());
+            }
+        }
+        return targets;
     }
 
     private static double sanitize01(double value) {

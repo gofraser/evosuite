@@ -567,36 +567,10 @@ public class StagnationDetector {
         }
         PromptResult prompt = builder.buildWithMetadata();
         return prompt.toBuilder()
-                .diagnosticCardTypes(extractCardTypes(cards))
+                .diagnosticCardTypes(ProblemCard.types(cards))
                 .diagnosticCards(cards)
-                .repeatedInjectionTargets(extractRepeatedTargets(cards))
+                .repeatedInjectionTargets(ProblemCard.repeatedInjectionTargets(cards))
                 .build();
-    }
-
-    private List<ProblemCardType> extractCardTypes(List<ProblemCard> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<ProblemCardType> types = new ArrayList<>(cards.size());
-        for (ProblemCard card : cards) {
-            if (card != null && card.getType() != null) {
-                types.add(card.getType());
-            }
-        }
-        return types;
-    }
-
-    private List<RepeatedInjectionTarget> extractRepeatedTargets(List<ProblemCard> cards) {
-        if (cards == null || cards.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<RepeatedInjectionTarget> targets = new ArrayList<>(cards.size());
-        for (ProblemCard card : cards) {
-            if (card != null) {
-                targets.add(card.toRepeatedInjectionTarget());
-            }
-        }
-        return targets;
     }
 
     /**
