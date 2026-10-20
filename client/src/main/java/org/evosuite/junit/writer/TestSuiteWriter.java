@@ -613,14 +613,14 @@ public class TestSuiteWriter implements Opcodes {
             }
             if (trimmed.startsWith("import static ")) {
                 String normalized = normalizeImportLine(trimmed);
-                String simpleName = extractImportSimpleName(normalized);
+                String simpleName = TestSuiteWriterUtils.importSimpleName(normalized);
                 if (simpleName == null || !seenStaticSimpleNames.add(simpleName)) {
                     continue;
                 }
                 staticImports.add(normalized);
             } else {
                 String normalized = normalizeImportLine(trimmed);
-                String simpleName = extractImportSimpleName(normalized);
+                String simpleName = TestSuiteWriterUtils.importSimpleName(normalized);
                 if (simpleName == null || !seenNormalSimpleNames.add(simpleName)) {
                     continue;
                 }
@@ -648,26 +648,6 @@ public class TestSuiteWriter implements Opcodes {
             trimmed = trimmed + ";";
         }
         return trimmed;
-    }
-
-    private String extractImportSimpleName(String importLine) {
-        if (importLine == null || !importLine.startsWith("import ")) {
-            return null;
-        }
-        String body;
-        if (importLine.startsWith("import static ")) {
-            body = importLine.substring("import static ".length(), importLine.length() - 1).trim();
-        } else {
-            body = importLine.substring("import ".length(), importLine.length() - 1).trim();
-        }
-        if (body.endsWith(".*")) {
-            body = body.substring(0, body.length() - 2);
-        }
-        int lastDot = body.lastIndexOf('.');
-        if (lastDot < 0 || lastDot == body.length() - 1) {
-            return null;
-        }
-        return body.substring(lastDot + 1);
     }
 
 

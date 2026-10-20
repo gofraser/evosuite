@@ -244,5 +244,30 @@ public class TestSuiteWriterUtils {
         return dirname;
     }
 
-
+    /**
+     * The simple name an import line brings into scope: the last segment of the imported name,
+     * or of the package or type for an on-demand import.
+     *
+     * @param importLine an import declaration ending in ';'
+     * @return the simple name, or {@code null} if the line is no import or names no member
+     */
+    public static String importSimpleName(String importLine) {
+        if (importLine == null || !importLine.startsWith("import ")) {
+            return null;
+        }
+        String body;
+        if (importLine.startsWith("import static ")) {
+            body = importLine.substring("import static ".length(), importLine.length() - 1).trim();
+        } else {
+            body = importLine.substring("import ".length(), importLine.length() - 1).trim();
+        }
+        if (body.endsWith(".*")) {
+            body = body.substring(0, body.length() - 2);
+        }
+        int lastDot = body.lastIndexOf('.');
+        if (lastDot < 0 || lastDot == body.length() - 1) {
+            return null;
+        }
+        return body.substring(lastDot + 1);
+    }
 }

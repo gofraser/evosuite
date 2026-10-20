@@ -1623,7 +1623,7 @@ public class TestRepairLoop {
             if (!seenExactImports.add(trimmed)) {
                 return;
             }
-            String simpleName = extractImportSimpleName(trimmed);
+            String simpleName = TestSuiteWriterUtils.importSimpleName(trimmed);
             if (simpleName != null) {
                 Set<String> seen = trimmed.startsWith("import static ")
                         ? seenStaticSimpleNames
@@ -1634,23 +1634,6 @@ public class TestRepairLoop {
                 }
             }
             sb.append(trimmed).append('\n');
-        }
-
-        private String extractImportSimpleName(String importLine) {
-            String body;
-            if (importLine.startsWith("import static ")) {
-                body = importLine.substring("import static ".length(), importLine.length() - 1).trim();
-            } else {
-                body = importLine.substring("import ".length(), importLine.length() - 1).trim();
-            }
-            if (body.endsWith(".*")) {
-                body = body.substring(0, body.length() - 2);
-            }
-            int lastDot = body.lastIndexOf('.');
-            if (lastDot < 0 || lastDot == body.length() - 1) {
-                return null;
-            }
-            return body.substring(lastDot + 1);
         }
     }
 
