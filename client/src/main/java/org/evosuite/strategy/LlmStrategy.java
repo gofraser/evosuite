@@ -27,10 +27,7 @@ import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.llm.IterativeLlmSidecarRecorder;
-import org.evosuite.llm.LlmBudgetExceededException;
-import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
-import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.PhaseDeadline;
@@ -39,6 +36,7 @@ import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
+import org.evosuite.llm.response.GeneratedTestRequest;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
@@ -663,49 +661,60 @@ public class LlmStrategy extends TestGenerationStrategy {
             LlmService llmService, PromptResult prompt,
             LlmFeature feature, long deadlineNanos) {
         long startedNanos = System.nanoTime();
-        try {
-            String response = llmService.query(LlmRequest.of(prompt, feature)
-                    .withDeadlineNanos(deadlineNanos)).getText();
-            RepairResult result = createRepairLoop(
-                    llmService,
-                    TestRepairLoop.RepairOptions.forAssertionPolicy(
-                            LlmAssertionPolicyResolver.keepAssertions(true)))
-                    .attemptParse(response, prompt, feature,
-                            deadlineNanos);
-            long latencyMillis = elapsedMillis(startedNanos);
-            if (!result.isSuccess()) {
-                String hint = topDiagnostic(result.getDiagnostics());
-                if (result.isDroppedAtExecution()) {
-                    return QueryOutcome.droppedAtExecution(
-                            "All generated tests failed at execution: "
-                                    + (hint == null ? "no diagnostic" : hint),
-                            latencyMillis);
+        GeneratedTestRequest.Outcome outcome = GeneratedTestRequest.of(prompt, feature)
+                .withDeadlineNanos(deadlineNanos)
+                .send(llmService, () -> createRepairLoop(
+                        llmService,
+                        TestRepairLoop.RepairOptions.forAssertionPolicy(
+                                LlmAssertionPolicyResolver.keepAssertions(true))));
+        switch (outcome.getStatus()) {
+            case NO_BUDGET:
+            case CALL_FAILED:
+                LoggingUtils.getEvoLogger().info(
+                        "* LLM query failed during generation: {}", outcome.getFailure().getMessage());
+                logger.warn("LLM query failed during generation: {}", outcome.getFailure().getMessage());
+                return QueryOutcome.callFailure("LLM call failed: " + outcome.getFailure().getMessage(),
+                        elapsedMillis(startedNanos));
+            case PARSED:
+                try {
+                    return parsedOutcome(outcome.getResult(), elapsedMillis(startedNanos));
+                } catch (RuntimeException e) {
+                    return crashedOutcome(e, startedNanos);
                 }
-                return QueryOutcome.failure("Parse/repair failed: "
-                        + (hint == null ? "no diagnostic" : hint),
-                        latencyMillis);
-            }
-            List<TestChromosome> tests = toChromosomes(result);
-            if (tests.isEmpty()) {
-                return QueryOutcome.failure(
-                        "Parse/repair succeeded but produced zero usable tests",
-                        latencyMillis);
-            }
-            return QueryOutcome.success(tests, latencyMillis);
-        } catch (LlmBudgetExceededException | LlmCallFailedException e) {
-            LoggingUtils.getEvoLogger().info(
-                    "* LLM query failed during generation: {}", e.getMessage());
-            logger.warn("LLM query failed during generation: {}", e.getMessage());
-            return QueryOutcome.callFailure("LLM call failed: " + e.getMessage(),
-                    elapsedMillis(startedNanos));
-        } catch (RuntimeException e) {
-            LoggingUtils.getEvoLogger().info(
-                    "* LLM query crashed during generation: {}", e.getMessage());
-            logger.error("LLM query crashed during generation", e);
-            return QueryOutcome.failure(
-                    "LLM call crashed: " + e.getClass().getSimpleName(),
-                    elapsedMillis(startedNanos));
+            default:
+                return crashedOutcome(outcome.getFailure(), startedNanos);
         }
+    }
+
+    private QueryOutcome parsedOutcome(RepairResult result, long latencyMillis) {
+        if (!result.isSuccess()) {
+            String hint = topDiagnostic(result.getDiagnostics());
+            if (result.isDroppedAtExecution()) {
+                return QueryOutcome.droppedAtExecution(
+                        "All generated tests failed at execution: "
+                                + (hint == null ? "no diagnostic" : hint),
+                        latencyMillis);
+            }
+            return QueryOutcome.failure("Parse/repair failed: "
+                    + (hint == null ? "no diagnostic" : hint),
+                    latencyMillis);
+        }
+        List<TestChromosome> tests = toChromosomes(result);
+        if (tests.isEmpty()) {
+            return QueryOutcome.failure(
+                    "Parse/repair succeeded but produced zero usable tests",
+                    latencyMillis);
+        }
+        return QueryOutcome.success(tests, latencyMillis);
+    }
+
+    private QueryOutcome crashedOutcome(RuntimeException e, long startedNanos) {
+        LoggingUtils.getEvoLogger().info(
+                "* LLM query crashed during generation: {}", e.getMessage());
+        logger.error("LLM query crashed during generation", e);
+        return QueryOutcome.failure(
+                "LLM call crashed: " + e.getClass().getSimpleName(),
+                elapsedMillis(startedNanos));
     }
 
     /**
