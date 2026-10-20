@@ -45,6 +45,8 @@ public class StandardClientCommandTest {
 
     @BeforeEach
     public void remember() {
+        // Loading the properties can set the project prefix, so load them before clearing it.
+        Properties.getInstance();
         targetClass = Properties.TARGET_CLASS;
         port = Properties.PROCESS_COMMUNICATION_PORT;
         prefix = Properties.PROJECT_PREFIX;
