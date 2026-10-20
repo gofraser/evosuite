@@ -41,13 +41,16 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.longThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -243,6 +246,26 @@ class LlmTestChromosomeFactoryTest {
         verify(memory).registerAttempt(any(List.class), eq(true));
         verify(memory).releaseUndeliveredAttempt(any(String.class));
         verify(memory, never()).recordAttemptOutcome(any(String.class), any(Integer.class));
+    }
+
+    @Test
+    void boundsTheCallByTheRemainingSearchBudget() {
+        TestFitnessFunction goal = new StubGoal("g");
+        LlmService llmService = mockAvailableService();
+        when(llmService.query(any(PromptResult.class), any(LlmFeature.class), anyLong()))
+                .thenReturn(UNPARSEABLE_RESPONSE);
+        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(UNPARSEABLE_RESPONSE);
+        LlmTestChromosomeFactory factory = targetedFactory(llmService, new RepeatedInjectionMemory(), goal);
+        factory.setRemainingSearchSeconds(() -> 5L);
+
+        long before = System.nanoTime();
+        factory.getChromosome();
+        long after = System.nanoTime();
+
+        long budget = TimeUnit.SECONDS.toNanos(5);
+        verify(llmService).query(any(PromptResult.class), eq(LlmFeature.TEST_FACTORY),
+                longThat(deadline -> deadline >= before + budget && deadline <= after + budget));
+        verify(llmService, never()).query(any(PromptResult.class), any(LlmFeature.class));
     }
 
     @Test

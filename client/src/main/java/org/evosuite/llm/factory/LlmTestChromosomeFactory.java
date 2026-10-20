@@ -28,6 +28,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
@@ -84,6 +85,8 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     private volatile Supplier<List<TestChromosome>> populationSupplier;
     private volatile OperatorTargetSelector targetSelector;
     private volatile LongSupplier generationSupplier = () -> 0L;
+    /** Seconds the search has left, negative for no limit; bounds each LLM call. */
+    private volatile LongSupplier remainingSearchSeconds = () -> -1L;
     /** Shared with the other LLM features; null until the GA wires it in (then no attempt bookkeeping). */
     private volatile RepeatedInjectionMemory repeatedInjectionMemory;
     /** Attempts waiting for the GA to evaluate their test; null while there is no memory. */
@@ -128,6 +131,16 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         this.repeatedInjectionMemory = memory;
         this.attemptLedger = memory == null ? null : new SeedAttemptLedger(memory);
         this.targetSelector = new OperatorTargetSelector(memory);
+    }
+
+    /**
+     * Bounds each LLM call, including its repair turns, by the search budget:
+     * the search thread blocks on the call, so it must give up once {@code
+     * remainingSearchSeconds} have passed. A supplier returning a negative
+     * value (the default) sets no bound.
+     */
+    public void setRemainingSearchSeconds(LongSupplier remainingSearchSeconds) {
+        this.remainingSearchSeconds = remainingSearchSeconds == null ? () -> -1L : remainingSearchSeconds;
     }
 
     /**
@@ -238,11 +251,14 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
                 ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
                 : memory.registerAttempt(prompt.getRepeatedInjectionTargets(), true);
         boolean handedToLedger = false;
+        long deadlineNanos = LlmWaitBudget.deadlineNanos(remainingSearchSeconds);
         try {
-            String response = llmService.query(prompt, LlmFeature.TEST_FACTORY);
+            String response = deadlineNanos == Long.MAX_VALUE
+                    ? llmService.query(prompt, LlmFeature.TEST_FACTORY)
+                    : llmService.query(prompt, LlmFeature.TEST_FACTORY, deadlineNanos);
             RepairResult repairResult = TestRepairLoop
                     .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
-                    .attemptParse(response, prompt.getMessages(), LlmFeature.TEST_FACTORY);
+                    .attemptParse(response, prompt.getMessages(), LlmFeature.TEST_FACTORY, deadlineNanos);
             TargetedResponse targeted = TargetedResponse.map(repairResult, 1);
             TestCase testCase = targeted.forTarget(1)
                     .orElseGet(() -> targeted.all().isEmpty() ? null : targeted.all().get(0));
