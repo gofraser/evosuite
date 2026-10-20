@@ -86,7 +86,7 @@ class TestSuiteGeneratorReplayTest {
             test.setUnstable(true);
             TestSuiteChromosome suite = suiteContaining(test);
 
-            TestSuiteChromosome written = TestSuiteGenerator.cloneSuiteForWriting(suite);
+            TestSuiteChromosome written = OracleReplayRun.cloneSuiteForWriting(suite);
             TestCase writtenTest = written.getTestChromosome(0).getTestCase();
             assertTrue(writtenTest.isUnstable());
 
@@ -199,7 +199,7 @@ class TestSuiteGeneratorReplayTest {
         TestCase test = suite.getTestChromosome(0).getTestCase();
         test.setStatement(new IntPrimitiveStatement(test, 8), 0);
 
-        assertTrue(TestSuiteGenerator.writerPreservedExecutableStructure(
+        assertTrue(OracleReplayRun.writerPreservedExecutableStructure(
                 suite, inputTests, inputStatements));
     }
 
@@ -218,7 +218,7 @@ class TestSuiteGeneratorReplayTest {
 
         test.chop(1);
 
-        assertTrue(TestSuiteGenerator.writerPreservedExecutableStructure(
+        assertTrue(OracleReplayRun.writerPreservedExecutableStructure(
                 suite, inputTests, inputStatements));
     }
 
@@ -232,7 +232,7 @@ class TestSuiteGeneratorReplayTest {
         int inputTests = suite.size() + 1;
         int inputStatements = suite.totalLengthOfTestCases() + 1;
 
-        assertFalse(TestSuiteGenerator.writerPreservedExecutableStructure(
+        assertFalse(OracleReplayRun.writerPreservedExecutableStructure(
                 suite, inputTests, inputStatements));
     }
 
@@ -244,7 +244,7 @@ class TestSuiteGeneratorReplayTest {
         test.addStatement(new IntPrimitiveStatement(test, 8));
         TestSuiteChromosome suite = suiteContaining(test);
 
-        assertFalse(TestSuiteGenerator.writerPreservedExecutableStructure(
+        assertFalse(OracleReplayRun.writerPreservedExecutableStructure(
                 suite, suite.size(), suite.totalLengthOfTestCases() - 1));
     }
 
