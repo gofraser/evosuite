@@ -121,21 +121,21 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
 
         assertEquals(2, mosa.lastUnionSize,
                 "null candidate should be filtered and not enter the union");
-        assertEquals(1, mosa.lastGenInjectedAttemptsCount,
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().attempts,
                 "attempt count should reflect drained candidates before filtering");
-        assertEquals(InjectionSource.LLM_STAGNATION, mosa.lastGenDominantAttemptSource,
+        assertEquals(InjectionSource.LLM_STAGNATION, mosa.injectionAdmission.lastGeneration().dominantAttemptSource,
                 "dominant attempt source should reflect the drained source");
-        assertEquals(1, mosa.lastGenAttemptsLlmStagnationCount,
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().attemptsLlmStagnation,
                 "per-source attempt count should include the drained stagnation candidate");
-        assertEquals(1, mosa.lastGenInjectedCandidatesOrphanFilteredCount,
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().orphanFiltered,
                 "orphan-filtered telemetry should classify null stagnation candidates");
-        assertEquals(0, mosa.lastGenInjectedCandidatesAdmittedCount,
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().admitted,
                 "null stagnation candidates must not be admitted");
-        assertEquals(0, mosa.lastGenAttemptsLlmAsyncCount,
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().attemptsLlmAsync,
                 "no async attempts should be recorded");
-        assertEquals(0, mosa.lastGenAttemptsIslandImmigrantCount,
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().attemptsIslandImmigrant,
                 "no island attempts should be recorded");
-        assertEquals(0, mosa.lastGenAttemptsLocalSearchCount,
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().attemptsLocalSearch,
                 "no local-search attempts should be recorded");
     }
 
@@ -175,7 +175,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
                 "population should contain exactly the injected candidate in this harness setup");
         assertTrue(harness.getPopulation().stream().anyMatch(tc -> tc == injected),
                 "diagnostic injected candidate should survive by identity");
-        assertEquals(1, harness.lastGenInjectedCandidatesSurvivedCount,
+        assertEquals(1, harness.injectionAdmission.lastGeneration().survived,
                 "fresh-survivor telemetry should count same-generation survivors");
         assertEquals(Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP),
                 injected.getDiagnosticCardTypes(),
@@ -213,7 +213,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
 
         mosa.evolve();
 
-        assertEquals(1, mosa.lastGenInjectedCandidatesAdmittedCount,
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().admitted,
                 "admission telemetry should count diagnostic injected candidates");
         assertEquals(Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP),
                 injected.getDiagnosticCardTypes(),
@@ -239,10 +239,10 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
 
         mosa.evolve();
 
-        assertEquals(2, mosa.lastGenInjectedCandidatesAdmittedCount,
+        assertEquals(2, mosa.injectionAdmission.lastGeneration().admitted,
                 "candidates with the same call shape but different literal arguments "
                         + "must both be admitted");
-        assertEquals(1, mosa.lastGenInjectedCandidatesDeduplicatedCount,
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().deduplicated,
                 "a byte-identical duplicate (same call shape and literal) must be deduplicated");
     }
 
@@ -261,10 +261,10 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
 
         mosa.evolve();
 
-        assertEquals(1, mosa.lastGenInjectedCandidatesAdmittedCount,
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().admitted,
                 "LLM candidate must be admitted even though an untagged GA-evolved "
                         + "union member has the same call shape and literal value");
-        assertEquals(0, mosa.lastGenInjectedCandidatesDeduplicatedCount,
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().deduplicated,
                 "untagged GA-evolved union members must not seed the dedup set");
     }
 

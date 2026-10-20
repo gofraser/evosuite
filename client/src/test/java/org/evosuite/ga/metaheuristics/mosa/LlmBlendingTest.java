@@ -126,11 +126,11 @@ class LlmBlendingTest extends MosaTestSupport {
 
         assertTrue(containsIdentity(union, raw), "raw candidate must still be admitted");
         assertEquals(BlendChannel.RAW, raw.getBlendChannel());
-        assertEquals(2, mosa.lastGenBlendVariantsBredCount,
+        assertEquals(2, mosa.injectionAdmission.lastGeneration().blendVariantsBred,
                 "one crossover call yields both directions");
-        assertEquals(1, mosa.lastGenBlendVariantsAdmittedCount,
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().blendVariantsAdmitted,
                 "only the partner-clone variant strictly improves on the target goal");
-        assertEquals(1, mosa.lastGenBlendXoverGoalAdmittedCount);
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().blendXoverGoalAdmitted);
 
         List<TestChromosome> variants = blendVariants(union);
         assertEquals(1, variants.size());
@@ -203,8 +203,8 @@ class LlmBlendingTest extends MosaTestSupport {
 
         List<TestChromosome> union = mosa.drainIntoUnion();
 
-        assertEquals(2, mosa.lastGenBlendVariantsBredCount);
-        assertEquals(0, mosa.lastGenBlendVariantsAdmittedCount,
+        assertEquals(2, mosa.injectionAdmission.lastGeneration().blendVariantsBred);
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().blendVariantsAdmitted,
                 "neither variant covers anything or improves the target goal");
         assertTrue(blendVariants(union).isEmpty());
         assertTrue(containsIdentity(union, raw));
@@ -234,7 +234,7 @@ class LlmBlendingTest extends MosaTestSupport {
 
         assertFalse(containsIdentity(union, raw),
                 "blend-only ablation must withhold the raw candidate");
-        assertEquals(0, mosa.lastGenInjectedCandidatesAdmittedCount,
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().admitted,
                 "the raw admitted counter keeps its meaning in the ablation");
         List<TestChromosome> variants = blendVariants(union);
         assertEquals(1, variants.size(),
@@ -263,8 +263,8 @@ class LlmBlendingTest extends MosaTestSupport {
 
         mosa.drainIntoUnion();
 
-        assertEquals(2, mosa.lastGenBlendVariantsBredCount);
-        assertEquals(0, mosa.lastGenBlendVariantsAdmittedCount,
+        assertEquals(2, mosa.injectionAdmission.lastGeneration().blendVariantsBred);
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().blendVariantsAdmitted,
                 "the improving variant was never evaluated: budget cut the brood off");
         assertEquals(2, mosa.fitnessEvaluations, "raw + exactly one budgeted variant");
     }
@@ -287,8 +287,8 @@ class LlmBlendingTest extends MosaTestSupport {
 
         assertTrue(containsIdentity(union, raw));
         assertNull(raw.getBlendChannel(), "no channel tagging when blending is disabled");
-        assertEquals(0, mosa.lastGenBlendVariantsBredCount);
-        assertEquals(1, mosa.lastGenInjectedCandidatesAdmittedCount);
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().blendVariantsBred);
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().admitted);
         assertTrue(blendVariants(union).isEmpty());
         assertEquals(1, mosa.fitnessEvaluations, "raw only; no brood evaluations");
     }

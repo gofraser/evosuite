@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests {@link AbstractMOSA#shouldAttributeDiagnostics}: card-informed gains
+ * Tests {@link InjectionAdmission#shouldAttributeDiagnostics}: card-informed gains
  * must be attributed for both SYNC (stagnation) and ASYNC injections, and for
  * nothing else.
  */
@@ -48,32 +48,32 @@ class DiagnosticAttributionGuardTest {
 
     @Test
     void stagnationWithCardsIsAttributed() {
-        assertTrue(AbstractMOSA.shouldAttributeDiagnostics(
+        assertTrue(InjectionAdmission.shouldAttributeDiagnostics(
                 InjectionSource.LLM_STAGNATION, withCards()));
     }
 
     @Test
     void asyncWithCardsIsAttributed() {
-        assertTrue(AbstractMOSA.shouldAttributeDiagnostics(
+        assertTrue(InjectionAdmission.shouldAttributeDiagnostics(
                 InjectionSource.LLM_ASYNC, withCards()));
     }
 
     @Test
     void nonLlmSourcesAreNotAttributed() {
-        assertFalse(AbstractMOSA.shouldAttributeDiagnostics(
+        assertFalse(InjectionAdmission.shouldAttributeDiagnostics(
                 InjectionSource.ISLAND_IMMIGRANT, withCards()));
-        assertFalse(AbstractMOSA.shouldAttributeDiagnostics(
+        assertFalse(InjectionAdmission.shouldAttributeDiagnostics(
                 InjectionSource.LOCAL_SEARCH, withCards()));
-        assertFalse(AbstractMOSA.shouldAttributeDiagnostics(null, withCards()));
+        assertFalse(InjectionAdmission.shouldAttributeDiagnostics(null, withCards()));
     }
 
     @Test
     void missingOrEmptyCardTypesAreNotAttributed() {
-        assertFalse(AbstractMOSA.shouldAttributeDiagnostics(
+        assertFalse(InjectionAdmission.shouldAttributeDiagnostics(
                 InjectionSource.LLM_STAGNATION, null));
-        assertFalse(AbstractMOSA.shouldAttributeDiagnostics(
+        assertFalse(InjectionAdmission.shouldAttributeDiagnostics(
                 InjectionSource.LLM_STAGNATION, withoutCards()));
-        assertFalse(AbstractMOSA.shouldAttributeDiagnostics(
+        assertFalse(InjectionAdmission.shouldAttributeDiagnostics(
                 InjectionSource.LLM_ASYNC, withoutCards()));
     }
 }

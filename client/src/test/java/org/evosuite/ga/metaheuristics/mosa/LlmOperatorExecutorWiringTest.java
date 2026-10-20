@@ -314,9 +314,9 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         List<TestChromosome> union = new ArrayList<>();
         harness.collectExternalCandidates(union);
 
-        assertEquals(1, harness.lastGenInjectedCandidatesAdmittedCount,
+        assertEquals(1, harness.injectionAdmission.lastGeneration().admitted,
                 "only one of two byte-identical candidates must be admitted");
-        assertEquals(1, harness.lastGenInjectedCandidatesDeduplicatedCount,
+        assertEquals(1, harness.injectionAdmission.lastGeneration().deduplicated,
                 "the byte-identical duplicate must be counted as deduplicated");
     }
 

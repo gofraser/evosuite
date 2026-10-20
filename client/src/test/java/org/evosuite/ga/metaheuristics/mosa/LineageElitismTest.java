@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests {@link AbstractMOSA#applyLineageElitism}: speciation-free incubation
+ * Tests {@link InjectionAdmission#applyLineageElitism}: speciation-free incubation
  * that re-inserts the best member of a dropped injected lineage, never evicts
  * front-0 (rank 0) members, honors the population share cap with
  * oldest-lineages-lose-first semantics, and is inert when disabled.
