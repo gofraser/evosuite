@@ -247,8 +247,9 @@ class AsyncLlmTestProducerThreadSafetyTest {
         assertTrue(elapsedMs < 1000L, "stop() must not wait out its join timeout, took " + elapsedMs + " ms");
         assertEquals(AsyncLlmTestProducer.StopReason.STOP_REQUESTED, producer.getStoppedReason());
         List<TestChromosome> drained = producer.drainAvailable();
-        assertEquals(Collections.singletonList(first), drained);
-        assertNull(producer.consumeAttemptMetadata(blocked));
+        // The response was published as a whole before the producer began to
+        // wait for the consumer.
+        assertEquals(Arrays.asList(first, blocked), drained);
     }
 
     private static final class StubProducingAsyncLlmTestProducer extends AsyncLlmTestProducer {

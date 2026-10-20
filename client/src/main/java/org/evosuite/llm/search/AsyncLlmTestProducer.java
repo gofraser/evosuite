@@ -52,7 +52,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -66,6 +66,7 @@ public class AsyncLlmTestProducer {
     private static final Logger logger = LoggerFactory.getLogger(AsyncLlmTestProducer.class);
 
     private final BlockingQueue<TestChromosome> testQueue;
+    private final int queueCapacity;
     private final Thread producerThread;
     private final Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
     private final Supplier<List<TestChromosome>> populationSupplier;
@@ -161,7 +162,8 @@ public class AsyncLlmTestProducer {
         this.uncoveredGoalsSupplier = uncoveredGoalsSupplier == null ? Collections::emptyList : uncoveredGoalsSupplier;
         this.populationSupplier = populationSupplier;
         this.llmService = llmService;
-        this.testQueue = new ArrayBlockingQueue<>(Math.max(1, queueSize));
+        this.queueCapacity = Math.max(1, queueSize);
+        this.testQueue = new LinkedBlockingQueue<>();
         this.refreshInterval = Math.max(1, refreshInterval);
         this.delayMs = Math.max(0, delayMs);
         this.repeatedInjectionMemory = repeatedInjectionMemory;
@@ -317,26 +319,22 @@ public class AsyncLlmTestProducer {
             try {
                 List<TestChromosome> candidates = requestCandidates(prompt, repairLoop);
                 if (!candidates.isEmpty()) {
-                    int published = 0;
-                    for (TestChromosome chromosome : candidates) {
-                        if (!cardTypes.isEmpty()) {
+                    if (!cardTypes.isEmpty()) {
+                        for (TestChromosome chromosome : candidates) {
                             chromosome.setDiagnosticCardTypes(cardTypes);
                         }
-                        boolean publishedCandidate = publishCandidate(chromosome,
-                                new InjectionAttemptMetadata(
-                                    registration.getAttemptId(),
-                                    cardTypes.isEmpty()
-                                            ? Collections.<ProblemCardType>emptyList()
-                                            : new ArrayList<>(cardTypes),
-                                    attemptTargetGoals));
-                        if (!publishedCandidate) {
-                            // Publishing only fails once stop() has been requested.
-                            return;
-                        }
-                        published++;
+                    }
+                    if (!publishBatch(candidates, new InjectionAttemptMetadata(
+                            registration.getAttemptId(),
+                            cardTypes.isEmpty()
+                                    ? Collections.<ProblemCardType>emptyList()
+                                    : new ArrayList<>(cardTypes),
+                            attemptTargetGoals))) {
+                        // Publishing only fails once stop() has been requested.
+                        return;
                     }
                     if (!cardTypes.isEmpty()) {
-                        LlmStatistics.recordDiagnosticCandidatesPublished(cardTypes, published);
+                        LlmStatistics.recordDiagnosticCandidatesPublished(cardTypes, candidates.size());
                     }
                 } else if (repeatedInjectionMemory != null && !registration.isEmpty()) {
                     repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
@@ -378,31 +376,45 @@ public class AsyncLlmTestProducer {
     }
 
     /**
-     * Publishes one candidate together with its attribution.  Holding the
-     * same lock in drainAvailable() closes the otherwise observable interval
-     * between queue insertion and metadata insertion.  When the queue is full
-     * the producer waits for the consumer instead of dropping the candidate,
-     * which also keeps it from issuing further LLM calls whose results would
-     * have nowhere to go.  stop() changes running before interrupting this
-     * thread; the final check retracts a candidate that raced with that stop
-     * request before any consumer can see it.
+     * Publishes all candidates of one response together with their
+     * attribution.  Holding the same lock in drainAvailable() closes the
+     * otherwise observable interval between queue insertion and metadata
+     * insertion, and makes the response's candidates visible in a single
+     * drain: the consumer closes an attempt after the first drain that
+     * contains one of its candidates, so a split response would leave the
+     * later candidates crediting an attempt that no longer exists.  When the
+     * queue is full the producer waits for the consumer instead of dropping
+     * the batch, which also keeps it from issuing further LLM calls whose
+     * results would have nowhere to go.  A batch is admitted once the queue
+     * is below its capacity and the producer then waits until it is below
+     * capacity again, so a response with several candidates may exceed
+     * the capacity by the size of that response.  stop() changes running
+     * before interrupting this thread; the final check retracts a batch that
+     * raced with that stop request before any consumer can see it.
      *
      * @return false only once the producer is stopping
      */
-    private boolean publishCandidate(TestChromosome chromosome,
-                                     InjectionAttemptMetadata metadata) {
+    private boolean publishBatch(List<TestChromosome> batch, InjectionAttemptMetadata metadata) {
         synchronized (publicationLock) {
             while (running) {
-                attemptMetadataByCandidate.put(chromosome, metadata);
-                if (testQueue.offer(chromosome)) {
-                    if (running) {
-                        return true;
+                if (testQueue.size() < queueCapacity) {
+                    for (TestChromosome chromosome : batch) {
+                        attemptMetadataByCandidate.put(chromosome, metadata);
+                        testQueue.add(chromosome);
                     }
-                    testQueue.remove(chromosome);
-                    attemptMetadataByCandidate.remove(chromosome);
+                    if (running) {
+                        // Hold back the next LLM request until the consumer has made room.
+                        while (running && testQueue.size() >= queueCapacity) {
+                            awaitQueueSpace();
+                        }
+                        return running;
+                    }
+                    for (TestChromosome chromosome : batch) {
+                        testQueue.remove(chromosome);
+                        attemptMetadataByCandidate.remove(chromosome);
+                    }
                     return false;
                 }
-                attemptMetadataByCandidate.remove(chromosome);
                 awaitQueueSpace();
             }
             return false;

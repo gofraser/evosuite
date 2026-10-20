@@ -22,14 +22,18 @@ package org.evosuite.llm.search;
 import org.evosuite.Properties;
 import org.evosuite.llm.*;
 import org.evosuite.llm.mock.MockChatLanguageModel;
+import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -167,6 +171,44 @@ class AsyncLlmTestProducerIntegrationTest {
             assertEquals(3L, producer.getLoopIterations());
         } finally {
             producer.stop();
+        }
+    }
+
+    @Test
+    void candidatesOfOneResponseBecomeVisibleTogether() throws Exception {
+        LlmService service = createService(new MockChatLanguageModel(), 2);
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("goal-1");
+        when(goal.getTargetClass()).thenReturn("com.example.Foo");
+        when(goal.getTargetMethod()).thenReturn("work()V");
+        AtomicBoolean responded = new AtomicBoolean();
+
+        // A queue smaller than the response: a consumer draining between two
+        // candidates would close the attempt before the second one is reported.
+        AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
+                () -> Collections.singleton(goal), null, service, 1, 1, 20,
+                new RepeatedInjectionMemory()) {
+            @Override
+            protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
+                if (responded.compareAndSet(false, true)) {
+                    return Arrays.asList(new TestChromosome(), new TestChromosome());
+                }
+                return Collections.emptyList();
+            }
+        };
+
+        try {
+            producer.start();
+            List<TestChromosome> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
+            assertEquals(2, produced.size(),
+                    "both candidates of one response must be drained together");
+            InjectionAttemptMetadata first = producer.consumeAttemptMetadata(produced.get(0));
+            InjectionAttemptMetadata second = producer.consumeAttemptMetadata(produced.get(1));
+            assertNotNull(first);
+            assertEquals(first.getAttemptId(), second.getAttemptId());
+        } finally {
+            producer.stop();
+            service.close();
         }
     }
 
