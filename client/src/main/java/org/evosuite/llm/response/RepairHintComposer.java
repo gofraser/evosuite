@@ -42,6 +42,7 @@ import static org.evosuite.llm.response.MockRuntimeExceptions.errorMentionsMockR
 import static org.evosuite.llm.response.MockRuntimeExceptions.isRaisedByEvoSuiteRuntime;
 import static org.evosuite.llm.response.MockRuntimeExceptions.reportedExceptionName;
 import static org.evosuite.llm.response.ParsedTestExecutionCheck.matchesExpectedExceptionName;
+import static org.evosuite.llm.response.RepairHintResolver.NPE_CANNOT_INVOKE_PATTERN;
 import static org.evosuite.llm.response.RepairText.MISSING_METHOD_DIAGNOSTIC_PATTERN;
 import static org.evosuite.llm.response.RepairText.NEW_CALL_PATTERN;
 import static org.evosuite.llm.response.RepairText.NULL_DECLARATION_PATTERN;
@@ -68,8 +69,6 @@ final class RepairHintComposer {
 
     private static final Pattern NPE_NULL_VARIABLE_PATTERN = Pattern.compile(
             "because\\s+\"([^\"]+)\"\\s+is null");
-    private static final Pattern NPE_CANNOT_INVOKE_PATTERN = Pattern.compile(
-            "Cannot invoke\\s+\"([^\"]+)\"\\s+because\\s+\"([^\"]+)\"\\s+is null");
     private static final Pattern SYNTHETIC_LOCAL_VARIABLE_PATTERN = Pattern.compile(
             "<local\\d+>");
     private static final Pattern INIT_FAILURE_CLASS_PATTERN = Pattern.compile(

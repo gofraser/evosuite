@@ -29,17 +29,18 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.evosuite.llm.response.DependencyFailureAnalysis.COULD_NOT_INITIALIZE_PATTERN;
+
 /**
  * Generic, error-triggered hint selection engine for LLM repair prompts.
  */
 public final class RepairHintResolver {
 
-    private static final Pattern NPE_CANNOT_INVOKE_PATTERN = Pattern.compile(
+    /** Helpful NullPointerException message: group 1 is the member, group 2 the null receiver. */
+    static final Pattern NPE_CANNOT_INVOKE_PATTERN = Pattern.compile(
             "Cannot invoke\\s+\"([^\"]+)\"\\s+because\\s+\"([^\"]+)\"\\s+is null");
     private static final Pattern CLASS_CAST_PATTERN = Pattern.compile(
             "class\\s+([^\\s]+)\\s+cannot be cast to class\\s+([^\\s]+)");
-    private static final Pattern COULD_NOT_INITIALIZE_PATTERN = Pattern.compile(
-            "Could not initialize class\\s+([A-Za-z_][A-Za-z0-9_$.]+)");
 
     static final class Resolution {
         private final List<RepairFailureSignal> signals;

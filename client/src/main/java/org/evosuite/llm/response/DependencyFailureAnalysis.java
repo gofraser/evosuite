@@ -44,7 +44,7 @@ public final class DependencyFailureAnalysis {
     /**
      * Pattern matching {@code NoClassDefFoundError: Could not initialize class &lt;FQCN&gt;}.
      */
-    private static final Pattern COULD_NOT_INITIALIZE_PATTERN =
+    static final Pattern COULD_NOT_INITIALIZE_PATTERN =
             Pattern.compile("Could not initialize class\\s+([A-Za-z_][A-Za-z0-9_$.]+)");
 
     public enum Kind {
