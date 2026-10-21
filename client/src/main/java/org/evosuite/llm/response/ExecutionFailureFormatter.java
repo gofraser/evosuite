@@ -549,10 +549,7 @@ final class ExecutionFailureFormatter {
             return null;
         }
         String diagnosticMessage = diagnostic.getMessage();
-        String diagnosticLower = diagnosticMessage == null ? "" : diagnosticMessage.toLowerCase();
-        if (!diagnosticLower.contains("invented/unknown type")
-                && !diagnosticLower.contains("do not invent local/helper types")
-                && !isUnresolvedTypeDiagnostic(diagnostic)) {
+        if (!isUnresolvedTypeDiagnostic(diagnostic)) {
             return null;
         }
 
