@@ -78,8 +78,6 @@ public class DescriptorMapping {
      * @return a boolean.
      */
     public static boolean shouldTransform(String classNameUnknown) {
-        //return false;
-
         String className = classNameUnknown.replace('/', '.');
         switch (Properties.TT_SCOPE) {
             case ALL:
@@ -114,8 +112,6 @@ public class DescriptorMapping {
     public boolean isTransformedMethod(String className, String methodName, String desc) {
         logger.info("Initiating transformation of " + methodName);
         getMethodDesc(className, methodName, desc);
-        // return originalDesc.containsKey(className.replace('.', '/') + "/" + methodName
-        //         + desc);
         return descriptorMapping.containsKey(className.replace('.', '/') + "/"
                 + methodName + desc);
     }
@@ -279,8 +275,6 @@ public class DescriptorMapping {
     }
 
     private boolean isInside(String className) {
-        //return false;
-
         String classNameWithDots = className.replace('/', '.');
         switch (Properties.TT_SCOPE) {
             case ALL:
@@ -309,11 +303,8 @@ public class DescriptorMapping {
     }
 
     private boolean isBooleanField(String desc) {
-        logger.info("Checkign type of field " + desc);
+        logger.info("Checking type of field " + desc);
         return desc.endsWith("Z");
-        //Type type = Type.getType(desc);
-        //return type.equals(Type.BOOLEAN_TYPE)
-        //       || (type.equals(Type.ARRAY) && type.getElementType().equals(Type.BOOLEAN_TYPE));
     }
 
     private boolean isOutsideMethod(String className, String methodName, String desc) {
@@ -339,10 +330,6 @@ public class DescriptorMapping {
 
                 boolean isInside = isInside(parent.name);
 
-                // boolean isInside = parent.name.startsWith(Properties.PROJECT_PREFIX.replace(".", "/"))
-                //        || (!Properties.TARGET_CLASS_PREFIX.isEmpty()
-                //            && parent.name.startsWith(Properties.TARGET_CLASS_PREFIX.replace(".", "/")));
-
                 logger.info("Checking " + parent.name);
                 for (Object o : parent.methods) {
                     MethodNode mn2 = (MethodNode) o;
@@ -353,8 +340,7 @@ public class DescriptorMapping {
                             return true;
                         } else {
                             logger.info("Method " + name
-                                    + " was defined outside the test package");
-                            //return false;
+                                    + " was defined inside the test package");
                         }
                     }
                 }
@@ -408,7 +394,6 @@ public class DescriptorMapping {
 
                 for (Object o : parent.methods) {
                     MethodNode mn2 = (MethodNode) o;
-                    //logger.info("Checking " + parent.name + "." + mn2.name + mn2.desc);
                     if (mn2.name.equals(methodName) && mn2.desc.equals(transformedDesc)) {
                         logger.info("Method " + methodName + " has conflicting method");
                         if (methodName.equals("<init>")) {
@@ -460,16 +445,9 @@ public class DescriptorMapping {
 
                 boolean isInside = isInside(parent.name);
 
-                // boolean isInside = parent.name.startsWith(Properties.PROJECT_PREFIX.replace(".", "/"))
-                //         | parent.name.startsWith(Properties.TARGET_CLASS_PREFIX.replace(".", "/"));
-
                 for (Object o : parent.fields) {
                     FieldNode mn2 = (FieldNode) o;
                     if (mn2.name.equals(fieldName) && mn2.desc.equals(desc)) {
-                        // if ((mn2.access & Opcodes.ACC_SYNTHETIC) == Opcodes.ACC_SYNTHETIC) {
-                        //     logger.info("Not transforming synthetic field " + mn2.name);
-                        //     return true;
-                        // }
                         if (!isInside) {
                             logger.info("Field " + name
                                     + " was defined outside the test package - "
@@ -590,7 +568,6 @@ public class DescriptorMapping {
 
         if (isBooleanMethod(desc)) {
             String old = className.replace('.', '/') + "/" + methodName + desc;
-            //old = old.replace('.', '/');
 
             if (!descriptorMapping.containsKey(old)) {
                 if (isOutsideMethod(className, methodName, desc)) {
@@ -605,8 +582,6 @@ public class DescriptorMapping {
                     if (newName != null) {
                         descriptorMapping.put(old, newDesc);
                         nameMapping.put(old, newName);
-                        // nameMapping.put(className + "." + methodName + newDesc,
-                        //                 newName);
                         logger.info("Keeping transformation from " + old + " to "
                                 + descriptorMapping.get(old) + " with new name "
                                 + newName);
@@ -617,7 +592,6 @@ public class DescriptorMapping {
                     } else {
                         descriptorMapping.put(old, desc);
                         nameMapping.put(old, methodName);
-                        // toDO: Original?
                         originalDesc.put(className.replace('.', '/') + "/" + methodName
                                 + newDesc, desc);
                         originalName.put(className.replace('.', '/') + "/" + methodName
@@ -645,7 +619,6 @@ public class DescriptorMapping {
         }
         if (isBooleanField(desc)) {
             String old = className.replace('.', '/') + "/" + fieldName + desc;
-            //old = old.replace('.', '/');
 
             if (!descriptorMapping.containsKey(old)) {
                 if (isOutsideField(className, fieldName, desc)) {

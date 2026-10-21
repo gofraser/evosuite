@@ -127,28 +127,7 @@ public class ClientProcess {
      * Initialize the tool jar for the client process.
      */
     private void initializeToolJar() {
-
         ClassPathHacker.initializeToolJar();
-
-        /*
-         * We load the agent although we "might" not use it.
-         * Reason is that when we compile the generated test cases to debug
-         * EvoSuite, those will/should use the agent.
-         * But for some arcane reason, the loading there fails.
-         * For example, there were/are issues with double-loading
-         * of libraries in different classloaders, eg the static
-         * initializer of BsdVirtualMachine does a  System.loadLibrary("attach"),
-         * and for some reason that is executed twice if the agent is loaded
-         * later in the search. Note: this does not affect the generated test
-         * cases when run from Eclipse (for example).
-         */
-
-        /*
-            TODO: tmp disabled to understand what the hack is happening on Jenkins.
-            however, it does not seem necessary any more, after quite a few refactoring/changes
-            in how agents are used (but don't know why...)
-         */
-        //AgentLoader.loadAgent();
     }
 
     private static void setupRuntimeProperties() {

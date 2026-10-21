@@ -114,12 +114,8 @@ public class PropertiesMapElitesSearchFactory
             if (Properties.STRATEGY == Properties.Strategy.ONEBRANCH) {
                 ga.addStoppingCondition(new MutationTimeoutStoppingCondition<>());
             } else {
-                // ===========================================================================================
-                // FIXME: The following line contains a type error.
-                //  MutationTestPool is defined on TestSuiteChromosomes but the GA expects TestChromosomes.
-                //  ga.addListener(new MutationTestPool());
+                // MutationTestPool is suite-only and incompatible with TestChromosome.
                 throw new RuntimeException("Broken code :(");
-                // ===========================================================================================
             }
         }
         ga.resetStoppingConditions();
@@ -134,11 +130,6 @@ public class PropertiesMapElitesSearchFactory
         TestCaseSecondaryObjective.setSecondaryObjectives();
 
         if (Properties.DYNAMIC_LIMIT) {
-            // max_s = GAProperties.generations * getBranches().size();
-            // TODO: might want to make this dependent on the selected coverage
-            // criterion
-            // TODO also, question: is branchMap.size() really intended here?
-            // I think BranchPool.getBranchCount() was intended
             Properties.SEARCH_BUDGET = Properties.SEARCH_BUDGET
                     * (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                     .getNumBranchlessMethods(Properties.TARGET_CLASS)
@@ -149,19 +140,11 @@ public class PropertiesMapElitesSearchFactory
         }
 
         if (Properties.LOCAL_SEARCH_RESTORE_COVERAGE) {
-            // ===========================================================================================
-            // FIXME: The following line contains a type error.
-            //  BranchCoverageMap is defined on TestSuiteChromosomes but the GA expects TestChromosomes.
-            //  SearchListener<TestChromosome> map = BranchCoverageMap.getInstance();
-            //  ga.addListener(map);
-            // Deliberately throwing an exception
+            // BranchCoverageMap is suite-only and incompatible with TestChromosome.
             throw new RuntimeException("Broken code :(");
-            // ===========================================================================================
         }
 
         if (Properties.SHUTDOWN_HOOK) {
-            // ShutdownTestWriter writer = new
-            // ShutdownTestWriter(Thread.currentThread());
             ShutdownTestWriter<TestChromosome> writer = new ShutdownTestWriter<>();
             ga.addStoppingCondition(writer);
             RMIStoppingCondition<TestChromosome> rmi = RMIStoppingCondition.getInstance();

@@ -168,12 +168,6 @@ public class ControlFlowDistanceCalculator {
         return distance;
     }
 
-    private static ControlFlowDistance worstPossibleDistanceWithoutCDGComputation() {
-        ControlFlowDistance distance = new ControlFlowDistance();
-        distance.setApproachLevel(TIMEOUT_APPROACH_LEVEL);
-        return distance;
-    }
-
     /**
      * If there is an exception in a superconstructor, then the corresponding
      * constructor might not be included in the execution trace.

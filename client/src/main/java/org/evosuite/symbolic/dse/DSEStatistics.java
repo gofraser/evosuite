@@ -478,10 +478,6 @@ public class DSEStatistics {
         return constraintTooLongCounter;
     }
 
-    private int getPathDivergencesCounter() {
-        return pathDivergencesCounter;
-    }
-
     /**
      * Reports a new set of constraints.
      *

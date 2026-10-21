@@ -67,7 +67,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
      */
     public ErrorConditionMethodAdapter(MethodVisitor mv, String className,
                                        String methodName, int access, String desc) {
-        //super(Opcodes.ASM9, mv, access, methodName, desc);
         super(Opcodes.ASM9,
                 new AnnotatedMethodNode(access, methodName, desc, null, null), access,
                 methodName, desc);
@@ -98,7 +97,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.LINKEDHASHSET)) {
             instrumentation.add(new LinkedHashSetInstrumentation(this));
         }
-        // instrumentation.add(new ListInstrumentation(this));
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.NPE)) {
             instrumentation.add(new NullPointerExceptionInstrumentation(this));
         }
@@ -136,7 +134,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
      */
     public void tagBranch() {
         Label dummyTag = new AnnotatedLabel(false, true);
-        // dummyTag.info = Boolean.TRUE;
         super.visitLabel(dummyTag);
     }
 
@@ -145,7 +142,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
      */
     public void tagBranchExit() {
         Label dummyTag = new AnnotatedLabel(false, false);
-        // dummyTag.info = Boolean.FALSE;
         super.visitLabel(dummyTag);
     }
 
@@ -156,10 +152,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
     public String getMethodName() {
         return methodName;
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitMethodInsn(int, java.lang.String, java.lang.String, java.lang.String)
-     */
 
     /**
      * {@inheritDoc}
@@ -175,10 +167,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         }
         super.visitMethodInsn(opcode, owner, name, desc, itf);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitFieldInsn(int, java.lang.String, java.lang.String, java.lang.String)
-     */
 
     /**
      * {@inheritDoc}
@@ -207,10 +195,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         super.visitIntInsn(opcode, operand);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitTypeInsn(int, java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -225,10 +209,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         }
         super.visitTypeInsn(opcode, type);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitInsn(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -257,41 +237,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         super.visitMultiANewArrayInsn(descriptor, numDimensions);
     }
 
-    /*
-    public Frame currentFrame = null;
-
-    @Override
-    public void visitFrame(int type, int nLocal, Object[] local, int nStack,
-            Object[] stack) {
-        super.visitFrame(type, nLocal, local, nStack, stack);
-        // this.currentFrame = frames[numFrame++];
-    }
-
-
-    protected int numFrame = 0;
-
-    protected Frame[] frames;
-
-    @Override
-    public void visitCode() {
-        MethodNode mn = (MethodNode) mv;
-        try {
-            Analyzer a = new Analyzer(new ThisInterpreter());
-            a.analyze(className, mn);
-            frames = a.getFrames();
-            logger.info("Computed frames: "+frames.length);
-        } catch (Exception e) {
-            logger.info("Error during frame analysis: "+e);
-            frames = new Frame[0];
-        }
-        super.visitCode();
-    }
-    */
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitEnd()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -300,10 +245,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         MethodNode mn = (MethodNode) mv;
         mn.accept(next);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.commons.LocalVariablesSorter#visitMaxs(int, int)
-     */
 
     /**
      * {@inheritDoc}

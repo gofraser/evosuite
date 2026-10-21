@@ -455,20 +455,4 @@ public class BranchInstrumentation implements MethodInstrumentation {
                 EXECUTION_TRACER, "passedBranch", "(IIII)V", false));
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean executeOnExcludedMethods() {
-        return false;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean executeOnMainMethod() {
-        return false;
-    }
-
 }

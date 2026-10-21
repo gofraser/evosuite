@@ -96,11 +96,6 @@ public class MutationInstrumentation implements MethodInstrumentation {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.coverage.MethodInstrumentation#analyze(
-     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -224,32 +219,6 @@ public class MutationInstrumentation implements MethodInstrumentation {
         }
 
         logger.info("Done.");
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MethodInstrumentation#executeOnMainMethod()
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean executeOnMainMethod() {
-        // TODO Auto-generated method stub
-        return false;
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MethodInstrumentation#executeOnExcludedMethods()
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean executeOnExcludedMethods() {
-        // TODO Auto-generated method stub
-        return false;
     }
 
     /**

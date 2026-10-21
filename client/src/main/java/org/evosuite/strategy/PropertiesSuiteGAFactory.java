@@ -351,7 +351,6 @@ public class PropertiesSuiteGAFactory
             ga.addListener(new StatisticsListener<>());
         }
 
-        // How to select candidates for reproduction
         SelectionFunction<TestSuiteChromosome> selectionFunction = getSelectionFunction();
         selectionFunction.setMaximize(false);
         ga.setSelectionFunction(selectionFunction);
@@ -359,7 +358,6 @@ public class PropertiesSuiteGAFactory
         RankingFunction<TestSuiteChromosome> rankingFunction = getRankingFunction();
         ga.setRankingFunction(rankingFunction);
 
-        // When to stop the search
         StoppingCondition<TestSuiteChromosome> stoppingCondition = getStoppingCondition();
         ga.setStoppingCondition(stoppingCondition);
 
@@ -380,7 +378,6 @@ public class PropertiesSuiteGAFactory
         ga.resetStoppingConditions();
         ga.setPopulationLimit(getPopulationLimit());
 
-        // How to cross over
         CrossOverFunction<TestSuiteChromosome> crossoverFunction = getCrossoverFunction();
         ga.setCrossOverFunction(crossoverFunction);
 
@@ -394,10 +391,6 @@ public class PropertiesSuiteGAFactory
         TestSuiteSecondaryObjective.setSecondaryObjectives();
 
         if (Properties.DYNAMIC_LIMIT) {
-            // max_s = GAProperties.generations * getBranches().size();
-            // TODO: might want to make this dependent on the selected coverage criterion
-            // TODO also, question: is branchMap.size() really intended here?
-            // I think BranchPool.getBranchCount() was intended
             Properties.SEARCH_BUDGET = Properties.SEARCH_BUDGET
                     * (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                     .getNumBranchlessMethods(Properties.TARGET_CLASS)
@@ -412,8 +405,6 @@ public class PropertiesSuiteGAFactory
         }
 
         if (Properties.SHUTDOWN_HOOK) {
-            // ShutdownTestWriter writer = new
-            // ShutdownTestWriter(Thread.currentThread());
             ShutdownTestWriter<TestSuiteChromosome> writer = new ShutdownTestWriter<>();
             ga.addStoppingCondition(writer);
             RMIStoppingCondition<TestSuiteChromosome> rmi = RMIStoppingCondition.getInstance();
@@ -426,7 +417,6 @@ public class PropertiesSuiteGAFactory
                 ga.addStoppingCondition(ss);
             }
 
-            // Runtime.getRuntime().addShutdownHook(writer);
             writer.registerAsSignalHandler();
         }
 

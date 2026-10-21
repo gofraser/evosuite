@@ -28,18 +28,14 @@ import org.evosuite.runtime.instrumentation.MethodCallReplacementClassAdapter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
-// import org.slf4j.Logger;
-// import org.slf4j.LoggerFactory;
 
 /**
- * This class performns the bytecode transformation. It adds new bytecode for
+ * This class performs the bytecode transformation. It adds new bytecode for
  * registering the constraints during execution.
  *
  * @author galeotti
  */
 public class ConcolicBytecodeInstrumentation {
-
-    //private static Logger logger = LoggerFactory.getLogger(DscBytecodeInstrumentation.class);
 
     /**
      * Applies DscClassAdapter to the className in the argument.
@@ -61,7 +57,6 @@ public class ConcolicBytecodeInstrumentation {
 
         // Apply transformations to class under test and its owned
         // classes
-        // cv = new TraceClassVisitor(cv, new PrintWriter(System.err));
         cv = new ConcolicClassAdapter(cv, className);
 
         // If we need to reset static constructors, make them explicit methods

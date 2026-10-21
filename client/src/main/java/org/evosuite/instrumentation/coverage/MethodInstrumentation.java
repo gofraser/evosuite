@@ -49,18 +49,24 @@ public interface MethodInstrumentation {
 
     /**
      * If this method returns true, the analyze method is also called on public
-     * static void main() methods.
+     * static void main() methods. Instrumentations opt in by overriding this
+     * method.
      *
      * @return true if this instrumentation should also be applied to public static void main() methods.
      */
-    boolean executeOnMainMethod();
+    default boolean executeOnMainMethod() {
+        return false;
+    }
 
     /**
-     * if this method returns true the analyze method is also called on methods
-     * which are excluded in CFGMethodAdapter.EXCLUDE.
+     * If this method returns true the analyze method is also called on methods
+     * which are excluded in CFGMethodAdapter.EXCLUDE. Instrumentations opt in
+     * by overriding this method.
      *
      * @return true if this instrumentation should also be applied to methods that are usually excluded.
      */
-    boolean executeOnExcludedMethods();
+    default boolean executeOnExcludedMethods() {
+        return false;
+    }
 
 }

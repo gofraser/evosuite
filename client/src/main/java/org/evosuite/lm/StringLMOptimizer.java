@@ -46,7 +46,6 @@ public class StringLMOptimizer {
      * @param objective the minimization objective.
      */
     public StringLMOptimizer(ConstantValue constantValue, ValueMinimizer.Minimization objective) {
-        // this.statement = originalStatement;
         this.constantValue = constantValue;
         this.objective = objective;
 

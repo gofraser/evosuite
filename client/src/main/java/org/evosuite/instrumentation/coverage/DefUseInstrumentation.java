@@ -50,14 +50,6 @@ public class DefUseInstrumentation implements MethodInstrumentation {
 
     private static final Logger logger = LoggerFactory.getLogger(DefUseInstrumentation.class);
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.cfg.MethodInstrumentation#analyze(org.objectweb
-     * .asm.tree.MethodNode, org.jgrapht.Graph, java.lang.String,
-     * java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -160,7 +152,7 @@ public class DefUseInstrumentation implements MethodInstrumentation {
 
         if (DefUsePool.isKnownAsUse(v)) {
             // The actual object that is defined is on the stack _after_ the load instruction
-            addObjectInstrumentation(v, instrumentation, mn);
+            addObjectInstrumentation(v, instrumentation);
             addCallingObjectInstrumentation(staticContext, instrumentation);
             instrumentation.add(new LdcInsnNode(DefUsePool.getUseCounter()));
             instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
@@ -169,7 +161,7 @@ public class DefUseInstrumentation implements MethodInstrumentation {
         }
         if (DefUsePool.isKnownAsDefinition(v)) {
             // The actual object that is defined is on the stack _before_ the store instruction
-            addObjectInstrumentation(v, instrumentation, mn);
+            addObjectInstrumentation(v, instrumentation);
             addCallingObjectInstrumentation(staticContext, instrumentation);
             instrumentation.add(new LdcInsnNode(DefUsePool.getDefCounter()));
             instrumentation.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
@@ -193,7 +185,8 @@ public class DefUseInstrumentation implements MethodInstrumentation {
         }
     }
 
-    private void addObjectInstrumentation(BytecodeInstruction instruction, InsnList instrumentation, MethodNode mn) {
+    private void addObjectInstrumentation(BytecodeInstruction instruction,
+                                          InsnList instrumentation) {
         if (instruction.isLocalVariableDefinition()) {
             if (instruction.getASMNode().getOpcode() == Opcodes.ALOAD) {
                 instrumentation.add(new InsnNode(Opcodes.DUP));
@@ -260,8 +253,7 @@ public class DefUseInstrumentation implements MethodInstrumentation {
             loc++;
         }
 
-        // instrumentation.add(new InsnNode(Opcodes.DUP));//callee
-        addObjectInstrumentation(call, instrumentation, mn);
+        addObjectInstrumentation(call, instrumentation);
         addCallingObjectInstrumentation(staticContext, instrumentation);
         // field method calls get special treatment:
         // during instrumentation it is not clear whether a field method
@@ -281,30 +273,6 @@ public class DefUseInstrumentation implements MethodInstrumentation {
         }
 
         return instrumentation;
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.cfg.MethodInstrumentation#analyze(org.objectweb
-     * .asm.tree.MethodNode, org.jgrapht.Graph, java.lang.String,
-     * java.lang.String)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean executeOnExcludedMethods() {
-        return false;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean executeOnMainMethod() {
-        return false;
     }
 
 }

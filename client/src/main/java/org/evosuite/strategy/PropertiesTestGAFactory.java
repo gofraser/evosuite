@@ -266,7 +266,6 @@ public class PropertiesTestGAFactory
     public GeneticAlgorithm<TestChromosome> getSearchAlgorithm() {
         ChromosomeFactory<TestChromosome> factory = getChromosomeFactory();
 
-        // FIXXME
         GeneticAlgorithm<TestChromosome> ga = getGeneticAlgorithm(factory);
         ga.setLlmInjectionAdapter(new TestChromosomeInjectionAdapter());
 
@@ -274,7 +273,6 @@ public class PropertiesTestGAFactory
             ga.addListener(new org.evosuite.statistics.StatisticsListener<>());
         }
 
-        // How to select candidates for reproduction
         SelectionFunction<TestChromosome> selectionFunction = getSelectionFunction();
         selectionFunction.setMaximize(false);
         ga.setSelectionFunction(selectionFunction);
@@ -282,10 +280,8 @@ public class PropertiesTestGAFactory
         RankingFunction<TestChromosome> rankingFunction = getRankingFunction();
         ga.setRankingFunction(rankingFunction);
 
-        // When to stop the search
         StoppingCondition<TestChromosome> stoppingCondition = getStoppingCondition();
         ga.setStoppingCondition(stoppingCondition);
-        // ga.addListener(stopping_condition);
         if (Properties.STOP_ZERO) {
             ga.addStoppingCondition(new ZeroFitnessStoppingCondition<>());
         }
@@ -301,13 +297,8 @@ public class PropertiesTestGAFactory
         ga.resetStoppingConditions();
         ga.setPopulationLimit(getPopulationLimit());
 
-        // How to cross over
         CrossOverFunction<TestChromosome> crossoverFunction = getCrossoverFunction();
         ga.setCrossOverFunction(crossoverFunction);
-
-        // What to do about bloat
-        // MaxLengthBloatControl bloat_control = new MaxLengthBloatControl();
-        // ga.setBloatControl(bloat_control);
 
         if (Properties.CHECK_BEST_LENGTH) {
             RelativeTestLengthBloatControl<TestChromosome> bloatControl =
@@ -319,11 +310,6 @@ public class PropertiesTestGAFactory
         TestCaseSecondaryObjective.setSecondaryObjectives();
 
         if (Properties.DYNAMIC_LIMIT) {
-            // max_s = GAProperties.generations * getBranches().size();
-            // TODO: might want to make this dependent on the selected coverage
-            // criterion
-            // TODO also, question: is branchMap.size() really intended here?
-            // I think BranchPool.getBranchCount() was intended
             Properties.SEARCH_BUDGET = Properties.SEARCH_BUDGET
                     * (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                     .getNumBranchlessMethods(Properties.TARGET_CLASS)
@@ -333,18 +319,12 @@ public class PropertiesTestGAFactory
             logger.info("Setting dynamic length limit to " + Properties.SEARCH_BUDGET);
         }
 
-        // TODO: This seems to be whole test suite specific
-        // if (Properties.LOCAL_SEARCH_RESTORE_COVERAGE) {
-        //     ga.addListener(BranchCoverageMap.getInstance());
-        // }
-
         if (Properties.RECYCLE_CHROMOSOMES) {
             if (Properties.STRATEGY == Strategy.ONEBRANCH) {
                 ga.addListener(TestCaseRecycler.getInstance());
             }
         }
 
-        // ga.addListener(new ResourceController<TestChromosome>());
         return ga;
     }
 
