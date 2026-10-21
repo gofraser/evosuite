@@ -775,7 +775,7 @@ final class RepairHintComposer {
         for (AccessViolationDiagnosticParser.AccessViolation v : violations) {
             currentKeys.add(v.toTrackingKey());
         }
-        boolean hasRecurrent = state.recordAccessViolations(currentKeys);
+        Set<String> recurrentKeys = state.recordAccessViolations(currentKeys);
 
         repairMessage.append("\n\nMember-access repair hint:");
         repairMessage.append("\n- The failing test directly accesses private or protected members (which are not "
@@ -786,7 +786,7 @@ final class RepairHintComposer {
         if (!violations.isEmpty()) {
             repairMessage.append("\n- Specifically inaccessible members detected:");
             for (AccessViolationDiagnosticParser.AccessViolation v : violations) {
-                if (hasRecurrent && state.hasSeenAccessViolation(v.toTrackingKey())) {
+                if (recurrentKeys.contains(v.toTrackingKey())) {
                     // Escalation language for members that recurred across retries
                     repairMessage.append("\n  * CRITICAL (recurrent): You MUST NOT call `")
                             .append(v.getMemberName()).append("()` — it has ")

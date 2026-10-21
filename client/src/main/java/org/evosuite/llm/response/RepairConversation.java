@@ -161,23 +161,18 @@ final class RepairConversation {
     }
 
     /**
-     * Records the access violations of the current error and returns whether
-     * any of them was already reported on an earlier turn.
+     * Records the access violations of the current error and returns those
+     * that were already reported on an earlier turn.
      */
-    boolean recordAccessViolations(Set<String> trackingKeys) {
-        boolean hasRecurrent = false;
+    Set<String> recordAccessViolations(Set<String> trackingKeys) {
+        Set<String> recurrent = new LinkedHashSet<>();
         for (String key : trackingKeys) {
             if (seenAccessViolations.contains(key)) {
-                hasRecurrent = true;
-                break;
+                recurrent.add(key);
             }
         }
         seenAccessViolations.addAll(trackingKeys);
-        return hasRecurrent;
-    }
-
-    boolean hasSeenAccessViolation(String trackingKey) {
-        return seenAccessViolations.contains(trackingKey);
+        return recurrent;
     }
 
     boolean isHeadlessRepairEscalated() {
