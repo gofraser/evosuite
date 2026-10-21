@@ -27,7 +27,6 @@ import com.intellij.openapi.fileEditor.*;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.progress.*;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.*;
 import com.intellij.psi.*;
@@ -36,6 +35,7 @@ import com.intellij.task.ProjectTaskManager;
 
 import org.evosuite.ide.*;
 import org.evosuite.intellij.actions.TargetCollector;
+import org.evosuite.intellij.actions.TestClassInference;
 import org.evosuite.intellij.maven.*;
 import org.evosuite.intellij.settings.*;
 import org.evosuite.intellij.setup.ProjectSetupService;
@@ -105,15 +105,14 @@ public final class GenerationService implements Disposable {
                 boolean acquired = false;
                 List<VirtualFile> suites = new ArrayList<>();
                 List<SuiteComparison.Pair> comparisons = new ArrayList<>();
-                int[] counts = {0, 0}; // produced, failed
+                int[] counts = {0, 0, 0}; // written, warnings/errors, delegated targets
                 try {
                     indicator.setIndeterminate(true);
                     indicator.setText("Collecting Java targets");
                     var collected =
-                            ReadAction.nonBlocking(
-                                            () -> TargetCollector.collect(project, selection, mode))
-                                    .expireWith(project)
-                                    .executeSynchronously();
+                            IdeThread.smartRead(
+                                    project,
+                                    () -> TargetCollector.collect(project, selection, mode));
                     Map<Module, List<GenerationTarget>> targets =
                             mode == TargetCollector.Mode.EXTEND
                                     ? extensions(project, collected.tests())
@@ -124,49 +123,62 @@ public final class GenerationService implements Disposable {
                     for (var entry : targets.entrySet()) {
                         indicator.checkCanceled();
                         Module module = entry.getKey();
-                        GenerationOptions options = SettingsResolver.resolve(module);
-                        Path base = ReadAction.compute(() -> ProjectSetupService.baseDir(module));
-                        Path folder =
-                                ReadAction.compute(
-                                        () -> ProjectSetupService.testFolder(module, options));
-                        List<GenerationTarget> safe = new ArrayList<>();
-                        Map<String, SuitePlacement.Snapshot> consent = new HashMap<>();
-                        for (GenerationTarget target : entry.getValue()) {
-                            Path suite =
-                                    EvoSuiteCommand.suiteFile(
-                                                    folder.toFile(),
-                                                    target.className(),
-                                                    options.testSuffix)
-                                            .toPath();
-                            SuitePlacement.Snapshot existing =
-                                    IdeThread.edt(() -> SuitePlacement.snapshot(suite));
-                            if (existing != null
-                                    && !SuitePlacement.generated(
-                                            existing.source(),
-                                            suite.getFileName()
-                                                    .toString()
-                                                    .replaceFirst("\\.java$", ""))) {
-                                console.println(
-                                        EvoSuiteCommand.notAnEvoSuiteSuite(
-                                                target.className(), suite.toFile()));
-                                continue;
+                        try {
+                            GenerationOptions options = SettingsResolver.resolve(module);
+                            Path base =
+                                    ReadAction.compute(() -> ProjectSetupService.baseDir(module));
+                            Path folder =
+                                    ReadAction.compute(
+                                            () -> ProjectSetupService.testFolder(module, options));
+                            List<GenerationTarget> safe = new ArrayList<>();
+                            Map<String, SuitePlacement.Snapshot> consent = new HashMap<>();
+                            for (GenerationTarget target : entry.getValue()) {
+                                Path suite =
+                                        EvoSuiteCommand.suiteFile(
+                                                        folder.toFile(),
+                                                        target.className(),
+                                                        options.testSuffix)
+                                                .toPath();
+                                SuitePlacement.Snapshot existing =
+                                        IdeThread.edt(() -> SuitePlacement.snapshot(suite));
+                                if (existing != null
+                                        && !SuitePlacement.generated(
+                                                existing.source(),
+                                                suite.getFileName()
+                                                        .toString()
+                                                        .replaceFirst("\\.java$", ""))) {
+                                    console.println(
+                                            EvoSuiteCommand.notAnEvoSuiteSuite(
+                                                    target.className(), suite.toFile()));
+                                    continue;
+                                }
+                                safe.add(target);
+                                if (existing != null) {
+                                    consent.put(target.className(), existing);
+                                    withSuites.add(target.label());
+                                }
                             }
-                            safe.add(target);
-                            if (existing != null) {
-                                consent.put(target.className(), existing);
-                                withSuites.add(target.label());
+                            if (!safe.isEmpty()) {
+                                requests.add(
+                                        new Request(
+                                                module,
+                                                List.copyOf(safe),
+                                                options,
+                                                base,
+                                                folder,
+                                                Map.copyOf(consent)));
+                                total += safe.size();
                             }
-                        }
-                        if (!safe.isEmpty()) {
-                            requests.add(
-                                    new Request(
-                                            module,
-                                            List.copyOf(safe),
-                                            options,
-                                            base,
-                                            folder,
-                                            Map.copyOf(consent)));
-                            total += safe.size();
+                        } catch (ProcessCanceledException ex) {
+                            throw ex;
+                        } catch (Exception ex) {
+                            counts[1]++;
+                            console.println(
+                                    "Cannot prepare "
+                                            + module.getName()
+                                            + ": "
+                                            + mask(String.valueOf(ex.getMessage()))
+                                            + ". Continuing with other modules.");
                         }
                     }
                     if (requests.isEmpty()) {
@@ -207,228 +219,272 @@ public final class GenerationService implements Disposable {
                     for (Request request : requests) {
                         check(project, indicator);
                         if (request.module().isDisposed()) continue;
-                        var options = request.options();
-                        console.println("=== Module " + request.module().getName());
-                        options.fromPom.forEach(line -> console.println("From pom: " + mask(line)));
-                        for (String property : EvoSuiteCommand.overriddenUserProperties(options))
-                            console.println(
-                                    "Ignoring additional "
-                                            + property
-                                            + "; configure the output folder/suffix in EvoSuite"
-                                            + " settings.");
-                        indicator.setText("Preparing " + request.module().getName());
-                        ProjectSetupService.prepare(
-                                request.module(), options, indicator, console::println);
-                        check(project, indicator);
-                        IdeThread.edt(
-                                () -> {
-                                    FileDocumentManager.getInstance().saveAllDocuments();
-                                    return null;
-                                });
-                        var maven = MavenBridge.get(project);
-                        Map<String, String> env =
-                                LlmEnvironment.resolve(
-                                        options,
-                                        LlmApiKeyStore::get,
-                                        () ->
-                                                maven == null
-                                                        ? ""
-                                                        : maven.serverPassword(
-                                                                options.llmApiKeyServerId,
-                                                                console::println),
-                                        System.getenv(),
-                                        console::println);
-                        boolean delegation =
-                                EvoSuiteProjectSettings.getInstance(project)
-                                                .getState()
-                                                .delegateToMaven
-                                        && mode == TargetCollector.Mode.CLASSES
-                                        && maven != null
-                                        && maven.directory(request.module()) != null;
-                        // Maven's own export does not implement IDE staging or Search-only
-                        // enforcement.
-                        // Fall back to the bundled driver whenever either protection is required.
-                        if (delegation
-                                && (options.llmSwitchedOff()
-                                        || !request.consent().isEmpty()
-                                        || request.targets().stream()
-                                                .anyMatch(
-                                                        t ->
-                                                                Files.exists(
-                                                                        EvoSuiteCommand.suiteFile(
-                                                                                        request.testDir()
-                                                                                                .toFile(),
-                                                                                        t
-                                                                                                .className(),
-                                                                                        options.testSuffix)
-                                                                                .toPath())))) {
-                            console.println(
-                                    "Using the bundled engine to enforce Search only or protect"
-                                            + " existing suites.");
-                            delegation = false;
-                        }
-                        if (delegation) {
-                            console.println(
-                                    "Delegating whole-class generation to Maven. Maven controls"
-                                            + " scheduling/export and uses pom settings; IDE"
-                                            + " Add/Compare is unavailable in this mode.");
-                            if (!maven.delegate(
-                                    request.module(), request.targets(), options, env, indicator))
-                                counts[1]++;
-                            done += request.targets().size();
-                            continue;
-                        }
-                        indicator.setText("Building " + request.module().getName());
-                        var build =
-                                IdeThread.await(
-                                        IdeThread.edt(
-                                                () ->
-                                                        ProjectTaskManager.getInstance(project)
-                                                                .build(request.module())),
-                                        indicator);
-                        if (build.isAborted() || build.hasErrors()) {
-                            console.println(
-                                    "Build failed or was cancelled. Fix compilation errors before"
-                                            + " generating tests.");
-                            counts[1] += request.targets().size();
-                            continue;
-                        }
-                        var java =
-                                ReadAction.compute(
-                                        () -> {
-                                            try {
-                                                return ClasspathResolver.java(
-                                                        request.module(), options);
-                                            } catch (java.io.IOException ex) {
-                                                throw new IllegalArgumentException(
-                                                        ex.getMessage(), ex);
-                                            }
-                                        });
-                        Path engine = EngineJars.engine();
-                        indicator.setIndeterminate(false);
-                        for (GenerationTarget target : request.targets()) {
+                        try {
+                            var options = request.options();
+                            console.println("=== Module " + request.module().getName());
+                            options.fromPom.forEach(
+                                    line -> console.println("From pom: " + mask(line)));
+                            for (String property :
+                                    EvoSuiteCommand.overriddenUserProperties(options))
+                                console.println(
+                                        "Ignoring additional "
+                                                + property
+                                                + "; configure the output folder/suffix in EvoSuite"
+                                                + " settings.");
+                            indicator.setText("Preparing " + request.module().getName());
+                            ProjectSetupService.prepare(
+                                    request.module(), options, indicator, console::println);
                             check(project, indicator);
-                            int index = done++;
-                            int all = total;
-                            List<String> cp =
-                                    ReadAction.compute(
+                            // Only the initial save question authorizes saving editor changes.
+                            // Edits made while queued must remain dirty for placement protection.
+                            IdeThread.flushPendingVfsWrites();
+                            var maven = MavenBridge.get(project);
+                            Map<String, String> env =
+                                    LlmEnvironment.resolve(
+                                            options,
+                                            LlmApiKeyStore::get,
                                             () ->
-                                                    ClasspathResolver.resolve(
-                                                            request.module(),
-                                                            target.extendsTests()));
-                            if (cp.isEmpty())
-                                throw new IllegalArgumentException(
-                                        "No production classpath for "
-                                                + request.module().getName());
-                            indicator.setText("Generating tests for " + target.label());
-                            Path state = Path.of(PathManager.getSystemPath(), "evosuite", "runs");
-                            Files.createDirectories(state);
-                            Path staging = Files.createTempDirectory(state, "run-");
-                            console.println(
-                                    "Reports and LLM traces: " + staging.resolve("reports"));
-                            String key =
-                                    env.getOrDefault(
-                                            EvoSuiteCommand.API_KEY_VARIABLE,
-                                            System.getenv(EvoSuiteCommand.API_KEY_VARIABLE));
-                            try {
-                                GenerationRun.Result result =
-                                        GenerationRun.generate(
-                                                target,
-                                                options,
-                                                java,
-                                                engine,
-                                                cp,
-                                                request.base(),
-                                                staging,
-                                                new ProgressParser.Listener() {
-                                                    public void line(String line) {
-                                                        console.println(
-                                                                key == null || key.isBlank()
-                                                                        ? mask(line)
-                                                                        : mask(line)
-                                                                                .replace(
-                                                                                        key,
-                                                                                        "****"));
-                                                    }
-
-                                                    public void progress(int search, int coverage) {
-                                                        indicator.setFraction(
-                                                                (index
-                                                                                + Math.min(
-                                                                                                100,
-                                                                                                search)
-                                                                                        / 100.0)
-                                                                        / all);
-                                                        indicator.setText2(
-                                                                target.label()
-                                                                        + ": search "
-                                                                        + search
-                                                                        + "%, coverage "
-                                                                        + coverage
-                                                                        + "%");
-                                                    }
-                                                },
-                                                env,
-                                                () ->
-                                                        indicator.isCanceled()
-                                                                || project.isDisposed()
-                                                                || disposed);
-                                if (result.exitCode() == EvoSuiteProcess.CANCELLED)
-                                    throw new ProcessCanceledException();
-                                if (result.seeding() != null) {
-                                    console.println(result.seeding().summary());
-                                    if (!result.seeding().seeded()
-                                            || !result.seeding().ranExistingTests()) counts[1]++;
-                                }
-                                if (!result.produced()) {
-                                    console.println(
-                                            "No tests generated for "
-                                                    + target.label()
-                                                    + " (exit "
-                                                    + result.exitCode()
-                                                    + ").");
-                                    counts[1]++;
-                                    continue;
-                                }
-                                if (result.exitCode() != 0) {
-                                    console.println(
-                                            "EvoSuite wrote tests but exited with code "
-                                                    + result.exitCode()
-                                                    + "; the suite may be incomplete.");
-                                    counts[1]++;
-                                }
-                                Path destination =
-                                        EvoSuiteCommand.suiteFile(
-                                                        request.testDir().toFile(),
-                                                        target.className(),
-                                                        options.testSuffix)
-                                                .toPath();
-                                var placed =
-                                        SuitePlacement.place(
-                                                project,
-                                                target,
-                                                options,
-                                                destination,
-                                                result,
-                                                action,
-                                                request.consent().get(target.className()),
-                                                console::println);
-                                if (placed.written()) counts[0]++;
-                                if (placed.suite() != null && options.openGeneratedTests)
-                                    suites.add(placed.suite());
-                                comparisons.addAll(placed.comparisons());
-                            } finally {
-                                // Keep reports outside the project for inspection, but remove
-                                // source/argfile staging.
-                                GenerationRun.deleteTree(staging.resolve("tests"));
-                                GenerationRun.deleteTree(staging.resolve("seeds"));
+                                                    maven == null
+                                                            ? ""
+                                                            : maven.serverPassword(
+                                                                    options.llmApiKeyServerId,
+                                                                    console::println),
+                                            System.getenv(),
+                                            console::println);
+                            boolean delegation =
+                                    EvoSuiteProjectSettings.getInstance(project)
+                                                    .getState()
+                                                    .delegateToMaven
+                                            && mode == TargetCollector.Mode.CLASSES
+                                            && maven != null
+                                            && maven.directory(request.module()) != null;
+                            // Maven's own export does not implement IDE staging or Search-only
+                            // enforcement.
+                            // Fall back to the bundled driver whenever either protection is
+                            // required.
+                            if (delegation
+                                    && (options.llmSwitchedOff()
+                                            || !request.consent().isEmpty()
+                                            || request.targets().stream()
+                                                    .anyMatch(
+                                                            t ->
+                                                                    Files.exists(
+                                                                            EvoSuiteCommand
+                                                                                    .suiteFile(
+                                                                                            request.testDir()
+                                                                                                    .toFile(),
+                                                                                            t
+                                                                                                    .className(),
+                                                                                            options.testSuffix)
+                                                                                    .toPath())))) {
+                                console.println(
+                                        "Using the bundled engine to enforce Search only or protect"
+                                                + " existing suites.");
+                                delegation = false;
                             }
+                            if (delegation) {
+                                console.println(
+                                        "Delegating whole-class generation to Maven. Maven controls"
+                                                + " scheduling/export and uses pom settings; IDE"
+                                                + " Add/Compare is unavailable in this mode.");
+                                if (!maven.delegate(
+                                        request.module(),
+                                        request.targets(),
+                                        options,
+                                        env,
+                                        indicator)) counts[1]++;
+                                else counts[2] += request.targets().size();
+                                done += request.targets().size();
+                                continue;
+                            }
+                            indicator.setText("Building " + request.module().getName());
+                            var build =
+                                    IdeThread.await(
+                                            IdeThread.edt(
+                                                    () ->
+                                                            ProjectTaskManager.getInstance(project)
+                                                                    .build(request.module())),
+                                            indicator);
+                            if (build.isAborted() || build.hasErrors()) {
+                                console.println(
+                                        "Build failed or was cancelled. Fix compilation errors"
+                                            + " before generating tests.");
+                                counts[1] += request.targets().size();
+                                continue;
+                            }
+                            var java =
+                                    ReadAction.compute(
+                                            () -> {
+                                                try {
+                                                    return ClasspathResolver.java(
+                                                            request.module(), options);
+                                                } catch (java.io.IOException ex) {
+                                                    throw new IllegalArgumentException(
+                                                            ex.getMessage(), ex);
+                                                }
+                                            });
+                            IdeThread.flushPendingVfsWrites();
+                            Path engine = EngineJars.engine();
+                            indicator.setIndeterminate(false);
+                            for (GenerationTarget target : request.targets()) {
+                                check(project, indicator);
+                                int index = done++;
+                                int all = total;
+                                List<String> cp =
+                                        ReadAction.compute(
+                                                () ->
+                                                        ClasspathResolver.resolve(
+                                                                request.module(),
+                                                                target.extendsTests()));
+                                if (cp.isEmpty())
+                                    throw new IllegalArgumentException(
+                                            "No production classpath for "
+                                                    + request.module().getName());
+                                indicator.setText("Generating tests for " + target.label());
+                                Path state =
+                                        Path.of(PathManager.getSystemPath(), "evosuite", "runs");
+                                Files.createDirectories(state);
+                                Path staging = Files.createTempDirectory(state, "run-");
+                                console.println(
+                                        "Reports and LLM traces: " + staging.resolve("reports"));
+                                String key =
+                                        env.getOrDefault(
+                                                EvoSuiteCommand.API_KEY_VARIABLE,
+                                                System.getenv(EvoSuiteCommand.API_KEY_VARIABLE));
+                                boolean keepSources = false;
+                                try {
+                                    GenerationRun.Result result =
+                                            GenerationRun.generate(
+                                                    target,
+                                                    options,
+                                                    java,
+                                                    engine,
+                                                    cp,
+                                                    request.base(),
+                                                    staging,
+                                                    new ProgressParser.Listener() {
+                                                        public void line(String line) {
+                                                            console.println(
+                                                                    key == null || key.isBlank()
+                                                                            ? mask(line)
+                                                                            : mask(line)
+                                                                                    .replace(
+                                                                                            key,
+                                                                                            "****"));
+                                                        }
+
+                                                        public void progress(
+                                                                int search, int coverage) {
+                                                            indicator.setFraction(
+                                                                    (index
+                                                                                    + Math.min(
+                                                                                                    100,
+                                                                                                    search)
+                                                                                            / 100.0)
+                                                                            / all);
+                                                            indicator.setText2(
+                                                                    target.label()
+                                                                            + ": search "
+                                                                            + search
+                                                                            + "%, coverage "
+                                                                            + coverage
+                                                                            + "%");
+                                                        }
+                                                    },
+                                                    env,
+                                                    () ->
+                                                            indicator.isCanceled()
+                                                                    || project.isDisposed()
+                                                                    || disposed);
+                                    if (result.exitCode() == EvoSuiteProcess.CANCELLED)
+                                        throw new ProcessCanceledException();
+                                    if (result.seeding() != null) {
+                                        console.println(result.seeding().summary());
+                                        if (!result.seeding().seeded()
+                                                || !result.seeding().ranExistingTests())
+                                            counts[1]++;
+                                    }
+                                    if (!result.produced()) {
+                                        console.println(
+                                                "No tests generated for "
+                                                        + target.label()
+                                                        + " (exit "
+                                                        + result.exitCode()
+                                                        + ").");
+                                        counts[1]++;
+                                        continue;
+                                    }
+                                    if (result.exitCode() != 0) {
+                                        console.println(
+                                                "EvoSuite wrote tests but exited with code "
+                                                        + result.exitCode()
+                                                        + "; the suite may be incomplete.");
+                                        counts[1]++;
+                                    }
+                                    Path destination =
+                                            EvoSuiteCommand.suiteFile(
+                                                            request.testDir().toFile(),
+                                                            target.className(),
+                                                            options.testSuffix)
+                                                    .toPath();
+                                    var placed =
+                                            SuitePlacement.place(
+                                                    project,
+                                                    target,
+                                                    options,
+                                                    destination,
+                                                    result,
+                                                    action,
+                                                    request.consent().get(target.className()),
+                                                    console::println);
+                                    if (placed.written()) counts[0]++;
+                                    if (placed.suite() != null && options.openGeneratedTests)
+                                        suites.add(placed.suite());
+                                    comparisons.addAll(placed.comparisons());
+                                } catch (ProcessCanceledException | InterruptedException ex) {
+                                    throw ex;
+                                } catch (Exception ex) {
+                                    counts[1]++;
+                                    keepSources = true;
+                                    console.println(
+                                            "Failed for "
+                                                    + target.label()
+                                                    + ": "
+                                                    + mask(String.valueOf(ex.getMessage())));
+                                    console.println(
+                                            "Generated sources retained at "
+                                                    + staging.resolve("tests"));
+                                } finally {
+                                    // A failed placement must leave recoverable generated sources.
+                                    try {
+                                        if (!keepSources)
+                                            GenerationRun.deleteTree(staging.resolve("tests"));
+                                        GenerationRun.deleteTree(staging.resolve("seeds"));
+                                    } catch (java.io.IOException ex) {
+                                        console.println(
+                                                "Could not clean staging folder " + staging);
+                                    }
+                                }
+                            }
+                        } catch (ProcessCanceledException | InterruptedException ex) {
+                            throw ex;
+                        } catch (Exception ex) {
+                            counts[1]++;
+                            console.println(
+                                    "Failed module "
+                                            + request.module().getName()
+                                            + ": "
+                                            + mask(String.valueOf(ex.getMessage()))
+                                            + ". Continuing with other modules.");
                         }
                     }
+                    IdeThread.flushPendingVfsWrites();
                     console.println(
                             "EvoSuite finished: "
                                     + counts[0]
                                     + " suites written/updated, "
+                                    + counts[2]
+                                    + " Maven targets processed, "
                                     + comparisons.size()
                                     + " comparisons, "
                                     + counts[1]
@@ -441,6 +497,9 @@ public final class GenerationService implements Disposable {
                             "EvoSuite finished: "
                                     + counts[0]
                                     + " suites written/updated"
+                                    + (counts[2] == 0
+                                            ? ""
+                                            : ", " + counts[2] + " Maven targets processed")
                                     + (counts[1] == 0
                                             ? "."
                                             : "; see the EvoSuite console for warnings."));
@@ -505,8 +564,11 @@ public final class GenerationService implements Disposable {
         Map<Module, Map<String, List<GenerationTarget.Seed>>> grouped = new LinkedHashMap<>();
         for (var test : tests) {
             GenerationOptions options = SettingsResolver.resolve(test.module());
-            List<String> candidates =
-                    ReadAction.compute(() -> candidates(project, test, options.testSuffix));
+            var inference =
+                    IdeThread.smartRead(
+                            project,
+                            () -> TestClassInference.infer(project, test, options.testSuffix));
+            List<String> candidates = inference.candidates();
             String cut =
                     candidates.size() == 1
                             ? candidates.getFirst()
@@ -519,13 +581,12 @@ public final class GenerationService implements Disposable {
                                                             + " (fully qualified name):",
                                                     "Extend Tests with EvoSuite",
                                                     Messages.getQuestionIcon(),
-                                                    candidates.isEmpty()
-                                                            ? guess(test.name(), options.testSuffix)
-                                                            : candidates.getFirst(),
+                                                    inference.guess(),
                                                     null));
             if (cut == null || cut.isBlank()) continue;
             boolean valid =
-                    ReadAction.compute(
+                    IdeThread.smartRead(
+                            project,
                             () -> {
                                 PsiClass type =
                                         JavaPsiFacade.getInstance(project)
@@ -534,7 +595,7 @@ public final class GenerationService implements Disposable {
                                                         GlobalSearchScope
                                                                 .moduleWithDependenciesAndLibrariesScope(
                                                                         test.module(), false));
-                                return isCut(project, type);
+                                return TestClassInference.isCut(project, type);
                             });
             if (!valid) throw new IllegalArgumentException("No top-level production class " + cut);
             grouped.computeIfAbsent(test.module(), ignored -> new LinkedHashMap<>())
@@ -553,58 +614,5 @@ public final class GenerationService implements Disposable {
                                                                 e.getKey(), e.getValue()))
                                         .toList()));
         return result;
-    }
-
-    private static List<String> candidates(
-            Project project, TargetCollector.TestClass test, String suffix) {
-        String pkg =
-                test.name().contains(".")
-                        ? test.name().substring(0, test.name().lastIndexOf('.') + 1)
-                        : "";
-        String simple = test.name().substring(pkg.length());
-        Set<String> stems = new LinkedHashSet<>();
-        List<String> names = new ArrayList<>(List.of(simple));
-        if (simple.startsWith("Test")
-                && simple.length() > 4
-                && Character.isUpperCase(simple.charAt(4))) {
-            names.add(simple.substring(4));
-            stems.add(simple.substring(4));
-        }
-        for (String name : names)
-            for (String ending : List.of(suffix, "TestCase", "ITCase", "Tests", "Test", "IT"))
-                if (!ending.isBlank() && name.endsWith(ending) && name.length() > ending.length())
-                    stems.add(name.substring(0, name.length() - ending.length()));
-        return stems.stream()
-                .map(name -> pkg + name)
-                .filter(
-                        name ->
-                                isCut(
-                                        project,
-                                        JavaPsiFacade.getInstance(project)
-                                                .findClass(
-                                                        name,
-                                                        GlobalSearchScope
-                                                                .moduleWithDependenciesAndLibrariesScope(
-                                                                        test.module(), false))))
-                .toList();
-    }
-
-    private static boolean isCut(Project project, PsiClass type) {
-        if (type == null
-                || type.getContainingClass() != null
-                || type.isInterface()
-                || type.isAnnotationType()
-                || TargetCollector.generated(type)) return false;
-        VirtualFile file = type.getContainingFile().getVirtualFile();
-        return file != null
-                && ProjectFileIndex.getInstance(project).isInSourceContent(file)
-                && !ProjectFileIndex.getInstance(project).isInTestSourceContent(file);
-    }
-
-    private static String guess(String test, String suffix) {
-        for (String ending : List.of(suffix, "TestCase", "ITCase", "Tests", "Test", "IT"))
-            if (!ending.isBlank() && test.endsWith(ending))
-                return test.substring(0, test.length() - ending.length());
-        return test;
     }
 }

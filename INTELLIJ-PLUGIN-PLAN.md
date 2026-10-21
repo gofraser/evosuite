@@ -129,3 +129,42 @@ cd ../eclipse
   muted check is the previously released plugin ID's naming rule. The complete ZIP is ~56 MiB.
 - Signing, Marketplace publishing and an interactive imported Maven/Gradle project acceptance
   run remain release activities; this task does not publish or require credentials.
+
+## Implementation review (2026-10-21)
+
+Reviewed the IntelliJ launch, placement, project setup, settings and Maven adapters against
+Eclipse's corresponding handlers/jobs and fixtures. Corrected:
+
+- Index-dependent background reads now wait for smart mode, including indexing begun after
+  action invocation. Model writes use the caller's default modality.
+- Pending VFS writes are flushed before external execution on 2026.2; the public API is
+  detected reflectively because 2025.3 completes writes synchronously and lacks this method.
+  See [Virtual Files](https://plugins.jetbrains.com/docs/intellij/virtual-file.html) and
+  [Threading Model](https://plugins.jetbrains.com/docs/intellij/threading-model.html).
+- Launch/setup no longer save unrelated edits made after initial consent. Add retains dirty
+  buffers; replacement still falls back to Compare.
+- Existing legacy main roots become one test-root entry, preserving the package prefix.
+  Broken bundled runtime library paths are rebound after upgrades. Dependency versions come
+  from generated engine metadata instead of a hardcoded Java constant.
+- Extension inference uses Eclipse's convention ordering and longest production-class prefix
+  as a confirmed guess. Interfaces and other ineligible types cannot become guesses.
+- A scaffolding conflict no longer discards a newly generated suite. Failed updates fall back
+  to Compare; failed placements retain source staging, and target/module failures allow the
+  rest of a batch to continue. Cancellation still propagates.
+- Maven setup updates preserve execution IDs (including inherited IDs), other goals and
+  configuration, save only the pom, and await the update promise before compilation.
+  Delegation uses generate's built-in export and reports delegated targets separately.
+- Invalid stored overrides can be disabled. Empty coverage selections report validation errors.
+  API-key save failures keep Apply pending and retryable instead of clearing modified state.
+
+Regression fixtures cover root conversion, library repair, inference conventions/ambiguity,
+new-suite scaffolding conflicts, read-only comparisons, settings recovery, secure-store retries,
+bundled-version consistency and Maven execution updates.
+
+Review validation: `test buildPlugin verifyPlugin --continue` passes with JDK 21 and the
+real-engine test using JDK 17. All 26 IntelliJ tests and 77 shared-core tests pass with no
+skips. The rebuilt ZIP passes CRC inspection and includes both isolated engine jars.
+Plugin Verifier reports Compatible on 253.30387.90 (one deprecated API usage) and
+262.10968.63 (three deprecated usages), with eight experimental Maven-import API usages
+each and no internal-API or binary compatibility errors. Interactive imported Maven/Gradle
+acceptance remains a release check; the new Maven XML-update tests exercise actual PSI edits.

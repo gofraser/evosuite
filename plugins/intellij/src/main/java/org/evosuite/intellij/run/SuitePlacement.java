@@ -104,16 +104,15 @@ public final class SuitePlacement {
                     if (document == null) {
                         if (differentScaffold) {
                             console.accept(
-                                    "Cannot write "
-                                            + name
-                                            + ": existing scaffolding differs. Compare it and"
-                                            + " choose another suffix or folder.");
+                                    name
+                                            + ": existing scaffolding differs. The new suite is"
+                                            + " kept; resolve the scaffolding comparison before"
+                                            + " running it.");
                             diffs.add(
                                     new SuiteComparison.Pair(
                                             scaffoldPath.getFileName().toString(),
                                             scaffoldDocument,
                                             scaffold));
-                            return new Placed(null, List.copyOf(diffs), false);
                         }
                         VirtualFile[] created = {null};
                         WriteCommandAction.runWriteCommandAction(
@@ -131,7 +130,7 @@ public final class SuitePlacement {
                                         + " ("
                                         + SuiteMerger.testCount(fresh, name)
                                         + " tests).");
-                        return new Placed(created[0], List.of(), true);
+                        return new Placed(created[0], List.copyOf(diffs), true);
                     }
                     SuiteAction chosen = requested;
                     boolean partial = !target.methods().isEmpty() || target.extendsTests();
@@ -172,50 +171,67 @@ public final class SuitePlacement {
                                         + ": scaffolding differs; opening a comparison.");
                         chosen = SuiteAction.COMPARE;
                     }
-                    if (chosen == SuiteAction.ADD) {
-                        SuiteMerger.Result merge =
-                                SuiteMerger.merge(document.getText(), fresh, name);
-                        if (merge.isMerged()) {
-                            boolean dirty =
-                                    FileDocumentManager.getInstance().isDocumentUnsaved(document);
+                    try {
+                        if (chosen == SuiteAction.ADD) {
+                            SuiteMerger.Result merge =
+                                    SuiteMerger.merge(document.getText(), fresh, name);
+                            if (merge.isMerged()) {
+                                boolean dirty =
+                                        FileDocumentManager.getInstance()
+                                                .isDocumentUnsaved(document);
+                                WriteCommandAction.runWriteCommandAction(
+                                        project,
+                                        "EvoSuite: add tests to " + name,
+                                        null,
+                                        () -> {
+                                            if (scaffold != null && oldScaffold == null)
+                                                write(project, scaffoldPath, scaffold);
+                                            if (!merge.added.isEmpty())
+                                                document.setText(merge.source);
+                                        });
+                                if (!dirty)
+                                    FileDocumentManager.getInstance().saveDocument(document);
+                                console.accept(
+                                        name
+                                                + ": added "
+                                                + merge.added.size()
+                                                + " tests, skipped "
+                                                + merge.duplicates
+                                                + " duplicates.");
+                                return new Placed(existing, List.of(), !merge.added.isEmpty());
+                            }
+                            console.accept(
+                                    "Cannot add tests to "
+                                            + name
+                                            + ": "
+                                            + merge.incompatibility
+                                            + "; opening a comparison.");
+                        } else if (chosen == SuiteAction.REPLACE) {
                             WriteCommandAction.runWriteCommandAction(
                                     project,
-                                    "EvoSuite: add tests to " + name,
+                                    "EvoSuite: replace " + name,
                                     null,
                                     () -> {
-                                        if (!merge.added.isEmpty()) document.setText(merge.source);
-                                        if (scaffold != null && oldScaffold == null)
+                                        document.setText(fresh);
+                                        if (scaffold != null)
                                             write(project, scaffoldPath, scaffold);
                                     });
-                            if (!dirty) FileDocumentManager.getInstance().saveDocument(document);
+                            FileDocumentManager.getInstance().saveDocument(document);
                             console.accept(
-                                    name
-                                            + ": added "
-                                            + merge.added.size()
-                                            + " tests, skipped "
-                                            + merge.duplicates
-                                            + " duplicates.");
-                            return new Placed(existing, List.of(), !merge.added.isEmpty());
+                                    "Replaced "
+                                            + name
+                                            + ". The previous suite is in local history.");
+                            return new Placed(existing, List.of(), true);
                         }
+                    } catch (com.intellij.openapi.progress.ProcessCanceledException ex) {
+                        throw ex;
+                    } catch (RuntimeException ex) {
                         console.accept(
-                                "Cannot add tests to "
+                                "Cannot update "
                                         + name
                                         + ": "
-                                        + merge.incompatibility
+                                        + ex.getMessage()
                                         + "; opening a comparison.");
-                    } else if (chosen == SuiteAction.REPLACE) {
-                        WriteCommandAction.runWriteCommandAction(
-                                project,
-                                "EvoSuite: replace " + name,
-                                null,
-                                () -> {
-                                    document.setText(fresh);
-                                    if (scaffold != null) write(project, scaffoldPath, scaffold);
-                                });
-                        FileDocumentManager.getInstance().saveDocument(document);
-                        console.accept(
-                                "Replaced " + name + ". The previous suite is in local history.");
-                        return new Placed(existing, List.of(), true);
                     }
                     diffs.add(
                             new SuiteComparison.Pair(
@@ -226,12 +242,28 @@ public final class SuitePlacement {
                                         scaffoldPath.getFileName().toString(),
                                         scaffoldDocument,
                                         scaffold));
-                    else if (scaffold != null && oldScaffold == null)
-                        WriteCommandAction.runWriteCommandAction(
-                                project,
-                                () -> {
-                                    write(project, scaffoldPath, scaffold);
-                                });
+                    else if (scaffold != null && oldScaffold == null) {
+                        try {
+                            WriteCommandAction.runWriteCommandAction(
+                                    project,
+                                    () -> {
+                                        write(project, scaffoldPath, scaffold);
+                                    });
+                        } catch (com.intellij.openapi.progress.ProcessCanceledException ex) {
+                            throw ex;
+                        } catch (RuntimeException ex) {
+                            console.accept(
+                                    "Cannot create "
+                                            + scaffoldPath.getFileName()
+                                            + ": "
+                                            + ex.getMessage());
+                            diffs.add(
+                                    new SuiteComparison.Pair(
+                                            scaffoldPath.getFileName().toString(),
+                                            EditorFactory.getInstance().createDocument(""),
+                                            scaffold));
+                        }
+                    }
                     return new Placed(null, List.copyOf(diffs), false);
                 });
     }

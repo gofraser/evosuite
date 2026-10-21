@@ -16,7 +16,8 @@ constructors are excluded. Overloads use their JVM descriptors, so they stay dis
 
 **Extend Tests with EvoSuite** accepts existing test classes. The plugin infers their production
 class from the package and `Test`, `Tests`, `TestCase`, `IT`, `ITCase`, `TestFoo` or the configured
-suite suffix; ambiguous names open a class-name prompt. Select several test classes to seed the
+suite suffix; ambiguous names open a class-name prompt. A longer name such as
+`VaultEdgeCasesTest` offers the longest matching production-class prefix for confirmation. Select several test classes to seed the
 same CUT together. EvoSuite parses their saved source, executes their compiled tests to exclude
 covered goals, and generates additional tests. Carving stays disabled. The console reports how
 many tests were parsed and executed. Extension deliberately includes test outputs and test
@@ -46,7 +47,14 @@ A handwritten suite is never replaced or merged into: an actual `@EvoRunnerParam
 annotation is required; a marker in a comment is insufficient. An incompatible merge or
 conflicting scaffolding opens a comparison. Whole-class generation also compares a suite
 that appeared while the run was queued. Partial generation can add to it after checking
-compatibility. Extension writes nothing when no new tests were found.
+compatibility. Extension writes nothing when no new tests were found. If a new suite's scaffolding
+conflicts with an existing file, the suite is kept and the scaffolding opens for comparison.
+Resolve that comparison before running the suite.
+
+The launch asks before saving modified documents. Edits made while queued remain dirty, so
+replacement protection and Add continue to use the current editor contents. Failures in one
+target or module do not discard work for other targets; generated sources from a failed placement
+remain in the run's staging directory, whose path is printed in the console.
 
 ## Settings
 
@@ -68,11 +76,13 @@ postprocessing and call budget. **Search only** overrides every other provider s
 pom and extra arguments. The API key is application-wide in PasswordSafe, loaded off the UI
 thread, and sent only through `EVOSUITE_LLM_API_KEY`. An inherited environment variable also
 works. Put keys in secure storage rather than Additional arguments. A failed secure-store read
-preserves the saved key unless the user explicitly enters a replacement.
+preserves the saved key unless the user explicitly enters a replacement. A failed key save keeps
+the settings dialog open so Apply can be retried.
 
 Output locations (`test_dir`, `junit_suffix`, `report_dir`, `llm_trace_dir`) are pinned after user
 arguments, so generated suites and traces are found reliably. Reports and LLM traces stay under
-IntelliJ's system directory, in `evosuite/runs/`; source staging and argument files are removed.
+IntelliJ's system directory, in `evosuite/runs/`; successful source staging and argument files are
+removed. Failed source placement retains its generated files for recovery.
 
 Legacy plugin budget/folder preferences are imported once; obsolete CTG/Maven/JAR-location
 settings are not reused.
@@ -93,11 +103,15 @@ is never passed as a key.
 When build-path configuration is enabled, the generated folder is registered as a test root.
 Missing JUnit dependencies are added through IntelliJ's project-model API after confirmation.
 Imported Maven/Gradle projects also receive the runtime through that API; plain modules use the
-bundled runtime as a test-scoped module library. Imported projects using a snapshot runtime need
+bundled runtime as a test-scoped module library. Missing bundled-library paths are repaired after
+plugin upgrades. Legacy production roots are converted to test roots without duplicate entries.
+The dependency version is generated from the same build metadata as the bundled engine.
+Imported projects using a snapshot runtime need
 that artifact available in their Maven repositories (for a development build, install the reactor).
 
-For Maven, the plugin offers to add a `setup` execution to the pom. Its import configurator
-keeps that execution's folder as a test root on reimport. Gradle projects receive the exact
+For Maven, the plugin offers to add or update a `setup` execution in the pom. Existing execution
+IDs and other configuration are preserved. It saves that pom and waits for reimport before
+building. Its import configurator keeps that execution's folder as a test root on reimport. Gradle projects receive the exact
 source-set snippet in the console; add it to the build script so re-sync retains the root:
 
 ```groovy
@@ -105,7 +119,8 @@ sourceSets.test.java.srcDir("src/test/evosuite")
 ```
 
 The project settings offer **Run whole-class requests through the Maven plugin**. This invokes
-IntelliJ's Maven runner, uses pom settings and Maven scheduling/export, and has no per-class
+IntelliJ's Maven runner with `compile` and `generate` (which already exports tests), uses pom
+settings and Maven scheduling/export, and has no per-class
 progress or IDE Add/Compare workflow. Requests requiring Search-only enforcement or protection
 of existing suites use the bundled engine instead. Methods and extension always use the bundled
 engine. The default mode is the bundled engine.

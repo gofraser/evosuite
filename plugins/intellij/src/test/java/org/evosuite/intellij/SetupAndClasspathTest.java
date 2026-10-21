@@ -60,6 +60,88 @@ public class SetupAndClasspathTest extends JavaCodeInsightFixtureTestCase {
         assertEquals("demo.VaultTest", tests.getFirst().name());
     }
 
+    public void testLegacyMainRootIsConvertedWithoutDuplicateEntries() throws Exception {
+        var file =
+                myFixture
+                        .addFileToProject(
+                                "legacy/demo/Vault_ESTest.java",
+                                "package demo; class Vault_ESTest {}")
+                        .getVirtualFile();
+        var root = file.getParent().getParent();
+        WriteCommandAction.runWriteCommandAction(
+                getProject(),
+                () ->
+                        ModuleRootModificationUtil.updateModel(
+                                getModule(),
+                                model -> {
+                                    var owner =
+                                            Arrays.stream(model.getContentEntries())
+                                                    .filter(
+                                                            e ->
+                                                                    e.getFile() != null
+                                                                            && VfsUtilCore
+                                                                                    .isAncestor(
+                                                                                            e
+                                                                                                    .getFile(),
+                                                                                            root,
+                                                                                            false))
+                                                    .findFirst()
+                                                    .orElseThrow();
+                                    owner.addSourceFolder(root, false)
+                                            .setPackagePrefix("legacy.prefix");
+                                }));
+        ProjectSetupService.registerTestRoot(getModule(), root.toNioPath());
+        var roots =
+                Arrays.stream(ModuleRootManager.getInstance(getModule()).getContentEntries())
+                        .flatMap(e -> Arrays.stream(e.getSourceFolders()))
+                        .filter(f -> f.getUrl().equals(root.getUrl()))
+                        .toList();
+        assertEquals(1, roots.size());
+        assertTrue(roots.getFirst().isTestSource());
+        assertEquals("legacy.prefix", roots.getFirst().getPackagePrefix());
+    }
+
+    public void testMissingRuntimeLibraryIsReboundAfterPluginUpgrade() throws Exception {
+        myFixture.addClass("package org.junit.jupiter.api; public @interface Test {}");
+        WriteCommandAction.runWriteCommandAction(
+                getProject(),
+                () ->
+                        ModuleRootModificationUtil.updateModel(
+                                getModule(),
+                                model -> {
+                                    var library =
+                                            model.getModuleLibraryTable()
+                                                    .createLibrary("EvoSuite Runtime");
+                                    var lib = library.getModifiableModel();
+                                    lib.addRoot(
+                                            "jar:///missing/old-plugin/evosuite-standalone-runtime.jar!/",
+                                            OrderRootType.CLASSES);
+                                    lib.commit();
+                                }));
+        var options = new org.evosuite.ide.GenerationOptions();
+        ProjectSetupService.prepare(
+                getModule(),
+                options,
+                new com.intellij.openapi.progress.EmptyProgressIndicator(),
+                ignored -> {});
+        var libraries =
+                Arrays.stream(ModuleRootManager.getInstance(getModule()).getOrderEntries())
+                        .filter(
+                                e ->
+                                        e instanceof LibraryOrderEntry order
+                                                && "EvoSuite Runtime"
+                                                        .equals(order.getLibraryName()))
+                        .map(e -> (LibraryOrderEntry) e)
+                        .toList();
+        assertEquals(1, libraries.size());
+        assertEquals(DependencyScope.TEST, libraries.getFirst().getScope());
+        assertEquals(
+                List.of(
+                        VfsUtil.getUrlForLibraryRoot(
+                                org.evosuite.intellij.run.EngineJars.runtime().toFile())),
+                List.of(libraries.getFirst().getLibrary().getUrls(OrderRootType.CLASSES)));
+    }
+
     public void testOrdinaryClasspathExcludesTestsAndTestLibraries() throws Exception {
         Path root = Path.of(myFixture.getTempDirPath());
         Path main = Files.createDirectories(root.resolve("main-output"));

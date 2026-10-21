@@ -133,62 +133,97 @@ public final class MavenSupport implements MavenIntegration {
     }
 
     @Override
-    public void offerSetup(Module module, GenerationOptions options) {
+    public org.jetbrains.concurrency.Promise<Void> offerSetup(
+            Module module, GenerationOptions options) {
         MavenProject model = model(module);
-        if (model == null) return;
+        if (model == null) return org.jetbrains.concurrency.Promises.resolvedPromise();
         MavenPlugin plugin = model.findPlugin(PomSettings.GROUP_ID, PomSettings.ARTIFACT_ID);
-        if (plugin != null
-                && plugin.getExecutions().stream().anyMatch(e -> e.getGoals().contains("setup")))
-            return;
+        MavenPlugin.Execution setup = null;
+        if (plugin != null) {
+            for (var execution : plugin.getExecutions()) {
+                if (!execution.getGoals().contains("setup")) continue;
+                var values = collect(plugin.getConfigurationElement(), model);
+                values.putAll(collect(execution.getConfigurationElement(), model));
+                String folder =
+                        values.getOrDefault(
+                                "testFolder",
+                                model.getProperties()
+                                        .getProperty("evosuite.testFolder", "src/test/evosuite"));
+                Path base = Path.of(model.getDirectory());
+                if (base.resolve(folder)
+                        .normalize()
+                        .equals(base.resolve(options.testFolder).normalize()))
+                    return org.jetbrains.concurrency.Promises.resolvedPromise();
+                if (setup == null) setup = execution;
+            }
+        }
         if (Messages.showYesNoDialog(
                         project,
-                        "Add the EvoSuite setup execution to "
+                        (setup == null ? "Add" : "Update")
+                                + " the EvoSuite setup execution in "
                                 + model.getPath()
                                 + "? Maven will keep "
                                 + options.testFolder
                                 + " as a test source folder on reimport.",
                         "EvoSuite Maven Setup",
                         Messages.getQuestionIcon())
-                != Messages.YES) return;
+                != Messages.YES) return org.jetbrains.concurrency.Promises.resolvedPromise();
         PsiFile file = PsiManager.getInstance(project).findFile(model.getFile());
-        if (!(file instanceof XmlFile xml) || xml.getRootTag() == null) return;
+        if (!(file instanceof XmlFile xml) || xml.getRootTag() == null)
+            return org.jetbrains.concurrency.Promises.resolvedPromise();
+        String executionId = setup == null ? "evosuite-setup" : setup.getExecutionId();
+        if (executionId == null || executionId.isBlank()) executionId = "default";
+        String id = executionId;
         WriteCommandAction.runWriteCommandAction(
                 project,
                 "EvoSuite: configure Maven setup",
                 null,
-                () -> {
-                    XmlTag build = child(xml.getRootTag(), "build"),
-                            plugins = child(build, "plugins");
-                    XmlTag target = null;
-                    for (XmlTag candidate : plugins.findSubTags("plugin"))
-                        if (PomSettings.ARTIFACT_ID.equals(candidate.getSubTagText("artifactId"))
-                                && PomSettings.GROUP_ID.equals(candidate.getSubTagText("groupId")))
-                            target = candidate;
-                    if (target == null) {
-                        target =
-                                plugins.addSubTag(
-                                        plugins.createChildTag(
-                                                "plugin", plugins.getNamespace(), "", false),
-                                        false);
-                        child(target, "groupId").getValue().setText(PomSettings.GROUP_ID);
-                        child(target, "artifactId").getValue().setText(PomSettings.ARTIFACT_ID);
-                        child(target, "version").getValue().setText(EngineJars.VERSION);
-                    }
-                    XmlTag executions = child(target, "executions");
-                    XmlTag execution =
-                            executions.addSubTag(
-                                    executions.createChildTag(
-                                            "execution", executions.getNamespace(), "", false),
-                                    false);
-                    child(execution, "id").getValue().setText("evosuite-setup");
-                    child(child(execution, "goals"), "goal").getValue().setText("setup");
-                    child(child(execution, "configuration"), "testFolder")
-                            .getValue()
-                            .setText(options.testFolder);
-                },
+                () -> configureSetup(xml, options, id),
                 file);
-        com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().saveAllDocuments();
-        MavenProjectsManager.getInstance(project).forceUpdateProjects(List.of(model));
+        var documents = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance();
+        var document = documents.getDocument(model.getFile());
+        if (document != null) documents.saveDocument(document);
+        return MavenProjectsManager.getInstance(project).forceUpdateProjects(List.of(model));
+    }
+
+    /** Updates the matching execution, including inherited IDs, without discarding other goals. */
+    static void configureSetup(XmlFile xml, GenerationOptions options, String executionId) {
+        XmlTag build = child(xml.getRootTag(), "build"), plugins = child(build, "plugins");
+        XmlTag target = null;
+        for (XmlTag candidate : plugins.findSubTags("plugin"))
+            if (PomSettings.ARTIFACT_ID.equals(candidate.getSubTagText("artifactId"))
+                    && PomSettings.GROUP_ID.equals(candidate.getSubTagText("groupId")))
+                target = candidate;
+        if (target == null) {
+            target =
+                    plugins.addSubTag(
+                            plugins.createChildTag("plugin", plugins.getNamespace(), "", false),
+                            false);
+            child(target, "groupId").getValue().setText(PomSettings.GROUP_ID);
+            child(target, "artifactId").getValue().setText(PomSettings.ARTIFACT_ID);
+            child(target, "version").getValue().setText(EngineJars.VERSION);
+        }
+        XmlTag executions = child(target, "executions");
+        XmlTag execution =
+                Arrays.stream(executions.findSubTags("execution"))
+                        .filter(e -> executionId.equals(e.getSubTagText("id")))
+                        .findFirst()
+                        .orElse(null);
+        if (execution == null)
+            execution =
+                    executions.addSubTag(
+                            executions.createChildTag(
+                                    "execution", executions.getNamespace(), "", false),
+                            false);
+        child(execution, "id").getValue().setText(executionId);
+        XmlTag goals = child(execution, "goals");
+        if (Arrays.stream(goals.findSubTags("goal"))
+                .noneMatch(g -> "setup".equals(g.getValue().getTrimmedText())))
+            goals.addSubTag(
+                    goals.createChildTag("goal", goals.getNamespace(), "setup", false), false);
+        child(child(execution, "configuration"), "testFolder")
+                .getValue()
+                .setText(options.testFolder);
     }
 
     private static XmlTag child(XmlTag parent, String name) {
@@ -214,10 +249,7 @@ public final class MavenSupport implements MavenIntegration {
                                 "compile",
                                 "org.evosuite.plugins:evosuite-maven-plugin:"
                                         + EngineJars.VERSION
-                                        + ":generate",
-                                "org.evosuite.plugins:evosuite-maven-plugin:"
-                                        + EngineJars.VERSION
-                                        + ":export"));
+                                        + ":generate"));
         goals.add(
                 "-Devosuite.cuts="
                         + String.join(

@@ -38,7 +38,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     private val fields = linkedMapOf<String, JComponent>()
     private val projectSwitch = JCheckBox("Use project-specific settings (.idea/evosuite.xml)")
     private val delegate = JCheckBox("Run whole-class requests through the Maven plugin")
-    private val key = JBPasswordField()
+    private val key = JBPasswordField().apply { name = "llmApiKey" }
     private val pomNote = JTextArea(3, 60).apply { isEditable = false; lineWrap = true; wrapStyleWord = true }
     private val keyStatus = JLabel("Loading API key from secure storage…")
     private var originalKey: String? = null
@@ -169,18 +169,28 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         return current() != expected.filterValues { it.isNotEmpty() } || project != null && (projectSwitch.isSelected != EvoSuiteProjectSettings.getInstance(project).state!!.useProjectSettings || delegate.isSelected != EvoSuiteProjectSettings.getInstance(project).state!!.delegateToMaven) || keyTouched
     }
     override fun apply() {
-        try { SettingKeys.resolve(current()) } catch (e: IllegalArgumentException) { throw ConfigurationException(e.message ?: "Invalid settings") }
-        if (project == null) EvoSuiteAppSettings.getInstance().state!!.values = java.util.TreeMap(current())
-        else EvoSuiteProjectSettings.getInstance(project).state!!.apply { values = java.util.TreeMap(current()); useProjectSettings = projectSwitch.isSelected; delegateToMaven = delegate.isSelected }
+        if (project == null || projectSwitch.isSelected) {
+            if ((fields["criterion"] as? CriteriaEditor)?.hasSelection() == false)
+                throw ConfigurationException("Select at least one coverage criterion.")
+            try { SettingKeys.resolve(current()) } catch (e: IllegalArgumentException) { throw ConfigurationException(e.message ?: "Invalid settings") }
+        }
         if (project == null && keyTouched) {
             val password = String(key.password)
-            ApplicationManager.getApplication().executeOnPooledThread {
-                runCatching { LlmApiKeyStore.set(password) }.onFailure {
-                    com.intellij.notification.NotificationGroupManager.getInstance().getNotificationGroup("EvoSuite").createNotification("Could not save the EvoSuite API key in secure storage.", com.intellij.notification.NotificationType.ERROR).notify(null)
-                }
-            }
-            originalKey = password; keyTouched = false
+            try { storeApiKey(password) }
+            catch (e: Exception) { throw ConfigurationException("Could not save the EvoSuite API key in secure storage. Retry Apply to save it.") }
+            originalKey = password
+            keyTouched = false
         }
+        if (project == null) EvoSuiteAppSettings.getInstance().state!!.values = java.util.TreeMap(current())
+        else EvoSuiteProjectSettings.getInstance(project).state!!.apply { values = java.util.TreeMap(current()); useProjectSettings = projectSwitch.isSelected; delegateToMaven = delegate.isSelected }
+    }
+    /** Keep Apply open on failure; PasswordSafe still runs off EDT and may show its own prompt. */
+    protected open fun storeApiKey(password: String) {
+        val failure = java.util.concurrent.atomic.AtomicReference<Throwable>()
+        com.intellij.openapi.progress.ProgressManager.getInstance().runProcessWithProgressSynchronously(
+            Runnable { runCatching { LlmApiKeyStore.set(password) }.onFailure { failure.set(it) } },
+            "Saving EvoSuite API key", false, project)
+        failure.get()?.let { throw IllegalStateException("Secure storage failed", it) }
     }
     private fun enableFields() {
         val scope = project == null || projectSwitch.isSelected
@@ -228,6 +238,7 @@ private class CriteriaEditor : JPanel(BorderLayout()) {
         boxes.forEach { (name, box) -> box.isSelected = name in selected }
         other.text = selected.filter { it !in known }.joinToString(":")
     }
+    fun hasSelection() = boxes.values.any { it.isSelected } || other.text.split(":").any { it.isNotBlank() }
     fun value(): String {
         val values = boxes.filterValues { it.isSelected }.keys.toList() + other.text.split(":").map { it.trim() }.filter { it.isNotEmpty() }
         return if (values == known) "" else values.distinct().joinToString(":")

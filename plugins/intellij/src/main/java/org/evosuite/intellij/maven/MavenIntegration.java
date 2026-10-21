@@ -34,13 +34,15 @@ import java.util.function.Consumer;
 public interface MavenIntegration {
     Path directory(Module module);
 
-    default String runtimeVersion(Module module) { return ""; }
+    default String runtimeVersion(Module module) {
+        return "";
+    }
 
     PomSettings settings(Module module);
 
     String serverPassword(String id, Consumer<String> console);
 
-    void offerSetup(Module module, GenerationOptions options);
+    org.jetbrains.concurrency.Promise<Void> offerSetup(Module module, GenerationOptions options);
 
     boolean delegate(
             Module module,

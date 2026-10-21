@@ -33,7 +33,7 @@ public class SelectionTest extends LightJavaCodeInsightFixtureTestCase {
                         myFixture.addFileToProject(
                                 "demo/Vault.java",
                                 "package demo; public class Vault { public int sign(int n) { return"
-                                    + " n; } } interface Hidden {} @interface Marker {}");
+                                        + " n; } } interface Hidden {} @interface Marker {}");
         var result =
                 TargetCollector.collect(
                         getProject(),
@@ -67,5 +67,40 @@ public class SelectionTest extends LightJavaCodeInsightFixtureTestCase {
         assertEquals(
                 List.of("sign([IZ)J", "sign(I)I"),
                 result.targets().get(getModule()).getFirst().methods());
+    }
+
+    public void testExtensionInferenceMatchesConventionsAndOffersLongestProductionPrefix() {
+        for (String name : List.of("Vault", "VaultEdge", "TestVault"))
+            myFixture.addClass("package demo; public class " + name + " {}");
+        myFixture.addClass("package demo; public interface VaultEdgeCases {}");
+        var root = myFixture.findFileInTempDir(".");
+        for (String name :
+                List.of(
+                        "VaultTest",
+                        "VaultTests",
+                        "VaultTestCase",
+                        "VaultIT",
+                        "VaultITCase",
+                        "TestVault",
+                        "Vault_ESTest")) {
+            var test = new TargetCollector.TestClass(getModule(), "demo." + name, root);
+            assertEquals(
+                    name,
+                    List.of("demo.Vault"),
+                    TestClassInference.infer(getProject(), test, "_ESTest").candidates());
+        }
+        var ambiguous =
+                TestClassInference.infer(
+                        getProject(),
+                        new TargetCollector.TestClass(getModule(), "demo.TestVaultTest", root),
+                        "_ESTest");
+        assertEquals(List.of("demo.TestVault", "demo.Vault"), ambiguous.candidates());
+        var guess =
+                TestClassInference.infer(
+                        getProject(),
+                        new TargetCollector.TestClass(getModule(), "demo.VaultEdgeCasesTest", root),
+                        "_ESTest");
+        assertTrue(guess.candidates().isEmpty());
+        assertEquals("demo.VaultEdge", guess.guess());
     }
 }

@@ -68,6 +68,17 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         assertTrue(java.nio.file.Files.isRegularFile(runtime));
         assertEquals("engine", engine.getParent().getFileName().toString());
         assertEquals(engine.getParent(), runtime.getParent());
+        try (var zip = new java.util.zip.ZipFile(engine.toFile())) {
+            var metadata = new Properties();
+            try (var in =
+                    zip.getInputStream(
+                            zip.getEntry(
+                                    "META-INF/maven/org.evosuite/evosuite-master/pom.properties"))) {
+                metadata.load(in);
+            }
+            assertEquals(
+                    metadata.getProperty("version"), org.evosuite.intellij.run.EngineJars.VERSION);
+        }
     }
 
     public void testIdeSettingsCanBeIndexedWithoutAccessingSecureStorage() {
@@ -102,6 +113,89 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             state.values = previous;
             state.useProjectSettings = previousSwitch;
         }
+    }
+
+    public void testInvalidProjectOverridesCanBeDisabled() throws Exception {
+        var state = EvoSuiteProjectSettings.getInstance(getProject()).getState();
+        var previous = new TreeMap<>(state.values);
+        boolean previousSwitch = state.useProjectSettings;
+        var configurable = new EvoSuiteProjectConfigurable(getProject());
+        try {
+            state.useProjectSettings = true;
+            state.values.put("searchBudget", "invalid-old-setting");
+            var ui = configurable.createComponent();
+            var checkbox = findCheckbox(ui, "Use project-specific settings (.idea/evosuite.xml)");
+            assertNotNull(checkbox);
+            checkbox.doClick();
+            configurable.apply();
+            assertFalse(state.useProjectSettings);
+        } finally {
+            configurable.disposeUIResources();
+            state.values = previous;
+            state.useProjectSettings = previousSwitch;
+        }
+    }
+
+    public void testEmptyCriteriaAreRejectedRatherThanRestoringAllDefaults() throws Exception {
+        var configurable = new EvoSuiteApplicationConfigurable();
+        try {
+            var ui = configurable.createComponent();
+            for (String criterion : GenerationOptions.DEFAULT_CRITERIA) {
+                var checkbox = findCheckbox(ui, criterion);
+                assertNotNull(checkbox);
+                checkbox.setSelected(false);
+            }
+            try {
+                ((com.intellij.openapi.options.Configurable) configurable).apply();
+                fail("Empty criteria must be rejected");
+            } catch (com.intellij.openapi.options.ConfigurationException expected) {
+                assertTrue(expected.getMessage().contains("criterion"));
+            }
+        } finally {
+            configurable.disposeUIResources();
+        }
+    }
+
+    public void testSecureKeyFailureKeepsApplyPendingUntilRetrySucceeds() throws Exception {
+        var state = EvoSuiteAppSettings.getInstance().getState();
+        var previous = new TreeMap<>(state.values);
+        int[] attempts = {0};
+        var configurable =
+                new EvoSuiteConfigurable(null) {
+                    @Override
+                    protected void storeApiKey(String password) {
+                        assertEquals("example-key", password);
+                        if (++attempts[0] == 1)
+                            throw new IllegalStateException("Simulated secure-store failure");
+                    }
+                };
+        try {
+            var ui = configurable.createComponent();
+            ((javax.swing.JPasswordField) findField(ui, "llmApiKey")).setText("example-key");
+            try {
+                ((com.intellij.openapi.options.Configurable) configurable).apply();
+                fail("Store failure must reach Apply");
+            } catch (com.intellij.openapi.options.ConfigurationException expected) {
+                assertTrue(configurable.isModified());
+            }
+            configurable.apply();
+            assertEquals(2, attempts[0]);
+            assertFalse(configurable.isModified());
+        } finally {
+            configurable.disposeUIResources();
+            state.values = previous;
+        }
+    }
+
+    private static javax.swing.JCheckBox findCheckbox(java.awt.Component component, String label) {
+        if (component instanceof javax.swing.JCheckBox box && label.equals(box.getText()))
+            return box;
+        if (component instanceof java.awt.Container parent)
+            for (var child : parent.getComponents()) {
+                var found = findCheckbox(child, label);
+                if (found != null) return found;
+            }
+        return null;
     }
 
     private static java.awt.Component findField(java.awt.Component component, String name) {

@@ -45,6 +45,22 @@ intellijPlatform {
     signing { certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN"); privateKey = providers.environmentVariable("PRIVATE_KEY"); password = providers.environmentVariable("PRIVATE_KEY_PASSWORD") }
     publishing { token = providers.environmentVariable("PUBLISH_TOKEN") }
 }
+// Dependency additions must use the same version as the bundled engine, including release bumps.
+val engineMetadata = layout.buildDirectory.file("generated/engine-metadata/evosuite-engine.properties")
+val generateEngineMetadata = tasks.register("generateEngineMetadata") {
+    inputs.property("engineVersion", engineVersion)
+    outputs.file(engineMetadata)
+    doLast {
+        engineMetadata.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("version=$engineVersion\n")
+        }
+    }
+}
+tasks.processResources {
+    dependsOn(generateEngineMetadata)
+    from(engineMetadata)
+}
 val engineRoot = providers.gradleProperty("evosuite.root").map { file(it) }.getOrElse(file("../.."))
 val engineJar = engineRoot.resolve("master/target/evosuite-master-$engineVersion.jar")
 val runtimeJar = engineRoot.resolve("standalone_runtime/target/evosuite-standalone-runtime-$engineVersion.jar")

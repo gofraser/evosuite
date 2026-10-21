@@ -19,7 +19,6 @@
  */
 package org.evosuite.intellij.settings;
 
-import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
@@ -27,6 +26,7 @@ import com.intellij.psi.search.GlobalSearchScope;
 
 import org.evosuite.ide.*;
 import org.evosuite.intellij.maven.MavenBridge;
+import org.evosuite.intellij.run.IdeThread;
 import org.evosuite.intellij.setup.ProjectSetupService;
 
 import java.util.*;
@@ -46,7 +46,8 @@ public final class SettingsResolver {
                                 : EvoSuiteAppSettings.getInstance().getState().values);
         if (!values.containsKey("testFormat") || values.get("testFormat").isBlank()) {
             String format =
-                    ReadAction.compute(
+                    IdeThread.smartRead(
+                            project,
                             () -> {
                                 JavaPsiFacade psi = JavaPsiFacade.getInstance(project);
                                 GlobalSearchScope scope =

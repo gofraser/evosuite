@@ -25,7 +25,20 @@ import java.io.IOException;
 import java.nio.file.*;
 
 public final class EngineJars {
-    public static final String VERSION = "1.2.1-SNAPSHOT";
+    public static final String VERSION = version();
+
+    private static String version() {
+        try (var stream = EngineJars.class.getResourceAsStream("/evosuite-engine.properties")) {
+            if (stream == null) throw new IOException("Missing bundled engine version");
+            var metadata = new java.util.Properties();
+            metadata.load(stream);
+            String version = metadata.getProperty("version", "").trim();
+            if (version.isEmpty()) throw new IOException("Missing bundled engine version");
+            return version;
+        } catch (IOException ex) {
+            throw new ExceptionInInitializerError(ex);
+        }
+    }
 
     private EngineJars() {}
 

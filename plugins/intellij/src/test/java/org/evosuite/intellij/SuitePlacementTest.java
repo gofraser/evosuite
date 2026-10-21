@@ -38,8 +38,8 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
 
     private String suite(String name, int value) {
         return "package demo; import org.junit.jupiter.api.Test;"
-                   + " @org.evosuite.runtime.EvoRunnerParameters public class Vault_ESTest { @Test"
-                   + " public void "
+                + " @org.evosuite.runtime.EvoRunnerParameters public class Vault_ESTest { @Test"
+                + " public void "
                 + name
                 + "() { int n = "
                 + value
@@ -117,5 +117,62 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
         assertFalse(result.written());
         assertTrue(result.comparisons().isEmpty());
         assertEquals(original, FileDocumentManager.getInstance().getDocument(file).getText());
+    }
+
+    public void testNewSuiteSurvivesScaffoldingConflict() throws Exception {
+        String old = "package demo; class Vault_ESTest_scaffolding { /* user edit */ }";
+        var scaffold =
+                myFixture
+                        .addFileToProject("demo/Vault_ESTest_scaffolding.java", old)
+                        .getVirtualFile();
+        var fresh = generated(suite("test0", 2));
+        Files.writeString(
+                fresh.scaffolding(),
+                "package demo; class Vault_ESTest_scaffolding { /* generated */ }");
+        var result =
+                SuitePlacement.place(
+                        getProject(),
+                        GenerationTarget.wholeClass("demo.Vault"),
+                        new GenerationOptions(),
+                        scaffold.toNioPath().resolveSibling("Vault_ESTest.java"),
+                        fresh,
+                        SuiteAction.REPLACE,
+                        null,
+                        ignored -> {});
+        assertTrue(result.written());
+        assertNotNull(result.suite());
+        assertEquals(
+                suite("test0", 2),
+                FileDocumentManager.getInstance().getDocument(result.suite()).getText());
+        assertEquals(1, result.comparisons().size());
+        assertEquals(old, FileDocumentManager.getInstance().getDocument(scaffold).getText());
+    }
+
+    public void testReadOnlySuiteFallsBackToComparison() throws Exception {
+        var file =
+                myFixture
+                        .addFileToProject("demo/Vault_ESTest.java", suite("test0", 1))
+                        .getVirtualFile();
+        var consent = SuitePlacement.snapshot(file.toNioPath());
+        try {
+            com.intellij.openapi.application.WriteAction.run(() -> file.setWritable(false));
+            var placed =
+                    SuitePlacement.place(
+                            getProject(),
+                            GenerationTarget.wholeClass("demo.Vault"),
+                            new GenerationOptions(),
+                            file.toNioPath(),
+                            generated(suite("test0", 2)),
+                            SuiteAction.ADD,
+                            consent,
+                            ignored -> {});
+            assertFalse(placed.written());
+            assertEquals(1, placed.comparisons().size());
+            assertEquals(
+                    suite("test0", 1),
+                    FileDocumentManager.getInstance().getDocument(file).getText());
+        } finally {
+            com.intellij.openapi.application.WriteAction.run(() -> file.setWritable(true));
+        }
     }
 }

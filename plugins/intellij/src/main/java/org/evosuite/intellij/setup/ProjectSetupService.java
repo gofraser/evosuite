@@ -20,7 +20,6 @@
 package org.evosuite.intellij.setup;
 
 import com.intellij.execution.junit.JUnitExternalLibraryDescriptor;
-import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.progress.ProgressIndicator;
@@ -178,17 +177,20 @@ public final class ProjectSetupService {
                                         ModuleRootModificationUtil.updateModel(
                                                 module,
                                                 model -> {
-                                                    for (Library existing :
-                                                            model.getModuleLibraryTable()
-                                                                    .getLibraries())
-                                                        if ("EvoSuite Runtime"
-                                                                .equals(existing.getName())) return;
                                                     Library library =
                                                             model.getModuleLibraryTable()
-                                                                    .createLibrary(
+                                                                    .getLibraryByName(
                                                                             "EvoSuite Runtime");
+                                                    if (library == null)
+                                                        library =
+                                                                model.getModuleLibraryTable()
+                                                                        .createLibrary(
+                                                                                "EvoSuite Runtime");
                                                     Library.ModifiableModel lib =
                                                             library.getModifiableModel();
+                                                    for (String url :
+                                                            lib.getUrls(OrderRootType.CLASSES))
+                                                        lib.removeRoot(url, OrderRootType.CLASSES);
                                                     lib.addRoot(
                                                             VfsUtil.getUrlForLibraryRoot(
                                                                     jar.toFile()),
@@ -204,11 +206,7 @@ public final class ProjectSetupService {
                     });
         }
         if (maven != null)
-            IdeThread.edt(
-                    () -> {
-                        maven.offerSetup(module, options);
-                        return null;
-                    });
+            IdeThread.await(IdeThread.edt(() -> maven.offerSetup(module, options)), indicator);
         if (imported && (maven == null || maven.directory(module) == null))
             console.accept(
                     "For Gradle re-sync, declare the generated root in build.gradle:"
@@ -258,8 +256,21 @@ public final class ProjectSetupService {
                                                                 "Test folder has no module content"
                                                                         + " root: "
                                                                         + folder);
-                                                    owner.addSourceFolder(
-                                                            root, JavaSourceRootType.TEST_SOURCE);
+                                                    // IntelliJ must not retain a MAIN and TEST
+                                                    // entry for the same URL (legacy plugin roots
+                                                    // were registered as production sources).
+                                                    String prefix = "";
+                                                    for (SourceFolder source :
+                                                            owner.getSourceFolders())
+                                                        if (source.getUrl().equals(root.getUrl())) {
+                                                            prefix = source.getPackagePrefix();
+                                                            owner.removeSourceFolder(source);
+                                                        }
+                                                    SourceFolder added =
+                                                            owner.addSourceFolder(
+                                                                    root,
+                                                                    JavaSourceRootType.TEST_SOURCE);
+                                                    added.setPackagePrefix(prefix);
                                                 });
                                 } catch (IOException ex) {
                                     throw new IllegalStateException(ex);
@@ -280,7 +291,8 @@ public final class ProjectSetupService {
     }
 
     public static boolean hasClass(Module module, String name) {
-        return ReadAction.compute(
+        return IdeThread.smartRead(
+                module.getProject(),
                 () ->
                         JavaPsiFacade.getInstance(module.getProject())
                                         .findClass(
