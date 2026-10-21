@@ -277,6 +277,59 @@ class LlmWholeSuiteIntegrationTest {
     }
 
     @Test
+    void standardGaKeepsAnInjectedSuiteThatBeatsAFullPopulation() {
+        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
+        Properties.POPULATION = 3;
+        StandardGA<TestSuiteChromosome> ga = newEvaluatedStandardGa();
+        AlwaysInjectingStagnationDetector detector = new AlwaysInjectingStagnationDetector(2);
+        ga.stagnationDetector = detector;
+
+        ga.maybeInjectOnStagnationByFitness(ga.getBestIndividual().getFitness(),
+                Collections.singletonList(new DummyTestFitness()));
+
+        assertEquals(3, ga.getPopulation().size(), "the population stays at its limit");
+        TestSuiteChromosome injected = suiteHolding(ga.getPopulation(), detector.lastTests.get(0));
+        assertNotNull(injected, "the suite of two LLM tests is fitter than any one-test suite, so it must survive");
+        assertEquals(8.0, injected.getFitness(), "the injected suite is evaluated before it competes");
+        assertSame(injected, ga.getBestIndividual());
+    }
+
+    @Test
+    void standardGaKeepsTheSuiteOfDrainedAsyncTestsWhenItBeatsAFullPopulation() {
+        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
+        Properties.POPULATION = 3;
+        StandardGA<TestSuiteChromosome> ga = newEvaluatedStandardGa();
+        PreloadedAsyncProducer producer = new PreloadedAsyncProducer(null, 2);
+        ga.asyncProducer = producer;
+
+        ga.integrateAsyncTestsIntoPopulation();
+
+        assertEquals(3, ga.getPopulation().size(), "the population stays at its limit");
+        TestSuiteChromosome injected = suiteHolding(ga.getPopulation(), producer.lastTests.get(0));
+        assertNotNull(injected, "the suite of two drained tests is fitter than any one-test suite, so it must survive");
+        assertEquals(8.0, injected.getFitness());
+    }
+
+    @Test
+    void standardGaReevaluatesTheSuiteItMergesLlmTestsInto() {
+        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.MERGE_INTO_EXISTING;
+        Properties.POPULATION = 3;
+        StandardGA<TestSuiteChromosome> ga = newEvaluatedStandardGa();
+        AlwaysInjectingStagnationDetector detector = new AlwaysInjectingStagnationDetector(2);
+        ga.stagnationDetector = detector;
+
+        ga.maybeInjectOnStagnationByFitness(ga.getBestIndividual().getFitness(),
+                Collections.singletonList(new DummyTestFitness()));
+
+        assertEquals(3, ga.getPopulation().size());
+        TestSuiteChromosome merged = suiteHolding(ga.getPopulation(), detector.lastTests.get(0));
+        assertNotNull(merged);
+        assertEquals(3, merged.size(), "the two LLM tests join the suite's own test");
+        assertEquals(7.0, merged.getFitness(),
+                "selection must see the fitness of the merged suite, not the one it had before");
+    }
+
+    @Test
     void populationExtractsTestChromosomesFromSuites() {
         SuiteGA ga = new SuiteGA(() -> newSuite());
         ga.addFitnessFunction(new DummySuiteFitness());
@@ -296,6 +349,28 @@ class LlmWholeSuiteIntegrationTest {
     private static boolean isInFlight(RepeatedInjectionMemory memory, RepeatedInjectionTarget target) {
         return memory.adjustPriority(target, 1.0, true).getDiscardReason()
                 == DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT;
+    }
+
+    /** A real StandardGA whose full initial population of one-test suites has been evaluated. */
+    private static StandardGA<TestSuiteChromosome> newEvaluatedStandardGa() {
+        StandardGA<TestSuiteChromosome> ga = new StandardGA<>(LlmWholeSuiteIntegrationTest::newSuite);
+        ga.addFitnessFunction(new SizeRewardingSuiteFitness());
+        ga.setLlmInjectionAdapter(new TestSuiteChromosomeInjectionAdapter());
+        ga.initializePopulation();
+        assertEquals(Properties.POPULATION, ga.getPopulation().size());
+        assertEquals(9.0, ga.getBestIndividual().getFitness());
+        return ga;
+    }
+
+    private static TestSuiteChromosome suiteHolding(List<TestSuiteChromosome> population, TestChromosome test) {
+        for (TestSuiteChromosome suite : population) {
+            for (TestChromosome member : suite.getTestChromosomes()) {
+                if (member == test) {
+                    return suite;
+                }
+            }
+        }
+        return null;
     }
 
     private static TestSuiteChromosome newSuite() {
@@ -381,8 +456,16 @@ class LlmWholeSuiteIntegrationTest {
     }
 
     private static class AlwaysInjectingStagnationDetector extends StagnationDetector {
+        private final int tests;
+        final List<TestChromosome> lastTests = new ArrayList<>();
+
         AlwaysInjectingStagnationDetector() {
+            this(1);
+        }
+
+        AlwaysInjectingStagnationDetector(int tests) {
             super(false);
+            this.tests = tests;
         }
 
         @Override
@@ -395,15 +478,20 @@ class LlmWholeSuiteIntegrationTest {
                                                 List<TestChromosome> currentPopulation,
                                                 int totalGoals, int coveredGoalCount,
                                                 java.util.Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-            TestChromosome tc = new TestChromosome();
-            tc.setTestCase(new DefaultTestCase());
-            return Collections.singletonList(tc);
+            lastTests.clear();
+            for (int i = 0; i < tests; i++) {
+                TestChromosome tc = new TestChromosome();
+                tc.setTestCase(new DefaultTestCase());
+                lastTests.add(tc);
+            }
+            return new ArrayList<>(lastTests);
         }
     }
 
     private static class PreloadedAsyncProducer extends AsyncLlmTestProducer {
         private final AttemptTicket ticket;
         private final int candidates;
+        final List<TestChromosome> lastTests = new ArrayList<>();
 
         PreloadedAsyncProducer() {
             this(null, 1);
@@ -426,9 +514,11 @@ class LlmWholeSuiteIntegrationTest {
             InjectionAttemptMetadata metadata = ticket == null ? null
                     : new InjectionAttemptMetadata(ticket, Collections.emptyList());
             List<AttributedCandidate> drained = new ArrayList<>();
+            lastTests.clear();
             for (int i = 0; i < candidates; i++) {
                 TestChromosome tc = new TestChromosome();
                 tc.setTestCase(new DefaultTestCase());
+                lastTests.add(tc);
                 drained.add(new AttributedCandidate(tc, metadata));
             }
             return drained;
@@ -441,6 +531,18 @@ class LlmWholeSuiteIntegrationTest {
         @Override
         public double getFitness(TestSuiteChromosome individual) {
             double f = 1.0;
+            updateIndividual(individual, f);
+            return f;
+        }
+    }
+
+    /** Rewards larger suites: each test lowers the fitness of ten by one. */
+    private static class SizeRewardingSuiteFitness extends TestSuiteFitnessFunction {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public double getFitness(TestSuiteChromosome individual) {
+            double f = 10.0 - individual.size();
             updateIndividual(individual, f);
             return f;
         }
