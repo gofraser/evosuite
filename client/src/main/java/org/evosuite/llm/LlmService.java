@@ -490,9 +490,11 @@ public class LlmService implements AutoCloseable {
         long delay = (long) (base * jitterFactor);
         delay = Math.min(delay, 60_000L);
         if (deadlineNanos != Long.MAX_VALUE) {
-            delay = Math.min(delay,
-                    TimeUnit.NANOSECONDS.toMillis(
-                            Math.max(0L, PhaseDeadline.remainingNanos(deadlineNanos))));
+            // Rounded up: sleeping the whole milliseconds below the remaining time wakes
+            // up with a fraction of a millisecond left, and the loop then starts an attempt
+            // that cannot finish and still spends a call of the budget.
+            long remainingNanos = Math.max(0L, PhaseDeadline.remainingNanos(deadlineNanos));
+            delay = Math.min(delay, (remainingNanos + 999_999L) / 1_000_000L);
         }
         if (delay <= 0) {
             return true;
