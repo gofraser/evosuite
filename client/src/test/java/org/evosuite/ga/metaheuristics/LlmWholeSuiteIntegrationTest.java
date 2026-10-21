@@ -26,8 +26,13 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
+import org.evosuite.llm.search.DiagnosticCardSelector;
+import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LlmInjectionAdapter;
+import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.llm.search.StagnationDetector;
 import org.evosuite.llm.search.TestSuiteChromosomeInjectionAdapter;
 import org.evosuite.testcase.DefaultTestCase;
@@ -187,6 +192,73 @@ class LlmWholeSuiteIntegrationTest {
     }
 
     @Test
+    void asyncInjectionSettlesItsAttemptWithTheCoverageItGains() {
+        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
+        Properties.POPULATION = 10;
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal-a", "fp");
+        AttemptTicket ticket = AttemptTicket.open(memory, Collections.singletonList(target), true);
+        assertTrue(isInFlight(memory, target), "the open attempt keeps its goal in flight");
+
+        SuiteGAWithGoals ga = new SuiteGAWithGoals(() -> newSuite());
+        ga.addFitnessFunction(new DummySuiteFitness());
+        ga.seedPopulation();
+        ga.preloadTestLevelGoals(new CoveredTestFitness("covered-1"), new CoveredTestFitness("covered-2"),
+                new DummyTestFitness());
+        ga.setAdapter(new TestSuiteChromosomeInjectionAdapter());
+        ga.setAsyncProducer(new PreloadedAsyncProducer(ticket, 2));
+
+        ga.triggerAsyncIntegration();
+
+        assertEquals(AttemptTicket.State.CLOSED, ticket.getState(),
+                "the drained attempt must be settled once its tests are injected");
+        assertEquals(2, ticket.getGainedGoals(),
+                "both candidates cover the same two goals, which are credited once");
+        assertFalse(isInFlight(memory, target), "the settled attempt no longer keeps its goal in flight");
+    }
+
+    @Test
+    void asyncInjectionClosesAnAttemptWithoutGainWhenItCoversNothingNew() {
+        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
+        Properties.POPULATION = 10;
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal-a", "fp");
+        AttemptTicket ticket = AttemptTicket.open(memory, Collections.singletonList(target), true);
+
+        SuiteGAWithGoals ga = new SuiteGAWithGoals(() -> newSuite());
+        ga.addFitnessFunction(new DummySuiteFitness());
+        ga.seedPopulation();
+        ga.preloadTestLevelGoals(new DummyTestFitness());
+        ga.setAdapter(new TestSuiteChromosomeInjectionAdapter());
+        ga.setAsyncProducer(new PreloadedAsyncProducer(ticket, 1));
+
+        ga.triggerAsyncIntegration();
+
+        assertEquals(AttemptTicket.State.CLOSED, ticket.getState());
+        assertEquals(0, ticket.getGainedGoals());
+        assertFalse(isInFlight(memory, target), "the settled attempt no longer keeps its goal in flight");
+    }
+
+    @Test
+    void asyncInjectionReleasesAnAttemptWhoseTestsAreDropped() {
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal-a", "fp");
+        AttemptTicket ticket = AttemptTicket.open(memory, Collections.singletonList(target), true);
+
+        SuiteGAWithGoals ga = new SuiteGAWithGoals(() -> newSuite());
+        ga.addFitnessFunction(new DummySuiteFitness());
+        ga.seedPopulation();
+        ga.preloadTestLevelGoals(new CoveredTestFitness("covered-1"));
+        ga.setAsyncProducer(new PreloadedAsyncProducer(ticket, 1));
+
+        ga.triggerAsyncIntegration();
+
+        assertEquals(AttemptTicket.State.RELEASED, ticket.getState(),
+                "without an injection adapter the tests never enter the search, so there is no outcome");
+        assertFalse(isInFlight(memory, target), "the released attempt no longer keeps its goal in flight");
+    }
+
+    @Test
     void mergePolicyMergesIntoExistingSuite() {
         Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.MERGE_INTO_EXISTING;
         Properties.POPULATION = 10;
@@ -220,6 +292,11 @@ class LlmWholeSuiteIntegrationTest {
     }
 
     // --- Test infrastructure ---
+
+    private static boolean isInFlight(RepeatedInjectionMemory memory, RepeatedInjectionTarget target) {
+        return memory.adjustPriority(target, 1.0, true).getDiscardReason()
+                == DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT;
+    }
 
     private static TestSuiteChromosome newSuite() {
         TestSuiteChromosome suite = new TestSuiteChromosome();
@@ -325,8 +402,17 @@ class LlmWholeSuiteIntegrationTest {
     }
 
     private static class PreloadedAsyncProducer extends AsyncLlmTestProducer {
+        private final AttemptTicket ticket;
+        private final int candidates;
+
         PreloadedAsyncProducer() {
+            this(null, 1);
+        }
+
+        PreloadedAsyncProducer(AttemptTicket ticket, int candidates) {
             super(Collections::emptyList, null, null, 1, 1, 0, null);
+            this.ticket = ticket;
+            this.candidates = candidates;
         }
 
         @Override
@@ -337,9 +423,15 @@ class LlmWholeSuiteIntegrationTest {
 
         @Override
         public List<AttributedCandidate> drainAvailable() {
-            TestChromosome tc = new TestChromosome();
-            tc.setTestCase(new DefaultTestCase());
-            return Collections.singletonList(new AttributedCandidate(tc, null));
+            InjectionAttemptMetadata metadata = ticket == null ? null
+                    : new InjectionAttemptMetadata(ticket, Collections.emptyList());
+            List<AttributedCandidate> drained = new ArrayList<>();
+            for (int i = 0; i < candidates; i++) {
+                TestChromosome tc = new TestChromosome();
+                tc.setTestCase(new DefaultTestCase());
+                drained.add(new AttributedCandidate(tc, metadata));
+            }
+            return drained;
         }
     }
 
@@ -351,6 +443,32 @@ class LlmWholeSuiteIntegrationTest {
             double f = 1.0;
             updateIndividual(individual, f);
             return f;
+        }
+    }
+
+    /** A goal every test covers, told apart from others by its name. */
+    private static class CoveredTestFitness extends DummyTestFitness {
+        private static final long serialVersionUID = 1L;
+
+        private final String name;
+
+        CoveredTestFitness(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public boolean isCovered(TestChromosome tc) {
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof CoveredTestFitness && ((CoveredTestFitness) obj).name.equals(name);
         }
     }
 
@@ -384,7 +502,7 @@ class LlmWholeSuiteIntegrationTest {
 
         @Override
         public boolean equals(Object obj) {
-            return obj instanceof DummyTestFitness;
+            return obj != null && obj.getClass() == DummyTestFitness.class;
         }
 
         @Override

@@ -48,6 +48,7 @@ import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
+import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
@@ -571,11 +572,77 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
     }
 
+    /**
+     * Injects the tests the async producer has queued and settles the attempts that produced
+     * them, so their goals stop counting as in flight. An attempt is credited with the goals its
+     * tests newly cover among those the producer prompts for (the uncovered goals of the best
+     * suite), each goal once per drain; executing a test caches its result on the chromosome, so
+     * the search does not run it again when it evaluates the injected suite. Without an injection
+     * adapter the tests are dropped, so their attempts are released without an outcome.
+     */
     protected void integrateAsyncTestsIntoPopulation() {
         if (asyncProducer == null) {
             return;
         }
-        injectLlmTests(AttributedCandidate.candidatesOf(asyncProducer.drainAvailable()));
+        List<AttributedCandidate> drained = asyncProducer.drainAvailable();
+        if (drained.isEmpty()) {
+            return;
+        }
+        Map<AttemptTicket, Integer> gainsByTicket = new LinkedHashMap<>();
+        for (AttributedCandidate entry : drained) {
+            if (entry.getMetadata() != null && entry.getMetadata().getTicket().isTracked()) {
+                gainsByTicket.put(entry.getMetadata().getTicket(), 0);
+            }
+        }
+        if (llmInjectionAdapter == null) {
+            for (AttemptTicket ticket : gainsByTicket.keySet()) {
+                ticket.release();
+            }
+            injectLlmTests(AttributedCandidate.candidatesOf(drained));
+            return;
+        }
+        // From here on each drained ticket is owed a settlement, however injection goes.
+        try {
+            List<TestChromosome> safe = filterOrphanedTestChromosomes(
+                    AttributedCandidate.candidatesOf(drained), "LLM injection adapter");
+            if (!gainsByTicket.isEmpty()) {
+                creditCoverageGains(drained, safe, gainsByTicket);
+            }
+            injectLlmTests(safe);
+        } finally {
+            for (Map.Entry<AttemptTicket, Integer> gain : gainsByTicket.entrySet()) {
+                gain.getKey().close(gain.getValue());
+            }
+        }
+    }
+
+    private void creditCoverageGains(List<AttributedCandidate> drained, List<TestChromosome> safe,
+                                     Map<AttemptTicket, Integer> gainsByTicket) {
+        Set<TestChromosome> admitted = Collections.newSetFromMap(new IdentityHashMap<>());
+        admitted.addAll(safe);
+        Set<TestFitnessFunction> remaining = new LinkedHashSet<>(getUncoveredGoalsForSuiteChromosomes());
+        for (AttributedCandidate entry : drained) {
+            if (entry.getMetadata() == null || !admitted.contains(entry.getCandidate())) {
+                continue;
+            }
+            AttemptTicket ticket = entry.getMetadata().getTicket();
+            if (!ticket.isTracked()) {
+                continue;
+            }
+            int gained = 0;
+            for (Iterator<TestFitnessFunction> it = remaining.iterator(); it.hasNext(); ) {
+                TestFitnessFunction goal = it.next();
+                try {
+                    if (goal.isCovered(entry.getCandidate())) {
+                        it.remove();
+                        gained++;
+                    }
+                } catch (RuntimeException e) {
+                    logger.debug("Could not check goal {} against an injected test: {}", goal, e.getMessage());
+                }
+            }
+            gainsByTicket.merge(ticket, gained, Integer::sum);
+        }
     }
 
     /**
