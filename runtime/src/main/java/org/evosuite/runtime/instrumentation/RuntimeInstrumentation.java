@@ -206,7 +206,13 @@ public class RuntimeInstrumentation {
 
             cv = new KillSwitchClassAdapter(cv);
 
-            cv = new RemoveFinalClassAdapter(cv);
+            if (!retransformingMode) {
+                // The JVM rejects a retransformation that changes the modifiers of a class or of
+                // a method, and one rejected class fails the whole batch. Stripping final would
+                // leave every class with a final method uninstrumented, and so without its loop
+                // limit and kill switch.
+                cv = new RemoveFinalClassAdapter(cv);
+            }
 
             if (RuntimeSettings.maxNumberOfIterationsPerLoop >= 0) {
                 cv = new LoopCounterClassAdapter(cv);
