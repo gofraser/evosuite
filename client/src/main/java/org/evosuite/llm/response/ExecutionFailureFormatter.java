@@ -39,6 +39,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 import static org.evosuite.llm.response.MockRuntimeExceptions.reportedExceptionName;
@@ -79,15 +80,15 @@ final class ExecutionFailureFormatter {
             "replace invented/unknown type '([A-Za-z_][A-Za-z0-9_$.]*)'",
             Pattern.CASE_INSENSITIVE);
 
-    private final String sutContextSummary;
+    private final Supplier<String> sutContextSummary;
     private final TestParser testParser;
 
     /**
-     * @param sutContextSummary the SUT context summary used for API suggestions and
-     *                          type kinds; may be null
+     * @param sutContextSummary supplies the SUT context summary used for API suggestions and
+     *                          type kinds, on first use; may supply null
      * @param testParser        the parser whose class loader resolves type names; may be null
      */
-    ExecutionFailureFormatter(String sutContextSummary, TestParser testParser) {
+    ExecutionFailureFormatter(Supplier<String> sutContextSummary, TestParser testParser) {
         this.sutContextSummary = sutContextSummary;
         this.testParser = testParser;
     }
@@ -408,12 +409,13 @@ final class ExecutionFailureFormatter {
     }
 
     String findClosestAccessibleApiSuggestion(String missingMethodName) {
+        String summary = sutContextSummary.get();
         if (missingMethodName == null || missingMethodName.isEmpty()
-                || sutContextSummary == null || sutContextSummary.isEmpty()) {
+                || summary == null || summary.isEmpty()) {
             return null;
         }
 
-        java.util.regex.Matcher matcher = METHOD_SIGNATURE_PATTERN.matcher(sutContextSummary);
+        java.util.regex.Matcher matcher = METHOD_SIGNATURE_PATTERN.matcher(summary);
         String bestSignature = null;
         String bestMethodName = null;
         int bestScore = 0;
@@ -631,7 +633,7 @@ final class ExecutionFailureFormatter {
             return null;
         }
 
-        ContextTypeIndex context = ContextTypeIndex.fromSummary(sutContextSummary);
+        ContextTypeIndex context = ContextTypeIndex.fromSummary(sutContextSummary.get());
         if (!context.isEmpty() && context.isNonInstantiable(simple)) {
             return new InstantiationGuidance(context.getKind(simple), context.getConcreteSubtypes(simple));
         }

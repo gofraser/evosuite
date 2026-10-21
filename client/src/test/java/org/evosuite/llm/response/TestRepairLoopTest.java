@@ -5352,6 +5352,59 @@ class TestRepairLoopTest {
                 "Growth delta must not be rendered when static-context caching is disabled: " + repairMessage);
     }
 
+    @Test
+    void defaultLoopDoesNotSummariseTheClusterWhenNoRepairTurnRuns() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = false;
+        Properties.TARGET_CLASS = "org.evosuite.llm.response.SomeCut";
+        AtomicInteger clusterReads = new AtomicInteger();
+        LlmService llmService = mock(LlmService.class);
+
+        TestRepairLoop loop = TestRepairLoop.createDefault(llmService, null, 1, () -> {
+            clusterReads.incrementAndGet();
+            return clusterWithDependency(GrowthDep.class);
+        });
+        assertEquals(0, clusterReads.get(), "building the loop must not summarise the cluster");
+
+        RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        verify(llmService, never()).query(any(LlmRequest.class));
+        assertEquals(0, clusterReads.get(), "a response that needs no repair must not summarise the cluster");
+    }
+
+    @Test
+    void defaultLoopSummarisesTheClusterAtTheFirstRepairTurnAndKeepsIt() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = false;
+        Properties.TARGET_CLASS = "org.evosuite.llm.response.SomeCut";
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(repairRequest(LlmFeature.TEST_REPAIR)))
+                .thenReturn(text("```java\n@org.junit.Test\npublic void test(){}\n```"));
+
+        AtomicInteger clusterReads = new AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<TestCluster> cluster =
+                new java.util.concurrent.atomic.AtomicReference<>(clusterWithDependency(Object.class));
+        TestRepairLoop loop = TestRepairLoop.createDefault(llmService, null, 1, () -> {
+            clusterReads.incrementAndGet();
+            return cluster.get();
+        });
+        // The cluster grows after the loop is built but before any repair turn.
+        cluster.set(clusterWithDependency(GrowthDep.class));
+
+        RepairResult result = loop.attemptParse("```java\nthis is not a test class\n```",
+                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+        verify(llmService, times(1)).query(captor.capture());
+        List<LlmMessage> sent = captor.getValue().getMessages();
+        String repairMessage = sent.get(sent.size() - 1).getContent();
+        assertTrue(repairMessage.contains("here are the available constructors and methods"), repairMessage);
+        assertTrue(repairMessage.contains("GrowthDep("),
+                "the summary must reflect the cluster at the first repair turn: " + repairMessage);
+        assertEquals(1, clusterReads.get(), "the summary must be built once and kept");
+    }
+
     private static TestCluster clusterWithDependency(Class<?> dependencyClass) {
         TestCluster cluster = mock(TestCluster.class);
         when(cluster.getModifiers()).thenReturn(Collections.<GenericAccessibleObject<?>>emptySet());

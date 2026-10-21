@@ -128,7 +128,8 @@ public class TestRepairLoop {
     private final TestExecutor testExecutor;
     private final int maxAttempts;
     private final String systemPrompt;
-    private final String sutContextSummary;
+    /** The dependency summary, built on first use; see {@link #sutContextSummary()}. */
+    private final Supplier<String> sutContextSummary;
     private final RepairOptions repairOptions;
     private final ExecutionFailureFormatter failureFormatter;
     private final ParsedTestExecutionCheck executionCheck;
@@ -271,23 +272,17 @@ public class TestRepairLoop {
      */
     public static TestRepairLoop createDefault(LlmService llmService, RepairOptions options,
                                                int maxAttempts) {
+        return createDefault(llmService, options, maxAttempts, TestCluster::getInstance);
+    }
+
+    /** As above, reading the test cluster for the dependency summary from {@code clusterSupplier}. */
+    static TestRepairLoop createDefault(LlmService llmService, RepairOptions options,
+                                        int maxAttempts, Supplier<TestCluster> clusterSupplier) {
         String systemPrompt = null;
-        String sutContext = null;
         try {
             systemPrompt = new SystemPromptProvider().getSystemPrompt();
         } catch (Throwable t) {
             logger.debug("Could not obtain system prompt for repair context", t);
-        }
-        try {
-            TestCluster cluster = TestCluster.getInstance();
-            if (cluster != null) {
-                TestClusterSummarizer.DependencySummaryResult deps =
-                        new TestClusterSummarizer().summarizeDependencies(
-                                cluster, Properties.TARGET_CLASS, 4000);
-                sutContext = deps.getText();
-            }
-        } catch (Throwable t) {
-            logger.debug("Could not obtain SUT context summary for repair context", t);
         }
         return new TestRepairLoop(
                 llmService,
@@ -297,8 +292,47 @@ public class TestRepairLoop {
                 new DefaultExecutor(),
                 maxAttempts,
                 systemPrompt,
-                sutContext,
+                new LazySutContextSummary(clusterSupplier),
                 options == null ? RepairOptions.defaults() : options);
+    }
+
+    /**
+     * Summarises the test cluster's dependencies on the first repair turn
+     * that needs them. Most responses parse without a repair turn, so most
+     * calls never pay for the summary.
+     */
+    private static final class LazySutContextSummary implements Supplier<String> {
+        private final Supplier<TestCluster> clusterSupplier;
+        private boolean computed;
+        private String summary;
+
+        LazySutContextSummary(Supplier<TestCluster> clusterSupplier) {
+            this.clusterSupplier = clusterSupplier;
+        }
+
+        @Override
+        public synchronized String get() {
+            if (!computed) {
+                computed = true;
+                summary = summarizeSutContext();
+            }
+            return summary;
+        }
+
+        private String summarizeSutContext() {
+            try {
+                TestCluster cluster = clusterSupplier.get();
+                if (cluster != null) {
+                    TestClusterSummarizer.DependencySummaryResult deps =
+                            new TestClusterSummarizer().summarizeDependencies(
+                                    cluster, Properties.TARGET_CLASS, 4000);
+                    return deps.getText();
+                }
+            } catch (Throwable t) {
+                logger.debug("Could not obtain SUT context summary for repair context", t);
+            }
+            return null;
+        }
     }
 
     /** Creates a repair loop using Properties-configured max attempts and a default test executor. */
@@ -313,7 +347,7 @@ public class TestRepairLoop {
                 new DefaultExecutor(),
                 Properties.LLM_REPAIR_ATTEMPTS,
                 null,
-                null,
+                (String) null,
                 RepairOptions.defaults());
     }
 
@@ -325,7 +359,7 @@ public class TestRepairLoop {
                           TestExecutor testExecutor,
                           int maxAttempts) {
         this(llmService, testParser, responseParser, clusterExpansionManager,
-                testExecutor, maxAttempts, null, null, RepairOptions.defaults());
+                testExecutor, maxAttempts, null, (String) null, RepairOptions.defaults());
     }
 
     /** Creates a repair loop with explicit executor, attempt count, and optional repair context. */
@@ -351,6 +385,20 @@ public class TestRepairLoop {
                           String systemPrompt,
                           String sutContextSummary,
                           RepairOptions repairOptions) {
+        this(llmService, testParser, responseParser, clusterExpansionManager, testExecutor,
+                maxAttempts, systemPrompt, () -> sutContextSummary, repairOptions);
+    }
+
+    /** Creates a repair loop whose dependency summary {@code sutContextSummary} supplies on demand. */
+    private TestRepairLoop(LlmService llmService,
+                           TestParser testParser,
+                           LlmResponseParser responseParser,
+                           ClusterExpansionManager clusterExpansionManager,
+                           TestExecutor testExecutor,
+                           int maxAttempts,
+                           String systemPrompt,
+                           Supplier<String> sutContextSummary,
+                           RepairOptions repairOptions) {
         this.llmService = llmService;
         this.testParser = testParser;
         this.responseParser = responseParser;
@@ -366,6 +414,11 @@ public class TestRepairLoop {
                 this.repairOptions.isRepairOnAssertionFailures(), failureFormatter);
         this.salvager = new LlmTestSalvager(testExecutor,
                 this.repairOptions.isKeepAssertionsInParsedTests(), executionCheck);
+    }
+
+    /** Returns the dependency summary for repair prompts, or null when there is none. */
+    private String sutContextSummary() {
+        return sutContextSummary.get();
     }
 
     /** Returns the {@link RepairOptions} this loop was configured with. */
@@ -992,10 +1045,11 @@ public class TestRepairLoop {
         // same holds when the original prompt carried the catalogue itself
         // (in the system message with static caching, in the user message
         // without), which the prompt reports.
-        if (sutContextSummary != null && !sutContextSummary.isEmpty() && repairAttempt <= 2
+        String summary = sutContextSummary();
+        if (summary != null && !summary.isEmpty() && repairAttempt <= 2
                 && !state.isDependencyContextInPrompt()) {
             repairMessage.append("\n\nFor reference, here are the available constructors and methods:\n")
-                         .append(sutContextSummary);
+                         .append(summary);
         }
         if (repairOptions.isInstructRepairToAvoidAssertions()) {
             repairMessage.append("\n\nIMPORTANT: Do NOT include assertions "

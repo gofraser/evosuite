@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 import static org.evosuite.llm.response.ExecutionFailureFormatter.EXPLICIT_REPAIR_ACTION_MARKER;
@@ -127,12 +128,12 @@ final class RepairHintComposer {
             "NegativeArraySizeException"
     ));
 
-    private final String sutContextSummary;
+    private final Supplier<String> sutContextSummary;
     private final ExecutionFailureFormatter failureFormatter;
     private final DependencyCodeContextResolver dependencyCodeResolver = new DependencyCodeContextResolver();
     private final RepairHintResolver repairHintResolver = new RepairHintResolver();
 
-    RepairHintComposer(String sutContextSummary, ExecutionFailureFormatter failureFormatter) {
+    RepairHintComposer(Supplier<String> sutContextSummary, ExecutionFailureFormatter failureFormatter) {
         this.sutContextSummary = sutContextSummary;
         this.failureFormatter = failureFormatter;
     }
@@ -1643,7 +1644,7 @@ final class RepairHintComposer {
                 && (previousResponse == null || previousResponse.isEmpty())) {
             return;
         }
-        ContextTypeIndex context = ContextTypeIndex.fromSummary(sutContextSummary);
+        ContextTypeIndex context = ContextTypeIndex.fromSummary(sutContextSummary.get());
         if (context.isEmpty()) {
             return;
         }
