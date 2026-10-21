@@ -75,6 +75,7 @@ import org.evosuite.ga.stoppingconditions.SocketStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
 import org.evosuite.llm.factory.LlmFactoryWrappers;
+import org.evosuite.llm.search.TestSuiteChromosomeInjectionAdapter;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
@@ -344,6 +345,7 @@ public class PropertiesSuiteGAFactory
         ChromosomeFactory<TestSuiteChromosome> factory = getChromosomeFactory();
 
         GeneticAlgorithm<TestSuiteChromosome> ga = getGeneticAlgorithm(factory);
+        ga.setLlmInjectionAdapter(new TestSuiteChromosomeInjectionAdapter());
 
         if (Properties.NEW_STATISTICS) {
             ga.addListener(new StatisticsListener<>());

@@ -30,6 +30,7 @@ import org.evosuite.ga.metaheuristics.TestSuiteAdapter;
 import org.evosuite.ga.metaheuristics.mosa.DynaMOSA;
 import org.evosuite.ga.metaheuristics.mosa.MOSA;
 import org.evosuite.llm.factory.LlmTestChromosomeFactory;
+import org.evosuite.llm.search.TestSuiteChromosomeInjectionAdapter;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
@@ -198,6 +199,22 @@ class PropertiesSuiteGAFactoryTest {
 
         assertInstanceOf(LIPS.class, algorithm);
         assertInstanceOf(JUnitTestParsedChromosomeFactory.class, factoryOf(algorithm));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Properties.Algorithm.class, names = {"STANDARD_GA", "MONOTONIC_GA"})
+    void wholeSuiteGaInjectsLlmTestsAsSuites(Properties.Algorithm algorithm) {
+        Properties.STRATEGY = Properties.Strategy.EVOSUITE;
+        Properties.ALGORITHM = algorithm;
+        Properties.SHUTDOWN_HOOK = false;
+        Properties.LLM_SEED_INITIAL_POPULATION = true;
+        Properties.LLM_ASYNC_PRODUCER = true;
+        Properties.LLM_ON_STAGNATION = true;
+
+        GeneticAlgorithm<TestSuiteChromosome> ga = gaFactory.getSearchAlgorithm();
+
+        assertInstanceOf(TestSuiteChromosomeInjectionAdapter.class, ga.getLlmInjectionAdapter(),
+                "without an adapter the GA drops every LLM test it is handed");
     }
 
     private GeneticAlgorithm<TestSuiteChromosome> buildAlgorithm() {
