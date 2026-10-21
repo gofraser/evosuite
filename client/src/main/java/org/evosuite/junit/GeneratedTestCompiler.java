@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -103,13 +104,14 @@ public final class GeneratedTestCompiler {
     /**
      * Runs javac once on {@code sources} without a diagnostic listener, so javac prints its
      * diagnostics to the compiler output exactly as the command-line compiler does, with the
-     * source line and a caret. The source encoding is the platform default. Infrastructure
+     * source line and a caret. The sources are read as UTF-8, as the JUnit check reads them and as
+     * the repair loop writes them. Infrastructure
      * failures are returned rather than thrown, as for the JUnit check.
      */
     public static CompilerAttemptResult compileWithPrintedDiagnostics(JavaCompiler compiler,
                                                                       List<File> sources,
                                                                       String classpath) throws IOException {
-        return runCompilerAttempt(compiler, sources, classpath, null, null, null);
+        return runCompilerAttempt(compiler, sources, classpath, null, StandardCharsets.UTF_8, null);
     }
 
     private static CompilerAttemptResult runCompilerAttempt(JavaCompiler compiler,
