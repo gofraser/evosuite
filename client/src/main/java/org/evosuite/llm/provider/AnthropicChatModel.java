@@ -214,9 +214,10 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
         JsonNode root = ProviderJson.parseObject(responseBody, "Anthropic");
         if ("error".equals(root.path("type").asText(""))) {
             // Top-level error marker without a well-formed error object: the
-            // body is malformed rather than a genuine provider error report.
+            // provider reported a failure, which resending the request does
+            // not undo.
             String message = root.path("message").asText("unknown error");
-            throw new LlmProtocolException("Anthropic response reported an error: " + message, responseBody);
+            throw LlmProtocolException.permanent("Anthropic response reported an error: " + message, responseBody);
         }
 
         JsonNode content = root.path("content");

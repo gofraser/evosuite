@@ -171,7 +171,7 @@ public class JsonHttpClient {
                 total += count;
                 if (total > maxResponseBytes) {
                     connection.disconnect();
-                    throw new LlmProtocolException("response exceeded " + maxResponseBytes + " bytes");
+                    throw LlmProtocolException.permanent("response exceeded " + maxResponseBytes + " bytes");
                 }
                 buffer.write(chunk, 0, count);
             }

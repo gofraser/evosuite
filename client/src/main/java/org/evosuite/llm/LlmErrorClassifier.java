@@ -99,8 +99,9 @@ final class LlmErrorClassifier {
             }
             if (cause instanceof LlmProtocolException) {
                 // A 2xx response with a malformed body is most likely a
-                // proxy/gateway hiccup rather than a genuine model failure.
-                return true;
+                // proxy/gateway hiccup rather than a genuine model failure,
+                // unless the throw site marked it as deterministic.
+                return ((LlmProtocolException) cause).isRetryable();
             }
         }
 

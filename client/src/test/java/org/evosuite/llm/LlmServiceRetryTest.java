@@ -260,6 +260,49 @@ class LlmServiceRetryTest {
         assertTrue(LlmErrorClassifier.isRetryable(wrapped));
     }
 
+    private static int providerCallsAfterFailure(java.io.IOException failure) {
+        AtomicInteger calls = new AtomicInteger();
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            calls.incrementAndGet();
+            throw failure;
+        };
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock", "", "", 0.0, 1024, 2, 3, 1,
+                false, Paths.get("target/llm-test-traces"), "run-protocol");
+        LlmService service = new LlmService(model,
+                new LlmBudgetCoordinator.Local(10),
+                configuration,
+                new LlmStatistics(),
+                new LlmTraceRecorder(configuration));
+        try {
+            assertThrows(LlmCallFailedException.class,
+                    () -> LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR));
+        } finally {
+            service.close();
+        }
+        return calls.get();
+    }
+
+    @Test
+    void transientProtocolFailureIsRetried() {
+        assertTrue(providerCallsAfterFailure(
+                new org.evosuite.llm.provider.LlmProtocolException("OpenAI response has no choices", "{}")) > 1);
+    }
+
+    @Test
+    void deterministicProtocolFailureIsNotRetried() {
+        assertEquals(1, providerCallsAfterFailure(
+                org.evosuite.llm.provider.LlmProtocolException.permanent("response exceeded 8388608 bytes")));
+    }
+
+    @Test
+    void deterministicProtocolFailureIsNotRetryableWhenWrapped() {
+        RuntimeException wrapped = new RuntimeException(
+                org.evosuite.llm.provider.LlmProtocolException.permanent("Anthropic response reported an error: boom", "{}"));
+        assertFalse(LlmErrorClassifier.isRetryable(wrapped));
+    }
+
     @Test
     void providerErrorInvalidRequestTypeIsNotRetriedEvenWrappedInCauseOnlyException() {
         RuntimeException wrapped = new RuntimeException(

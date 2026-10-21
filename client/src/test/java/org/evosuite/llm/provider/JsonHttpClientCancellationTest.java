@@ -48,6 +48,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -152,8 +153,9 @@ class JsonHttpClientCancellationTest {
         try {
             String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
             JsonHttpClient client = new JsonHttpClient(16);
-            assertThrows(LlmProtocolException.class,
+            LlmProtocolException e = assertThrows(LlmProtocolException.class,
                     () -> client.postJson(url, Collections.emptyMap(), "{}", 5_000, 5_000));
+            assertFalse(e.isRetryable());
         } finally {
             server.stop(0);
         }

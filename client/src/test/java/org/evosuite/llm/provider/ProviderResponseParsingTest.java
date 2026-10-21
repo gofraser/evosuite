@@ -62,6 +62,21 @@ class ProviderResponseParsingTest {
     // ---- OpenAI-compatible parsing -------------------------------------
 
     @Test
+    void anthropicTopLevelErrorMarkerIsNotRetryable() {
+        LlmProtocolException e = assertThrows(LlmProtocolException.class, () -> AnthropicChatModel.parseResponse(
+                "{\"type\":\"error\",\"message\":\"boom\"}"));
+        assertFalse(e.isRetryable());
+    }
+
+    @Test
+    void malformedBodiesStayRetryable() {
+        assertTrue(assertThrows(LlmProtocolException.class,
+                () -> AnthropicChatModel.parseResponse("{\"content\":")).isRetryable());
+        assertTrue(assertThrows(LlmProtocolException.class,
+                () -> OpenAiCompatibleChatModel.parseResponse("{}")).isRetryable());
+    }
+
+    @Test
     void openAiRejectsEmptyObjectBody() {
         assertThrows(LlmProtocolException.class, () -> OpenAiCompatibleChatModel.parseResponse("{}"));
     }

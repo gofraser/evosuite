@@ -32,18 +32,42 @@ import java.io.IOException;
  * gateway sitting in front of the real provider — returning a truncated or
  * placeholder body while still reporting success — rather than a genuine
  * response from the model, so {@code LlmService} treats it as retryable in
- * the same way it treats a transport failure.
+ * the same way it treats a transport failure. Failures that no resend can
+ * change, such as a body over the size cap or an error the provider reported
+ * in the body, are created through {@link #permanent} and are not retried.
  */
 public class LlmProtocolException extends IOException {
 
     private static final int MAX_BODY_CHARS = 2048;
 
+    private final boolean retryable;
+
     public LlmProtocolException(String message) {
-        super(message);
+        this(message, true);
     }
 
     public LlmProtocolException(String message, String offendingBody) {
-        super(withBody(message, offendingBody));
+        this(withBody(message, offendingBody), true);
+    }
+
+    private LlmProtocolException(String message, boolean retryable) {
+        super(message);
+        this.retryable = retryable;
+    }
+
+    /** Creates a failure that repeating the request would reproduce. */
+    public static LlmProtocolException permanent(String message) {
+        return new LlmProtocolException(message, false);
+    }
+
+    /** Creates a failure that repeating the request would reproduce, quoting the offending body. */
+    public static LlmProtocolException permanent(String message, String offendingBody) {
+        return new LlmProtocolException(withBody(message, offendingBody), false);
+    }
+
+    /** Returns whether the malformed response may be transient, so that a retry can help. */
+    public boolean isRetryable() {
+        return retryable;
     }
 
     private static String withBody(String message, String offendingBody) {
