@@ -21,6 +21,7 @@ package org.evosuite.llm;
 
 import com.sun.net.httpserver.HttpServer;
 import org.evosuite.Properties;
+import com.sun.net.httpserver.Headers;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
@@ -31,6 +32,7 @@ import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class LlmModelListDiagnosticsTest {
 
@@ -62,6 +64,50 @@ class LlmModelListDiagnosticsTest {
         } finally {
             server.stop(0);
         }
+    }
+
+    private static Headers requestHeadersSentTo(Properties.LlmProvider provider) throws Exception {
+        AtomicReference<Headers> headers = new AtomicReference<>();
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/", exchange -> {
+            headers.set(exchange.getRequestHeaders());
+            byte[] response = "{\"data\":[{\"id\":\"model-a\"}]}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
+            exchange.close();
+        });
+        server.start();
+        try {
+            LlmConfiguration configuration = LlmConfiguration.builder()
+                    .provider(provider)
+                    .model("model-c")
+                    .apiKey("secret-key")
+                    .baseUrl("http://127.0.0.1:" + server.getAddress().getPort())
+                    .build();
+            assertEquals(Collections.singletonList("model-a"),
+                    LlmModelListDiagnostics.fetchAvailableModelIds(configuration, Long.MAX_VALUE));
+            return headers.get();
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void anthropicKeyIsSentInTheHeadersAnthropicExpects() throws Exception {
+        Headers headers = requestHeadersSentTo(Properties.LlmProvider.ANTHROPIC);
+
+        assertEquals("secret-key", headers.getFirst("x-api-key"));
+        assertEquals("2023-06-01", headers.getFirst("anthropic-version"));
+        assertNull(headers.getFirst("Authorization"));
+    }
+
+    @Test
+    void openAiCompatibleKeyIsSentAsABearerToken() throws Exception {
+        Headers headers = requestHeadersSentTo(Properties.LlmProvider.OPENAI);
+
+        assertEquals("Bearer secret-key", headers.getFirst("Authorization"));
+        assertNull(headers.getFirst("x-api-key"));
     }
 
     @Test

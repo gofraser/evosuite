@@ -19,6 +19,8 @@
  */
 package org.evosuite.llm;
 
+import org.evosuite.Properties;
+import org.evosuite.llm.provider.AnthropicChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,7 +109,12 @@ final class LlmModelListDiagnostics {
             conn.setConnectTimeout(timeoutMs);
             conn.setReadTimeout(timeoutMs);
             if (!isBlank(configuration.getApiKey())) {
-                conn.setRequestProperty("Authorization", "Bearer " + configuration.getApiKey().trim());
+                String apiKey = configuration.getApiKey().trim();
+                if (configuration.getProvider() == Properties.LlmProvider.ANTHROPIC) {
+                    AnthropicChatModel.authenticationHeaders(apiKey).forEach(conn::setRequestProperty);
+                } else {
+                    conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+                }
             }
 
             int status = conn.getResponseCode();

@@ -98,6 +98,17 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
         return base + "/v1/messages";
     }
 
+    /**
+     * The headers every Anthropic API request carries: the key in {@code x-api-key}, not as a
+     * bearer token, and the API version.
+     */
+    public static Map<String, String> authenticationHeaders(String apiKey) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("x-api-key", apiKey);
+        headers.put("anthropic-version", ANTHROPIC_VERSION);
+        return headers;
+    }
+
     @Override
     public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) throws IOException {
         return generate(messages, feature, null);
@@ -107,9 +118,7 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
     public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature,
                                            RequestCancellation cancellation) throws IOException {
         String requestBody = buildRequestBody(messages);
-        Map<String, String> headers = new LinkedHashMap<>();
-        headers.put("x-api-key", apiKey);
-        headers.put("anthropic-version", ANTHROPIC_VERSION);
+        Map<String, String> headers = authenticationHeaders(apiKey);
         int readTimeoutMs = JsonHttpClient.boundedReadTimeoutMillis(timeoutSeconds);
         int connectTimeoutMs = JsonHttpClient.connectTimeoutMillis(readTimeoutMs);
         String responseBody = httpClient.postJson(endpoint, headers, requestBody, connectTimeoutMs, readTimeoutMs,
