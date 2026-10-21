@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.launch;
+import org.evosuite.ide.GenerationOptions;
 
 import java.io.File;
 import java.io.IOException;

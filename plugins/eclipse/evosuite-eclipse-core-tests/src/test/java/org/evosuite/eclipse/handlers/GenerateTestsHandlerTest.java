@@ -18,6 +18,8 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.handlers;
+import org.evosuite.ide.ExistingSuitesQuestion;
+import org.evosuite.ide.SuiteAction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,8 +35,8 @@ import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.core.IJavaProject;
 import org.evosuite.eclipse.TestProjects;
-import org.evosuite.eclipse.launch.GenerationOptions;
-import org.evosuite.eclipse.launch.GenerationTarget;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.GenerationTarget;
 import org.evosuite.eclipse.launch.TestGenerationJob;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.junit.jupiter.api.Test;
@@ -86,7 +88,7 @@ public class GenerateTestsHandlerTest {
         assertEquals(1, asked.size());
         assertTrue(asked.get(0).message.startsWith("2 of the 4 classes already have test suites in "
                 + "src/test/evosuite: Calculator, Calculator."), asked.get(0).message);
-        assertEquals(org.evosuite.eclipse.launch.SuiteAction.ADD, asked.get(0).defaultAction);
+        assertEquals(org.evosuite.ide.SuiteAction.ADD, asked.get(0).defaultAction);
         assertEquals(0, Job.getJobManager().find(TestGenerationJob.FAMILY).length, "generation started anyway");
     }
 

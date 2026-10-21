@@ -28,9 +28,10 @@ import org.eclipse.core.runtime.preferences.DefaultScope;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.evosuite.eclipse.Activator;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.SettingKeys;
 import org.evosuite.eclipse.maven.MavenSupport;
-import org.evosuite.eclipse.maven.PomSettings;
+import org.evosuite.ide.PomSettings;
 
 /**
  * Preference keys, and how a project's settings are resolved.
@@ -43,34 +44,34 @@ public final class EvoSuitePreferences {
 
     public static final String QUALIFIER = Activator.PLUGIN_ID;
 
-    public static final String USE_PROJECT_SETTINGS = "useProjectSettings";
-    public static final String SEARCH_BUDGET = "searchBudget";
-    public static final String CRITERION = "criterion";
-    public static final String ASSERTIONS = "assertions";
-    public static final String MINIMIZE = "minimize";
-    public static final String ASSERTION_STRATEGY = "assertionStrategy";
-    public static final String TEST_NAMING = "testNaming";
-    public static final String VARIABLE_NAMING = "variableNaming";
-    public static final String TEST_COMMENTS = "testComments";
-    public static final String TEST_TIMEOUT = "testTimeout";
-    public static final String TEST_FORMAT = "testFormat";
-    public static final String TEST_SUFFIX = "testSuffix";
-    public static final String TEST_FOLDER = "testFolder";
-    public static final String CLIENT_MEMORY = "clientMemory";
-    public static final String EXTRA_ARGUMENTS = "extraArguments";
-    public static final String JAVA_HOME = "javaHome";
-    public static final String OPEN_GENERATED_TESTS = "openGeneratedTests";
-    public static final String CONFIGURE_BUILD_PATH = "configureBuildPath";
-    public static final String USE_POM_SETTINGS = "usePomSettings";
-    public static final String LLM_PROVIDER = "llmProvider";
-    public static final String LLM_MODEL = "llmModel";
-    public static final String LLM_BASE_URL = "llmBaseUrl";
-    public static final String LLM_APPROACH = "llmApproach";
-    public static final String LLM_SEEDING = "llmSeeding";
-    public static final String LLM_ON_STAGNATION = "llmOnStagnation";
-    public static final String LLM_OPERATORS = "llmOperators";
-    public static final String LLM_POSTPROCESSING = "llmPostprocessing";
-    public static final String LLM_MAX_CALLS = "llmMaxCalls";
+    public static final String USE_PROJECT_SETTINGS = SettingKeys.USE_PROJECT_SETTINGS;
+    public static final String SEARCH_BUDGET = SettingKeys.SEARCH_BUDGET;
+    public static final String CRITERION = SettingKeys.CRITERION;
+    public static final String ASSERTIONS = SettingKeys.ASSERTIONS;
+    public static final String MINIMIZE = SettingKeys.MINIMIZE;
+    public static final String ASSERTION_STRATEGY = SettingKeys.ASSERTION_STRATEGY;
+    public static final String TEST_NAMING = SettingKeys.TEST_NAMING;
+    public static final String VARIABLE_NAMING = SettingKeys.VARIABLE_NAMING;
+    public static final String TEST_COMMENTS = SettingKeys.TEST_COMMENTS;
+    public static final String TEST_TIMEOUT = SettingKeys.TEST_TIMEOUT;
+    public static final String TEST_FORMAT = SettingKeys.TEST_FORMAT;
+    public static final String TEST_SUFFIX = SettingKeys.TEST_SUFFIX;
+    public static final String TEST_FOLDER = SettingKeys.TEST_FOLDER;
+    public static final String CLIENT_MEMORY = SettingKeys.CLIENT_MEMORY;
+    public static final String EXTRA_ARGUMENTS = SettingKeys.EXTRA_ARGUMENTS;
+    public static final String JAVA_HOME = SettingKeys.JAVA_HOME;
+    public static final String OPEN_GENERATED_TESTS = SettingKeys.OPEN_GENERATED_TESTS;
+    public static final String CONFIGURE_BUILD_PATH = SettingKeys.CONFIGURE_BUILD_PATH;
+    public static final String USE_POM_SETTINGS = SettingKeys.USE_POM_SETTINGS;
+    public static final String LLM_PROVIDER = SettingKeys.LLM_PROVIDER;
+    public static final String LLM_MODEL = SettingKeys.LLM_MODEL;
+    public static final String LLM_BASE_URL = SettingKeys.LLM_BASE_URL;
+    public static final String LLM_APPROACH = SettingKeys.LLM_APPROACH;
+    public static final String LLM_SEEDING = SettingKeys.LLM_SEEDING;
+    public static final String LLM_ON_STAGNATION = SettingKeys.LLM_ON_STAGNATION;
+    public static final String LLM_OPERATORS = SettingKeys.LLM_OPERATORS;
+    public static final String LLM_POSTPROCESSING = SettingKeys.LLM_POSTPROCESSING;
+    public static final String LLM_MAX_CALLS = SettingKeys.LLM_MAX_CALLS;
 
     private EvoSuitePreferences() {
     }

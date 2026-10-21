@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.launch;
+import org.evosuite.ide.SuiteMerger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -461,7 +462,7 @@ public class SuiteMergerTest {
         IJavaProject project = TestProjects.create("merge", "src", null);
         IFile file = TestProjects.addSource(project, "src", "demo.Calculator_ESTest", suite("", MAX));
 
-        SuiteMerger.Result result = SuiteMerger.mergeInto(file, suite("", SIGN), "Calculator_ESTest", null);
+        SuiteMerger.Result result = EclipseSuiteMerger.mergeInto(file, suite("", SIGN), "Calculator_ESTest", null);
 
         assertEquals(List.of("test1"), result.added);
         assertEquals(suite("", MAX, SIGN), read(file));
@@ -477,7 +478,7 @@ public class SuiteMergerTest {
         try {
             manager.getTextFileBuffer(file.getFullPath(), LocationKind.IFILE).getDocument().replace(0, 0, "// edited\n");
 
-            SuiteMerger.Result result = SuiteMerger.mergeInto(file, suite("", SIGN), "Calculator_ESTest", null);
+            SuiteMerger.Result result = EclipseSuiteMerger.mergeInto(file, suite("", SIGN), "Calculator_ESTest", null);
 
             assertEquals("Calculator_ESTest.java has unsaved changes in an editor", result.incompatibility);
             assertEquals(suite("", MAX), read(file));
@@ -492,7 +493,7 @@ public class SuiteMergerTest {
         IFile file = TestProjects.addSource(project, "src", "demo.Calculator_ESTest", "\uFEFF" + suite("", MAX));
         file.setCharset("UTF-8", null);
 
-        SuiteMerger.Result result = SuiteMerger.mergeInto(file, suite("", SIGN), "Calculator_ESTest", null);
+        SuiteMerger.Result result = EclipseSuiteMerger.mergeInto(file, suite("", SIGN), "Calculator_ESTest", null);
 
         assertNull(result.incompatibility);
         assertEquals(List.of("test1"), result.added);

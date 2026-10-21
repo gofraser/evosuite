@@ -18,6 +18,14 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.launch;
+import org.evosuite.ide.SuiteMerger;
+import org.evosuite.ide.SeedingReport;
+import org.evosuite.ide.ProgressParser;
+import org.evosuite.ide.EvoSuiteProcess;
+import org.evosuite.ide.EvoSuiteCommand;
+import org.evosuite.ide.SuiteAction;
+import org.evosuite.ide.GenerationTarget;
+import org.evosuite.ide.GenerationOptions;
 
 import java.io.File;
 import java.io.IOException;
@@ -526,6 +534,10 @@ public class TestGenerationJob extends Job {
             throw new CoreException(Activator.error("The LLM provider " + provider + " needs a model. "
                     + "Set one in the EvoSuite settings, under Large language model."));
         }
+        String inlineKey = options.effectiveLlmApiKey();
+        if (!inlineKey.isBlank()) {
+            return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, inlineKey);
+        }
         if (!options.llmApiKeyServerId.isEmpty()) {
             // As mvn evosuite:generate does: the password of a server in Maven's settings.xml.
             ServerPassword password = MavenSupport.findServerPassword(options.llmApiKeyServerId);
@@ -656,7 +668,7 @@ public class TestGenerationJob extends Job {
                         + ", which cannot be merged with the existing one";
             } else {
                 try {
-                    SuiteMerger.Result merge = SuiteMerger.mergeInto(existing, source, suiteName, null);
+                    SuiteMerger.Result merge = EclipseSuiteMerger.mergeInto(existing, source, suiteName, null);
                     if (merge.isMerged()) {
                         added(target, existing, merge);
                         return;

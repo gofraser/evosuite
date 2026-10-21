@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.handlers;
+import org.evosuite.ide.ExistingSuitesQuestion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,7 +42,7 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.PlatformUI;
 import org.evosuite.eclipse.UiThread;
-import org.evosuite.eclipse.launch.SuiteAction;
+import org.evosuite.ide.SuiteAction;
 import org.junit.jupiter.api.Test;
 
 /** The question about existing suites, and the dialog that asks it. */

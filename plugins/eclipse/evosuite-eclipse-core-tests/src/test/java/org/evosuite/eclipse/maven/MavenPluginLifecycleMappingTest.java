@@ -41,7 +41,7 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.m2e.core.MavenPlugin;
 import org.eclipse.m2e.core.project.ResolverConfiguration;
 import org.evosuite.eclipse.TestProjects;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
 import org.evosuite.eclipse.launch.ProjectSetup;
 import org.junit.jupiter.api.Test;
 

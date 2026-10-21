@@ -273,7 +273,7 @@ It bundles the engine jars that the reactor builds:
 
 ```sh
 # repository root, JDK 17
-mvn -pl master,standalone_runtime -am package -DskipTests
+mvn -pl master,standalone_runtime,plugins/ide-core -am package -DskipTests
 
 # plugins/eclipse, JDK 21 or newer
 ./mvnw verify

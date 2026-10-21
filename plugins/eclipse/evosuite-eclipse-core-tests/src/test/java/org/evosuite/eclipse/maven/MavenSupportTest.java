@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.maven;
+import org.evosuite.ide.PomSettings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,7 +48,7 @@ import org.eclipse.osgi.util.ManifestElement;
 import org.eclipse.m2e.core.project.IMavenProjectFacade;
 import org.eclipse.m2e.core.project.ResolverConfiguration;
 import org.eclipse.swt.widgets.Display;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.junit.jupiter.api.AfterEach;
 import org.osgi.framework.Constants;

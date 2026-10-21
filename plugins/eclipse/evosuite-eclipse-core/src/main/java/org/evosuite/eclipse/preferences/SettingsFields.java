@@ -37,7 +37,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
 
 /**
  * The editors of one settings page, shared by the workspace preference pages and the project

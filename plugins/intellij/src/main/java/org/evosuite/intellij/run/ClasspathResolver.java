@@ -1,0 +1,75 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.intellij.run;
+
+import com.intellij.openapi.module.Module;
+import com.intellij.openapi.projectRoots.Sdk;
+import com.intellij.openapi.roots.*;
+import com.intellij.openapi.roots.ProjectRootManager;
+
+import org.evosuite.ide.*;
+
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.*;
+
+public final class ClasspathResolver {
+    private ClasspathResolver() {}
+
+    public static List<String> resolve(Module module, boolean extension) {
+        OrderEnumerator entries =
+                OrderEnumerator.orderEntries(module).recursively().runtimeOnly().withoutSdk();
+        if (!extension) entries.productionOnly();
+        return entries.classes().getPathsList().getPathList().stream()
+                .filter(
+                        path -> {
+                            String name =
+                                    Path.of(path).getFileName().toString().toLowerCase(Locale.ROOT);
+                            if (name.contains("evosuite-standalone-runtime")
+                                    || name.contains("evosuite-runtime")) return false;
+                            return extension
+                                    || !(name.startsWith("junit-")
+                                            || name.startsWith("junit4-")
+                                            || name.startsWith("junit-jupiter-")
+                                            || name.startsWith("junit-platform-")
+                                            || name.startsWith("junit-vintage-"));
+                        })
+                .distinct()
+                .toList();
+    }
+
+    public static JavaInstallation java(Module module, GenerationOptions options)
+            throws IOException {
+        String home = options.javaHome;
+        if (home.isBlank()) {
+            Sdk sdk = ModuleRootManager.getInstance(module).getSdk();
+            if (sdk == null)
+                sdk = ProjectRootManager.getInstance(module.getProject()).getProjectSdk();
+            if (sdk == null || sdk.getHomePath() == null)
+                throw new IOException(
+                        "Configure a module JDK or set Java home in Tools > EvoSuite.");
+            home = sdk.getHomePath();
+        }
+        JavaInstallation java = JavaInstallation.at(Path.of(home));
+        if (!java.hasCompiler())
+            throw new IOException("EvoSuite needs a full JDK with javac: " + home);
+        return java;
+    }
+}

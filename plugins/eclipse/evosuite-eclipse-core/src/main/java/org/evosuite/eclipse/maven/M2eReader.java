@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.maven;
+import org.evosuite.ide.PomSettings;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -18,6 +18,9 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.launch;
+import org.evosuite.ide.SuiteAction;
+import org.evosuite.ide.GenerationTarget;
+import org.evosuite.ide.GenerationOptions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

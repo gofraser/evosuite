@@ -1,0 +1,8 @@
+<idea-plugin>
+  <extensions defaultExtensionNs="com.intellij">
+    <projectService serviceInterface="org.evosuite.intellij.maven.MavenIntegration" serviceImplementation="org.evosuite.intellij.maven.MavenSupport"/>
+  </extensions>
+  <extensions defaultExtensionNs="org.jetbrains.idea.maven">
+    <importing.workspaceConfigurator implementation="org.evosuite.intellij.maven.EvoSuiteMavenFolders"/>
+  </extensions>
+</idea-plugin>

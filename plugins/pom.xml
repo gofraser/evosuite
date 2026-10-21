@@ -13,6 +13,7 @@
 	<packaging>pom</packaging>
 
 	<modules>
+		<module>ide-core</module>
 		<module>maven</module>
 		<module>build-support-test</module>
 		<!-- eclipse/ is a separate Tycho build that needs Java 21; see eclipse/README.md -->

@@ -1,0 +1,149 @@
+# EvoSuite for IntelliJ IDEA
+
+Requires IntelliJ IDEA 2025.3 or newer and a Java project with a full JDK. The plugin bundles
+EvoSuite and its test runtime; generation runs in a separate JVM on the module's JDK.
+
+## Generate tests
+
+Right-click a Java class, package, source directory or module in the Project view, or use the
+Java editor's **Generate Tests with EvoSuite** action. It is also available in the Structure
+view and Generate menu. Test sources, interfaces, annotations and generated suites are skipped.
+Requests wait for one another, build their module, then generate one class at a time.
+
+**Generate Tests for Method with EvoSuite** restricts generation to selected methods or the
+method at the caret. Private/abstract methods, nested-class methods and enum/abstract-class
+constructors are excluded. Overloads use their JVM descriptors, so they stay distinct.
+
+**Extend Tests with EvoSuite** accepts existing test classes. The plugin infers their production
+class from the package and `Test`, `Tests`, `TestCase`, `IT`, `ITCase`, `TestFoo` or the configured
+suite suffix; ambiguous names open a class-name prompt. Select several test classes to seed the
+same CUT together. EvoSuite parses their saved source, executes their compiled tests to exclude
+covered goals, and generates additional tests. Carving stays disabled. The console reports how
+many tests were parsed and executed. Extension deliberately includes test outputs and test
+libraries on the engine classpath; ordinary generation excludes them. Parser limitations are
+the same as in Eclipse: parameterized tests and statements depending on fixtures/helpers may
+be dropped.
+
+The **EvoSuite** tool window shows commands (with keys masked), progress and results. Its Stop
+action cancels this project's requests and kills the engine and client JVMs. Completed suites
+are kept. Up to three resulting suites open automatically.
+
+## Existing suites
+
+The plugin asks once per request: **Replace**, **Add New Tests**, **Compare**, or **Cancel**.
+Add is preselected for method and extension requests. Every target writes to fresh staging
+outside the project before the choice is applied.
+
+- Replace is undoable and retains IntelliJ local history. Unsaved or subsequently changed
+  suites open in a comparison instead.
+- Add merges into the current editor document as one undoable command, including unsaved
+  edits. Matching test bodies are skipped, clashing test names are renamed, padded test
+  numbering is continued, imports and compatible JUnit 4 initialization/reset lists are united.
+- Compare shows the existing document editable and the generated source read-only. Several
+  suites share a comparison chain. Save edits through IntelliJ normally.
+
+A handwritten suite is never replaced or merged into: an actual `@EvoRunnerParameters`
+annotation is required; a marker in a comment is insufficient. An incompatible merge or
+conflicting scaffolding opens a comparison. Whole-class generation also compares a suite
+that appeared while the run was queued. Partial generation can add to it after checking
+compatibility. Extension writes nothing when no new tests were found.
+
+## Settings
+
+**Settings > Tools > EvoSuite** holds IDE defaults; **EvoSuite (Project)** holds project
+overrides. Both have EvoSuite, Large Language Model and Advanced tabs.
+IDE defaults apply unless **Use project-specific settings** is enabled. Project settings are
+stored in `.idea/evosuite.xml`, suitable for version control. Unset project fields use EvoSuite
+defaults, independently of IDE defaults.
+
+The settings match Eclipse: search budget (60 seconds), coverage criteria, assertions and
+minimization, assertion strategy, JUnit format, source folder (`src/test/evosuite`), suffix
+(`_ESTest`), test/variable names, comments, per-test timeout, editor opening, Java home, client
+heap, extra arguments, pom overrides and build-path configuration. Criteria checkboxes preserve
+custom criteria. Empty test format detects JUnit 4-only projects; otherwise it uses JUnit 5.
+Explicit settings or pom/extra-argument `test_format` override detection.
+
+LLM settings include provider, model, endpoint, approach, seeding, stagnation, mutation/crossover,
+postprocessing and call budget. **Search only** overrides every other provider setting, including
+pom and extra arguments. The API key is application-wide in PasswordSafe, loaded off the UI
+thread, and sent only through `EVOSUITE_LLM_API_KEY`. An inherited environment variable also
+works. Put keys in secure storage rather than Additional arguments. A failed secure-store read
+preserves the saved key unless the user explicitly enters a replacement.
+
+Output locations (`test_dir`, `junit_suffix`, `report_dir`, `llm_trace_dir`) are pinned after user
+arguments, so generated suites and traces are found reliably. Reports and LLM traces stay under
+IntelliJ's system directory, in `evosuite/runs/`; source staging and argument files are removed.
+
+Legacy plugin budget/folder preferences are imported once; obsolete CTG/Maven/JAR-location
+settings are not reused.
+
+## Maven and Gradle
+
+When enabled, the imported effective EvoSuite Maven-plugin configuration takes precedence.
+The shared reader follows `default-cli`, plugin configuration, `evosuite.*` properties and the
+Maven plugin's legacy-property rules. Other `generate` executions do not count. `timePerClass`
+accepts durations such as `90s` or `1m30s`; `timeInMinutesPerClass` remains supported. The console
+lists the applied overrides. Without an imported Maven model, regular module settings apply.
+
+`llmApiKeyServerId` selects a server password from the configured Maven user settings. Plaintext,
+environment placeholders and Maven 3 decorated encryption are supported. Unsupported encryption
+or a missing server produces a diagnostic and falls back to PasswordSafe/environment; ciphertext
+is never passed as a key.
+
+When build-path configuration is enabled, the generated folder is registered as a test root.
+Missing JUnit dependencies are added through IntelliJ's project-model API after confirmation.
+Imported Maven/Gradle projects also receive the runtime through that API; plain modules use the
+bundled runtime as a test-scoped module library. Imported projects using a snapshot runtime need
+that artifact available in their Maven repositories (for a development build, install the reactor).
+
+For Maven, the plugin offers to add a `setup` execution to the pom. Its import configurator
+keeps that execution's folder as a test root on reimport. Gradle projects receive the exact
+source-set snippet in the console; add it to the build script so re-sync retains the root:
+
+```groovy
+sourceSets.test.java.srcDir("src/test/evosuite")
+```
+
+The project settings offer **Run whole-class requests through the Maven plugin**. This invokes
+IntelliJ's Maven runner, uses pom settings and Maven scheduling/export, and has no per-class
+progress or IDE Add/Compare workflow. Requests requiring Search-only enforcement or protection
+of existing suites use the bundled engine instead. Methods and extension always use the bundled
+engine. The default mode is the bundled engine.
+
+## Build and test
+
+The engine reactor uses JDK 17; the standalone IntelliJ Gradle build uses JDK 21.
+
+```sh
+# repository root, JDK 17
+mvn -pl master,standalone_runtime,plugins/ide-core -am package -DskipTests
+mvn -f plugins/ide-core/pom.xml verify
+
+# plugins/intellij, JDK 21
+./gradlew test buildPlugin verifyPlugin \
+  -Pevosuite.it.javaHome=/path/to/jdk-17
+```
+
+The Gradle wrapper and its distribution checksum are pinned. `copyEngineJars` rejects missing
+jars or a shaded engine older than its compiled inputs. `-Pevosuite.root=/path/to/checkout`
+selects already-built engine/runtime artifacts; ide-core always builds from this checkout's
+sources. `-PlocalIde=/path/to/IDE/Contents` selects a local SDK (run Gradle with its supported JDK).
+
+The ZIP is `build/distributions/evosuite-intellij-1.2.1-SNAPSHOT.zip`. Install through
+**Settings > Plugins > gear > Install Plugin from Disk**. `runIde` launches a development sandbox.
+`-PverificationIde=/path/to/IDE/Contents` reuses an installed IDE as the second verification target.
+Engine jars are under `evosuite-intellij/engine/`, separate from the plugin libraries. Both the minimum
+2025.3.2 and 2026.2.3 are configured for Plugin Verifier. The verifier's new-ID naming rule
+`TemplateWordInPluginId` is muted because this plugin retains its previously released
+`org.evosuite.plugin.intellij` ID; API compatibility checks remain enabled. Verification uses the supplied IDEs and their bundled
+runtimes/dependencies, without fetching unrelated optional Marketplace plugins. The Maven folder
+import hook is a public experimental API, so both IDE versions remain in the release checks.
+
+Tests include shared command/merger/POM/progress/process behavior, IntelliJ PSI selection and
+method descriptors, settings serialization/precedence, test roots/classpaths, protected suite
+placement, Maven imported-model mapping and a real engine run whose generated suite is compiled.
+`-Pevosuite.it.skip=true` skips the real-engine smoke explicitly.
+
+`signPlugin` reads `CERTIFICATE_CHAIN`, `PRIVATE_KEY`, `PRIVATE_KEY_PASSWORD`; `publishPlugin`
+reads `PUBLISH_TOKEN`. Publishing/listing ownership and release credentials remain maintainer
+steps; no Marketplace upload is part of the build.

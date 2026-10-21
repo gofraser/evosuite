@@ -35,7 +35,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.evosuite.eclipse.TestProjects;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

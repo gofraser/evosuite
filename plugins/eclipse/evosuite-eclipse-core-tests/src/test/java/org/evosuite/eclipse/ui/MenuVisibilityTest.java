@@ -84,6 +84,8 @@ public class MenuVisibilityTest {
         project = TestProjects.create("menu", "src", null);
         TestProjects.addSource(project, "src", "m.Plain", "package m; public class Plain { int field; "
                 + "public int twice(int x) { return 2 * x; } private void hidden() {} }");
+        // Flush source/model deltas before findType: these tests recreate the same project.
+        TestProjects.build(project);
         project.getProject().getFile("notes.txt").create(new java.io.ByteArrayInputStream(new byte[0]), true, null);
     }
 

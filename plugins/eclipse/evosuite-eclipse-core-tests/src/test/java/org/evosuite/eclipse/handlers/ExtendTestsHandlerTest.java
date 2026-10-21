@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.handlers;
+import org.evosuite.ide.ExistingSuitesQuestion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,8 +34,8 @@ import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IType;
 import org.evosuite.eclipse.TestProjects;
-import org.evosuite.eclipse.launch.GenerationTarget;
-import org.evosuite.eclipse.launch.SuiteAction;
+import org.evosuite.ide.GenerationTarget;
+import org.evosuite.ide.SuiteAction;
 import org.evosuite.eclipse.launch.TestGenerationJob;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.junit.jupiter.api.AfterEach;

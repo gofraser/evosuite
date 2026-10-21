@@ -12,4 +12,21 @@
 
   <artifactId>org.evosuite.plugins.eclipse.core</artifactId>
   <packaging>eclipse-plugin</packaging>
+  <build><plugins>
+  <!-- The embedded shared core changes outside this bundle's Git directory. -->
+  <plugin>
+    <groupId>org.eclipse.tycho</groupId><artifactId>tycho-packaging-plugin</artifactId><version>${tycho-version}</version>
+    <configuration><timestampProvider>default</timestampProvider></configuration>
+  </plugin>
+  <plugin>
+    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-antrun-plugin</artifactId><version>3.1.0</version>
+    <executions><execution><id>shared-ide-core</id><phase>generate-resources</phase><goals><goal>run</goal></goals>
+      <configuration><target>
+        <fail message="Build plugins/ide-core first: mvn -f plugins/ide-core/pom.xml package">
+          <condition><not><available file="${evosuite.root}/plugins/ide-core/target/evosuite-ide-core-${project.version}.jar"/></not></condition>
+        </fail>
+        <copy file="${evosuite.root}/plugins/ide-core/target/evosuite-ide-core-${project.version}.jar" tofile="${project.basedir}/lib/evosuite-ide-core.jar"/>
+      </target></configuration>
+    </execution></executions>
+  </plugin></plugins></build>
 </project>

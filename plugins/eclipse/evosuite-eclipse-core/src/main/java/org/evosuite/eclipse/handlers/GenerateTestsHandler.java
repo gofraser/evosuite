@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.handlers;
+import org.evosuite.ide.ExistingSuitesQuestion;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
@@ -57,11 +58,11 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.ide.IDE;
 import org.evosuite.eclipse.Activator;
-import org.evosuite.eclipse.launch.EvoSuiteCommand;
-import org.evosuite.eclipse.launch.GenerationOptions;
-import org.evosuite.eclipse.launch.GenerationTarget;
+import org.evosuite.ide.EvoSuiteCommand;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.GenerationTarget;
 import org.evosuite.eclipse.launch.ProjectSetup;
-import org.evosuite.eclipse.launch.SuiteAction;
+import org.evosuite.ide.SuiteAction;
 import org.evosuite.eclipse.launch.TestGenerationJob;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 
