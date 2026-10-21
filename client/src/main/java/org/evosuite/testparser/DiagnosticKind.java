@@ -19,7 +19,10 @@
  */
 package org.evosuite.testparser;
 
-enum DiagnosticKind {
+/**
+ * Category of a parser diagnostic. Diagnostics the parser could not classify carry no kind.
+ */
+public enum DiagnosticKind {
 
     NO_METHOD_SCOPE(
             "Cannot resolve method scope",

@@ -347,6 +347,7 @@ public class StatementParser {
                             int line = declarator.getBegin().map(p -> p.line).orElse(0);
                             result.addDiagnostic(new ParseDiagnostic(
                                     ParseDiagnostic.Severity.WARNING,
+                                    DiagnosticKind.UNRESOLVED_TYPE,
                                     "Cannot resolve type for declaration without initializer: "
                                             + declarator.getType() + " — " + e.getMessage()
                                             + " — downgraded to Object for LLM best-effort parsing. "

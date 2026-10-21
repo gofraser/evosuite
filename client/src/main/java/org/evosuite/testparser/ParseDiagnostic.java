@@ -70,7 +70,12 @@ public class ParseDiagnostic {
         return message;
     }
 
-    DiagnosticKind getKind() {
+    /**
+     * Returns the kind of this diagnostic, or null if the parser did not classify it.
+     *
+     * @return the kind, or null.
+     */
+    public DiagnosticKind getKind() {
         return kind;
     }
 
