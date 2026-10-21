@@ -859,6 +859,9 @@ class StagnationLlmHelperTest {
             // no-gain outcome would have lengthened the cooldown to two rounds.
             assertFalse(memory.adjustPriority(target, 1.0, true).isSuppressed(),
                     "a call that never delivered a response must not count as a no-gain attempt");
+            assertEquals(1L, helper.getCalls());
+            assertEquals(0L, helper.getResponsesReceived(),
+                    "a call that never delivered a response must not count as a received response");
         } finally {
             helper.shutdown();
             service.close();

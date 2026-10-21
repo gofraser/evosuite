@@ -1094,7 +1094,7 @@ public enum RuntimeVariable {
     LLM_StagnationPromptsSubmitted,
 
     /**
-     * Number of stagnation prompt executions that returned a response payload.
+     * Number of stagnation calls that delivered a response; failed, crashed or budget-blocked calls are not counted.
      */
     LLM_StagnationResponsesReceived,
 

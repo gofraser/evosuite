@@ -400,7 +400,9 @@ public final class StagnationLlmHelper {
                 return;
             }
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            recordResponseReceived();
+            if (result.isDelivered()) {
+                recordResponseReceived();
+            }
             recordCallCompleted(elapsedMs, elapsedMs);
             traceOutcome("completed:sync", coveredCount, uncoveredSize, targetCount, elapsedMs,
                     result.getTests().size());
@@ -446,10 +448,8 @@ public final class StagnationLlmHelper {
                 inFlight.set(worker.submit(() -> {
                     long t0 = System.nanoTime();
                     StagnationDetector.CallResult result;
-                    boolean responseReceived = false;
                     try {
                         result = detector.executeWithPrompt(prompt);
-                        responseReceived = true;
                     } catch (Throwable t) {
                         // Swallow Throwable (not just RuntimeException) so that an
                         // OutOfMemoryError or other Error doesn't silently kill the
@@ -475,7 +475,7 @@ public final class StagnationLlmHelper {
                         // leave the window permanently consumed.
                         detector.consumeWindow();
                         long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-                        if (responseReceived) {
+                        if (result.isDelivered()) {
                             recordResponseReceived();
                         }
                         recordCallCompleted(elapsedMs, 0L);
