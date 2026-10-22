@@ -124,10 +124,15 @@ public final class SuiteComparison {
                         factory.create(
                                 pair.generated(),
                                 com.intellij.ide.highlighter.JavaFileType.INSTANCE),
-                        file == null ? "No destination file — create it to keep generated changes"
-                                : readOnly ? "Existing file (read-only)"
-                                : "Existing file — edits use IntelliJ autosave",
-                        "Generated tests — copy wanted changes left (read-only)");
+                        file == null
+                                ? "No destination file — create it to keep generated changes"
+                                : readOnly
+                                        ? "Existing file (read-only)"
+                                        : "Existing file — edits use IntelliJ autosave",
+                        pair.generated().isEmpty() && pair.name().endsWith("_scaffolding.java")
+                                ? "Obsolete scaffolding — replace the suite, then copy empty"
+                                      + " content left (read-only)"
+                                : "Generated tests — copy wanted changes left (read-only)");
         request.putUserData(
                 com.intellij.diff.util.DiffUserDataKeys.FORCE_READ_ONLY_CONTENTS,
                 new boolean[] {readOnly, true});

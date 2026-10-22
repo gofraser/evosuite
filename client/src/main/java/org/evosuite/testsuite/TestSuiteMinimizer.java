@@ -430,7 +430,9 @@ public class TestSuiteMinimizer {
         String[] testClasses = Properties.JUNIT.split(":");
         for (String testClass : testClasses) {
             try {
-                Class<?> junitClass = Class.forName(testClass, true,
+                // JUnit 5 suites can initialize their runner in a static field. Defer that
+                // initialization until CoverageAnalysis enters its instrumentation-safe scope.
+                Class<?> junitClass = Class.forName(testClass, false,
                         TestGenerationContext.getInstance().getClassLoaderForSUT());
                 Set<TestFitnessFunction> coveredGoals = CoverageAnalysis.getCoveredGoals(junitClass, goals);
                 LoggingUtils.getEvoLogger().info("* Removing " + coveredGoals.size()

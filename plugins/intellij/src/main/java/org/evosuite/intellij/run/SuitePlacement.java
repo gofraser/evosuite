@@ -120,11 +120,17 @@ public final class SuitePlacement {
                             oldScaffold == null
                                     ? null
                                     : FileDocumentManager.getInstance().getDocument(oldScaffold);
+                    boolean obsoleteScaffold =
+                            options.effectiveNoRuntimeDependency()
+                                    && scaffold == null
+                                    && scaffoldDocument != null
+                                    && !scaffoldDocument.getText().isBlank();
                     boolean differentScaffold =
                             scaffold != null
                                     && scaffoldDocument != null
                                     && !scaffold.equals(scaffoldDocument.getText());
-                    if (document != null && !generated(project, destination, document.getText(), name)) {
+                    if (document != null
+                            && !generated(project, destination, document.getText(), name)) {
                         console.accept(
                                 EvoSuiteCommand.notAnEvoSuiteSuite(
                                         target.className(), destination.toFile()));
@@ -132,7 +138,7 @@ public final class SuitePlacement {
                     }
                     List<SuiteComparison.Pair> diffs = new ArrayList<>();
                     if (document == null) {
-                        if (differentScaffold) {
+                        if (differentScaffold || obsoleteScaffold) {
                             console.accept(
                                     name
                                             + ": resolve the scaffolding and accept the pending"
@@ -141,7 +147,7 @@ public final class SuitePlacement {
                                     new SuiteComparison.Pair(
                                             scaffoldPath.toString(),
                                             scaffoldDocument,
-                                            scaffold));
+                                            obsoleteScaffold ? "" : scaffold));
                             diffs.add(SuiteComparison.pending(destination, fresh));
                             return new Placed(null, List.copyOf(diffs), false, false);
                         }
@@ -176,7 +182,10 @@ public final class SuitePlacement {
                                                 : "opening a comparison."));
                     } else if (chosen == SuiteAction.REPLACE
                             && (changed(consent, existing, document)
-                                    || changed(consent.scaffolding(), oldScaffold, scaffoldDocument))) {
+                                    || changed(
+                                            consent.scaffolding(),
+                                            oldScaffold,
+                                            scaffoldDocument))) {
                         chosen = SuiteAction.COMPARE;
                         console.accept(
                                 name
@@ -187,7 +196,8 @@ public final class SuitePlacement {
                             || chosen == SuiteAction.REPLACE
                                     && oldScaffold != null
                                     && !oldScaffold.isWritable()) {
-                        console.accept(name + " or its scaffolding is read-only; opening a comparison.");
+                        console.accept(
+                                name + " or its scaffolding is read-only; opening a comparison.");
                         chosen = SuiteAction.COMPARE;
                     }
                     if (chosen == SuiteAction.REPLACE
@@ -205,10 +215,22 @@ public final class SuitePlacement {
                                         + ": scaffolding differs; opening a comparison.");
                         chosen = SuiteAction.COMPARE;
                     }
+                    if (chosen == SuiteAction.ADD && obsoleteScaffold) {
+                        console.accept(
+                                "Cannot convert "
+                                        + name
+                                        + " to runtime-free output by adding tests: existing"
+                                        + " scaffolding must also be removed. Use Replace for a"
+                                        + " complete conversion, or review both files in Compare.");
+                        chosen = SuiteAction.COMPARE;
+                    }
                     try {
                         if (chosen == SuiteAction.ADD) {
                             SuiteMerger.Result merge =
-                                    SuiteMerger.merge(document.getText(), fresh, name,
+                                    SuiteMerger.merge(
+                                            document.getText(),
+                                            fresh,
+                                            name,
                                             org.evosuite.intellij.settings.GeneratedSuiteRegistry
                                                     .getInstance(project)
                                                     .owns(destination));
@@ -236,9 +258,11 @@ public final class SuitePlacement {
                                                 + merge.duplicates
                                                 + " duplicates."
                                                 + (dirty && !merge.added.isEmpty()
-                                                        ? " The editor still has unsaved changes." : ""));
+                                                        ? " The editor still has unsaved changes."
+                                                        : ""));
                                 record(project, destination, fresh, name);
-                                return new Placed(existing, List.of(), !merge.added.isEmpty(), false);
+                                return new Placed(
+                                        existing, List.of(), !merge.added.isEmpty(), false);
                             }
                             console.accept(
                                     "Cannot add tests to "
@@ -255,6 +279,7 @@ public final class SuitePlacement {
                                         document.setText(fresh);
                                         if (scaffold != null)
                                             write(project, scaffoldPath, scaffold);
+                                        else if (obsoleteScaffold) remove(oldScaffold);
                                     });
                             FileDocumentManager.getInstance().saveDocument(document);
                             console.accept(
@@ -277,18 +302,27 @@ public final class SuitePlacement {
                     diffs.add(
                             new SuiteComparison.Pair(
                                     destination.getFileName().toString(), document, fresh));
-                    if (differentScaffold)
+                    if (differentScaffold || obsoleteScaffold)
                         diffs.add(
                                 new SuiteComparison.Pair(
                                         scaffoldPath.getFileName().toString(),
                                         scaffoldDocument,
-                                        scaffold));
+                                        obsoleteScaffold ? "" : scaffold));
                     else if (scaffold != null && oldScaffold == null) {
                         diffs.add(SuiteComparison.pending(scaffoldPath, scaffold));
-                            console.accept("Scaffolding is pending acceptance: " + scaffoldPath);
+                        console.accept("Scaffolding is pending acceptance: " + scaffoldPath);
                     }
                     return new Placed(null, List.copyOf(diffs), false, false);
                 });
+    }
+
+    private static void remove(VirtualFile file) {
+        try {
+            file.delete(SuitePlacement.class);
+        } catch (IOException ex) {
+            throw new IllegalStateException(
+                    "Cannot remove obsolete scaffolding " + file.getPath(), ex);
+        }
     }
 
     private static VirtualFile write(Project project, Path path, String source) {

@@ -374,7 +374,8 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                 var doc = file == null ? null : FileDocumentManager.getInstance().getDocument(file);
                 if (doc != null)
                     pairs.add(new SuiteComparison.Pair(destination.toString(), doc, source));
-                else pairs.add(SuiteComparison.pending(destination, source));
+                else if (!source.isEmpty() || !c.destination.endsWith("_scaffolding.java"))
+                    pairs.add(SuiteComparison.pending(destination, source));
             } catch (java.io.IOException ignored) {
             }
         }
@@ -399,8 +400,9 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         if (target.status.equals("Pending comparison")) {
             target.status = "Review closed";
             target.detail =
-                    "Saved comparisons were closed. Only changes you applied to project files are"
-                            + " kept.";
+                    (target.detail.isBlank() ? "" : target.detail + "\n")
+                            + "Saved comparisons were closed. Only changes you applied to project"
+                            + " files are kept.";
         }
         changed();
     }

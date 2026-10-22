@@ -20,8 +20,10 @@ suite suffix; ambiguous names open an IntelliJ production-class chooser scoped t
 Cancel stops the entire request, including other selected test classes. A longer name such as
 `VaultEdgeCasesTest` offers the longest matching production-class prefix for confirmation. Select several test classes to seed the
 same CUT together. EvoSuite parses their saved source, executes their compiled tests to exclude
-covered goals, and generates additional tests. Carving stays disabled. The console reports how
-many tests were parsed and executed. Extension deliberately includes test outputs and test
+covered goals during suite minimization, and generates additional tests. Carving stays disabled.
+The console and saved Runs details report how many tests were parsed and executed. Keep suite
+minimization enabled and allow postprocessing time for coverage exclusion; if that phase is skipped
+or existing tests cannot run, the warning summary explains that new output may repeat their coverage. Extension deliberately includes test outputs and test
 libraries on the engine classpath; ordinary generation excludes them. Parser limitations are
 the same as in Eclipse: parameterized tests and statements depending on fixtures/helpers may
 be dropped.
@@ -72,8 +74,19 @@ annotation is required, or a matching file marker and machine-local project regi
 suite previously created by this plugin. A matching string inside a text block does not count as
 a marker comment. Recognition survives Undo/Redo across runtime-dependent replacements. A marker
 without its ownership record is insufficient. Moving a runtime-free
-suite to another project or machine does not transfer that ownership. An incompatible merge or
-conflicting scaffolding opens a comparison. Whole-class generation also compares a suite
+suite to another project or machine does not transfer that ownership.
+
+Runtime-free suites support Add, Replace, Compare and extension. Add preserves existing tests
+when their runtime settings match. Converting a runtime-dependent suite by Add opens Compare
+instead. Replace converts the whole suite and removes its obsolete matching scaffolding in the
+same undoable command; changed, unsaved or read-only scaffolding opens Compare for review.
+Compare includes obsolete scaffolding as an empty suggestion: replace the suite first, then copy
+the empty content into the old helper or delete that helper. Both decisions remain under your
+control. A cleared helper does not block later Add operations. If an extension produces no new
+tests, existing suites and scaffolding are kept. Existing seed tests remain unchanged and retain
+their own dependencies; runtime-free generation applies to the new output.
+
+An incompatible merge or conflicting scaffolding opens a comparison. Whole-class generation also compares a suite
 that appeared while the run was queued. Partial generation can add to it after checking
 compatibility. Extension writes nothing when no new tests were found. If a new suite's scaffolding
 conflicts with an existing file, neither generated file is installed automatically: both are pending
@@ -286,6 +299,12 @@ mvn -pl master,standalone_runtime,plugins/ide-core,plugins/maven -am install -Ds
 ./gradlew :test --tests org.evosuite.intellij.ImportAcceptanceTest \
   -Pevosuite.import.it=true -Pevosuite.it.javaHome=/path/to/jdk-17
 ```
+
+The fixtures use the selected test JDK for Gradle toolchains, so the same checks can be repeated
+with `-Pevosuite.it.javaHome=/path/to/jdk-21`. A JDK 17 or newer is required for imports.
+`RuntimeFreeWorkflowTest` also runs real JUnit 4/5 generation and extension, then checks Add,
+Replace, Compare, comparison recovery and Undo/Redo; accepted suites compile and execute with
+JUnit only. It includes handwritten, runtime-free generated and runtime-dependent generated seeds.
 
 The tests use the wrapper's Gradle installation. Override it with
 `-Pevosuite.import.gradleHome=/path/to/gradle` when needed. These are automated imports and

@@ -311,9 +311,10 @@ public final class GenerationService implements Disposable {
                                     console.println(
                                             "Extending "
                                                     + target.seedNames()
-                                                    + ": using existing tests as seeds; only"
-                                                    + " additional tests are exported to the output"
-                                                    + " suite.");
+                                                    + ": using existing tests as seeds. Suite"
+                                                    + " minimization removes goals they already"
+                                                    + " cover; check the seeding summary to confirm"
+                                                    + " existing-test execution.");
                                 if (mode != TargetCollector.Mode.COVERAGE && existing != null) {
                                     consent.put(target.className(), existing);
                                     withSuites.add(
@@ -430,6 +431,20 @@ public final class GenerationService implements Disposable {
                                         ? requests.getFirst().testDir().toString()
                                         : null;
                         var question = ExistingSuitesQuestion.of(withSuites, total, folder, scope);
+                        String runtimeFreeNote =
+                                requests.stream()
+                                                .anyMatch(
+                                                        r ->
+                                                                r.options()
+                                                                        .effectiveNoRuntimeDependency())
+                                        ? "\n\n"
+                                              + "For runtime-free output, Replace also removes"
+                                              + " obsolete matching scaffolding. Add falls back to"
+                                              + " Compare if runtime setups differ. Compare"
+                                              + " includes obsolete scaffolding as an empty"
+                                              + " suggestion; apply it only when you replace the"
+                                              + " suite."
+                                        : "";
                         action =
                                 IdeThread.edt(
                                         () ->
@@ -438,6 +453,7 @@ public final class GenerationService implements Disposable {
                                                                 project,
                                                                 GenerationDialogs.message(
                                                                         question.message
+                                                                                + runtimeFreeNote
                                                                                 + "\n\n"
                                                                                 + "In Compare, copy"
                                                                                 + " wanted changes"
@@ -850,7 +866,13 @@ public final class GenerationService implements Disposable {
                                                 runId,
                                                 historyIndex,
                                                 "No tests generated",
-                                                "Engine exit code " + result.exitCode(),
+                                                "Engine exit code "
+                                                        + result.exitCode()
+                                                        + (result.seeding() == null
+                                                                ? ""
+                                                                : ". "
+                                                                        + result.seeding()
+                                                                                .summary()),
                                                 0);
                                         continue;
                                     }
@@ -895,7 +917,9 @@ public final class GenerationService implements Disposable {
                                                             : placed.written()
                                                                     ? "Written / updated"
                                                                     : "Unchanged",
-                                            "",
+                                            result.seeding() == null
+                                                    ? ""
+                                                    : result.seeding().summary(),
                                             SuiteMerger.testCount(
                                                     Files.readString(result.suite()),
                                                     destination

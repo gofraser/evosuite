@@ -58,6 +58,7 @@ import org.jetbrains.plugins.gradle.util.GradleConstants
 class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
     private lateinit var root: Path
     private lateinit var jdkName: String
+    private var testJavaVersion = 17
     private val gradleUserHome =
         Path.of(System.getProperty("java.io.tmpdir"), "evosuite-import-gradle-home")
 
@@ -67,7 +68,9 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         }
         super.setUp()
         val home = System.getProperty("evosuite.it.javaHome").orEmpty()
-        require(home.isNotBlank()) { "Pass -Pevosuite.it.javaHome=/path/to/jdk-17" }
+        require(home.isNotBlank()) { "Pass -Pevosuite.it.javaHome=/path/to/jdk-17-or-newer" }
+        testJavaVersion = JavaInstallation.at(Path.of(home)).version()
+        require(testJavaVersion >= 17) { "Import acceptance requires a JDK 17 or newer" }
         com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess.allowRootAccess(
             testRootDisposable,
             home,
@@ -99,11 +102,13 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
                 else
                     Files.writeString(
                         to,
-                        Files.readString(from).replace("@EVOSUITE_VERSION@", EngineJars.VERSION),
+                        Files.readString(from)
+                            .replace("@EVOSUITE_VERSION@", EngineJars.VERSION)
+                            .replace("JavaLanguageVersion.of(17)", "JavaLanguageVersion.of($testJavaVersion)"),
                     )
             }
         }
-        if (kind == "gradle")
+        if (kind.startsWith("gradle"))
             Files.writeString(
                 root.resolve("gradle.properties"),
                 "org.gradle.java.installations.paths=" +

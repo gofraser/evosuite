@@ -87,6 +87,32 @@ class LaunchSafetyTest {
         long pid = Long.parseLong(lines.get(0));
         assertFalse(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false), "client JVM survived cancellation");
     }
+    @Test void blockedProcessInspectionDoesNotPreventCleanup() throws Exception {
+        var release = new java.util.concurrent.CountDownLatch(1);
+        Process process = new Process() {
+            public java.io.OutputStream getOutputStream() { return java.io.OutputStream.nullOutputStream(); }
+            public java.io.InputStream getInputStream() { return java.io.InputStream.nullInputStream(); }
+            public java.io.InputStream getErrorStream() { return java.io.InputStream.nullInputStream(); }
+            public int waitFor() { return 0; }
+            public int exitValue() { return 0; }
+            public void destroy() { }
+            public boolean isAlive() { return false; }
+            public java.util.stream.Stream<ProcessHandle> descendants() {
+                boolean interrupted = false;
+                while (true) {
+                    try { release.await(); break; }
+                    catch (InterruptedException e) { interrupted = true; }
+                }
+                if (interrupted) Thread.currentThread().interrupt();
+                return java.util.stream.Stream.empty();
+            }
+        };
+        try {
+            assertTimeoutPreemptively(java.time.Duration.ofSeconds(2),
+                    () -> EvoSuiteProcess.destroy(process, new java.util.HashSet<>()));
+        } finally { release.countDown(); }
+    }
+
     private static List<String> javaCommand(String mode) {
         return List.of(Path.of(System.getProperty("java.home"), "bin", "java").toString(), "-cp", System.getProperty("java.class.path"), FakeProcess.class.getName(), mode);
     }

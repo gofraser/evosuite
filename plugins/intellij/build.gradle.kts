@@ -26,6 +26,7 @@ dependencies {
         zipSigner()
     }
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.junit.platform:junit-platform-console-standalone:1.14.3")
 }
 intellijPlatform {
     pluginConfiguration {

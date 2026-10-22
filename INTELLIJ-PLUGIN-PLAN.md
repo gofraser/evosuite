@@ -520,3 +520,49 @@ engine-classloader isolation checks. Plugin Verifier reports Compatible on IDEA 
 2026.2.3, with two/six deprecated and thirteen experimental API usages, and no scheduled-removal,
 internal or override-only API reports. Automated Swing layout checks and the populated narrow
 Runs capture were inspected; native desktop acceptance remains outside these automated checks.
+
+
+## Runtime-free extension and placement follow-up (2026-10-22)
+
+The workflow review found that runtime-free replacement left legacy scaffolding behind. That
+source still imported EvoSuite and prevented a complete conversion without runtime dependencies.
+Replace now removes the obsolete companion in the same undoable command. Scaffolding changed
+since consent, unsaved edits and read-only files retain the comparison safeguards. Compare includes
+obsolete scaffolding as an explicitly labeled empty suggestion; copying that content or deleting
+the helper is a separate user decision after replacing the suite. Cleared helpers do not repeatedly
+block Add, and deleted obsolete helpers are not offered for recreation from saved comparisons.
+Runtime-dependent Add requests fall back to Compare when their runtime setup cannot be combined
+with the new runtime-free suite. Empty extensions keep both existing files.
+
+A real-engine legacy-seed check also reproduced a hang in coverage evaluation: generated JUnit
+runners tried to attach a redundant Java agent. Existing-suite execution now suppresses agent
+attachment and secondary classloaders within a scoped guard, restoring runner flags, the previous
+attachment policy and context loader even on failure. Discovery and minimization defer seed-class
+initialization so static JUnit 5 runners initialize within that guard. The fix follows the engine's
+existing in-process JUnit-check safeguard and is included in the rebuilt engine/runtime jars.
+
+Coverage exclusion depends on suite minimization being enabled and having time to run. The
+request console now explains this condition, and saved Runs retain the seeding/execution summary,
+including after comparison review closes. Existing seed sources are never converted implicitly;
+the runtime-free option controls newly generated output.
+
+The new acceptance matrix uses actual whole-class and extension output with both JUnit formats,
+plain and generated seed suites, legacy scaffolding and the default JUnit 5 extension runner. It
+exercises Add/Replace/Compare, persists and reopens comparison suggestions, checks replacement
+Undo/Redo, tests orphan-helper recovery, and compiles/runs accepted output with JUnit only. Engine
+unit regressions cover instrumentation-state restoration and deferred static runner initialization.
+
+Native child-process inspection also stalled during acceptance on macOS. It is now bounded on a
+single dedicated daemon with cancelled queued requests purged, so it cannot block generation
+completion or cancellation indefinitely. The existing real master/client cancellation regression
+and a simulated uninterruptible-inspection regression both pass. Gradle import fixtures now use
+the selected test JDK's toolchain, avoiding extra SDK registrations when validating on JDK 21.
+
+Validation: 29 focused IntelliJ checks passed with engine JDK 17. The final strengthened suite
+passed all 88 IntelliJ checks with engine JDK 21, including all seven physical import acceptance
+cases and the matrix using real runtime-free generated seeds under their own output class name.
+All 84 shared-core checks passed, including real master/client cancellation; all 11 engine
+coverage tests passed on JDK 17. The engine and standalone runtime jars were rebuilt from these
+sources. The final ZIP passed CRC, engine isolation and test-dependency exclusion checks. Plugin
+Verifier reports Compatible on IDEA 2025.3.2 and 2026.2.3, with the existing two/six deprecated and
+thirteen experimental API usages. No native desktop acceptance was used.
