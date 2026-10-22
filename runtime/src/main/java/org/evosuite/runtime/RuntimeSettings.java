@@ -157,6 +157,17 @@ public class RuntimeSettings {
     }
 
     /**
+     * The mocking switches packed into one value, for caches whose contents depend on which mocks
+     * exist to notice that a switch changed.
+     */
+    public static int mockingFingerprint() {
+        return (useVFS ? 1 : 0)
+                | (mockJVMNonDeterminism ? 2 : 0)
+                | (useVNET ? 4 : 0)
+                | (mockGUI ? 8 : 0);
+    }
+
+    /**
      * Deactivates all mocking features (JVM, GUI, VFS, VNET).
      */
     public static void deactivateAllMocking() {

@@ -299,4 +299,30 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(MethodCallReplacementCache.getInstance()
                 .hasReplacementCall("java/lang/System", consoleKey));
     }
+
+    @Test
+    public void testEachSettingChangesTheFingerprintTheCacheKeysOn() {
+        boolean vfs = RuntimeSettings.useVFS;
+        boolean vnet = RuntimeSettings.useVNET;
+        boolean gui = RuntimeSettings.mockGUI;
+        try {
+            for (Runnable flip : new Runnable[] {
+                    () -> RuntimeSettings.useVFS = !RuntimeSettings.useVFS,
+                    () -> RuntimeSettings.mockJVMNonDeterminism = !RuntimeSettings.mockJVMNonDeterminism,
+                    () -> RuntimeSettings.useVNET = !RuntimeSettings.useVNET,
+                    () -> RuntimeSettings.mockGUI = !RuntimeSettings.mockGUI}) {
+                MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
+                int fingerprint = RuntimeSettings.mockingFingerprint();
+                Assertions.assertSame(cache, MethodCallReplacementCache.getInstance());
+                flip.run();
+                Assertions.assertNotSame(cache, MethodCallReplacementCache.getInstance());
+                Assertions.assertNotEquals(fingerprint, RuntimeSettings.mockingFingerprint());
+                flip.run();
+            }
+        } finally {
+            RuntimeSettings.useVFS = vfs;
+            RuntimeSettings.useVNET = vnet;
+            RuntimeSettings.mockGUI = gui;
+        }
+    }
 }

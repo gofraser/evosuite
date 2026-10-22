@@ -69,7 +69,7 @@ public class MethodCallReplacementCache {
     private final Map<String, Map<String, MethodCallReplacement>> specialReplacementCalls = new HashMap<>();
 
     /** The settings the replacements were built for. */
-    private final int settings = currentSettings();
+    private final int settings = RuntimeSettings.mockingFingerprint();
 
     private MethodCallReplacementCache() {
 
@@ -515,7 +515,7 @@ public class MethodCallReplacementCache {
      * @return a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementCache} object.
      */
     public static MethodCallReplacementCache getInstance() {
-        int current = currentSettings();
+        int current = RuntimeSettings.mockingFingerprint();
         MethodCallReplacementCache cache = instance;
         if (cache == null || cache.settings != current) {
             // Which replacements exist depends on the settings, so a change of any of them, as
@@ -524,13 +524,6 @@ public class MethodCallReplacementCache {
             instance = cache;
         }
         return cache;
-    }
-
-    private static int currentSettings() {
-        return (RuntimeSettings.useVFS ? 1 : 0)
-                | (RuntimeSettings.mockJVMNonDeterminism ? 2 : 0)
-                | (RuntimeSettings.useVNET ? 4 : 0)
-                | (RuntimeSettings.mockGUI ? 8 : 0);
     }
 
     /**

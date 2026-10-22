@@ -122,15 +122,8 @@ public class MockList {
 
     private static volatile Snapshot cachedSnapshot;
 
-    private static int currentSettings() {
-        return (RuntimeSettings.useVFS ? 1 : 0)
-                | (RuntimeSettings.mockJVMNonDeterminism ? 2 : 0)
-                | (RuntimeSettings.useVNET ? 4 : 0)
-                | (RuntimeSettings.mockGUI ? 8 : 0);
-    }
-
     private static Snapshot snapshot() {
-        int settings = currentSettings();
+        int settings = RuntimeSettings.mockingFingerprint();
         Snapshot current = cachedSnapshot;
         if (current == null || current.settings != settings) {
             current = new Snapshot(settings, buildList());
