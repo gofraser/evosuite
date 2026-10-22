@@ -253,3 +253,36 @@ of the three compact settings tabs were visually inspected. Plugin Verifier repo
 on IDEA 2025.3.2 and 2026.2.3, with the unchanged one/four deprecated and twelve experimental
 API usages. The rebuilt ZIP passes CRC inspection and contains the plugin/action logo assets
 as well as both isolated engine jars.
+
+
+## Explicit defaults and useful tool window (2026-10-22)
+
+Further manual feedback found that default descriptions beside empty text fields still looked
+like missing settings. Text editors now display their default values directly. Unedited default
+values retain their original unset/explicit state; edits become overrides, and clearing an override
+and applying restores its displayed default. Automatic checkboxes cover the module JDK,
+provider/environment model, provider endpoint and no extra arguments. Their descriptive values
+are read-only until the automatic option is disabled, and are never passed to the engine as literal
+paths/models/arguments. JUnit format retains its explicit Automatic choice.
+
+The EvoSuite sidebar remains the generation/progress tool window. Its initial view now explains
+how to start, with labeled actions for the open Java file, current method, existing tests and
+settings. The first console output switches to the console; output from an earlier run is retained
+when the window opens. The toolbar keeps generation/settings available alongside console actions,
+and Stop is disabled when no requests are running. Tool-window generation resolves the selected
+text editor explicitly, so moving focus into the console does not lose the generation target.
+
+Regression checks exercise default/edit/clear/apply round trips, explicit values equal to defaults,
+automatic extra-argument controls, the initial-to-output transition, reopening a populated console,
+and forwarding the open editor/caret to the existing generation actions. The real method action's
+enablement is checked as well. Tool-window buttons and delegation use public ActionUtil dispatch
+helpers; direct calls to override-only action methods were caught and removed by Plugin Verifier.
+The settings shortcut selects the project's active settings scope. Settings and tool-window
+captures support visual layout checks without desktop control.
+
+Validation: the full regression run passed all 38 IntelliJ tests (including five real Maven/Gradle
+imports) and all 77 shared-core tests with no failures/errors/skips. After the action-dispatch
+correction, all 15 focused settings/tool-window tests passed again, and `buildPlugin verifyPlugin`
+completed successfully. Plugin Verifier reports Compatible on IDEA 2025.3.2 and 2026.2.3, with
+unchanged one/four deprecated and twelve experimental API usages, and no override-only violations.
+The final ZIP passes CRC inspection and includes the new tool-window classes and isolated engine jars.

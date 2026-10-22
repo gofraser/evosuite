@@ -31,6 +31,8 @@ import com.intellij.openapi.wm.ToolWindowManager;
 public final class EvoSuiteConsole implements Disposable {
     private final Project project;
     private final ConsoleView view;
+    private volatile boolean hasOutput;
+    private volatile Runnable outputListener;
 
     public EvoSuiteConsole(Project project) {
         this.project = project;
@@ -45,8 +47,30 @@ public final class EvoSuiteConsole implements Disposable {
         return view;
     }
 
+    public boolean hasOutput() {
+        return hasOutput;
+    }
+
+    public void onOutput(Runnable listener) {
+        outputListener = listener;
+        if (hasOutput) notifyOutput();
+    }
+
+    private void notifyOutput() {
+        ApplicationManager.getApplication().invokeLater(() -> {
+            var listener = outputListener;
+            if (!project.isDisposed() && listener != null) listener.run();
+        });
+    }
+
     public void println(String line) {
-        if (!project.isDisposed()) view.print(line + "\n", ConsoleViewContentType.NORMAL_OUTPUT);
+        if (!project.isDisposed()) {
+            view.print(line + "\n", ConsoleViewContentType.NORMAL_OUTPUT);
+            if (!hasOutput) {
+                hasOutput = true;
+                notifyOutput();
+            }
+        }
     }
 
     public void show() {
@@ -64,6 +88,7 @@ public final class EvoSuiteConsole implements Disposable {
 
     @Override
     public void dispose() {
+        outputListener = null;
         view.dispose();
     }
 }

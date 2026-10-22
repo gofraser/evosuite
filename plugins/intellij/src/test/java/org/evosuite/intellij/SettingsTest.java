@@ -213,7 +213,8 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
                             new javax.swing.JList(), combo.getSelectedItem(), -1, false, false);
                     assertFalse(name, label.getText().isBlank());
                     assertTrue(name, label.getText().startsWith(name.equals("testFormat") ? "Automatic" : "Default"));
-                } else if (field instanceof javax.swing.JTextField) {
+                } else if (field instanceof javax.swing.JTextField text) {
+                    assertFalse(name + " must show a value", text.getText().isBlank());
                     var description = (javax.swing.JTextArea) findField(ui, name + ".default");
                     assertNotNull(name, description);
                     assertTrue(name, description.getText().startsWith("Default: "));
@@ -229,6 +230,54 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             ((javax.swing.JComboBox) findField(ui, "testFormat")).setSelectedItem("");
             configurable.apply();
             assertFalse(state.values.containsKey("testFormat"));
+        } finally {
+            configurable.disposeUIResources();
+            state.values = previous;
+        }
+    }
+
+    public void testDisplayedDefaultsRoundTripWithoutBecomingOverrides() throws Exception {
+        var state = EvoSuiteAppSettings.getInstance().getState();
+        var previous = new TreeMap<>(state.values);
+        var configurable = new EvoSuiteApplicationConfigurable();
+        try {
+            state.values.clear();
+            var ui = configurable.createComponent();
+            var budget = (javax.swing.JTextField) findField(ui, "searchBudget");
+            assertEquals("60", budget.getText());
+            assertEquals("3000", ((javax.swing.JTextField) findField(ui, "testTimeout")).getText());
+            assertEquals("src/test/evosuite", ((javax.swing.JTextField) findField(ui, "testFolder")).getText());
+            configurable.apply();
+            assertFalse(state.values.containsKey("searchBudget"));
+            assertFalse(state.values.containsKey("testTimeout"));
+            budget.setText("90");
+            assertTrue(configurable.isModified());
+            configurable.apply();
+            assertEquals("90", state.values.get("searchBudget"));
+            assertFalse(configurable.isModified());
+            budget.setText("");
+            configurable.apply();
+            assertEquals("60", budget.getText());
+            assertFalse(state.values.containsKey("searchBudget"));
+            state.values.put("searchBudget", "60");
+            configurable.reset();
+            configurable.apply();
+            assertEquals("Explicit stored defaults remain explicit", "60", state.values.get("searchBudget"));
+            var arguments = (javax.swing.JTextField) findField(ui, "extraArguments");
+            var automatic = (javax.swing.JCheckBox) findField(ui, "extraArguments.automatic");
+            assertTrue(automatic.isSelected());
+            assertFalse(arguments.isEditable());
+            assertEquals("None", arguments.getText());
+            automatic.doClick();
+            assertTrue(arguments.isEditable());
+            arguments.setText("-Dsandbox=false");
+            configurable.apply();
+            assertEquals("-Dsandbox=false", state.values.get("extraArguments"));
+            automatic.doClick();
+            configurable.apply();
+            assertFalse(state.values.containsKey("extraArguments"));
+            assertEquals("None", arguments.getText());
+            assertFalse(configurable.isModified());
         } finally {
             configurable.disposeUIResources();
             state.values = previous;

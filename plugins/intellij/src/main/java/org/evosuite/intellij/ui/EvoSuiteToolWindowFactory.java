@@ -19,47 +19,15 @@
  */
 package org.evosuite.intellij.ui;
 
-import com.intellij.icons.AllIcons;
-import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.*;
 import com.intellij.ui.content.ContentFactory;
-
-import org.evosuite.intellij.run.GenerationService;
 import org.jetbrains.annotations.NotNull;
-
-import java.awt.BorderLayout;
-
-import javax.swing.JPanel;
 
 public final class EvoSuiteToolWindowFactory implements ToolWindowFactory {
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow window) {
-        var console = EvoSuiteConsole.getInstance(project).view();
-        DefaultActionGroup actions = new DefaultActionGroup();
-        actions.add(
-                new AnAction(
-                        "Stop",
-                        "Cancel this project's EvoSuite requests",
-                        AllIcons.Actions.Suspend) {
-                    @Override
-                    public @NotNull ActionUpdateThread getActionUpdateThread() {
-                        return ActionUpdateThread.BGT;
-                    }
-
-                    @Override
-                    public void actionPerformed(@NotNull AnActionEvent e) {
-                        GenerationService.getInstance().cancel(project);
-                    }
-                });
-        actions.addAll(console.createConsoleActions());
-        JPanel panel = new JPanel(new BorderLayout());
-        var toolbar =
-                ActionManager.getInstance().createActionToolbar("EvoSuiteConsole", actions, false);
-        toolbar.setTargetComponent(console.getComponent());
-        panel.add(toolbar.getComponent(), BorderLayout.WEST);
-        panel.add(console.getComponent(), BorderLayout.CENTER);
-        window.getContentManager()
-                .addContent(ContentFactory.getInstance().createContent(panel, "", false));
+        window.getContentManager().addContent(ContentFactory.getInstance()
+                .createContent(new EvoSuiteToolWindowPanel(project), "", false));
     }
 }

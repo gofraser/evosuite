@@ -59,6 +59,10 @@ public final class GenerationService implements Disposable {
         return ApplicationManager.getApplication().getService(GenerationService.class);
     }
 
+    public boolean isRunning(Project project) {
+        return !running.getOrDefault(project, Set.of()).isEmpty();
+    }
+
     public void cancel(Project project) {
         running.getOrDefault(project, Set.of()).forEach(ProgressIndicator::cancel);
     }

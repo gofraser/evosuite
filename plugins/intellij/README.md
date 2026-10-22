@@ -25,7 +25,10 @@ libraries on the engine classpath; ordinary generation excludes them. Parser lim
 the same as in Eclipse: parameterized tests and statements depending on fixtures/helpers may
 be dropped.
 
-The **EvoSuite** tool window shows commands (with keys masked), progress and results. Its Stop
+The **EvoSuite** sidebar opens a tool window with actions to generate tests for the open Java
+file/current method, extend the open test file, and open the EvoSuite settings scope the project uses. Before the first run,
+it shows instructions and labeled action buttons. When generation starts it switches to commands
+(with keys masked), progress and results; generation/settings actions remain in the toolbar. Its Stop
 action cancels this project's requests and kills the engine and client JVMs. Completed suites
 are kept. Up to three resulting suites open automatically.
 
@@ -70,9 +73,12 @@ minimization, assertion strategy, JUnit format, source folder (`src/test/evosuit
 heap, extra arguments, pom overrides and build-path configuration. Criteria checkboxes preserve
 custom criteria. Empty test format detects JUnit 4-only projects; otherwise it uses JUnit 5.
 Explicit settings or pom/extra-argument `test_format` override detection.
-Default values are shown beside text fields. Combo boxes show named **Default (…)** entries;
-**Automatic (JUnit 4 or JUnit 5)** retains project-based framework detection. These labels do
-not turn defaults into stored overrides. Settings tabs wrap explanatory text and scroll vertically
+Text fields show their actual default values, such as `60`, `src/test/evosuite`, and `_ESTest`.
+Automatic checkboxes distinguish module-JDK/provider/environment defaults and no additional
+arguments from explicit custom values. Clear a numeric/text override and Apply to restore its
+displayed default. Combo boxes show named **Default (…)** entries; **Automatic (JUnit 4 or JUnit 5)**
+retains project-based framework detection. Simply viewing/applying defaults does not store them
+as explicit overrides. Settings tabs wrap explanatory text and scroll vertically
 within a compact dialog.
 
 LLM settings include provider, model, endpoint, approach, seeding, stagnation, mutation/crossover,

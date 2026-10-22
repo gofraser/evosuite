@@ -33,7 +33,7 @@ import javax.swing.*
 class EvoSuiteApplicationConfigurable : EvoSuiteConfigurable(null)
 class EvoSuiteProjectConfigurable(project: Project) : EvoSuiteConfigurable(project)
 
-/** All settings have one schema/default source. Empty text means the engine default. */
+/** Display defaults as values while preserving unset settings and automatic resolution. */
 open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     private var component: JPanel? = null
     private val fields = linkedMapOf<String, JComponent>()
@@ -80,7 +80,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                             }
                         }
                     }
-                } else JTextField(22)
+                } else SettingTextField(defaultText(name), automaticLabel(name))
                 if (editor is JTextField) editor.toolTipText = "Default: ${defaultDescription(name)}"
                 editor.name = name
                 fields[name] = editor
@@ -88,7 +88,11 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 panel.add(JLabel(label).apply { labelFor = editor }, constraints(0, row, 0.0))
                 val cell = if (editor is JTextField) JPanel(BorderLayout(0, 2)).apply {
                     add(editor, BorderLayout.NORTH)
-                    add(note("Default: ${defaultDescription(name)}").apply { this.name = "$name.default" }, BorderLayout.CENTER)
+                    (editor as? SettingTextField)?.automatic?.let {
+                        it.name = "$name.automatic"
+                        add(it, BorderLayout.CENTER)
+                    }
+                    add(note("Default: ${defaultDescription(name)}").apply { this.name = "$name.default" }, BorderLayout.SOUTH)
                 } else editor
                 panel.add(cell, constraints(1, row++, 1.0))
                 if (editor is JCheckBox) editor.addActionListener { enableFields() }
@@ -139,6 +143,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         is CriteriaEditor -> field.value()
         is JCheckBox -> field.isSelected.toString()
         is JComboBox<*> -> field.selectedItem?.toString() ?: ""
+        is SettingTextField -> field.value()
         is JTextField -> field.text.trim()
         else -> ""
     } }.filterValues { it.isNotEmpty() }
@@ -148,6 +153,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             is CriteriaEditor -> field.load(value)
             is JCheckBox -> field.isSelected = (value.ifEmpty { SettingKeys.defaultValue(name) }).toBoolean()
             is JComboBox<*> -> field.selectedItem = value
+            is SettingTextField -> field.load(value)
             is JTextField -> field.text = value
         } }
         if (project != null) {
@@ -199,6 +205,8 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         }
         if (project == null) EvoSuiteAppSettings.getInstance().state!!.values = java.util.TreeMap(current())
         else EvoSuiteProjectSettings.getInstance(project).state!!.apply { values = java.util.TreeMap(current()); useProjectSettings = projectSwitch.isSelected; delegateToMaven = delegate.isSelected }
+        fields.forEach { (name, field) -> if (field is SettingTextField) field.load(values()[name].orEmpty()) }
+        enableFields()
     }
     /** Keep Apply open on failure; PasswordSafe still runs off EDT and may show its own prompt. */
     protected open fun storeApiKey(password: String) {
@@ -210,20 +218,41 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     }
     private fun enableFields() {
         val scope = project == null || projectSwitch.isSelected
-        fields.values.forEach { setEnabled(it, scope) }
+        fields.keys.forEach { enableEditor(it, scope) }
         val provider = effectiveChoice("llmProvider")
         val approach = effectiveChoice("llmApproach")
         val llm = scope && provider.isNotEmpty() && provider != "NONE" && approach != "SEARCH_ONLY"
-        SettingKeys.LLM.filter { it != "llmProvider" && it != "llmApproach" }.forEach { fields[it]?.isEnabled = llm }
+        SettingKeys.LLM.filter { it != "llmProvider" && it != "llmApproach" }.forEach { enableEditor(it, llm) }
         val search = approach != "LLM_SINGLE_PROMPT" && approach != "LLM_ITERATIVE"
         listOf("llmSeeding", "llmOnStagnation", "llmOperators").forEach { fields[it]?.isEnabled = llm && search }
         key.isEnabled = keyReady && llm && (provider == "OPENAI" || provider == "ANTHROPIC")
         fields["assertionStrategy"]?.isEnabled = scope && (fields["assertions"] as? JCheckBox)?.isSelected == true
     }
+    private fun enableEditor(name: String, enabled: Boolean) {
+        fields[name]?.let { field ->
+            setEnabled(field, enabled)
+            (field as? SettingTextField)?.automatic?.isEnabled = enabled
+        }
+    }
+    private fun defaultText(name: String): String = when (name) {
+        "testTimeout" -> "3000"
+        "javaHome" -> "Module JDK"
+        "llmModel" -> "Provider / EVOSUITE_LLM_MODEL"
+        "llmBaseUrl" -> "Provider endpoint"
+        "extraArguments" -> "None"
+        else -> SettingKeys.defaultValue(name)
+    }
+    private fun automaticLabel(name: String): String? = when (name) {
+        "javaHome" -> "Use module JDK"
+        "llmModel" -> "Use provider / environment default"
+        "llmBaseUrl" -> "Use provider endpoint"
+        "extraArguments" -> "No additional arguments"
+        else -> null
+    }
     private fun effectiveChoice(name: String) = (fields[name] as? JComboBox<*>)?.selectedItem?.toString().orEmpty().ifEmpty { SettingKeys.defaultValue(name) }
     private fun defaultChoice(name: String) = if (name == "testFormat") "Automatic (JUnit 4 or JUnit 5)" else "Default (${SettingKeys.defaultValue(name)})"
     private fun defaultDescription(name: String): String = when (name) {
-        "searchBudget" -> "60 seconds per class"
+        "searchBudget" -> "${SettingKeys.defaultValue(name)} seconds per class"
         "testTimeout" -> "3000 ms (0 uses the engine default)"
         "clientMemory" -> "engine heap limit (0 uses the engine default)"
         "javaHome" -> "module JDK"
@@ -294,4 +323,34 @@ private fun note(text: String, rows: Int = 2) = JTextArea(text, rows, 22).apply 
     minimumSize = Dimension(0, 0)
     maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
     border = null
+}
+
+/** A displayed default is not an explicit override until edited. */
+private class SettingTextField(private val defaultText: String, automaticLabel: String?) : JTextField(22) {
+    val automatic = automaticLabel?.let { JCheckBox(it) }
+    private var stored = ""
+    private var displayed = ""
+    private var custom = ""
+    init {
+        automatic?.addActionListener {
+            if (automatic.isSelected) {
+                custom = text
+                text = defaultText
+            } else text = custom
+            isEditable = !automatic.isSelected
+        }
+    }
+    fun load(value: String) {
+        stored = value
+        custom = value
+        automatic?.isSelected = value.isBlank()
+        text = if (automatic?.isSelected == true || value.isEmpty()) defaultText else value
+        displayed = text
+        isEditable = automatic?.isSelected != true
+    }
+    fun value(): String {
+        if (automatic?.isSelected == true) return ""
+        val value = text.trim()
+        return if (value == displayed) stored else value
+    }
 }
