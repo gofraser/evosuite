@@ -56,6 +56,8 @@ import java.io.File;
 import java.io.PrintStream;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.evosuite.junit.writer.TestSuiteWriterUtils.*;
 
@@ -376,10 +378,7 @@ public class TestSuiteWriter implements Opcodes {
         boolean needsThreadWrapper = wasSecurityException
                 || results.stream().anyMatch(ExecutionResult::hasTimeout);
 
-        List<Integer> testIds = new ArrayList<>();
-        for (int i = 0; i < testCases.size(); i++) {
-            testIds.add(i);
-        }
+        List<Integer> testIds = IntStream.range(0, testCases.size()).boxed().collect(Collectors.toList());
         return assembleTestFile(name, name, testIds, needsThreadWrapper, results, requirements);
     }
 
@@ -400,15 +399,8 @@ public class TestSuiteWriter implements Opcodes {
     }
 
     /**
-     * Assemble one JUnit file: header, inline scaffolding when requirements ask for it, the selected
-     * tests and the footer.
-     *
-     * @param className         name of the test class the file declares
-     * @param scaffoldingName   name of the test suite whose scaffolding file the class extends
-     * @param testIds           indices of the tests to emit; if empty, a no-op test is emitted
-     * @param needsThreadWrapper whether the inline scaffolding must declare the executor for
-     *                          thread-wrapped tests
-     * @param results           execution results of all tests, also passed to the scaffolding
+     * Assemble one JUnit file declaring {@code className} that extends the scaffolding of
+     * {@code scaffoldingName}; an empty {@code testIds} emits the no-op test.
      */
     private String assembleTestFile(String className, String scaffoldingName, List<Integer> testIds,
                                     boolean needsThreadWrapper, List<ExecutionResult> results,

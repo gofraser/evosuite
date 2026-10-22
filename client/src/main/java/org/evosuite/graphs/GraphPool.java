@@ -404,7 +404,7 @@ public class GraphPool {
         rawCFGs.clear();
         actualCFGs.clear();
         controlDependencies.clear();
-        ccfgs.clear();
+        invalidateCCFGs();
     }
 
     /**
@@ -438,10 +438,7 @@ public class GraphPool {
         invalidateCCFGs();
     }
 
-    /**
-     * Drops all cached CCFGs. A CCFG is derived from the method graphs of its class and embeds
-     * the CCFGs of the classes whose fields it calls, so it cannot outlive any of them.
-     */
+    // A CCFG embeds the CCFGs of the classes whose fields it calls, so drop them all.
     private void invalidateCCFGs() {
         ccfgs.clear();
     }
