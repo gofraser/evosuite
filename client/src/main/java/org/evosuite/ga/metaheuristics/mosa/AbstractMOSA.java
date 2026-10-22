@@ -202,6 +202,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
     // Explicitly declared with a more special type than the one used in GeneticAlgorithm.
     // This is required for the Archive, which currently only supports TestFitnessFunctions.
+    // It hides GeneticAlgorithm.fitnessFunctions, which stays empty for MOSA: inherited code that
+    // reads that field directly (getRandomPopulation, injectLlmTests, updateBestIndividualFromArchive,
+    // ...) sees no goals, so go through getFitnessFunctions() in code MOSA reaches.
     protected final List<TestFitnessFunction> fitnessFunctions = new ArrayList<>();
 
     private MOSATestSuiteAdapter adapter = null;
