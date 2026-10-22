@@ -726,11 +726,12 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     logger.error("Unexpected error during remote action: " + actionName, t);
                 }
                 return false;
-            }, timeoutMs, TimeUnit.MILLISECONDS);
+            }, timeoutMs, TimeUnit.MILLISECONDS, false);
         } catch (RejectedExecutionException e) {
             logger.debug("Remote action executor is shut down; skipping remote action {}", actionName);
             return false;
         } catch (InterruptedException e) {
+            // Only the wait ends: an action in flight finishes, and the next one queues behind it.
             Thread.currentThread().interrupt();
             return false;
         } catch (ExecutionException e) {

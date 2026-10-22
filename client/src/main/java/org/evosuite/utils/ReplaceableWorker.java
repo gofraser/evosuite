@@ -73,11 +73,27 @@ public final class ReplaceableWorker {
      */
     public <T> T call(Callable<T> task, long timeout, TimeUnit unit)
             throws InterruptedException, ExecutionException, TimeoutException {
+        return call(task, timeout, unit, true);
+    }
+
+    /**
+     * Like {@link #call(Callable, long, TimeUnit)}, but with {@code replaceOnInterrupt} false an
+     * interrupt of the waiting thread only ends the wait: the task keeps running and the worker
+     * stays in use, so work queued behind it is not lost. A timeout still cancels and replaces.
+     */
+    public <T> T call(Callable<T> task, long timeout, TimeUnit unit, boolean replaceOnInterrupt)
+            throws InterruptedException, ExecutionException, TimeoutException {
         ExecutorService used = executor;
         Future<T> future = used.submit(task);
         try {
             return future.get(timeout, unit);
-        } catch (TimeoutException | InterruptedException e) {
+        } catch (InterruptedException e) {
+            if (replaceOnInterrupt) {
+                future.cancel(true);
+                replace(used);
+            }
+            throw e;
+        } catch (TimeoutException e) {
             future.cancel(true);
             replace(used);
             throw e;

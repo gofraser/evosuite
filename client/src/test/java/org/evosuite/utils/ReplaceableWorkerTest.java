@@ -88,7 +88,30 @@ class ReplaceableWorkerTest {
     }
 
     @Test
-    void interruptOfTheCallerCancelsAndReplaces() throws Exception {
+    void interruptWithoutReplacementKeepsTheTaskAndTheWorker() throws Exception {
+        worker.call(() -> "warm up", 5, TimeUnit.SECONDS);
+        Thread before = worker.thread();
+        AtomicBoolean interrupted = new AtomicBoolean();
+        Thread.currentThread().interrupt();
+        try {
+            assertThrows(InterruptedException.class, () -> worker.call(() -> {
+                try {
+                    Thread.sleep(300L);
+                } catch (InterruptedException e) {
+                    interrupted.set(true);
+                }
+                return null;
+            }, 5, TimeUnit.SECONDS, false));
+        } finally {
+            Thread.interrupted();
+        }
+        assertEquals("next", worker.call(() -> "next", 5, TimeUnit.SECONDS));
+        assertSame(before, worker.thread());
+        assertEquals(false, interrupted.get());
+    }
+
+    @Test
+    void interruptOfTheCallerCancelsAndReplaces()throws Exception {
         worker.call(() -> "warm up", 5, TimeUnit.SECONDS);
         Thread before = worker.thread();
         Thread.currentThread().interrupt();
