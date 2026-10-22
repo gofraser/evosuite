@@ -24,6 +24,7 @@ import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
@@ -274,7 +275,7 @@ public class StagnationDetector {
      * invoke from a background worker.
      */
     public CallResult executeWithPrompt(PromptResult prompt) {
-        return executeWithPrompt(prompt, Long.MAX_VALUE);
+        return executeWithPrompt(prompt, PhaseDeadline.NONE);
     }
 
     /**

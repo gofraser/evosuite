@@ -156,7 +156,7 @@ final class LlmModelListDiagnostics {
     }
 
     private static int diagnosticTimeoutMillis(long deadlineNanos) {
-        if (deadlineNanos == Long.MAX_VALUE) {
+        if (deadlineNanos == PhaseDeadline.NONE) {
             return 5_000;
         }
         long remaining = PhaseDeadline.remainingNanos(deadlineNanos);

@@ -21,6 +21,7 @@ package org.evosuite.llm.response;
 
 import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestReferenceValidator;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -192,7 +193,7 @@ final class LlmTestSalvager {
         if (repairDeadlineNanos == TestRepairLoop.NO_REPAIR_DEADLINE || repairDeadlineNanos <= 0L) {
             return false;
         }
-        return System.nanoTime() >= repairDeadlineNanos - TestRepairLoop.REPAIR_DEADLINE_RETURN_MARGIN_NANOS;
+        return PhaseDeadline.isExpired(repairDeadlineNanos - TestRepairLoop.REPAIR_DEADLINE_RETURN_MARGIN_NANOS);
     }
 
     /**

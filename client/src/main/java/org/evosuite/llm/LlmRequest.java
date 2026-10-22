@@ -36,7 +36,7 @@ import java.util.List;
 public final class LlmRequest {
 
     /** {@link #getDeadlineNanos()} of a request without a deadline. */
-    public static final long NO_DEADLINE = Long.MAX_VALUE;
+    public static final long NO_DEADLINE = PhaseDeadline.NONE;
 
     private final List<LlmMessage> messages;
     private final LlmFeature feature;

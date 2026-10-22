@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TargetedPromptFactory;
 import org.evosuite.llm.response.GeneratedTestRequest;
@@ -166,7 +167,7 @@ public abstract class LlmSemanticOperator {
      * @param targetCount the number of targets the prompt was built for
      */
     public TargetedResponse completeDeferringExpansion(PromptResult prompt, int targetCount) {
-        return complete(prompt, targetCount, deferringRepairLoop, "worker", Long.MAX_VALUE);
+        return complete(prompt, targetCount, deferringRepairLoop, "worker", PhaseDeadline.NONE);
     }
 
     /**
@@ -175,7 +176,7 @@ public abstract class LlmSemanticOperator {
      * failure to build it counts as a delivered-but-unparsed response like any
      * other parse failure). {@code stage} names the caller for parse-failure
      * logging, or is null to log nothing. {@code deadlineNanos} bounds the call
-     * and its repair turns, {@link Long#MAX_VALUE} for no bound.
+     * and its repair turns, {@link PhaseDeadline#NONE} for no bound.
      */
     private TargetedResponse complete(PromptResult prompt, int targetCount, Supplier<TestRepairLoop> loop,
                                       String stage, long deadlineNanos) {

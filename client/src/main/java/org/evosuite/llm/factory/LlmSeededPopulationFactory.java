@@ -94,7 +94,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     private final AtomicBoolean acceptingSeeds = new AtomicBoolean(true);
     private final AtomicBoolean seedsMerged = new AtomicBoolean(false);
     private volatile CompletableFuture<List<TestChromosome>> pendingSeeds;
-    private volatile long repairDeadlineNanos = Long.MAX_VALUE;
+    private volatile long repairDeadlineNanos = PhaseDeadline.NONE;
 
     /** Creates a factory using the singleton LLM service and an empty goals supplier. */
     public LlmSeededPopulationFactory(ChromosomeFactory<TestChromosome> fallback) {

@@ -29,6 +29,7 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.prompt.ClusterGrowthDelta;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.SystemPromptProvider;
@@ -93,7 +94,7 @@ import static org.evosuite.llm.response.RepairText.truncate;
 public class TestRepairLoop {
 
     private static final Logger logger = LoggerFactory.getLogger(TestRepairLoop.class);
-    static final long NO_REPAIR_DEADLINE = Long.MAX_VALUE;
+    static final long NO_REPAIR_DEADLINE = PhaseDeadline.NONE;
     static final long REPAIR_DEADLINE_RETURN_MARGIN_NANOS = TimeUnit.SECONDS.toNanos(2);
 
     private static final long DEFAULT_PARSE_COMPILE_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(10L);
@@ -1215,7 +1216,7 @@ public class TestRepairLoop {
         if (repairDeadlineNanos == NO_REPAIR_DEADLINE || repairDeadlineNanos <= 0L) {
             return true;
         }
-        long remainingNanos = repairDeadlineNanos - System.nanoTime();
+        long remainingNanos = PhaseDeadline.remainingNanos(repairDeadlineNanos);
         long minRepairCallNanos = TimeUnit.SECONDS.toNanos(
                 Math.max(1L, Properties.LLM_TIMEOUT_SECONDS));
         return remainingNanos > minRepairCallNanos + REPAIR_DEADLINE_RETURN_MARGIN_NANOS;
@@ -1414,7 +1415,7 @@ public class TestRepairLoop {
         if (repairDeadlineNanos == NO_REPAIR_DEADLINE) {
             return DEFAULT_PARSE_COMPILE_TIMEOUT_NANOS;
         }
-        long remaining = repairDeadlineNanos - System.nanoTime();
+        long remaining = PhaseDeadline.remainingNanos(repairDeadlineNanos);
         // The repair deadline governs whether another provider request may be
         // started. If it has already elapsed, still validate locally salvaged
         // tests; caller cancellation remains able to interrupt this bounded
