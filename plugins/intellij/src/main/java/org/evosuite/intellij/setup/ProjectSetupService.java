@@ -22,6 +22,7 @@ package org.evosuite.intellij.setup;
 import com.intellij.execution.junit.JUnitExternalLibraryDescriptor;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.module.Module;
+import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.*;
@@ -43,6 +44,26 @@ import java.util.function.Consumer;
 
 public final class ProjectSetupService {
     private ProjectSetupService() {}
+
+    /** A source-set import keeps test roots and test dependencies in a separate module. */
+    public static Module testModule(Module module) {
+        if (TestModuleProperties.getInstance(module).getProductionModule() != null) return module;
+        List<Module> tests =
+                Arrays.stream(ModuleManager.getInstance(module.getProject()).getModules())
+                        .filter(
+                                candidate ->
+                                        module.equals(
+                                                TestModuleProperties.getInstance(candidate)
+                                                        .getProductionModule()))
+                        .toList();
+        if (tests.size() == 1) return tests.getFirst();
+        // Gradle can also link testFixtures/integrationTest to main. Prefer its ordinary test
+        // source set; do not choose an unrelated/custom test module arbitrarily.
+        return tests.stream()
+                .filter(candidate -> candidate.getName().endsWith(".test"))
+                .findFirst()
+                .orElse(module);
+    }
 
     public static Path baseDir(Module module) {
         MavenIntegration maven = MavenBridge.get(module.getProject());
@@ -88,14 +109,14 @@ public final class ProjectSetupService {
         if (!options.configureBuildPath) return;
         Project project = module.getProject();
         Path folder = testFolder(module, options);
-        registerTestRoot(module, folder);
+        Module testModule = IdeThread.smartRead(project, () -> testModule(module));
         boolean junit =
                 hasClass(
-                        module,
+                        testModule,
                         options.testFormat.equals(GenerationOptions.JUNIT4)
                                 ? "org.junit.Test"
                                 : "org.junit.jupiter.api.Test");
-        boolean runtime = hasClass(module, "org.evosuite.runtime.EvoRunnerParameters");
+        boolean runtime = hasClass(testModule, "org.evosuite.runtime.EvoRunnerParameters");
         MavenIntegration maven = MavenBridge.get(project);
         if (maven != null) {
             String declared = maven.runtimeVersion(module);
@@ -145,21 +166,23 @@ public final class ProjectSetupService {
             if (consent) {
                 if (!junit)
                     add(
-                            module,
+                            testModule,
                             options.testFormat.equals(GenerationOptions.JUNIT4)
                                     ? JUnitExternalLibraryDescriptor.JUNIT4
                                     : JUnitExternalLibraryDescriptor.JUNIT5,
-                            indicator);
+                            indicator,
+                            console);
                 if (!runtime && imported)
                     add(
-                            module,
+                            testModule,
                             new ExternalLibraryDescriptor(
                                     "org.evosuite",
                                     "evosuite-standalone-runtime",
                                     EngineJars.VERSION,
                                     EngineJars.VERSION,
                                     EngineJars.VERSION),
-                            indicator);
+                            indicator,
+                            console);
             } else
                 console.accept(
                         "Dependencies were not added. Generated tests need JUnit and the EvoSuite"
@@ -175,7 +198,7 @@ public final class ProjectSetupService {
                                 null,
                                 () ->
                                         ModuleRootModificationUtil.updateModel(
-                                                module,
+                                                testModule,
                                                 model -> {
                                                     Library library =
                                                             model.getModuleLibraryTable()
@@ -207,6 +230,9 @@ public final class ProjectSetupService {
         }
         if (maven != null)
             IdeThread.await(IdeThread.edt(() -> maven.offerSetup(module, options)), indicator);
+        // A dependency edit can reimport the module and reset its transient source roots.
+        // Register against the final model, even when Maven setup was declined.
+        registerTestRoot(module, folder);
         if (imported && (maven == null || maven.directory(module) == null))
             console.accept(
                     "For Gradle re-sync, declare the generated root in build.gradle:"
@@ -227,11 +253,12 @@ public final class ProjectSetupService {
                             null,
                             () -> {
                                 try {
+                                    Module ownerModule = testModule(module);
                                     VirtualFile root = VfsUtil.createDirectories(folder.toString());
                                     if (!ProjectFileIndex.getInstance(project)
                                             .isInTestSourceContent(root))
                                         ModuleRootModificationUtil.updateModel(
-                                                module,
+                                                ownerModule,
                                                 model -> {
                                                     ContentEntry owner =
                                                             Arrays.stream(model.getContentEntries())
@@ -251,6 +278,12 @@ public final class ProjectSetupService {
                                                                                             e.getUrl()
                                                                                                     .length()))
                                                                     .orElse(null);
+                                                    if (owner == null
+                                                            && TestModuleProperties.getInstance(
+                                                                                    ownerModule)
+                                                                            .getProductionModule()
+                                                                    != null)
+                                                        owner = model.addContentEntry(root);
                                                     if (owner == null)
                                                         throw new IllegalStateException(
                                                                 "Test folder has no module content"
@@ -281,7 +314,34 @@ public final class ProjectSetupService {
     }
 
     private static void add(
-            Module module, ExternalLibraryDescriptor dependency, ProgressIndicator indicator) {
+            Module module,
+            ExternalLibraryDescriptor dependency,
+            ProgressIndicator indicator,
+            Consumer<String> console) {
+        if (GradleDependencySetup.applies(module)) {
+            GradleDependencySetup.add(module, dependency, indicator, console);
+            return;
+        }
+        var maven = MavenBridge.get(module.getProject());
+        if (maven != null && maven.directory(module) != null) {
+            String version = dependency.getPreferredVersion();
+            if (version == null || version.isBlank()) version = dependency.getMinVersion();
+            String exactVersion = version;
+            String artifact =
+                    "org.junit.jupiter".equals(dependency.getLibraryGroupId())
+                            ? "junit-jupiter"
+                            : dependency.getLibraryArtifactId();
+            IdeThread.await(
+                    IdeThread.edt(
+                            () ->
+                                    maven.addTestDependency(
+                                            module,
+                                            dependency.getLibraryGroupId(),
+                                            artifact,
+                                            exactVersion)),
+                    indicator);
+            return;
+        }
         var promise =
                 IdeThread.edt(
                         () ->

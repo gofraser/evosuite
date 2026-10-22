@@ -74,4 +74,30 @@ public class MavenSetupTest extends LightJavaCodeInsightFixtureTestCase {
         assertEquals("inherited-setup", execution.getSubTagText("id"));
         assertEquals("setup", execution.findFirstSubTag("goals").getSubTagText("goal"));
     }
+
+    public void testExactSnapshotDependencyIsIdempotentAndPreservesExistingScope() {
+        var xml = (XmlFile) myFixture.addFileToProject("pom.xml", "<project/>");
+        WriteCommandAction.runWriteCommandAction(
+                getProject(),
+                () -> {
+                    MavenSupport.configureTestDependency(
+                            xml, "org.evosuite", "evosuite-standalone-runtime", "1.2.1-SNAPSHOT");
+                    MavenSupport.configureTestDependency(
+                            xml, "org.evosuite", "evosuite-standalone-runtime", "1.2.1-SNAPSHOT");
+                });
+        var dependencies =
+                xml.getRootTag().findFirstSubTag("dependencies").findSubTags("dependency");
+        assertEquals(1, dependencies.length);
+        assertEquals("test", dependencies[0].getSubTagText("scope"));
+        assertEquals("1.2.1-SNAPSHOT", dependencies[0].getSubTagText("version"));
+        WriteCommandAction.runWriteCommandAction(
+                getProject(),
+                () -> {
+                    dependencies[0].findFirstSubTag("scope").getValue().setText("compile");
+                    MavenSupport.configureTestDependency(
+                            xml, "org.evosuite", "evosuite-standalone-runtime", "2.0");
+                });
+        assertEquals("compile", dependencies[0].getSubTagText("scope"));
+        assertEquals("2.0", dependencies[0].getSubTagText("version"));
+    }
 }

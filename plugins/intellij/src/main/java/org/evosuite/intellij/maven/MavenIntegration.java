@@ -44,6 +44,9 @@ public interface MavenIntegration {
 
     org.jetbrains.concurrency.Promise<Void> offerSetup(Module module, GenerationOptions options);
 
+    org.jetbrains.concurrency.Promise<Void> addTestDependency(
+            Module module, String group, String artifact, String version);
+
     boolean delegate(
             Module module,
             List<GenerationTarget> targets,

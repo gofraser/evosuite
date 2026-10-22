@@ -1,0 +1,2 @@
+rootProject.name = 'evosuite-gradle-acceptance'
+include 'app', 'library'

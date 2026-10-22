@@ -19,7 +19,7 @@ dependencies {
     intellijPlatform {
         val localIde = providers.gradleProperty("localIde")
         if (localIde.isPresent) local(localIde.get()) else intellijIdea("2025.3.2")
-        bundledPlugins("com.intellij.java", "org.jetbrains.idea.maven", "JUnit")
+        bundledPlugins("com.intellij.java", "org.jetbrains.idea.maven", "JUnit", "org.jetbrains.plugins.gradle")
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.Plugin.Java)
         pluginVerifier()
@@ -92,10 +92,19 @@ tasks.buildPlugin {
     }
 }
 tasks.test {
+    // These JUnit 3 platform fixtures cannot use JUnit 4 assumptions to skip setup.
+    // Exclude the expensive, prerequisite-dependent imports unless explicitly enabled.
+    if (!providers.gradleProperty("evosuite.import.it").map(String::toBoolean).getOrElse(false)) {
+        exclude("**/ImportAcceptanceTest*")
+    }
     systemProperty("evosuite.it.javaHome", providers.gradleProperty("evosuite.it.javaHome").getOrElse(""))
     systemProperty("evosuite.it.skip", providers.gradleProperty("evosuite.it.skip").getOrElse("false"))
     systemProperty("evosuite.engine", engineJar.absolutePath)
     systemProperty("evosuite.runtime", runtimeJar.absolutePath)
+    systemProperty("evosuite.import.it", providers.gradleProperty("evosuite.import.it").getOrElse("false"))
+    systemProperty("evosuite.import.gradleHome", providers.gradleProperty("evosuite.import.gradleHome").getOrElse(gradle.gradleHomeDir?.absolutePath.orEmpty()))
+    systemProperty("evosuite.import.fixtures", file("src/test/testData/import").absolutePath)
+    inputs.dir("src/test/testData/import")
     // JDK 21 has the Java desktop module; tests run through the platform's normal harness.
     maxHeapSize = "2g"
 }

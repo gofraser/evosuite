@@ -180,10 +180,81 @@ public final class MavenSupport implements MavenIntegration {
                 null,
                 () -> configureSetup(xml, options, id),
                 file);
+        return saveAndRefresh(model);
+    }
+
+    @Override
+    public org.jetbrains.concurrency.Promise<Void> addTestDependency(
+            Module module, String group, String artifact, String version) {
+        MavenProject model = model(module);
+        if (model == null)
+            return org.jetbrains.concurrency.Promises.rejectedPromise("Not a Maven module");
+        PsiFile file = PsiManager.getInstance(project).findFile(model.getFile());
+        if (!(file instanceof XmlFile xml) || xml.getRootTag() == null)
+            return org.jetbrains.concurrency.Promises.rejectedPromise("Cannot edit the module pom");
+        WriteCommandAction.runWriteCommandAction(
+                project,
+                "EvoSuite: add test dependency",
+                null,
+                () -> configureTestDependency(xml, group, artifact, version),
+                file);
+        return saveAndRefresh(model);
+    }
+
+    /** Exact versions also work before Maven's repository index has discovered a local snapshot. */
+    static void configureTestDependency(
+            XmlFile xml, String group, String artifact, String version) {
+        XmlTag dependencies = child(xml.getRootTag(), "dependencies");
+        XmlTag dependency =
+                Arrays.stream(dependencies.findSubTags("dependency"))
+                        .filter(
+                                d ->
+                                        group.equals(d.getSubTagText("groupId"))
+                                                && artifact.equals(d.getSubTagText("artifactId"))
+                                                && (d.getSubTagText("type") == null
+                                                        || "jar".equals(d.getSubTagText("type")))
+                                                && (d.getSubTagText("classifier") == null
+                                                        || d.getSubTagText("classifier").isBlank()))
+                        .findFirst()
+                        .orElse(null);
+        if (dependency == null) {
+            dependency =
+                    dependencies.addSubTag(
+                            dependencies.createChildTag(
+                                    "dependency", dependencies.getNamespace(), "", false),
+                            false);
+            child(dependency, "groupId").getValue().setText(group);
+            child(dependency, "artifactId").getValue().setText(artifact);
+            child(dependency, "scope").getValue().setText("test");
+        }
+        child(dependency, "version").getValue().setText(version);
+    }
+
+    private org.jetbrains.concurrency.Promise<Void> saveAndRefresh(MavenProject model) {
         var documents = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance();
         var document = documents.getDocument(model.getFile());
         if (document != null) documents.saveDocument(document);
-        return MavenProjectsManager.getInstance(project).forceUpdateProjects(List.of(model));
+        var result = new org.jetbrains.concurrency.AsyncPromise<Void>();
+        ApplicationManager.getApplication()
+                .executeOnPooledThread(
+                        () -> {
+                            try {
+                                org.evosuite.intellij.run.IdeThread.flushPendingVfsWrites();
+                                if (project.isDisposed())
+                                    throw new com.intellij.openapi.progress
+                                            .ProcessCanceledException();
+                                org.evosuite.intellij.run.IdeThread.edt(
+                                                () ->
+                                                        MavenProjectsManager.getInstance(project)
+                                                                .forceUpdateProjects(
+                                                                        List.of(model)))
+                                        .onSuccess(result::setResult)
+                                        .onError(result::setError);
+                            } catch (Exception ex) {
+                                result.setError(ex);
+                            }
+                        });
+        return result;
     }
 
     /** Updates the matching execution, including inherited IDs, without discarding other goals. */

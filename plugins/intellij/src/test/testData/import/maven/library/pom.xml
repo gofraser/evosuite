@@ -1,0 +1,9 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>demo</groupId>
+    <artifactId>evosuite-maven-acceptance</artifactId>
+    <version>1</version>
+  </parent>
+  <artifactId>library</artifactId>
+</project>

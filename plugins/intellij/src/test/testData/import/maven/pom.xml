@@ -1,0 +1,25 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>demo</groupId>
+  <artifactId>evosuite-maven-acceptance</artifactId>
+  <version>1</version>
+  <packaging>pom</packaging>
+  <modules>
+    <module>library</module>
+    <module>app</module>
+  </modules>
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+  </properties>
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.14.1</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

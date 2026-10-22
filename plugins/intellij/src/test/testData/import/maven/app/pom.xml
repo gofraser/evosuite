@@ -1,0 +1,37 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>demo</groupId>
+    <artifactId>evosuite-maven-acceptance</artifactId>
+    <version>1</version>
+  </parent>
+  <artifactId>app</artifactId>
+  <dependencies>
+    <dependency>
+      <groupId>demo</groupId>
+      <artifactId>library</artifactId>
+      <version>1</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.evosuite.plugins</groupId>
+        <artifactId>evosuite-maven-plugin</artifactId>
+        <version>@EVOSUITE_VERSION@</version>
+        <configuration>
+          <timePerClass>60s</timePerClass>
+          <testFolder>src/test/generated</testFolder>
+          <criterion>BRANCH</criterion>
+          <extraArgs>-Dsearch_budget=5 -Dminimization_timeout=5</extraArgs>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

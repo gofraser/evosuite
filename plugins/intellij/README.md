@@ -101,9 +101,15 @@ or a missing server produces a diagnostic and falls back to PasswordSafe/environ
 is never passed as a key.
 
 When build-path configuration is enabled, the generated folder is registered as a test root.
-Missing JUnit dependencies are added through IntelliJ's project-model API after confirmation.
-Imported Maven/Gradle projects also receive the runtime through that API; plain modules use the
-bundled runtime as a test-scoped module library. Missing bundled-library paths are repaired after
+Missing JUnit/runtime dependencies are offered after confirmation. Maven gets exact, test-scoped
+POM dependencies and waits for reimport; Gradle uses the build-file dependency modifier and waits
+for re-sync. Maven dependency edits update an existing declaration rather than duplicating it,
+and retain explicitly configured existing scopes. Gradle
+source-set imports register generated roots and inspect test dependencies in the test module
+linked to the selected production module. JUnit 5 additions include the Jupiter engine and
+matching Platform launcher. If a Gradle build cannot be modified, the console prints exact
+dependency declarations to add manually. Plain modules use the bundled runtime as a test-scoped
+module library. Missing bundled-library paths are repaired after
 plugin upgrades. Legacy production roots are converted to test roots without duplicate entries.
 The dependency version is generated from the same build metadata as the bundled engine.
 Imported projects using a snapshot runtime need
@@ -157,7 +163,25 @@ import hook is a public experimental API, so both IDE versions remain in the rel
 Tests include shared command/merger/POM/progress/process behavior, IntelliJ PSI selection and
 method descriptors, settings serialization/precedence, test roots/classpaths, protected suite
 placement, Maven imported-model mapping and a real engine run whose generated suite is compiled.
-`-Pevosuite.it.skip=true` skips the real-engine smoke explicitly.
+`-Pevosuite.it.skip=true` skips the standalone real-engine smoke explicitly.
+
+The opt-in import acceptance suite loads physical multi-module projects through IntelliJ's real
+Maven and Gradle importers. It checks source-set ownership, custom-folder reimport, existing and
+missing dependencies, JUnit 4-only detection, dependent-module classpaths, generation, generated
+suite compilation/execution and parsed seed execution. Groovy and Kotlin DSL dependency edits
+are exercised. CI runs these checks; locally use:
+
+```sh
+# repository root, JDK 17: install the snapshot artifacts used by imported builds
+mvn -pl master,standalone_runtime,plugins/ide-core,plugins/maven -am install -DskipTests
+# plugins/intellij, JDK 21
+./gradlew :test --tests org.evosuite.intellij.ImportAcceptanceTest \
+  -Pevosuite.import.it=true -Pevosuite.it.javaHome=/path/to/jdk-17
+```
+
+The tests use the wrapper's Gradle installation. Override it with
+`-Pevosuite.import.gradleHome=/path/to/gradle` when needed. These are automated imports and
+builds; they do not require desktop control or alter existing IDE projects.
 
 `signPlugin` reads `CERTIFICATE_CHAIN`, `PRIVATE_KEY`, `PRIVATE_KEY_PASSWORD`; `publishPlugin`
 reads `PUBLISH_TOKEN`. Publishing/listing ownership and release credentials remain maintainer

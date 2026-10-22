@@ -127,8 +127,8 @@ cd ../eclipse
 - Final `:test --tests org.evosuite.intellij.SettingsTest :buildPlugin :verifyPlugin` passes.
   The verifier uses the supplied IDEs' bundled runtimes/dependencies in offline mode. The only
   muted check is the previously released plugin ID's naming rule. The complete ZIP is ~56 MiB.
-- Signing, Marketplace publishing and an interactive imported Maven/Gradle project acceptance
-  run remain release activities; this task does not publish or require credentials.
+- Signing and Marketplace publishing remain release activities. The later import acceptance
+  follow-up is recorded below; this task does not publish or require credentials.
 
 ## Implementation review (2026-10-21)
 
@@ -166,5 +166,61 @@ real-engine test using JDK 17. All 26 IntelliJ tests and 77 shared-core tests pa
 skips. The rebuilt ZIP passes CRC inspection and includes both isolated engine jars.
 Plugin Verifier reports Compatible on 253.30387.90 (one deprecated API usage) and
 262.10968.63 (three deprecated usages), with eight experimental Maven-import API usages
-each and no internal-API or binary compatibility errors. Interactive imported Maven/Gradle
-acceptance remains a release check; the new Maven XML-update tests exercise actual PSI edits.
+each and no internal-API or binary compatibility errors. At this review stage, real imported
+Maven/Gradle acceptance was still outstanding; the follow-up below supersedes that limitation.
+
+## Real import acceptance follow-up (2026-10-22)
+
+Desktop control repeatedly timed out reading IntelliJ's accessibility interface. The user
+explicitly authorized automated import checks instead. The acceptance suite therefore uses
+IntelliJ's actual Maven/Gradle importers and physical multi-module projects, not constructed
+models or a claim of successful UI testing.
+
+The imports reproduced three functional gaps:
+
+1. Gradle imports main/test source sets as separate modules. Registering generated tests against
+   the selected main module failed with “Test folder has no module content root”. JUnit detection
+   and dependency lookup also missed the linked test module's libraries. Resolve that module
+   through `TestModuleProperties`; register roots there, including custom folders requiring an
+   additional content entry, and apply dependencies in its scope. Register the generated root
+   after dependency-driven imports finish, so the final module model owns it.
+2. `JavaProjectModelModificationService` fell back to an IDEA-library download dialog for Gradle.
+   It did not persist Gradle dependencies. Use the public `DependencyModifierService`, save only
+   build documents changed by the operation, flush pending VFS writes and await a real re-sync.
+   Add Jupiter's aggregate artifact and matching launcher when JUnit 5 is absent. Unsupported
+   build files get exact manual declarations; they never receive a transient IDEA-library fallback.
+3. Maven's model-modification version search substituted `RELEASE` when its repository index
+   did not list the local runtime snapshot. Repeated setup added duplicate declarations. Use
+   exact test-scoped POM edits, update existing coordinates idempotently, preserve existing scopes,
+   save only the changed pom and flush pending VFS writes before the awaited reimport.
+
+Acceptance coverage:
+
+- Maven multi-module/JUnit 4: import, effective options, missing-runtime dependency insertion,
+  setup execution creation/update, custom output-folder persistence after full reimport,
+  production/dependent-module classpaths, generation, compilation/execution and parsed seeding.
+- Gradle multi-project/JUnit 5: separate source-set ownership, no redundant dependency prompts,
+  custom generated root, apply the offered source-set snippet, real re-sync, generation,
+  compilation/execution and parsed seeding using compiled test outputs.
+- Gradle Groovy/JUnit 4: detect the framework from the linked test module, persist a missing
+  runtime dependency in the build script, re-sync and execute the fixture tests.
+- Gradle Kotlin DSL: add missing Jupiter/Platform-launcher/runtime dependencies, re-sync and
+  execute the fixture tests.
+- Acceptance Gradle daemons/caches use an isolated user home. This avoids reusing the user's
+  daemon from another installation, which can expose unexpected distribution paths in Kotlin
+  DSL script classpaths. The IntelliJ test harness explicitly permits its JDK/distribution/cache
+  roots without disabling VFS access checks globally.
+
+`ImportAcceptanceTest` is opt-in with `-Pevosuite.import.it=true` and a supplied JDK 17. It uses
+the wrapper's Gradle home by default. CI installs the snapshot Maven plugin/runtime and runs
+this suite alongside the existing tests. Fixture file changes are tracked as task inputs.
+
+Final validation (2026-10-22): the complete `test buildPlugin verifyPlugin --continue` run passes
+with all 31 IntelliJ tests (including four real-import acceptance cases), 77 shared-core tests,
+and no skips or failures. Normal tests also pass with the optional import suite excluded.
+The real imports run against IDEA 2025.3.2 using JDK 17 project/engine processes and a JDK 21
+IDE/test build. Plugin Verifier reports Compatible on 253.30387.90 and 262.10968.63, with one/four
+deprecated API usages respectively and twelve public experimental API usages each. No internal
+API or binary compatibility errors are reported. The final unsigned ZIP passes CRC inspection
+and includes both engine jars outside `lib/`. CI installs the required snapshots and enables
+the real-import acceptance suite.

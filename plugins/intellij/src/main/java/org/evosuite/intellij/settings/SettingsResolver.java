@@ -52,7 +52,7 @@ public final class SettingsResolver {
                                 JavaPsiFacade psi = JavaPsiFacade.getInstance(project);
                                 GlobalSearchScope scope =
                                         GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(
-                                                module, true);
+                                                ProjectSetupService.testModule(module), true);
                                 return SettingKeys.junitFormat(
                                         psi.findClass("org.junit.Test", scope) != null,
                                         psi.findClass("org.junit.jupiter.api.Test", scope) != null);

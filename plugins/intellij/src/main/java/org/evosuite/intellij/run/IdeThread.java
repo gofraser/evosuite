@@ -72,6 +72,10 @@ public final class IdeThread {
     public static <T> T await(Promise<T> promise, ProgressIndicator indicator) {
         CompletableFuture<T> future = new CompletableFuture<>();
         promise.onSuccess(future::complete).onError(future::completeExceptionally);
+        return await(future, indicator);
+    }
+
+    public static <T> T await(CompletableFuture<T> future, ProgressIndicator indicator) {
         while (true) {
             indicator.checkCanceled();
             try {
@@ -81,6 +85,7 @@ public final class IdeThread {
                 Thread.currentThread().interrupt();
                 throw new ProcessCanceledException(ex);
             } catch (ExecutionException ex) {
+                if (ex.getCause() instanceof ProcessCanceledException cancelled) throw cancelled;
                 throw new IllegalStateException(ex.getCause());
             }
         }
