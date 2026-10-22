@@ -22,12 +22,9 @@ package org.evosuite.junit;
 import org.evosuite.Properties;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.vnet.NonFunctionalRequirementExtension;
-import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestCodeVisitor;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Used to adapt the internal representations of test suites to JUnit 5 test cases.
@@ -126,26 +123,6 @@ public class JUnit5TestAdapter implements UnitTestAdapter {
     @Override
     public String getSuite(List<String> suites) {
         throw new UnsupportedOperationException("getSuite is not supported in JUNIT 5");
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getTestString(int id, TestCase test, Map<Integer, Throwable> exceptions) {
-        return test.toCode(exceptions);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getTestString(int id, TestCase test,
-                                Map<Integer, Throwable> exceptions, TestCodeVisitor visitor) {
-        visitor.setExceptions(exceptions);
-        test.accept(visitor);
-        visitor.clearExceptions();
-        return visitor.getCode();
     }
 
     @Override

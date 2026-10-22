@@ -21,11 +21,8 @@ package org.evosuite.junit;
 
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.vnet.NonFunctionalRequirementRule;
-import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestCodeVisitor;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * JUnit3TestAdapter class.
@@ -90,26 +87,6 @@ public class JUnit3TestAdapter implements UnitTestAdapter {
         builder.append("  }\n");
         builder.append("}\n");
         return builder.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getTestString(int id, TestCase test, Map<Integer, Throwable> exceptions) {
-        return test.toCode(exceptions);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getTestString(int id, TestCase test,
-                                Map<Integer, Throwable> exceptions, TestCodeVisitor visitor) {
-        visitor.setExceptions(exceptions);
-        test.accept(visitor);
-        visitor.clearExceptions();
-        return visitor.getCode();
     }
 
     @Override
