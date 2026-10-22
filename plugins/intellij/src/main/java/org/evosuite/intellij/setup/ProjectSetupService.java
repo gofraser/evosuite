@@ -128,11 +128,35 @@ public final class ProjectSetupService {
                                 + EngineJars.VERSION
                                 + ". Align these versions if generated tests do not compile.");
         }
+        boolean mavenModule = maven != null && maven.directory(module) != null;
+        if (mavenModule) {
+            List<MavenIntegration.TestDependency> dependencies = new ArrayList<>();
+            if (!junit) {
+                ExternalLibraryDescriptor descriptor =
+                        options.testFormat.equals(GenerationOptions.JUNIT4)
+                                ? JUnitExternalLibraryDescriptor.JUNIT4
+                                : JUnitExternalLibraryDescriptor.JUNIT5;
+                dependencies.add(
+                        new MavenIntegration.TestDependency(
+                                descriptor.getLibraryGroupId(),
+                                options.testFormat.equals(GenerationOptions.JUNIT4)
+                                        ? descriptor.getLibraryArtifactId()
+                                        : "junit-jupiter",
+                                descriptor.getPreferredVersion()));
+            }
+            if (!runtime)
+                dependencies.add(
+                        new MavenIntegration.TestDependency(
+                                "org.evosuite", "evosuite-standalone-runtime", EngineJars.VERSION));
+            IdeThread.await(
+                    IdeThread.edt(() -> maven.offerSetup(module, options, dependencies)), indicator);
+            registerTestRoot(module, folder);
+            return;
+        }
         boolean imported =
-                maven != null && maven.directory(module) != null
-                        || com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil
-                                        .getExternalProjectPath(module)
-                                != null;
+                com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil
+                                .getExternalProjectPath(module)
+                        != null;
         if (!junit || !runtime && imported) {
             String dependencies =
                     (!junit
@@ -228,12 +252,10 @@ public final class ProjectSetupService {
                         return null;
                     });
         }
-        if (maven != null)
-            IdeThread.await(IdeThread.edt(() -> maven.offerSetup(module, options)), indicator);
         // A dependency edit can reimport the module and reset its transient source roots.
         // Register against the final model, even when Maven setup was declined.
         registerTestRoot(module, folder);
-        if (imported && (maven == null || maven.directory(module) == null))
+        if (imported)
             console.accept(
                     "For Gradle re-sync, declare the generated root in build.gradle:"
                             + " sourceSets.test.java.srcDir(\""

@@ -25,6 +25,7 @@ import com.intellij.openapi.options.ConfigurationException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.components.JBPasswordField
+import com.intellij.util.ui.JBUI
 import org.evosuite.ide.SettingKeys
 import java.awt.*
 import javax.swing.*
@@ -39,8 +40,8 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     private val projectSwitch = JCheckBox("Use project-specific settings (.idea/evosuite.xml)")
     private val delegate = JCheckBox("Run whole-class requests through the Maven plugin")
     private val key = JBPasswordField().apply { name = "llmApiKey" }
-    private val pomNote = JTextArea(3, 60).apply { isEditable = false; lineWrap = true; wrapStyleWord = true }
-    private val keyStatus = JLabel("Loading API key from secure storage…")
+    private val pomNote = note("", 3)
+    private val keyStatus = note("Loading API key from secure storage…")
     private var originalKey: String? = null
     private var keyReady = false
     private var keyTouched = false
@@ -48,33 +49,48 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     private var generation = 0
     override fun getDisplayName() = if (project == null) "EvoSuite" else "EvoSuite (Project)"
     override fun createComponent(): JComponent {
-        val root = JPanel(BorderLayout(0, 8))
+        val root = JPanel(BorderLayout(0, 8)).apply {
+            preferredSize = JBUI.size(620, 520)
+            minimumSize = JBUI.size(400, 300)
+        }
         component = root
         keyReady = false
-        val top = JPanel(GridLayout(0, 1))
+        val top = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
         if (project != null) {
             EvoSuiteProjectSettings.getInstance(project).migrate(project)
             top.add(projectSwitch)
-            top.add(JLabel("When enabled, empty project fields use EvoSuite defaults. Commit .idea/evosuite.xml to share."))
+            top.add(note("When enabled, unset project fields use EvoSuite defaults. Commit .idea/evosuite.xml to share."))
             top.add(delegate)
-            top.add(JScrollPane(pomNote))
-            top.add(JLabel("Maven delegation uses Maven scheduling/export; Add/Compare, methods and extension use the bundled engine."))
+            top.add(JScrollPane(pomNote).apply { maximumSize = Dimension(Int.MAX_VALUE, JBUI.scale(76)) })
+            top.add(note("Maven delegation uses Maven scheduling/export. Add/Compare, methods and extension use the bundled engine."))
         } else top.add(JLabel("IDE defaults. Projects can opt into their own settings."))
         root.add(top, BorderLayout.NORTH)
         val tabs = JTabbedPane()
         listOf("EvoSuite" to SettingKeys.MAIN, "Large Language Model" to SettingKeys.LLM, "Advanced" to SettingKeys.ADVANCED).forEach { (title, keys) ->
-            val panel = JPanel(GridBagLayout())
+            val panel = SettingsPanel()
             var row = 0
             keys.forEach { name ->
                 val default = SettingKeys.defaultValue(name)
                 val choices = choices(name)
-                val editor: JComponent = if (name == "criterion") CriteriaEditor() else if (default == "true" || default == "false") JCheckBox() else if (choices != null) ComboBox(arrayOf("", *choices)) else JTextField(30)
-                if (editor is JTextField) { editor.toolTipText = "Empty: ${default.ifEmpty { "EvoSuite default" }}"; editor.putClientProperty("JTextField.placeholderText", default) }
+                val editor: JComponent = if (name == "criterion") CriteriaEditor() else if (default == "true" || default == "false") JCheckBox() else if (choices != null) ComboBox(arrayOf("", *choices)).apply {
+                    renderer = object : DefaultListCellRenderer() {
+                        override fun getListCellRendererComponent(list: JList<*>?, value: Any?, index: Int, selected: Boolean, focus: Boolean): Component {
+                            return super.getListCellRendererComponent(list, value, index, selected, focus).also {
+                                text = if (value == "") defaultChoice(name) else value?.toString().orEmpty()
+                            }
+                        }
+                    }
+                } else JTextField(22)
+                if (editor is JTextField) editor.toolTipText = "Default: ${defaultDescription(name)}"
                 editor.name = name
                 fields[name] = editor
                 val label = name.replace(Regex("([A-Z])"), " $1").replaceFirstChar { it.uppercase() }.replace("Llm", "LLM")
                 panel.add(JLabel(label).apply { labelFor = editor }, constraints(0, row, 0.0))
-                panel.add(editor, constraints(1, row++, 1.0))
+                val cell = if (editor is JTextField) JPanel(BorderLayout(0, 2)).apply {
+                    add(editor, BorderLayout.NORTH)
+                    add(note("Default: ${defaultDescription(name)}").apply { this.name = "$name.default" }, BorderLayout.CENTER)
+                } else editor
+                panel.add(cell, constraints(1, row++, 1.0))
                 if (editor is JCheckBox) editor.addActionListener { enableFields() }
                 if (editor is JComboBox<*>) editor.addActionListener { enableFields() }
             }
@@ -89,8 +105,8 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 })
             }
             if (title == "Advanced") {
-                panel.add(JLabel("pom.xml settings take precedence when enabled. The run console lists each override."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
-                panel.add(JLabel("Gradle: sourceSets.test.java.srcDir(\"src/test/evosuite\")"), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                panel.add(note("pom.xml settings take precedence when enabled. The run console lists each override."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                panel.add(note("Gradle: sourceSets.test.java.srcDir(\"src/test/evosuite\")"), constraints(0, row++, 1.0).apply { gridwidth = 2 })
             }
             panel.add(JPanel(), constraints(0, row, 1.0).apply { weighty = 1.0; gridwidth = 2 })
             tabs.addTab(title, JScrollPane(panel))
@@ -195,14 +211,27 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     private fun enableFields() {
         val scope = project == null || projectSwitch.isSelected
         fields.values.forEach { setEnabled(it, scope) }
-        val provider = (fields["llmProvider"] as? JComboBox<*>)?.selectedItem?.toString().orEmpty()
-        val approach = (fields["llmApproach"] as? JComboBox<*>)?.selectedItem?.toString().orEmpty()
+        val provider = effectiveChoice("llmProvider")
+        val approach = effectiveChoice("llmApproach")
         val llm = scope && provider.isNotEmpty() && provider != "NONE" && approach != "SEARCH_ONLY"
         SettingKeys.LLM.filter { it != "llmProvider" && it != "llmApproach" }.forEach { fields[it]?.isEnabled = llm }
         val search = approach != "LLM_SINGLE_PROMPT" && approach != "LLM_ITERATIVE"
         listOf("llmSeeding", "llmOnStagnation", "llmOperators").forEach { fields[it]?.isEnabled = llm && search }
         key.isEnabled = keyReady && llm && (provider == "OPENAI" || provider == "ANTHROPIC")
         fields["assertionStrategy"]?.isEnabled = scope && (fields["assertions"] as? JCheckBox)?.isSelected == true
+    }
+    private fun effectiveChoice(name: String) = (fields[name] as? JComboBox<*>)?.selectedItem?.toString().orEmpty().ifEmpty { SettingKeys.defaultValue(name) }
+    private fun defaultChoice(name: String) = if (name == "testFormat") "Automatic (JUnit 4 or JUnit 5)" else "Default (${SettingKeys.defaultValue(name)})"
+    private fun defaultDescription(name: String): String = when (name) {
+        "searchBudget" -> "60 seconds per class"
+        "testTimeout" -> "3000 ms (0 uses the engine default)"
+        "clientMemory" -> "engine heap limit (0 uses the engine default)"
+        "javaHome" -> "module JDK"
+        "llmModel" -> "EVOSUITE_LLM_MODEL or provider default"
+        "llmBaseUrl" -> "provider endpoint; Ollama: http://localhost:11434"
+        "llmMaxCalls" -> "unlimited (0)"
+        "extraArguments" -> "none"
+        else -> SettingKeys.defaultValue(name).ifEmpty { "EvoSuite default" }
     }
     override fun disposeUIResources() { component = null; fields.clear(); generation++ }
     private fun constraints(x: Int, y: Int, weight: Double) = GridBagConstraints().apply { gridx=x; gridy=y; weightx=weight; fill=GridBagConstraints.HORIZONTAL; anchor=GridBagConstraints.NORTHWEST; insets=Insets(4, 8, 4, 8) }
@@ -227,10 +256,10 @@ private class CriteriaEditor : JPanel(BorderLayout()) {
     private val boxes = known.associateWith { JCheckBox(it, true) }
     private val other = JTextField()
     init {
-        val grid = JPanel(GridLayout(0, 4))
+        val grid = JPanel(GridLayout(0, 2))
         boxes.values.forEach { grid.add(it) }
         add(grid, BorderLayout.CENTER)
-        val custom = JPanel(BorderLayout(4, 0)); custom.add(JLabel("Other criteria (colon separated)"), BorderLayout.WEST); custom.add(other)
+        val custom = JPanel(BorderLayout(4, 2)); custom.add(JLabel("Other criteria (colon separated)"), BorderLayout.NORTH); custom.add(other)
         add(custom, BorderLayout.SOUTH)
     }
     fun load(value: String) {
@@ -243,4 +272,26 @@ private class CriteriaEditor : JPanel(BorderLayout()) {
         val values = boxes.filterValues { it.isSelected }.keys.toList() + other.text.split(":").map { it.trim() }.filter { it.isNotEmpty() }
         return if (values == known) "" else values.distinct().joinToString(":")
     }
+}
+
+/** Track the viewport width so settings never demand a screen-wide dialog. */
+private class SettingsPanel : JPanel(GridBagLayout()), Scrollable {
+    override fun getPreferredScrollableViewportSize() = JBUI.size(600, 440)
+    override fun getScrollableTracksViewportWidth() = true
+    override fun getScrollableTracksViewportHeight() = false
+    override fun getScrollableUnitIncrement(visibleRect: Rectangle, orientation: Int, direction: Int) = JBUI.scale(24)
+    override fun getScrollableBlockIncrement(visibleRect: Rectangle, orientation: Int, direction: Int) = visibleRect.height
+}
+
+private fun note(text: String, rows: Int = 2) = JTextArea(text, rows, 22).apply {
+    isEditable = false
+    isFocusable = false
+    lineWrap = true
+    wrapStyleWord = true
+    isOpaque = false
+    font = UIManager.getFont("Label.font")
+    foreground = UIManager.getColor("Label.disabledForeground")
+    minimumSize = Dimension(0, 0)
+    maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
+    border = null
 }

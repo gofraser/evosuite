@@ -42,7 +42,10 @@ public interface MavenIntegration {
 
     String serverPassword(String id, Consumer<String> console);
 
-    org.jetbrains.concurrency.Promise<Void> offerSetup(Module module, GenerationOptions options);
+    record TestDependency(String group, String artifact, String version) {}
+
+    org.jetbrains.concurrency.Promise<Void> offerSetup(
+            Module module, GenerationOptions options, List<TestDependency> dependencies);
 
     org.jetbrains.concurrency.Promise<Void> addTestDependency(
             Module module, String group, String artifact, String version);

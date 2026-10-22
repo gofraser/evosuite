@@ -70,6 +70,10 @@ minimization, assertion strategy, JUnit format, source folder (`src/test/evosuit
 heap, extra arguments, pom overrides and build-path configuration. Criteria checkboxes preserve
 custom criteria. Empty test format detects JUnit 4-only projects; otherwise it uses JUnit 5.
 Explicit settings or pom/extra-argument `test_format` override detection.
+Default values are shown beside text fields. Combo boxes show named **Default (…)** entries;
+**Automatic (JUnit 4 or JUnit 5)** retains project-based framework detection. These labels do
+not turn defaults into stored overrides. Settings tabs wrap explanatory text and scroll vertically
+within a compact dialog.
 
 LLM settings include provider, model, endpoint, approach, seeding, stagnation, mutation/crossover,
 postprocessing and call budget. **Search only** overrides every other provider setting, including
@@ -115,7 +119,10 @@ The dependency version is generated from the same build metadata as the bundled 
 Imported projects using a snapshot runtime need
 that artifact available in their Maven repositories (for a development build, install the reactor).
 
-For Maven, the plugin offers to add or update a `setup` execution in the pom. Existing execution
+For Maven, a single **Configure Maven** prompt offers the missing test dependencies together
+with adding or updating the `setup` execution. **Dependencies Only** skips the execution; Cancel
+leaves the pom unchanged. The setup goal requires JUnit/runtime dependencies; it does not add
+them. Both edits are one undoable command followed by one awaited reimport. Existing execution
 IDs and other configuration are preserved. It saves that pom and waits for reimport before
 building. Its import configurator keeps that execution's folder as a test root on reimport. Gradle projects receive the exact
 source-set snippet in the console; add it to the build script so re-sync retains the root:

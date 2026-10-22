@@ -187,6 +187,97 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         }
     }
 
+    public void testLogoIsAvailableAtPluginAndActionSizes() {
+        var logo = com.intellij.openapi.util.IconLoader.getIcon("/META-INF/pluginIcon.svg", getClass());
+        assertEquals(com.intellij.util.ui.JBUI.scale(40), logo.getIconWidth());
+        for (String action : List.of("EvoSuite.GenerateTests", "EvoSuite.GenerateMethodTests", "EvoSuite.ExtendTests")) {
+            var icon = com.intellij.openapi.actionSystem.ActionManager.getInstance().getAction(action)
+                    .getTemplatePresentation().getIcon();
+            assertNotNull(action, icon);
+            assertEquals(com.intellij.util.ui.JBUI.scale(16), icon.getIconWidth());
+            assertEquals(com.intellij.util.ui.JBUI.scale(16), icon.getIconHeight());
+        }
+    }
+
+    public void testDefaultsAreVisibleWithoutChangingAutomaticSettings() throws Exception {
+        var state = EvoSuiteAppSettings.getInstance().getState();
+        var previous = new TreeMap<>(state.values);
+        var configurable = new EvoSuiteApplicationConfigurable();
+        try {
+            state.values.clear();
+            var ui = configurable.createComponent();
+            for (String name : SettingKeys.all()) {
+                var field = findField(ui, name);
+                if (field instanceof javax.swing.JComboBox combo) {
+                    var label = (javax.swing.JLabel) combo.getRenderer().getListCellRendererComponent(
+                            new javax.swing.JList(), combo.getSelectedItem(), -1, false, false);
+                    assertFalse(name, label.getText().isBlank());
+                    assertTrue(name, label.getText().startsWith(name.equals("testFormat") ? "Automatic" : "Default"));
+                } else if (field instanceof javax.swing.JTextField) {
+                    var description = (javax.swing.JTextArea) findField(ui, name + ".default");
+                    assertNotNull(name, description);
+                    assertTrue(name, description.getText().startsWith("Default: "));
+                }
+            }
+            assertFalse(configurable.isModified());
+            configurable.apply();
+            assertFalse(configurable.isModified());
+            assertFalse("Automatic JUnit detection must remain unset", state.values.containsKey("testFormat"));
+            ((javax.swing.JComboBox) findField(ui, "testFormat")).setSelectedItem("JUNIT4");
+            configurable.apply();
+            assertEquals("JUNIT4", state.values.get("testFormat"));
+            ((javax.swing.JComboBox) findField(ui, "testFormat")).setSelectedItem("");
+            configurable.apply();
+            assertFalse(state.values.containsKey("testFormat"));
+        } finally {
+            configurable.disposeUIResources();
+            state.values = previous;
+        }
+    }
+
+    public void testAllSettingsTabsFitCompactViewport() throws Exception {
+        for (var configurable : List.of(new EvoSuiteApplicationConfigurable(), new EvoSuiteProjectConfigurable(getProject()))) {
+            try {
+                var ui = configurable.createComponent();
+                assertTrue(ui.getPreferredSize().width <= com.intellij.util.ui.JBUI.scale(640));
+                ui.setSize(com.intellij.util.ui.JBUI.size(620, 520));
+                var tabs = findTabs(ui);
+                for (int index = 0; index < tabs.getTabCount(); index++) {
+                    tabs.setSelectedIndex(index);
+                    layoutTree(ui);
+                    var scroll = (javax.swing.JScrollPane) tabs.getSelectedComponent();
+                    assertFalse(tabs.getTitleAt(index), scroll.getHorizontalScrollBar().isVisible());
+                    var form = scroll.getViewport().getView();
+                    for (var child : ((java.awt.Container) form).getComponents())
+                        assertTrue(child.toString(), child.getX() + child.getWidth() <= form.getWidth());
+                    var image = new java.awt.image.BufferedImage(ui.getWidth(), ui.getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB);
+                    var graphics = image.createGraphics();
+                    try { ui.printAll(graphics); } finally { graphics.dispose(); }
+                    var capture = java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "evosuite-settings-"
+                            + (configurable instanceof EvoSuiteApplicationConfigurable ? "application" : "project") + "-" + index + ".png");
+                    javax.imageio.ImageIO.write(image, "png", capture.toFile());
+                }
+            } finally { configurable.disposeUIResources(); }
+        }
+    }
+
+    private static void layoutTree(java.awt.Component component) {
+        if (component instanceof java.awt.Container parent) {
+            parent.doLayout();
+            for (var child : parent.getComponents()) layoutTree(child);
+        }
+    }
+
+    private static javax.swing.JTabbedPane findTabs(java.awt.Component component) {
+        if (component instanceof javax.swing.JTabbedPane tabs) return tabs;
+        if (component instanceof java.awt.Container parent)
+            for (var child : parent.getComponents()) {
+                var tabs = findTabs(child);
+                if (tabs != null) return tabs;
+            }
+        return null;
+    }
+
     private static javax.swing.JCheckBox findCheckbox(java.awt.Component component, String label) {
         if (component instanceof javax.swing.JCheckBox box && label.equals(box.getText()))
             return box;

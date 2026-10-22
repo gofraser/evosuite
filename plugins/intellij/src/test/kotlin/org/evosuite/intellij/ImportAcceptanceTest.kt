@@ -130,7 +130,11 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         assertEquals(root.resolve("app"), ProjectSetupService.baseDir(main))
         buildFixture("maven")
         assertClasspath(main)
-        prepare(main, options)
+        val questions = prepare(main, options)
+        assertEquals(questions.toString(), 1, questions.size)
+        assertTrue(questions.toString(), questions.single().contains("evosuite-standalone-runtime"))
+        assertTrue(questions.toString(), questions.single().contains("setup execution"))
+        assertTrue(prepare(main, options).isEmpty())
         assertTestRoot(root.resolve("app").resolve(options.testFolder), main)
         importMaven(manager)
         assertTestRoot(
@@ -158,6 +162,40 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
                 .count(),
         )
         exerciseGeneration("maven", moduleFor("app/src/main/java/demo/Vault.java"), changed)
+    }
+
+    fun testMavenSetupCanBeCancelledOrLimitedToDependencies() {
+        fixture("maven")
+        val path = root.resolve("app/pom.xml")
+        Files.writeString(path, Files.readString(path).replace(
+            Regex("<dependency>\\s*<groupId>junit</groupId>[\\s\\S]*?</dependency>"), ""))
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path)!!.refresh(false, false)
+        val manager = MavenProjectsManager.getInstance(project)
+        manager.initForTests()
+        manager.enableAutoImportInTests()
+        manager.addManagedFilesOrUnignoreNoUpdate(
+            listOf(LocalFileSystem.getInstance().findFileByNioFile(root.resolve("pom.xml"))!!)
+        )
+        importMaven(manager)
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val options = background { SettingsResolver.resolve(main) }
+        assertEquals(GenerationOptions.JUNIT5, options.testFormat)
+        val original = Files.readString(path)
+        assertEquals(1, prepare(main, options, 2).size)
+        assertEquals(original, Files.readString(path))
+        assertEquals(1, prepare(main, options, 1).size)
+        val dependenciesOnly = Files.readString(path)
+        assertTrue(dependenciesOnly, dependenciesOnly.contains("<artifactId>evosuite-standalone-runtime</artifactId>"))
+        assertFalse(dependenciesOnly, dependenciesOnly.contains("<goal>setup</goal>"))
+        assertTrue(dependenciesOnly, dependenciesOnly.contains("<artifactId>junit-jupiter</artifactId>"))
+        assertTrue(background { ProjectSetupService.hasClass(main, "org.junit.jupiter.api.Test") })
+        assertTrue(background { ProjectSetupService.hasClass(main, "org.evosuite.runtime.EvoRunnerParameters") })
+        // Once dependencies exist, Cancel is the second button in the setup-only dialog.
+        assertEquals(1, prepare(main, options, 1).size)
+        assertEquals(dependenciesOnly, Files.readString(path))
+        assertEquals(1, prepare(main, options).size)
+        assertTrue(Files.readString(path).contains("<goal>setup</goal>"))
+        assertTrue(prepare(main, options).isEmpty())
     }
 
     private fun importMaven(manager: MavenProjectsManager) {
@@ -345,12 +383,12 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         }
     }
 
-    private fun prepare(module: Module, options: GenerationOptions): List<String> {
+    private fun prepare(module: Module, options: GenerationOptions, answer: Int = 0): List<String> {
         val questions = java.util.concurrent.CopyOnWriteArrayList<String>()
         val previous =
             TestDialogManager.setTestDialog { message ->
                 questions.add(message)
-                com.intellij.openapi.ui.Messages.YES
+                answer
             }
         try {
             background {

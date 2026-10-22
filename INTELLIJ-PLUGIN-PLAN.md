@@ -224,3 +224,32 @@ deprecated API usages respectively and twelve public experimental API usages eac
 API or binary compatibility errors are reported. The final unsigned ZIP passes CRC inspection
 and includes both engine jars outside `lib/`. CI installs the required snapshots and enables
 the real-import acceptance suite.
+
+
+## Settings and first-run usability follow-up (2026-10-22)
+
+Manual feedback identified missing branding, an oversized settings dialog, invisible defaults,
+and two successive Maven setup prompts. The plugin now uses vector paths of the Eclipse logo
+for the plugin listing, tool window and all generation actions, including dark-theme variants.
+Settings prefer a compact 620 by 520 layout, wrap notes, use a two-column criteria grid, and
+track the viewport width while scrolling vertically. Text fields show default descriptions;
+combo boxes render named Default entries and an Automatic JUnit choice while retaining unset
+values internally so detection and settings precedence are unchanged.
+
+Maven setup now offers missing JUnit/runtime dependencies and the setup execution together.
+Configure Maven applies both in one undoable POM edit and awaits one reimport. Dependencies
+Only preserves the ability to skip the execution; Cancel leaves the POM untouched. The prompt
+explains that the setup goal registers test roots/configures the agent, but requires rather
+than inserts the test dependencies. Matching existing setup does not prompt again.
+
+Regression checks cover visible defaults, reset/apply and automatic-JUnit round trips, logo
+loading and action dimensions, all tabs fitting a compact viewport, and actual Maven imports
+for combined setup, dependency-only setup, cancellation and repeated setup. The settings
+fixture also renders each tab for visual inspection without desktop automation.
+
+Validation: `test buildPlugin verifyPlugin --continue` passes with 35 IntelliJ tests (including
+five real-import acceptance cases) and 77 shared-core tests, no failures/errors/skips. Captures
+of the three compact settings tabs were visually inspected. Plugin Verifier reports Compatible
+on IDEA 2025.3.2 and 2026.2.3, with the unchanged one/four deprecated and twelve experimental
+API usages. The rebuilt ZIP passes CRC inspection and contains the plugin/action logo assets
+as well as both isolated engine jars.

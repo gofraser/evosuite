@@ -134,11 +134,12 @@ public final class MavenSupport implements MavenIntegration {
 
     @Override
     public org.jetbrains.concurrency.Promise<Void> offerSetup(
-            Module module, GenerationOptions options) {
+            Module module, GenerationOptions options, List<TestDependency> dependencies) {
         MavenProject model = model(module);
         if (model == null) return org.jetbrains.concurrency.Promises.resolvedPromise();
         MavenPlugin plugin = model.findPlugin(PomSettings.GROUP_ID, PomSettings.ARTIFACT_ID);
         MavenPlugin.Execution setup = null;
+        boolean configured = false;
         if (plugin != null) {
             for (var execution : plugin.getExecutions()) {
                 if (!execution.getGoals().contains("setup")) continue;
@@ -153,21 +154,32 @@ public final class MavenSupport implements MavenIntegration {
                 if (base.resolve(folder)
                         .normalize()
                         .equals(base.resolve(options.testFolder).normalize()))
-                    return org.jetbrains.concurrency.Promises.resolvedPromise();
+                    configured = true;
                 if (setup == null) setup = execution;
             }
         }
-        if (Messages.showYesNoDialog(
-                        project,
-                        (setup == null ? "Add" : "Update")
-                                + " the EvoSuite setup execution in "
-                                + model.getPath()
-                                + "? Maven will keep "
-                                + options.testFolder
-                                + " as a test source folder on reimport.",
-                        "EvoSuite Maven Setup",
-                        Messages.getQuestionIcon())
-                != Messages.YES) return org.jetbrains.concurrency.Promises.resolvedPromise();
+        if (configured && dependencies.isEmpty())
+            return org.jetbrains.concurrency.Promises.resolvedPromise();
+        String dependencyNote = dependencies.isEmpty() ? "" :
+                "Add these test dependencies:\n" + dependencies.stream()
+                        .map(d -> "  " + d.group() + ":" + d.artifact() + ":" + d.version())
+                        .collect(java.util.stream.Collectors.joining("\n")) + "\n\n";
+        String setupNote = configured ? "" :
+                (setup == null ? "Add" : "Update") + " the EvoSuite setup execution to keep "
+                        + options.testFolder + " as a test source folder on reimport and configure"
+                        + " the runtime agent for Maven tests.\n\n"
+                        + "The setup goal requires the runtime dependency; it does not add it.\n\n";
+        boolean combined = !configured && !dependencies.isEmpty();
+        int choice = Messages.showDialog(project,
+                "Configure " + model.getPath() + "?\n\n" + dependencyNote + setupNote
+                        + "The pom will be saved and Maven reimported.",
+                "EvoSuite Maven Setup",
+                combined ? new String[] {"Configure Maven", "Dependencies Only", "Cancel"}
+                        : new String[] {"Configure Maven", "Cancel"},
+                0, Messages.getQuestionIcon());
+        if (choice != 0 && !(combined && choice == 1))
+            return org.jetbrains.concurrency.Promises.resolvedPromise();
+        boolean configureExecution = !configured && choice == 0;
         PsiFile file = PsiManager.getInstance(project).findFile(model.getFile());
         if (!(file instanceof XmlFile xml) || xml.getRootTag() == null)
             return org.jetbrains.concurrency.Promises.resolvedPromise();
@@ -178,7 +190,11 @@ public final class MavenSupport implements MavenIntegration {
                 project,
                 "EvoSuite: configure Maven setup",
                 null,
-                () -> configureSetup(xml, options, id),
+                () -> {
+                    for (TestDependency dependency : dependencies)
+                        configureTestDependency(xml, dependency.group(), dependency.artifact(), dependency.version());
+                    if (configureExecution) configureSetup(xml, options, id);
+                },
                 file);
         return saveAndRefresh(model);
     }
