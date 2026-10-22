@@ -959,12 +959,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             return false;
         }
         orphanedOffspringDroppedTotal++;
-        try {
-            ClientServices.track(RuntimeVariable.Orphaned_Offspring_Dropped,
-                    orphanedOffspringDroppedTotal);
-        } catch (Throwable ignored) {
-            // best-effort tracking
-        }
+        ClientServices.trackQuietly(RuntimeVariable.Orphaned_Offspring_Dropped,
+                orphanedOffspringDroppedTotal);
         boolean llmMut = mutResult != null && mutResult.isAppliedSemantic();
         boolean stdMut = !llmMut;
         AtMostOnceLogger.warn(logger,

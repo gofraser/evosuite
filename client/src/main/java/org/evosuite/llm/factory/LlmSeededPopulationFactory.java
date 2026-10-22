@@ -383,7 +383,8 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         }
     }
 
-    private void markParsedFromLlm(TestCase testCase) {
+    /** Flags every statement of a test parsed from an LLM response, so the search treats it as LLM lineage. */
+    public static void markParsedFromLlm(TestCase testCase) {
         for (Statement statement : testCase) {
             statement.setParsedFromLlm(true);
         }

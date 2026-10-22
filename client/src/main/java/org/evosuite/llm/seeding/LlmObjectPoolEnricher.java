@@ -25,6 +25,7 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
+import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
@@ -264,7 +265,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
             try {
                 GenericClass<?> genericClass = GenericClassFactory.get(type);
                 TestCase sequence = testCase.clone();
-                markParsedFromLlm(sequence);
+                LlmSeededPopulationFactory.markParsedFromLlm(sequence);
                 boolean mutated = mutateIfActive(() -> {
                     ObjectPoolManager.getInstance().addSequence(genericClass, sequence);
                     LlmStatistics.recordObjectPoolSequencesAdded(1);
@@ -283,12 +284,6 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
 
         return new TypeKeyInsertionResult(insertions, rejectedNoType,
                 rejectedValidation, rejectedAddFailure, diagnostics);
-    }
-
-    private void markParsedFromLlm(TestCase testCase) {
-        for (Statement statement : testCase) {
-            statement.setParsedFromLlm(true);
-        }
     }
 
     /**

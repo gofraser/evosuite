@@ -828,14 +828,8 @@ public class TestRepairLoop {
             // population is left empty.
             diagnostics.add("All LLM candidate tests dropped at execution; "
                     + "no covering chromosome obtained.");
-            try {
-                org.evosuite.rmi.ClientServices.track(
-                        org.evosuite.statistics.RuntimeVariable.LLM_All_Candidates_Dropped_Execution,
-                        1);
-            } catch (Throwable trackingFailure) {
-                logger.debug("Could not publish LLM_All_Candidates_Dropped_Execution stat",
-                        trackingFailure);
-            }
+            org.evosuite.rmi.ClientServices.trackQuietly(
+                    org.evosuite.statistics.RuntimeVariable.LLM_All_Candidates_Dropped_Execution, 1);
             logger.warn("LLM seeding for {} dropped every candidate at execution after {} attempt(s)",
                     Properties.TARGET_CLASS, attemptsUsed);
         }

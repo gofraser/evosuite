@@ -127,4 +127,16 @@ public class ClientServices<T extends Chromosome<T>> {
     public static void track(RuntimeVariable outputVariable, Object value) {
         ClientServices.getInstance().getClientNode().trackOutputVariable(outputVariable, value);
     }
+
+    /**
+     * Like {@link #track}, for statistics that must never disturb the search: a failure to
+     * publish is logged at debug level and otherwise ignored.
+     */
+    public static void trackQuietly(RuntimeVariable outputVariable, Object value) {
+        try {
+            track(outputVariable, value);
+        } catch (Throwable t) {
+            logger.debug("Could not publish {} stat", outputVariable, t);
+        }
+    }
 }

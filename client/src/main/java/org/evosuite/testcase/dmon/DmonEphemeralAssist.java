@@ -581,14 +581,17 @@ public class DmonEphemeralAssist {
     }
 
     private static void logDmonRollbackFailure(String site, Throwable t) {
-        String reason = t.getClass().getName() + (t.getMessage() == null ? "" : ": " + t.getMessage());
         if (shouldWarnAboutDmonRollbackFailure(site)) {
-            logger.warn("DMoN rollback failed for {}: {}{}", site, reason,
+            logger.warn("DMoN rollback failed for {}: {}{}", site, describeFailure(t),
                     DMON_ROLLBACK_FAILURES.get(site).get() == DMON_ROLLBACK_WARNINGS_PER_SITE
                             ? " (further failures at this site are logged at DEBUG)" : "");
-        } else {
-            logger.debug("DMoN rollback failed for {}: {}", site, reason);
+        } else if (logger.isDebugEnabled()) {
+            logger.debug("DMoN rollback failed for {}: {}", site, describeFailure(t));
         }
+    }
+
+    private static String describeFailure(Throwable t) {
+        return t.getClass().getName() + (t.getMessage() == null ? "" : ": " + t.getMessage());
     }
 
     private static Object createEphemeralMock(Class<?> type) {

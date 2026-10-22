@@ -150,11 +150,7 @@ public class CoverageArchive extends Archive {
             // candidate. Non-zero Archive_Clone_Failures indicates a leak
             // worth investigating from the offspring tripwire's WARN logs.
             cloneFailureTotal++;
-            try {
-                ClientServices.track(RuntimeVariable.Archive_Clone_Failures, cloneFailureTotal);
-            } catch (Throwable ignored) {
-                // best-effort tracking
-            }
+            ClientServices.trackQuietly(RuntimeVariable.Archive_Clone_Failures, cloneFailureTotal);
             String code;
             try {
                 code = solution.getTestCase().toCode();
