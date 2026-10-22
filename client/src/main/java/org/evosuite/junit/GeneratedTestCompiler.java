@@ -52,6 +52,11 @@ import java.util.Objects;
  */
 public final class GeneratedTestCompiler {
 
+    /** What javac prints when it catches an error of its own and asks for a bug report. */
+    public static final String JAVAC_INTERNAL_ERROR_MARKER = "An exception has occurred in the compiler";
+    public static final String JAVAC_STACK_OVERFLOW_MARKER = "java.lang.StackOverflowError";
+    public static final String JAVAC_OUT_OF_MEMORY_MARKER = "java.lang.OutOfMemoryError";
+
     private static final Logger logger = LoggerFactory.getLogger(GeneratedTestCompiler.class);
 
     private static final Map<String, String> SANITIZED_COMPILER_CLASSPATH_ENTRIES = new HashMap<>();
@@ -156,7 +161,7 @@ public final class GeneratedTestCompiler {
      * {@code ZipFileSystem.initCEN}.
      */
     static boolean reportsOutOfMemory(String compilerOutput) {
-        return compilerOutput != null && compilerOutput.contains("java.lang.OutOfMemoryError");
+        return compilerOutput != null && compilerOutput.contains(JAVAC_OUT_OF_MEMORY_MARKER);
     }
 
     static boolean isOutOfMemory(Throwable throwable) {
@@ -184,8 +189,8 @@ public final class GeneratedTestCompiler {
             return false;
         }
         // java.lang.OutOfMemoryError is not listed: the caller handles reportsOutOfMemory first.
-        return compilerOutput.contains("An exception has occurred in the compiler")
-                || compilerOutput.contains("java.lang.StackOverflowError");
+        return compilerOutput.contains(JAVAC_INTERNAL_ERROR_MARKER)
+                || compilerOutput.contains(JAVAC_STACK_OVERFLOW_MARKER);
     }
 
     static String sanitizeClasspathForCompiler(String classpath) {

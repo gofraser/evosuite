@@ -1514,9 +1514,9 @@ public class TestRepairLoop {
             return null;
         }
         for (String line : compilerOutput.split("\\R")) {
-            if (line.startsWith("An exception has occurred in the compiler")
-                    || line.startsWith("java.lang.StackOverflowError")
-                    || line.startsWith("java.lang.OutOfMemoryError")) {
+            if (line.startsWith(GeneratedTestCompiler.JAVAC_INTERNAL_ERROR_MARKER)
+                    || line.startsWith(GeneratedTestCompiler.JAVAC_STACK_OVERFLOW_MARKER)
+                    || line.startsWith(GeneratedTestCompiler.JAVAC_OUT_OF_MEMORY_MARKER)) {
                 return line.trim();
             }
         }
