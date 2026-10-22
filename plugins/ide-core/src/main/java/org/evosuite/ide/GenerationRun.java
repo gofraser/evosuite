@@ -76,7 +76,11 @@ public final class GenerationRun {
                     target.seeds().stream().map(GenerationTarget.Seed::className).toList(),
                     seeds.toFile());
         }
-        List<String> args = command.toArguments();
+        List<String> args = command.toArguments(java.version());
+        // EvoSuite's client launcher consults JAVA_HOME. Keep it on the selected engine JDK
+        // instead of inheriting a possibly different JDK from the IDE's environment.
+        Map<String, String> launchEnvironment = new HashMap<>(environment);
+        launchEnvironment.put("JAVA_HOME", java.executable().getParent().getParent().toString());
         listener.line(EvoSuiteCommand.forDisplay(args));
         Path argfile = staging.resolve("arguments.txt");
         int exit;
@@ -92,7 +96,7 @@ public final class GenerationRun {
                     EvoSuiteProcess.run(
                             launch,
                             basedir.toFile(),
-                            environment,
+                            launchEnvironment,
                             new ProgressParser.Listener() {
                                 public void line(String line) {
                                     if (seeding != null) seeding.accept(line);

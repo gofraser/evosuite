@@ -30,6 +30,37 @@ import org.evosuite.intellij.actions.TargetCollector;
 import org.jetbrains.annotations.NotNull;
 
 public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
+    public void testGenerationActionsHaveDistinctRenderableBadges() throws Exception {
+        var manager = com.intellij.openapi.actionSystem.ActionManager.getInstance();
+        var icons = java.util.List.of("EvoSuite.GenerateTests", "EvoSuite.GenerateMethodTests", "EvoSuite.ExtendTests")
+                .stream().map(id -> manager.getAction(id).getTemplatePresentation().getIcon()).toList();
+        for (var icon : icons) {
+            assertNotNull(icon);
+            assertEquals(16, icon.getIconWidth());
+            assertEquals(16, icon.getIconHeight());
+        }
+        var image = new java.awt.image.BufferedImage(240, 96, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        var graphics = image.createGraphics();
+        try {
+            graphics.setColor(java.awt.Color.WHITE); graphics.fillRect(0, 0, 240, 48);
+            graphics.setColor(new java.awt.Color(43, 45, 48)); graphics.fillRect(0, 48, 240, 48);
+            for (int i = 0; i < icons.size(); i++) {
+                var light = new java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                var g = light.createGraphics();
+                try { icons.get(i).paintIcon(null, g, 0, 0); } finally { g.dispose(); }
+                graphics.drawImage(light, i * 80 + 8, 8, 32, 32, null);
+                var dark = com.intellij.openapi.util.IconLoader.getIcon("/icons/evosuite-"
+                        + java.util.List.of("class", "method", "extend").get(i) + "_dark.svg", getClass());
+                var darkImage = new java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                var dg = darkImage.createGraphics();
+                try { dark.paintIcon(null, dg, 0, 0); } finally { dg.dispose(); }
+                graphics.drawImage(darkImage, i * 80 + 8, 56, 32, 32, null);
+                if (i > 0) assertNotSame(icons.get(0), icons.get(i));
+            }
+        } finally { graphics.dispose(); }
+        javax.imageio.ImageIO.write(image, "png", java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "evosuite-action-badges.png").toFile());
+    }
+
     public void testWelcomeIsReplacedByOutputAndRetainedAfterReopening() throws Exception {
         var output = EvoSuiteConsole.getInstance(getProject());
         var panel = new EvoSuiteToolWindowPanel(getProject());

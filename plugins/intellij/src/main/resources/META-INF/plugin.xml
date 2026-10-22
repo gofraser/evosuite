@@ -14,13 +14,13 @@
     <projectConfigurable id="evosuite.project" parentId="tools" displayName="EvoSuite (Project)" instance="org.evosuite.intellij.settings.EvoSuiteProjectConfigurable"/>
   </extensions>
   <actions>
-    <action id="EvoSuite.GenerateTests" icon="/icons/evosuite.svg" class="org.evosuite.intellij.actions.GenerateTestsAction" text="Generate Tests with EvoSuite" description="Generate tests for selected Java classes">
+    <action id="EvoSuite.GenerateTests" icon="/icons/evosuite-class.svg" class="org.evosuite.intellij.actions.GenerateTestsAction" text="Generate Tests with EvoSuite" description="Generate tests for selected Java classes">
       <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/><add-to-group group-id="EditorPopupMenu" anchor="last"/><add-to-group group-id="StructureViewPopupMenu" anchor="last"/><add-to-group group-id="GenerateGroup" anchor="last"/>
     </action>
-    <action id="EvoSuite.GenerateMethodTests" icon="/icons/evosuite.svg" class="org.evosuite.intellij.actions.GenerateMethodTestsAction" text="Generate Tests for Method with EvoSuite">
+    <action id="EvoSuite.GenerateMethodTests" icon="/icons/evosuite-method.svg" class="org.evosuite.intellij.actions.GenerateMethodTestsAction" text="Generate Tests for Method with EvoSuite">
       <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/><add-to-group group-id="EditorPopupMenu" anchor="last"/><add-to-group group-id="StructureViewPopupMenu" anchor="last"/><add-to-group group-id="GenerateGroup" anchor="last"/>
     </action>
-    <action id="EvoSuite.ExtendTests" icon="/icons/evosuite.svg" class="org.evosuite.intellij.actions.ExtendTestsAction" text="Extend Tests with EvoSuite">
+    <action id="EvoSuite.ExtendTests" icon="/icons/evosuite-extend.svg" class="org.evosuite.intellij.actions.ExtendTestsAction" text="Extend Tests with EvoSuite">
       <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/><add-to-group group-id="EditorPopupMenu" anchor="last"/><add-to-group group-id="StructureViewPopupMenu" anchor="last"/><add-to-group group-id="GenerateGroup" anchor="last"/>
     </action>
   </actions>

@@ -119,8 +119,21 @@ public final class EvoSuiteCommand {
     }
 
     public List<String> toArguments() {
+        int version = 0;
+        try {
+            var executable = java.nio.file.Path.of(javaExecutable).toAbsolutePath();
+            version = JavaInstallation.at(executable.getParent().getParent()).version();
+        } catch (IOException | RuntimeException ignored) {
+            // Unknown/relative launcher: do not guess the IDE's JVM version.
+        }
+        return toArguments(version);
+    }
+
+    /** JVM flags follow the selected engine JDK, which may differ from the IDE's JDK. */
+    public List<String> toArguments(int javaVersion) {
         List<String> args = new ArrayList<>();
         args.add(javaExecutable);
+        if (javaVersion >= 18 && javaVersion < 24) args.add("-Djava.security.manager=allow");
         args.add("-jar");
         args.add(evosuiteJar);
         args.add("-class");

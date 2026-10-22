@@ -28,6 +28,37 @@ import java.util.*;
 
 /** A real engine/JDK boundary test, independent of mocked platform processes. */
 public class EngineSmokeTest extends TestCase {
+    public void testJdk21GenerationKeepsSandboxAvailableInMasterAndClient() throws Exception {
+        Path home = Path.of(System.getProperty("java.home"));
+        var java = JavaInstallation.at(home);
+        assertEquals("The IntelliJ test runtime is JDK 21", 21, java.version());
+        Path root = Files.createTempDirectory("evosuite-jdk21-sandbox-");
+        List<String> log = new java.util.concurrent.CopyOnWriteArrayList<>();
+        try {
+            Path source = root.resolve("demo/Calculator.java");
+            Files.createDirectories(source.getParent());
+            Files.writeString(source, "package demo; public class Calculator { public int sign(int n) { return n < 0 ? -1 : 1; } }");
+            Process compile = new ProcessBuilder(home.resolve("bin/javac").toString(), "-d", root.toString(), source.toString())
+                    .inheritIO().start();
+            assertEquals(0, compile.waitFor());
+            var options = new GenerationOptions();
+            options.searchBudget = 2;
+            options.clientMemory = 512;
+            options.criterion = "BRANCH";
+            options.testFormat = "JUNIT4";
+            options.extraArguments = "-Dminimization_timeout=2 -Dassertion_timeout=2";
+            var result = GenerationRun.generate(GenerationTarget.wholeClass("demo.Calculator"), options, java,
+                    Path.of(System.getProperty("evosuite.engine")), List.of(root.toString()), root, root.resolve("run"),
+                    listener(log), Map.of("JAVA_HOME", "/wrong-inherited-jdk"), () -> false);
+            String output = String.join("\n", log);
+            assertTrue(output, result.produced());
+            assertEquals(output, 0, result.exitCode());
+            assertTrue(output, SuiteMerger.testCount(Files.readString(result.suite()), "Calculator_ESTest") > 0);
+            assertFalse(output, output.contains("The sandbox is off"));
+            assertFalse(output, output.contains("UnsupportedOperationException"));
+        } finally { GenerationRun.deleteTree(root); }
+    }
+
     public void testBundledEngineGeneratesTests() throws Exception {
         if (Boolean.getBoolean("evosuite.it.skip")) return;
         Path engine = Path.of(System.getProperty("evosuite.engine"));

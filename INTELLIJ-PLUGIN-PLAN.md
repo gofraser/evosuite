@@ -371,3 +371,35 @@ Plugin Verifier reports Compatible on IDEA 2025.3.2 and 2026.2.3 with unchanged 
 and twelve experimental API usages. ZIP CRC inspection passed and both engine jars remain isolated
 outside the IDE classloader. Dialog acceptance is automated; native desktop interaction remains
 outside this validation, as requested earlier in the session.
+
+
+## Sandbox launch flags, action badges and minimization clarification (2026-10-22)
+
+- The IDE command builder adds `-Djava.security.manager=allow` as a JVM option before `-jar`
+  only for the selected JDK 18–23. Explicit JavaInstallation metadata drives IntelliJ launches;
+  the shared Eclipse-style adapter can read the selected JDK's release metadata. Unknown
+  versions do not inherit a guess from the IDE's JVM.
+- Engine client compatibility arguments also opt in on JDK 18–23: setting the parent flag alone
+  does not affect a spawned JVM. Explicit parent `disallow` is preserved. No `allow` is sent to
+  JDK 24+, which rejects it. GenerationRun pins JAVA_HOME to the selected engine installation
+  so a stale IDE environment cannot select a different client JDK.
+- Class, method and extension actions have distinct vector badges on the existing EvoSuite logo,
+  with light/dark assets shared by the context menus and tool-window delegates.
+- The settings checkbox now says Remove redundant tests and statements, with visible help
+  distinguishing value minimization. `MINIMIZE_VALUES=false` is the engine default (Git blame
+  traces it back to 2012), rather than a new IDE override. The settings and README explain
+  enabling `-Dminimize_values=true` without changing the engine default for other users.
+
+Regression coverage includes JDK 8/11/17/18/21/23/24/25/27 command boundaries, option placement
+before -jar, selected-JDK release detection, child flag forwarding and explicit disallow,
+light/dark icon rendering, and real JDK 21 engine/client generation with sandboxing left enabled
+and a deliberately conflicting inherited JAVA_HOME.
+
+Validation: rebuilt and installed engine/runtime/core/Maven snapshots with JDK 17. All six focused
+master JVM-forwarding tests passed. The full IntelliJ `test buildPlugin verifyPlugin --continue`
+run passed 54 IntelliJ tests (including actual sandbox-enabled JDK 21 generation and five physical
+Maven/Gradle import acceptance cases) and 81 shared-core tests, with no failures/errors/skips.
+Light/dark badge renders and the compact settings page were visually inspected. Plugin Verifier
+reports Compatible on IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated and twelve
+experimental API usages. ZIP CRC passed and both freshly built engine jars remain isolated
+outside the IDE classloader.

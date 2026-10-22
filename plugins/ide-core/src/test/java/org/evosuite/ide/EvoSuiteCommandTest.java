@@ -53,6 +53,30 @@ public class EvoSuiteCommandTest {
     }
 
     @Test
+    public void sandboxOptInFollowsTheSelectedJdkAndPrecedesTheJar() throws Exception {
+        var command = new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Calculator",
+                List.of("/p/bin"), new File("/p"), new File("/out"), new File("/reports"), new GenerationOptions());
+        for (int version : List.of(8, 11, 17, 18, 21, 23, 24, 25, 27)) {
+            var args = command.toArguments(version);
+            int flag = args.indexOf("-Djava.security.manager=allow");
+            assertEquals(version >= 18 && version < 24, flag >= 0, "JDK " + version);
+            if (flag >= 0) assertTrue(flag < args.indexOf("-jar"), "Must be a JVM option, not an EvoSuite property");
+        }
+    }
+
+    @Test
+    public void eclipseStyleLaunchDetectsTheSelectedJavaHome(@TempDir Path root) throws Exception {
+        java.nio.file.Files.createDirectories(root.resolve("bin"));
+        java.nio.file.Files.writeString(root.resolve("bin/java"), "");
+        java.nio.file.Files.writeString(root.resolve("release"), "JAVA_VERSION=\"21.0.1\"\n");
+        var command = new EvoSuiteCommand(root.resolve("bin/java").toString(), "/plugin/evosuite.jar", "demo.Calculator",
+                List.of("/p/bin"), new File("/p"), new File("/out"), new File("/reports"), new GenerationOptions());
+        assertTrue(command.toArguments().contains("-Djava.security.manager=allow"));
+        java.nio.file.Files.writeString(root.resolve("release"), "JAVA_VERSION=\"24\"\n");
+        assertFalse(command.toArguments().contains("-Djava.security.manager=allow"));
+    }
+
+    @Test
     public void restrictsTheRunToTheTargetMethodsBeforeTheUsersArguments() {
         GenerationOptions options = new GenerationOptions();
         options.extraArguments = "-Dtarget_method_list=other()V";

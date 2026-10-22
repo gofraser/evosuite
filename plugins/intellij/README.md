@@ -33,6 +33,10 @@ it shows instructions and labeled action buttons. When generation starts it swit
 action cancels this project's requests and kills the engine and client JVMs. Completed suites
 are kept. Up to three resulting suites open automatically; comparisons open afterward so they remain visible.
 
+Generation actions use EvoSuite-logo badges: a green class symbol for class/file generation,
+a purple diamond for method generation, and a green plus for extension. Light and dark variants
+also distinguish the corresponding context-menu entries.
+
 ## Existing suites
 
 The plugin asks once per request: **Replace**, **Add New Tests**, **Compare**, or **Cancel**.
@@ -64,6 +68,18 @@ that appeared while the run was queued. Partial generation can add to it after c
 compatibility. Extension writes nothing when no new tests were found. If a new suite's scaffolding
 conflicts with an existing file, the suite is kept and the scaffolding opens for comparison.
 Resolve that comparison before running the suite.
+
+For JDK 18–23, bundled generation starts the engine with `-Djava.security.manager=allow` and
+forwards SecurityManager support to its client JVM. The client uses the selected engine JDK,
+including when the IDE inherited a different `JAVA_HOME`. JDK 8–17 need no opt-in; JDK 24 and
+later removed this sandbox mechanism, so the launcher omits the unsupported flag there. Explicit
+`sandbox=false` still disables EvoSuite sandboxing.
+
+**Remove redundant tests and statements** controls suite/test minimization (`minimize`, default
+`true`). Value minimization is separate: the engine's `minimize_values` default is `false`,
+unchanged by this plugin. To simplify constants, clear **No additional arguments** under
+**Advanced → Additional arguments** and add `-Dminimize_values=true`. Keep test minimization
+selected. Values needed to preserve coverage can still remain large.
 
 Bundled-engine launches check the selected JDK before offering dependency changes or starting a build.
 Runs identify planned output paths and extension seed classes before generation. Result summaries
