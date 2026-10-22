@@ -35,17 +35,31 @@ import java.util.function.Consumer;
 
 /** Every decision and document edit is made on EDT, against current editor contents. */
 public final class SuitePlacement {
-    public record Snapshot(String source, long stamp) {}
+    public record Snapshot(String source, long stamp, Snapshot scaffolding) {}
 
     public record Placed(
-            VirtualFile suite, List<SuiteComparison.Pair> comparisons, boolean written) {}
+            VirtualFile suite, List<SuiteComparison.Pair> comparisons, boolean written, boolean skipped) {}
 
     private SuitePlacement() {}
 
     public static Snapshot snapshot(Path path) {
+        Snapshot suite = snapshotFile(path);
+        if (suite == null) return null;
+        String name = path.getFileName().toString().replaceFirst("\\.java$", "");
+        return new Snapshot(suite.source(), suite.stamp(),
+                snapshotFile(path.resolveSibling(name + "_scaffolding.java")));
+    }
+
+    private static Snapshot snapshotFile(Path path) {
         VirtualFile file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path);
         Document doc = file == null ? null : FileDocumentManager.getInstance().getDocument(file);
-        return doc == null ? null : new Snapshot(doc.getText(), file.getModificationStamp());
+        return doc == null ? null : new Snapshot(doc.getText(), file.getModificationStamp(), null);
+    }
+
+    private static boolean changed(Snapshot before, VirtualFile file, Document document) {
+        if (before == null) return document != null;
+        return document == null || !before.source().equals(document.getText())
+                || before.stamp() != file.getModificationStamp();
     }
 
     public static boolean generated(String source, String name) {
@@ -74,8 +88,8 @@ public final class SuitePlacement {
                         console.accept(
                                 "No new tests for "
                                         + target.label()
-                                        + ". Existing tests already cover what EvoSuite found.");
-                        return new Placed(null, List.of(), false);
+                                        + ". Existing tests are unchanged; see the search and coverage output above.");
+                        return new Placed(null, List.of(), false, false);
                     }
                     VirtualFile existing =
                             LocalFileSystem.getInstance().refreshAndFindFileByNioFile(destination);
@@ -98,7 +112,7 @@ public final class SuitePlacement {
                         console.accept(
                                 EvoSuiteCommand.notAnEvoSuiteSuite(
                                         target.className(), destination.toFile()));
-                        return new Placed(null, List.of(), false);
+                        return new Placed(null, List.of(), false, true);
                     }
                     List<SuiteComparison.Pair> diffs = new ArrayList<>();
                     if (document == null) {
@@ -130,7 +144,7 @@ public final class SuitePlacement {
                                         + " ("
                                         + SuiteMerger.testCount(fresh, name)
                                         + " tests).");
-                        return new Placed(created[0], List.copyOf(diffs), true);
+                        return new Placed(created[0], List.copyOf(diffs), true, false);
                     }
                     SuiteAction chosen = requested;
                     boolean partial = !target.methods().isEmpty() || target.extendsTests();
@@ -143,19 +157,21 @@ public final class SuitePlacement {
                                                 ? "adding new tests."
                                                 : "opening a comparison."));
                     } else if (chosen == SuiteAction.REPLACE
-                            && (!consent.source().equals(document.getText())
-                                    || consent.stamp() != existing.getModificationStamp())) {
+                            && (changed(consent, existing, document)
+                                    || changed(consent.scaffolding(), oldScaffold, scaffoldDocument))) {
                         chosen = SuiteAction.COMPARE;
                         console.accept(
                                 name
-                                        + " changed since the replacement question; opening a"
+                                        + " or its scaffolding changed since the replacement question; opening a"
                                         + " comparison.");
                     }
                     if (!existing.isWritable()
                             || chosen == SuiteAction.REPLACE
-                                    && differentScaffold
                                     && oldScaffold != null
-                                    && !oldScaffold.isWritable()) chosen = SuiteAction.COMPARE;
+                                    && !oldScaffold.isWritable()) {
+                        console.accept(name + " or its scaffolding is read-only; opening a comparison.");
+                        chosen = SuiteAction.COMPARE;
+                    }
                     if (chosen == SuiteAction.REPLACE
                             && (FileDocumentManager.getInstance().isDocumentUnsaved(document)
                                     || scaffoldDocument != null
@@ -197,8 +213,10 @@ public final class SuitePlacement {
                                                 + merge.added.size()
                                                 + " tests, skipped "
                                                 + merge.duplicates
-                                                + " duplicates.");
-                                return new Placed(existing, List.of(), !merge.added.isEmpty());
+                                                + " duplicates."
+                                                + (dirty && !merge.added.isEmpty()
+                                                        ? " The editor still has unsaved changes." : ""));
+                                return new Placed(existing, List.of(), !merge.added.isEmpty(), false);
                             }
                             console.accept(
                                     "Cannot add tests to "
@@ -221,7 +239,7 @@ public final class SuitePlacement {
                                     "Replaced "
                                             + name
                                             + ". The previous suite is in local history.");
-                            return new Placed(existing, List.of(), true);
+                            return new Placed(existing, List.of(), true, false);
                         }
                     } catch (com.intellij.openapi.progress.ProcessCanceledException ex) {
                         throw ex;
@@ -249,6 +267,7 @@ public final class SuitePlacement {
                                     () -> {
                                         write(project, scaffoldPath, scaffold);
                                     });
+                            console.accept("Created required scaffolding: " + scaffoldPath);
                         } catch (com.intellij.openapi.progress.ProcessCanceledException ex) {
                             throw ex;
                         } catch (RuntimeException ex) {
@@ -259,12 +278,12 @@ public final class SuitePlacement {
                                             + ex.getMessage());
                             diffs.add(
                                     new SuiteComparison.Pair(
-                                            scaffoldPath.getFileName().toString(),
+                                            scaffoldPath.toString(),
                                             EditorFactory.getInstance().createDocument(""),
                                             scaffold));
                         }
                     }
-                    return new Placed(null, List.copyOf(diffs), false);
+                    return new Placed(null, List.copyOf(diffs), false, false);
                 });
     }
 

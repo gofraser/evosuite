@@ -326,3 +326,48 @@ welcome/console captures were visually inspected; cloud credentials now sit dire
 provider selector with explicit first-use instructions. Plugin Verifier reports Compatible on
 IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated and twelve experimental API usages.
 The final ZIP passes CRC inspection and keeps both engine jars isolated outside the IDE classloader.
+
+
+## Generation and extension usability review (2026-10-22)
+
+Reviewed target preparation, save/build sequencing, extension inference, the existing-suite question,
+placement, comparison viewers and completion/cancellation feedback. Fixed:
+
+- Saving is scoped to this project's modified documents with explicit Save and Generate/Cancel
+  choices. A failed save stops generation instead of using stale sources; unrelated editor edits
+  stay dirty.
+- Extension class-name prompts validate production classes inline and explain the output suite.
+  Cancel now aborts the entire request rather than silently dropping one selected seed. Ambiguous
+  prompts list inferred candidates and identify the seed's module. The console identifies seed
+  classes and planned output paths before generation.
+- Replace/Add/Compare questions identify class/module and shared output location. Long messages,
+  including unbroken names and paths, wrap for smaller screens. Compare instructions explain
+  copying changes, IntelliJ autosave and the fact that closing does not undo edits. Cancel reports
+  cancellation and stops before build or setup.
+- Replacement consent snapshots now cover scaffolding as well as the suite. Saved, unsaved,
+  newly appeared or removed scaffolding changes force comparison instead of overwriting concurrent
+  work. Read-only fallback is explained in the console.
+- Comparison titles include the full file path; existing content stays linked to the live editor
+  document. Read-only and unavailable destinations are labeled and protected. Comparisons open
+  after generated editors, and completion notifications count them and offer Review comparisons
+  to reopen them in the current session, also when a run is cancelled or fails after producing
+  comparisons. Generated comparison sources are retained on disk with their location in the console
+  so dismissing a notification or restarting the IDE does not lose the new tests.
+- Add reports when preexisting unsaved edits remain dirty. Duplicate-only and empty-extension
+  outcomes are reported as unchanged, without claiming that all coverage goals were reached.
+  Skipped handwritten destinations count as warnings instead of implying an empty selection or
+  successful generation.
+
+New regression coverage exercises physical project-scoped saving and cancellation, production-class
+validation, extension cancellation, an actual generation request cancelled at Replace/Add/Compare
+before preflight/setup, compact questions, concurrent saved scaffolding edits, live-document and
+read-only comparisons, duplicate-only Add and no-additional-tests extension placement.
+
+Validation: the full regression/package/verifier run passed all 52 IntelliJ tests, including five
+real Maven/Gradle import acceptance cases, and 79 shared-core tests with no failures/errors/skips.
+After the final comparison-source retention/error-recovery adjustment, all 14 focused generation,
+extension, placement and first-run tests passed again, and the installable ZIP was rebuilt.
+Plugin Verifier reports Compatible on IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated
+and twelve experimental API usages. ZIP CRC inspection passed and both engine jars remain isolated
+outside the IDE classloader. Dialog acceptance is automated; native desktop interaction remains
+outside this validation, as requested earlier in the session.

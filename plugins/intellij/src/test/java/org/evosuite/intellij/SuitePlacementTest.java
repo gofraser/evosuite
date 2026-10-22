@@ -148,6 +148,65 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
         assertEquals(old, FileDocumentManager.getInstance().getDocument(scaffold).getText());
     }
 
+    public void testDuplicateAddAndEmptyExtensionLeaveExistingTestsUnchanged() throws Exception {
+        var original = suite("test0", 1);
+        var file = myFixture.addFileToProject("demo/Vault_ESTest.java", original).getVirtualFile();
+        var duplicate = SuitePlacement.place(getProject(), GenerationTarget.wholeClass("demo.Vault"),
+                new GenerationOptions(), file.toNioPath(), generated(original), SuiteAction.ADD,
+                SuitePlacement.snapshot(file.toNioPath()), ignored -> {});
+        assertFalse(duplicate.written());
+        assertFalse(duplicate.skipped());
+        assertTrue(duplicate.comparisons().isEmpty());
+        var extension = GenerationTarget.extending("demo.Vault", List.of(new GenerationTarget.Seed(
+                "demo.VaultTest", file.toNioPath().getParent().getParent().toFile())));
+        var empty = SuitePlacement.place(getProject(), extension, new GenerationOptions(), file.toNioPath(),
+                generated("package demo; public class Vault_ESTest {}"), SuiteAction.ADD,
+                SuitePlacement.snapshot(file.toNioPath()), ignored -> {});
+        assertFalse(empty.written());
+        assertFalse(empty.skipped());
+        assertTrue(empty.comparisons().isEmpty());
+        assertEquals(original, FileDocumentManager.getInstance().getDocument(file).getText());
+    }
+
+    public void testReplacementProtectsScaffoldingChangedWhileGenerationRuns() throws Exception {
+        var file = myFixture.addFileToProject("demo/Vault_ESTest.java", suite("test0", 1)).getVirtualFile();
+        var scaffold = myFixture.addFileToProject("demo/Vault_ESTest_scaffolding.java",
+                "package demo; class Vault_ESTest_scaffolding { /* original */ }").getVirtualFile();
+        var consent = SuitePlacement.snapshot(file.toNioPath());
+        var scaffoldDoc = FileDocumentManager.getInstance().getDocument(scaffold);
+        String edited = "package demo; class Vault_ESTest_scaffolding { /* saved user edit */ }";
+        WriteCommandAction.runWriteCommandAction(getProject(), () -> scaffoldDoc.setText(edited));
+        FileDocumentManager.getInstance().saveDocument(scaffoldDoc);
+        var fresh = generated(suite("test0", 2));
+        Files.writeString(fresh.scaffolding(), "package demo; class Vault_ESTest_scaffolding {} ");
+        List<String> messages = new ArrayList<>();
+        var placed = SuitePlacement.place(getProject(), GenerationTarget.wholeClass("demo.Vault"),
+                new GenerationOptions(), file.toNioPath(), fresh, SuiteAction.REPLACE, consent, messages::add);
+        assertFalse(placed.written());
+        assertEquals(2, placed.comparisons().size());
+        assertEquals(edited, scaffoldDoc.getText());
+        assertEquals(suite("test0", 1), FileDocumentManager.getInstance().getDocument(file).getText());
+        assertTrue(messages.toString(), messages.stream().anyMatch(m -> m.contains("scaffolding changed")));
+    }
+
+    public void testComparisonUsesLiveDocumentAndHonorsReadOnlyFiles() throws Exception {
+        var file = myFixture.addFileToProject("demo/Vault_ESTest.java", suite("test0", 1)).getVirtualFile();
+        var document = FileDocumentManager.getInstance().getDocument(file);
+        var pair = new org.evosuite.intellij.ui.SuiteComparison.Pair("Vault_ESTest.java", document, suite("test0", 2));
+        var request = org.evosuite.intellij.ui.SuiteComparison.request(getProject(), pair);
+        assertTrue(request.getTitle(), request.getTitle().contains(file.getPresentableUrl()));
+        assertSame(document, ((com.intellij.diff.contents.DocumentContent)request.getContents().getFirst()).getDocument());
+        assertTrue(request.getUserData(com.intellij.diff.util.DiffUserDataKeys.FORCE_READ_ONLY_CONTENTS)[1]);
+        WriteCommandAction.runWriteCommandAction(getProject(), () -> document.setText(suite("test0", 3)));
+        assertTrue(((com.intellij.diff.contents.DocumentContent)request.getContents().getFirst()).getDocument().getText().contains("= 3"));
+        try {
+            com.intellij.openapi.application.WriteAction.run(() -> file.setWritable(false));
+            var readOnly = org.evosuite.intellij.ui.SuiteComparison.request(getProject(), pair);
+            assertTrue(readOnly.getUserData(com.intellij.diff.util.DiffUserDataKeys.FORCE_READ_ONLY_CONTENTS)[0]);
+            assertEquals("Existing file (read-only)", readOnly.getContentTitles().getFirst());
+        } finally { com.intellij.openapi.application.WriteAction.run(() -> file.setWritable(true)); }
+    }
+
     public void testReadOnlySuiteFallsBackToComparison() throws Exception {
         var file =
                 myFixture

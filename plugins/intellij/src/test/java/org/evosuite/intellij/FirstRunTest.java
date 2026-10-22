@@ -47,6 +47,47 @@ public class FirstRunTest extends JavaCodeInsightFixtureTestCase {
         }
     }
 
+    public void testCancelExistingSuiteQuestionStopsBeforeSetupOrGeneration() throws Exception {
+        var file = (com.intellij.psi.PsiJavaFile) myFixture.addFileToProject("src/demo/CancelRun.java",
+                "package demo; public class CancelRun {} ");
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(), () ->
+                com.intellij.openapi.roots.ModuleRootModificationUtil.updateModel(getModule(), model ->
+                        model.getContentEntries()[0].addSourceFolder(file.getVirtualFile().getParent().getParent(), false)));
+        String original = "package demo; @org.evosuite.runtime.EvoRunnerParameters public class CancelRun_ESTest {}";
+        var suite = myFixture.addFileToProject("output-tests/demo/CancelRun_ESTest.java", original).getVirtualFile();
+        com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().saveAllDocuments();
+        var state = EvoSuiteProjectSettings.getInstance(getProject()).getState();
+        state.useProjectSettings = true;
+        state.values.put("javaHome", myFixture.getTempDirPath() + "/missing-jdk");
+        state.values.put("testFolder", "output-tests");
+        List<String> questions = new java.util.concurrent.CopyOnWriteArrayList<>();
+        List<Notification> notifications = new java.util.concurrent.CopyOnWriteArrayList<>();
+        getProject().getMessageBus().connect(getTestRootDisposable()).subscribe(Notifications.TOPIC,
+                new Notifications() { @Override public void notify(Notification n) {
+                    if ("EvoSuite".equals(n.getGroupId())) notifications.add(n);
+                }});
+        var previous = TestDialogManager.setTestDialog(message -> { questions.add(message); return 3; });
+        try {
+            GenerationService.getInstance().submit(getProject(),
+                    new TargetCollector.Selection(List.of(file.getClasses()[0]), List.of(), List.of()),
+                    TargetCollector.Mode.CLASSES);
+            long until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(15);
+            while ((questions.isEmpty() || GenerationService.getInstance().isRunning(getProject()))
+                    && System.nanoTime() < until) {
+                UIUtil.dispatchAllInvocationEvents(); Thread.sleep(10);
+            }
+            assertEquals(questions.toString(), 1, questions.size());
+            assertTrue(questions.getFirst().contains("Replace:"));
+            assertTrue(questions.getFirst().contains("Add New Tests:"));
+            assertTrue(questions.getFirst().contains("Compare:"));
+            assertTrue(questions.getFirst().contains("Cancel stops this request"));
+            for (String line : questions.getFirst().split("\n")) assertTrue(line, line.length() <= 88);
+            assertFalse(GenerationService.getInstance().isRunning(getProject()));
+            assertTrue("Cancel should not proceed to JDK validation/setup", notifications.isEmpty());
+            assertEquals(original, com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(suite).getText());
+        } finally { TestDialogManager.setTestDialog(previous); }
+    }
+
     public void testMissingJdkStopsBeforeDependencyPromptsAndOffersSettingsRecovery() throws Exception {
         var file = (com.intellij.psi.PsiJavaFile) myFixture.addFileToProject("src/demo/FirstRun.java",
                 "package demo; public class FirstRun { public int value() { return 1; } }");

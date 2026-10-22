@@ -16,7 +16,8 @@ constructors are excluded. Overloads use their JVM descriptors, so they stay dis
 
 **Extend Tests with EvoSuite** accepts existing test classes. The plugin infers their production
 class from the package and `Test`, `Tests`, `TestCase`, `IT`, `ITCase`, `TestFoo` or the configured
-suite suffix; ambiguous names open a class-name prompt. A longer name such as
+suite suffix; ambiguous names open a class-name prompt with inline production-class validation.
+Cancel stops the entire request, including other selected test classes. A longer name such as
 `VaultEdgeCasesTest` offers the longest matching production-class prefix for confirmation. Select several test classes to seed the
 same CUT together. EvoSuite parses their saved source, executes their compiled tests to exclude
 covered goals, and generates additional tests. Carving stays disabled. The console reports how
@@ -30,21 +31,31 @@ file/current method, extend the open test file, and open the EvoSuite settings s
 it shows instructions and labeled action buttons. When generation starts it switches to commands
 (with keys masked), progress and results; generation/settings actions remain in the toolbar. Its Stop
 action cancels this project's requests and kills the engine and client JVMs. Completed suites
-are kept. Up to three resulting suites open automatically.
+are kept. Up to three resulting suites open automatically; comparisons open afterward so they remain visible.
 
 ## Existing suites
 
 The plugin asks once per request: **Replace**, **Add New Tests**, **Compare**, or **Cancel**.
 Add is preselected for method and extension requests. Every target writes to fresh staging
-outside the project before the choice is applied.
+outside the project before the choice is applied. The question identifies the classes and modules,
+shows their output folder when shared, and wraps long names and paths to fit smaller displays.
+Cancel stops the request before project setup or building.
 
 - Replace is undoable and retains IntelliJ local history. Unsaved or subsequently changed
-  suites open in a comparison instead.
+  suites or scaffolding open in a comparison instead. This includes saved scaffolding edits made
+  while generation was running.
 - Add merges into the current editor document as one undoable command, including unsaved
   edits. Matching test bodies are skipped, clashing test names are renamed, padded test
   numbering is continued, imports and compatible JUnit 4 initialization/reset lists are united.
-- Compare shows the existing document editable and the generated source read-only. Several
-  suites share a comparison chain. Save edits through IntelliJ normally.
+  If the editor was already dirty, merged edits stay unsaved and the console says so.
+- Compare shows the existing document editable when writable and the generated source read-only.
+  Several suites share a comparison chain, with full paths to distinguish identical file names.
+  Copy wanted changes from Generated to Existing; IntelliJ saves edits normally, and closing the
+  viewer does not undo edits. The result notification lists pending comparisons and provides
+  **Review comparisons** to reopen them during the current IDE session, including after a cancelled
+  run with completed comparisons. Generated comparison sources are also retained on disk; the
+  console prints their location for recovery after a restart. Read-only or unavailable destinations
+  are labeled explicitly.
 
 A handwritten suite is never replaced or merged into: an actual `@EvoRunnerParameters`
 annotation is required; a marker in a comment is insufficient. An incompatible merge or
@@ -55,9 +66,13 @@ conflicts with an existing file, the suite is kept and the scaffolding opens for
 Resolve that comparison before running the suite.
 
 Bundled-engine launches check the selected JDK before offering dependency changes or starting a build.
+Runs identify planned output paths and extension seed classes before generation. Result summaries
+distinguish written/updated suites, unchanged suites with no additional tests, pending comparisons,
+and warnings; skipped handwritten destinations count as warnings.
 Configuration failures link back to the active EvoSuite settings. The console shows collection,
 queueing and build progress immediately, and the welcome panel scrolls in a small tool window.
-The launch asks before saving modified documents. Edits made while queued remain dirty, so
+The launch asks to **Save and Generate** or **Cancel** when this project has modified files;
+it leaves unrelated project edits unsaved. Edits made while queued remain dirty, so
 replacement protection and Add continue to use the current editor contents. Failures in one
 target or module do not discard work for other targets; generated sources from a failed placement
 remain in the run's staging directory, whose path is printed in the console.

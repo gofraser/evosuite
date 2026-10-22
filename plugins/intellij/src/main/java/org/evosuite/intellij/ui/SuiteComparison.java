@@ -34,23 +34,29 @@ public final class SuiteComparison {
 
     public static SimpleDiffRequest request(Project project, Pair pair) {
         DiffContentFactory factory = DiffContentFactory.getInstance();
+        var file = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance()
+                .getFile(pair.existing());
+        boolean readOnly = file == null || !pair.existing().isWritable() || !file.isWritable();
+        String location = file == null ? pair.name() : file.getPresentableUrl();
         SimpleDiffRequest request =
                 new SimpleDiffRequest(
-                        pair.name(),
+                        "EvoSuite: " + location,
                         factory.create(project, pair.existing()),
                         factory.create(
                                 pair.generated(),
                                 com.intellij.ide.highlighter.JavaFileType.INSTANCE),
-                        "Existing (editable)",
-                        "Generated (read-only)");
+                        file == null ? "No destination file — create it to keep generated changes"
+                                : readOnly ? "Existing file (read-only)"
+                                : "Existing file — edits use IntelliJ autosave",
+                        "Generated tests — copy wanted changes left (read-only)");
         request.putUserData(
                 com.intellij.diff.util.DiffUserDataKeys.FORCE_READ_ONLY_CONTENTS,
-                new boolean[] {false, true});
+                new boolean[] {readOnly, true});
         return request;
     }
 
     public static void show(Project project, List<Pair> pairs) {
-        if (pairs.isEmpty()) return;
+        if (project.isDisposed() || pairs.isEmpty()) return;
         List<DiffRequest> requests =
                 pairs.stream().map(p -> (DiffRequest) request(project, p)).toList();
         DiffManager.getInstance()

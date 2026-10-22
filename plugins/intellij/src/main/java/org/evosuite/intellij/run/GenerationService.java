@@ -29,8 +29,6 @@ import com.intellij.openapi.progress.*;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.*;
-import com.intellij.psi.*;
-import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.task.ProjectTaskManager;
 
 import org.evosuite.ide.*;
@@ -83,16 +81,7 @@ public final class GenerationService implements Disposable {
 
     public void submit(
             Project project, TargetCollector.Selection selection, TargetCollector.Mode mode) {
-        if (FileDocumentManager.getInstance().getUnsavedDocuments().length > 0) {
-            if (Messages.showYesNoDialog(
-                            project,
-                            "Save modified documents before building and generating tests? EvoSuite"
-                                    + " reads saved sources and compiled classes.",
-                            "EvoSuite",
-                            Messages.getQuestionIcon())
-                    != Messages.YES) return;
-            FileDocumentManager.getInstance().saveAllDocuments();
-        }
+        if (!GenerationDocuments.saveBeforeGeneration(project)) return;
         EvoSuiteConsole console = EvoSuiteConsole.getInstance(project);
         console.show();
         console.println("EvoSuite: collecting Java targets and checking generation settings…");
@@ -110,7 +99,7 @@ public final class GenerationService implements Disposable {
                 boolean acquired = false;
                 List<VirtualFile> suites = new ArrayList<>();
                 List<SuiteComparison.Pair> comparisons = new ArrayList<>();
-                int[] counts = {0, 0, 0}; // written, warnings/errors, delegated targets
+                int[] counts = {0, 0, 0, 0}; // written, warnings/errors, delegated targets, unchanged
                 try {
                     indicator.setIndeterminate(true);
                     indicator.setText("Collecting Java targets");
@@ -155,12 +144,16 @@ public final class GenerationService implements Disposable {
                                     console.println(
                                             EvoSuiteCommand.notAnEvoSuiteSuite(
                                                     target.className(), suite.toFile()));
+                                    counts[1]++;
                                     continue;
                                 }
                                 safe.add(target);
+                                console.println("Planned output: " + suite);
+                                if (target.extendsTests()) console.println("Extending " + target.seedNames()
+                                        + ": using existing tests as seeds; only additional tests are exported to the output suite.");
                                 if (existing != null) {
                                     consent.put(target.className(), existing);
-                                    withSuites.add(target.label());
+                                    withSuites.add(target.className() + " (" + module.getName() + ")");
                                 }
                             }
                             if (!safe.isEmpty()) {
@@ -187,7 +180,9 @@ public final class GenerationService implements Disposable {
                         }
                     }
                     if (requests.isEmpty()) {
-                        console.println("No eligible Java targets selected. Choose a production Java class, package or module; use Extend Tests for existing test classes. Interfaces and generated suites are skipped.");
+                        console.println(counts[1] > 0
+                                ? "No targets could be prepared. See the messages above; existing handwritten suites are kept."
+                                : "No eligible Java targets selected. Choose a production Java class, package or module; use Extend Tests for existing test classes. Interfaces and generated suites are skipped.");
                         if (counts[1] > 0) showNotification(project, NotificationType.WARNING,
                                 "EvoSuite could not prepare generation. See the console for configuration details.");
                         return;
@@ -203,20 +198,26 @@ public final class GenerationService implements Disposable {
                                         : mode == TargetCollector.Mode.METHODS
                                                 ? ExistingSuitesQuestion.Scope.METHODS
                                                 : ExistingSuitesQuestion.Scope.EXTENSION;
-                        var question = ExistingSuitesQuestion.of(withSuites, total, null, scope);
+                        String folder = requests.stream().map(r -> r.testDir().toString()).distinct().count() == 1
+                                ? requests.getFirst().testDir().toString() : null;
+                        var question = ExistingSuitesQuestion.of(withSuites, total, folder, scope);
                         action =
                                 IdeThread.edt(
                                         () ->
                                                 ExistingSuitesQuestion.action(
                                                         Messages.showDialog(
                                                                 project,
-                                                                question.message,
+                                                                GenerationDialogs.message(question.message
+                                                                        + "\n\nIn Compare, copy wanted changes from Generated to Existing. "
+                                                                        + "IntelliJ saves your edits normally; closing the viewer does not undo them. "
+                                                                        + "You can reopen comparisons from the result notification.\n\n"
+                                                                        + "Cancel stops this request before building or changing project setup."),
                                                                 question.title,
                                                                 ExistingSuitesQuestion.BUTTONS
                                                                         .toArray(String[]::new),
                                                                 question.defaultButton(),
                                                                 Messages.getQuestionIcon())));
-                        if (action == null) return;
+                        if (action == null) throw new ProcessCanceledException();
                     }
                     indicator.setText("Waiting for other EvoSuite runs");
                     if (slot.availablePermits() == 0) console.println("Waiting for another EvoSuite run. Stop cancels this project's queued requests.");
@@ -444,10 +445,16 @@ public final class GenerationService implements Disposable {
                                                     action,
                                                     request.consent().get(target.className()),
                                                     console::println);
-                                    if (placed.written()) counts[0]++;
+                                    if (placed.skipped()) counts[1]++;
+                                    else if (placed.written()) counts[0]++;
+                                    else if (placed.comparisons().isEmpty()) counts[3]++;
                                     if (placed.suite() != null && options.openGeneratedTests)
                                         suites.add(placed.suite());
                                     comparisons.addAll(placed.comparisons());
+                                    if (!placed.comparisons().isEmpty()) {
+                                        keepSources = true;
+                                        console.println("Generated comparison sources retained at " + staging.resolve("tests"));
+                                    }
                                 } catch (ProcessCanceledException | InterruptedException ex) {
                                     throw ex;
                                 } catch (Exception ex) {
@@ -462,7 +469,7 @@ public final class GenerationService implements Disposable {
                                             "Generated sources retained at "
                                                     + staging.resolve("tests"));
                                 } finally {
-                                    // A failed placement must leave recoverable generated sources.
+                                    // Failed placements and pending comparisons keep recoverable generated sources.
                                     try {
                                         if (!keepSources)
                                             GenerationRun.deleteTree(staging.resolve("tests"));
@@ -490,6 +497,7 @@ public final class GenerationService implements Disposable {
                             "EvoSuite finished: "
                                     + counts[0]
                                     + " suites written/updated, "
+                                    + counts[3] + " unchanged (no additional tests), "
                                     + counts[2]
                                     + " Maven targets processed, "
                                     + comparisons.size()
@@ -504,23 +512,32 @@ public final class GenerationService implements Disposable {
                             "EvoSuite finished: "
                                     + counts[0]
                                     + " suites written/updated"
+                                    + (counts[3] == 0 ? "" : ", " + counts[3] + " unchanged (no additional tests)")
                                     + (counts[2] == 0
                                             ? ""
                                             : ", " + counts[2] + " Maven targets processed")
+                                    + (comparisons.isEmpty() ? "" : ", " + comparisons.size()
+                                            + " files to compare (copy changes to keep them)")
                                     + (counts[1] == 0
                                             ? "."
-                                            : "; see the EvoSuite console for warnings."));
+                                            : "; see the EvoSuite console for warnings."), comparisons);
                 } catch (ProcessCanceledException ex) {
                     console.println("EvoSuite cancelled. Completed suites are kept.");
+                    if (!comparisons.isEmpty()) showNotification(project, NotificationType.INFORMATION,
+                            "EvoSuite cancelled: completed suites are kept; " + comparisons.size()
+                                    + " files are available to compare.", comparisons);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     console.println("EvoSuite cancelled.");
+                    if (!comparisons.isEmpty()) showNotification(project, NotificationType.INFORMATION,
+                            "EvoSuite cancelled: completed suites are kept; " + comparisons.size()
+                                    + " files are available to compare.", comparisons);
                 } catch (Exception ex) {
                     console.println("EvoSuite failed: " + mask(String.valueOf(ex.getMessage())));
                     showNotification(
                             project,
                             NotificationType.ERROR,
-                            "EvoSuite failed. See the EvoSuite console.");
+                            "EvoSuite failed. Completed results are kept; see the EvoSuite console.", comparisons);
                 } finally {
                     if (acquired) slot.release();
                     running.computeIfPresent(
@@ -533,12 +550,12 @@ public final class GenerationService implements Disposable {
                             .invokeLater(
                                     () -> {
                                         if (project.isDisposed()) return;
-                                        SuiteComparison.show(project, comparisons);
                                         if (suites.size() <= 3)
                                             suites.forEach(
                                                     file ->
                                                             FileEditorManager.getInstance(project)
                                                                     .openFile(file, true));
+                                        SuiteComparison.show(project, comparisons);
                                     });
                 }
             }
@@ -555,11 +572,21 @@ public final class GenerationService implements Disposable {
     }
 
     private static void showNotification(Project project, NotificationType type, String text) {
+        showNotification(project, type, text, List.of());
+    }
+
+    private static void showNotification(Project project, NotificationType type, String text,
+            List<SuiteComparison.Pair> comparisons) {
         if (project.isDisposed()) return;
         var notification =
                 NotificationGroupManager.getInstance()
                         .getNotificationGroup("EvoSuite")
                         .createNotification(text, type);
+        if (!comparisons.isEmpty()) {
+            var review = List.copyOf(comparisons);
+            notification.addAction(NotificationAction.createSimple("Review comparisons",
+                    () -> SuiteComparison.show(project, review)));
+        }
         notification.addAction(
                 NotificationAction.createSimple(
                         "Show console", () -> EvoSuiteConsole.getInstance(project).show()));
@@ -582,35 +609,8 @@ public final class GenerationService implements Disposable {
                             project,
                             () -> TestClassInference.infer(project, test, options.testSuffix));
             List<String> candidates = inference.candidates();
-            String cut =
-                    candidates.size() == 1
-                            ? candidates.getFirst()
-                            : IdeThread.edt(
-                                    () ->
-                                            Messages.showInputDialog(
-                                                    project,
-                                                    "Class under test for "
-                                                            + test.name()
-                                                            + " (fully qualified name):",
-                                                    "Extend Tests with EvoSuite",
-                                                    Messages.getQuestionIcon(),
-                                                    inference.guess(),
-                                                    null));
-            if (cut == null || cut.isBlank()) continue;
-            boolean valid =
-                    IdeThread.smartRead(
-                            project,
-                            () -> {
-                                PsiClass type =
-                                        JavaPsiFacade.getInstance(project)
-                                                .findClass(
-                                                        cut.trim(),
-                                                        GlobalSearchScope
-                                                                .moduleWithDependenciesAndLibrariesScope(
-                                                                        test.module(), false));
-                                return TestClassInference.isCut(project, type);
-                            });
-            if (!valid) throw new IllegalArgumentException("No top-level production class " + cut);
+            String cut = candidates.size() == 1 ? candidates.getFirst()
+                    : ExtensionTargetDialog.choose(project, test, inference);
             grouped.computeIfAbsent(test.module(), ignored -> new LinkedHashMap<>())
                     .computeIfAbsent(cut.trim(), ignored -> new ArrayList<>())
                     .add(new GenerationTarget.Seed(test.name(), test.root().toNioPath().toFile()));
