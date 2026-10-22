@@ -376,26 +376,11 @@ public class TestSuiteWriter implements Opcodes {
         boolean needsThreadWrapper = wasSecurityException
                 || results.stream().anyMatch(ExecutionResult::hasTimeout);
 
-        StringBuilder builder = new StringBuilder();
-        resetEmittedMethodNameTracking();
-
-        builder.append(getHeader(name, name, results, requirements));
-
-        if (requirements.isInlineScaffoldingMode()) {
-            builder.append(new Scaffolding().getBeforeAndAfterMethods(
-                    name, needsThreadWrapper, results, replayScaffoldingSnapshot));
+        List<Integer> testIds = new ArrayList<>();
+        for (int i = 0; i < testCases.size(); i++) {
+            testIds.add(i);
         }
-
-        if (testCases.isEmpty()) {
-            builder.append(getEmptyTest());
-        } else {
-            for (int i = 0; i < testCases.size(); i++) {
-                builder.append(testToString(i, i, results.get(i)));
-            }
-        }
-        builder.append(getFooter());
-
-        return builder.toString();
+        return assembleTestFile(name, name, testIds, needsThreadWrapper, results, requirements);
     }
 
     /**
@@ -410,18 +395,41 @@ public class TestSuiteWriter implements Opcodes {
         ExecutionResult testResult = results.get(testId);
         boolean needsThreadWrapper = testResult.hasSecurityException() || testResult.hasTimeout();
 
+        return assembleTestFile(name + "_" + testId, name, Collections.singletonList(testId),
+                needsThreadWrapper, results, requirements);
+    }
+
+    /**
+     * Assemble one JUnit file: header, inline scaffolding when requirements ask for it, the selected
+     * tests and the footer.
+     *
+     * @param className         name of the test class the file declares
+     * @param scaffoldingName   name of the test suite whose scaffolding file the class extends
+     * @param testIds           indices of the tests to emit; if empty, a no-op test is emitted
+     * @param needsThreadWrapper whether the inline scaffolding must declare the executor for
+     *                          thread-wrapped tests
+     * @param results           execution results of all tests, also passed to the scaffolding
+     */
+    private String assembleTestFile(String className, String scaffoldingName, List<Integer> testIds,
+                                    boolean needsThreadWrapper, List<ExecutionResult> results,
+                                    RuntimeRequirements requirements) {
         StringBuilder builder = new StringBuilder();
         resetEmittedMethodNameTracking();
 
-        builder.append(getHeader(name + "_" + testId, name, results, requirements));
+        builder.append(getHeader(className, scaffoldingName, results, requirements));
 
         if (requirements.isInlineScaffoldingMode()) {
             builder.append(new Scaffolding().getBeforeAndAfterMethods(
-                    name + "_" + testId, needsThreadWrapper, results,
-                    replayScaffoldingSnapshot));
+                    className, needsThreadWrapper, results, replayScaffoldingSnapshot));
         }
 
-        builder.append(testToString(testId, testId, results.get(testId)));
+        if (testIds.isEmpty()) {
+            builder.append(getEmptyTest());
+        } else {
+            for (int testId : testIds) {
+                builder.append(testToString(testId, testId, results.get(testId)));
+            }
+        }
         builder.append(getFooter());
 
         return builder.toString();
