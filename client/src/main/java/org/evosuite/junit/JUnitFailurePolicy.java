@@ -213,6 +213,14 @@ final class JUnitFailurePolicy {
         return "java.lang.ExceptionInInitializerError".equals(cls);
     }
 
+    /**
+     * Whether the failure is a deterministic problem of the environment, a broken class
+     * initializer or a missing display, which says nothing about the stability of the test.
+     */
+    static boolean isDeterministicEnvironmentFailure(JUnitFailure failure) {
+        return isClassInitializerFailure(failure) || isDeterministicGuiEnvironmentFailure(failure);
+    }
+
     static boolean isDeterministicGuiEnvironmentFailure(JUnitFailure failure) {
         if (failure == null) {
             return false;

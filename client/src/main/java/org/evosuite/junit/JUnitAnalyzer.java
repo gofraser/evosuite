@@ -364,17 +364,11 @@ public abstract class JUnitAnalyzer {
                     continue failure_loop;
                 }
 
-                // Class initialization failures are deterministic environmental issues
-                // (e.g., broken static initializers) rather than assertion instability.
-                // Remove those tests, but do not count them as unstable.
-                if (JUnitFailurePolicy.isClassInitializerFailure(failure)) {
-                    logger.warn("Removing test {} due deterministic class-initializer failure: {}: {}",
-                            testName, failure.getExceptionClassName(), failure.getMessage());
-                    removeTestByName(tests, written, testName);
-                    continue failure_loop;
-                }
-                if (JUnitFailurePolicy.isDeterministicGuiEnvironmentFailure(failure)) {
-                    logger.warn("Removing test {} due deterministic GUI-environment failure: {}: {}",
+                // Class initialization and GUI environment failures are deterministic
+                // environmental issues (e.g., broken static initializers, no display) rather than
+                // assertion instability. Remove those tests, but do not count them as unstable.
+                if (JUnitFailurePolicy.isDeterministicEnvironmentFailure(failure)) {
+                    logger.warn("Removing test {} due deterministic environment failure: {}: {}",
                             testName, failure.getExceptionClassName(), failure.getMessage());
                     removeTestByName(tests, written, testName);
                     continue failure_loop;
@@ -826,7 +820,8 @@ public abstract class JUnitAnalyzer {
             if (JUnitFailurePolicy.isAgentAttachFailure(testName, failure)
                     || JUnitFailurePolicy.isResourceLimitFailure(failure, testClasses)
                     || JUnitFailurePolicy.isTimeoutException(failure)
-                    || JUnitFailurePolicy.isWatchdogCasualty(result, failure, watchdogCulpritSeen)) {
+                    || JUnitFailurePolicy.isWatchdogCasualty(result, failure, watchdogCulpritSeen)
+                    || JUnitFailurePolicy.isDeterministicEnvironmentFailure(failure)) {
                 continue;
             }
             failures.add(testName);

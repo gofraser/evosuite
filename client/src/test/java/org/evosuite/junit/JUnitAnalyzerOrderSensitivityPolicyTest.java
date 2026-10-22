@@ -151,6 +151,22 @@ public class JUnitAnalyzerOrderSensitivityPolicyTest {
     }
 
     @Test
+    public void aClassInitializerFailureIsNotOrderSensitivity() throws Exception {
+        JUnitAnalyzer.OrderSensitivityAnalysis analysis =
+                probe(twoTests(false), false, "java.lang.ExceptionInInitializerError");
+
+        assertTrue(analysis.getForwardFailures().isEmpty(), "" + analysis.getForwardFailures());
+    }
+
+    @Test
+    public void aHeadlessEnvironmentFailureIsNotOrderSensitivity() throws Exception {
+        JUnitAnalyzer.OrderSensitivityAnalysis analysis =
+                probe(twoTests(false), false, "java.awt.HeadlessException");
+
+        assertTrue(analysis.getForwardFailures().isEmpty(), "" + analysis.getForwardFailures());
+    }
+
+    @Test
     public void theExpectedFailureOfAFailingTestIsIgnored() throws Exception {
         JUnitAnalyzer.OrderSensitivityAnalysis analysis =
                 probe(twoTests(true), false, "java.lang.IllegalStateException");
