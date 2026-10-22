@@ -424,3 +424,52 @@ were regenerated and the new checkbox/help layout visually inspected.
 The final installable ZIP was rebuilt and passed CRC/isolated-engine checks. Plugin Verifier
 reports Compatible on IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated and twelve
 experimental API usages.
+
+
+## UI/UX implementation follow-up (2026-10-22)
+
+Implemented on the existing codex/intellij-plugin branch and worktree:
+
+- Correctness: Gradle dependencies, persistent source sets and JUnit Platform setup share one
+  confirmation, undoable edit and awaited sync. Committed PSI between build-file edits avoids the
+  Kotlin DSL dependency-modifier failure. Source roots survive reimport without manual repair.
+  Action eligibility shares collector rules, including test-directory coverage/extension.
+- Existing suites: Add is the safe default for every scope. Compare creates no missing files;
+  pending files require explicit acceptance, and a scaffolding conflict defers the new suite too.
+  Runtime-free suites need a matching generated marker and machine-local ownership record;
+  handwritten replacements at an old path stay protected. Mark Reviewed recognizes accepted
+  runtime-free comparison content, and ownership survives ordinary edits and IDE restarts.
+- Runtime-free output: Omit EvoSuite runtime dependency maps to no_runtime_dependency. Setup adds
+  JUnit as needed and omits EvoSuite runtime, retaining dependencies used by older tests. JUnit 4
+  output compiles and executes with no EvoSuite jar; imported Maven/JUnit 4 and Gradle/JUnit 5
+  projects generate and execute runtime-free suites through their actual build tools.
+- Visibility: an applied per-module configuration/readiness dialog explains override sources,
+  selected JDK, test dependencies and resolved output. Runs persists target outcomes, elapsed
+  time, coverage, seeds, settings, reports and pending comparisons across sessions. It supports
+  editor/JUnit navigation, replay, individual cancellation, review recovery and diagnostic
+  retention. Repeated active selections are suppressed and larger requests show a budget preview.
+  Console output links to reports/sources and distinguishes failures; postprocessing is explicit.
+- Engine capabilities: fixed/fresh random seeds and replay, existing-test coverage measurement,
+  signatures/source/decompiled/bytecode LLM context, actual IDE source-file resolution, and output
+  token, HTTP timeout, retry and temperature controls. Search Only also overrides an LLM-only
+  strategy supplied in raw arguments. Optional Maven delegation falls back to the bundled driver
+  when needed to honor replay, fixed seeds, advanced controls, runtime-free output or suite safety.
+- First run/settings: grouped compact forms, supported-criteria selection, JDK/class choosers,
+  field-specific validation, provider-specific OpenAI/Anthropic credentials, safe legacy migration,
+  metadata-only connection checks and explicit missing-key recovery before setup/building. A
+  missing legacy key cannot erase a current provider draft. Inherited project settings disable
+  their JDK chooser as well as the fields. Coverage has a distinct logo badge.
+
+Validation uses automated import and Swing UI checks, following the user's preference. The full
+regression/package/verifier run passed 68 IntelliJ tests, including all seven physical Maven/Gradle
+import acceptance cases, and 83 shared-core tests. The same 83 core tests passed on Java 17 through
+Maven. After the ownership refinements, 43 focused settings, placement, first-run, tool-window,
+history and runtime-free Maven/Gradle execution checks passed. All 26 final settings/history checks passed, including the empty-legacy-key safeguard. The fresh
+installable ZIP passed CRC and isolated-engine checks. Plugin Verifier reports Compatible on IDEA
+2025.3.2 and 2026.2.3 (two/six deprecated and thirteen experimental API usages; no internal or
+override-only API reports). Compact settings and populated Runs captures were
+inspected. Live cloud generation and native desktop acceptance are outside this automated check.
+
+Lower-priority search profiles, parallel-client controls and broad instrumentation tuning remain
+available through Additional arguments; the new dedicated controls cover the prioritized engine
+capabilities above. The README documents the workflows and their limits.

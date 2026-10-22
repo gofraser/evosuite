@@ -65,7 +65,56 @@ public final class EvoSuiteConsole implements Disposable {
 
     public void println(String line) {
         if (!project.isDisposed()) {
-            view.print(line + "\n", ConsoleViewContentType.NORMAL_OUTPUT);
+            ConsoleViewContentType type =
+                    line.startsWith("Failed ")
+                                    || line.startsWith("EvoSuite failed")
+                                    || line.startsWith("Cannot ")
+                                    || line.startsWith("Build failed")
+                                    || line.startsWith("No tests generated")
+                            ? ConsoleViewContentType.ERROR_OUTPUT
+                            : line.startsWith("===")
+                                    ? ConsoleViewContentType.SYSTEM_OUTPUT
+                                    : ConsoleViewContentType.NORMAL_OUTPUT;
+            String prefix =
+                    java.util.stream.Stream.of(
+                                    "Reports and LLM traces: ",
+                                    "Generated sources retained at ",
+                                    "Generated comparison sources retained at ",
+                                    "Planned output: ")
+                            .filter(line::startsWith)
+                            .findFirst()
+                            .orElse(null);
+            if (prefix == null) view.print(line + "\n", type);
+            else {
+                String path = line.substring(prefix.length());
+                view.print(prefix, type);
+                view.printHyperlink(
+                        path,
+                        ignored -> {
+                            try {
+                                var file =
+                                        com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+                                                .refreshAndFindFileByNioFile(
+                                                        java.nio.file.Path.of(path));
+                                if (file != null && !file.isDirectory())
+                                    com.intellij
+                                            .openapi
+                                            .fileEditor
+                                            .FileEditorManager
+                                            .getInstance(project)
+                                            .openFile(file, true);
+                                else
+                                    com.intellij.ide.actions.RevealFileAction.openFile(
+                                            java.nio.file.Path.of(path));
+                            } catch (RuntimeException ex) {
+                                com.intellij.openapi.ui.Messages.showInfoMessage(
+                                        project,
+                                        "This output location is no longer available.",
+                                        "EvoSuite");
+                            }
+                        });
+                view.print("\n", type);
+            }
             if (!hasOutput) {
                 hasOutput = true;
                 notifyOutput();

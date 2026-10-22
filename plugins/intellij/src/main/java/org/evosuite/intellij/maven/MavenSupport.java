@@ -168,7 +168,11 @@ public final class MavenSupport implements MavenIntegration {
                 (setup == null ? "Add" : "Update") + " the EvoSuite setup execution to keep "
                         + options.testFolder + " as a test source folder on reimport and configure"
                         + " the runtime agent for Maven tests.\n\n"
-                        + "The setup goal requires the runtime dependency; it does not add it.\n\n";
+                        + (options.effectiveNoRuntimeDependency()
+                                        ? "Runtime-free tests do not require the EvoSuite"
+                                                + " runtime.\n\n"
+                                        : "The runtime dependency is needed only by"
+                                                + " runtime-dependent generated tests.\n\n");
         boolean combined = !configured && !dependencies.isEmpty();
         int choice = Messages.showDialog(project,
                 "Configure " + model.getPath() + "?\n\n" + dependencyNote + setupNote

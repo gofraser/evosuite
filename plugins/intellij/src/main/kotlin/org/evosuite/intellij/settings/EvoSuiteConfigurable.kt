@@ -43,6 +43,8 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     private val key = JBPasswordField().apply { name = "llmApiKey"; accessibleContext.accessibleName = "Cloud API key" }
     private val pomNote = note("", 3)
     private val keyStatus = note("Search only and local Ollama do not need a cloud API key. Load the saved key to edit or remove it.", 3).apply { name = "apiKeyStatus" }
+    private var credentialsPanel: JPanel? = null
+    private var credentialExpander: JToggleButton? = null
     private val loadKey = JButton("Load stored API key").apply { name = "loadApiKey"; addActionListener { requestKeyLoad() } }
     private val scopeNote = note("", 3)
     private val copyDefaults = JButton("Copy IDE defaults").apply { name = "copyIdeDefaults" }
@@ -56,6 +58,13 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     private var keyLoading = false
     private var tabs: JTabbedPane? = null
     private var selectedTab = 0
+    private var javaHomeChooser: JButton? = null
+    private data class CredentialDraft(var original: String?, var text: String, var ready: Boolean, var touched: Boolean)
+    private val credentialDrafts = linkedMapOf<String, CredentialDraft>()
+    private var credentialProvider = "OPENAI"
+    private var lastLlmProvider = ""
+    private var keyGeneration = 0
+    private val credentialChoice = ComboBox(arrayOf("OPENAI", "ANTHROPIC")).apply { name = "credentialProvider"; accessibleContext.accessibleName = "Provider for stored API key" }
     private var originalKey: String? = null
     private var keyReady = false
     private var keyTouched = false
@@ -83,6 +92,9 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             scopeActions.add(restoreDefaults)
             copyDefaults.addActionListener { loadEditors(EvoSuiteAppSettings.getInstance().state!!.values); enableFields() }
             top.add(scopeActions)
+            top.add(JButton("Effective configuration / check project setup…").apply {
+                addActionListener { org.evosuite.intellij.ui.ConfigurationDialog.show(project) }
+            })
         } else {
             top.add(JLabel("IDE defaults. Projects can opt into their own settings."))
             top.add(restoreDefaults)
@@ -95,6 +107,16 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             val panel = SettingsPanel()
             var row = 0
             keys.forEach { name ->
+                val group = when (name) {
+                    "searchBudget" -> "Search"
+                    "assertions" -> "Test quality"
+                    "testFormat" -> "Generated tests"
+                    "javaHome" -> "Engine runtime"
+                    "usePomSettings" -> "Project setup"
+                    "llmContextMode" -> "Advanced model controls"
+                    else -> null
+                }
+                if (group != null) panel.add(JLabel(group).apply { font = font.deriveFont(Font.BOLD) }, constraints(0, row++, 1.0).apply { gridwidth = 2 })
                 val default = SettingKeys.defaultValue(name)
                 val choices = choices(name)
                 val editor: JComponent = if (name == "criterion") CriteriaEditor() else if (default == "true" || default == "false") JCheckBox() else if (choices != null) ComboBox(arrayOf("", *choices)).apply {
@@ -114,7 +136,21 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 if (editor !is JCheckBox)
                     panel.add(JLabel(label).apply { labelFor = editor; this.name = "$name.label" }, constraints(0, row, 0.0))
                 val cell = if (editor is JTextField) JPanel(BorderLayout(0, 2)).apply {
-                    add(editor, BorderLayout.NORTH)
+                    val input = JPanel(BorderLayout(4, 0)).apply {
+                        add(editor, BorderLayout.CENTER)
+                        if (name == "javaHome") add(JButton("Choose…").apply {
+                            javaHomeChooser = this; this.name = "chooseJavaHome"
+                            accessibleContext.accessibleName = "Choose Java JDK directory"
+                            addActionListener {
+                                val descriptor = com.intellij.openapi.fileChooser.FileChooserDescriptorFactory.createSingleFolderDescriptor()
+                                com.intellij.openapi.fileChooser.FileChooser.chooseFile(descriptor, project, null) { file ->
+                                    (editor as? SettingTextField)?.automatic?.isSelected = false
+                                    editor.isEditable = true; editor.text = file.path
+                                }
+                            }
+                        }, BorderLayout.EAST)
+                    }
+                    add(input, BorderLayout.NORTH)
                     (editor as? SettingTextField)?.automatic?.let {
                         it.name = "$name.automatic"
                         add(it, BorderLayout.CENTER)
@@ -128,10 +164,30 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 if (editor is JCheckBox) editor.addActionListener { enableFields() }
                 if (editor is JComboBox<*>) editor.addActionListener { enableFields() }
                 if (name == "minimizeValues") panel.add(note("Simplify constants while preserving coverage. Off by default; requires test minimization above.", 2).apply { this.name = "minimizeValues.help" }, constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                if (name == "searchBudget") panel.add(note("Search time excludes building, minimization and test validation.", 2), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                if (name == "noRuntimeDependency") panel.add(note("JUnit is still required. Runtime isolation helpers are omitted; existing dependencies remain for older tests.", 2), constraints(0, row++, 1.0).apply { gridwidth = 2 })
                 if (name == "llmProvider") row = addCredentials(panel, row)
+                if (name == "llmBaseUrl") {
+                    panel.add(JButton("Test connection (metadata only)…").apply {
+                        this.name = "testConnection"
+                        addActionListener {
+                            try { if (!inherited) validateEditors() }
+                            catch (ex: ConfigurationException) {
+                                com.intellij.openapi.ui.Messages.showErrorDialog(project, ex.message.orEmpty(), "EvoSuite Settings")
+                                return@addActionListener
+                            }
+                            val draft = SettingKeys.resolve(editorValues())
+                            cacheCredential()
+                            val providerKey = if (draft.effectiveLlmProvider() == credentialProvider) String(key.password)
+                                else credentialDrafts[draft.effectiveLlmProvider()]?.text.orEmpty()
+                            org.evosuite.intellij.run.LlmConnectionCheck.show(project, draft, providerKey)
+                        }
+                    }, constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                }
             }
             if (title == "Large Language Model") {
                 panel.add(note("Search only keeps LLM features off, including overrides from Maven or additional arguments. Provider defaults and EVOSUITE_LLM_MODEL are supported.", 3), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+
 
             }
             if (title == "Advanced") {
@@ -141,7 +197,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                     panel.add(JScrollPane(pomNote), constraints(0, row++, 1.0).apply { gridwidth = 2 })
                 }
                 panel.add(note("pom.xml settings take precedence when enabled. The run console lists each override."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
-                panel.add(note("Gradle: sourceSets.test.java.srcDir(\"src/test/evosuite\")"), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                panel.add(note("Configure Gradle persists generated test roots and JUnit setup in the build script."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
             }
             panel.add(JPanel(), constraints(0, row, 1.0).apply { weighty = 1.0; gridwidth = 2 })
             tabs.addTab(title, JScrollPane(panel))
@@ -195,6 +251,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         inherited = project != null && !projectSwitch.isSelected
         loadEditors(if (inherited) EvoSuiteAppSettings.getInstance().state!!.values else values())
         if (project == null) {
+            credentialDrafts.values.forEach { it.text = it.original.orEmpty(); it.touched = false }
             loadingKey = true
             key.text = originalKey ?: ""
             loadingKey = false
@@ -221,7 +278,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     override fun isModified(): Boolean {
         if (component == null) return false
         val expected = normalized(values())
-        return current() != expected || project != null && (projectSwitch.isSelected != EvoSuiteProjectSettings.getInstance(project).state!!.useProjectSettings || delegate.isSelected != EvoSuiteProjectSettings.getInstance(project).state!!.delegateToMaven) || keyTouched
+        return current() != expected || project != null && (projectSwitch.isSelected != EvoSuiteProjectSettings.getInstance(project).state!!.useProjectSettings || delegate.isSelected != EvoSuiteProjectSettings.getInstance(project).state!!.delegateToMaven) || keyTouched || credentialDrafts.values.any { it.touched }
     }
     override fun apply() {
         if (project == null || projectSwitch.isSelected) {
@@ -230,12 +287,20 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             validateEditors()
             try { SettingKeys.resolve(current()) } catch (e: IllegalArgumentException) { throw ConfigurationException(e.message ?: "Invalid settings") }
         }
-        if (project == null && keyTouched) {
-            val password = String(key.password)
-            try { storeApiKey(password) }
-            catch (e: Exception) { throw ConfigurationException("Could not save the EvoSuite API key in secure storage. Retry Apply to save it.") }
-            originalKey = password
-            keyTouched = false
+        if (project == null) {
+            cacheCredential()
+            val currentProvider = credentialProvider
+            try {
+                credentialDrafts.filterValues { it.touched }.forEach { (provider, draft) ->
+                    credentialProvider = provider
+                    try { storeApiKey(draft.text) }
+                    catch (e: Exception) { throw ConfigurationException("Could not save the $provider API key in secure storage. Retry Apply to save it.") }
+                    draft.original = draft.text; draft.touched = false
+                }
+            } finally {
+                credentialProvider = currentProvider
+                credentialDrafts[currentProvider]?.let { originalKey = it.original; keyTouched = it.touched }
+            }
         }
         if (project == null) EvoSuiteAppSettings.getInstance().state!!.values = java.util.TreeMap(current())
         else EvoSuiteProjectSettings.getInstance(project).state!!.apply { values = java.util.TreeMap(current()); useProjectSettings = projectSwitch.isSelected; delegateToMaven = delegate.isSelected }
@@ -243,12 +308,40 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         loadEditors(if (inherited) EvoSuiteAppSettings.getInstance().state!!.values else values())
         enableFields()
     }
-    private fun addCredentials(panel: JPanel, firstRow: Int): Int {
-        var row = firstRow
+    private fun addCredentials(parent: JPanel, firstRow: Int): Int {
+        val panel = JPanel(GridBagLayout())
+        var row = 0
+        val expand = JToggleButton("Cloud API keys…").apply { isSelected = project != null; name = "cloudCredentials" }
+        credentialExpander = expand; credentialsPanel = panel
+        panel.isVisible = expand.isSelected
+        expand.addActionListener { panel.isVisible = expand.isSelected; parent.revalidate() }
+        parent.add(expand, constraints(0, firstRow, 1.0).apply { gridwidth = 2 })
+        parent.add(panel, constraints(0, firstRow + 1, 1.0).apply { gridwidth = 2 })
         if (project == null) {
+            panel.add(JLabel("Stored key provider").apply { labelFor = credentialChoice }, constraints(0, row, 0.0))
+            panel.add(credentialChoice, constraints(1, row++, 1.0))
+            credentialChoice.addActionListener { switchCredential(credentialChoice.selectedItem as String); enableFields() }
             panel.add(JLabel("Cloud API key").apply { labelFor = key }, constraints(0, row, 0.0))
             panel.add(key, constraints(1, row++, 1.0))
             panel.add(loadKey, constraints(1, row++, 1.0))
+            panel.add(JButton("Import legacy shared key for this provider").apply {
+                name = "importLegacyApiKey"
+                addActionListener {
+                    val provider = credentialProvider
+                    ApplicationManager.getApplication().executeOnPooledThread {
+                        val legacy = runCatching { loadLegacyApiKey() }
+                        ApplicationManager.getApplication().invokeLater {
+                            if (component != null && provider == credentialProvider) {
+                                if (legacy.isSuccess && !legacy.getOrNull().isNullOrBlank()) {
+                                    loadingKey = true; key.text = legacy.getOrDefault(""); loadingKey = false
+                                    keyReady = true; keyTouched = true; keyStatus.text = "Apply to store this key for $provider. Other providers keep their own keys."
+                                    enableFields()
+                                } else keyStatus.text = if (legacy.isSuccess) "No legacy shared key was found. The current provider key is kept." else "The legacy shared key could not be read. The current provider key is kept."
+                            }
+                        }
+                    }
+                }
+            }, constraints(1, row++, 1.0))
             panel.add(keyStatus, constraints(0, row++, 1.0).apply { gridwidth = 2 })
             key.document.addDocumentListener(object : javax.swing.event.DocumentListener {
                 override fun insertUpdate(e: javax.swing.event.DocumentEvent) { if (!loadingKey) keyTouched = true }
@@ -258,14 +351,21 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         } else {
             panel.add(JButton("Manage shared API key…").apply {
                 name = "manageApiKey"
-                addActionListener { ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteApplicationConfigurable::class.java) { it.selectLanguageModelTab() } }
+                addActionListener { ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteApplicationConfigurable::class.java) { it.selectProviderCredentials(effectiveChoice("llmProvider")) } }
             }, constraints(1, row++, 1.0))
             panel.add(note("Cloud API keys are shared across projects and stored in the IDE's secure storage. EVOSUITE_LLM_API_KEY is also supported.", 3), constraints(0, row++, 1.0).apply { gridwidth = 2 })
         }
-        return row
+        return firstRow + 2
     }
     fun selectLanguageModelTab() { selectedTab = 1; tabs?.selectedIndex = 1 }
-    protected open fun loadApiKey(): String? = LlmApiKeyStore.get()
+    fun selectProviderCredentials(provider: String) {
+        selectLanguageModelTab()
+        if (provider == "OPENAI" || provider == "ANTHROPIC") switchCredential(provider)
+        credentialExpander?.isSelected = true; credentialsPanel?.isVisible = true
+        component?.revalidate()
+    }
+    protected open fun loadLegacyApiKey(): String = LlmApiKeyStore.get()
+    protected open fun loadApiKey(): String? = LlmApiKeyStore.get(credentialProvider)
     protected open fun mayAutomaticallyLoadApiKey() = !ApplicationManager.getApplication().isHeadlessEnvironment && !ApplicationManager.getApplication().isUnitTestMode
     private fun requestKeyLoad() {
         if (project != null || keyReady || keyLoading || component == null) return
@@ -273,10 +373,12 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         loadKey.isEnabled = false
         keyStatus.text = "Reading API key from secure storage…"
         val token = generation
+        val provider = credentialProvider
+        val request = ++keyGeneration
         ApplicationManager.getApplication().executeOnPooledThread {
             val loaded = runCatching { loadApiKey() }
             ApplicationManager.getApplication().invokeLater {
-                if (component == null || token != generation) return@invokeLater
+                if (component == null || token != generation || request != keyGeneration || provider != credentialProvider) return@invokeLater
                 loadingKey = true
                 originalKey = loaded.getOrNull()
                 if (!keyTouched) key.text = originalKey.orEmpty()
@@ -294,11 +396,11 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     }
     private fun validateEditors() {
         val values = current()
-        mapOf("searchBudget" to "seconds greater than zero", "testTimeout" to "milliseconds (zero uses the default)", "clientMemory" to "megabytes (zero uses the default)", "llmMaxCalls" to "calls (zero means unlimited)").forEach { (name, units) ->
+        mapOf("searchBudget" to "seconds greater than zero", "testTimeout" to "milliseconds (zero uses the default)", "clientMemory" to "megabytes (zero uses the default)", "llmMaxCalls" to "calls (zero means unlimited)", "llmMaxTokens" to "tokens greater than zero", "llmTimeoutSeconds" to "seconds greater than zero", "llmRetryMaxAttempts" to "attempts (zero disables retries)").forEach { (name, units) ->
             val value = values[name]
             if (!value.isNullOrBlank()) {
                 val number = value.toIntOrNull()
-                if (number == null || number < 0 || name == "searchBudget" && number == 0)
+                if (number == null || number < 0 || name in listOf("searchBudget", "llmMaxTokens", "llmTimeoutSeconds") && number == 0)
                     invalid(name, "${label(name)} must be a whole number of $units.")
             }
         }
@@ -306,11 +408,21 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             val value = values[name].orEmpty()
             choices(name)?.let { if (fields[name]?.isEnabled == true && value.isNotEmpty() && value !in it) invalid(name, "Choose a supported value for ${label(name).lowercase()}; '$value' is not supported.") }
         }
+        val seed = values["randomSeed"].orEmpty()
+        if (seed.isNotBlank() && seed.toLongOrNull() == null) invalid("randomSeed", "Random seed must be a signed 64-bit integer.")
+        val temperature = (values["llmTemperature"] ?: SettingKeys.defaultValue("llmTemperature")).toDoubleOrNull()
+            ?: invalid("llmTemperature", "Sampling temperature must be between 0 and 2.")
+        if (!temperature.isFinite() || temperature !in 0.0..2.0) invalid("llmTemperature", "Sampling temperature must be between 0 and 2.")
+        val criteria = values["criterion"].orEmpty().split(":").filter { it.isNotBlank() }
+        if (criteria.any { it !in SettingKeys.SUPPORTED_CRITERIA }) invalid("criterion", "Choose supported coverage criteria. Unknown: " + criteria.filter { it !in SettingKeys.SUPPORTED_CRITERIA }.joinToString())
+        val home = values["javaHome"].orEmpty()
+        if (home.isNotBlank() && runCatching { org.evosuite.ide.JavaInstallation.at(java.nio.file.Path.of(home)).also { require(it.hasCompiler()) } }.isFailure)
+            invalid("javaHome", "Choose a valid Java JDK directory containing bin/java and bin/javac.")
         val url = values["llmBaseUrl"].orEmpty()
         if (url.isNotEmpty() && fields["llmBaseUrl"]?.isEnabled == true) {
             val uri = runCatching { java.net.URI(url) }.getOrNull()
-            if (uri == null || uri.scheme?.lowercase() !in listOf("http", "https") || uri.host.isNullOrBlank())
-                invalid("llmBaseUrl", "Provider endpoint must be a full http:// or https:// URL.")
+            if (uri == null || uri.scheme?.lowercase() !in listOf("http", "https") || uri.host.isNullOrBlank() || uri.userInfo != null || uri.rawQuery != null || uri.rawFragment != null)
+                invalid("llmBaseUrl", "Provider endpoint must be a full HTTP(S) URL without credentials, query or fragment.")
         }
     }
     private fun invalid(name: String, message: String): Nothing {
@@ -319,9 +431,16 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         throw ConfigurationException(message)
     }
     private fun label(name: String): String = mapOf(
-        "searchBudget" to "Time per class (seconds)", "criterion" to "Coverage criteria",
+        "searchBudget" to "Search budget per class (seconds)", "criterion" to "Coverage criteria",
         "assertions" to "Generate assertions", "minimize" to "Remove redundant tests and statements",
         "minimizeValues" to "Minimize values (simplify constants)",
+        "noRuntimeDependency" to "Omit EvoSuite runtime dependency",
+        "randomSeed" to "Random seed",
+        "llmContextMode" to "Code context sent to the model",
+        "llmMaxTokens" to "Maximum output tokens per call",
+        "llmTimeoutSeconds" to "HTTP timeout per call (seconds)",
+        "llmRetryMaxAttempts" to "Retry attempts per failed call",
+        "llmTemperature" to "Sampling temperature (0–2)",
         "assertionStrategy" to "Assertion selection", "testFormat" to "JUnit version",
         "testFolder" to "Test folder (module-relative)", "testSuffix" to "Test class suffix",
         "testNaming" to "Test method names", "variableNaming" to "Variable names",
@@ -342,6 +461,8 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             "NONE" to "No provider", "OPENAI" to "OpenAI", "ANTHROPIC" to "Anthropic", "OLLAMA" to "Ollama (local)",
             "SEARCH_ONLY" to "Search only (LLM disabled)", "SEARCH" to "Search with optional LLM assistance",
             "LLM_SINGLE_PROMPT" to "LLM only: single prompt", "LLM_ITERATIVE" to "LLM only: iterative",
+            "SIGNATURE_ONLY" to "Class and method signatures", "SOURCE_CODE" to "Project source code",
+            "DECOMPILED_SOURCE" to "Decompiled source", "BYTECODE_DISASSEMBLED" to "Disassembled bytecode",
             "OFF" to "Off", "MIN" to "Minimal", "STANDARD" to "Standard", "FULL" to "Full"
         )
         return labels[value] ?: if (value in choices(name).orEmpty()) value else "Unsupported: $value"
@@ -350,9 +471,22 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     protected open fun storeApiKey(password: String) {
         val failure = java.util.concurrent.atomic.AtomicReference<Throwable>()
         com.intellij.openapi.progress.ProgressManager.getInstance().runProcessWithProgressSynchronously(
-            Runnable { runCatching { LlmApiKeyStore.set(password) }.onFailure { failure.set(it) } },
+            Runnable { runCatching { LlmApiKeyStore.set(credentialProvider, password) }.onFailure { failure.set(it) } },
             "Saving EvoSuite API key", false, project)
         failure.get()?.let { throw IllegalStateException("Secure storage failed", it) }
+    }
+    private fun cacheCredential() {
+        if (keyReady || keyTouched) credentialDrafts[credentialProvider] = CredentialDraft(originalKey, String(key.password), keyReady, keyTouched)
+    }
+    private fun switchCredential(provider: String) {
+        if (provider == credentialProvider) return
+        cacheCredential(); keyGeneration++; keyLoading = false
+        credentialProvider = provider
+        val draft = credentialDrafts[provider]
+        originalKey = draft?.original; keyReady = draft?.ready ?: false; keyTouched = draft?.touched ?: false
+        loadingKey = true; key.text = draft?.text.orEmpty(); loadingKey = false
+        if (credentialChoice.selectedItem != provider) credentialChoice.selectedItem = provider
+        keyStatus.text = "Keys are stored separately for OpenAI and Anthropic. Load or enter the $provider key."
     }
     private fun enableFields() {
         if (loadingEditors) return
@@ -362,10 +496,17 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             copyDefaults.isEnabled = scope
         }
         restoreDefaults.isEnabled = scope
+        javaHomeChooser?.isEnabled = scope
         loadKey.isEnabled = !keyReady && !keyLoading
         fields.keys.forEach { enableEditor(it, scope) }
         val provider = effectiveChoice("llmProvider")
         val approach = effectiveChoice("llmApproach")
+        if (project == null && provider != lastLlmProvider) {
+            lastLlmProvider = provider
+            if (provider == "OPENAI" || provider == "ANTHROPIC") {
+                switchCredential(provider); credentialExpander?.isSelected = true; credentialsPanel?.isVisible = true
+            } else { credentialExpander?.isSelected = false; credentialsPanel?.isVisible = false }
+        }
         val llm = scope && provider.isNotEmpty() && provider != "NONE" && approach != "SEARCH_ONLY"
         SettingKeys.LLM.filter { it != "llmProvider" && it != "llmApproach" }.forEach { enableEditor(it, llm) }
         val search = approach != "LLM_SINGLE_PROMPT" && approach != "LLM_ITERATIVE"
@@ -387,6 +528,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         "javaHome" -> "Module JDK"
         "llmModel" -> "Provider / EVOSUITE_LLM_MODEL"
         "llmBaseUrl" -> "Provider endpoint"
+        "randomSeed" -> "Fresh random seed"
         "extraArguments" -> "None"
         else -> SettingKeys.defaultValue(name)
     }
@@ -394,6 +536,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         "javaHome" -> "Use module JDK"
         "llmModel" -> "Use provider / environment default"
         "llmBaseUrl" -> "Use provider endpoint"
+        "randomSeed" -> "Choose a fresh seed for each run"
         "extraArguments" -> "No additional arguments"
         else -> null
     }
@@ -407,10 +550,11 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         "llmModel" -> "EVOSUITE_LLM_MODEL or provider default"
         "llmBaseUrl" -> "provider endpoint; Ollama: http://localhost:11434"
         "llmMaxCalls" -> "unlimited (0)"
+        "randomSeed" -> "fresh engine seed (use a fixed signed 64-bit integer to repeat a run)"
         "extraArguments" -> "none"
         else -> SettingKeys.defaultValue(name).ifEmpty { "EvoSuite default" }
     }
-    override fun disposeUIResources() { component = null; fields.clear(); tabs = null; generation++ }
+    override fun disposeUIResources() { component = null; fields.clear(); tabs = null; generation++; keyGeneration++; loadingKey = true; key.text = ""; originalKey = null; credentialDrafts.clear(); loadingKey = false }
     private fun constraints(x: Int, y: Int, weight: Double) = GridBagConstraints().apply { gridx=x; gridy=y; weightx=weight; fill=GridBagConstraints.HORIZONTAL; anchor=GridBagConstraints.NORTHWEST; insets=Insets(4, 8, 4, 8) }
     private fun setEnabled(component: JComponent, enabled: Boolean) {
         component.isEnabled = enabled
@@ -423,6 +567,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         "variableNaming" -> arrayOf("TYPE_BASED", "HEURISTICS_BASED")
         "llmProvider" -> arrayOf("NONE", "OPENAI", "ANTHROPIC", "OLLAMA")
         "llmApproach" -> arrayOf("SEARCH_ONLY", "SEARCH", "LLM_SINGLE_PROMPT", "LLM_ITERATIVE")
+        "llmContextMode" -> arrayOf("SIGNATURE_ONLY", "SOURCE_CODE", "DECOMPILED_SOURCE", "BYTECODE_DISASSEMBLED")
         "llmSeeding" -> arrayOf("OFF", "MIN", "STANDARD", "FULL")
         else -> null
     }
@@ -442,7 +587,17 @@ private class CriteriaEditor : JPanel(BorderLayout()) {
         val grid = JPanel(GridLayout(0, 2))
         boxes.values.forEach { grid.add(it) }
         add(grid, BorderLayout.CENTER)
-        val custom = JPanel(BorderLayout(4, 2)); custom.add(JLabel("Additional criteria (optional, colon separated)"), BorderLayout.NORTH); custom.add(other)
+        val custom = JPanel(BorderLayout(4, 2)); custom.add(JLabel("Additional criteria (optional, colon separated)"), BorderLayout.NORTH); custom.add(other, BorderLayout.CENTER)
+        custom.add(JButton("Choose…").apply {
+            accessibleContext.accessibleName = "Choose additional coverage criteria"
+            addActionListener {
+                val chosen = other.text.split(":").toSet()
+                val options = SettingKeys.SUPPORTED_CRITERIA.filter { it !in known }.associateWith { JCheckBox(it, it in chosen) }
+                val panel = JPanel(GridLayout(0, 2, 6, 2)); options.values.forEach { panel.add(it) }
+                if (JOptionPane.showConfirmDialog(this, panel, "Additional coverage criteria", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) == JOptionPane.OK_OPTION)
+                    other.text = options.filterValues { it.isSelected }.keys.joinToString(":")
+            }
+        }, BorderLayout.EAST)
         add(custom, BorderLayout.SOUTH)
     }
     fun load(value: String) {

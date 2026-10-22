@@ -23,5 +23,8 @@
     <action id="EvoSuite.ExtendTests" icon="/icons/evosuite-extend.svg" class="org.evosuite.intellij.actions.ExtendTestsAction" text="Extend Tests with EvoSuite">
       <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/><add-to-group group-id="EditorPopupMenu" anchor="last"/><add-to-group group-id="StructureViewPopupMenu" anchor="last"/><add-to-group group-id="GenerateGroup" anchor="last"/>
     </action>
+    <action id="EvoSuite.MeasureCoverage" icon="/icons/evosuite-coverage.svg" class="org.evosuite.intellij.actions.MeasureCoverageAction" text="Measure Existing Test Coverage with EvoSuite" description="Measure production-class coverage using selected existing tests">
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/><add-to-group group-id="EditorPopupMenu" anchor="last"/>
+    </action>
   </actions>
 </idea-plugin>

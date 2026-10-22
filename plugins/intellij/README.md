@@ -16,7 +16,7 @@ constructors are excluded. Overloads use their JVM descriptors, so they stay dis
 
 **Extend Tests with EvoSuite** accepts existing test classes. The plugin infers their production
 class from the package and `Test`, `Tests`, `TestCase`, `IT`, `ITCase`, `TestFoo` or the configured
-suite suffix; ambiguous names open a class-name prompt with inline production-class validation.
+suite suffix; ambiguous names open an IntelliJ production-class chooser scoped to the module.
 Cancel stops the entire request, including other selected test classes. A longer name such as
 `VaultEdgeCasesTest` offers the longest matching production-class prefix for confirmation. Select several test classes to seed the
 same CUT together. EvoSuite parses their saved source, executes their compiled tests to exclude
@@ -27,10 +27,11 @@ the same as in Eclipse: parameterized tests and statements depending on fixtures
 be dropped.
 
 The **EvoSuite** sidebar opens a tool window with actions to generate tests for the open Java
-file/current method, extend the open test file, and open the EvoSuite settings scope the project uses. Before the first run,
-it shows instructions and labeled action buttons. When generation starts it switches to commands
-(with keys masked), progress and results; generation/settings actions remain in the toolbar. Its Stop
-action cancels this project's requests and kills the engine and client JVMs. Completed suites
+file/current method, extend the open test file, measure existing-test coverage and open project settings. Before the first run,
+it shows instructions and labeled action buttons. The Console tab shows commands
+(with keys masked), diagnostics and clickable output/report locations. New requests open the Runs tab,
+which records per-target status, coverage, test count, elapsed time and postprocessing phases.
+Generation/settings actions remain in the toolbar. **Cancel all project runs** cancels this project's requests and kills the engine and client JVMs. Completed suites
 are kept. Up to three resulting suites open automatically; comparisons open afterward so they remain visible.
 
 Generation actions use EvoSuite-logo badges: a green class symbol for class/file generation,
@@ -40,7 +41,7 @@ also distinguish the corresponding context-menu entries.
 ## Existing suites
 
 The plugin asks once per request: **Replace**, **Add New Tests**, **Compare**, or **Cancel**.
-Add is preselected for method and extension requests. Every target writes to fresh staging
+Add is preselected for every request, including whole-class generation. Every target writes to fresh staging
 outside the project before the choice is applied. The question identifies the classes and modules,
 shows their output folder when shared, and wraps long names and paths to fit smaller displays.
 Cancel stops the request before project setup or building.
@@ -56,18 +57,20 @@ Cancel stops the request before project setup or building.
   Several suites share a comparison chain, with full paths to distinguish identical file names.
   Copy wanted changes from Generated to Existing; IntelliJ saves edits normally, and closing the
   viewer does not undo edits. The result notification lists pending comparisons and provides
-  **Review comparisons** to reopen them during the current IDE session, including after a cancelled
-  run with completed comparisons. Generated comparison sources are also retained on disk; the
-  console prints their location for recovery after a restart. Read-only or unavailable destinations
+  **Review comparisons** to reopen them. The Runs tab persists comparison destinations and
+  generated sources across IDE restarts. Missing destination files are created only by the explicit
+  **Accept generated file** action in their comparison; closing a viewer creates nothing. Read-only or unavailable destinations
   are labeled explicitly.
 
 A handwritten suite is never replaced or merged into: an actual `@EvoRunnerParameters`
-annotation is required; a marker in a comment is insufficient. An incompatible merge or
+annotation is required, or a matching file marker and machine-local project registry must identify it as a runtime-free
+suite previously created by this plugin. A marker in a comment is insufficient. Moving a runtime-free
+suite to another project or machine does not transfer that ownership. An incompatible merge or
 conflicting scaffolding opens a comparison. Whole-class generation also compares a suite
 that appeared while the run was queued. Partial generation can add to it after checking
 compatibility. Extension writes nothing when no new tests were found. If a new suite's scaffolding
-conflicts with an existing file, the suite is kept and the scaffolding opens for comparison.
-Resolve that comparison before running the suite.
+conflicts with an existing file, neither generated file is installed automatically: both are pending
+comparisons. Resolve and accept the compatible files before running the suite.
 
 For JDK 18–23, bundled generation starts the engine with `-Djava.security.manager=allow` and
 forwards SecurityManager support to its client JVM. The client uses the selected engine JDK,
@@ -82,6 +85,29 @@ minimization checkbox to simplify constants. It is available in both IDE and pro
 requires test minimization; disabling the parent preserves the saved choice. Existing additional
 arguments and Maven overrides retain their normal precedence. Values needed to preserve coverage
 can still remain large.
+
+**Omit EvoSuite runtime dependency** generates ordinary JUnit tests without imports from the
+EvoSuite runtime. JUnit remains required. The engine omits runtime isolation/mocking helpers,
+which can limit the behaviors it can test. First-run setup skips adding EvoSuite runtime when this
+option is active; existing dependencies remain for older tests. Runtime-free suites created or
+explicitly accepted by the plugin still support Add/Replace/Compare across sessions.
+
+**Measure Existing Test Coverage with EvoSuite** accepts test classes or test source directories.
+It resolves the production class using the same chooser as extension, builds the project, and runs
+the compiled tests against the selected coverage criteria. It does not generate or replace tests,
+change project setup, or call an LLM. Coverage statistics are available through Runs > Reports.
+
+The Runs tab offers **Open tests**, **Run tests** through IntelliJ's JUnit runner, **Compare**,
+**Reports**, and **Repeat saved run**. Repetition restores the recorded engine settings and random
+seed while using current project sources and credentials; time limits, environment and LLMs can
+still affect results. A blank seed chooses a fresh explicit seed for each target and records it.
+Repeated submissions of the same active selection are ignored. Requests with more than five targets
+show module counts and per-class search/call budgets before setup. **Cancel selected** stops one
+queued or active run. Completed diagnostics expire after 30 days by default; the Runs retention
+control changes that period. **Clear completed** removes completed history/diagnostics after
+confirmation. After copying wanted comparison changes, choose **Mark reviewed** to finish review and recognize
+accepted runtime-free source. Pending comparisons are retained until then; project test files are kept.
+History and ownership live in the machine-local workspace state, not the shareable project profile.
 
 Bundled-engine launches check the selected JDK before offering dependency changes or starting a build.
 Runs identify planned output paths and extension seed classes before generation. Result summaries
@@ -106,11 +132,11 @@ the active IDE defaults. Switching scope preserves unapplied project edits. **Co
 starts a project profile from those defaults; **Restore EvoSuite defaults** resets the profile and
 Maven delegation without deleting API keys. Neither action is saved until Apply.
 
-The settings match Eclipse: search budget (60 seconds), coverage criteria, assertions and
+The settings include search budget (60 seconds), random seed, runtime-free output, coverage criteria, assertions and
 minimization, assertion strategy, JUnit format, source folder (`src/test/evosuite`), suffix
 (`_ESTest`), test/variable names, comments, per-test timeout, editor opening, Java home, client
-heap, extra arguments, pom overrides and build-path configuration. Criteria checkboxes preserve
-custom criteria. Empty test format detects JUnit 4-only projects; otherwise it uses JUnit 5.
+heap, extra arguments, pom overrides and build-path configuration. Criteria checkboxes cover common goals; **Choose…** exposes the remaining engine criteria.
+Unsupported criteria are explained before Apply. Empty test format detects JUnit 4-only projects; otherwise it uses JUnit 5.
 Explicit settings or pom/extra-argument `test_format` override detection.
 Text fields show their actual default values, such as `60`, `src/test/evosuite`, and `_ESTest`.
 Automatic checkboxes distinguish module-JDK/provider/environment defaults and no additional
@@ -122,13 +148,25 @@ within a compact dialog. Labels include time/memory units and dropdowns use desc
 Unknown stored choices stay visible until corrected; validation identifies the affected field and
 selects its tab. Maven-specific controls and imported overrides are grouped under Advanced.
 
-Cloud credentials sit directly below the provider selector. LLM settings include provider,
-model, endpoint, approach, seeding, stagnation, mutation/crossover,
-postprocessing and call budget. **Search only** overrides every other provider setting, including
-pom and extra arguments. The API key is application-wide in PasswordSafe, loaded off the UI
+**Effective configuration / check project setup** resolves applied values per module, identifies
+IDE/project/Maven/additional-argument sources, and checks the selected JDK, test dependencies and
+output location. It does not change build files or read secure storage. Apply settings first to
+inspect a draft's actual effect. Search budgets exclude build, minimization and validation time.
+
+Cloud credentials expand below the provider selector. LLM settings include provider, model,
+endpoint, approach, seeding, stagnation, mutation/crossover, postprocessing and call budget.
+Advanced model controls expose signatures, project source, decompiled source or disassembled
+bytecode as context, plus output-token limit, HTTP timeout, retries and temperature. Project-source
+mode resolves each target's actual IDE source file, including custom source layouts.
+**Test connection (metadata only)** checks endpoint/authentication and explicit cloud-model metadata
+without sending source, prompts or a generation request. Compatible third-party endpoints may not
+implement the metadata route even if generation is supported. **Search only** overrides every other provider setting, including
+pom and extra arguments. OpenAI and Anthropic keys have separate application-wide PasswordSafe entries, loaded off the UI
 thread only when cloud LLM features are enabled or **Load stored API key** is clicked. The project
 LLM tab links to shared API-key management; a loaded key can also be removed with LLM features off.
-Keys are sent through `EVOSUITE_LLM_API_KEY`; an inherited environment variable also works.
+Legacy shared keys are used only for their recorded provider, or can be explicitly imported for a
+chosen provider. Missing credentials offer Configure Key, Run Search Only for this request, or Cancel
+before setup/building. Keys are sent through `EVOSUITE_LLM_API_KEY`; an inherited environment variable also works.
 Provider model defaults and `EVOSUITE_LLM_MODEL` are honored. Local Ollama generation does not
 read the shared cloud-provider key. Put keys in secure storage rather than Additional arguments. A failed secure-store read
 preserves the saved key unless the user explicitly enters a replacement. A failed key save keeps
@@ -160,8 +198,11 @@ Missing JUnit/runtime dependencies are offered after confirmation. Maven gets ex
 POM dependencies and waits for reimport; Gradle uses the build-file dependency modifier and waits
 for re-sync. Maven dependency edits update an existing declaration rather than duplicating it,
 and retain explicitly configured existing scopes. Gradle
-source-set imports register generated roots and inspect test dependencies in the test module
-linked to the selected production module. JUnit 5 additions include the Jupiter engine and
+source-set imports persist generated roots in a managed build-script block and inspect test
+dependencies in the test module linked to the selected production module. A single Configure Gradle
+prompt covers missing dependencies, the generated source root and JUnit Platform when needed,
+followed by one awaited sync. Repeated setup is idempotent; changing the output folder updates the
+managed block. Skip Setup leaves the build script unchanged. JUnit 5 additions include the Jupiter engine and
 matching Platform launcher. If a Gradle build cannot be modified, the console prints exact
 dependency declarations to add manually. Plain modules use the bundled runtime as a test-scoped
 module library. Missing bundled-library paths are repaired after
@@ -174,20 +215,15 @@ For Maven, a single **Configure Maven** prompt offers the missing test dependenc
 with adding or updating the `setup` execution. **Dependencies Only** skips the execution. When only
 an execution is missing, **Skip Maven Setup** explicitly continues without that POM change.
 **Cancel** stops generation and leaves the pom unchanged. Gradle/plain-project dependency prompts
-also distinguish **Skip Setup** from **Cancel**. The setup goal requires JUnit/runtime dependencies; it does not add
-them. Both edits are one undoable command followed by one awaited reimport. Existing execution
+also distinguish **Skip Setup** from **Cancel**. The setup goal checks the dependencies required by the generated source; it does not add
+them. Runtime-free source needs JUnit and does not require an EvoSuite runtime dependency. Both edits are one undoable command followed by one awaited reimport. Existing execution
 IDs and other configuration are preserved. It saves that pom and waits for reimport before
-building. Its import configurator keeps that execution's folder as a test root on reimport. Gradle projects receive the exact
-source-set snippet in the console; add it to the build script so re-sync retains the root:
-
-```groovy
-sourceSets.test.java.srcDir("src/test/evosuite")
-```
+building. Its import configurator keeps that execution's folder as a test root on reimport. Gradle source roots are persisted automatically when Configure Gradle is accepted.
 
 The project settings offer **Run whole-class requests through the Maven plugin**. This invokes
 IntelliJ's Maven runner with `compile` and `generate` (which already exports tests), uses pom
 settings and Maven scheduling/export, and has no per-class
-progress or IDE Add/Compare workflow. Requests requiring Search-only enforcement or protection
+progress or IDE Add/Compare workflow. Requests requiring saved/fixed seeds, advanced model controls, runtime-free output, Search-only enforcement or protection
 of existing suites use the bundled engine instead. Methods and extension always use the bundled
 engine. The default mode is the bundled engine.
 

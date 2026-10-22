@@ -18,20 +18,18 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.ide;
-import org.evosuite.ide.EvoSuiteCommand;
-import org.evosuite.ide.GenerationOptions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 public class EvoSuiteCommandTest {
 
@@ -121,8 +119,8 @@ public class EvoSuiteCommandTest {
     }
 
     /**
-     * The criteria whose goals EvoSuite does not credit to the existing tests are left out, as
-     * they would keep copies of those tests; other criteria, including unknown ones, stay.
+     * The criteria whose goals EvoSuite does not credit to the existing tests are left out, as they
+     * would keep copies of those tests; other criteria, including unknown ones, stay.
      */
     @Test
     public void extendingLeavesOutTheCriteriaThatWouldRepeatTheTests() {
@@ -240,8 +238,51 @@ public class EvoSuiteCommandTest {
         options.llmOnStagnation = true;
         // Only the trace folder, which keeps traces out of the project should the LLM be switched
         // on some other way.
-        assertFalse(arguments(options).stream().anyMatch(a -> (a.contains("llm") && !a.startsWith("-Dllm_trace_dir="))
+        assertFalse(arguments(options).stream().anyMatch(a -> (a.contains("llm") && !a.startsWith("-Dllm_trace_dir=")
+                                                        && !a.equals("-Dllm_provider=NONE"))
                 || a.contains("strategy")));
+    }
+
+    @Test
+    public void searchOnlyAlsoDisablesLlmOnlyStrategiesAndCoverageDoesNotSeedSearch() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
+        options.extraArguments = "-Dstrategy=LLMSTRATEGY -generateLlmSuite";
+        var args = arguments(options);
+        assertFalse(args.contains("-generateLlmSuite"));
+        assertEquals(
+                "-Dstrategy=MOSUITE",
+                args.stream()
+                        .filter(a -> a.startsWith("-Dstrategy="))
+                        .reduce((a, b) -> b)
+                        .orElseThrow());
+        options.noRuntimeDependency = true;
+        options.randomSeed = "-17";
+        options.llmSourcePath = "/custom sources/Target.java";
+        var coverage =
+                new EvoSuiteCommand(
+                                "java",
+                                "engine",
+                                "Target",
+                                List.of(),
+                                new java.io.File("."),
+                                new java.io.File("tests"),
+                                new java.io.File("reports"),
+                                options)
+                        .seededBy(List.of("TargetTest"), new java.io.File("sources"))
+                        .measureCoverage()
+                        .toArguments(17);
+        assertTrue(coverage.contains("-measureCoverage"));
+        assertTrue(coverage.contains("-Djunit=TargetTest"));
+        assertTrue(coverage.contains("-Dno_runtime_dependency=true"));
+        assertTrue(coverage.contains("-Drandom_seed=-17"));
+        assertTrue(coverage.contains("-Dllm_source_path=/custom sources/Target.java"));
+        assertFalse(
+                coverage.stream()
+                        .anyMatch(
+                                a ->
+                                        a.startsWith("-Dselected_junit=")
+                                                || a.startsWith("-Dtest_factory=")));
     }
 
     @Test
@@ -285,7 +326,10 @@ public class EvoSuiteCommandTest {
         assertFalse(options.usesLlm());
         assertEquals("NONE", options.effectiveLlmProvider());
         assertFalse(args.contains("-Dllm_provider=ANTHROPIC") || args.contains("-Dllm_on_stagnation=true"));
-        assertEquals("-Dllm_provider=NONE", args.get(args.size() - 1), "the last word on the provider");
+        assertEquals("-Dllm_provider=NONE", args.stream()
+                        .filter(a -> a.startsWith("-Dllm_provider="))
+                        .reduce((a, b) -> b)
+                        .orElseThrow(), "the last word on the provider");
         // The settings themselves are untouched, ready for when the LLM is switched back on.
         assertEquals("claude-sonnet-5-5", options.llmModel);
     }

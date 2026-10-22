@@ -83,6 +83,7 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             var ui = configurable.createComponent();
             var values = (javax.swing.JCheckBox) findField(ui, "minimizeValues");
             assertTrue(values.isSelected()); assertFalse(values.isEnabled());
+            assertFalse(findField(ui,"chooseJavaHome").isEnabled());
             assertTrue(SettingsResolver.resolve(getModule()).minimizeValues);
             findCheckbox(ui, "Use project-specific settings (.idea/evosuite.xml)").doClick();
             assertFalse(values.isSelected()); assertTrue(values.isEnabled());
@@ -389,14 +390,14 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             var ui = configurable.createComponent();
             assertEquals("LEGACY_VALUE", ((javax.swing.JComboBox) findField(ui, "testNaming")).getSelectedItem());
             assertFalse(configurable.isModified());
-            assertInvalid(configurable, "Time per class");
+            assertInvalid(configurable, "Search budget per class");
             ((javax.swing.JTextField) findField(ui, "searchBudget")).setText("60");
             assertInvalid(configurable, "test method names");
             ((javax.swing.JComboBox) findField(ui, "testNaming")).setSelectedItem("NUMBERED");
             ((javax.swing.JComboBox) findField(ui, "llmProvider")).setSelectedItem("OLLAMA");
             ((javax.swing.JCheckBox) findField(ui, "llmBaseUrl.automatic")).setSelected(false);
             ((javax.swing.JTextField) findField(ui, "llmBaseUrl")).setText("localhost:11434");
-            assertInvalid(configurable, "full http:// or https:// URL");
+            assertInvalid(configurable, "HTTP(S)");
             ((javax.swing.JTextField) findField(ui, "llmBaseUrl")).setText("HTTPS://example.test/v1");
             configurable.apply(); assertFalse(configurable.isModified());
             var naming = (javax.swing.JComboBox) findField(ui, "testNaming");
@@ -457,6 +458,94 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             awaitEnabled(findField(ui, "llmApiKey")); assertEquals(1, reads[0]);
             assertTrue(((javax.swing.JTextArea) findField(ui, "apiKeyStatus")).getText().contains("Enter a cloud API key"));
             assertEquals("Cloud API key", findField(ui, "llmApiKey").getAccessibleContext().getAccessibleName());
+        } finally {
+            configurable.disposeUIResources();
+            state.values = previous;
+        }
+    }
+
+    public void testEmptyLegacyImportKeepsTheCurrentProviderDraft() throws Exception {
+        var configurable=new EvoSuiteConfigurable(null){ @Override protected String loadLegacyApiKey(){return "";} };
+        try {
+            var ui=configurable.createComponent();
+            var key=(javax.swing.JPasswordField)findField(ui,"llmApiKey");key.setText("current-provider-draft");
+            ((javax.swing.JButton)findField(ui,"importLegacyApiKey")).doClick();
+            var status=(javax.swing.JTextArea)findField(ui,"apiKeyStatus");
+            long until=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+            while(!status.getText().startsWith("No legacy") && System.nanoTime()<until){com.intellij.util.ui.UIUtil.dispatchAllInvocationEvents();Thread.sleep(10);}
+            assertTrue(status.getText(),status.getText().startsWith("No legacy"));
+            assertEquals("current-provider-draft",String.valueOf(key.getPassword()));
+        } finally {configurable.disposeUIResources();}
+    }
+
+    public void testProviderCredentialDraftsStaySeparateAndAreSavedTogether() throws Exception {
+        var state = EvoSuiteAppSettings.getInstance().getState();
+        var previous = new TreeMap<>(state.values);
+        List<String> saved = new ArrayList<>();
+        javax.swing.JComboBox[] provider = {null};
+        var configurable =
+                new EvoSuiteConfigurable(null) {
+                    @Override
+                    protected void storeApiKey(String value) {
+                        saved.add(value);
+                    }
+                };
+        try {
+            state.values.clear();
+            var ui = configurable.createComponent();
+            provider[0] = (javax.swing.JComboBox) findField(ui, "credentialProvider");
+            var key = (javax.swing.JPasswordField) findField(ui, "llmApiKey");
+            // Loading secure storage is optional: edits also support replacing an unreadable key.
+            key.setText("openai-draft");
+            provider[0].setSelectedItem("ANTHROPIC");
+            assertEquals("", String.valueOf(key.getPassword()));
+            key.setText("anthropic-draft");
+            provider[0].setSelectedItem("OPENAI");
+            assertEquals("openai-draft", String.valueOf(key.getPassword()));
+            assertTrue(configurable.isModified());
+            configurable.apply();
+            assertFalse(configurable.isModified());
+            // storeApiKey is invoked for both providers; the selector remains on the user's choice.
+            assertEquals(Set.of("openai-draft", "anthropic-draft"), new HashSet<>(saved));
+            assertFalse(state.values.toString().contains("draft"));
+        } finally {
+            configurable.disposeUIResources();
+            state.values = previous;
+        }
+    }
+
+    public void testSeedAndModelLimitsAreValidatedAndPersisted() throws Exception {
+        var state = EvoSuiteAppSettings.getInstance().getState();
+        var previous = new TreeMap<>(state.values);
+        var configurable = new EvoSuiteApplicationConfigurable();
+        try {
+            state.values.clear();
+            var ui = configurable.createComponent();
+            ((javax.swing.JCheckBox) findField(ui, "randomSeed.automatic")).doClick();
+            var seed = (javax.swing.JTextField) findField(ui, "randomSeed");
+            seed.setText("9223372036854775808");
+            assertInvalid(configurable, "signed 64-bit");
+            seed.setText("-12345");
+            ((javax.swing.JCheckBox) findField(ui, "noRuntimeDependency")).doClick();
+            ((javax.swing.JComboBox) findField(ui, "llmProvider")).setSelectedItem("OLLAMA");
+            var tokens = (javax.swing.JTextField) findField(ui, "llmMaxTokens");
+            tokens.setText("0");
+            assertInvalid(configurable, "greater than zero");
+            tokens.setText("2048");
+            var temperature = (javax.swing.JTextField) findField(ui, "llmTemperature");
+            temperature.setText("NaN");
+            assertInvalid(configurable, "between 0 and 2");
+            temperature.setText("0.2");
+            ((javax.swing.JComboBox) findField(ui, "llmContextMode"))
+                    .setSelectedItem("SOURCE_CODE");
+            configurable.apply();
+            var options = SettingKeys.resolve(state.values);
+            assertEquals("-12345", options.randomSeed);
+            assertTrue(options.noRuntimeDependency);
+            assertEquals(2048, options.llmMaxTokens);
+            assertEquals("SOURCE_CODE", options.llmContextMode);
+            configurable.reset();
+            assertFalse(configurable.isModified());
         } finally { configurable.disposeUIResources(); state.values = previous; }
     }
 

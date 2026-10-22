@@ -49,15 +49,42 @@ public final class ExtensionTargetDialog {
 
     public static String choose(Project project, TargetCollector.TestClass test,
             TestClassInference.Inference inference) {
-        String cut = IdeThread.edt(() -> Messages.showInputDialog(project,
-                GenerationDialogs.message("Production class to extend coverage for using " + test.name() + " (module "
-                        + test.module().getName() + "):\n"
-                        + (inference.candidates().size() > 1
-                                ? "Possible classes: " + String.join(", ", inference.candidates()) + "\n" : "")
-                        + "Enter a fully qualified class name. Additional tests go to the configured "
-                        + "EvoSuite output suite.\nCancel stops the entire request."),
+        String cut;
+        if (com.intellij.openapi.application.ApplicationManager.getApplication().isUnitTestMode()) {
+            cut = IdeThread.edt(() -> Messages.showInputDialog(project,
+                GenerationDialogs.message(
+                                                    "Production class for "
+                                                            + test.name() + ". Additional tests go to the"
+                                                            + " EvoSuite output suite. Cancel stops"
+                                                            + " the entire request."),
                 "Extend Tests with EvoSuite", Messages.getQuestionIcon(), inference.guess(),
                 validator(project, test)));
+        } else
+            cut =
+                    IdeThread.edt(
+                            () -> {
+                                var scope =
+                                        GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(
+                                                test.module(), false);
+                                var initial =
+                                        JavaPsiFacade.getInstance(project)
+                                                .findClass(inference.guess(), scope);
+                                var chooser =
+                                        com.intellij.ide.util.TreeClassChooserFactory.getInstance(
+                                                        project)
+                                                .createNoInnerClassesScopeChooser(
+                                                        "Production class for "
+                                                                + test.name()
+                                                                + " (Cancel stops the request)",
+                                                        scope,
+                                                        type ->
+                                                                TestClassInference.isCut(
+                                                                        project, type),
+                                                        initial);
+                                chooser.showDialog();
+                                var selected = chooser.getSelected();
+                                return selected == null ? null : selected.getQualifiedName();
+                            });
         if (cut == null) throw new ProcessCanceledException();
         return cut.trim();
     }

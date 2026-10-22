@@ -20,10 +20,10 @@
 package org.evosuite.intellij.run;
 
 /** Keep multi-target questions readable on smaller displays. Messages does not wrap plain text. */
-final class GenerationDialogs {
+public final class GenerationDialogs {
     private GenerationDialogs() {}
 
-    static String message(String text) {
+    public static String message(String text) {
         StringBuilder result = new StringBuilder();
         for (String line : text.split("\\n", -1)) {
             if (!result.isEmpty()) result.append('\n');

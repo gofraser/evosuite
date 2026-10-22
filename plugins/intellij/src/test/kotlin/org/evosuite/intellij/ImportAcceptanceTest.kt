@@ -164,6 +164,27 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         exerciseGeneration("maven", moduleFor("app/src/main/java/demo/Vault.java"), changed)
     }
 
+    fun testMavenRuntimeFreeSetupAndTestsNeedNoRuntimeDependency() {
+        fixture("maven")
+        val manager = MavenProjectsManager.getInstance(project)
+        manager.initForTests(); manager.enableAutoImportInTests()
+        manager.addManagedFilesOrUnignoreNoUpdate(listOf(LocalFileSystem.getInstance().findFileByNioFile(root.resolve("pom.xml"))!!))
+        importMaven(manager)
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val options = background { SettingsResolver.resolve(main) }; options.noRuntimeDependency = true
+        val questions = prepare(main, options)
+        assertEquals(questions.toString(), 1, questions.size)
+        assertFalse(questions.toString(), questions.single().contains("evosuite-standalone-runtime"))
+        assertTrue(Files.readString(root.resolve("app/pom.xml")).contains("<goal>setup</goal>"))
+        assertFalse(Files.readString(root.resolve("app/pom.xml")).contains("evosuite-standalone-runtime"))
+        buildFixture("maven")
+        exerciseGeneration("maven", moduleFor("app/src/main/java/demo/Vault.java"), options)
+        assertFalse(Files.readString(root.resolve("app/pom.xml")).contains("evosuite-standalone-runtime"))
+        val reports = root.resolve("app/target/surefire-reports/TEST-demo.Vault_ESTest.xml")
+        assertTrue("Generated runtime-free Maven tests must execute", Files.isRegularFile(reports))
+        assertFalse(Files.readString(reports).contains("<failure"))
+    }
+
     fun testMavenSetupCanBeCancelledOrLimitedToDependencies() {
         fixture("maven")
         val path = root.resolve("app/pom.xml")
@@ -240,23 +261,14 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
             root.resolve("app").resolve(options.testFolder),
             ProjectSetupService.testModule(main),
         )
-        assertTrue(questions.toString(), questions.isEmpty())
+        assertEquals(questions.toString(), 1, questions.size)
         assertTestRoot(root.resolve("app").resolve(options.testFolder), tests)
         options.testFolder = "generated-tests/evosuite"
         val changedQuestions = prepare(main, options)
-        assertTrue(changedQuestions.toString(), changedQuestions.isEmpty())
+        assertEquals(changedQuestions.toString(), 1, changedQuestions.size)
         assertTestRoot(root.resolve("app").resolve(options.testFolder), tests)
-        // Apply the exact source-set snippet offered by the plugin, then perform a real re-sync.
-        Files.writeString(
-            root.resolve("build.gradle"),
-            Files.readString(root.resolve("build.gradle")) +
-                "\nproject(':app') { sourceSets.test.java.srcDir('" +
-                options.testFolder +
-                "') }\n",
-        )
-        LocalFileSystem.getInstance()
-            .findFileByNioFile(root.resolve("build.gradle"))!!
-            .refresh(false, false)
+        // The plugin must persist this itself; no manual build-script repair is allowed.
+        assertTrue(Files.readString(root.resolve("app/build.gradle")).contains(options.testFolder))
         importGradle()
         assertTestRoot(
             root.resolve("app").resolve(options.testFolder),
@@ -367,6 +379,41 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
                 updated.contains("testImplementation"),
         )
         buildFixture("gradle", true)
+    }
+
+    fun testGradleRuntimeFreeGenerationNeedsOnlyJUnitAndRunsAfterReimport() {
+        fixture("gradle")
+        for (file in listOf("settings.gradle", "build.gradle", "app/build.gradle")) Files.delete(root.resolve(file))
+        fixture("gradle-kotlin")
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root)!!.refresh(false, true)
+        linkGradle(); importGradle()
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val options = background { SettingsResolver.resolve(main) }
+        options.noRuntimeDependency = true
+        val questions = prepare(main, options)
+        assertEquals(questions.toString(), 1, questions.size)
+        assertFalse(questions.toString(), questions.single().contains("evosuite-standalone-runtime"))
+        val build = Files.readString(root.resolve("app/build.gradle.kts"))
+        assertTrue(build, build.contains(options.testFolder) && build.contains("useJUnitPlatform()"))
+        assertFalse(build, build.contains("evosuite-standalone-runtime"))
+        importGradle()
+        assertTrue(prepare(main, options).isEmpty())
+        buildFixture("gradle")
+        exerciseGeneration("gradle", moduleFor("app/src/main/java/demo/Vault.java"), options)
+        val results = root.resolve("app/build/test-results/test")
+        val reports = Files.list(results).use { paths -> paths.filter { it.fileName.toString().contains("Vault_ESTest") }.toList() }
+        assertFalse("Generated JUnit tests must actually execute", reports.isEmpty())
+        val xml = Files.readString(reports.first())
+        assertTrue(xml, Regex("tests=\"[1-9][0-9]*\"").containsMatchIn(xml))
+        assertFalse(xml, xml.contains("<failure"))
+        assertFalse(Files.readString(root.resolve("app/build.gradle.kts")).contains("evosuite-standalone-runtime"))
+        val generated = com.intellij.psi.PsiManager.getInstance(project).findFile(
+            LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root.resolve("app").resolve(options.testFolder).resolve("demo/Vault_ESTest.java"))!!
+        ) as com.intellij.psi.PsiJavaFile
+        val run = org.evosuite.intellij.run.GeneratedTestRunner.configuration(project, generated.classes[0]).configuration as com.intellij.execution.junit.JUnitConfiguration
+        assertEquals(moduleFor("app/src/test/java/demo/VaultTest.java"), run.configurationModule.module)
+        assertEquals("class", run.persistentData.TEST_OBJECT)
+        assertEquals("demo.Vault_ESTest", run.persistentData.MAIN_CLASS_NAME)
     }
 
     private fun linkGradle() {

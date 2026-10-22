@@ -29,6 +29,29 @@ public final class LlmApiKeyStore {
 
     private LlmApiKeyStore() {}
 
+    public static String get(String provider) {
+        String key =
+                PasswordSafe.getInstance()
+                        .getPassword(new CredentialAttributes("EvoSuite LLM API key: " + provider));
+        if (key != null) return key;
+        var state = EvoSuiteAppSettings.getInstance().getState();
+        if (state.legacyApiKeyProvider.isBlank()) {
+            String configured = state.values.getOrDefault("llmProvider", "");
+            if (configured.equals("OPENAI") || configured.equals("ANTHROPIC"))
+                state.legacyApiKeyProvider = configured;
+        }
+        return provider.equals(state.legacyApiKeyProvider) ? get() : "";
+    }
+
+    public static void set(String provider, String key) {
+        PasswordSafe.getInstance()
+                .setPassword(
+                        new CredentialAttributes("EvoSuite LLM API key: " + provider),
+                        key.isBlank() ? null : key);
+        if (provider.equals(EvoSuiteAppSettings.getInstance().getState().legacyApiKeyProvider))
+            PasswordSafe.getInstance().setPassword(ATTRIBUTES, null);
+    }
+
     public static String get() {
         String key = PasswordSafe.getInstance().getPassword(ATTRIBUTES);
         return key == null ? "" : key;

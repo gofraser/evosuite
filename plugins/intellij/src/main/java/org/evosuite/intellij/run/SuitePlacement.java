@@ -66,6 +66,18 @@ public final class SuitePlacement {
         return SuiteMerger.isGeneratedSuite(source, name);
     }
 
+    public static boolean generated(Project project, Path path, String source, String name) {
+        return generated(source, name)
+                || org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(project)
+                                .owns(path, source)
+                        && SuiteMerger.isValidSuite(source, name);
+    }
+
+    private static void record(Project project, Path path, String fresh, String name) {
+        org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(project)
+                .record(path, !generated(fresh, name));
+    }
+
     public static Placed place(
             Project project,
             GenerationTarget target,
@@ -76,7 +88,10 @@ public final class SuitePlacement {
             Snapshot consent,
             Consumer<String> console)
             throws IOException {
-        String fresh = Files.readString(generated.suite());
+        String produced = Files.readString(generated.suite());
+        String suiteName=destination.getFileName().toString().replaceFirst("\\.java$", "");
+        String fresh = SuiteMerger.isGeneratedSuite(produced,suiteName) ? produced
+                : org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(project).decorate(destination,produced);
         String scaffold =
                 Files.isRegularFile(generated.scaffolding())
                         ? Files.readString(generated.scaffolding())
@@ -88,7 +103,8 @@ public final class SuitePlacement {
                         console.accept(
                                 "No new tests for "
                                         + target.label()
-                                        + ". Existing tests are unchanged; see the search and coverage output above.");
+                                        + ". Existing tests are unchanged; see the search and"
+                                        + " coverage output above.");
                         return new Placed(null, List.of(), false, false);
                     }
                     VirtualFile existing =
@@ -108,7 +124,7 @@ public final class SuitePlacement {
                             scaffold != null
                                     && scaffoldDocument != null
                                     && !scaffold.equals(scaffoldDocument.getText());
-                    if (document != null && !generated(document.getText(), name)) {
+                    if (document != null && !generated(project, destination, document.getText(), name)) {
                         console.accept(
                                 EvoSuiteCommand.notAnEvoSuiteSuite(
                                         target.className(), destination.toFile()));
@@ -119,14 +135,15 @@ public final class SuitePlacement {
                         if (differentScaffold) {
                             console.accept(
                                     name
-                                            + ": existing scaffolding differs. The new suite is"
-                                            + " kept; resolve the scaffolding comparison before"
-                                            + " running it.");
+                                            + ": resolve the scaffolding and accept the pending"
+                                            + " suite before running tests.");
                             diffs.add(
                                     new SuiteComparison.Pair(
-                                            scaffoldPath.getFileName().toString(),
+                                            scaffoldPath.toString(),
                                             scaffoldDocument,
                                             scaffold));
+                            diffs.add(SuiteComparison.pending(destination, fresh));
+                            return new Placed(null, List.copyOf(diffs), false, false);
                         }
                         VirtualFile[] created = {null};
                         WriteCommandAction.runWriteCommandAction(
@@ -144,6 +161,7 @@ public final class SuitePlacement {
                                         + " ("
                                         + SuiteMerger.testCount(fresh, name)
                                         + " tests).");
+                        record(project, destination, fresh, name);
                         return new Placed(created[0], List.copyOf(diffs), true, false);
                     }
                     SuiteAction chosen = requested;
@@ -162,8 +180,8 @@ public final class SuitePlacement {
                         chosen = SuiteAction.COMPARE;
                         console.accept(
                                 name
-                                        + " or its scaffolding changed since the replacement question; opening a"
-                                        + " comparison.");
+                                        + " or its scaffolding changed since the replacement"
+                                        + " question; opening a comparison.");
                     }
                     if (!existing.isWritable()
                             || chosen == SuiteAction.REPLACE
@@ -190,7 +208,10 @@ public final class SuitePlacement {
                     try {
                         if (chosen == SuiteAction.ADD) {
                             SuiteMerger.Result merge =
-                                    SuiteMerger.merge(document.getText(), fresh, name);
+                                    SuiteMerger.merge(document.getText(), fresh, name,
+                                            org.evosuite.intellij.settings.GeneratedSuiteRegistry
+                                                    .getInstance(project)
+                                                    .owns(destination));
                             if (merge.isMerged()) {
                                 boolean dirty =
                                         FileDocumentManager.getInstance()
@@ -216,6 +237,7 @@ public final class SuitePlacement {
                                                 + " duplicates."
                                                 + (dirty && !merge.added.isEmpty()
                                                         ? " The editor still has unsaved changes." : ""));
+                                record(project, destination, fresh, name);
                                 return new Placed(existing, List.of(), !merge.added.isEmpty(), false);
                             }
                             console.accept(
@@ -239,6 +261,7 @@ public final class SuitePlacement {
                                     "Replaced "
                                             + name
                                             + ". The previous suite is in local history.");
+                            record(project, destination, fresh, name);
                             return new Placed(existing, List.of(), true, false);
                         }
                     } catch (com.intellij.openapi.progress.ProcessCanceledException ex) {
@@ -261,27 +284,8 @@ public final class SuitePlacement {
                                         scaffoldDocument,
                                         scaffold));
                     else if (scaffold != null && oldScaffold == null) {
-                        try {
-                            WriteCommandAction.runWriteCommandAction(
-                                    project,
-                                    () -> {
-                                        write(project, scaffoldPath, scaffold);
-                                    });
-                            console.accept("Created required scaffolding: " + scaffoldPath);
-                        } catch (com.intellij.openapi.progress.ProcessCanceledException ex) {
-                            throw ex;
-                        } catch (RuntimeException ex) {
-                            console.accept(
-                                    "Cannot create "
-                                            + scaffoldPath.getFileName()
-                                            + ": "
-                                            + ex.getMessage());
-                            diffs.add(
-                                    new SuiteComparison.Pair(
-                                            scaffoldPath.toString(),
-                                            EditorFactory.getInstance().createDocument(""),
-                                            scaffold));
-                        }
+                        diffs.add(SuiteComparison.pending(scaffoldPath, scaffold));
+                            console.accept("Scaffolding is pending acceptance: " + scaffoldPath);
                     }
                     return new Placed(null, List.copyOf(diffs), false, false);
                 });

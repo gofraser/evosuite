@@ -27,7 +27,9 @@ import org.jetbrains.annotations.NotNull;
 public final class EvoSuiteToolWindowFactory implements ToolWindowFactory {
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow window) {
-        window.getContentManager().addContent(ContentFactory.getInstance()
-                .createContent(new EvoSuiteToolWindowPanel(project), "", false));
+        var panel = new EvoSuiteToolWindowPanel(project);
+        var content = ContentFactory.getInstance().createContent(panel, "", false);
+        content.setDisposer(panel);
+        window.getContentManager().addContent(content);
     }
 }

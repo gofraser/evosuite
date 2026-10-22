@@ -22,6 +22,7 @@ package org.evosuite.ide;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -48,6 +49,9 @@ public final class GenerationRun {
             Map<String, String> environment,
             BooleanSupplier cancelled)
             throws IOException, InterruptedException {
+        options = options.copy();
+        if (options.randomSeed.isBlank())
+            options.randomSeed = Long.toString(ThreadLocalRandom.current().nextLong());
         Files.createDirectories(staging);
         Path output = staging.resolve("tests"), reports = staging.resolve("reports");
         Files.createDirectories(output);
@@ -118,6 +122,57 @@ public final class GenerationRun {
                 suite.resolveSibling(
                         suite.getFileName().toString().replace(".java", "_scaffolding.java"));
         return new Result(exit, suite, scaffold, seeding);
+    }
+
+    public static int measureCoverage(
+            GenerationTarget target,
+            GenerationOptions options,
+            JavaInstallation java,
+            Path engine,
+            List<String> classpath,
+            Path basedir,
+            Path staging,
+            ProgressParser.Listener listener,
+            Map<String, String> environment,
+            BooleanSupplier cancelled)
+            throws IOException, InterruptedException {
+        Files.createDirectories(staging.resolve("reports"));
+        var command =
+                new EvoSuiteCommand(
+                                java.executable().toString(),
+                                engine.toString(),
+                                target.className(),
+                                classpath,
+                                basedir.toFile(),
+                                staging.resolve("tests").toFile(),
+                                staging.resolve("reports").toFile(),
+                                options)
+                        .seededBy(
+                                target.seeds().stream()
+                                        .map(GenerationTarget.Seed::className)
+                                        .toList(),
+                                basedir.toFile())
+                        .measureCoverage();
+        List<String> args = command.toArguments(java.version());
+        listener.line(EvoSuiteCommand.forDisplay(args));
+        Map<String, String> env = new HashMap<>(environment);
+        env.put("JAVA_HOME", java.executable().getParent().getParent().toString());
+        Path argfile = staging.resolve("arguments.txt");
+        try {
+            return EvoSuiteProcess.run(
+                    EvoSuiteCommand.fitCommandLine(
+                            args,
+                            argfile.toFile(),
+                            java.readsArgumentFiles()
+                                    ? EvoSuiteCommand.MAX_INLINE_LENGTH
+                                    : Integer.MAX_VALUE),
+                    basedir.toFile(),
+                    env,
+                    listener,
+                    cancelled);
+        } finally {
+            Files.deleteIfExists(argfile);
+        }
     }
 
     public static void deleteTree(Path path) throws IOException {

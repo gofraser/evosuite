@@ -18,36 +18,32 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.ide;
-import org.evosuite.ide.ExistingSuitesQuestion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-
-import org.evosuite.ide.SuiteAction;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 /** The question about existing suites, and the dialog that asks it. */
 public class ExistingSuitesQuestionTest {
 
     @Test
-    public void asksAboutOneSuiteAndPreselectsReplace() {
+    public void asksAboutOneSuiteAndPreselectsAdd() {
         ExistingSuitesQuestion question = ExistingSuitesQuestion.of(List.of("Calculator"), 1, "src/test/evosuite",
                 ExistingSuitesQuestion.Scope.CLASSES);
 
         assertEquals("Existing Test Suite", question.title);
         assertTrue(question.message.startsWith("Calculator already has a test suite in src/test/evosuite.\n\n"),
                 question.message);
-        assertTrue(question.message.contains("Replace: overwrite it with the new suite."), question.message);
+        assertTrue(question.message.contains(
+                        "Replace: overwrite it with the new suite, including any manual changes."), question.message);
         assertFalse(question.message.contains("choice applies"), question.message);
-        assertEquals(SuiteAction.REPLACE, question.defaultAction);
-        assertEquals(0, question.defaultButton());
+        assertEquals(SuiteAction.ADD, question.defaultAction);
+        assertEquals(1, question.defaultButton());
     }
 
     @Test

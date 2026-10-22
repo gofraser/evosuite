@@ -116,11 +116,14 @@ public final class ProjectSetupService {
                         options.testFormat.equals(GenerationOptions.JUNIT4)
                                 ? "org.junit.Test"
                                 : "org.junit.jupiter.api.Test");
-        boolean runtime = hasClass(testModule, "org.evosuite.runtime.EvoRunnerParameters");
+        boolean runtime =
+                options.effectiveNoRuntimeDependency()
+                        || hasClass(testModule, "org.evosuite.runtime.EvoRunnerParameters");
         MavenIntegration maven = MavenBridge.get(project);
         if (maven != null) {
             String declared = maven.runtimeVersion(module);
-            if (!declared.isBlank() && !EngineJars.VERSION.equals(declared))
+            if (!options.effectiveNoRuntimeDependency()
+                    && !declared.isBlank() && !EngineJars.VERSION.equals(declared))
                 console.accept(
                         "The project uses EvoSuite runtime "
                                 + declared
@@ -151,6 +154,26 @@ public final class ProjectSetupService {
             IdeThread.await(
                     IdeThread.edt(() -> maven.offerSetup(module, options, dependencies)), indicator);
             registerTestRoot(module, folder);
+            return;
+        }
+        if (GradleDependencySetup.applies(module)) {
+            List<ExternalLibraryDescriptor> missing = new ArrayList<>();
+            if (!junit)
+                missing.add(
+                        options.testFormat.equals(GenerationOptions.JUNIT4)
+                                ? JUnitExternalLibraryDescriptor.JUNIT4
+                                : JUnitExternalLibraryDescriptor.JUNIT5);
+            if (!runtime)
+                missing.add(
+                        new ExternalLibraryDescriptor(
+                                "org.evosuite",
+                                "evosuite-standalone-runtime",
+                                EngineJars.VERSION,
+                                EngineJars.VERSION,
+                                EngineJars.VERSION));
+            if (GradleDependencySetup.prepare(
+                    module, testModule, options, missing, indicator, console))
+                registerTestRoot(module, folder);
             return;
         }
         boolean imported =
@@ -210,7 +233,9 @@ public final class ProjectSetupService {
                             indicator,
                             console);
             } else {
-                console.accept("Setup was skipped. Add JUnit and the EvoSuite runtime and mark the generated folder as test sources before running generated tests.");
+                console.accept(
+                        "Setup was skipped. Add JUnit and the EvoSuite runtime and mark the"
+                            + " generated folder as test sources before running generated tests.");
                 return;
             }
         }
@@ -257,14 +282,6 @@ public final class ProjectSetupService {
         // A dependency edit can reimport the module and reset its transient source roots.
         // Register against the final model, even when Maven setup was declined.
         registerTestRoot(module, folder);
-        if (imported)
-            console.accept(
-                    "For Gradle re-sync, declare the generated root in build.gradle:"
-                            + " sourceSets.test.java.srcDir(\""
-                            + options.testFolder
-                            + "\") (Kotlin DSL: sourceSets.test { java.srcDir(\""
-                            + options.testFolder
-                            + "\") }).");
     }
 
     public static void registerTestRoot(Module module, Path folder) {

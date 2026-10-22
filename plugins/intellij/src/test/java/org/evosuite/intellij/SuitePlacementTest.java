@@ -119,7 +119,7 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
         assertEquals(original, FileDocumentManager.getInstance().getDocument(file).getText());
     }
 
-    public void testNewSuiteSurvivesScaffoldingConflict() throws Exception {
+    public void testNewSuiteAndScaffoldingConflictWaitForExplicitAcceptance() throws Exception {
         String old = "package demo; class Vault_ESTest_scaffolding { /* user edit */ }";
         var scaffold =
                 myFixture
@@ -139,13 +139,93 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
                         SuiteAction.REPLACE,
                         null,
                         ignored -> {});
-        assertTrue(result.written());
-        assertNotNull(result.suite());
+        assertFalse(result.written());
+        assertNull(result.suite());
+        assertEquals(2, result.comparisons().size());
+        var pending =
+                result.comparisons().stream()
+                        .filter(pair -> pair.destination() != null)
+                        .findFirst()
+                        .orElseThrow();
+        assertFalse(Files.exists(pending.destination()));
+        org.evosuite.intellij.ui.SuiteComparison.acceptNew(getProject(), pending);
         assertEquals(
-                suite("test0", 2),
-                FileDocumentManager.getInstance().getDocument(result.suite()).getText());
-        assertEquals(1, result.comparisons().size());
+                suite("test0", 2), Files.readString(pending.destination()));
         assertEquals(old, FileDocumentManager.getInstance().getDocument(scaffold).getText());
+    }
+
+    public void testRuntimeFreeComparisonAcceptanceRequiresMatchingGeneratedMarker() throws Exception {
+        var registry=org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(getProject());
+        Path path=Path.of(myFixture.getTempDirPath(),"review/Accepted_ESTest.java");
+        String source=registry.decorate(path,"public class Accepted_ESTest {}");
+        var file=myFixture.addFileToProject("review/Accepted_ESTest.java",source).getVirtualFile();
+        var document=FileDocumentManager.getInstance().getDocument(file);
+        assertNotNull(document);
+        assertFalse(SuitePlacement.generated(getProject(),path,document.getText(),"Accepted_ESTest"));
+        registry.recordAccepted(path,registry.decorate(path,"public class Accepted_ESTest {}"));
+        assertFalse(registry.owns(path));
+        registry.recordAccepted(path,source);
+        assertTrue(SuitePlacement.generated(getProject(),path,document.getText(),"Accepted_ESTest"));
+        assertTrue("Compare must keep the registered marker stable",registry.owns(path,registry.decorate(path,"public class Accepted_ESTest {}")));
+    }
+
+    public void testRuntimeFreeOwnershipAllowsLaterAddButNeverAdoptsHandwrittenFiles()
+            throws Exception {
+        var options = new GenerationOptions();
+        options.noRuntimeDependency = true;
+        var destination = Path.of(myFixture.getTempDirPath(), "demo/Plain_ESTest.java");
+        String source =
+                "package demo; import org.junit.Test; public class Plain_ESTest { @Test public void"
+                        + " test0() { int n = 1; } }";
+        var first =
+                SuitePlacement.place(
+                        getProject(),
+                        GenerationTarget.wholeClass("demo.Plain"),
+                        options,
+                        destination,
+                        generated(source),
+                        SuiteAction.ADD,
+                        null,
+                        ignored -> {});
+        assertTrue(first.written());
+        assertTrue(
+                org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(getProject())
+                        .owns(destination));
+        var added =
+                SuitePlacement.place(
+                        getProject(),
+                        GenerationTarget.wholeClass("demo.Plain"),
+                        options,
+                        destination,
+                        generated(source.replace("n = 1", "n = 2")),
+                        SuiteAction.ADD,
+                        SuitePlacement.snapshot(destination),
+                        ignored -> {});
+        assertTrue(added.written());
+        assertTrue(added.comparisons().isEmpty());
+        assertTrue(Files.readString(destination).contains("test1"));
+        var registry=org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(getProject());
+        var restored=new org.evosuite.intellij.settings.GeneratedSuiteRegistry();
+        restored.loadState(com.intellij.util.xmlb.XmlSerializer.deserialize(com.intellij.util.xmlb.XmlSerializer.serialize(registry.getState()),org.evosuite.intellij.settings.GeneratedSuiteRegistry.State.class));
+        assertTrue(restored.owns(destination,FileDocumentManager.getInstance().getDocument(first.suite()).getText()));
+        assertFalse("Replacing a registered path with handwritten source must not adopt it", SuitePlacement.generated(getProject(),destination,source,"Plain_ESTest"));
+        var handwritten =
+                myFixture
+                        .addFileToProject(
+                                "demo/Other_ESTest.java",
+                                source.replace("Plain_ESTest", "Other_ESTest"))
+                        .getVirtualFile();
+        var refused =
+                SuitePlacement.place(
+                        getProject(),
+                        GenerationTarget.wholeClass("demo.Other"),
+                        options,
+                        handwritten.toNioPath(),
+                        generated(source.replace("Plain_ESTest", "Other_ESTest")),
+                        SuiteAction.REPLACE,
+                        SuitePlacement.snapshot(handwritten.toNioPath()),
+                        ignored -> {});
+        assertTrue(refused.skipped());
     }
 
     public void testDuplicateAddAndEmptyExtensionLeaveExistingTestsUnchanged() throws Exception {

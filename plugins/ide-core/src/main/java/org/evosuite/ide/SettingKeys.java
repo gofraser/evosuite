@@ -55,13 +55,40 @@ public final class SettingKeys {
     public static final String LLM_OPERATORS = "llmOperators";
     public static final String LLM_POSTPROCESSING = "llmPostprocessing";
     public static final String LLM_MAX_CALLS = "llmMaxCalls";
+    public static final List<String> SUPPORTED_CRITERIA =
+            List.of(
+                    "EXCEPTION",
+                    "DEFUSE",
+                    "ALLDEFS",
+                    "BRANCH",
+                    "CBRANCH",
+                    "STRONGMUTATION",
+                    "WEAKMUTATION",
+                    "MUTATION",
+                    "STATEMENT",
+                    "RHO",
+                    "AMBIGUITY",
+                    "IBRANCH",
+                    "READABILITY",
+                    "ONLYBRANCH",
+                    "ONLYMUTATION",
+                    "METHODTRACE",
+                    "METHOD",
+                    "METHODNOEXCEPTION",
+                    "LINE",
+                    "ONLYLINE",
+                    "OUTPUT",
+                    "INPUT",
+                    "TRYCATCH");
     public static final List<String> MAIN =
             List.of(
                     "searchBudget",
+                    "randomSeed",
                     "criterion",
                     "assertions",
                     "minimize",
                     "minimizeValues",
+                    "noRuntimeDependency",
                     "assertionStrategy",
                     "testFormat",
                     "testFolder",
@@ -81,7 +108,12 @@ public final class SettingKeys {
                     "llmOnStagnation",
                     "llmOperators",
                     "llmPostprocessing",
-                    "llmMaxCalls");
+                    "llmMaxCalls",
+                    "llmContextMode",
+                    "llmMaxTokens",
+                    "llmTimeoutSeconds",
+                    "llmRetryMaxAttempts",
+                    "llmTemperature");
     public static final List<String> ADVANCED =
             List.of(
                     "javaHome",
@@ -130,6 +162,27 @@ public final class SettingKeys {
                 throw new IllegalArgumentException("Invalid " + key + ": " + value, ex);
             }
         }
+        if (!options.randomSeed.isBlank()) {
+            try {
+                Long.parseLong(options.randomSeed);
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("Random seed must be a signed 64-bit integer.");
+            }
+        }
+        double temperature;
+        try {
+            temperature = Double.parseDouble(options.llmTemperature);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("LLM temperature must be a number between 0 and 2.");
+        }
+        if (!Double.isFinite(temperature) || temperature < 0 || temperature > 2)
+            throw new IllegalArgumentException("LLM temperature must be a number between 0 and 2.");
+        if (options.llmMaxTokens < 1 || options.llmTimeoutSeconds < 1)
+            throw new IllegalArgumentException(
+                    "LLM token limit and HTTP timeout must be greater than zero.");
+        if (!List.of("SIGNATURE_ONLY", "SOURCE_CODE", "DECOMPILED_SOURCE", "BYTECODE_DISASSEMBLED")
+                .contains(options.llmContextMode))
+            throw new IllegalArgumentException("Choose a supported LLM context representation.");
         if (EvoSuiteCommand.splitArguments(options.extraArguments).stream()
                 .anyMatch(arg -> arg.startsWith("-Dllm_api_key=")))
             throw new IllegalArgumentException(

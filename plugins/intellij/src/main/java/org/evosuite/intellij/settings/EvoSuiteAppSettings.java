@@ -30,6 +30,7 @@ import java.util.*;
 public final class EvoSuiteAppSettings
         implements PersistentStateComponent<EvoSuiteAppSettings.State> {
     public static final class State {
+        public String legacyApiKeyProvider = "";
         public Map<String, String> values = new TreeMap<>();
     }
 

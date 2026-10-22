@@ -37,69 +37,58 @@ public class GenerateTestsAction extends DumbAwareAction {
 
     @Override
     public void update(@NotNull AnActionEvent event) {
+        var project =
+                event.getProject();
+        boolean indexing =
+                project != null
+                        && com.intellij.openapi.project.DumbService.isDumb(project);
+        var selection = TargetCollector.snapshot(event);
         boolean enabled =
-                event.getProject() != null
-                        && !com.intellij.openapi.project.DumbService.isDumb(event.getProject());
-        TargetCollector.Selection selection = TargetCollector.snapshot(event);
-        enabled &=
+                project != null
+                        && !indexing
+                        && TargetCollector.hasEligibleTarget(project, selection, mode());
+        event.getPresentation().setEnabled(enabled);
+        boolean relevant =
                 !selection.modules().isEmpty()
-                        || selection.files().stream()
-                                .anyMatch(f -> f.isDirectory() || "java".equals(f.getExtension()))
                         || selection.elements().stream()
                                 .anyMatch(
-                                        e ->
-                                                e instanceof com.intellij.psi.PsiPackage
-                                                        || e
+                                        element ->
+                                                element instanceof com.intellij.psi.PsiPackage
+                                                        || element
                                                                 instanceof
                                                                 com.intellij.psi.PsiDirectory
-                                                        || e instanceof com.intellij.psi.PsiJavaFile
-                                                        || e instanceof com.intellij.psi.PsiClass
-                                                        || e instanceof com.intellij.psi.PsiMethod);
-        if (enabled && mode() == TargetCollector.Mode.CLASSES && selection.modules().isEmpty()) {
-            enabled =
-                    selection.files().stream()
-                                    .anyMatch(com.intellij.openapi.vfs.VirtualFile::isDirectory)
-                            || selection.elements().stream()
+                                                        || element
+                                                                instanceof com.intellij.psi.PsiJavaFile
+                                                        || element.getContainingFile()
+                                                                instanceof com.intellij.psi.PsiJavaFile)
+                        || selection.files().stream()
                                     .anyMatch(
-                                            e ->
-                                                    e instanceof com.intellij.psi.PsiPackage
-                                                            || e
-                                                                    instanceof
-                                                                    com.intellij.psi.PsiDirectory
-                                                            || e.getContainingFile() != null
-                                                                    && e.getContainingFile()
-                                                                                    .getVirtualFile()
-                                                                            != null
-                                                                    && !com.intellij.openapi.roots
-                                                                            .ProjectFileIndex
-                                                                            .getInstance(
-                                                                                    event
-                                                                                            .getProject())
-                                                                            .isInTestSourceContent(
-                                                                                    e.getContainingFile()
-                                                                                            .getVirtualFile()));
-        }
-        if (enabled && mode() == TargetCollector.Mode.METHODS)
-            enabled =
-                    selection.elements().stream()
-                            .anyMatch(
-                                    e ->
-                                            e instanceof com.intellij.psi.PsiMethod m
-                                                    && MethodRules.whyNotTestable(m) == null);
-        if (enabled && mode() == TargetCollector.Mode.EXTEND)
-            enabled =
-                    selection.elements().stream()
-                            .anyMatch(
-                                    e -> {
-                                        var file = e.getContainingFile();
-                                        return file != null
-                                                && file.getVirtualFile() != null
-                                                && com.intellij.openapi.roots.ProjectFileIndex
-                                                        .getInstance(event.getProject())
-                                                        .isInTestSourceContent(
-                                                                file.getVirtualFile());
-                                    });
-        event.getPresentation().setEnabledAndVisible(enabled);
+                                        file ->
+                                                file.isDirectory()
+                            || "java".equals(file.getExtension()));
+        event.getPresentation().setVisible(project != null
+                                                                    && relevant);
+        event.getPresentation()
+                                                                                    .setDescription(
+                        enabled
+                                ? event
+                                                                                            .getPresentation()
+                                                                                            .getText()
+                                : indexing
+                                        ? "Wait for project indexing to finish."
+                                        : mode() == TargetCollector.Mode.METHODS
+                                                ? "Choose a callable method of a top-level"
+                                                        + " production class; use Extend Tests for"
+                                                        + " test files."
+                                                : (mode() == TargetCollector.Mode.EXTEND
+                                                                || mode()
+                                                                        == TargetCollector.Mode
+                                                                                .COVERAGE)
+                                                        ? "Choose existing test classes or a test"
+                                                                + " source folder."
+                                                        : "Choose a production class, package or"
+                                                              + " module; interfaces and generated"
+                                                              + " tests are excluded.");
     }
 
     @Override

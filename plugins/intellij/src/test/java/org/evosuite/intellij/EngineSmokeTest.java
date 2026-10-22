@@ -28,6 +28,167 @@ import java.util.*;
 
 /** A real engine/JDK boundary test, independent of mocked platform processes. */
 public class EngineSmokeTest extends TestCase {
+    public void testMeasureExistingCoverageWritesReportWithoutGeneratingTests() throws Exception {
+        Path home =
+                Path.of(
+                        System.getProperty(
+                                "evosuite.it.javaHome", System.getProperty("java.home")));
+        Path root = Files.createTempDirectory("evosuite-coverage-");
+        try {
+            Files.createDirectories(root.resolve("demo"));
+            Path cut = root.resolve("demo/Calculator.java"),
+                    test = root.resolve("demo/CalculatorTest.java");
+            Files.writeString(
+                    cut,
+                    "package demo; public class Calculator { public int sign(int n){return n < 0 ?"
+                            + " -1 : 1;} }");
+            Files.writeString(
+                    test,
+                    "package demo; public class CalculatorTest { @org.junit.Test public void"
+                        + " positive(){org.junit.Assert.assertEquals(1,new Calculator().sign(1));}"
+                        + " }");
+            String junit = com.intellij.util.PathUtil.getJarPathForClass(org.junit.Test.class);
+            String hamcrest =
+                    com.intellij.util.PathUtil.getJarPathForClass(org.hamcrest.Matcher.class);
+            String cp =
+                    root
+                            + java.io.File.pathSeparator
+                            + junit
+                            + java.io.File.pathSeparator
+                            + hamcrest;
+            assertEquals(
+                    0,
+                    new ProcessBuilder(
+                                    home.resolve("bin/javac").toString(),
+                                    "-cp",
+                                    cp,
+                                    "-d",
+                                    root.toString(),
+                                    cut.toString(),
+                                    test.toString())
+                            .inheritIO()
+                            .start()
+                            .waitFor());
+            var options = new GenerationOptions();
+            options.criterion = "LINE:BRANCH";
+            options.testFormat = "JUNIT4";
+            options.clientMemory = 512;
+            List<String> log = new java.util.concurrent.CopyOnWriteArrayList<>();
+            var target =
+                    new GenerationTarget(
+                            "demo.Calculator",
+                            List.of(),
+                            List.of(
+                                    new GenerationTarget.Seed(
+                                            "demo.CalculatorTest", root.toFile())));
+            int exit =
+                    GenerationRun.measureCoverage(
+                            target,
+                            options,
+                            JavaInstallation.at(home),
+                            Path.of(System.getProperty("evosuite.engine")),
+                            List.of(root.toString(), junit, hamcrest),
+                            root,
+                            root.resolve("run"),
+                            listener(log),
+                            Map.of(),
+                            () -> false);
+            assertEquals(String.join("\n", log), 0, exit);
+            assertTrue(
+                    String.join("\n", log),
+                    Files.isRegularFile(root.resolve("run/reports/statistics.csv")));
+            assertFalse(Files.exists(root.resolve("run/tests/demo/Calculator_ESTest.java")));
+        } finally {
+            GenerationRun.deleteTree(root);
+        }
+    }
+
+    public void testRuntimeFreeOutputCompilesAndRunsWithoutEvoSuiteRuntime() throws Exception {
+        Path home =
+                Path.of(
+                        System.getProperty(
+                                "evosuite.it.javaHome", System.getProperty("java.home")));
+        if (!Files.isDirectory(home.resolve("bin")))
+            home = Path.of(System.getProperty("java.home"));
+        Path root = Files.createTempDirectory("evosuite-runtime-free-");
+        try {
+            Path source = root.resolve("demo/Calculator.java");
+            Files.createDirectories(source.getParent());
+            Files.writeString(
+                    source,
+                    "package demo; public class Calculator { public int sign(int n) { return n < 0"
+                            + " ? -1 : 1; } }");
+            assertEquals(
+                    0,
+                    new ProcessBuilder(
+                                    home.resolve("bin/javac").toString(),
+                                    "-d",
+                                    root.toString(),
+                                    source.toString())
+                            .inheritIO()
+                            .start()
+                            .waitFor());
+            var options = new GenerationOptions();
+            options.noRuntimeDependency = true;
+            options.testFormat = "JUNIT4";
+            options.searchBudget = 2;
+            options.clientMemory = 512;
+            options.criterion = "BRANCH";
+            options.extraArguments = "-Dminimization_timeout=2 -Dassertion_timeout=2";
+            List<String> log = new java.util.concurrent.CopyOnWriteArrayList<>();
+            var result =
+                    GenerationRun.generate(
+                            GenerationTarget.wholeClass("demo.Calculator"),
+                            options,
+                            JavaInstallation.at(home),
+                            Path.of(System.getProperty("evosuite.engine")),
+                            List.of(root.toString()),
+                            root,
+                            root.resolve("run"),
+                            listener(log),
+                            Map.of(),
+                            () -> false);
+            assertTrue(String.join("\n", log), result.produced());
+            assertFalse(Files.readString(result.suite()).contains("import org.evosuite."));
+            String junit = com.intellij.util.PathUtil.getJarPathForClass(org.junit.Test.class);
+            String hamcrest =
+                    com.intellij.util.PathUtil.getJarPathForClass(org.hamcrest.Matcher.class);
+            String cp =
+                    root
+                            + java.io.File.pathSeparator
+                            + junit
+                            + java.io.File.pathSeparator
+                            + hamcrest;
+            assertEquals(
+                    "Compile without EvoSuite jars",
+                    0,
+                    new ProcessBuilder(
+                                    home.resolve("bin/javac").toString(),
+                                    "-cp",
+                                    cp,
+                                    "-d",
+                                    root.toString(),
+                                    result.suite().toString())
+                            .inheritIO()
+                            .start()
+                            .waitFor());
+            assertEquals(
+                    "Run without EvoSuite jars",
+                    0,
+                    new ProcessBuilder(
+                                    home.resolve("bin/java").toString(),
+                                    "-cp",
+                                    cp,
+                                    "org.junit.runner.JUnitCore",
+                                    "demo.Calculator_ESTest")
+                            .inheritIO()
+                            .start()
+                            .waitFor());
+        } finally {
+            GenerationRun.deleteTree(root);
+        }
+    }
+
     public void testJdk21GenerationKeepsSandboxAvailableInMasterAndClient() throws Exception {
         Path home = Path.of(System.getProperty("java.home"));
         var java = JavaInstallation.at(home);
@@ -37,7 +198,9 @@ public class EngineSmokeTest extends TestCase {
         try {
             Path source = root.resolve("demo/Calculator.java");
             Files.createDirectories(source.getParent());
-            Files.writeString(source, "package demo; public class Calculator { public int sign(int n) { return n < 0 ? -1 : 1; } }");
+            Files.writeString(source,
+                    "package demo; public class Calculator { public int sign(int n) { return n < 0"
+                            + " ? -1 : 1; } }");
             Process compile = new ProcessBuilder(home.resolve("bin/javac").toString(), "-d", root.toString(), source.toString())
                     .inheritIO().start();
             assertEquals(0, compile.waitFor());

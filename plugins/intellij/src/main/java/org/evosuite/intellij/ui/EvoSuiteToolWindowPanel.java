@@ -21,43 +21,42 @@ package org.evosuite.intellij.ui;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.*;
-import com.intellij.openapi.actionSystem.impl.SimpleDataContext;
 import com.intellij.openapi.actionSystem.ex.ActionUtil;
-import com.intellij.openapi.project.DumbAwareAction;
+import com.intellij.openapi.actionSystem.impl.SimpleDataContext;
 import com.intellij.openapi.options.ShowSettingsUtil;
+import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.ui.JBUI;
 import org.evosuite.intellij.run.GenerationService;
-import org.evosuite.intellij.settings.EvoSuiteApplicationConfigurable;
 import org.evosuite.intellij.settings.EvoSuiteProjectConfigurable;
-import org.evosuite.intellij.settings.EvoSuiteProjectSettings;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
 import javax.swing.*;
 
-public final class EvoSuiteToolWindowPanel extends JPanel {
+public final class EvoSuiteToolWindowPanel extends JPanel
+        implements com.intellij.openapi.Disposable {
     public EvoSuiteToolWindowPanel(Project project) {
         super(new BorderLayout());
         EvoSuiteConsole output = EvoSuiteConsole.getInstance(project);
         var console = output.view();
         var generate = new OpenFileGenerationAction("EvoSuite.GenerateTests", "Generate Tests for Open File");
         var method = new OpenFileGenerationAction("EvoSuite.GenerateMethodTests", "Generate Tests for Current Method");
+        var coverage =
+                new OpenFileGenerationAction(
+                        "EvoSuite.MeasureCoverage", "Measure Coverage of Open Tests");
         var extend = new OpenFileGenerationAction("EvoSuite.ExtendTests", "Extend Tests in Open File");
         var settings = new DumbAwareAction("EvoSuite Settings", "Configure EvoSuite", AllIcons.General.Settings) {
             @Override public @NotNull ActionUpdateThread getActionUpdateThread() { return ActionUpdateThread.EDT; }
             @Override public void actionPerformed(@NotNull AnActionEvent event) {
-                var local = EvoSuiteProjectSettings.getInstance(project);
-                local.migrate(project);
-                if (local.getState().useProjectSettings)
-                    ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteProjectConfigurable.class);
-                else
-                    ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteApplicationConfigurable.class);
+                        ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteProjectConfigurable.class);
             }
         };
-        DefaultActionGroup actions = new DefaultActionGroup(generate, method, extend, settings);
+        DefaultActionGroup actions = new DefaultActionGroup(generate, method, extend, coverage, settings);
         actions.addSeparator();
-        actions.add(new AnAction("Stop", "Cancel this project's EvoSuite requests", AllIcons.Actions.Suspend) {
+        actions.add(new AnAction(
+                        "Cancel all project runs",
+                        "Cancel all queued and running EvoSuite requests in this project", AllIcons.Actions.Cancel) {
             @Override public @NotNull ActionUpdateThread getActionUpdateThread() { return ActionUpdateThread.BGT; }
             @Override public void update(@NotNull AnActionEvent event) {
                 event.getPresentation().setEnabled(GenerationService.getInstance().isRunning(project));
@@ -83,7 +82,10 @@ public final class EvoSuiteToolWindowPanel extends JPanel {
         title.setFont(title.getFont().deriveFont(Font.BOLD));
         content.add(title);
         content.add(Box.createVerticalStrut(JBUI.scale(8)));
-        JTextArea help = new JTextArea("Open a Java file and choose an action below. You can also right-click a class, package or module in the Project view. Progress and results appear here when generation starts.", 6, 34);
+        JTextArea help = new JTextArea(
+                        "Open a Java file and choose an action below. You can also right-click a"
+                            + " class, package or module in the Project view. Progress and results"
+                            + " appear here when generation starts.", 6, 34);
         help.setLineWrap(true);
         help.setWrapStyleWord(true);
         help.setEditable(false);
@@ -91,7 +93,7 @@ public final class EvoSuiteToolWindowPanel extends JPanel {
         help.setOpaque(false);
         help.setFont(UIManager.getFont("Label.font"));
         content.add(help);
-        for (var action : new AnAction[] {generate, method, extend, settings}) {
+        for (var action : new AnAction[] {generate, method, extend, coverage, settings}) {
             JButton button = new JButton(action.getTemplatePresentation().getText());
             button.addActionListener(event -> ActionUtil.performAction(action, AnActionEvent.createEvent(
                     SimpleDataContext.getProjectContext(project), action.getTemplatePresentation().clone(),
@@ -107,10 +109,33 @@ public final class EvoSuiteToolWindowPanel extends JPanel {
         welcome.add(welcomeScroll);
         body.add(welcome, "welcome");
         body.add(console.getComponent(), "console");
-        add(body, BorderLayout.CENTER);
+        JTabbedPane sections = new JTabbedPane();
+        sections.addTab("Console", body);
+        var results = new RunResultsPanel(project);
+        com.intellij.openapi.util.Disposer.register(this, results);
+        sections.addTab("Runs", results);
+        add(sections, BorderLayout.CENTER);
+        com.intellij.openapi.util.Disposer.register(project, this);
+        final String[] latest = {""};
+        org.evosuite.intellij.run.RunHistory.getInstance(project)
+                .listen(
+                        this,
+                        () -> {
+                            var runs =
+                                    org.evosuite.intellij.run.RunHistory.getInstance(project)
+                                            .getState()
+                                            .runs;
+                            if (!runs.isEmpty() && !runs.getFirst().id.equals(latest[0])) {
+                                latest[0] = runs.getFirst().id;
+                                sections.setSelectedComponent(results);
+                            }
+                        });
         cards.show(body, output.hasOutput() ? "console" : "welcome");
         output.onOutput(() -> cards.show(body, "console"));
     }
+
+    @Override
+    public void dispose() {}
     private static final class WelcomeViewport extends JPanel implements Scrollable {
         WelcomeViewport() { super(new GridBagLayout()); }
         @Override public Dimension getPreferredScrollableViewportSize() { return JBUI.size(420, 280); }

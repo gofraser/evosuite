@@ -44,6 +44,56 @@ public class SelectionTest extends LightJavaCodeInsightFixtureTestCase {
                 result.targets().get(getModule()).stream().map(t -> t.className()).toList());
     }
 
+    public void testActionEligibilityMatchesCollectionForTestMethodsAndDirectories() {
+        var production =
+                (PsiJavaFile)
+                        myFixture.addFileToProject(
+                                "main/demo/Subject.java",
+                                "package demo; public class Subject { public void call(){} }");
+        var tests =
+                (PsiJavaFile)
+                        myFixture.addFileToProject(
+                                "tests/demo/SubjectTest.java",
+                                "package demo; public class SubjectTest { public void testCall(){}"
+                                        + " }");
+        var testRoot = tests.getVirtualFile().getParent().getParent();
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(
+                getProject(),
+                () ->
+                        com.intellij.openapi.roots.ModuleRootModificationUtil.updateModel(
+                                getModule(),
+                                model -> {
+                                    var content = model.getContentEntries()[0];
+                                    content.addSourceFolder(testRoot, true);
+                                }));
+        var method = tests.getClasses()[0].getMethods()[0];
+        var selection = new TargetCollector.Selection(List.of(method), List.of(), List.of());
+        assertFalse(
+                TargetCollector.hasEligibleTarget(
+                        getProject(), selection, TargetCollector.Mode.METHODS));
+        assertTrue(
+                TargetCollector.collect(getProject(), selection, TargetCollector.Mode.METHODS)
+                        .targets()
+                        .isEmpty());
+        var directory = PsiManager.getInstance(getProject()).findDirectory(testRoot);
+        selection = new TargetCollector.Selection(List.of(directory), List.of(), List.of());
+        for (var mode : List.of(TargetCollector.Mode.EXTEND, TargetCollector.Mode.COVERAGE)) {
+            assertTrue(TargetCollector.hasEligibleTarget(getProject(), selection, mode));
+            assertEquals(1, TargetCollector.collect(getProject(), selection, mode).tests().size());
+        }
+        assertFalse(
+                TargetCollector.hasEligibleTarget(
+                        getProject(), selection, TargetCollector.Mode.CLASSES));
+        assertTrue(
+                TargetCollector.hasEligibleTarget(
+                        getProject(),
+                        new TargetCollector.Selection(
+                                List.of(production.getClasses()[0].getMethods()[0]),
+                                List.of(),
+                                List.of()),
+                        TargetCollector.Mode.METHODS));
+    }
+
     public void testMethodDescriptorsAndGroupedOverloads() {
         PsiJavaFile file =
                 (PsiJavaFile)
