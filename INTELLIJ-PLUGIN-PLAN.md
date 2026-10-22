@@ -403,3 +403,24 @@ Light/dark badge renders and the compact settings page were visually inspected. 
 reports Compatible on IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated and twelve
 experimental API usages. ZIP CRC passed and both freshly built engine jars remain isolated
 outside the IDE classloader.
+
+
+## Value-minimization settings checkbox (2026-10-22)
+
+Added Minimize values (simplify constants) immediately below test minimization in the main
+settings tab. The shared minimizeValues setting defaults to false, participates in IDE/project
+profiles, inherited previews and defaults, and emits -Dminimize_values=true/false before user
+and Maven arguments. Existing argument/POM precedence is preserved. The checkbox is disabled
+while test minimization is off, retaining its selected value for later re-enabling; visible help
+explains that dependency. The README now points to the checkbox instead of requiring an extra
+argument.
+
+Regression checks cover toggling, Apply/reset round trips in both scopes, project inheritance,
+parent/child enablement and retained choices, default/explicit command flags, and overrides from
+additional arguments and Maven properties. All 20 IntelliJ settings tests and 40 shared command/
+Maven-settings tests passed with no failures/errors/skips. The six compact settings-tab captures
+were regenerated and the new checkbox/help layout visually inspected.
+
+The final installable ZIP was rebuilt and passed CRC/isolated-engine checks. Plugin Verifier
+reports Compatible on IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated and twelve
+experimental API usages.

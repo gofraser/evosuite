@@ -57,6 +57,8 @@ public final class GenerationOptions {
     public String criterion = "";
     public boolean assertions = true;
     public boolean minimize = true;
+    /** Simplify constants during test minimization; EvoSuite leaves this off by default. */
+    public boolean minimizeValues = false;
     /** EvoSuite's {@code assertion_strategy}: MUTATION keeps those that detect faults, ALL keeps all. */
     public String assertionStrategy = "MUTATION";
     /** EvoSuite's {@code test_naming_strategy}: NUMBERED (test0, ...) or COVERAGE (from what a test covers). */

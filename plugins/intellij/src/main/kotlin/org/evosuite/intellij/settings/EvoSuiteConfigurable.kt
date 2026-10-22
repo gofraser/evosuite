@@ -127,7 +127,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 } else panel.add(cell, constraints(1, row++, 1.0))
                 if (editor is JCheckBox) editor.addActionListener { enableFields() }
                 if (editor is JComboBox<*>) editor.addActionListener { enableFields() }
-                if (name == "minimize") panel.add(note("Value minimization is separate and off by default. To simplify constants, use -Dminimize_values=true in Advanced → Additional arguments.", 3).apply { this.name = "minimize.help" }, constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                if (name == "minimizeValues") panel.add(note("Simplify constants while preserving coverage. Off by default; requires test minimization above.", 2).apply { this.name = "minimizeValues.help" }, constraints(0, row++, 1.0).apply { gridwidth = 2 })
                 if (name == "llmProvider") row = addCredentials(panel, row)
             }
             if (title == "Large Language Model") {
@@ -321,6 +321,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     private fun label(name: String): String = mapOf(
         "searchBudget" to "Time per class (seconds)", "criterion" to "Coverage criteria",
         "assertions" to "Generate assertions", "minimize" to "Remove redundant tests and statements",
+        "minimizeValues" to "Minimize values (simplify constants)",
         "assertionStrategy" to "Assertion selection", "testFormat" to "JUnit version",
         "testFolder" to "Test folder (module-relative)", "testSuffix" to "Test class suffix",
         "testNaming" to "Test method names", "variableNaming" to "Variable names",
@@ -372,6 +373,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         key.isEnabled = keyReady && project == null
         if (project == null && llm && (provider == "OPENAI" || provider == "ANTHROPIC")
             && mayAutomaticallyLoadApiKey()) requestKeyLoad()
+        fields["minimizeValues"]?.isEnabled = scope && (fields["minimize"] as? JCheckBox)?.isSelected == true
         fields["assertionStrategy"]?.isEnabled = scope && (fields["assertions"] as? JCheckBox)?.isSelected == true
     }
     private fun enableEditor(name: String, enabled: Boolean) {

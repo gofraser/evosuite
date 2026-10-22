@@ -144,6 +144,22 @@ public class EvoSuiteCommandTest {
     }
 
     @Test
+    public void valueMinimizationUsesSavedSettingsAndRetainsArgumentAndPomPrecedence() {
+        var options = SettingKeys.resolve(Map.of("minimizeValues", "true"));
+        assertTrue(options.minimizeValues);
+        assertTrue(arguments(options).contains("-Dminimize_values=true"));
+        assertTrue(arguments(new GenerationOptions()).contains("-Dminimize_values=false"));
+        options.extraArguments = "-Dminimize_values=false";
+        var args = arguments(options);
+        assertTrue(args.indexOf("-Dminimize_values=true") < args.lastIndexOf("-Dminimize_values=false"));
+        options.extraArguments = "";
+        new PomSettings(Map.of(PomSettings.PROPERTY_PREFIX + "minimize_values", "false"))
+                .applyTo(options, new File("/p"));
+        args = arguments(options);
+        assertTrue(args.indexOf("-Dminimize_values=true") < args.lastIndexOf("-Dminimize_values=false"));
+    }
+
+    @Test
     public void passesTheSettings() {
         GenerationOptions options = new GenerationOptions();
         options.searchBudget = 15;

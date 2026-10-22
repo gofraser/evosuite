@@ -77,9 +77,11 @@ later removed this sandbox mechanism, so the launcher omits the unsupported flag
 
 **Remove redundant tests and statements** controls suite/test minimization (`minimize`, default
 `true`). Value minimization is separate: the engine's `minimize_values` default is `false`,
-unchanged by this plugin. To simplify constants, clear **No additional arguments** under
-**Advanced → Additional arguments** and add `-Dminimize_values=true`. Keep test minimization
-selected. Values needed to preserve coverage can still remain large.
+unchanged by this plugin. Enable **Minimize values (simplify constants)** directly below the test
+minimization checkbox to simplify constants. It is available in both IDE and project settings and
+requires test minimization; disabling the parent preserves the saved choice. Existing additional
+arguments and Maven overrides retain their normal precedence. Values needed to preserve coverage
+can still remain large.
 
 Bundled-engine launches check the selected JDK before offering dependency changes or starting a build.
 Runs identify planned output paths and extension seed classes before generation. Result summaries

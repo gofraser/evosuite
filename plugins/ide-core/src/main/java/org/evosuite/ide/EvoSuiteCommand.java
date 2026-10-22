@@ -154,6 +154,7 @@ public final class EvoSuiteCommand {
         args.add("-Dsearch_budget=" + options.searchBudget);
         args.add("-Dassertions=" + options.assertions);
         args.add("-Dminimize=" + options.minimize);
+        args.add("-Dminimize_values=" + options.minimizeValues);
         // Only where they differ from EvoSuite's defaults, to keep the command line readable.
         if (!"MUTATION".equals(options.assertionStrategy)) {
             args.add("-Dassertion_strategy=" + options.assertionStrategy);

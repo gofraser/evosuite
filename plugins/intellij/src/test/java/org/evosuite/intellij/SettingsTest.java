@@ -28,6 +28,67 @@ import org.evosuite.intellij.settings.*;
 import java.util.*;
 
 public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
+    public void testValueMinimizationCheckboxPersistsInIdeAndProjectSettings() throws Exception {
+        var app = EvoSuiteAppSettings.getInstance().getState();
+        var local = EvoSuiteProjectSettings.getInstance(getProject()).getState();
+        var oldApp = new TreeMap<>(app.values);
+        var oldLocal = new TreeMap<>(local.values);
+        boolean oldSwitch = local.useProjectSettings;
+        try {
+            for (boolean projectScope : List.of(false, true)) {
+                app.values.clear(); local.values.clear(); local.useProjectSettings = projectScope;
+                var configurable = projectScope ? new EvoSuiteProjectConfigurable(getProject()) : new EvoSuiteApplicationConfigurable();
+                try {
+                    var ui = configurable.createComponent();
+                    var values = (javax.swing.JCheckBox) findField(ui, "minimizeValues");
+                    var tests = (javax.swing.JCheckBox) findField(ui, "minimize");
+                    assertNotNull(values);
+                    assertFalse(values.isSelected());
+                    assertTrue(values.isEnabled());
+                    values.doClick();
+                    configurable.apply();
+                    assertTrue(SettingsResolver.resolve(getModule()).minimizeValues);
+                    var state = projectScope ? local.values : app.values;
+                    assertEquals("true", state.get("minimizeValues"));
+                    configurable.reset();
+                    assertTrue(values.isSelected());
+                    tests.doClick();
+                    assertFalse("Value minimization requires test minimization", values.isEnabled());
+                    assertTrue("Disabling the parent preserves the user's choice", values.isSelected());
+                    configurable.apply();
+                    assertFalse(SettingsResolver.resolve(getModule()).minimize);
+                    assertTrue(SettingsResolver.resolve(getModule()).minimizeValues);
+                    tests.doClick();
+                    assertTrue(values.isEnabled());
+                    values.doClick();
+                    configurable.apply();
+                    assertFalse(SettingsResolver.resolve(getModule()).minimizeValues);
+                    configurable.reset();
+                    assertFalse(values.isSelected());
+                } finally { configurable.disposeUIResources(); }
+            }
+        } finally { app.values = oldApp; local.values = oldLocal; local.useProjectSettings = oldSwitch; }
+    }
+
+    public void testValueMinimizationPreviewUsesInheritedIdeSettings() {
+        var app = EvoSuiteAppSettings.getInstance().getState();
+        var local = EvoSuiteProjectSettings.getInstance(getProject()).getState();
+        var oldApp = new TreeMap<>(app.values);
+        var oldLocal = new TreeMap<>(local.values);
+        boolean oldSwitch = local.useProjectSettings;
+        var configurable = new EvoSuiteProjectConfigurable(getProject());
+        try {
+            app.values.put("minimizeValues", "true"); app.values.put("minimize", "true");
+            local.values.clear(); local.useProjectSettings = false;
+            var ui = configurable.createComponent();
+            var values = (javax.swing.JCheckBox) findField(ui, "minimizeValues");
+            assertTrue(values.isSelected()); assertFalse(values.isEnabled());
+            assertTrue(SettingsResolver.resolve(getModule()).minimizeValues);
+            findCheckbox(ui, "Use project-specific settings (.idea/evosuite.xml)").doClick();
+            assertFalse(values.isSelected()); assertTrue(values.isEnabled());
+        } finally { configurable.disposeUIResources(); app.values = oldApp; local.values = oldLocal; local.useProjectSettings = oldSwitch; }
+    }
+
     public void testProjectStateIsShareableAndHasNoKey() {
         var state = new EvoSuiteProjectSettings.State();
         state.useProjectSettings = true;

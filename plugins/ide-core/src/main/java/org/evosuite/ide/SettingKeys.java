@@ -31,6 +31,7 @@ public final class SettingKeys {
     public static final String CRITERION = "criterion";
     public static final String ASSERTIONS = "assertions";
     public static final String MINIMIZE = "minimize";
+    public static final String MINIMIZE_VALUES = "minimizeValues";
     public static final String ASSERTION_STRATEGY = "assertionStrategy";
     public static final String TEST_NAMING = "testNaming";
     public static final String VARIABLE_NAMING = "variableNaming";
@@ -60,6 +61,7 @@ public final class SettingKeys {
                     "criterion",
                     "assertions",
                     "minimize",
+                    "minimizeValues",
                     "assertionStrategy",
                     "testFormat",
                     "testFolder",
