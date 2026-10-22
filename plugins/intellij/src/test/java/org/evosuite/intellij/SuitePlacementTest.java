@@ -161,12 +161,86 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
         var file=myFixture.addFileToProject("review/Accepted_ESTest.java",source).getVirtualFile();
         var document=FileDocumentManager.getInstance().getDocument(file);
         assertNotNull(document);
-        assertFalse(SuitePlacement.generated(getProject(),path,document.getText(),"Accepted_ESTest"));
+        assertFalse(
+                SuitePlacement.generated(
+                        getProject(), path, document.getText(), "Accepted_ESTest"));
         registry.recordAccepted(path,registry.decorate(path,"public class Accepted_ESTest {}"));
         assertFalse(registry.owns(path));
         registry.recordAccepted(path,source);
-        assertTrue(SuitePlacement.generated(getProject(),path,document.getText(),"Accepted_ESTest"));
-        assertTrue("Compare must keep the registered marker stable",registry.owns(path,registry.decorate(path,"public class Accepted_ESTest {}")));
+        assertTrue(
+                SuitePlacement.generated(
+                        getProject(), path, document.getText(), "Accepted_ESTest"));
+        assertTrue(
+                "Compare must keep the registered marker stable",
+                registry.owns(path, registry.decorate(path, "public class Accepted_ESTest {}")));
+    }
+
+    public void testRuntimeFreeMarkerInsideTextBlockDoesNotEstablishOwnership() throws Exception {
+        var registry =
+                org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(getProject());
+        Path path = Path.of(myFixture.getTempDirPath(), "demo/Block_ESTest.java");
+        String generated = registry.decorate(path, "package demo; public class Block_ESTest {}");
+        var file = myFixture.addFileToProject("demo/Block_ESTest.java", generated).getVirtualFile();
+        FileDocumentManager.getInstance().getDocument(file);
+        registry.record(path, true);
+        String marker = generated.substring(0, generated.indexOf('\n'));
+        String handwritten =
+                "package demo; public class Block_ESTest { String example = \"\"\"\n"
+                        + marker
+                        + "\n\"\"\"; }";
+        assertTrue(org.evosuite.ide.SuiteMerger.isValidSuite(handwritten, "Block_ESTest"));
+        assertFalse(registry.owns(path, handwritten));
+        assertFalse(SuitePlacement.generated(getProject(), path, handwritten, "Block_ESTest"));
+    }
+
+    public void testUndoRuntimeDependentReplacementRestoresRuntimeFreeOwnership() throws Exception {
+        var options = new GenerationOptions();
+        options.noRuntimeDependency = true;
+        Path destination = Path.of(myFixture.getTempDirPath(), "demo/Vault_ESTest.java");
+        String plain =
+                "package demo; import org.junit.jupiter.api.Test; public class Vault_ESTest { @Test"
+                        + " public void test0(){int n=1;} }";
+        var created =
+                SuitePlacement.place(
+                        getProject(),
+                        GenerationTarget.wholeClass("demo.Vault"),
+                        options,
+                        destination,
+                        generated(plain),
+                        SuiteAction.ADD,
+                        null,
+                        ignored -> {});
+        myFixture.openFileInEditor(created.suite());
+        var document = FileDocumentManager.getInstance().getDocument(created.suite());
+        String original = document.getText();
+        options.noRuntimeDependency = false;
+        var replaced =
+                SuitePlacement.place(
+                        getProject(),
+                        GenerationTarget.wholeClass("demo.Vault"),
+                        options,
+                        destination,
+                        generated(suite("test1", 2)),
+                        SuiteAction.REPLACE,
+                        SuitePlacement.snapshot(destination),
+                        ignored -> {});
+        assertTrue(replaced.written());
+        assertFalse(document.getText().equals(original));
+        var manager = com.intellij.openapi.command.undo.UndoManager.getInstance(getProject());
+        var editor =
+                com.intellij
+                        .openapi
+                        .fileEditor
+                        .FileEditorManager
+                        .getInstance(getProject())
+                        .getSelectedEditor(created.suite());
+        assertTrue(manager.isUndoAvailable(editor));
+        manager.undo(editor);
+        assertEquals(original, document.getText());
+        assertTrue(
+                SuitePlacement.generated(
+                        getProject(), destination, document.getText(), "Vault_ESTest"));
+        assertFalse(SuitePlacement.generated(getProject(), destination, plain, "Vault_ESTest"));
     }
 
     public void testRuntimeFreeOwnershipAllowsLaterAddButNeverAdoptsHandwrittenFiles()
@@ -208,7 +282,9 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
         var restored=new org.evosuite.intellij.settings.GeneratedSuiteRegistry();
         restored.loadState(com.intellij.util.xmlb.XmlSerializer.deserialize(com.intellij.util.xmlb.XmlSerializer.serialize(registry.getState()),org.evosuite.intellij.settings.GeneratedSuiteRegistry.State.class));
         assertTrue(restored.owns(destination,FileDocumentManager.getInstance().getDocument(first.suite()).getText()));
-        assertFalse("Replacing a registered path with handwritten source must not adopt it", SuitePlacement.generated(getProject(),destination,source,"Plain_ESTest"));
+        assertFalse(
+                "Replacing a registered path with handwritten source must not adopt it",
+                SuitePlacement.generated(getProject(), destination, source, "Plain_ESTest"));
         var handwritten =
                 myFixture
                         .addFileToProject(
@@ -231,9 +307,16 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
     public void testDuplicateAddAndEmptyExtensionLeaveExistingTestsUnchanged() throws Exception {
         var original = suite("test0", 1);
         var file = myFixture.addFileToProject("demo/Vault_ESTest.java", original).getVirtualFile();
-        var duplicate = SuitePlacement.place(getProject(), GenerationTarget.wholeClass("demo.Vault"),
-                new GenerationOptions(), file.toNioPath(), generated(original), SuiteAction.ADD,
-                SuitePlacement.snapshot(file.toNioPath()), ignored -> {});
+        var duplicate =
+                SuitePlacement.place(
+                        getProject(),
+                        GenerationTarget.wholeClass("demo.Vault"),
+                        new GenerationOptions(),
+                        file.toNioPath(),
+                        generated(original),
+                        SuiteAction.ADD,
+                        SuitePlacement.snapshot(file.toNioPath()),
+                        ignored -> {});
         assertFalse(duplicate.written());
         assertFalse(duplicate.skipped());
         assertTrue(duplicate.comparisons().isEmpty());
@@ -249,7 +332,10 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
     }
 
     public void testReplacementProtectsScaffoldingChangedWhileGenerationRuns() throws Exception {
-        var file = myFixture.addFileToProject("demo/Vault_ESTest.java", suite("test0", 1)).getVirtualFile();
+        var file =
+                myFixture
+                        .addFileToProject("demo/Vault_ESTest.java", suite("test0", 1))
+                        .getVirtualFile();
         var scaffold = myFixture.addFileToProject("demo/Vault_ESTest_scaffolding.java",
                 "package demo; class Vault_ESTest_scaffolding { /* original */ }").getVirtualFile();
         var consent = SuitePlacement.snapshot(file.toNioPath());
@@ -265,20 +351,33 @@ public class SuitePlacementTest extends LightJavaCodeInsightFixtureTestCase {
         assertFalse(placed.written());
         assertEquals(2, placed.comparisons().size());
         assertEquals(edited, scaffoldDoc.getText());
-        assertEquals(suite("test0", 1), FileDocumentManager.getInstance().getDocument(file).getText());
-        assertTrue(messages.toString(), messages.stream().anyMatch(m -> m.contains("scaffolding changed")));
+        assertEquals(
+                suite("test0", 1), FileDocumentManager.getInstance().getDocument(file).getText());
+        assertTrue(
+                messages.toString(),
+                messages.stream().anyMatch(m -> m.contains("scaffolding changed")));
     }
 
     public void testComparisonUsesLiveDocumentAndHonorsReadOnlyFiles() throws Exception {
-        var file = myFixture.addFileToProject("demo/Vault_ESTest.java", suite("test0", 1)).getVirtualFile();
+        var file =
+                myFixture
+                        .addFileToProject("demo/Vault_ESTest.java", suite("test0", 1))
+                        .getVirtualFile();
         var document = FileDocumentManager.getInstance().getDocument(file);
-        var pair = new org.evosuite.intellij.ui.SuiteComparison.Pair("Vault_ESTest.java", document, suite("test0", 2));
+        var pair =
+                new org.evosuite.intellij.ui.SuiteComparison.Pair(
+                        "Vault_ESTest.java", document, suite("test0", 2));
         var request = org.evosuite.intellij.ui.SuiteComparison.request(getProject(), pair);
         assertTrue(request.getTitle(), request.getTitle().contains(file.getPresentableUrl()));
         assertSame(document, ((com.intellij.diff.contents.DocumentContent)request.getContents().getFirst()).getDocument());
         assertTrue(request.getUserData(com.intellij.diff.util.DiffUserDataKeys.FORCE_READ_ONLY_CONTENTS)[1]);
-        WriteCommandAction.runWriteCommandAction(getProject(), () -> document.setText(suite("test0", 3)));
-        assertTrue(((com.intellij.diff.contents.DocumentContent)request.getContents().getFirst()).getDocument().getText().contains("= 3"));
+        WriteCommandAction.runWriteCommandAction(
+                getProject(), () -> document.setText(suite("test0", 3)));
+        assertTrue(
+                ((com.intellij.diff.contents.DocumentContent) request.getContents().getFirst())
+                        .getDocument()
+                        .getText()
+                        .contains("= 3"));
         try {
             com.intellij.openapi.application.WriteAction.run(() -> file.setWritable(false));
             var readOnly = org.evosuite.intellij.ui.SuiteComparison.request(getProject(), pair);

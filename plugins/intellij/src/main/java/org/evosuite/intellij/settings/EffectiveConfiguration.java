@@ -58,13 +58,18 @@ public final class EffectiveConfiguration {
 
     private EffectiveConfiguration() {}
 
+    private static boolean credentialProperty(String property) {
+        String normalized = property.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "");
+        return !normalized.equals("llmmaxtokens")
+                && normalized.matches(".*(key|password|secret|token).*");
+    }
+
     private static void properties(Map<String, Value> rows, List<String> arguments, String source) {
         for (String arg : arguments) {
             if (!arg.startsWith("-D") || !arg.contains("=")) continue;
             int split = arg.indexOf('=');
             String property = arg.substring(2, split);
-            if (property.toLowerCase(Locale.ROOT).matches(".*(key|password|secret|token).*")
-                    && !property.equals("llm_max_tokens")) continue;
+            if (credentialProperty(property)) continue;
             String setting =
                     PROPERTIES.entrySet().stream()
                             .filter(e -> e.getValue().equals(property))
@@ -172,9 +177,10 @@ public final class EffectiveConfiguration {
                                                 "-D(?:test_dir|junit_suffix|report_dir|llm_trace_dir)=.*"))
                         .filter(
                                 a ->
-                                        !a.toLowerCase(Locale.ROOT)
-                                                .matches(
-                                                        "-D[^=]*(?:api_key|password|secret|access_token|auth_token)[^=]*=.*"))
+                                        !a.startsWith("-D")
+                                                || !a.contains("=")
+                                                || !credentialProperty(
+                                                        a.substring(2, a.indexOf('='))))
                         .toList();
         result.put(
                 "extraArguments",

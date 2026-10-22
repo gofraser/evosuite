@@ -57,7 +57,7 @@ public final class GeneratedSuiteRegistry
 
     private static final java.util.regex.Pattern MARKER =
             java.util.regex.Pattern.compile(
-                    "(?m)^// EvoSuite IntelliJ generated suite: ([a-f0-9-]{36})$");
+                    "// EvoSuite IntelliJ generated suite: ([a-f0-9-]{36})");
 
     public synchronized String decorate(Path path, String source) {
         String id =
@@ -66,14 +66,28 @@ public final class GeneratedSuiteRegistry
         return "// EvoSuite IntelliJ generated suite: " + id + "\n" + source;
     }
 
-    /** Mark Reviewed is an explicit acceptance of copied runtime-free comparison content. */
+    private static String markerId(String source) {
+        var lexer =
+                com.intellij.lang.LanguageParserDefinitions.INSTANCE
+                        .forLanguage(com.intellij.lang.java.JavaLanguage.INSTANCE)
+                        .createLexer(null);
+        lexer.start(source);
+        while (lexer.getTokenType() != null) {
+            if (com.intellij.psi.JavaTokenType.END_OF_LINE_COMMENT.equals(lexer.getTokenType())) {
+                var marker = MARKER.matcher(lexer.getTokenText().stripTrailing());
+                if (marker.matches()) return marker.group(1);
+            }
+            lexer.advance();
+        }
+        return "";
+    }
+
+    /** Finishing review explicitly accepts matching, copied runtime-free comparison content. */
     public synchronized void recordAccepted(Path path, String generated) {
         try {
-            var expected = MARKER.matcher(generated);
-            var actual = MARKER.matcher(currentSource(path));
-            if (expected.find() && actual.find() && expected.group(1).equals(actual.group(1)))
-                state.runtimeFreeSuites.put(
-                        path.toAbsolutePath().normalize().toString(), actual.group(1));
+            String expected = markerId(generated), actual = markerId(currentSource(path));
+            if (!expected.isEmpty() && expected.equals(actual))
+                state.runtimeFreeSuites.put(path.toAbsolutePath().normalize().toString(), actual);
         } catch (java.io.IOException ignored) {
         }
     }
@@ -93,26 +107,24 @@ public final class GeneratedSuiteRegistry
     }
 
     public synchronized boolean owns(Path path, String source) {
-        var marker = MARKER.matcher(source);
-        return marker.find()
-                && marker.group(1)
-                        .equals(
-                                state.runtimeFreeSuites.get(
-                                        path.toAbsolutePath().normalize().toString()));
+        String id = markerId(source);
+        return !id.isEmpty()
+                && id.equals(
+                        state.runtimeFreeSuites.get(path.toAbsolutePath().normalize().toString()));
     }
 
     public synchronized void record(Path path, boolean runtimeFree) {
         String key = path.toAbsolutePath().normalize().toString();
         if (runtimeFree) {
             try {
-                var marker = MARKER.matcher(currentSource(path));
-                if (marker.find()) {
-                    state.runtimeFreeSuites.put(key, marker.group(1));
+                String id = markerId(currentSource(path));
+                if (!id.isEmpty()) {
+                    state.runtimeFreeSuites.put(key, id);
                     return;
                 }
             } catch (java.io.IOException ignored) {
             }
         }
-        state.runtimeFreeSuites.remove(key);
+        // Retain authorized markers for Undo/Redo. A path alone never establishes ownership.
     }
 }

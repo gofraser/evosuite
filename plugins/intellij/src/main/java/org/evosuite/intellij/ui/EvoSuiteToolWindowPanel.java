@@ -27,11 +27,13 @@ import com.intellij.openapi.options.ShowSettingsUtil;
 import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.ui.JBUI;
+
 import org.evosuite.intellij.run.GenerationService;
 import org.evosuite.intellij.settings.EvoSuiteProjectConfigurable;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
+
 import javax.swing.*;
 
 public final class EvoSuiteToolWindowPanel extends JPanel
@@ -40,33 +42,57 @@ public final class EvoSuiteToolWindowPanel extends JPanel
         super(new BorderLayout());
         EvoSuiteConsole output = EvoSuiteConsole.getInstance(project);
         var console = output.view();
-        var generate = new OpenFileGenerationAction("EvoSuite.GenerateTests", "Generate Tests for Open File");
-        var method = new OpenFileGenerationAction("EvoSuite.GenerateMethodTests", "Generate Tests for Current Method");
+        var generate =
+                new OpenFileGenerationAction(
+                        "EvoSuite.GenerateTests", "Generate Tests for Open File");
+        var method =
+                new OpenFileGenerationAction(
+                        "EvoSuite.GenerateMethodTests", "Generate Tests for Current Method");
         var coverage =
                 new OpenFileGenerationAction(
                         "EvoSuite.MeasureCoverage", "Measure Coverage of Open Tests");
-        var extend = new OpenFileGenerationAction("EvoSuite.ExtendTests", "Extend Tests in Open File");
-        var settings = new DumbAwareAction("EvoSuite Settings", "Configure EvoSuite", AllIcons.General.Settings) {
-            @Override public @NotNull ActionUpdateThread getActionUpdateThread() { return ActionUpdateThread.EDT; }
-            @Override public void actionPerformed(@NotNull AnActionEvent event) {
-                        ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteProjectConfigurable.class);
-            }
-        };
+        var extend =
+                new OpenFileGenerationAction("EvoSuite.ExtendTests", "Extend Tests in Open File");
+        var settings =
+                new DumbAwareAction(
+                        "EvoSuite Settings", "Configure EvoSuite", AllIcons.General.Settings) {
+                    @Override
+                    public @NotNull ActionUpdateThread getActionUpdateThread() {
+                        return ActionUpdateThread.EDT;
+                    }
+
+                    @Override
+                    public void actionPerformed(@NotNull AnActionEvent event) {
+                        ShowSettingsUtil.getInstance()
+                                .showSettingsDialog(project, EvoSuiteProjectConfigurable.class);
+                    }
+                };
         DefaultActionGroup actions = new DefaultActionGroup(generate, method, extend, coverage, settings);
         actions.addSeparator();
-        actions.add(new AnAction(
+        actions.add(
+                new AnAction(
                         "Cancel all project runs",
-                        "Cancel all queued and running EvoSuite requests in this project", AllIcons.Actions.Cancel) {
-            @Override public @NotNull ActionUpdateThread getActionUpdateThread() { return ActionUpdateThread.BGT; }
-            @Override public void update(@NotNull AnActionEvent event) {
-                event.getPresentation().setEnabled(GenerationService.getInstance().isRunning(project));
-            }
-            @Override public void actionPerformed(@NotNull AnActionEvent event) {
-                GenerationService.getInstance().cancel(project);
-            }
-        });
+                        "Cancel all queued and running EvoSuite requests in this project",
+                        AllIcons.Actions.Cancel) {
+                    @Override
+                    public @NotNull ActionUpdateThread getActionUpdateThread() {
+                        return ActionUpdateThread.BGT;
+                    }
+
+                    @Override
+                    public void update(@NotNull AnActionEvent event) {
+                        event.getPresentation()
+                                .setEnabled(GenerationService.getInstance().isRunning(project));
+                    }
+
+                    @Override
+                    public void actionPerformed(@NotNull AnActionEvent event) {
+                        GenerationService.getInstance().cancel(project);
+                    }
+                });
         actions.addAll(console.createConsoleActions());
-        var toolbar = ActionManager.getInstance().createActionToolbar("EvoSuiteConsole", actions, true);
+        var toolbar =
+                ActionManager.getInstance().createActionToolbar("EvoSuiteConsole", actions, true);
         toolbar.setTargetComponent(this);
         add(toolbar.getComponent(), BorderLayout.NORTH);
 
@@ -116,20 +142,18 @@ public final class EvoSuiteToolWindowPanel extends JPanel
         sections.addTab("Runs", results);
         add(sections, BorderLayout.CENTER);
         com.intellij.openapi.util.Disposer.register(project, this);
-        final String[] latest = {""};
-        org.evosuite.intellij.run.RunHistory.getInstance(project)
-                .listen(
-                        this,
-                        () -> {
-                            var runs =
-                                    org.evosuite.intellij.run.RunHistory.getInstance(project)
-                                            .getState()
-                                            .runs;
-                            if (!runs.isEmpty() && !runs.getFirst().id.equals(latest[0])) {
-                                latest[0] = runs.getFirst().id;
-                                sections.setSelectedComponent(results);
-                            }
-                        });
+        var history = org.evosuite.intellij.run.RunHistory.getInstance(project);
+        final String[] latest = {history.latestId()};
+        if (!latest[0].isBlank()) sections.setSelectedComponent(results);
+        history.listen(
+                this,
+                () -> {
+                    String newest = history.latestId();
+                    if (!newest.isBlank() && !newest.equals(latest[0])) {
+                        latest[0] = newest;
+                        sections.setSelectedComponent(results);
+                    }
+                });
         cards.show(body, output.hasOutput() ? "console" : "welcome");
         output.onOutput(() -> cards.show(body, "console"));
     }

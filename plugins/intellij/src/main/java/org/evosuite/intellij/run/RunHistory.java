@@ -57,7 +57,8 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                 reports = "",
                 seed = "",
                 detail = "",
-                keyServerId = "";
+                keyServerId = "",
+                replayUnavailable = "";
         public long started, finished;
         public int search = -1, coverage = -1, tests = -1;
         public List<String> methods = new ArrayList<>();
@@ -75,6 +76,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
             t.seed = seed;
             t.detail = detail;
             t.keyServerId = keyServerId;
+            t.replayUnavailable = replayUnavailable;
             t.started = started;
             t.finished = finished;
             t.search = search;
@@ -143,7 +145,14 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
 
     public synchronized void loadState(@NotNull State value) {
         state = value;
-        for (Run run : state.runs)
+        state.retentionDays = Math.max(1, Math.min(3650, state.retentionDays));
+        for (Run run : state.runs) {
+            for (Target target : run.targets)
+                if (target.status.equals("Delegated to Maven")
+                        || target.status.equals("Maven failed"))
+                    target.replayUnavailable =
+                            "Maven controls generation settings and seeds. Repeat this request"
+                                    + " through the Maven runner.";
             if (run.active()) {
                 run.status = "Interrupted";
                 run.phase =
@@ -156,6 +165,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                         target.finished = run.finished;
                     }
             }
+        }
     }
 
     public void listen(Disposable parent, Runnable listener) {
@@ -194,6 +204,14 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         state.runs.add(0, run);
         changed();
         return run.id;
+    }
+
+    public synchronized boolean anyActive() {
+        return state.runs.stream().anyMatch(Run::active);
+    }
+
+    public synchronized String latestId() {
+        return state.runs.isEmpty() ? "" : state.runs.getFirst().id;
     }
 
     public synchronized boolean active(String id) {
@@ -253,7 +271,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
 
     public synchronized void beginTarget(String id, int index, Path staging) {
         Target t = find(id).targets.get(index);
-        t.status = "Searching";
+        t.status = find(id).mode.equals("COVERAGE") ? "Measuring coverage" : "Searching";
         t.started = System.currentTimeMillis();
         t.reports = staging.resolve("reports").toString();
         find(id).phase =
@@ -305,9 +323,20 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         Target t = find(id).targets.get(index);
         t.status = status;
         t.detail = detail;
+        if (status.equals("Delegated to Maven") || status.equals("Maven failed"))
+            t.replayUnavailable =
+                    "Maven controls generation settings and seeds. Repeat this request through the"
+                            + " Maven runner.";
         t.tests = tests;
         t.finished = System.currentTimeMillis();
         changed();
+    }
+
+    public synchronized void failUnfinished(String id, Collection<Integer> indices, String detail) {
+        for (int index : indices) {
+            Target target = find(id).targets.get(index);
+            if (target.finished == 0) outcome(id, index, "Failed", detail, -1);
+        }
     }
 
     public void comparisons(String id, int index, List<SuiteComparison.Pair> pairs, Path staging)
@@ -345,7 +374,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                 var doc = file == null ? null : FileDocumentManager.getInstance().getDocument(file);
                 if (doc != null)
                     pairs.add(new SuiteComparison.Pair(destination.toString(), doc, source));
-                else if (c.create) pairs.add(SuiteComparison.pending(destination, source));
+                else pairs.add(SuiteComparison.pending(destination, source));
             } catch (java.io.IOException ignored) {
             }
         }
@@ -364,6 +393,15 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
             }
         }
         target.comparisons.clear();
+        Run run = find(id);
+        if (!run.active() && run.targets.stream().allMatch(t -> t.comparisons.isEmpty()))
+            run.phase = "Review complete";
+        if (target.status.equals("Pending comparison")) {
+            target.status = "Review closed";
+            target.detail =
+                    "Saved comparisons were closed. Only changes you applied to project files are"
+                            + " kept.";
+        }
         changed();
     }
 
@@ -411,7 +449,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
     }
 
     public synchronized void retention(int days) {
-        state.retentionDays = Math.max(1, days);
+        state.retentionDays = Math.max(1, Math.min(3650, days));
         changed();
     }
 }

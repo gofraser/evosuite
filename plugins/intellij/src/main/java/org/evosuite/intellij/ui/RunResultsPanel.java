@@ -36,7 +36,6 @@ import java.util.*;
 import java.util.List;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 
 /** Persistent outcomes and recovery actions, independently of the text console. */
 public final class RunResultsPanel extends JPanel implements Disposable {
@@ -48,18 +47,77 @@ public final class RunResultsPanel extends JPanel implements Disposable {
 
     private final Project project;
     private final RunHistory history;
-    private final DefaultTableModel model =
-            new DefaultTableModel(
-                    new String[] {"Target / module", "Status", "Coverage", "Tests", "Elapsed"}, 0) {
-                public boolean isCellEditable(int r, int c) {
-                    return false;
+    private final List<Row> rows = new ArrayList<>();
+    private boolean refreshing;
+    private String latestRunId = "";
+    private final javax.swing.table.AbstractTableModel model =
+            new javax.swing.table.AbstractTableModel() {
+                private final String[] columns = {
+                    "Target / module",
+                    "Status",
+                    "Coverage",
+                    "Generated tests",
+                    "Execution",
+                    "Run started"
+                };
+
+                public int getRowCount() {
+                    return rows.size();
+                }
+
+                public int getColumnCount() {
+                    return columns.length;
+                }
+
+                public String getColumnName(int column) {
+                    return columns[column];
+                }
+
+                public Class<?> getColumnClass(int column) {
+                    return switch (column) {
+                        case 2, 3 -> Integer.class;
+                        case 4 -> Long.class;
+                        case 5 -> Date.class;
+                        default -> String.class;
+                    };
+                }
+
+                public Object getValueAt(int index, int column) {
+                    Row row = rows.get(index);
+                    var target = row.target();
+                    return switch (column) {
+                        case 0 ->
+                                target == null
+                                        ? row.run().mode
+                                        : target.className + " [" + target.module + "]";
+                        case 1 ->
+                                target == null
+                                        ? row.run().status
+                                        : target.status.equals("Searching") && target.search >= 0
+                                                ? target.status + " (" + target.search + "%)"
+                                                : target.status;
+                        case 2 -> target == null ? -1 : target.coverage;
+                        case 3 -> target == null ? -1 : target.tests;
+                        case 4 -> {
+                            long started = target == null ? 0 : target.started;
+                            long finished = target == null ? 0 : target.finished;
+                            yield started == 0
+                                    ? -1L
+                                    : Math.max(
+                                            0,
+                                            ((finished > 0 ? finished : System.currentTimeMillis())
+                                                            - started)
+                                                    / 1000);
+                        }
+                        case 5 -> new Date(row.run().started);
+                        default -> throw new IndexOutOfBoundsException();
+                    };
                 }
             };
     private final JBTable table = new JBTable(model);
     private final JTextArea detail = new JTextArea(6, 40);
     private final JLabel phase =
             new JLabel("No runs yet. Open a Java file and choose a generation action.");
-    private final List<Row> rows = new ArrayList<>();
     private final Map<String, JButton> buttons = new LinkedHashMap<>();
     private final javax.swing.Timer timer;
 
@@ -68,8 +126,46 @@ public final class RunResultsPanel extends JPanel implements Disposable {
         this.project = project;
         history = RunHistory.getInstance(project);
         setName("evosuite.runs");
+        table.setName("evosuite.runs.table");
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setAutoCreateRowSorter(true);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        int[] widths = {240, 160, 80, 110, 90, 170};
+        for (int i = 0; i < widths.length; i++)
+            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        for (int column : List.of(2, 3, 4)) {
+            final String suffix = column == 2 ? "%" : column == 4 ? "s" : "";
+            table.getColumnModel()
+                    .getColumn(column)
+                    .setCellRenderer(
+                            new javax.swing.table.DefaultTableCellRenderer() {
+                                @Override
+                                protected void setValue(Object value) {
+                                    setHorizontalAlignment(SwingConstants.RIGHT);
+                                    setText(
+                                            value instanceof Number n && n.longValue() >= 0
+                                                    ? value + suffix
+                                                    : "—");
+                                }
+                            });
+        }
+        table.getColumnModel()
+                .getColumn(5)
+                .setCellRenderer(
+                        new javax.swing.table.DefaultTableCellRenderer() {
+                            @Override
+                            protected void setValue(Object value) {
+                                setText(
+                                        value instanceof Date date
+                                                ? java.text.DateFormat.getDateTimeInstance(
+                                                                java.text.DateFormat.SHORT,
+                                                                java.text.DateFormat.MEDIUM)
+                                                        .format(date)
+                                                : "");
+                            }
+                        });
+        table.getRowSorter().setSortKeys(List.of(new RowSorter.SortKey(5, SortOrder.DESCENDING)));
+
         table.getAccessibleContext().setAccessibleName("EvoSuite run outcomes");
         phase.setBorder(javax.swing.BorderFactory.createEmptyBorder(6, 8, 4, 8));
         add(phase, BorderLayout.NORTH);
@@ -78,9 +174,10 @@ public final class RunResultsPanel extends JPanel implements Disposable {
         detail.setWrapStyleWord(true);
         detail.setFont(UIManager.getFont("Label.font"));
         detail.getAccessibleContext().setAccessibleName("Selected run details");
+        JScrollPane outcomes = new JScrollPane(table);
+        outcomes.setColumnHeaderView(table.getTableHeader());
         JSplitPane split =
-                new JSplitPane(
-                        JSplitPane.VERTICAL_SPLIT, new JScrollPane(table), new JScrollPane(detail));
+                new JSplitPane(JSplitPane.VERTICAL_SPLIT, outcomes, new JScrollPane(detail));
         split.setResizeWeight(.72);
         split.setBorder(null);
         add(split, BorderLayout.CENTER);
@@ -90,7 +187,7 @@ public final class RunResultsPanel extends JPanel implements Disposable {
         addButton(first, "Open tests", () -> open());
         addButton(first, "Run tests", () -> runTests());
         addButton(first, "Compare", () -> compare());
-        addButton(first, "Mark reviewed", () -> reviewed());
+        addButton(first, "Finish review…", () -> reviewed());
         JPanel second = new JPanel(new GridLayout(0, 2, 4, 3));
         addButton(second, "Reports", () -> reports());
         addButton(second, "Repeat saved run", () -> repeat());
@@ -105,8 +202,9 @@ public final class RunResultsPanel extends JPanel implements Disposable {
                 e -> {
                     if (Messages.showYesNoDialog(
                                     project,
-                                    "Delete completed history and diagnostic files? Runs with"
-                                            + " pending comparisons are kept.",
+                                    GenerationDialogs.message(
+                                            "Delete completed history and diagnostic files? Runs"
+                                                + " with pending comparisons are kept."),
                                     "EvoSuite History",
                                     Messages.getQuestionIcon())
                             == Messages.YES) history.cleanup(true);
@@ -129,7 +227,7 @@ public final class RunResultsPanel extends JPanel implements Disposable {
         table.getSelectionModel()
                 .addListSelectionListener(
                         e -> {
-                            if (!e.getValueIsAdjusting()) selection();
+                            if (!refreshing && !e.getValueIsAdjusting()) selection();
                         });
         history.listen(this, this::refresh);
         Disposer.register(project, this);
@@ -137,9 +235,7 @@ public final class RunResultsPanel extends JPanel implements Disposable {
                 new javax.swing.Timer(
                         1000,
                         e -> {
-                            if (!project.isDisposed()
-                                    && history.getState().runs.stream()
-                                            .anyMatch(RunHistory.Run::active)) refresh();
+                            if (!project.isDisposed() && history.anyActive()) refresh();
                         });
         timer.start();
         refresh();
@@ -160,44 +256,41 @@ public final class RunResultsPanel extends JPanel implements Disposable {
     }
 
     public void refresh() {
-        Row selected = selected();
-        String id = selected == null ? "" : selected.id();
-        rows.clear();
-        model.setRowCount(0);
-        for (var run : history.getState().runs) {
-            if (run.targets.isEmpty()) rows.add(new Row(run, null, -1));
-            else
-                for (int i = 0; i < run.targets.size(); i++)
-                    rows.add(new Row(run, run.targets.get(i), i));
-        }
-        int selectedIndex = -1;
-        for (int i = 0; i < rows.size(); i++) {
-            Row row = rows.get(i);
-            var t = row.target();
-            long start = t != null && t.started > 0 ? t.started : row.run().started;
-            long finish = t != null && t.finished > 0 ? t.finished : row.run().finished;
-            model.addRow(
-                    new Object[] {
-                        t == null ? row.run().mode : t.className + " [" + t.module + "]",
-                        t == null
-                                ? row.run().status
-                                : t.status.equals("Searching") && t.search >= 0
-                                        ? t.status + " (" + t.search + "%)"
-                                        : t.status,
-                        t == null || t.coverage < 0 ? "—" : t.coverage + "%",
-                        t == null || t.tests < 0 ? "—" : t.tests,
-                        Math.max(
-                                        0,
-                                        ((finish > 0 ? finish : System.currentTimeMillis()) - start)
-                                                / 1000)
-                                + "s"
-                    });
-            if (row.id().equals(id)) selectedIndex = i;
-        }
-        if (selectedIndex < 0 && !rows.isEmpty()) selectedIndex = 0;
-        if (selectedIndex >= 0) {
-            int view = table.convertRowIndexToView(selectedIndex);
-            table.setRowSelectionInterval(view, view);
+        Row previous = selected();
+        String id = previous == null ? "" : previous.id();
+        refreshing = true;
+        try {
+            var snapshot = history.getState();
+            String newest = snapshot.runs.isEmpty() ? "" : snapshot.runs.getFirst().id;
+            boolean newRun = !newest.isEmpty() && !newest.equals(latestRunId);
+            latestRunId = newest;
+            List<Row> next = new ArrayList<>();
+            for (var run : snapshot.runs) {
+                if (run.targets.isEmpty()) next.add(new Row(run, null, -1));
+                else
+                    for (int index = 0; index < run.targets.size(); index++)
+                        next.add(new Row(run, run.targets.get(index), index));
+            }
+            if (newRun && !next.isEmpty()) id = next.getFirst().id();
+            rows.clear();
+            rows.addAll(next);
+            model.fireTableDataChanged();
+            int index = -1;
+            for (int i = 0; i < rows.size(); i++)
+                if (rows.get(i).id().equals(id)) {
+                    index = i;
+                    break;
+                }
+            if (index < 0 && !rows.isEmpty()) index = 0;
+            if (index >= 0) {
+                int view = table.convertRowIndexToView(index);
+                if (view >= 0) {
+                    table.setRowSelectionInterval(view, view);
+                    if (newRun) table.scrollRectToVisible(table.getCellRect(view, 0, true));
+                }
+            }
+        } finally {
+            refreshing = false;
         }
         selection();
     }
@@ -209,6 +302,7 @@ public final class RunResultsPanel extends JPanel implements Disposable {
                 row == null
                         ? "No runs yet. Open a Java file and choose a generation action."
                         : row.run().phase);
+        phase.setToolTipText(phase.getText());
         String text =
                 row == null
                         ? ""
@@ -219,12 +313,33 @@ public final class RunResultsPanel extends JPanel implements Disposable {
                                 + (t == null
                                         ? row.run().phase
                                         : t.className
-                                                + "\nModule: " + t.module
+                                                + "\nModule: "
+                                                + t.module
+                                                + (t.methods.isEmpty()
+                                                        ? ""
+                                                        : "\nMethods: "
+                                                                + String.join(", ", t.methods))
+                                                + (t.seeds.isEmpty()
+                                                        ? ""
+                                                        : "\nExisting tests: "
+                                                                + t.seeds.stream()
+                                                                        .map(seed -> seed.className)
+                                                                        .collect(
+                                                                                java.util.stream
+                                                                                        .Collectors
+                                                                                        .joining(
+                                                                                                ", ")))
                                                 + "\n"
                                                 + t.status
                                                 + (t.detail.isBlank() ? "" : " — " + t.detail)
-                                                + "\nSeed: "
-                                                + (t.seed.isBlank() ? "Not available yet" : t.seed)
+                                                + "\nRandom seed: "
+                                                + (t.seed.isBlank() ? "Not recorded" : t.seed)
+                                                + "\nCoverage: "
+                                                + (t.coverage < 0
+                                                        ? "Not available"
+                                                        : t.coverage + "%")
+                                                + "\nGenerated tests: "
+                                                + (t.tests < 0 ? "Not available" : t.tests)
                                                 + "\nSearch progress: "
                                                 + (t.search < 0 ? "Not available" : t.search + "%")
                                                 + "\nOutput: "
@@ -234,8 +349,11 @@ public final class RunResultsPanel extends JPanel implements Disposable {
                                                 + "\nPending comparisons: "
                                                 + t.comparisons.size()
                                                 + "\n"
-                                                + "Repeat uses saved settings and seed with the"
-                                                + " current project sources and credentials.");
+                                                + (t.replayUnavailable.isBlank()
+                                                        ? "Repeat uses saved settings and seed with"
+                                                                + " the current project sources and"
+                                                                + " credentials."
+                                                        : t.replayUnavailable));
         if (!detail.getText().equals(text)) detail.setText(text);
         for (var button : buttons.values()) button.setEnabled(t != null);
         buttons.get("Open tests")
@@ -244,17 +362,43 @@ public final class RunResultsPanel extends JPanel implements Disposable {
         buttons.get("Run tests")
                 .setEnabled(
                         t != null
+                                && t.finished > 0
                                 && t.comparisons.isEmpty()
                                 && !t.output.isBlank()
                                 && Files.isRegularFile(Path.of(t.output)));
         buttons.get("Compare").setEnabled(t != null && !t.comparisons.isEmpty());
-        buttons.get("Mark reviewed")
-                .setEnabled(t != null && !t.comparisons.isEmpty() && t.finished > 0);
+        buttons.get("Finish review…")
+                .setEnabled(
+                        t != null
+                                && !t.comparisons.isEmpty()
+                                && t.finished > 0
+                                && !row.run().active());
+        buttons.get("Finish review…")
+                .setToolTipText(
+                        row != null && row.run().active()
+                                ? "Comparisons can be viewed now; finish review after this request"
+                                        + " completes."
+                                : "Close saved comparisons without applying changes to project"
+                                        + " files.");
         buttons.get("Reports")
                 .setEnabled(
                         t != null && !t.reports.isBlank() && Files.isDirectory(Path.of(t.reports)));
         buttons.get("Repeat saved run")
-                .setEnabled(t != null && !t.settings.isEmpty() && !row.run().active());
+                .setEnabled(
+                        t != null
+                                && !t.settings.isEmpty()
+                                && t.replayUnavailable.isBlank()
+                                && !t.status.equals("Delegated to Maven")
+                                && !t.status.equals("Maven failed")
+                                && !row.run().active());
+        buttons.get("Repeat saved run")
+                .setToolTipText(
+                        t == null
+                                ? "Select a completed bundled-engine target"
+                                : t.replayUnavailable.isBlank()
+                                        ? "Generate with the saved settings and seed, using current"
+                                                + " sources and credentials"
+                                        : t.replayUnavailable);
         buttons.get("Cancel selected").setEnabled(row != null && row.run().active());
         buttons.get("Copy details").setEnabled(row != null);
     }
@@ -278,15 +422,24 @@ public final class RunResultsPanel extends JPanel implements Disposable {
         var psi = com.intellij.psi.PsiManager.getInstance(project).findFile(file);
         if (!(psi instanceof com.intellij.psi.PsiJavaFile java) || java.getClasses().length == 0)
             return;
-        var settings =
-                org.evosuite.intellij.run.GeneratedTestRunner.configuration(
-                        project, java.getClasses()[0]);
+        var suiteClass = GeneratedTestRunner.suiteClass(java);
+        if (suiteClass == null) {
+            Messages.showInfoMessage(
+                    project,
+                    GenerationDialogs.message(
+                            "No test class matches this file's name. Check the generated source"
+                                + " before running tests."),
+                    "EvoSuite");
+            return;
+        }
+        var settings = GeneratedTestRunner.configuration(project, suiteClass);
         var config = (com.intellij.execution.junit.JUnitConfiguration) settings.getConfiguration();
         if (config.getConfigurationModule().getModule() == null) {
             Messages.showErrorDialog(
                     project,
-                    "Register this output folder as test sources before running the suite. Open"
-                            + " Settings / readiness to check project setup.",
+                    GenerationDialogs.message(
+                            "Register this output folder as test sources before running the suite."
+                                + " Open Settings / readiness to check project setup."),
                     "EvoSuite");
             return;
         }
@@ -302,8 +455,9 @@ public final class RunResultsPanel extends JPanel implements Disposable {
             if (pairs.isEmpty())
                 Messages.showInfoMessage(
                         project,
-                        "Generated comparison files are unavailable. Open Reports for recovery"
-                                + " details.",
+                        GenerationDialogs.message(
+                                "Generated comparison files are unavailable. Open Reports for"
+                                    + " recovery details."),
                         "EvoSuite");
             else SuiteComparison.show(project, pairs);
         }
@@ -311,7 +465,21 @@ public final class RunResultsPanel extends JPanel implements Disposable {
 
     private void reviewed() {
         var row = selected();
-        if (row != null && row.target() != null) history.reviewed(row.run().id, row.index());
+        if (row != null
+                && row.target() != null
+                && Messages.showYesNoDialog(
+                                project,
+                                GenerationDialogs.message(
+                                        "Finish reviewing this target? Only changes you already"
+                                            + " copied or accepted into project files are kept.\n\n"
+                                            + "This closes the saved comparisons without applying"
+                                            + " changes. Generated suggestions become eligible for"
+                                            + " diagnostic cleanup."),
+                                "EvoSuite: Finish Review",
+                                "Finish Review",
+                                "Keep Reviewing",
+                                Messages.getQuestionIcon())
+                        == Messages.YES) history.reviewed(row.run().id, row.index());
     }
 
     private void reports() {

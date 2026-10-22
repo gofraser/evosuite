@@ -30,6 +30,14 @@ import com.intellij.psi.PsiClass;
 public final class GeneratedTestRunner {
     private GeneratedTestRunner() {}
 
+    public static PsiClass suiteClass(com.intellij.psi.PsiJavaFile file) {
+        String name = file.getName().replaceFirst("\\.java$", "");
+        return java.util.Arrays.stream(file.getClasses())
+                .filter(type -> name.equals(type.getName()))
+                .findFirst()
+                .orElse(null);
+    }
+
     public static RunnerAndConfigurationSettings configuration(Project project, PsiClass type) {
         var settings =
                 RunManager.getInstance(project)

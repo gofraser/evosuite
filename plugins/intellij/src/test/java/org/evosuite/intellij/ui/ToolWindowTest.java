@@ -26,14 +26,21 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.testFramework.fixtures.JavaCodeInsightFixtureTestCase;
 import com.intellij.util.ui.UIUtil;
+
 import org.evosuite.intellij.actions.TargetCollector;
 import org.jetbrains.annotations.NotNull;
 
 public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
     public void testGenerationActionsHaveDistinctRenderableBadges() throws Exception {
         var manager = com.intellij.openapi.actionSystem.ActionManager.getInstance();
-        var icons = java.util.List.of("EvoSuite.GenerateTests", "EvoSuite.GenerateMethodTests", "EvoSuite.ExtendTests")
-                .stream().map(id -> manager.getAction(id).getTemplatePresentation().getIcon()).toList();
+        var icons =
+                java.util.List.of(
+                                "EvoSuite.GenerateTests",
+                                "EvoSuite.GenerateMethodTests",
+                                "EvoSuite.ExtendTests")
+                        .stream()
+                        .map(id -> manager.getAction(id).getTemplatePresentation().getIcon())
+                        .toList();
         for (var icon : icons) {
             assertNotNull(icon);
             assertEquals(16, icon.getIconWidth());
@@ -49,8 +56,12 @@ public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
                 var g = light.createGraphics();
                 try { icons.get(i).paintIcon(null, g, 0, 0); } finally { g.dispose(); }
                 graphics.drawImage(light, i * 80 + 8, 8, 32, 32, null);
-                var dark = com.intellij.openapi.util.IconLoader.getIcon("/icons/evosuite-"
-                        + java.util.List.of("class", "method", "extend").get(i) + "_dark.svg", getClass());
+                var dark =
+                        com.intellij.openapi.util.IconLoader.getIcon(
+                                "/icons/evosuite-"
+                                        + java.util.List.of("class", "method", "extend").get(i)
+                                        + "_dark.svg",
+                                getClass());
                 var darkImage = new java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
                 var dg = darkImage.createGraphics();
                 try { dark.paintIcon(null, dg, 0, 0); } finally { dg.dispose(); }
@@ -58,7 +69,12 @@ public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
                 if (i > 0) assertNotSame(icons.get(0), icons.get(i));
             }
         } finally { graphics.dispose(); }
-        javax.imageio.ImageIO.write(image, "png", java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "evosuite-action-badges.png").toFile());
+        javax.imageio.ImageIO.write(
+                image,
+                "png",
+                java.nio.file.Path.of(
+                                System.getProperty("java.io.tmpdir"), "evosuite-action-badges.png")
+                        .toFile());
     }
 
     public void testWelcomeIsReplacedByOutputAndRetainedAfterReopening() throws Exception {
@@ -71,7 +87,9 @@ public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
         panel.setSize(400, 180);
         layoutTree(panel);
         var welcomeScroll = (javax.swing.JScrollPane) ((javax.swing.JPanel) welcome).getComponent(0);
-        assertTrue("Welcome actions remain reachable in a short tool window", welcomeScroll.getVerticalScrollBar().isVisible());
+        assertTrue(
+                "Welcome actions remain reachable in a short tool window",
+                welcomeScroll.getVerticalScrollBar().isVisible());
         assertFalse(welcomeScroll.getHorizontalScrollBar().isVisible());
         output.println("Generating demo.Vault");
         UIUtil.dispatchAllInvocationEvents();
@@ -86,6 +104,43 @@ public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
         layoutTree(panel);
     }
 
+    public void testReopeningShowsSavedRunsWithoutStealingConsoleFocusOnProgress() {
+        var history = org.evosuite.intellij.run.RunHistory.getInstance(getProject());
+        String old = history.start("CLASSES", "previous session");
+        history.finish(old, "Completed", "Finished");
+        history.loadState(
+                com.intellij.util.xmlb.XmlSerializer.deserialize(
+                        com.intellij.util.xmlb.XmlSerializer.serialize(history.getState()),
+                        org.evosuite.intellij.run.RunHistory.State.class));
+        var panel = new EvoSuiteToolWindowPanel(getProject());
+        try {
+            var tabs = findSections(panel);
+            assertNotNull(tabs);
+            assertEquals("evosuite.runs", tabs.getSelectedComponent().getName());
+            tabs.setSelectedIndex(0);
+            history.retention(31);
+            UIUtil.dispatchAllInvocationEvents();
+            assertEquals(0, tabs.getSelectedIndex());
+            String next = history.start("METHODS", "new request");
+            UIUtil.dispatchAllInvocationEvents();
+            assertEquals("evosuite.runs", tabs.getSelectedComponent().getName());
+            history.finish(next, "Cancelled", "test finished");
+        } finally {
+            com.intellij.openapi.util.Disposer.dispose(panel);
+        }
+    }
+
+    private static javax.swing.JTabbedPane findSections(java.awt.Component component) {
+        if (component instanceof javax.swing.JTabbedPane tabs && tabs.indexOfTab("Runs") >= 0)
+            return tabs;
+        if (component instanceof java.awt.Container parent)
+            for (var child : parent.getComponents()) {
+                var tabs = findSections(child);
+                if (tabs != null) return tabs;
+            }
+        return null;
+    }
+
     public void testToolWindowActionsUseOpenEditorInsteadOfConsoleContext() {
         var file = myFixture.addFileToProject("demo/Vault.java",
                 "package demo; public class Vault { public int value() { return 1; } }");
@@ -93,9 +148,16 @@ public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
                 .openTextEditor(new OpenFileDescriptor(getProject(), file.getVirtualFile()), false);
         assertNotNull(editor);
         editor.getCaretModel().moveToOffset(file.getText().indexOf("return"));
-        var real = new OpenFileGenerationAction("EvoSuite.GenerateMethodTests", "Generate Tests for Current Method");
-        var realEvent = AnActionEvent.createEvent(SimpleDataContext.getProjectContext(getProject()),
-                real.getTemplatePresentation().clone(), "EvoSuiteToolWindow", ActionUiKind.TOOLBAR, null);
+        var real =
+                new OpenFileGenerationAction(
+                        "EvoSuite.GenerateMethodTests", "Generate Tests for Current Method");
+        var realEvent =
+                AnActionEvent.createEvent(
+                        SimpleDataContext.getProjectContext(getProject()),
+                        real.getTemplatePresentation().clone(),
+                        "EvoSuiteToolWindow",
+                        ActionUiKind.TOOLBAR,
+                        null);
         real.update(realEvent);
         assertTrue(realEvent.getPresentation().isEnabled());
         TargetCollector.Selection[] submitted = {null};
@@ -109,8 +171,13 @@ public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
             }
         };
         var action = new OpenFileGenerationAction(delegate, "Generate Tests for Open File");
-        var event = AnActionEvent.createEvent(SimpleDataContext.getProjectContext(getProject()),
-                action.getTemplatePresentation().clone(), "EvoSuiteToolWindow", ActionUiKind.TOOLBAR, null);
+        var event =
+                AnActionEvent.createEvent(
+                        SimpleDataContext.getProjectContext(getProject()),
+                        action.getTemplatePresentation().clone(),
+                        "EvoSuiteToolWindow",
+                        ActionUiKind.TOOLBAR,
+                        null);
         action.update(event);
         assertTrue(event.getPresentation().isEnabled());
         action.actionPerformed(event);
@@ -131,8 +198,13 @@ public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
         var image = new java.awt.image.BufferedImage(620, 380, java.awt.image.BufferedImage.TYPE_INT_RGB);
         var graphics = image.createGraphics();
         try { panel.printAll(graphics); } finally { graphics.dispose(); }
-        javax.imageio.ImageIO.write(image, "png", java.nio.file.Path.of(System.getProperty("java.io.tmpdir"),
-                "evosuite-tool-window-" + name + ".png").toFile());
+        javax.imageio.ImageIO.write(
+                image,
+                "png",
+                java.nio.file.Path.of(
+                                System.getProperty("java.io.tmpdir"),
+                                "evosuite-tool-window-" + name + ".png")
+                        .toFile());
     }
 
     private static java.awt.Component findWelcome(java.awt.Component component) {

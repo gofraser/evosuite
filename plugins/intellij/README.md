@@ -30,7 +30,11 @@ The **EvoSuite** sidebar opens a tool window with actions to generate tests for 
 file/current method, extend the open test file, measure existing-test coverage and open project settings. Before the first run,
 it shows instructions and labeled action buttons. The Console tab shows commands
 (with keys masked), diagnostics and clickable output/report locations. New requests open the Runs tab,
-which records per-target status, coverage, test count, elapsed time and postprocessing phases.
+which records per-target status, coverage, generated-test count, target execution time and
+postprocessing phases. The Run started column distinguishes repeated requests. Numeric columns
+sort by value, and queued targets show no execution time. New requests are selected automatically;
+progress updates preserve the selected target. Narrow tables scroll horizontally, with full target
+and metric details below.
 Generation/settings actions remain in the toolbar. **Cancel all project runs** cancels this project's requests and kills the engine and client JVMs. Completed suites
 are kept. Up to three resulting suites open automatically; comparisons open afterward so they remain visible.
 
@@ -59,12 +63,15 @@ Cancel stops the request before project setup or building.
   viewer does not undo edits. The result notification lists pending comparisons and provides
   **Review comparisons** to reopen them. The Runs tab persists comparison destinations and
   generated sources across IDE restarts. Missing destination files are created only by the explicit
-  **Accept generated file** action in their comparison; closing a viewer creates nothing. Read-only or unavailable destinations
+  **Accept generated file** action in their comparison; closing a viewer creates nothing. This also
+  restores a destination deleted after the original run. Read-only or unavailable destinations
   are labeled explicitly.
 
 A handwritten suite is never replaced or merged into: an actual `@EvoRunnerParameters`
 annotation is required, or a matching file marker and machine-local project registry must identify it as a runtime-free
-suite previously created by this plugin. A marker in a comment is insufficient. Moving a runtime-free
+suite previously created by this plugin. A matching string inside a text block does not count as
+a marker comment. Recognition survives Undo/Redo across runtime-dependent replacements. A marker
+without its ownership record is insufficient. Moving a runtime-free
 suite to another project or machine does not transfer that ownership. An incompatible merge or
 conflicting scaffolding opens a comparison. Whole-class generation also compares a suite
 that appeared while the run was queued. Partial generation can add to it after checking
@@ -98,15 +105,20 @@ the compiled tests against the selected coverage criteria. It does not generate 
 change project setup, or call an LLM. Coverage statistics are available through Runs > Reports.
 
 The Runs tab offers **Open tests**, **Run tests** through IntelliJ's JUnit runner, **Compare**,
-**Reports**, and **Repeat saved run**. Repetition restores the recorded engine settings and random
+**Reports**, and **Repeat saved run** for bundled-engine requests. Maven-delegated requests must
+be repeated through the Maven runner because their actual generation settings and seeds are not
+captured. Repetition restores the recorded engine settings and random
 seed while using current project sources and credentials; time limits, environment and LLMs can
 still affect results. A blank seed chooses a fresh explicit seed for each target and records it.
 Repeated submissions of the same active selection are ignored. Requests with more than five targets
 show module counts and per-class search/call budgets before setup. **Cancel selected** stops one
 queued or active run. Completed diagnostics expire after 30 days by default; the Runs retention
 control changes that period. **Clear completed** removes completed history/diagnostics after
-confirmation. After copying wanted comparison changes, choose **Mark reviewed** to finish review and recognize
-accepted runtime-free source. Pending comparisons are retained until then; project test files are kept.
+confirmation. After the request completes and you have copied wanted comparison changes, choose
+**Finish review…**. Its confirmation explains that it closes saved suggestions without copying or
+creating files; only changes you already applied are kept. It also recognizes accepted runtime-free
+source. Pending comparisons are retained until then; project test files are kept. Run tests is
+available after a target completes and its comparisons are closed.
 History and ownership live in the machine-local workspace state, not the shareable project profile.
 
 Bundled-engine launches check the selected JDK before offering dependency changes or starting a build.

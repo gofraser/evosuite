@@ -77,6 +77,16 @@ public final class GenerationService implements Disposable {
     }
 
     public void replay(Project project, RunHistory.Run run, RunHistory.Target target) {
+        if (!target.replayUnavailable.isBlank()
+                || target.status.equals("Delegated to Maven")
+                || target.status.equals("Maven failed")) {
+            EvoSuiteConsole.getInstance(project)
+                    .println(
+                            "Repeat Maven-delegated generation through the Maven runner; engine"
+                                    + " settings and seeds were not captured.");
+            EvoSuiteConsole.getInstance(project).show();
+            return;
+        }
         submit(
                 project,
                 new TargetCollector.Selection(List.of(), List.of(), List.of()),
@@ -286,7 +296,13 @@ public final class GenerationService implements Disposable {
                                             EvoSuiteCommand.notAnEvoSuiteSuite(
                                                     target.className(), suite.toFile()));
                                     counts[1]++;
-                                    history.outcome(runId, historyIndices.get(target.className()), "Skipped", "Existing destination is handwritten or no longer matches its generated-suite ownership marker", -1);
+                                    history.outcome(
+                                            runId,
+                                            historyIndices.get(target.className()),
+                                            "Skipped",
+                                            "Existing destination is handwritten or no longer"
+                                                + " matches its generated-suite ownership marker",
+                                            -1);
                                     continue;
                                 }
                                 safe.add(target);
@@ -329,7 +345,11 @@ public final class GenerationService implements Disposable {
                         }
                     }
                     if (requests.isEmpty()) {
-                        history.finish(runId, counts[1] > 0 ? "Could not prepare" : "No eligible targets", "See target details and console for skipped selections or configuration errors");
+                        history.finish(
+                                runId,
+                                counts[1] > 0 ? "Could not prepare" : "No eligible targets",
+                                "See target details and console for skipped selections or"
+                                        + " configuration errors");
                         console.println(
                                 counts[1] > 0
                                         ? "No targets could be prepared. See the messages above;"
@@ -924,16 +944,10 @@ public final class GenerationService implements Disposable {
                             throw ex;
                         } catch (Exception ex) {
                             counts[1]++;
-                            request.historyIndices()
-                                    .values()
-                                    .forEach(
-                                            i ->
-                                                    history.outcome(
-                                                            runId,
-                                                            i,
-                                                            "Failed",
-                                                            mask(String.valueOf(ex.getMessage())),
-                                                            -1));
+                            history.failUnfinished(
+                                    runId,
+                                    request.historyIndices().values(),
+                                    mask(String.valueOf(ex.getMessage())));
                             console.println(
                                     "Failed module "
                                             + request.module().getName()

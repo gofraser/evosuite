@@ -104,6 +104,19 @@ public class EngineSmokeTest extends TestCase {
     }
 
     public void testRuntimeFreeOutputCompilesAndRunsWithoutEvoSuiteRuntime() throws Exception {
+        assertRuntimeFreeOutput(
+                "package demo; public class Calculator { public int sign(int n) { return n < 0 ? -1"
+                        + " : 1; } }");
+    }
+
+    public void testRuntimeFreeOutputDoesNotRequireMockClockOrFilesystem() throws Exception {
+        assertRuntimeFreeOutput(
+                "package demo; public class Calculator { public long clock() { return"
+                        + " System.currentTimeMillis(); } public int exists(String p) { return new"
+                        + " java.io.File(p).exists() ? 1 : 0; } }");
+    }
+
+    private void assertRuntimeFreeOutput(String productionSource) throws Exception {
         Path home =
                 Path.of(
                         System.getProperty(
@@ -114,10 +127,7 @@ public class EngineSmokeTest extends TestCase {
         try {
             Path source = root.resolve("demo/Calculator.java");
             Files.createDirectories(source.getParent());
-            Files.writeString(
-                    source,
-                    "package demo; public class Calculator { public int sign(int n) { return n < 0"
-                            + " ? -1 : 1; } }");
+            Files.writeString(source, productionSource);
             assertEquals(
                     0,
                     new ProcessBuilder(
@@ -130,6 +140,7 @@ public class EngineSmokeTest extends TestCase {
                             .waitFor());
             var options = new GenerationOptions();
             options.noRuntimeDependency = true;
+            options.randomSeed = "12345";
             options.testFormat = "JUNIT4";
             options.searchBudget = 2;
             options.clientMemory = 512;
@@ -149,7 +160,12 @@ public class EngineSmokeTest extends TestCase {
                             Map.of(),
                             () -> false);
             assertTrue(String.join("\n", log), result.produced());
-            assertFalse(Files.readString(result.suite()).contains("import org.evosuite."));
+            String generatedSource = Files.readString(result.suite());
+            assertFalse(generatedSource, generatedSource.contains("org.evosuite."));
+            if (productionSource.contains("long clock")) {
+                assertTrue(generatedSource, generatedSource.contains(".clock()"));
+                assertTrue(generatedSource, generatedSource.contains(".exists("));
+            }
             String junit = com.intellij.util.PathUtil.getJarPathForClass(org.junit.Test.class);
             String hamcrest =
                     com.intellij.util.PathUtil.getJarPathForClass(org.hamcrest.Matcher.class);
@@ -198,11 +214,18 @@ public class EngineSmokeTest extends TestCase {
         try {
             Path source = root.resolve("demo/Calculator.java");
             Files.createDirectories(source.getParent());
-            Files.writeString(source,
+            Files.writeString(
+                    source,
                     "package demo; public class Calculator { public int sign(int n) { return n < 0"
                             + " ? -1 : 1; } }");
-            Process compile = new ProcessBuilder(home.resolve("bin/javac").toString(), "-d", root.toString(), source.toString())
-                    .inheritIO().start();
+            Process compile =
+                    new ProcessBuilder(
+                                    home.resolve("bin/javac").toString(),
+                                    "-d",
+                                    root.toString(),
+                                    source.toString())
+                            .inheritIO()
+                            .start();
             assertEquals(0, compile.waitFor());
             var options = new GenerationOptions();
             options.searchBudget = 2;
@@ -210,16 +233,30 @@ public class EngineSmokeTest extends TestCase {
             options.criterion = "BRANCH";
             options.testFormat = "JUNIT4";
             options.extraArguments = "-Dminimization_timeout=2 -Dassertion_timeout=2";
-            var result = GenerationRun.generate(GenerationTarget.wholeClass("demo.Calculator"), options, java,
-                    Path.of(System.getProperty("evosuite.engine")), List.of(root.toString()), root, root.resolve("run"),
-                    listener(log), Map.of("JAVA_HOME", "/wrong-inherited-jdk"), () -> false);
+            var result =
+                    GenerationRun.generate(
+                            GenerationTarget.wholeClass("demo.Calculator"),
+                            options,
+                            java,
+                            Path.of(System.getProperty("evosuite.engine")),
+                            List.of(root.toString()),
+                            root,
+                            root.resolve("run"),
+                            listener(log),
+                            Map.of("JAVA_HOME", "/wrong-inherited-jdk"),
+                            () -> false);
             String output = String.join("\n", log);
             assertTrue(output, result.produced());
             assertEquals(output, 0, result.exitCode());
-            assertTrue(output, SuiteMerger.testCount(Files.readString(result.suite()), "Calculator_ESTest") > 0);
+            assertTrue(
+                    output,
+                    SuiteMerger.testCount(Files.readString(result.suite()), "Calculator_ESTest")
+                            > 0);
             assertFalse(output, output.contains("The sandbox is off"));
             assertFalse(output, output.contains("UnsupportedOperationException"));
-        } finally { GenerationRun.deleteTree(root); }
+        } finally {
+            GenerationRun.deleteTree(root);
+        }
     }
 
     public void testBundledEngineGeneratesTests() throws Exception {

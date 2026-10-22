@@ -473,3 +473,50 @@ inspected. Live cloud generation and native desktop acceptance are outside this 
 Lower-priority search profiles, parallel-client controls and broad instrumentation tuning remain
 available through Additional arguments; the new dedicated controls cover the prioritized engine
 capabilities above. The README documents the workflows and their limits.
+
+
+## Correctness and usability review follow-up (2026-10-22)
+
+Reviewed runtime-free placement/ownership, Undo, replay, persistent comparisons and the Runs UI.
+Fixed the following concrete issues:
+
+- Replacing runtime-free output with runtime-dependent output removed the ownership record, so
+  Undo restored a valid suite that subsequent generation rejected as handwritten. Authorized
+  markers are now retained, and an actual platform Undo regression verifies recognition is restored.
+  Marker recognition uses Java lexical comments, preventing a matching text-block string from
+  adopting a handwritten file at a previously generated path.
+- A deleted existing comparison destination vanished from recovery because only originally new
+  files could be recreated. Reopening any retained comparison now offers explicit file acceptance
+  when its destination is missing.
+- Finishing review silently discarded comparison references while leaving Pending comparison
+  status. Finish review now explains/asks before closing suggestions, can be cancelled, and updates
+  target status and the completed run phase. It is available after the request finishes so later
+  generation/notifications cannot reintroduce already closed review state.
+- Runs conflated queue time with execution, sorted formatted metrics lexicographically, and lacked
+  request timestamps. It now shows typed numeric metrics and a sortable request date/time, leaves
+  queued execution empty, and updates the table atomically while preserving sort and selection.
+  New requests receive focus; reopening a populated tool window selects Runs. Small windows retain
+  scrollable columns and full details, including method/seed-test selections and coverage/test counts.
+- Run tests could execute stale output before generation finished and selected a top-level helper
+  preceding the actual suite. It waits for the target outcome and resolves the class by filename.
+- Maven-delegated targets offered a replay that silently changed to the bundled driver despite not
+  capturing Maven's actual settings/seed. Replay is disabled with an explanation; the Maven runner
+  remains the supported way to repeat those requests.
+- A later module error overwrote previously successful target outcomes. Only unfinished targets are
+  now marked failed. Credential-like argument spellings are filtered consistently from saved and
+  copied run configuration while preserving the model token-limit setting. Retention settings are
+  clamped to the UI's supported range when loaded.
+
+The stronger runtime-free smoke check generates tests exercising a clock and filesystem reads,
+asserts those methods are present in the exported suite, and compiles/executes it with JUnit and
+Hamcrest only. Both runtime-free engine checks passed on JDK 17 and JDK 21, including the clock
+and filesystem case.
+
+The full regression run passed 82 IntelliJ tests (all seven physical Maven/Gradle import acceptance
+cases included) and 83 shared-core tests. Final dialog/startup and JDK 21 engine checks passed all
+18 focused tests. After replacing the deprecated lexer constructor with the public parser API,
+all 28 placement/history/tool-window checks passed. The final installable ZIP passed CRC and
+engine-classloader isolation checks. Plugin Verifier reports Compatible on IDEA 2025.3.2 and
+2026.2.3, with two/six deprecated and thirteen experimental API usages, and no scheduled-removal,
+internal or override-only API reports. Automated Swing layout checks and the populated narrow
+Runs capture were inspected; native desktop acceptance remains outside these automated checks.
