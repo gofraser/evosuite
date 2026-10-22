@@ -286,3 +286,43 @@ correction, all 15 focused settings/tool-window tests passed again, and `buildPl
 completed successfully. Plugin Verifier reports Compatible on IDEA 2025.3.2 and 2026.2.3, with
 unchanged one/four deprecated and twelve experimental API usages, and no override-only violations.
 The final ZIP passes CRC inspection and includes the new tool-window classes and isolated engine jars.
+
+
+## Remaining settings and first-run usability review (2026-10-22)
+
+Reviewed the settings editors, inherited/project scope, secure-storage lifecycle, setup dialogs,
+preflight/build sequencing, notifications and small tool-window behavior. Fixed the following:
+
+- Descriptive labels include units; enum choices and coverage criteria have readable names and
+  checkboxes have clickable captions. Unknown persisted choices remain visible instead of falling
+  back silently. Validation identifies the field, selects its tab, and explains numeric/URL errors.
+- A disabled project profile previews active IDE values. Scope changes retain draft project values;
+  explicit copy/restore actions take effect only on Apply. Restore also resets Maven delegation.
+  Criteria ordering and explicit default selections no longer mark an untouched page modified.
+- Maven controls/override summaries live under Advanced, with a precedence hint on the main page.
+  Wrapped helper text reserves vertical space even when GridBagLayout uses minimum sizes; field
+  descriptions must not overlap inputs, and criteria captions fit the compact viewport.
+- PasswordSafe is read lazily for active cloud features or explicit key management. Search-only/local
+  settings do not open it. A project page links to the shared credentials, and loaded keys remain
+  removable when LLM generation is disabled. The shared launch adapter now honors engine model
+  defaults/environment overrides and avoids a cloud-key lookup for local Ollama.
+- Cancel stops Maven/Gradle setup and the generation request. Explicit Skip/Dependencies Only choices
+  retain opt-out behavior. Real Maven import tests exposed invokeAndWait consuming cancellation;
+  IdeThread now transports UI callback failures explicitly back to the worker, preserving their types.
+- Missing-JDK failure occurs before dependency prompts/build-file edits. Preparation/build/queue
+  progress appears promptly, and configuration notifications link to settings. The welcome panel
+  scrolls when docked into a small area, keeping its generation/settings controls reachable.
+
+Regression coverage includes scope drafts/copy/reset, malformed and unsupported values, explicit
+criteria order, lazy/manual credentials and removal, cloud/local model defaults, a real missing-JDK
+launch with settings recovery, UI-to-worker cancellation/exception propagation, compact field-hint
+layout, and actual imported Maven/Gradle setup cancellation without build-file changes.
+
+Validation: the full `test buildPlugin verifyPlugin --continue` run passed 45 IntelliJ tests
+(including five physical Maven/Gradle imports) and 79 shared-core tests, with no failures/errors/
+skips. After the final presentation refinements, all 22 focused settings/first-run/tool-window
+checks passed again and the installable ZIP was rebuilt and verified. Compact settings and
+welcome/console captures were visually inspected; cloud credentials now sit directly below the
+provider selector with explicit first-use instructions. Plugin Verifier reports Compatible on
+IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated and twelve experimental API usages.
+The final ZIP passes CRC inspection and keeps both engine jars isolated outside the IDE classloader.

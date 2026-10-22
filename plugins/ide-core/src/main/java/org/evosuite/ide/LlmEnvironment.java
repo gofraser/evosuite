@@ -35,11 +35,11 @@ public final class LlmEnvironment {
             Consumer<String> console) {
         String provider = options.effectiveLlmProvider();
         if (provider.isBlank() || GenerationOptions.LLM_NONE.equals(provider)) return Map.of();
-        if (options.effectiveLlmModel().isBlank() && !GenerationOptions.LLM_OPENAI.equals(provider))
-            throw new IllegalArgumentException(
-                    "The LLM provider " + provider + " needs a model in EvoSuite settings.");
+        // The engine resolves EVOSUITE_LLM_MODEL and provider defaults, including local models.
         String key = options.effectiveLlmApiKey();
         if (key.isBlank()) key = options.llmApiKeyServerId.isBlank() ? "" : maven.get();
+        if ((key == null || key.isBlank()) && GenerationOptions.LLM_OLLAMA.equals(provider))
+            return Map.of(); // A local provider does not need the shared cloud-provider credential.
         if (key == null || key.isBlank()) {
             try {
                 key = stored.get();
@@ -51,7 +51,7 @@ public final class LlmEnvironment {
         }
         if (key != null && !key.isBlank()) return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, key);
         if (!GenerationOptions.LLM_OLLAMA.equals(provider)
-                && !inherited.containsKey(EvoSuiteCommand.API_KEY_VARIABLE))
+                && inherited.getOrDefault(EvoSuiteCommand.API_KEY_VARIABLE, "").isBlank())
             console.accept(
                     "No LLM API key is set. Configure one in Tools > EvoSuite, or set "
                             + EvoSuiteCommand.API_KEY_VARIABLE

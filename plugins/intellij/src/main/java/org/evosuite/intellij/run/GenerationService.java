@@ -95,6 +95,7 @@ public final class GenerationService implements Disposable {
         }
         EvoSuiteConsole console = EvoSuiteConsole.getInstance(project);
         console.show();
+        console.println("EvoSuite: collecting Java targets and checking generation settings…");
         new Task.Backgroundable(project, "EvoSuite: generate tests", true) {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
@@ -186,7 +187,9 @@ public final class GenerationService implements Disposable {
                         }
                     }
                     if (requests.isEmpty()) {
-                        console.println("No eligible Java targets selected.");
+                        console.println("No eligible Java targets selected. Choose a production Java class, package or module; use Extend Tests for existing test classes. Interfaces and generated suites are skipped.");
+                        if (counts[1] > 0) showNotification(project, NotificationType.WARNING,
+                                "EvoSuite could not prepare generation. See the console for configuration details.");
                         return;
                     }
                     SuiteAction action =
@@ -216,6 +219,7 @@ public final class GenerationService implements Disposable {
                         if (action == null) return;
                     }
                     indicator.setText("Waiting for other EvoSuite runs");
+                    if (slot.availablePermits() == 0) console.println("Waiting for another EvoSuite run. Stop cancels this project's queued requests.");
                     while (!slot.tryAcquire(200, TimeUnit.MILLISECONDS)) check(project, indicator);
                     acquired = true;
                     check(project, indicator);
@@ -236,12 +240,6 @@ public final class GenerationService implements Disposable {
                                                 + "; configure the output folder/suffix in EvoSuite"
                                                 + " settings.");
                             indicator.setText("Preparing " + request.module().getName());
-                            ProjectSetupService.prepare(
-                                    request.module(), options, indicator, console::println);
-                            check(project, indicator);
-                            // Only the initial save question authorizes saving editor changes.
-                            // Edits made while queued must remain dirty for placement protection.
-                            IdeThread.flushPendingVfsWrites();
                             var maven = MavenBridge.get(project);
                             Map<String, String> env =
                                     LlmEnvironment.resolve(
@@ -286,6 +284,21 @@ public final class GenerationService implements Disposable {
                                                 + " existing suites.");
                                 delegation = false;
                             }
+                            var java = delegation ? null :
+                                    ReadAction.compute(
+                                            () -> {
+                                                try {
+                                                    return ClasspathResolver.java(
+                                                            request.module(), options);
+                                                } catch (java.io.IOException ex) {
+                                                    throw new IllegalArgumentException(
+                                                            ex.getMessage(), ex);
+                                                }
+                                            });
+                            ProjectSetupService.prepare(request.module(), options, indicator, console::println);
+                            check(project, indicator);
+                            // Only the initial save question authorizes saving editor changes.
+                            IdeThread.flushPendingVfsWrites();
                             if (delegation) {
                                 console.println(
                                         "Delegating whole-class generation to Maven. Maven controls"
@@ -302,6 +315,7 @@ public final class GenerationService implements Disposable {
                                 continue;
                             }
                             indicator.setText("Building " + request.module().getName());
+                            console.println("Building " + request.module().getName() + " before generation…");
                             var build =
                                     IdeThread.await(
                                             IdeThread.edt(
@@ -316,17 +330,6 @@ public final class GenerationService implements Disposable {
                                 counts[1] += request.targets().size();
                                 continue;
                             }
-                            var java =
-                                    ReadAction.compute(
-                                            () -> {
-                                                try {
-                                                    return ClasspathResolver.java(
-                                                            request.module(), options);
-                                                } catch (java.io.IOException ex) {
-                                                    throw new IllegalArgumentException(
-                                                            ex.getMessage(), ex);
-                                                }
-                                            });
                             IdeThread.flushPendingVfsWrites();
                             Path engine = EngineJars.engine();
                             indicator.setIndeterminate(false);
@@ -560,6 +563,12 @@ public final class GenerationService implements Disposable {
         notification.addAction(
                 NotificationAction.createSimple(
                         "Show console", () -> EvoSuiteConsole.getInstance(project).show()));
+        notification.addAction(NotificationAction.createSimple("EvoSuite settings", () -> {
+            if (EvoSuiteProjectSettings.getInstance(project).getState().useProjectSettings)
+                com.intellij.openapi.options.ShowSettingsUtil.getInstance().showSettingsDialog(project, org.evosuite.intellij.settings.EvoSuiteProjectConfigurable.class);
+            else
+                com.intellij.openapi.options.ShowSettingsUtil.getInstance().showSettingsDialog(project, org.evosuite.intellij.settings.EvoSuiteApplicationConfigurable.class);
+        }));
         notification.notify(project);
     }
 

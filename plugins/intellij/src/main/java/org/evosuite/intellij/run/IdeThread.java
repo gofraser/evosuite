@@ -63,9 +63,19 @@ public final class IdeThread {
     public static <T> T edt(Supplier<T> supplier) {
         if (ApplicationManager.getApplication().isDispatchThread()) return supplier.get();
         AtomicReference<T> result = new AtomicReference<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
         ApplicationManager.getApplication()
                 .invokeAndWait(
-                        () -> result.set(supplier.get()), ModalityState.defaultModalityState());
+                        () -> {
+                            try { result.set(supplier.get()); }
+                            catch (Throwable ex) { failure.set(ex); }
+                        }, ModalityState.defaultModalityState());
+        // invokeAndWait may consume cancellation thrown by the UI callback. Transport failures
+        // explicitly so background setup never mistakes Cancel for a null success result.
+        Throwable ex = failure.get();
+        if (ex instanceof RuntimeException runtime) throw runtime;
+        if (ex instanceof Error error) throw error;
+        if (ex != null) throw new IllegalStateException(ex);
         return result.get();
     }
 

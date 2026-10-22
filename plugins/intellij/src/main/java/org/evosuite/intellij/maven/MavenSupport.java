@@ -175,14 +175,17 @@ public final class MavenSupport implements MavenIntegration {
                         + "The pom will be saved and Maven reimported.",
                 "EvoSuite Maven Setup",
                 combined ? new String[] {"Configure Maven", "Dependencies Only", "Cancel"}
-                        : new String[] {"Configure Maven", "Cancel"},
+                        : configured ? new String[] {"Add Dependencies", "Cancel"}
+                        : new String[] {"Configure Maven", "Skip Maven Setup", "Cancel"},
                 0, Messages.getQuestionIcon());
-        if (choice != 0 && !(combined && choice == 1))
+        if (choice < 0 || choice == (configured ? 1 : 2))
+            throw new com.intellij.openapi.progress.ProcessCanceledException();
+        if (!combined && !configured && choice == 1)
             return org.jetbrains.concurrency.Promises.resolvedPromise();
         boolean configureExecution = !configured && choice == 0;
         PsiFile file = PsiManager.getInstance(project).findFile(model.getFile());
         if (!(file instanceof XmlFile xml) || xml.getRootTag() == null)
-            return org.jetbrains.concurrency.Promises.resolvedPromise();
+            throw new IllegalStateException("Cannot update " + model.getPath() + ". Check that the pom is valid and writable.");
         String executionId = setup == null ? "evosuite-setup" : setup.getExecutionId();
         if (executionId == null || executionId.isBlank()) executionId = "default";
         String id = executionId;

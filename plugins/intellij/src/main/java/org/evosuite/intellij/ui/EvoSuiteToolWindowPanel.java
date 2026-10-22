@@ -73,7 +73,8 @@ public final class EvoSuiteToolWindowPanel extends JPanel {
 
         CardLayout cards = new CardLayout();
         JPanel body = new JPanel(cards);
-        JPanel welcome = new JPanel(new GridBagLayout());
+        JPanel welcome = new JPanel(new BorderLayout());
+        JPanel centered = new WelcomeViewport();
         welcome.setName("evosuite.welcome");
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
@@ -82,7 +83,7 @@ public final class EvoSuiteToolWindowPanel extends JPanel {
         title.setFont(title.getFont().deriveFont(Font.BOLD));
         content.add(title);
         content.add(Box.createVerticalStrut(JBUI.scale(8)));
-        JTextArea help = new JTextArea("Open a Java file and choose an action below. You can also right-click a class, package or module in the Project view. Progress and results appear here when generation starts.", 3, 42);
+        JTextArea help = new JTextArea("Open a Java file and choose an action below. You can also right-click a class, package or module in the Project view. Progress and results appear here when generation starts.", 6, 34);
         help.setLineWrap(true);
         help.setWrapStyleWord(true);
         help.setEditable(false);
@@ -100,11 +101,25 @@ public final class EvoSuiteToolWindowPanel extends JPanel {
         }
         for (Component child : content.getComponents())
             if (child instanceof JComponent component) component.setAlignmentX(Component.LEFT_ALIGNMENT);
-        welcome.add(content);
+        centered.add(content);
+        JScrollPane welcomeScroll = new JScrollPane(centered);
+        welcomeScroll.setBorder(JBUI.Borders.empty());
+        welcome.add(welcomeScroll);
         body.add(welcome, "welcome");
         body.add(console.getComponent(), "console");
         add(body, BorderLayout.CENTER);
         cards.show(body, output.hasOutput() ? "console" : "welcome");
         output.onOutput(() -> cards.show(body, "console"));
     }
+    private static final class WelcomeViewport extends JPanel implements Scrollable {
+        WelcomeViewport() { super(new GridBagLayout()); }
+        @Override public Dimension getPreferredScrollableViewportSize() { return JBUI.size(420, 280); }
+        @Override public boolean getScrollableTracksViewportWidth() { return true; }
+        @Override public boolean getScrollableTracksViewportHeight() {
+            return getParent() != null && getPreferredSize().height < getParent().getHeight();
+        }
+        @Override public int getScrollableUnitIncrement(Rectangle visible, int orientation, int direction) { return JBUI.scale(24); }
+        @Override public int getScrollableBlockIncrement(Rectangle visible, int orientation, int direction) { return visible.height; }
+    }
+
 }

@@ -54,6 +54,9 @@ compatibility. Extension writes nothing when no new tests were found. If a new s
 conflicts with an existing file, the suite is kept and the scaffolding opens for comparison.
 Resolve that comparison before running the suite.
 
+Bundled-engine launches check the selected JDK before offering dependency changes or starting a build.
+Configuration failures link back to the active EvoSuite settings. The console shows collection,
+queueing and build progress immediately, and the welcome panel scrolls in a small tool window.
 The launch asks before saving modified documents. Edits made while queued remain dirty, so
 replacement protection and Add continue to use the current editor contents. Failures in one
 target or module do not discard work for other targets; generated sources from a failed placement
@@ -65,7 +68,10 @@ remain in the run's staging directory, whose path is printed in the console.
 overrides. Both have EvoSuite, Large Language Model and Advanced tabs.
 IDE defaults apply unless **Use project-specific settings** is enabled. Project settings are
 stored in `.idea/evosuite.xml`, suitable for version control. Unset project fields use EvoSuite
-defaults, independently of IDE defaults.
+defaults, independently of IDE defaults. While project settings are off, the disabled fields preview
+the active IDE defaults. Switching scope preserves unapplied project edits. **Copy IDE defaults**
+starts a project profile from those defaults; **Restore EvoSuite defaults** resets the profile and
+Maven delegation without deleting API keys. Neither action is saved until Apply.
 
 The settings match Eclipse: search budget (60 seconds), coverage criteria, assertions and
 minimization, assertion strategy, JUnit format, source folder (`src/test/evosuite`), suffix
@@ -79,13 +85,19 @@ arguments from explicit custom values. Clear a numeric/text override and Apply t
 displayed default. Combo boxes show named **Default (…)** entries; **Automatic (JUnit 4 or JUnit 5)**
 retains project-based framework detection. Simply viewing/applying defaults does not store them
 as explicit overrides. Settings tabs wrap explanatory text and scroll vertically
-within a compact dialog.
+within a compact dialog. Labels include time/memory units and dropdowns use descriptive names.
+Unknown stored choices stay visible until corrected; validation identifies the affected field and
+selects its tab. Maven-specific controls and imported overrides are grouped under Advanced.
 
-LLM settings include provider, model, endpoint, approach, seeding, stagnation, mutation/crossover,
+Cloud credentials sit directly below the provider selector. LLM settings include provider,
+model, endpoint, approach, seeding, stagnation, mutation/crossover,
 postprocessing and call budget. **Search only** overrides every other provider setting, including
 pom and extra arguments. The API key is application-wide in PasswordSafe, loaded off the UI
-thread, and sent only through `EVOSUITE_LLM_API_KEY`. An inherited environment variable also
-works. Put keys in secure storage rather than Additional arguments. A failed secure-store read
+thread only when cloud LLM features are enabled or **Load stored API key** is clicked. The project
+LLM tab links to shared API-key management; a loaded key can also be removed with LLM features off.
+Keys are sent through `EVOSUITE_LLM_API_KEY`; an inherited environment variable also works.
+Provider model defaults and `EVOSUITE_LLM_MODEL` are honored. Local Ollama generation does not
+read the shared cloud-provider key. Put keys in secure storage rather than Additional arguments. A failed secure-store read
 preserves the saved key unless the user explicitly enters a replacement. A failed key save keeps
 the settings dialog open so Apply can be retried.
 
@@ -126,8 +138,10 @@ Imported projects using a snapshot runtime need
 that artifact available in their Maven repositories (for a development build, install the reactor).
 
 For Maven, a single **Configure Maven** prompt offers the missing test dependencies together
-with adding or updating the `setup` execution. **Dependencies Only** skips the execution; Cancel
-leaves the pom unchanged. The setup goal requires JUnit/runtime dependencies; it does not add
+with adding or updating the `setup` execution. **Dependencies Only** skips the execution. When only
+an execution is missing, **Skip Maven Setup** explicitly continues without that POM change.
+**Cancel** stops generation and leaves the pom unchanged. Gradle/plain-project dependency prompts
+also distinguish **Skip Setup** from **Cancel**. The setup goal requires JUnit/runtime dependencies; it does not add
 them. Both edits are one undoable command followed by one awaited reimport. Existing execution
 IDs and other configuration are preserved. It saves that pom and waits for reimport before
 building. Its import configurator keeps that execution's folder as a test root on reimport. Gradle projects receive the exact

@@ -60,6 +60,22 @@ class LaunchSafetyTest {
         var command = new EvoSuiteCommand("java", "engine.jar", "demo.Foo", List.of("classes"), new java.io.File("."), new java.io.File("tests"), new java.io.File("reports"), options);
         assertFalse(command.toArguments().stream().anyMatch(a -> a.contains("pom-secret") || a.startsWith("-Dllm_api_key=")));
     }
+    @Test void engineModelDefaultsAndInheritedModelsAreAccepted() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_ANTHROPIC;
+        assertEquals(Map.of(EvoSuiteCommand.API_KEY_VARIABLE, "key"),
+                LlmEnvironment.resolve(options, () -> "key", () -> "", Map.of(), ignored -> {}));
+        assertEquals(Map.of(EvoSuiteCommand.API_KEY_VARIABLE, "key"),
+                LlmEnvironment.resolve(options, () -> "key", () -> "",
+                        Map.of("EVOSUITE_LLM_MODEL", "my-model"), ignored -> {}));
+    }
+    @Test void localProviderDoesNotPromptForCloudCredentialsOrRequireAnExplicitModel() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmProvider = GenerationOptions.LLM_OLLAMA;
+        assertEquals(Map.of(), LlmEnvironment.resolve(options,
+                () -> { fail("local generation must not read the cloud key"); return ""; },
+                () -> { fail("no Maven key configured"); return ""; }, Map.of(), ignored -> {}));
+    }
     @Test void cancellationStopsMasterAndClientJvm() throws Exception {
         var lines = new CopyOnWriteArrayList<String>();
         long start = System.nanoTime();

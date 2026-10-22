@@ -37,6 +37,11 @@ public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
         assertNotNull(welcome);
         assertTrue(welcome.isVisible());
         capture(panel, "welcome");
+        panel.setSize(400, 180);
+        layoutTree(panel);
+        var welcomeScroll = (javax.swing.JScrollPane) ((javax.swing.JPanel) welcome).getComponent(0);
+        assertTrue("Welcome actions remain reachable in a short tool window", welcomeScroll.getVerticalScrollBar().isVisible());
+        assertFalse(welcomeScroll.getHorizontalScrollBar().isVisible());
         output.println("Generating demo.Vault");
         UIUtil.dispatchAllInvocationEvents();
         assertFalse(welcome.isVisible());

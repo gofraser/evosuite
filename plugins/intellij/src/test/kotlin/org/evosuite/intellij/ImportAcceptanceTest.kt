@@ -181,8 +181,9 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         val options = background { SettingsResolver.resolve(main) }
         assertEquals(GenerationOptions.JUNIT5, options.testFormat)
         val original = Files.readString(path)
-        assertEquals(1, prepare(main, options, 2).size)
+        assertEquals(1, prepare(main, options, 2, cancelled = true).size)
         assertEquals(original, Files.readString(path))
+        assertFalse(Files.exists(root.resolve("app/src/test/generated")))
         assertEquals(1, prepare(main, options, 1).size)
         val dependenciesOnly = Files.readString(path)
         assertTrue(dependenciesOnly, dependenciesOnly.contains("<artifactId>evosuite-standalone-runtime</artifactId>"))
@@ -190,8 +191,8 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         assertTrue(dependenciesOnly, dependenciesOnly.contains("<artifactId>junit-jupiter</artifactId>"))
         assertTrue(background { ProjectSetupService.hasClass(main, "org.junit.jupiter.api.Test") })
         assertTrue(background { ProjectSetupService.hasClass(main, "org.evosuite.runtime.EvoRunnerParameters") })
-        // Once dependencies exist, Cancel is the second button in the setup-only dialog.
-        assertEquals(1, prepare(main, options, 1).size)
+        // Setup-only offers an explicit Skip action; Cancel still stops the request.
+        assertEquals(1, prepare(main, options, 2, cancelled = true).size)
         assertEquals(dependenciesOnly, Files.readString(path))
         assertEquals(1, prepare(main, options).size)
         assertTrue(Files.readString(path).contains("<goal>setup</goal>"))
@@ -298,6 +299,9 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         val main = moduleFor("app/src/main/java/demo/Vault.java")
         val options = background { SettingsResolver.resolve(main) }
         assertEquals(GenerationOptions.JUNIT4, options.testFormat)
+        val beforeSetup = Files.readString(root.resolve("app/build.gradle"))
+        assertEquals(1, prepare(main, options, 2, cancelled = true).size)
+        assertEquals(beforeSetup, Files.readString(root.resolve("app/build.gradle")))
         val questions = prepare(main, options)
         assertTestRoot(
             root.resolve("app").resolve(options.testFolder),
@@ -383,7 +387,7 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         }
     }
 
-    private fun prepare(module: Module, options: GenerationOptions, answer: Int = 0): List<String> {
+    private fun prepare(module: Module, options: GenerationOptions, answer: Int = 0, cancelled: Boolean = false): List<String> {
         val questions = java.util.concurrent.CopyOnWriteArrayList<String>()
         val previous =
             TestDialogManager.setTestDialog { message ->
@@ -392,7 +396,12 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
             }
         try {
             background {
-                ProjectSetupService.prepare(module, options, EmptyProgressIndicator(), ::println)
+                try {
+                    ProjectSetupService.prepare(module, options, EmptyProgressIndicator(), ::println)
+                    assertFalse("Cancel must stop setup", cancelled)
+                } catch (ex: com.intellij.openapi.progress.ProcessCanceledException) {
+                    if (!cancelled) throw ex
+                }
             }
         } finally {
             TestDialogManager.setTestDialog(previous)

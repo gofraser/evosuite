@@ -169,10 +169,10 @@ public final class ProjectSetupService {
                                             + "org.evosuite:evosuite-standalone-runtime:"
                                             + EngineJars.VERSION
                                     : "");
-            boolean consent =
+            int choice =
                     IdeThread.edt(
                             () ->
-                                    Messages.showYesNoDialog(
+                                    Messages.showDialog(
                                                     project,
                                                     "Add "
                                                             + dependencies
@@ -185,9 +185,11 @@ public final class ProjectSetupService {
                                                                     : " IntelliJ will add a module"
                                                                             + " library."),
                                                     "EvoSuite Dependencies",
-                                                    Messages.getQuestionIcon())
-                                            == Messages.YES);
-            if (consent) {
+                                                    new String[] {"Add Dependencies", "Skip Setup", "Cancel"},
+                                                    0,
+                                                    Messages.getQuestionIcon()));
+            if (choice < 0 || choice == 2) throw new com.intellij.openapi.progress.ProcessCanceledException();
+            if (choice == 0) {
                 if (!junit)
                     add(
                             testModule,
@@ -207,10 +209,10 @@ public final class ProjectSetupService {
                                     EngineJars.VERSION),
                             indicator,
                             console);
-            } else
-                console.accept(
-                        "Dependencies were not added. Generated tests need JUnit and the EvoSuite"
-                                + " runtime.");
+            } else {
+                console.accept("Setup was skipped. Add JUnit and the EvoSuite runtime and mark the generated folder as test sources before running generated tests.");
+                return;
+            }
         }
         if (!runtime && !imported) {
             Path jar = EngineJars.runtime();
