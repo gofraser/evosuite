@@ -20,13 +20,23 @@
 package org.evosuite.strategy;
 
 import org.evosuite.Properties;
+import org.evosuite.Properties.Criterion;
+import org.evosuite.ShutdownTestWriter;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.populationlimit.IndividualPopulationLimit;
 import org.evosuite.ga.populationlimit.PopulationLimit;
 import org.evosuite.ga.populationlimit.SizePopulationLimit;
+import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
+import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
+import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
+import org.evosuite.ga.stoppingconditions.SocketStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingConditionFactory;
+import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
+import org.evosuite.utils.ArrayUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +64,60 @@ public abstract class PropertiesSearchAlgorithmFactory<T extends Chromosome<T>> 
     protected StoppingCondition<T> getStoppingCondition() {
         logger.info("Setting stopping condition: {}", Properties.STOPPING_CONDITION);
         return StoppingConditionFactory.getStoppingCondition(Properties.STOPPING_CONDITION);
+    }
+
+    /**
+     * Installs the configured stopping condition on the algorithm, followed by the zero-fitness
+     * condition if requested and the global time condition unless the configured one already is a
+     * time limit.
+     */
+    protected void setUpStoppingConditions(GeneticAlgorithm<T> ga, StoppingCondition<T> stoppingCondition) {
+        ga.setStoppingCondition(stoppingCondition);
+        if (Properties.STOP_ZERO) {
+            ga.addStoppingCondition(new ZeroFitnessStoppingCondition<>());
+        }
+        if (!(stoppingCondition instanceof MaxTimeStoppingCondition)) {
+            ga.addStoppingCondition(new GlobalTimeStoppingCondition<>());
+        }
+    }
+
+    /**
+     * Whether the selected criteria include mutation testing.
+     */
+    protected static boolean usesMutationCriterion() {
+        return ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION);
+    }
+
+    /**
+     * Scales the search budget by the size of the class under test and applies it to the stopping
+     * condition. This rewrites {@code Properties.SEARCH_BUDGET}.
+     */
+    protected static void applyDynamicLimit(StoppingCondition<?> stoppingCondition) {
+        BranchPool pool = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        Properties.SEARCH_BUDGET = Properties.SEARCH_BUDGET
+                * (pool.getNumBranchlessMethods(Properties.TARGET_CLASS)
+                + pool.getBranchCountForClass(Properties.TARGET_CLASS) * 2);
+        stoppingCondition.setLimit(Properties.SEARCH_BUDGET);
+        logger.info("Setting dynamic length limit to {}", Properties.SEARCH_BUDGET);
+    }
+
+    /**
+     * Adds the conditions that end the search when the process is asked to shut down: the
+     * shutdown writer, the RMI stop request and, if a port is configured, the stopping socket.
+     */
+    protected void addShutdownStoppingConditions(GeneticAlgorithm<T> ga) {
+        ShutdownTestWriter<T> writer = new ShutdownTestWriter<>();
+        ga.addStoppingCondition(writer);
+        ga.addStoppingCondition(RMIStoppingCondition.<T>getInstance());
+
+        if (Properties.STOPPING_PORT != -1) {
+            SocketStoppingCondition<T> socket = SocketStoppingCondition.getInstance();
+            socket.accept();
+            ga.addStoppingCondition(socket);
+        }
+
+        writer.registerAsSignalHandler();
     }
 
     public abstract GeneticAlgorithm<T> getSearchAlgorithm();

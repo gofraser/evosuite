@@ -20,9 +20,6 @@
 package org.evosuite.strategy;
 
 import org.evosuite.Properties;
-import org.evosuite.ShutdownTestWriter;
-import org.evosuite.TestGenerationContext;
-import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
@@ -40,12 +37,7 @@ import org.evosuite.ga.operators.selection.RankSelection;
 import org.evosuite.ga.operators.selection.SelectionFunction;
 import org.evosuite.ga.operators.selection.TournamentSelection;
 import org.evosuite.ga.operators.selection.TournamentSelectionRankAndCrowdingDistanceComparator;
-import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
-import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
-import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
-import org.evosuite.ga.stoppingconditions.SocketStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
-import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
 import org.evosuite.llm.factory.LlmFactoryWrappers;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.TestChromosome;
@@ -55,7 +47,6 @@ import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testsuite.RelativeSuiteLengthBloatControl;
-import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.ResourceController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -168,18 +159,9 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
 
         // When to stop the search
         StoppingCondition<TestChromosome> stoppingCondition = getStoppingCondition();
-        ga.setStoppingCondition(stoppingCondition);
-        // ga.addListener(stopping_condition);
-        if (Properties.STOP_ZERO) {
-            ga.addStoppingCondition(new ZeroFitnessStoppingCondition<>());
-        }
+        setUpStoppingConditions(ga, stoppingCondition);
 
-        if (!(stoppingCondition instanceof MaxTimeStoppingCondition)) {
-            ga.addStoppingCondition(new GlobalTimeStoppingCondition<>());
-        }
-
-        if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.MUTATION)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.STRONGMUTATION)) {
+        if (usesMutationCriterion()) {
             if (Properties.STRATEGY == Properties.Strategy.ONEBRANCH) {
                 ga.addStoppingCondition(new MutationTimeoutStoppingCondition<>());
             }
@@ -213,18 +195,7 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
         // ga.addListener(BestChromosomeTracker.getInstance());
 
         if (Properties.DYNAMIC_LIMIT) {
-            // max_s = GAProperties.generations * getBranches().size();
-            // TODO: might want to make this dependent on the selected coverage
-            // criterion
-            // TODO also, question: is branchMap.size() really intended here?
-            // I think BranchPool.getBranchCount() was intended
-            Properties.SEARCH_BUDGET = Properties.SEARCH_BUDGET
-                    * (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                    .getNumBranchlessMethods(Properties.TARGET_CLASS)
-                    + BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                    .getBranchCountForClass(Properties.TARGET_CLASS) * 2);
-            stoppingCondition.setLimit(Properties.SEARCH_BUDGET);
-            logger.info("Setting dynamic length limit to " + Properties.SEARCH_BUDGET);
+            applyDynamicLimit(stoppingCondition);
         }
 
         if (Properties.LOCAL_SEARCH_RESTORE_COVERAGE) {
@@ -236,21 +207,7 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
         }
 
         if (Properties.SHUTDOWN_HOOK) {
-            // ShutdownTestWriter writer = new
-            // ShutdownTestWriter(Thread.currentThread());
-            ShutdownTestWriter<TestChromosome> writer = new ShutdownTestWriter<>();
-            ga.addStoppingCondition(writer);
-            RMIStoppingCondition<TestChromosome> rmi = RMIStoppingCondition.getInstance();
-            ga.addStoppingCondition(rmi);
-
-            if (Properties.STOPPING_PORT != -1) {
-                SocketStoppingCondition<TestChromosome> ss = SocketStoppingCondition.getInstance();
-                ss.accept();
-                ga.addStoppingCondition(ss);
-            }
-
-            // Runtime.getRuntime().addShutdownHook(writer);
-            writer.registerAsSignalHandler();
+            addShutdownStoppingConditions(ga);
         }
 
         ga.addListener(new ResourceController<>());
