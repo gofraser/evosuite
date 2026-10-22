@@ -422,6 +422,10 @@ public class LlmService implements AutoCloseable {
                 logger.debug("LLM call failed (attempt {}/{}): {}; retrying...",
                         attempt, maxTries, LlmErrorClassifier.friendlyMessage(lastError));
                 if (!sleepBackoff(attempt, deadlineNanos)) {
+                    // The attempt is already counted; only the trace needs a final
+                    // row, as for an interrupted attempt.
+                    safeRecordTrace(request, "", 0, 0, 0, 0L,
+                            "INTERRUPTED", lastError.getClass().getSimpleName());
                     Thread.currentThread().interrupt();
                     throw new LlmCallFailedException("LLM retry interrupted", lastError, false);
                 }

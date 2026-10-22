@@ -447,6 +447,60 @@ class LlmServiceRetryTest {
     }
 
     @Test
+    void interruptedBackoffEndsTheCallWithAnInterruptedOutcome() throws Exception {
+        AtomicInteger providerCalls = new AtomicInteger();
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            providerCalls.incrementAndGet();
+            throw new RuntimeException(new LlmHttpException(503, "unavailable"));
+        };
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock", "", "", 0.0, 1024, 30, 3, 30_000,
+                true, tempDir, "interrupt-backoff");
+        LlmStatistics statistics = new LlmStatistics();
+        LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
+        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(10),
+                configuration, statistics, recorder);
+        AtomicReference<Throwable> thrown = new AtomicReference<>();
+        Thread caller = new Thread(() -> {
+            try {
+                LlmServiceTestQueries.query(service, Collections.singletonList(LlmMessage.user("generate")),
+                        LlmFeature.TEST_REPAIR);
+            } catch (LlmCallFailedException expected) {
+                thrown.set(expected);
+            }
+        });
+
+        try {
+            caller.start();
+            long give = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (providerCalls.get() == 0 && System.nanoTime() < give) {
+                Thread.sleep(5);
+            }
+            assertEquals(1, providerCalls.get());
+            Thread.sleep(200);
+            caller.interrupt();
+            caller.join(3_000L);
+            assertFalse(caller.isAlive());
+            assertNotNull(thrown.get());
+            assertTrue(thrown.get().getMessage().contains("interrupted"));
+
+            assertEquals(1, statistics.getTotalCalls(), "the one provider attempt is counted once");
+            assertEquals(0, statistics.getFailedCalls(), "a shutdown interrupt is not a provider failure");
+            assertEquals(0, statistics.getTimedOutCalls());
+            java.util.List<String> lines = Files.readAllLines(recorder.getTraceFile(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            assertEquals(2, lines.size());
+            assertTrue(lines.get(0).contains("\"parse_status\":\"RETRYING\""));
+            assertTrue(lines.get(1).contains("\"parse_status\":\"INTERRUPTED\""),
+                    "the trace must not end on RETRYING: " + lines.get(1));
+        } finally {
+            caller.interrupt();
+            service.close();
+        }
+    }
+
+    @Test
     void timeoutReplacesExecutorWhenProviderIgnoresInterruption() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
