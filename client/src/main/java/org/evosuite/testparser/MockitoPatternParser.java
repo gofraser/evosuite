@@ -1103,35 +1103,6 @@ class MockitoPatternParser {
         return returnType == void.class || returnType == Void.class || returnType == Void.TYPE;
     }
 
-    private boolean isUnsupportedMockitoThrowStubbing(MethodCallExpr methodCall) {
-        if ("thenThrow".equals(methodCall.getNameAsString())) {
-            if (!methodCall.getScope().isPresent()
-                    || !(methodCall.getScope().get() instanceof MethodCallExpr)) {
-                return false;
-            }
-            MethodCallExpr whenCall = (MethodCallExpr) methodCall.getScope().get();
-            if (!"when".equals(whenCall.getNameAsString()) || whenCall.getArguments().size() != 1) {
-                return false;
-            }
-            return whenCall.getArgument(0) instanceof MethodCallExpr;
-        }
-
-        if (!methodCall.getScope().isPresent()
-                || !(methodCall.getScope().get() instanceof MethodCallExpr)) {
-            return false;
-        }
-        MethodCallExpr whenCall = (MethodCallExpr) methodCall.getScope().get();
-        if (!"when".equals(whenCall.getNameAsString())
-                || whenCall.getArguments().size() != 1
-                || !(whenCall.getArgument(0) instanceof NameExpr)
-                || !whenCall.getScope().isPresent()
-                || !(whenCall.getScope().get() instanceof MethodCallExpr)) {
-            return false;
-        }
-        MethodCallExpr doThrowCall = (MethodCallExpr) whenCall.getScope().get();
-        return "doThrow".equals(doThrowCall.getNameAsString());
-    }
-
     private List<VariableReference> ensureStubbingValuesAvailableBeforeMock(
             VariableReference mockRef,
             List<VariableReference> values,

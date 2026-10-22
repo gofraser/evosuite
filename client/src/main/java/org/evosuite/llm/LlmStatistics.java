@@ -1023,10 +1023,6 @@ public class LlmStatistics {
             return failures;
         }
 
-        public long getTimedOut() {
-            return timedOut;
-        }
-
         public long getInputTokens() {
             return inputTokens;
         }

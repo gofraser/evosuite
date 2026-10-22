@@ -1170,14 +1170,6 @@ public class TestClusterSummarizer {
         return String.join("; ", signatures);
     }
 
-    private String parameterList(Class<?>[] parameterTypes) {
-        List<String> names = new ArrayList<>();
-        for (Class<?> parameterType : parameterTypes) {
-            names.add(parameterType.getSimpleName());
-        }
-        return String.join(", ", names);
-    }
-
     /**
      * Returns the type name with {@code java.lang.} prefix stripped for readability.
      */

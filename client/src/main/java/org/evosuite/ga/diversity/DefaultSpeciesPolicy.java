@@ -21,8 +21,6 @@ package org.evosuite.ga.diversity;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.TestChromosome;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -31,8 +29,6 @@ import java.util.*;
  * applies species-density fitness sharing.
  */
 public class DefaultSpeciesPolicy implements SpeciesPolicy {
-
-    private static final Logger logger = LoggerFactory.getLogger(DefaultSpeciesPolicy.class);
 
     @Override
     public void applyFitnessSharing(List<TestChromosome> front,

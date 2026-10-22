@@ -2324,15 +2324,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Returns the total number of goals, i.e., number of covered goals + number of uncovered goals.
-     *
-     * @return a int.
-     */
-    protected int getTotalNumberOfGoals() {
-        return Archive.getArchiveInstance().getNumberOfTargets();
-    }
-
-    /**
      * Return the test cases in the archive as a list.
      *
      * @return a {@link java.util.List} object.

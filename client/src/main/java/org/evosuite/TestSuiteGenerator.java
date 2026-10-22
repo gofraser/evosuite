@@ -92,7 +92,6 @@ import java.util.function.LongSupplier;
  */
 public class TestSuiteGenerator {
 
-    private static final String FOR_NAME = "forName";
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteGenerator.class);
     private Criterion[] requestedCriteria = null;
     private boolean structuralSuiteExportCompleted;

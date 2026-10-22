@@ -172,27 +172,8 @@ public class TestCodeVisitor extends TestVisitor {
      * (see {@link #getStandaloneAssertionCode}); null while rendering a test.
      */
     private Function<VariableReference, String> nameResolver = null;
-    private boolean customVariableNameStrategy = false;
     private boolean emitAssertions = true;
     private Boolean assertionsEnabledOverride = null;
-
-    /**
-     * Override the variable naming strategy used for code rendering.
-     * Useful for rendering test code without triggering LLM-based naming
-     * (e.g., when preparing prompts for the LLM naming strategy itself).
-     * Once set, {@link #visitTestCase(TestCase)} will not reset it.
-     */
-    public void setVariableNameStrategy(VariableNameStrategy strategy) {
-        this.variableNameStrategy = strategy;
-        this.customVariableNameStrategy = true;
-    }
-
-    /**
-     * Returns the current variable name strategy instance.
-     */
-    public VariableNameStrategy getVariableNameStrategyInstance() {
-        return this.variableNameStrategy;
-    }
 
     /**
      * Enables or disables assertion emission while still allowing the visitor to
@@ -1161,9 +1142,7 @@ public class TestCodeVisitor extends TestVisitor {
         this.declarationVariableNames.clear();
         this.reservedLocalVariableNames.clear();
         this.deferredAssertionsByPosition.clear();
-        if (!customVariableNameStrategy) {
-            this.variableNameStrategy = VariableNameStrategyFactory.get();
-        }
+        this.variableNameStrategy = VariableNameStrategyFactory.get();
     }
 
     /**
