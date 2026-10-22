@@ -21,6 +21,7 @@ package org.evosuite.llm;
 
 import org.evosuite.Properties;
 import org.evosuite.llm.provider.AnthropicChatModel;
+import org.evosuite.llm.provider.OpenAiCompatibleChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,7 +114,7 @@ final class LlmModelListDiagnostics {
                 if (configuration.getProvider() == Properties.LlmProvider.ANTHROPIC) {
                     AnthropicChatModel.authenticationHeaders(apiKey).forEach(conn::setRequestProperty);
                 } else {
-                    conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+                    OpenAiCompatibleChatModel.authenticationHeaders(apiKey).forEach(conn::setRequestProperty);
                 }
             }
 

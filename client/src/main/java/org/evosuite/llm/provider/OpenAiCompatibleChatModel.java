@@ -83,6 +83,18 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
         return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
     }
 
+    /**
+     * The headers an OpenAI-compatible request carries: the key as a bearer token, and none at
+     * all for an empty key (local servers need no authentication).
+     */
+    public static Map<String, String> authenticationHeaders(String apiKey) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        if (!apiKey.isEmpty()) {
+            headers.put("Authorization", "Bearer " + apiKey);
+        }
+        return headers;
+    }
+
     @Override
     public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) throws IOException {
         return generate(messages, feature, null);
@@ -92,10 +104,7 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
     public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature,
                                            RequestCancellation cancellation) throws IOException {
         String requestBody = buildRequestBody(messages);
-        Map<String, String> headers = new LinkedHashMap<>();
-        if (!apiKey.isEmpty()) {
-            headers.put("Authorization", "Bearer " + apiKey);
-        }
+        Map<String, String> headers = authenticationHeaders(apiKey);
         int readTimeoutMs = JsonHttpClient.boundedReadTimeoutMillis(timeoutSeconds);
         int connectTimeoutMs = JsonHttpClient.connectTimeoutMillis(readTimeoutMs);
         String responseBody = httpClient.postJson(endpoint, headers, requestBody, connectTimeoutMs, readTimeoutMs,

@@ -368,10 +368,6 @@ public class TestParser {
         return t.getClass().getSimpleName() + ": " + message;
     }
 
-    private static String inlineHelperKey(String methodName, int arity) {
-        return methodName + "#" + arity;
-    }
-
     /**
      * Extract helper methods that can be safely inlined.
      *
@@ -400,7 +396,7 @@ public class TestParser {
             if (!isInlineableBody(statements)) {
                 continue;
             }
-            String key = inlineHelperKey(method.getNameAsString(), arity);
+            String key = HelperInliner.inlineHelperKey(method.getNameAsString(), arity);
             if (ambiguousKeys.contains(key)) {
                 continue;
             }
