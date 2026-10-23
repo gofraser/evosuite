@@ -29,7 +29,6 @@ import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
-import org.evosuite.graphs.interprocedural.interestednode.OCGInterestedNodeFilter;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.rmi.ClientServices;
@@ -255,8 +254,7 @@ public class DependencyAnalysis {
         if (Properties.APPLY_OBJECT_RULE
                 && Properties.TARGET_METHOD != null
                 && !Properties.TARGET_METHOD.isEmpty()) {
-            InterproceduralGraphAnalysis.analyzeConfiguredTargetMethod(
-                    new OCGInterestedNodeFilter());
+            InterproceduralGraphAnalysis.analyzeConfiguredTargetMethod();
         }
     }
 

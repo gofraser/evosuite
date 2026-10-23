@@ -35,14 +35,6 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 public abstract class AbstractFitnessFactory<T extends TestFitnessFunction> implements
         TestFitnessFactory<T> {
 
-    /**
-     * A concrete factory can store the time consumed to initially compute all
-     * coverage goals in this field in order to track this information in
-     * SearchStatistics.
-     */
-    public static long goalComputationTime = 0L;
-
-
     protected boolean isCUT(String className) {
         return Properties.TARGET_CLASS.isEmpty()
                 || (className.equals(Properties.TARGET_CLASS)

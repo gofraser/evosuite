@@ -596,36 +596,4 @@ public class CFGMethodAdapter extends MethodVisitor {
 
         return num;
     }
-
-    /**
-     * Returns the number of methods for member classes of the given class.
-     *
-     * @param className class name
-     * @return number of methods
-     */
-    public int getNumMethodsMemberClasses(String className) {
-        return getNumMethodsMemberClasses(classLoader, className);
-    }
-
-    /**
-     * Returns a set with all unique methodNames of methods.
-     *
-     * @param classLoader class loader
-     * @param className a {@link java.lang.String} object.
-     * @return A set with all unique methodNames of methods.
-     */
-    public static int getNumMethodsMemberClasses(ClassLoader classLoader, String className) {
-        int num = 0;
-        if (!methods.containsKey(classLoader)) {
-            return num;
-        }
-
-        for (String name : methodsOf(classLoader).keySet()) {
-            if (name.equals(className) || name.startsWith(className + "$")) {
-                num += methodsOf(classLoader).get(name).size();
-            }
-        }
-
-        return num;
-    }
 }

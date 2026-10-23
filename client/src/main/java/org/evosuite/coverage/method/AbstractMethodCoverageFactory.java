@@ -49,8 +49,6 @@ public abstract class AbstractMethodCoverageFactory<T extends AbstractMethodTest
     public List<T> getCoverageGoals() {
         List<T> goals = new ArrayList<>();
 
-        long start = System.currentTimeMillis();
-
         String className = Properties.TARGET_CLASS;
         Class<?> clazz = Properties.getTargetClassAndDontInitialise();
         if (clazz != null) {
@@ -61,7 +59,6 @@ public abstract class AbstractMethodCoverageFactory<T extends AbstractMethodTest
                 goals.addAll(getCoverageGoals(innerClass, innerClassName));
             }
         }
-        goalComputationTime = System.currentTimeMillis() - start;
         return goals;
     }
 

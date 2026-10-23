@@ -19,8 +19,6 @@
  */
 package org.evosuite.coverage.method;
 
-import org.evosuite.graphs.cfg.BytecodeInstruction;
-
 /**
  * <p>
  * MethodNoExceptionCoverageFactory class.
@@ -34,40 +32,5 @@ public class MethodNoExceptionCoverageFactory
     @Override
     protected MethodNoExceptionCoverageTestFitness createGoal(String className, String methodName) {
         return new MethodNoExceptionCoverageTestFitness(className, methodName);
-    }
-
-    /**
-     * Create a fitness function for branch coverage aimed at covering the root
-     * branch of the given method in the given class. Covering a root branch
-     * means entering the method.
-     *
-     * @param className a {@link String} object.
-     * @param method    a {@link String} object.
-     * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     *     object.
-     */
-    public static MethodNoExceptionCoverageTestFitness createMethodTestFitness(
-            String className, String method) {
-
-        return new MethodNoExceptionCoverageTestFitness(className,
-                method.substring(method.lastIndexOf(".") + 1));
-    }
-
-    /**
-     * Convenience method calling createMethodTestFitness(class,method) with
-     * the respective class and method of the given BytecodeInstruction.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     *     object.
-     */
-    public static MethodNoExceptionCoverageTestFitness createMethodTestFitness(
-            BytecodeInstruction instruction) {
-        if (instruction == null) {
-            throw new IllegalArgumentException("null given");
-        }
-
-        return createMethodTestFitness(instruction.getClassName(),
-                instruction.getMethodName());
     }
 }

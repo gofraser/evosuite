@@ -618,38 +618,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return inDegreeOf(node) == n && outDegreeOf(node) == m;
     }
 
-    /**
-     * Returns a Set of all nodes within this graph that neither have incoming
-     * nor outgoing edges.
-     *
-     * @return a {@link java.util.Set} object.
-     */
-    public Set<V> getIsolatedNodes() {
-        Set<V> r = new LinkedHashSet<>();
-        for (V node : graph.vertexSet()) {
-            if (inDegreeOf(node) == 0 && outDegreeOf(node) == 0) {
-                r.add(node);
-            }
-        }
-        return r;
-    }
-
-    /**
-     * Returns a Set containing every node in this graph that has no outgoing
-     * edges.
-     *
-     * @return a {@link java.util.Set} object.
-     */
-    public Set<V> getNodesWithoutChildren() {
-        Set<V> r = new LinkedHashSet<>();
-        for (V node : graph.vertexSet()) {
-            if (outDegreeOf(node) == 0) {
-                r.add(node);
-            }
-        }
-        return r;
-    }
-
     // utilities
 
     /**

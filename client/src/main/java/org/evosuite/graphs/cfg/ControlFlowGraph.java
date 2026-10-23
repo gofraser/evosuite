@@ -212,13 +212,7 @@ public abstract class ControlFlowGraph<V> extends
      */
     protected void computeDiameter() {
         // The diameter is just an upper bound for the approach level
-        // Let's try to use something that's easier to compute than
-        // FLoydWarshall
         diameter = this.edgeCount();
-        /*
-         * FloydWarshall<V, ControlFlowEdge> f = new FloydWarshall<V,
-         * ControlFlowEdge>(graph); diameter = (int) f.getDiameter();
-         */
     }
 
     /**

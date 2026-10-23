@@ -23,7 +23,6 @@ import org.evosuite.Properties;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
-import org.evosuite.graphs.interprocedural.interestednode.OCGInterestedNodeFilter;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -197,7 +196,7 @@ public class ObjectRuleBranchSelector {
 
             return false;
         }
-        InterproceduralGraphAnalysis.analyzeBranchOnDemand(branch, new OCGInterestedNodeFilter());
+        InterproceduralGraphAnalysis.analyzeBranchOnDemand(branch);
         TargetContext previous = TargetContext.getActive();
         TargetContext.setActive(context);
         try {

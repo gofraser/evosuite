@@ -19,9 +19,6 @@
  */
 package org.evosuite.coverage.dataflow;
 
-import org.evosuite.TestGenerationContext;
-import org.evosuite.graphs.GraphPool;
-import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.MethodCall;
@@ -163,124 +160,6 @@ public abstract class DefUseExecutionTraceAnalyzer {
         }
 
         return r;
-    }
-
-    /**
-     * Returns the a map of definitionIds from all definitions that overwrite
-     * the goal definition in the given duCounter-range pointing to the duPos at
-     * which they first overwrote.
-     *
-     * <p>This method expects the given ExecutionTrace not to contain any trace
-     * information for the targetDefinition in the given range. If such a trace
-     * is detected this method throws an IllegalStateException!
-     *
-     * @param targetDefinition a {@link org.evosuite.coverage.dataflow.Definition} object.
-     * @param trace            a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
-     * @param startingDUPos    a int.
-     * @param endDUPos         a int.
-     * @param objectId         a int.
-     * @return a {@link java.util.Map} object.
-     */
-    public static Map<Integer, Integer> getOverwritingDefinitionsBetween(
-            Definition targetDefinition, ExecutionTrace trace, int startingDUPos,
-            int endDUPos, int objectId) {
-
-        if (startingDUPos > endDUPos) {
-            throw new IllegalArgumentException("start must be lower or equal end");
-        }
-        Map<Integer, Integer> r = new HashMap<>();
-        Map<Integer, HashMap<Integer, Integer>> objectMap = trace.getPassedDefinitions(
-                targetDefinition.getVariableName());
-        if (objectMap == null) {
-            return r;
-        }
-        Map<Integer, Integer> defMap = objectMap.get(objectId);
-        if (defMap == null) {
-            return r;
-        }
-        for (Integer defPos : defMap.keySet()) {
-            if (defPos < startingDUPos || defPos > endDUPos) {
-                continue;
-            }
-            int defId = defMap.get(defPos);
-            if (defId == targetDefinition.getDefId()) {
-                throw new IllegalStateException(
-                        "expect given trace not to have passed goalDefinition in the given duCounter-range");
-            }
-            if (r.get(defId) == null) {
-                r.put(defId, defPos);
-            }
-        }
-        return r;
-    }
-
-    /**
-     * getDefinitionsIn.
-     *
-     * @param targetVariable a {@link java.lang.String} object.
-     * @param vertices       a {@link java.util.Set} object.
-     * @return a {@link java.util.Set} object.
-     */
-    public static Set<BytecodeInstruction> getDefinitionsIn(String targetVariable,
-                                                            Set<BytecodeInstruction> vertices) {
-        Set<BytecodeInstruction> r = new HashSet<>();
-        for (BytecodeInstruction vertex : vertices) {
-            //          if (!vertex.isDefinition())
-            //              continue;
-            if (!DefUsePool.isKnownAsDefinition(vertex)) {
-                continue;
-            }
-            Definition currentDefinition = DefUseFactory.makeDefinition(vertex);
-            if (currentDefinition.getVariableName().equals(targetVariable)) {
-                r.add(vertex);
-            }
-        }
-        return r;
-    }
-
-    /**
-     * Returns a Set containing all elements in the given vertex set that are
-     * overwriting definitions for the given targetDefinition.
-     *
-     * @param targetDefinition a {@link org.evosuite.coverage.dataflow.Definition} object.
-     * @param vertices         a {@link java.util.Collection} object.
-     * @return a {@link java.util.Set} object.
-     */
-    public static Set<BytecodeInstruction> getOverwritingDefinitionsIn(
-            Definition targetDefinition, Collection<BytecodeInstruction> vertices) {
-        Set<BytecodeInstruction> r = new HashSet<>();
-        for (BytecodeInstruction vertex : vertices) {
-            if (!vertex.isDefinition()) {
-                continue;
-            }
-            BytecodeInstruction vertexInOtherGraph = GraphPool.getInstance(TestGenerationContext.getInstance()
-                    .getClassLoaderForSUT()).getRawCFG(vertex.getClassName(),
-                    vertex.getMethodName()).getInstruction(vertex.getInstructionId());
-            Definition currentDefinition = DefUseFactory.makeDefinition(vertexInOtherGraph);
-            if (isOverwritingDefinition(targetDefinition, currentDefinition)) {
-                r.add(vertex);
-            }
-        }
-        return r;
-    }
-
-    /**
-     * Determines if the two given Definitions refer to the same variable but
-     * are different.
-     *
-     * @param targetDefinition a {@link org.evosuite.coverage.dataflow.Definition} object.
-     * @param definition       a {@link org.evosuite.coverage.dataflow.Definition} object.
-     * @return a boolean.
-     */
-    public static boolean isOverwritingDefinition(Definition targetDefinition,
-                                                  Definition definition) {
-
-        if (definition.getDefId() == -1) {
-            throw new IllegalArgumentException(
-                    "expect given Definition to have it's defId set");
-        }
-        return targetDefinition.getVariableName().equals(definition.getVariableName())
-                && targetDefinition.getDefId() != definition.getDefId();
     }
 
     /**

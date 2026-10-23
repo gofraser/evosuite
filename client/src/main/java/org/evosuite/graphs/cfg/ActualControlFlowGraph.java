@@ -769,15 +769,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
     }
 
     /**
-     * Getter for the field <code>entryPoint</code>.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     */
-    public BytecodeInstruction getEntryPoint() {
-        return entryPoint;
-    }
-
-    /**
      * Getter for the field <code>exitPoints</code>.
      *
      * @return a {@link java.util.Set} object.
@@ -793,15 +784,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
      */
     public Set<BytecodeInstruction> getBranches() {
         return new HashSet<>(branches);
-    }
-
-    /**
-     * Getter for the field <code>joins</code>.
-     *
-     * @return a {@link java.util.Set} object.
-     */
-    public Set<BytecodeInstruction> getJoins() {
-        return new HashSet<>(joins);
     }
 
     /**

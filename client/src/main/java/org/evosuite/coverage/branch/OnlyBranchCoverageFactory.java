@@ -54,7 +54,6 @@ public class OnlyBranchCoverageFactory extends
      */
     @Override
     public List<OnlyBranchCoverageTestFitness> getCoverageGoals() {
-        long start = System.currentTimeMillis();
         List<OnlyBranchCoverageTestFitness> goals = new ArrayList<>();
 
         // logger.info("Getting branches");
@@ -84,7 +83,6 @@ public class OnlyBranchCoverageFactory extends
                 }
             }
         }
-        goalComputationTime = System.currentTimeMillis() - start;
 
         return goals;
     }

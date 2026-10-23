@@ -451,23 +451,6 @@ public class BytecodeInstructionPool {
     }
 
     /**
-     * Returns all instructions in the pool.
-     *
-     * @return list of all instructions
-     */
-    public List<BytecodeInstruction> getAllInstructions() {
-        List<BytecodeInstruction> r = new ArrayList<>();
-        for (String className : instructionMap.keySet()) {
-            Map<String, List<BytecodeInstruction>> methodMap = instructionMap.get(className);
-            for (List<BytecodeInstruction> methodInstructions : methodMap.values()) {
-                r.addAll(methodInstructions);
-            }
-        }
-
-        return r;
-    }
-
-    /**
      * logInstructionsIn.
      *
      * @param className  a {@link java.lang.String} object.

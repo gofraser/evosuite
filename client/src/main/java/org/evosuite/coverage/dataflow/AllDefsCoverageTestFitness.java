@@ -38,11 +38,6 @@ import java.util.Map;
 public class AllDefsCoverageTestFitness extends TestFitnessFunction {
 
     private static final long serialVersionUID = 1L;
-    /**
-     * Constant <code>singleFitnessTime=0l</code>.
-     */
-    public static long singleFitnessTime = 0L;
-
     private final Definition targetDef;
     private final TestFitnessFunction goalDefinitionFitness;
     private final Map<Use, DefUseCoverageTestFitness> uses;

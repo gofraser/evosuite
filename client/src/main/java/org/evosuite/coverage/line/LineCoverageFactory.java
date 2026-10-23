@@ -80,8 +80,6 @@ public class LineCoverageFactory extends
     public List<LineCoverageTestFitness> getCoverageGoals() {
         List<LineCoverageTestFitness> goals = new ArrayList<>();
 
-        long start = System.currentTimeMillis();
-
         for (String className : LinePool.getKnownClasses()) {
             // Only lines in CUT
             if (!isCUT(className)) {
@@ -123,7 +121,6 @@ public class LineCoverageFactory extends
                 }
             }
         }
-        goalComputationTime = System.currentTimeMillis() - start;
         return goals;
     }
 

@@ -37,15 +37,6 @@ public class CCFGCodeEdge extends CCFGEdge {
     }
 
     /**
-     * Getter for the field <code>cfgEdge</code>.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.ControlFlowEdge} object.
-     */
-    public ControlFlowEdge getCfgEdge() {
-        return cfgEdge;
-    }
-
-    /**
      * {@inheritDoc}
      */
     @Override

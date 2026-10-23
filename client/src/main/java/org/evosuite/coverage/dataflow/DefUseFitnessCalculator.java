@@ -40,11 +40,6 @@ import java.util.*;
  */
 public class DefUseFitnessCalculator {
 
-    /**
-     * Constant <code>alternativeTime=0l</code>.
-     */
-    public static long alternativeTime = 0L;
-
     private static final boolean DEBUG = Properties.DEFUSE_DEBUG_MODE;
 
     private static final Logger logger = LoggerFactory.getLogger(DefUseFitnessCalculator.class);

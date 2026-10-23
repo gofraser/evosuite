@@ -42,7 +42,6 @@ public class StatementCoverageFactory extends
      */
     @Override
     public List<StatementCoverageTestFitness> getCoverageGoals() {
-        long start = System.currentTimeMillis();
         String targetClass = Properties.TARGET_CLASS;
 
         List<StatementCoverageTestFitness> goals = new ArrayList<>();
@@ -71,8 +70,6 @@ public class StatementCoverageFactory extends
                 }
             }
         }
-        long end = System.currentTimeMillis();
-        goalComputationTime = end - start;
 
         return goals;
     }

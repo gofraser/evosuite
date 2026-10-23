@@ -211,32 +211,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
     }
 
     /**
-     * Determines whether this goals is connected to the given goal.
-     *
-     * <p>This is the case when this goals target branch is control dependent on
-     * the target branch of the given goal or visa versa.
-     *
-     * <p>This is used in the ChromosomeRecycler to determine if tests produced to
-     * cover one goal should be used initially when trying to cover the other
-     * goal.
-     *
-     * @param goal a {@link org.evosuite.coverage.branch.BranchCoverageGoal}
-     *             object.
-     * @return a boolean.
-     */
-    public boolean isConnectedTo(BranchCoverageGoal goal) {
-        if (branch == null || goal.branch == null) {
-            // one of the goals targets a root branch
-            return goal.methodName.equals(methodName) && goal.className.equals(className);
-        }
-
-        // TODO map this to new CDG !
-
-        return branch.getInstruction().isDirectlyControlDependentOn(goal.branch)
-                || goal.branch.getInstruction().isDirectlyControlDependentOn(branch);
-    }
-
-    /**
      * <p>
      * getDistance.
      * </p>

@@ -564,54 +564,6 @@ public class BranchPool {
     }
 
     /**
-     * Returns the number of known Branches for a given class.
-     *
-     * @param prefix a {@link java.lang.String} object.
-     * @return The number of currently known Branches inside the given class.
-     */
-    public Set<Integer> getBranchIdsForPrefix(String prefix) {
-        Set<Integer> ids = new LinkedHashSet<>();
-        Set<Branch> sutBranches = new LinkedHashSet<>();
-        for (String className : branchMap.keySet()) {
-            if (className.startsWith(prefix)) {
-                logger.info("Found matching class for branch ids: " + className + "/"
-                        + prefix);
-                for (String method : branchMap.get(className).keySet()) {
-                    sutBranches.addAll(branchMap.get(className).get(method));
-                }
-            }
-        }
-
-        for (Integer id : branchIdMap.keySet()) {
-            if (sutBranches.contains(branchIdMap.get(id))) {
-                ids.add(id);
-            }
-        }
-
-        return ids;
-    }
-
-    /**
-     * Returns the number of known Branches for a given class.
-     *
-     * @param prefix a {@link java.lang.String} object.
-     * @return The number of currently known Branches inside the given class.
-     */
-    public int getBranchCountForMemberClasses(String prefix) {
-        int num = 0;
-        for (String className : branchMap.keySet()) {
-            if (className.equals(prefix) || className.startsWith(prefix + "$")) {
-                logger.info("Found matching class for branch count: " + className + "/"
-                        + prefix);
-                for (String method : branchMap.get(className).keySet()) {
-                    num += branchMap.get(className).get(method).size();
-                }
-            }
-        }
-        return num;
-    }
-
-    /**
      * Returns the number of currently known Branches.
      *
      * @return The number of currently known Branches.
@@ -686,24 +638,6 @@ public class BranchPool {
     /**
      * Returns a set with all unique methodNames of methods without Branches.
      *
-     * @param className a {@link java.lang.String} object.
-     * @return A set with all unique methodNames of methods without Branches.
-     */
-    public Set<String> getBranchlessMethodsMemberClasses(String className) {
-        Set<String> methods = new LinkedHashSet<>();
-
-        for (String name : branchlessMethods.keySet()) {
-            if (name.equals(className) || name.startsWith(className + "$")) {
-                methods.addAll(branchlessMethods.get(name).keySet());
-            }
-        }
-
-        return methods;
-    }
-
-    /**
-     * Returns a set with all unique methodNames of methods without Branches.
-     *
      * @return A set with all unique methodNames of methods without Branches.
      */
     public Set<String> getBranchlessMethods() {
@@ -742,38 +676,6 @@ public class BranchPool {
             return 0;
         }
         return branchlessMethods.get(className).size();
-    }
-
-    /**
-     * Returns the number of methods without Branches for class className.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @return The number of methods without Branches.
-     */
-    public int getNumBranchlessMethodsPrefix(String className) {
-        int num = 0;
-        for (String name : branchlessMethods.keySet()) {
-            if (name.startsWith(className)) {
-                num += branchlessMethods.get(name).size();
-            }
-        }
-        return num;
-    }
-
-    /**
-     * Returns the number of methods without Branches for class className.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @return The number of methods without Branches.
-     */
-    public int getNumBranchlessMethodsMemberClasses(String className) {
-        int num = 0;
-        for (String name : branchlessMethods.keySet()) {
-            if (name.equals(className) || name.startsWith(className + "$")) {
-                num += branchlessMethods.get(name).size();
-            }
-        }
-        return num;
     }
 
     /**

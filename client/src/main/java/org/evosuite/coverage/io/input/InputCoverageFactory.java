@@ -62,7 +62,6 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
     public List<InputCoverageTestFitness> getCoverageGoals() {
         List<InputCoverageTestFitness> goals = new ArrayList<>();
 
-        long start = System.currentTimeMillis();
         String targetClass = Properties.TARGET_CLASS;
 
         for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance()
@@ -168,7 +167,6 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
                 }
             }
         }
-        goalComputationTime = System.currentTimeMillis() - start;
         return goals;
     }
 

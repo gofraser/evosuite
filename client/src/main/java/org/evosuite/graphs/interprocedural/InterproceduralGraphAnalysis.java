@@ -10,7 +10,6 @@ import org.evosuite.graphs.cfg.ActualControlFlowGraph;
 import org.evosuite.graphs.cfg.BasicBlock;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
-import org.evosuite.graphs.interprocedural.interestednode.IInterestedNodeFilter;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.graphs.interprocedural.var.DepVariableFactory;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
@@ -83,8 +82,7 @@ public class InterproceduralGraphAnalysis {
     }
 
     /** Analyze the explicitly selected target method once during setup. */
-    public static synchronized void analyzeConfiguredTargetMethod(
-            IInterestedNodeFilter interestedNodeFilter) {
+    public static synchronized void analyzeConfiguredTargetMethod() {
 
         if (Properties.TARGET_METHOD == null
                 || Properties.TARGET_METHOD.isEmpty()
@@ -104,7 +102,7 @@ public class InterproceduralGraphAnalysis {
         FBranchDefUseAnalyzer.analyze(
                 GraphPool.getInstance(classLoader)
                         .getRawCFG(Properties.TARGET_CLASS, Properties.TARGET_METHOD));
-        Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
+        Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg);
         ObjectRuleRuntime runtime = TestGenerationContext.getInstance().getObjectRuleRuntime();
         runtime.setRecommendedClasses(analyzeRecommendationClasses(cfg));
         runtime.putBranchInterestedVars(Properties.TARGET_METHOD, map);
@@ -115,8 +113,7 @@ public class InterproceduralGraphAnalysis {
      * cache. Directly callable entries are cached per entry method; inaccessible branches are
      * analyzed one at a time and merged into the map for their accessible caller.
      */
-    public static synchronized void analyzeBranchOnDemand(
-            Branch branch, IInterestedNodeFilter interestedNodeFilter) {
+    public static synchronized void analyzeBranchOnDemand(Branch branch) {
         if (branch == null || branch.getInstruction() == null) {
             return;
         }
@@ -173,8 +170,8 @@ public class InterproceduralGraphAnalysis {
                     GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
             Map<Branch, Set<DepVariable>> map =
                     branchSpecificEntry
-                            ? analyzeIndividualBranch(cfg, branch, interestedNodeFilter)
-                            : analyzeIndividualMethod(cfg, interestedNodeFilter);
+                            ? analyzeIndividualBranch(cfg, branch)
+                            : analyzeIndividualMethod(cfg);
 
             if (branchSpecificEntry && cached != null) {
                 cached.putAll(map);
@@ -297,12 +294,11 @@ public class InterproceduralGraphAnalysis {
      * Analyzes every branch of a method, collecting the input variables its operands depend on.
      *
      * @param cfg                  the control flow graph of the method
-     * @param interestedNodeFilter selects the nodes of interest during traversal
      * @return the root variables of each branch
      */
     @SuppressWarnings("rawtypes")
     public static Map<Branch, Set<DepVariable>> analyzeIndividualMethod(
-            ActualControlFlowGraph cfg, IInterestedNodeFilter interestedNodeFilter) {
+            ActualControlFlowGraph cfg) {
         Map<Branch, Set<DepVariable>> map = new LinkedHashMap<>();
         long deadlineNanos = analysisDeadlineNanos();
 
@@ -320,7 +316,7 @@ public class InterproceduralGraphAnalysis {
                 continue;
             }
             InterproceduralGraphAnalyzer graphAnalyzer =
-                    new InterproceduralGraphAnalyzer(b, interestedNodeFilter, deadlineNanos);
+                    new InterproceduralGraphAnalyzer(b, deadlineNanos);
             try {
                 sliceBranchOperands(graphAnalyzer, cfg, b, inputRootVars);
             } catch (Exception | StackOverflowError e) {
@@ -356,17 +352,16 @@ public class InterproceduralGraphAnalysis {
      *
      * @param cfg                  the control flow graph of the method containing the branch
      * @param branch               the branch to analyze
-     * @param interestedNodeFilter selects the nodes of interest during traversal
      * @return the root variables of the branch
      */
     @SuppressWarnings("rawtypes")
     public static Map<Branch, Set<DepVariable>> analyzeIndividualBranch(
-            ActualControlFlowGraph cfg, Branch branch, IInterestedNodeFilter interestedNodeFilter) {
+            ActualControlFlowGraph cfg, Branch branch) {
         Map<Branch, Set<DepVariable>> map = new LinkedHashMap<>();
 
         InterproceduralGraphAnalyzer graphAnalyzer =
                 new InterproceduralGraphAnalyzer(
-                        branch, interestedNodeFilter, analysisDeadlineNanos());
+                        branch, analysisDeadlineNanos());
         Set<DepVariable> inputRootVars = new LinkedHashSet<DepVariable>();
         sliceBranchOperands(graphAnalyzer, cfg, branch, inputRootVars);
 

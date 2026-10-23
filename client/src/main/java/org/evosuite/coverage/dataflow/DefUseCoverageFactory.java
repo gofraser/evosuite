@@ -133,7 +133,7 @@ public class DefUseCoverageFactory extends
         goals = new ArrayList<>();
         goals.addAll(duGoals);
         long end = System.currentTimeMillis();
-        goalComputationTime = end - start;
+        long goalComputationTime = end - start;
         LoggingUtils.getEvoLogger().info("* Goal computation took: "
                 + goalComputationTime + "ms");
 

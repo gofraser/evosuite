@@ -21,12 +21,8 @@ package org.evosuite.coverage.dataflow;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
 import org.evosuite.ga.Chromosome;
-import org.evosuite.graphs.GraphPool;
-import org.evosuite.graphs.cfg.BytecodeInstruction;
-import org.evosuite.graphs.cfg.RawControlFlowGraph;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -37,7 +33,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Evaluate fitness of a single test case with respect to one Definition-Use
@@ -54,11 +49,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     }
 
     private static final long serialVersionUID = 1L;
-
-    /**
-     * Constant <code>singleFitnessTime=0l</code>.
-     */
-    public static long singleFitnessTime = 0L;
 
     // debugging flags
     private static final boolean DEBUG = Properties.DEFUSE_DEBUG_MODE;
@@ -158,8 +148,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     public double getFitness(TestChromosome individual, ExecutionResult result) {
         preFitnessDebugInfo(result, true);
 
-        long start = System.currentTimeMillis();
-
         DefUseFitnessCalculator calculator = new DefUseFitnessCalculator(this,
                 individual, result);
 
@@ -177,8 +165,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         }
 
         postFitnessDebugInfo(individual, result, fitness);
-
-        singleFitnessTime += System.currentTimeMillis() - start;
 
         updateIndividual(individual, fitness);
 
@@ -198,97 +184,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     public double getFitness(ExecutionResult result) {
         TestChromosome dummy = new TestChromosome();
         return getFitness(dummy, result);
-    }
-
-    public boolean isAlias() {
-        return goalDefinition != null && !goalUse.getVariableName().equals(goalDefinition.getVariableName());
-    }
-
-    /**
-     * Returns the definitions to the goalVaraible coming after the
-     * goalDefinition and before the goalUse in their respective methods.
-     *
-     * @return a {@link java.util.Set} object.
-     */
-    public Set<BytecodeInstruction> getPotentialOverwritingDefinitions() {
-        Set<BytecodeInstruction> instructionsInBetween = getInstructionsInBetweenDU();
-        if (goalDefinition != null) {
-            return DefUseExecutionTraceAnalyzer.getOverwritingDefinitionsIn(goalDefinition,
-                    instructionsInBetween);
-        } else {
-            return DefUseExecutionTraceAnalyzer.getDefinitionsIn(goalVariable,
-                    instructionsInBetween);
-        }
-    }
-
-    /**
-     * Return a set containing all CFGVertices that occur in the complete CFG
-     * after the goalDefinition and before the goalUse.
-     *
-     * <p>It's pretty much the union of getInstructionsAfterGoalDefinition() and
-     * getInstructionsBeforeGoalUse(), except if the DU is in one method and the
-     * goalDefinition comes before the goalUse, then the intersection of the two
-     * sets is returned.
-     *
-     * <p>If the goalDefinition is a Parameter-Definition only the CFGVertices
-     * before the goalUse are considered.
-     *
-     * @return a {@link java.util.Set} object.
-     */
-    public Set<BytecodeInstruction> getInstructionsInBetweenDU() {
-        Set<BytecodeInstruction> previousInstructions = getInstructionsBeforeGoalUse();
-        if (goalDefinition != null) {
-            Set<BytecodeInstruction> laterInstructions = getInstructionsAfterGoalDefinition();
-            if (goalDefinition.getInstructionId() < goalUse.getInstructionId()
-                    && goalDefinition.getMethodName().equals(goalUse.getMethodName())) {
-                // they are in the same method and definition comes before use => intersect sets
-                previousInstructions.retainAll(laterInstructions);
-            } else {
-                // otherwise take the union
-                previousInstructions.addAll(laterInstructions);
-            }
-        }
-        return previousInstructions;
-    }
-
-    /**
-     * Returns a set containing all CFGVertices in the goal definition method
-     * that come after the definition.
-     *
-     * <p>Look at ControlFlowGraph.getLaterInstructionInMethod() for details.
-     *
-     * @return a {@link java.util.Set} object.
-     */
-    public Set<BytecodeInstruction> getInstructionsAfterGoalDefinition() {
-        RawControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                .getRawCFG(goalDefinition.getClassName(), goalDefinition.getMethodName());
-        BytecodeInstruction defVertex = cfg.getInstruction(goalDefinition.getInstructionId());
-        Set<BytecodeInstruction> r = cfg.getLaterInstructionsInMethod(defVertex);
-        //      for (BytecodeInstruction v : r) {
-        //          v.setMethodName(goalDefinition.getMethodName());
-        //          v.setClassName(goalDefinition.getClassName());
-        //      }
-        return r;
-    }
-
-    /**
-     * Returns a set containing all CFGVertices in the goal use method that come
-     * before the goal use.
-     *
-     * <p>Look at ControlFlowGraph.getPreviousInstructionInMethod() for details.
-     *
-     * @return a {@link java.util.Set} object.
-     */
-    public Set<BytecodeInstruction> getInstructionsBeforeGoalUse() {
-        RawControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                .getRawCFG(goalUse.getClassName(), goalUse.getMethodName());
-        BytecodeInstruction useVertex = cfg.getInstruction(goalUse.getInstructionId());
-        Set<BytecodeInstruction> r = cfg.getPreviousInstructionsInMethod(useVertex);
-        //      for (BytecodeInstruction v : r) {
-        //          v.setMethodName(goalUse.getMethodName());
-        //          v.setClassName(goalUse.getClassName());
-        //      }
-        return r;
     }
 
     // debugging methods
@@ -352,15 +247,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
      */
     public String getGoalVariable() {
         return goalVariable;
-    }
-
-    /**
-     * Getter for the field <code>coveringObjectId</code>.
-     *
-     * @return a int.
-     */
-    public int getCoveringObjectId() {
-        return coveringObjectId;
     }
 
     /**

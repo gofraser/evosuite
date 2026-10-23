@@ -54,7 +54,6 @@ public class BranchCoverageFactory extends
      * @return a list of {@link BranchCoverageTestFitness} objects.
      */
     private List<BranchCoverageTestFitness> computeCoverageGoals(boolean limitToCUT) {
-        long start = System.currentTimeMillis();
         List<BranchCoverageTestFitness> goals = new ArrayList<>();
 
         BranchPool branchPool = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
@@ -95,7 +94,6 @@ public class BranchCoverageFactory extends
                 }
             }
         }
-        goalComputationTime = System.currentTimeMillis() - start;
         return goals;
     }
 

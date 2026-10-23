@@ -32,7 +32,6 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
-import org.evosuite.graphs.interprocedural.interestednode.OCGInterestedNodeFilter;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.ExceptionMapGenerator;
@@ -226,8 +225,8 @@ public class WholeClassModeTest {
 		Branch first = firstBranchOf(WholeClassExample.class, "firstHiddenEntry", 1);
 		Branch second = firstBranchOf(WholeClassExample.class, "secondHiddenEntry", 1);
 
-		InterproceduralGraphAnalysis.analyzeBranchOnDemand(first, new OCGInterestedNodeFilter());
-		InterproceduralGraphAnalysis.analyzeBranchOnDemand(second, new OCGInterestedNodeFilter());
+		InterproceduralGraphAnalysis.analyzeBranchOnDemand(first);
+		InterproceduralGraphAnalysis.analyzeBranchOnDemand(second);
 
 		Map<String, Map<Branch, Set<org.evosuite.graphs.interprocedural.var.DepVariable>>> cache =
 				org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()

@@ -72,32 +72,4 @@ public class DefUseFactory {
 
         return new Definition(instruction);
     }
-
-    /**
-     * Convenience method to offer DefUse-Functionality for when
-     * it doesn't matter whether a Definition or Use is returned.
-     *
-     * <p>Returns a Definition instance
-     * given a BytecodeInstruction for which isDefinition() is true.
-     * Otherwise returns a Use instance
-     * given a BytecodeInstruction for which isUse() is true.
-     *
-     * <p>WARNING: when given the wrap for an IINC this method will return a Definition.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.dataflow.DefUse} object.
-     */
-    public static DefUse makeInstance(BytecodeInstruction instruction) {
-        if (!instruction.isDefUse()) {
-            throw new IllegalArgumentException("expect wrap of a defuse to create one");
-        }
-        if (instruction.isDefinition()) {
-            return makeDefinition(instruction);
-        }
-        if (instruction.isUse()) {
-            return makeUse(instruction);
-        }
-
-        throw new IllegalStateException("either isUse() or isDefinition() must return true on a defuse");
-    }
 }

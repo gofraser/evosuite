@@ -9,7 +9,6 @@ import org.evosuite.graphs.cfg.BytecodeAnalyzer;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.ControlDependency;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
-import org.evosuite.graphs.interprocedural.interestednode.IInterestedNodeFilter;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.graphs.interprocedural.var.DepVariableFactory;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
@@ -41,7 +40,7 @@ import java.util.Set;
  * The backward slicer of the object construction graph analysis: one instance per branch. It walks
  * data flow (operand-stack def-use via ASM {@link SourceValue} frames and local/field def-use),
  * control dependencies, and interprocedurally into called methods (depth-bounded), collecting the
- * state-variable leaf nodes selected by the {@link IInterestedNodeFilter}. Calls whose bytecode
+ * state-variable leaf nodes. Calls whose bytecode
  * cannot be analyzed (for example interface and abstract-method calls) are retained as behavioral
  * terminal nodes so their receiver/argument construction paths are not lost. See
  *
@@ -53,20 +52,17 @@ public class InterproceduralGraphAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(InterproceduralGraphAnalyzer.class);
 
     private Map<BytecodeInstruction, DepVariable> insPool = new LinkedHashMap<>();
-    private IInterestedNodeFilter interestedNodeFilter;
     private final long analysisDeadlineNanos;
 
     public Branch branchInProcess;
 
 
-    public InterproceduralGraphAnalyzer(Branch b, IInterestedNodeFilter interestedNodeFilter) {
-        this(b, interestedNodeFilter, Long.MAX_VALUE);
+    public InterproceduralGraphAnalyzer(Branch b) {
+        this(b, Long.MAX_VALUE);
     }
 
-    InterproceduralGraphAnalyzer(Branch b, IInterestedNodeFilter interestedNodeFilter,
-            long analysisDeadlineNanos) {
+    InterproceduralGraphAnalyzer(Branch b, long analysisDeadlineNanos) {
         this.branchInProcess = b;
-        this.interestedNodeFilter = interestedNodeFilter;
         this.analysisDeadlineNanos = analysisDeadlineNanos;
     }
 
@@ -360,7 +356,7 @@ public class InterproceduralGraphAnalyzer {
         }
 
         // handle load/get static, need to put the variable into the return list
-        if (interestedNodeFilter.isInterested(outputVar)) {
+        if (outputVar.isStateVariable()) {
             allLeafDepVars.add(outputVar);
         }
 
