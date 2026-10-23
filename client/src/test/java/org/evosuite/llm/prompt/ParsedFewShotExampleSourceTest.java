@@ -22,7 +22,10 @@ package org.evosuite.llm.prompt;
 import org.evosuite.Properties;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -239,5 +242,41 @@ class ParsedFewShotExampleSourceTest {
         assertEquals(1, second.getParsedTests().size());
         assertTrue(second.getParsedTests().get(0).toCode().contains("phase2"),
                 "Reloaded instance must reflect current property state");
+    }
+
+    // ---- TARGET_CLASS filter ----
+
+    /** A class under test whose binary name differs from its canonical name. */
+    public static class NestedCut {
+        public NestedCut() {
+        }
+    }
+
+    private static TestCase constructNestedCut() throws NoSuchMethodException {
+        DefaultTestCase tc = new DefaultTestCase();
+        tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(NestedCut.class.getConstructor(), NestedCut.class),
+                Collections.<VariableReference>emptyList()));
+        return tc;
+    }
+
+    @Test
+    void targetFilter_keepsTestsForNestedTargetNamedByBinaryName() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(constructNestedCut());
+
+        ParsedFewShotExampleSource.retainTestsReferencingTarget(tests, NestedCut.class.getName());
+
+        assertEquals(1, tests.size());
+    }
+
+    @Test
+    void targetFilter_dropsTestsForOtherTargets() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(constructNestedCut());
+
+        ParsedFewShotExampleSource.retainTestsReferencingTarget(tests, "com.example.Unrelated");
+
+        assertTrue(tests.isEmpty());
     }
 }

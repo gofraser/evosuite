@@ -21,9 +21,7 @@ package org.evosuite.llm.prompt;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.statements.ConstructorStatement;
-import org.evosuite.testcase.statements.MethodStatement;
-import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
 import org.slf4j.Logger;
@@ -172,24 +170,29 @@ public final class ParsedFewShotExampleSource {
         logger.info("ParsedFewShotExampleSource: loaded {} parsed tests from SELECTED_JUNIT",
                 result.size());
 
-        // Filter to tests referencing TARGET_CLASS (mirrors JUnitTestParsedChromosomeFactory)
+        // Filter to tests referencing TARGET_CLASS, as JUnitTestParsedChromosomeFactory does
         String targetClass = Properties.TARGET_CLASS;
         if (targetClass != null && !targetClass.isEmpty()) {
             int beforeFilter = result.size();
-            result.removeIf(tc -> {
-                try {
-                    return !referencesTargetClass(tc, targetClass);
-                } catch (Exception e) {
-                    logger.debug("Error checking target class reference, skipping test: {}",
-                            e.getMessage());
-                    return true; // skip problematic tests safely
-                }
-            });
+            retainTestsReferencingTarget(result, targetClass);
             logger.debug("ParsedFewShotExampleSource: filtered {} → {} tests for TARGET_CLASS={}",
                     beforeFilter, result.size(), targetClass);
         }
 
         return result;
+    }
+
+    /** Drops the tests that neither construct the target class nor call one of its methods. */
+    static void retainTestsReferencingTarget(List<TestCase> tests, String targetClass) {
+        tests.removeIf(tc -> {
+            try {
+                return !JUnitTestParsedChromosomeFactory.referencesTargetClass(tc, targetClass);
+            } catch (Exception e) {
+                logger.debug("Error checking target class reference, skipping test: {}",
+                        e.getMessage());
+                return true; // skip problematic tests safely
+            }
+        });
     }
 
     private static String locateAndReadSource(String relativePath) {
@@ -212,30 +215,5 @@ public final class ParsedFewShotExampleSource {
             }
         }
         return null;
-    }
-
-    /**
-     * Check if a parsed test case references the target class via any
-     * constructor or method call. Mirrors
-     * {@code JUnitTestParsedChromosomeFactory.referencesTargetClass}.
-     */
-    static boolean referencesTargetClass(TestCase tc, String targetClassName) {
-        for (int i = 0; i < tc.size(); i++) {
-            Statement stmt = tc.getStatement(i);
-            if (stmt instanceof ConstructorStatement) {
-                String declClass = ((ConstructorStatement) stmt).getConstructor()
-                        .getDeclaringClass().getCanonicalName();
-                if (targetClassName.equals(declClass)) {
-                    return true;
-                }
-            } else if (stmt instanceof MethodStatement) {
-                String declClass = ((MethodStatement) stmt).getMethod()
-                        .getDeclaringClass().getCanonicalName();
-                if (targetClassName.equals(declClass)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 }

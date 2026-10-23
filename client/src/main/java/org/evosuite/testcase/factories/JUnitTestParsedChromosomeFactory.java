@@ -228,7 +228,7 @@ public class JUnitTestParsedChromosomeFactory implements
      * Check if a parsed test case references the target class via any
      * constructor or method call.
      */
-    private static boolean referencesTargetClass(TestCase tc, String targetClassName) {
+    public static boolean referencesTargetClass(TestCase tc, String targetClassName) {
         for (int i = 0; i < tc.size(); i++) {
             Statement stmt = tc.getStatement(i);
             if (stmt instanceof ConstructorStatement) {
