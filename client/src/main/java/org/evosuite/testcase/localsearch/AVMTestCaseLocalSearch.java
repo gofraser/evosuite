@@ -54,7 +54,7 @@ public class AVMTestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
         TestCase test = individual.getTestCase();
 
         // We count down to make the code work when lines are
-        // added during the search (see NullReferenceSearch).
+        // added during the search (local search on a statement may insert statements).
 
         for (int i = lastPosition; i >= 0; i--) {
             if (LocalSearchBudget.getInstance().isFinished()) {

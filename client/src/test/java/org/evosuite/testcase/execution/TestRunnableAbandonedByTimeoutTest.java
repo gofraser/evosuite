@@ -46,10 +46,6 @@ public class TestRunnableAbandonedByTimeoutTest {
         final AtomicBoolean afterCalled = new AtomicBoolean();
 
         @Override
-        public void output(int position, String output) {
-        }
-
-        @Override
         public void beforeStatement(Statement statement, Scope scope) {
             inObserver.countDown();
             try {

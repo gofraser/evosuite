@@ -270,7 +270,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     private Throwable explicitException = null;
 
     private Map<Integer, Double> falseDistances = Collections.synchronizedMap(new HashMap<>());
-    private final Map<Integer, Double> falseDistancesSum = Collections.synchronizedMap(new HashMap<>());
     // finished_calls;
     private List<MethodCall> finishedCalls = Collections.synchronizedList(new ArrayList<>());
 
@@ -315,7 +314,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     private Map<Integer, Double> trueDistances = Collections.synchronizedMap(new HashMap<>());
 
-    private final Map<Integer, Double> trueDistancesSum = Collections.synchronizedMap(new HashMap<>());
 
     /**
      * Index i holds the most recent evaluation of branch id i, or null if that branch was
@@ -573,18 +571,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             falseDistances.put(branch, Math.min(falseDistances.get(branch), falseDistance));
         }
 
-        if (!trueDistancesSum.containsKey(branch)) {
-            trueDistancesSum.put(branch, trueDistance);
-        } else {
-            trueDistancesSum.put(branch, trueDistancesSum.get(branch) + trueDistance);
-        }
-
-        if (!falseDistancesSum.containsKey(branch)) {
-            falseDistancesSum.put(branch, falseDistance);
-        } else {
-            falseDistancesSum.put(branch, falseDistancesSum.get(branch) + falseDistance);
-        }
-
         if (isContextTracked()) {
             updateBranchContextMaps(branch, trueDistance, falseDistance);
         }
@@ -743,8 +729,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             classesWithStaticWrites = new HashSet<>();
         }
 
-        trueDistancesSum.clear();
-        falseDistancesSum.clear();
         coveredMethodContext.clear();
         explicitException = null;
     }
@@ -817,8 +801,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             copy.coveredMethodContext.put(entry.getKey(), new HashMap<>(entry.getValue()));
         }
 
-        copy.trueDistancesSum.putAll(trueDistancesSum);
-        copy.falseDistancesSum.putAll(falseDistancesSum);
 
         copy.explicitException = explicitException;
 
@@ -1138,17 +1120,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return this.getCoveredLines(Properties.TARGET_CLASS);
     }
 
-    @Override
-    public Set<Integer> getAllCoveredLines() {
-        Set<Integer> coveredLines = new HashSet<>();
-        for (Entry<String, Map<String, Map<Integer, Integer>>> entry : coverage.entrySet()) {
-            for (Map<Integer, Integer> methodentry : entry.getValue().values()) {
-                coveredLines.addAll(methodentry.keySet());
-            }
-        }
-        return coveredLines;
-    }
-
     /*
      * (non-Javadoc)
      *
@@ -1201,16 +1172,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         }
 
         return covered;
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getCoveredDefinitions()
-     */
-    @Override
-    public Set<Integer> getCoveredDefinitions() {
-        return coveredDefs.keySet();
     }
 
     /*
@@ -1436,17 +1397,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     @Override
     public Set<Integer> getTouchedMutants() {
         return touchedMutants;
-    }
-
-    @Override
-    public Set<Integer> getInfectedMutants() {
-        Set<Integer> infectedMutants = new LinkedHashSet<>();
-        for (Entry<Integer, Double> entry : mutantDistances.entrySet()) {
-            if (entry.getValue() == 0.0) {
-                infectedMutants.add(entry.getKey());
-            }
-        }
-        return infectedMutants;
     }
 
     /**
@@ -1854,99 +1804,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * {@inheritDoc}
-     *
-     * <p>Returns a String containing the information in passedDefs and passedUses.
-     *
-     * <p>Used for Definition-Use-Coverage-debugging.
-     */
-    @Override
-    public String toDefUseTraceInformation() {
-        StringBuffer r = new StringBuffer();
-        for (String var : passedDefinitions.keySet()) {
-            r.append("  for variable: " + var + ": ");
-            for (Integer objectId : passedDefinitions.get(var).keySet()) {
-                if (passedDefinitions.get(var).keySet().size() > 1) {
-                    r.append("\n\ton object " + objectId + ": ");
-                }
-                r.append(toDefUseTraceInformation(var, objectId));
-            }
-            r.append("\n  ");
-        }
-        return r.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Returns a String containing the information in passedDefs and passedUses
-     * filtered for a specific variable.
-     *
-     * <p>Used for Definition-Use-Coverage-debugging.
-     */
-    @Override
-    public String toDefUseTraceInformation(String targetVar) {
-        StringBuffer r = new StringBuffer();
-        for (Integer objectId : passedDefinitions.get(targetVar).keySet()) {
-            if (passedDefinitions.get(targetVar).keySet().size() > 1) {
-                r.append("\n\ton object " + objectId + ": ");
-            }
-            r.append(toDefUseTraceInformation(targetVar, objectId));
-        }
-        r.append("\n  ");
-
-        return r.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Returns a String containing the information in passedDefs and passedUses
-     * for the given variable.
-     *
-     * <p>Used for Definition-Use-Coverage-debugging.
-     */
-    @Override
-    public String toDefUseTraceInformation(String var, int objectId) {
-        if (passedDefinitions.get(var) == null) {
-            return "";
-        }
-        if ((objectId == -1) && (passedDefinitions.get(var).keySet().size() == 1)) {
-            objectId = (Integer) passedDefinitions.get(var).keySet().toArray()[0];
-        }
-        if (passedDefinitions.get(var).get(objectId) == null) {
-            return "";
-        }
-        // gather all DUs
-        String[] duTrace = new String[this.duCounter];
-        for (int i = 0; i < this.duCounter; i++) {
-            duTrace[i] = "";
-        }
-        for (Integer duPos : passedDefinitions.get(var).get(objectId).keySet()) {
-            duTrace[duPos] = "(" + duPos + ":Def " + passedDefinitions.get(var).get(objectId).get(duPos) + ")";
-        }
-        if ((passedUses.get(var) != null) && (passedUses.get(var).get(objectId) != null)) {
-            for (Integer duPos : passedUses.get(var).get(objectId).keySet()) {
-                duTrace[duPos] = "(" + duPos + ":Use " + passedUses.get(var).get(objectId).get(duPos) + ")";
-            }
-        }
-        // build up the String
-        StringBuffer r = new StringBuffer();
-        for (String s : duTrace) {
-            r.append(s);
-            if (s.length() > 0) {
-                r.append(", ");
-            }
-        }
-        // remove last ", "
-        String traceString = r.toString();
-        if (traceString.length() > 2) {
-            return traceString.substring(0, traceString.length() - 2);
-        }
-        return traceString;
-    }
-
-    /**
-     * {@inheritDoc}
      */
     @Override
     public String toString() {
@@ -2061,22 +1918,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      * {@inheritDoc}
      */
     @Override
-    public Map<Integer, Double> getFalseDistancesSum() {
-        return falseDistancesSum;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Map<Integer, Double> getTrueDistancesSum() {
-        return trueDistancesSum;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getPassedUses() {
         return passedUses;
     }
@@ -2097,22 +1938,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             }
         }
         return defs;
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getPassedUseIDs()
-     */
-    @Override
-    public Set<Integer> getPassedUseIDs() {
-        Set<Integer> uses = new HashSet<>();
-        for (HashMap<Integer, HashMap<Integer, Integer>> classUses : passedUses.values()) {
-            for (HashMap<Integer, Integer> currentUses : classUses.values()) {
-                uses.addAll(currentUses.values());
-            }
-        }
-        return uses;
     }
 
     /*

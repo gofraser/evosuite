@@ -145,15 +145,6 @@ public class ConstantInliner extends ExecutionObserver {
      * java.lang.String)
      */
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void output(int position, String output) {
-        // TODO Auto-generated method stub
-
-    }
-
     /*
      * (non-Javadoc)
      *

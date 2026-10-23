@@ -129,18 +129,6 @@ public class ContractChecker extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#output(int, java.lang.String)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void output(int position, String output) {
-        // Not used
-    }
-
-    /* (non-Javadoc)
      * @see org.evosuite.testcase.ExecutionObserver#statement(int, org.evosuite.testcase.Scope,
      * org.evosuite.testcase.VariableReference)
      */

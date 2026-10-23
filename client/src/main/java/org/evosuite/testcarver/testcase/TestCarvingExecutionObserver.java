@@ -45,14 +45,6 @@ public final class TestCarvingExecutionObserver extends ExecutionObserver {
     }
 
     /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void output(int position, String output) {
-        // do nothing
-    }
-
-    /**
      * own comment..
      */
     @Override

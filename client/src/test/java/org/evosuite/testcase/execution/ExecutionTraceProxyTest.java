@@ -27,15 +27,15 @@ import java.util.Map;
 public class ExecutionTraceProxyTest {
 
     @Test
-    public void testGetFalseDistancesSum() {
+    public void testGetDistances() {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
-        impl.getTrueDistancesSum().put(1, 10.0);
-        impl.getFalseDistancesSum().put(1, 20.0);
+        impl.getTrueDistances().put(1, 10.0);
+        impl.getFalseDistances().put(1, 20.0);
 
         ExecutionTraceProxy proxy = new ExecutionTraceProxy(impl);
 
-        Map<Integer, Double> falseDistances = proxy.getFalseDistancesSum();
-        Map<Integer, Double> trueDistances = proxy.getTrueDistancesSum();
+        Map<Integer, Double> falseDistances = proxy.getFalseDistances();
+        Map<Integer, Double> trueDistances = proxy.getTrueDistances();
 
         Assertions.assertEquals(20.0, falseDistances.get(1), 0.001, "Should return false distances");
         Assertions.assertEquals(10.0, trueDistances.get(1), 0.001, "Should return true distances");
@@ -43,7 +43,7 @@ public class ExecutionTraceProxyTest {
     @Test
     public void testClearSharedProxy() {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
-        impl.getTrueDistancesSum().put(1, 10.0);
+        impl.getTrueDistances().put(1, 10.0);
         
         ExecutionTraceProxy proxy1 = new ExecutionTraceProxy(impl);
         ExecutionTraceProxy proxy2 = (ExecutionTraceProxy) proxy1.lazyClone();
@@ -54,14 +54,14 @@ public class ExecutionTraceProxyTest {
         proxy1.clear();
         
         Assertions.assertEquals(1, impl.getProxyCount());
-        Assertions.assertEquals(10.0, impl.getTrueDistancesSum().get(1), 0.001);
-        Assertions.assertTrue(proxy1.getTrueDistancesSum().isEmpty());
+        Assertions.assertEquals(10.0, impl.getTrueDistances().get(1), 0.001);
+        Assertions.assertTrue(proxy1.getTrueDistances().isEmpty());
     }
 
     @Test
     public void testClearSoleOwnerProxy() {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
-        impl.getTrueDistancesSum().put(1, 10.0);
+        impl.getTrueDistances().put(1, 10.0);
         
         ExecutionTraceProxy proxy1 = new ExecutionTraceProxy(impl);
         
@@ -71,6 +71,6 @@ public class ExecutionTraceProxyTest {
         proxy1.clear();
         
         Assertions.assertEquals(1, impl.getProxyCount());
-        Assertions.assertTrue(impl.getTrueDistancesSum().isEmpty());
+        Assertions.assertTrue(impl.getTrueDistances().isEmpty());
     }
 }

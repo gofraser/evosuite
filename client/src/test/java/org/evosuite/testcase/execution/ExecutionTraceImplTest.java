@@ -35,8 +35,8 @@ public class ExecutionTraceImplTest {
     @Test
     public void testCloneCopiesAllFields() {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
-        impl.getTrueDistancesSum().put(1, 10.0);
-        impl.getFalseDistancesSum().put(2, 20.0);
+        impl.getTrueDistances().put(1, 10.0);
+        impl.getFalseDistances().put(2, 20.0);
         impl.setExplicitException(new RuntimeException("Test Exception"));
         
         CallContext ctx = new CallContext(new StackTraceElement[0]);
@@ -46,15 +46,15 @@ public class ExecutionTraceImplTest {
 
         ExecutionTraceImpl clone = impl.clone();
 
-        Assertions.assertEquals(10.0, clone.getTrueDistancesSum().get(1), 0.001);
-        Assertions.assertEquals(20.0, clone.getFalseDistancesSum().get(2), 0.001);
+        Assertions.assertEquals(10.0, clone.getTrueDistances().get(1), 0.001);
+        Assertions.assertEquals(20.0, clone.getFalseDistances().get(2), 0.001);
         Assertions.assertNotNull(clone.getExplicitException());
         Assertions.assertEquals("Test Exception", clone.getExplicitException().getMessage());
         Assertions.assertEquals(5, clone.getMethodContextCount().get("methodCall").get(ctx).intValue());
         
         // Make sure it's a deep copy, not referring to the same map instances
-        clone.getTrueDistancesSum().put(1, 15.0);
-        Assertions.assertEquals(10.0, impl.getTrueDistancesSum().get(1), 0.001);
+        clone.getTrueDistances().put(1, 15.0);
+        Assertions.assertEquals(10.0, impl.getTrueDistances().get(1), 0.001);
         
         clone.getMethodContextCount().get("methodCall").put(ctx, 10);
         Assertions.assertEquals(5, impl.getMethodContextCount().get("methodCall").get(ctx).intValue());
@@ -63,8 +63,8 @@ public class ExecutionTraceImplTest {
     @Test
     public void testClearResetsAllFields() {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
-        impl.getTrueDistancesSum().put(1, 10.0);
-        impl.getFalseDistancesSum().put(2, 20.0);
+        impl.getTrueDistances().put(1, 10.0);
+        impl.getFalseDistances().put(2, 20.0);
         impl.setExplicitException(new RuntimeException("Test Exception"));
         
         CallContext ctx = new CallContext(new StackTraceElement[0]);
@@ -74,8 +74,8 @@ public class ExecutionTraceImplTest {
 
         impl.clear();
 
-        Assertions.assertTrue(impl.getTrueDistancesSum().isEmpty());
-        Assertions.assertTrue(impl.getFalseDistancesSum().isEmpty());
+        Assertions.assertTrue(impl.getTrueDistances().isEmpty());
+        Assertions.assertTrue(impl.getFalseDistances().isEmpty());
         Assertions.assertNull(impl.getExplicitException());
         Assertions.assertTrue(impl.getMethodContextCount().isEmpty());
     }
@@ -97,7 +97,7 @@ public class ExecutionTraceImplTest {
 
             Assertions.assertTrue(compact.getMethodCalls().isEmpty());
             Assertions.assertTrue(compact.getMethodCalls("Foo", "bar()V").isEmpty());
-            Assertions.assertTrue(compact.getAllCoveredLines().contains(7));
+            Assertions.assertTrue(compact.getCoveredLines("Foo").contains(7));
             Assertions.assertTrue(compact.getCoveredMethods().contains("Foo.bar()V"));
             Assertions.assertEquals(0.0, compact.getTrueDistances().get(3), 0.0);
             Assertions.assertEquals(4.0, compact.getFalseDistances().get(3), 0.0);
@@ -107,7 +107,7 @@ public class ExecutionTraceImplTest {
 
             ExecutionTrace viaProxy = new ExecutionTraceProxy(impl).withoutMethodCalls();
             Assertions.assertTrue(viaProxy.getMethodCalls().isEmpty());
-            Assertions.assertTrue(viaProxy.getAllCoveredLines().contains(7));
+            Assertions.assertTrue(viaProxy.getCoveredLines("Foo").contains(7));
         } finally {
             if (traceCallsBefore) {
                 ExecutionTraceImpl.enableTraceCalls();

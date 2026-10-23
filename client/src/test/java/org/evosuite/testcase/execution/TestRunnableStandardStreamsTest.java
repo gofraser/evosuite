@@ -114,10 +114,6 @@ public class TestRunnableStandardStreamsTest {
         volatile PrintStream replaceOutWith;
 
         @Override
-        public void output(int position, String output) {
-        }
-
-        @Override
         public void beforeStatement(Statement statement, Scope scope) {
             // the code under test replacing System.out while the run is in flight
             if (replaceOutWith != null) {

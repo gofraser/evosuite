@@ -46,14 +46,6 @@ public class OutputObserver extends ExecutionObserver {
     private static final Logger logger = LoggerFactory.getLogger(OutputObserver.class);
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#output(int, java.lang.String)
-     */
-    @Override
-    public void output(int position, String output) {
-        // do nothing
-    }
-
-    /* (non-Javadoc)
      * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
      * org.evosuite.testcase.Scope)
      */

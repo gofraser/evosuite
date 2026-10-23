@@ -55,19 +55,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         return ExecutionTracer.isThreadNeqCurrentThread();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#output(int, java.lang.String)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public synchronized void output(int position, String output) {
-        // Default behavior is to ignore console output
-
-    }
-
     /**
      * <p>
      * visitDependencies.

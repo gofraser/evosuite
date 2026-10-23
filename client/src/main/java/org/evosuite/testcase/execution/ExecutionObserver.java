@@ -76,14 +76,6 @@ public abstract class ExecutionObserver {
     }
 
     /**
-     * This is called with the console output of each statement.
-     *
-     * @param position a int.
-     * @param output   a {@link java.lang.String} object.
-     */
-    public abstract void output(int position, String output);
-
-    /**
      * Called immediately before a statement is executed.
      *
      * @param statement the statement.

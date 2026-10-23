@@ -114,15 +114,6 @@ public class SymbolicObserver extends ExecutionObserver {
         this.env = env;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void output(int position, String output) {
-        // TODO Auto-generated method stub
-
-    }
-
     private void before(ConstructorStatement stmt, Scope scope) {
         String className = stmt.getConstructor().getDeclaringClass().getName();
         VM.NEW(className);

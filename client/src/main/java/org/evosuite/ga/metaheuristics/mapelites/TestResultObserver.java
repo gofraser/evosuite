@@ -75,11 +75,6 @@ public class TestResultObserver extends ExecutionObserver implements Serializabl
     }
 
     @Override
-    public void output(int position, String output) {
-        // Do nothing
-    }
-
-    @Override
     public void beforeStatement(Statement statement, Scope scope) {
         // Do nothing
 

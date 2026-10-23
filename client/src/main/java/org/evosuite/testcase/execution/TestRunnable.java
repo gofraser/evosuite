@@ -45,6 +45,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,7 +57,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * @author Gordon Fraser
  */
-public class TestRunnable implements InterfaceTestRunnable {
+public class TestRunnable implements Callable<ExecutionResult> {
 
     private static final Logger logger = LoggerFactory.getLogger(TestRunnable.class);
 
@@ -649,17 +650,14 @@ public class TestRunnable implements InterfaceTestRunnable {
     /**
      * {@inheritDoc}
      */
-    @Override
     public Map<Integer, Throwable> getExceptionsThrown() {
         return new HashMap<>(exceptionsThrown);
     }
 
-    @Override
     public int getCurrentStatementIndex() {
         return currentStatementIndex;
     }
 
-    @Override
     public String getCurrentStatementCode() {
         Statement s = currentStatement;
         if (s == null) {
@@ -680,7 +678,6 @@ public class TestRunnable implements InterfaceTestRunnable {
     /**
      * {@inheritDoc}
      */
-    @Override
     public boolean isRunFinished() {
         return runFinished;
     }

@@ -129,13 +129,6 @@ public interface ExecutionTrace {
     Set<Integer> getCoveredPredicates();
 
     /**
-     * Retrieve set of definitions that were executed.
-     *
-     * @return a {@link java.util.Set} object.
-     */
-    Set<Integer> getCoveredDefinitions();
-
-    /**
      * Retrieve execution counts for branches.
      *
      * @return a {@link java.util.Map} object.
@@ -246,13 +239,6 @@ public interface ExecutionTrace {
      * @return a {@link java.util.Set} object.
      */
     Set<Integer> getCoveredLines();
-
-    /**
-     * Retrieve the set of all line numbers covered.
-     *
-     * @return .
-     */
-    Set<Integer> getAllCoveredLines();
 
     /**
      * Retrieve detailed line coverage count.
@@ -384,13 +370,6 @@ public interface ExecutionTrace {
     Set<Integer> getTouchedMutants();
 
     /**
-     * Retrieve IDs of all executed mutants with an infection distance == 0.0.
-     *
-     * @return a {@link java.util.Set} object.
-     */
-    Set<Integer> getInfectedMutants();
-
-    /**
      * Reset to 0.
      */
     void clear();
@@ -506,38 +485,6 @@ public interface ExecutionTrace {
     void returnValue(String className, String methodName, int value);
 
     /**
-     * Returns a String containing the information in passedDefs and passedUses.
-     *
-     * <p>Used for Definition-Use-Coverage-debugging.</p>
-     *
-     * @return a {@link java.lang.String} object.
-     */
-    String toDefUseTraceInformation();
-
-    /**
-     * Returns a String containing the information in passedDefs and passedUses
-     * filtered for a specific variable.
-     *
-     * <p>Used for Definition-Use-Coverage-debugging.</p>
-     *
-     * @param targetVar a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
-     */
-    String toDefUseTraceInformation(String targetVar);
-
-    /**
-     * Returns a String containing the information in passedDefs and passedUses
-     * for the given variable.
-     *
-     * <p>Used for Definition-Use-Coverage-debugging.</p>
-     *
-     * @param var      a {@link java.lang.String} object.
-     * @param objectId a int.
-     * @return a {@link java.lang.String} object.
-     */
-    String toDefUseTraceInformation(String var, int objectId);
-
-    /**
      * Adds Definition-Use-Coverage trace information for the given use.
      *
      * <p>Registers the given caller-Object Traces the occurrence of the given use
@@ -583,32 +530,11 @@ public interface ExecutionTrace {
     List<BranchEval> getBranchesTrace();
 
     /**
-     * <p>getFalseDistancesSum.</p>
-     *
-     * @return a {@link java.util.Map} object.
-     */
-    Map<Integer, Double> getFalseDistancesSum();
-
-    /**
-     * <p>getTrueDistancesSum.</p>
-     *
-     * @return a {@link java.util.Map} object.
-     */
-    Map<Integer, Double> getTrueDistancesSum();
-
-    /**
      * <p>getPassedUses.</p>
      *
      * @return a {@link java.util.Map} object.
      */
     Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getPassedUses();
-
-    /**
-     * Retrieve the set of all uses by id.
-     *
-     * @return .
-     */
-    Set<Integer> getPassedUseIDs();
 
     /**
      * Retrieve the set of all definitions by id.
