@@ -51,11 +51,6 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
         this.maxSeconds = that.maxSeconds;
     }
 
-    @Override
-    public MaxTimeStoppingCondition<T> clone() {
-        return new MaxTimeStoppingCondition<>(this);
-    }
-
     /**
      * {@inheritDoc}
      */

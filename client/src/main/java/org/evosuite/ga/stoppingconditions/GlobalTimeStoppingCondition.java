@@ -58,11 +58,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         // empty copy constructor
     }
 
-    @Override
-    public GlobalTimeStoppingCondition<T> clone() {
-        return new GlobalTimeStoppingCondition<>(this);
-    }
-
     /**
      * {@inheritDoc}
      */

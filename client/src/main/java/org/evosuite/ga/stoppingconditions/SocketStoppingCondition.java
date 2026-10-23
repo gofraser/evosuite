@@ -67,18 +67,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
     }
 
     /**
-     * Always throws an {@code UnsupportedOperationException} when called. Singletons cannot be
-     * cloned.
-     *
-     * @return never returns, always fails
-     * @throws UnsupportedOperationException always
-     */
-    @Override
-    public StoppingCondition<T> clone() throws UnsupportedOperationException {
-        throw new UnsupportedOperationException("cannot clone singleton");
-    }
-
-    /**
      * <p>accept.</p>
      */
     public void accept() {

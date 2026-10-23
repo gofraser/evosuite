@@ -55,11 +55,6 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
         this.currentEvaluation = that.currentEvaluation;
     }
 
-    @Override
-    public MaxFitnessEvaluationsStoppingCondition<T> clone() {
-        return new MaxFitnessEvaluationsStoppingCondition<>(this);
-    }
-
     /**
      * {@inheritDoc}
      *

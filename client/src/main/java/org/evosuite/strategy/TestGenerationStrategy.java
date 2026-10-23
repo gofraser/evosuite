@@ -31,7 +31,6 @@ import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingConditionFactory;
-import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.rmi.ClientServices;
@@ -61,12 +60,6 @@ public abstract class TestGenerationStrategy {
      * There should only be one progress monitor.
      */
     private final ProgressMonitor<TestSuiteChromosome> progressMonitor = new ProgressMonitor<>();
-
-    /**
-     * Stopping condition for zero fitness (coverage goals satisfied).
-     */
-    private final ZeroFitnessStoppingCondition<TestSuiteChromosome> zeroFitness =
-            new ZeroFitnessStoppingCondition<>();
 
     /**
      * Global timeout stopping condition.
@@ -182,15 +175,6 @@ public abstract class TestGenerationStrategy {
      */
     protected ProgressMonitor<TestSuiteChromosome> getProgressMonitor() {
         return progressMonitor;
-    }
-
-    /**
-     * Get the zero fitness stopping condition.
-     *
-     * @return the zero fitness stopping condition
-     */
-    protected ZeroFitnessStoppingCondition<TestSuiteChromosome> getZeroFitness() {
-        return zeroFitness;
     }
 
     /**

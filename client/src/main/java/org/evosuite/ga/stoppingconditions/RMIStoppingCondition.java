@@ -57,18 +57,6 @@ public class RMIStoppingCondition<T extends Chromosome<T>> implements StoppingCo
     }
 
     /**
-     * Always throws an {@code UnsupportedOperationException} when called. Singletons cannot be
-     * cloned.
-     *
-     * @return never returns, always fails
-     * @throws UnsupportedOperationException always
-     */
-    @Override
-    public StoppingCondition<T> clone() throws UnsupportedOperationException {
-        throw new UnsupportedOperationException("cannot clone singleton");
-    }
-
-    /**
      * Stops the search.
      */
     public void stop() {

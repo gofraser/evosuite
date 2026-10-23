@@ -45,11 +45,6 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
         // empty copy constructor
     }
 
-    @Override
-    public ShutdownTestWriter<T> clone() {
-        return new ShutdownTestWriter<>(this);
-    }
-
     /**
      * Handles the interrupt signal (e.g., Ctrl+C).
      * Called via reflection through SignalUtils.

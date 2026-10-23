@@ -62,19 +62,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
     }
 
     /**
-     * Copy constructor.
-     *
-     * @param that the ProgressMonitor to copy from.
-     */
-    public ProgressMonitor(ProgressMonitor<T> that) {
-        this.currentCoverage = that.currentCoverage;
-        this.lastCoverage = that.lastCoverage;
-        this.lastProgress = that.lastProgress;
-        this.iteration = that.iteration;
-        this.state = that.state;
-    }
-
-    /**
      * Compute the current search progress as a percentage (0-100) by querying
      * the algorithm's stopping conditions directly. This avoids holding a
      * potentially stale/disconnected copy of a stopping condition, which is

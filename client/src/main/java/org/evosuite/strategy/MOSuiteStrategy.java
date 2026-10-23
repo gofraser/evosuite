@@ -127,29 +127,18 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 
         algorithm.resetStoppingConditions();
 
-        TestSuiteChromosome testSuite;
+        // Perform search
+        LoggingUtils.getEvoLogger().info("* {}Using seed {}",
+                ClientProcess.getPrettyPrintIdentifier(), Randomness.getSeed());
+        LoggingUtils.getEvoLogger().info("* {}Starting evolution", ClientProcess.getPrettyPrintIdentifier());
+        ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
 
-        if (!(Properties.STOP_ZERO && fitnessFunctions.isEmpty())
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
-            // Perform search
-            LoggingUtils.getEvoLogger().info("* {}Using seed {}",
-                    ClientProcess.getPrettyPrintIdentifier(), Randomness.getSeed());
-            LoggingUtils.getEvoLogger().info("* {}Starting evolution", ClientProcess.getPrettyPrintIdentifier());
-            ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
+        algorithm.generateSolution();
 
-            algorithm.generateSolution();
-
-            testSuite = algorithm.getBestIndividual();
-            if (testSuite.getTestChromosomes().isEmpty()) {
-                LoggingUtils.getEvoLogger().warn("{}Could not generate any test case",
-                        ClientProcess.getPrettyPrintIdentifier());
-            }
-        } else {
-            getZeroFitness().setFinished();
-            testSuite = new TestSuiteChromosome();
-            for (FitnessFunction<TestSuiteChromosome> ff : testSuite.getFitnessValues().keySet()) {
-                testSuite.setCoverage(ff, 1.0);
-            }
+        TestSuiteChromosome testSuite = algorithm.getBestIndividual();
+        if (testSuite.getTestChromosomes().isEmpty()) {
+            LoggingUtils.getEvoLogger().warn("{}Could not generate any test case",
+                    ClientProcess.getPrettyPrintIdentifier());
         }
 
         long endTime = System.currentTimeMillis() / 1000;

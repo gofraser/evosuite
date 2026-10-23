@@ -119,7 +119,6 @@ public class NoveltyStrategy extends TestGenerationStrategy {
             algorithm.generateSolution();
             testSuite = Archive.getArchiveInstance().mergeArchiveAndSolution(new TestSuiteChromosome());
         } else {
-            getZeroFitness().setFinished();
             testSuite = new TestSuiteChromosome();
             for (FitnessFunction<TestSuiteChromosome> ff : fitnessFunctions) {
                 testSuite.setCoverage(ff, 1.0);

@@ -198,8 +198,6 @@ public class DSEStrategy extends TestGenerationStrategy {
         List<TestSuiteFitnessFunction> fitnessFunctions = FitnessFunctionsUtils
                 .getFitnessFunctions(algorithm.getCriteria());
 
-        getZeroFitness().setFinished();
-
         for (FitnessFunction<TestSuiteChromosome> ff : fitnessFunctions) {
             testSuite.setCoverage(ff, 1.0);
         }

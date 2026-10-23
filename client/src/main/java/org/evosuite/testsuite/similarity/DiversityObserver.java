@@ -45,10 +45,6 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
         // empty default constructor
     }
 
-    public DiversityObserver(DiversityObserver that) {
-        // empty copy constructor
-    }
-
     /**
      * Computes population diversity as {@code 1 - mean(pairwise_similarity)}.
      * Result is clamped to [0, 1] where 0 = maximally similar, 1 = maximally diverse.

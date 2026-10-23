@@ -44,11 +44,6 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
         this.lastFitness = that.lastFitness;
     }
 
-    @Override
-    public ZeroFitnessStoppingCondition<T> clone() {
-        return new ZeroFitnessStoppingCondition<>(this);
-    }
-
     /**
      * {@inheritDoc}
      *
@@ -114,13 +109,6 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
     @Override
     public long getCurrentValue() {
         return (long) (lastFitness + 0.5);
-    }
-
-    /**
-     * <p>setFinished.</p>
-     */
-    public void setFinished() {
-        lastFitness = 0.0;
     }
 
     /**

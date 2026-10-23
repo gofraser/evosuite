@@ -73,11 +73,6 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         this.lastGeneration = that.lastGeneration;
     }
 
-    @Override
-    public TimeDeltaStoppingCondition<T> clone() {
-        return new TimeDeltaStoppingCondition<>(this);
-    }
-
     /**
      * {@inheritDoc}
      */

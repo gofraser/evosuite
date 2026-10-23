@@ -57,11 +57,6 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
         // empty copy constructor
     }
 
-    @Override
-    public MaxStatementsStoppingCondition<T> clone() {
-        return new MaxStatementsStoppingCondition<>(this);
-    }
-
     /**
      * Add a given number of executed statements.
      *

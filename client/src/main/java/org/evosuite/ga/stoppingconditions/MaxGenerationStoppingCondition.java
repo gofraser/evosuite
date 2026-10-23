@@ -52,11 +52,6 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
         this.currentIteration = that.currentIteration;
     }
 
-    @Override
-    public MaxGenerationStoppingCondition<T> clone() {
-        return new MaxGenerationStoppingCondition<>(this);
-    }
-
     /**
      * <p>setMaxIterations.</p>
      *

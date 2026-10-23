@@ -23,7 +23,6 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.coverage.TestFitnessFactory;
-import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.result.TestGenerationResultBuilder;
@@ -101,24 +100,15 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
 
             return new TestSuiteChromosome();
         }
-        TestSuiteChromosome testSuite;
-        if (!(goals.isEmpty())
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
-            // Perform search
-            LoggingUtils.getEvoLogger().info("* Using seed {}", Randomness.getSeed());
-            LoggingUtils.getEvoLogger().info("* Starting evolution");
-            ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
 
-            algorithm.generateSolution();
-            // TODO: Refactor MOO!
-            testSuite = algorithm.getBestIndividual();
-        } else {
-            getZeroFitness().setFinished();
-            testSuite = new TestSuiteChromosome();
-            for (FitnessFunction<TestSuiteChromosome> ff : fitnessFunctions) {
-                testSuite.setCoverage(ff, 1.0);
-            }
-        }
+        // Perform search
+        LoggingUtils.getEvoLogger().info("* Using seed {}", Randomness.getSeed());
+        LoggingUtils.getEvoLogger().info("* Starting evolution");
+        ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
+
+        algorithm.generateSolution();
+        // TODO: Refactor MOO!
+        TestSuiteChromosome testSuite = algorithm.getBestIndividual();
 
         long endTime = System.currentTimeMillis() / 1000;
 
