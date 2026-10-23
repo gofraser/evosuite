@@ -27,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.tree.MethodNode;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -91,5 +92,34 @@ class MethodUtilTest {
         assertNotNull(first);
         assertNotNull(second);
         assertNotSame(first, second);
+    }
+
+    static boolean subclassInitialised;
+
+    static class DeclaresMethod {
+        void inherited() {
+        }
+    }
+
+    static class InheritsMethod extends DeclaresMethod {
+        static {
+            subclassInitialised = true;
+        }
+    }
+
+    /**
+     * Resolving a method through the superclass chain must load the subclass through the SUT class
+     * loader without initialising it; initialising it would run SUT code outside the instrumentation.
+     */
+    @Test
+    void superclassLookupDoesNotInitialiseTheSubclass() {
+        InstrumentingClassLoader loader =
+                TestGenerationContext.getInstance().getClassLoaderForSUT();
+        subclassInitialised = false;
+
+        MethodNode node = MethodUtil.getMethodNode(loader, InheritsMethod.class.getName(), "inherited()V");
+
+        assertNotNull(node);
+        assertFalse(subclassInitialised);
     }
 }
