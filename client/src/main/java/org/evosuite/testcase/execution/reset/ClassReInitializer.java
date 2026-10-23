@@ -25,7 +25,9 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
+import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.FieldStatement;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
@@ -100,7 +102,8 @@ public class ClassReInitializer {
                     FieldReference fieldReference = (FieldReference) statement.getReturnValue();
                     if (fieldReference.getField().isStatic()) {
                         moreClassesForStaticReset.add(fieldReference.getField().getOwnerClass().getClassName());
-                    } else if (Properties.DMON_ENABLED) {
+                    } else if (Properties.DMON_ENABLED
+                            && assignsDmonPromotedMock(tc, ((AssignmentStatement) statement).getValue())) {
                         /*
                          * DMoN promotions can assign into singleton instance fields
                          * (e.g., Configuration.getInstance().service = mock).
@@ -143,7 +146,7 @@ public class ClassReInitializer {
                 PrivateFieldStatement fieldStatement = (PrivateFieldStatement) statement;
                 if (fieldStatement.isStaticField()) {
                     moreClassesForStaticReset.add(fieldStatement.getOwnerClassName());
-                } else if (Properties.DMON_ENABLED) {
+                } else if (Properties.DMON_ENABLED && assignsDmonPromotedMock(tc, lastParameter(fieldStatement))) {
                     /*
                      * DMoN promotions may write private instance fields on singleton
                      * objects (eg, Configuration.getInstance().service = mock). Even
@@ -156,6 +159,20 @@ public class ClassReInitializer {
             }
         }
         return moreClassesForStaticReset;
+    }
+
+    private static VariableReference lastParameter(MethodStatement statement) {
+        List<VariableReference> parameters = statement.getParameterReferences();
+        return parameters.isEmpty() ? null : parameters.get(parameters.size() - 1);
+    }
+
+    private static boolean assignsDmonPromotedMock(TestCase tc, VariableReference value) {
+        if (value == null || value.getStPosition() < 0 || value.getStPosition() >= tc.size()) {
+            return false;
+        }
+        Statement definition = tc.getStatement(value.getStPosition());
+        return definition instanceof FunctionalMockStatement
+                && ((FunctionalMockStatement) definition).isDmonPromotion();
     }
 
     /**
