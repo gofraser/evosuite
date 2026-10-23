@@ -334,21 +334,19 @@ final class InjectionAdmission {
                         if (blendingActive) {
                             candidate.setBlendChannel(BlendChannel.RAW);
                         }
-                        if (!blendingActive || Properties.LLM_BLEND_KEEP_RAW) {
-                            union.add(candidate);
-                            if (metadata != null) {
-                                metadata.getTicket().admitted(candidate, host.generation());
-                            }
-                            if (isLlmInjectionSource(tag)) {
-                                counts.admitted++;
-                                llmInjectedCandidatesAdmittedTotal++;
-                                ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
-                                        llmInjectedCandidatesAdmittedTotal);
-                            }
-                            if (isLlmInjectionSource(tag) && metadata != null) {
-                                LlmStatistics.recordDiagnosticCandidatesAdmitted(
-                                        metadata.getDiagnosticCardTypes(), 1);
-                            }
+                        union.add(candidate);
+                        if (metadata != null) {
+                            metadata.getTicket().admitted(candidate, host.generation());
+                        }
+                        if (isLlmInjectionSource(tag)) {
+                            counts.admitted++;
+                            llmInjectedCandidatesAdmittedTotal++;
+                            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
+                                    llmInjectedCandidatesAdmittedTotal);
+                        }
+                        if (isLlmInjectionSource(tag) && metadata != null) {
+                            LlmStatistics.recordDiagnosticCandidatesAdmitted(
+                                    metadata.getDiagnosticCardTypes(), 1);
                         }
                         if (blendingActive) {
                             try {
@@ -849,13 +847,6 @@ final class InjectionAdmission {
             }
             admitBlendVariant(variant, union, seenInjectedCallSignatures);
             admitted++;
-        }
-        // Blend-only ablation: when the raw candidate is withheld, keep the
-        // attempt alive by admitting the best variant even without a strict
-        // improvement.
-        if (admitted == 0 && !Properties.LLM_BLEND_KEEP_RAW
-                && Properties.LLM_BLEND_MAX_ADMITTED_VARIANTS > 0) {
-            admitBlendVariant(ordered.get(0), union, seenInjectedCallSignatures);
         }
     }
 

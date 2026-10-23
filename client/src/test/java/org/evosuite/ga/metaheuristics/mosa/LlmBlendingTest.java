@@ -69,7 +69,6 @@ class LlmBlendingTest extends MosaTestSupport {
     private int savedTournamentCrossovers;
     private int savedMaxAdmitted;
     private int savedMaxEvals;
-    private boolean savedKeepRaw;
 
     @BeforeEach
     void saveProperties() {
@@ -79,7 +78,6 @@ class LlmBlendingTest extends MosaTestSupport {
         savedTournamentCrossovers = Properties.LLM_BLEND_TOURNAMENT_CROSSOVERS;
         savedMaxAdmitted = Properties.LLM_BLEND_MAX_ADMITTED_VARIANTS;
         savedMaxEvals = Properties.LLM_BLEND_MAX_EVALS_PER_GEN;
-        savedKeepRaw = Properties.LLM_BLEND_KEEP_RAW;
     }
 
     @AfterEach
@@ -90,7 +88,6 @@ class LlmBlendingTest extends MosaTestSupport {
         Properties.LLM_BLEND_TOURNAMENT_CROSSOVERS = savedTournamentCrossovers;
         Properties.LLM_BLEND_MAX_ADMITTED_VARIANTS = savedMaxAdmitted;
         Properties.LLM_BLEND_MAX_EVALS_PER_GEN = savedMaxEvals;
-        Properties.LLM_BLEND_KEEP_RAW = savedKeepRaw;
     }
 
     private void enableBlending() {
@@ -100,7 +97,6 @@ class LlmBlendingTest extends MosaTestSupport {
         Properties.LLM_BLEND_TOURNAMENT_CROSSOVERS = 0;
         Properties.LLM_BLEND_MAX_ADMITTED_VARIANTS = 2;
         Properties.LLM_BLEND_MAX_EVALS_PER_GEN = 20;
-        Properties.LLM_BLEND_KEEP_RAW = true;
     }
 
     @Test
@@ -210,37 +206,6 @@ class LlmBlendingTest extends MosaTestSupport {
         assertTrue(containsIdentity(union, raw));
         assertEquals(3, mosa.fitnessEvaluations,
                 "raw + both variants are evaluated even though the variants are discarded");
-    }
-
-    @Test
-    void keepRawFalseWithholdsRawAndAdmitsBestVariant() {
-        enableBlending();
-        Properties.LLM_BLEND_KEEP_RAW = false;
-        BlendHarnessMOSA mosa = new BlendHarnessMOSA();
-        FakeGoal goal = new FakeGoal();
-        mosa.uncovered.add(goal);
-
-        TestChromosome partner = chromosome();
-        partner.setFitness(goal, 0.7); // no variant qualifies on its own
-        mosa.seed(partner);
-
-        TestChromosome raw = chromosome();
-        raw.setFitness(goal, 0.5);
-        mosa.externalCandidateSources.add(sourceOf(InjectionSource.LLM_STAGNATION, raw,
-                new InjectionAttemptMetadata(AttemptTicket.untracked(), Collections.emptyList(),
-                        Collections.singletonList(goal))));
-
-        List<TestChromosome> union = mosa.drainIntoUnion();
-
-        assertFalse(containsIdentity(union, raw),
-                "blend-only ablation must withhold the raw candidate");
-        assertEquals(0, mosa.injectionAdmission.lastGeneration().admitted,
-                "the raw admitted counter keeps its meaning in the ablation");
-        List<TestChromosome> variants = blendVariants(union);
-        assertEquals(1, variants.size(),
-                "the best variant is admitted so the attempt is not lost entirely");
-        assertEquals(0.5, variants.get(0).getFitness(goal), 1e-9,
-                "best = lowest target-goal fitness among the brood (the raw clone)");
     }
 
     @Test
