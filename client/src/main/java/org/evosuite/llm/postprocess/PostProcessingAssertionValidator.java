@@ -201,11 +201,25 @@ final class PostProcessingAssertionValidator {
                 return LlmPostProcessor.EvaluationOutcome.compileFailure(e.getMessage());
             } catch (ExecutableSnippetEngine.AssertionEvaluationTimeoutException e) {
                 return LlmPostProcessor.EvaluationOutcome.observedFailure(e.getMessage());
-            } catch (RuntimeException | AssertionError e) {
-                return LlmPostProcessor.EvaluationOutcome.compileFailure(e.getMessage());
+            } catch (ExecutableSnippetEngine.SnippetCompilationException e) {
+                return e.isInfrastructureFailure()
+                        ? infrastructureFailure(e)
+                        : LlmPostProcessor.EvaluationOutcome.compileFailure(e.getMessage());
+            } catch (ExecutableSnippetEngine.SnippetEngineRuntimeException | SecurityException e) {
+                return infrastructureFailure(e);
+            } catch (RuntimeException e) {
+                // The assertion expression itself threw while it was evaluated.
+                return LlmPostProcessor.EvaluationOutcome.observedFailure(e.getMessage());
             } catch (Throwable e) {
                 return LlmPostProcessor.EvaluationOutcome.observedFailure(e.getMessage());
             }
+        }
+
+        /** A failure of the evaluation machinery; rewriting the assertion cannot fix it. */
+        private static LlmPostProcessor.EvaluationOutcome infrastructureFailure(RuntimeException e) {
+            return LlmPostProcessor.EvaluationOutcome.safetyFailure(
+                    LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION,
+                    "Assertion could not be evaluated: " + e.getMessage());
         }
     }
 }

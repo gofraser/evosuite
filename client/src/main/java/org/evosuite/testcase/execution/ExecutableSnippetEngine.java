@@ -221,19 +221,37 @@ public final class ExecutableSnippetEngine {
         }
     }
 
-    private static final class SnippetCompilationException extends RuntimeException {
+    /**
+     * Thrown when a snippet cannot be compiled. The failure is either a compiler diagnostic about
+     * the snippet source, or an infrastructure problem (no compiler, I/O, interruption) that no
+     * change to the snippet can fix; {@link #isInfrastructureFailure()} tells them apart.
+     */
+    public static final class SnippetCompilationException extends RuntimeException {
         private static final long serialVersionUID = 1L;
+        private final boolean infrastructureFailure;
 
         private SnippetCompilationException(String message) {
             super(message);
+            this.infrastructureFailure = false;
         }
 
         private SnippetCompilationException(String message, Throwable cause) {
             super(message, cause);
+            this.infrastructureFailure = true;
+        }
+
+        private SnippetCompilationException(String message, boolean infrastructureFailure) {
+            super(message);
+            this.infrastructureFailure = infrastructureFailure;
+        }
+
+        public boolean isInfrastructureFailure() {
+            return infrastructureFailure;
         }
     }
 
-    private static final class SnippetEngineRuntimeException extends RuntimeException {
+    /** Thrown when a compiled snippet cannot be invoked, independently of what the snippet does. */
+    public static final class SnippetEngineRuntimeException extends RuntimeException {
         private static final long serialVersionUID = 1L;
 
         private SnippetEngineRuntimeException(String message, Throwable cause) {
@@ -526,7 +544,7 @@ public final class ExecutableSnippetEngine {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
-            throw new SnippetCompilationException("No Java compiler available in current runtime");
+            throw new SnippetCompilationException("No Java compiler available in current runtime", true);
         }
 
         try {
