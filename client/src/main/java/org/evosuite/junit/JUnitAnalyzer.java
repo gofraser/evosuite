@@ -30,11 +30,9 @@ import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.InitializingListener;
 import org.evosuite.runtime.InitializingListenerUtils;
 import org.evosuite.runtime.LoopCounter;
-import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.classhandling.ClassStateSupport;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
-import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
@@ -383,10 +381,6 @@ public abstract class JUnitAnalyzer {
                             + "methods, or assert InvocationTargetException and then assert on getCause().", testName);
                 }
 
-                if (Properties.JUNIT_UNSTABLE_DIAGNOSTICS) {
-                    logger.warn(buildUnstableDiagnostics(testName, failure));
-                }
-
                 for (String elem : failure.getExceptionStackTrace()) {
                     logger.info("Exception trace: {}", elem);
                 }
@@ -541,88 +535,6 @@ public abstract class JUnitAnalyzer {
     }
 
 
-
-
-    private static String buildUnstableDiagnostics(String testName, JUnitFailure failure) {
-        List<String> trace = failure.getExceptionStackTrace();
-        String category = classifyUnstableFailure(testName, trace);
-        String firstInterestingFrame = firstInterestingFrame(trace);
-        String firstLoopCounterFrame = firstFrameContaining(trace, "org.evosuite.runtime.LoopCounter.checkLoop");
-        String firstHeadlessFrame = firstFrameContaining(trace, "java.awt.HeadlessException");
-        String firstAwtFrame = firstFrameContaining(trace, "java.awt.");
-        String failureClass = JUnitFailurePolicy.normalizeFailureClassName(failure.getExceptionClassName());
-        String failureMessage = failure.getMessage();
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("Unstable diagnostics for ").append(testName)
-                .append(": category=").append(category)
-                .append(", failureClass=").append(failureClass)
-                .append(", failureMessage=").append(failureMessage);
-        if (firstInterestingFrame != null) {
-            sb.append(", firstInterestingFrame=").append(firstInterestingFrame);
-        }
-        if (firstLoopCounterFrame != null) {
-            sb.append(", loopCounterFrame=").append(firstLoopCounterFrame);
-        }
-        if (firstHeadlessFrame != null) {
-            sb.append(", headlessFrame=").append(firstHeadlessFrame);
-        }
-        if (firstAwtFrame != null) {
-            sb.append(", awtFrame=").append(firstAwtFrame);
-        }
-        sb.append(", runnerClassLoader=").append(describeClassLoader(loader));
-        sb.append(", contextClassLoader=")
-                .append(describeClassLoader(Thread.currentThread().getContextClassLoader()));
-        sb.append(", replaceGUI=").append(Properties.REPLACE_GUI);
-        sb.append(", runtimeMockGUI=").append(RuntimeSettings.mockGUI);
-        sb.append(", mockFrameworkEnabled=").append(MockFramework.isEnabled());
-        sb.append(", jvmHeadlessProperty=").append(System.getProperty("java.awt.headless"));
-        sb.append(", envHeadlessProperty=").append(System.getenv("JAVA_AWT_HEADLESS"));
-        if ("java.awt.HeadlessException".equals(failureClass)) {
-            sb.append(", hint=Headless mismatch likely indicates missing/late GUI replacement during JUnit recheck");
-        } else if ("java.awt.AWTError".equals(failureClass)
-                && JUnitFailurePolicy.isGraphicsEnvironmentNullFailure(failureMessage, trace)) {
-            sb.append(", hint=GraphicsEnvironment initialization/reset issue during JUnit recheck");
-        }
-        return sb.toString();
-    }
-
-    private static String describeClassLoader(ClassLoader classLoader) {
-        if (classLoader == null) {
-            return "bootstrap";
-        }
-        String kind = classLoader.getClass().getName();
-        ClassLoader parent = classLoader.getParent();
-        String parentKind = parent == null ? "bootstrap" : parent.getClass().getName();
-        return kind + "(parent=" + parentKind + ")";
-    }
-
-    private static String classifyUnstableFailure(String testName, List<String> trace) {
-        if (trace == null || trace.isEmpty()) {
-            return "unknown";
-        }
-        if (JUnitFailurePolicy.containsAny(trace,
-                "org.evosuite.runtime.EvoSuiteExtension.beforeEach",
-                "org.evosuite.runtime.EvoSuiteExtension.afterEach",
-                "org.evosuite.runtime.classhandling.ClassResetter",
-                "org.evosuite.runtime.classhandling.JDKClassResetter",
-                "org.evosuite.runtime.classhandling.ClassStateSupport")) {
-            return "extension_or_reset";
-        }
-        if (JUnitFailurePolicy.containsAny(trace,
-                "org.junit.jupiter.api.Assertions",
-                "org.junit.Assert")) {
-            return "assertion";
-        }
-        if (JUnitFailurePolicy.containsAny(trace, "." + testName + "(")) {
-            return "test_body";
-        }
-        if (JUnitFailurePolicy.containsAny(trace, "org.evosuite.runtime.LoopCounter.checkLoop")) {
-            return "loop_counter_no_user_frame";
-        }
-        return "other_runtime";
-    }
-
     private static boolean isReflectiveAssertThrowsMismatch(JUnitFailure failure) {
         if (failure == null || !failure.isAssertionError()) {
             return false;
@@ -634,35 +546,6 @@ public abstract class JUnitAnalyzer {
         }
         List<String> trace = failure.getExceptionStackTrace();
         return trace != null && JUnitFailurePolicy.containsAny(trace, "java.lang.reflect.Method.invoke");
-    }
-
-    private static String firstInterestingFrame(List<String> trace) {
-        for (String frame : trace) {
-            if (frame == null) {
-                continue;
-            }
-            if (frame.contains("org.evosuite.runtime.")
-                    || frame.contains("org.evosuite.junit.")
-                    || frame.contains("org.junit.")
-                    || frame.contains("java.base/")
-                    || frame.contains("jdk.internal.")) {
-                continue;
-            }
-            return frame.trim();
-        }
-        return null;
-    }
-
-    private static String firstFrameContaining(List<String> trace, String marker) {
-        if (trace == null) {
-            return null;
-        }
-        for (String frame : trace) {
-            if (frame != null && frame.contains(marker)) {
-                return frame.trim();
-            }
-        }
-        return null;
     }
 
 
