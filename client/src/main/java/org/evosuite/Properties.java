@@ -737,12 +737,11 @@ public class Properties {
     public static DSEType LOCAL_SEARCH_DSE = DSEType.TEST;
 
     public enum SolverType {
-        EVOSUITE_SOLVER, Z3_SOLVER
+        EVOSUITE_SOLVER
     }
 
     @Parameter(key = "dse_solver", group = "DSE",
-            description = "Specify which constraint solver to use. "
-                    + "Note: external solver will need to be installed and cofigured separately")
+            description = "Specify which constraint solver to use. EVOSUITE_SOLVER is the only solver left.")
     public static SolverType DSE_SOLVER = SolverType.EVOSUITE_SOLVER;
 
     @Parameter(key = "z3_path", group = "DSE", description = "Indicates the path to the Z3 solver")

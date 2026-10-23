@@ -19,40 +19,16 @@
  */
 package org.evosuite.symbolic.solver;
 
-import org.evosuite.Properties;
 import org.evosuite.symbolic.expr.Constraint;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 
-public abstract class TestSolver {
+public final class TestSolver {
 
-    private static final String DEFAULT_Z3_PATH = Properties.Z3_PATH;
-
-    @BeforeAll
-    public static void configureSolverPath() {
-        String z3_path = System.getenv("z3_path");
-        if (z3_path != null) {
-            Properties.Z3_PATH = z3_path;
-        }
+    private TestSolver() {
     }
-
-    @AfterAll
-    public static void restorePaths() {
-        Properties.Z3_PATH = DEFAULT_Z3_PATH;
-    }
-
-    @BeforeEach
-    public void checkSolverPaths() {
-        Assumptions.assumeTrue(Properties.Z3_PATH != null);
-    }
-
-    public abstract Solver getSolver();
 
     public static Map<String, Object> solve(Solver solver, Collection<Constraint<?>> constraints)
             throws SolverTimeoutException {

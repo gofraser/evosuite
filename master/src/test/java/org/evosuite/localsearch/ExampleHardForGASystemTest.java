@@ -21,12 +21,10 @@ package org.evosuite.localsearch;
 
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
-import org.evosuite.Properties.SolverType;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.localsearch.ExampleHardForGA;
@@ -43,33 +41,6 @@ public class ExampleHardForGASystemTest extends SystemTestBase {
         Properties.P_REFLECTION_ON_PRIVATE = 0.0;
         Properties.MINIMIZE = true;
         Properties.TEST_ARCHIVE = true;
-    }
-
-    @Test
-    public void testZ3() {
-        Assumptions.assumeTrue(System.getenv("z3_path") != null);
-        Properties.Z3_PATH = System.getenv("z3_path");
-        Properties.DSE_SOLVER = SolverType.Z3_SOLVER;
-
-        Properties.LOCAL_SEARCH_PROBABILITY = 1.0;
-        Properties.LOCAL_SEARCH_RATE = 8;
-        Properties.LOCAL_SEARCH_BUDGET_TYPE = Properties.LocalSearchBudgetType.TESTS;
-        Properties.LOCAL_SEARCH_BUDGET = 10;
-        Properties.DSE_PROBABILITY = 1.0; // force using only DSE, no LS
-        Properties.CONCOLIC_TIMEOUT = 1000;
-
-        EvoSuite evosuite = new EvoSuite();
-        String targetClass = ExampleHardForGA.class.getCanonicalName();
-        Properties.TARGET_CLASS = targetClass;
-
-        String[] command = new String[]{"-generateSuite", "-class", targetClass};
-
-        Object result = evosuite.parseCommandLine(command);
-        GeneticAlgorithm<?> ga = getGAFromResult(result);
-        TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
-        System.out.println("EvolvedTestSuite:\n" + best);
-
-        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 
     /**

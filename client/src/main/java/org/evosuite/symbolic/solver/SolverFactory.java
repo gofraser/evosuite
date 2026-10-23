@@ -19,9 +19,7 @@
  */
 package org.evosuite.symbolic.solver;
 
-import org.evosuite.Properties;
 import org.evosuite.symbolic.solver.avm.EvoSuiteSolver;
-import org.evosuite.symbolic.solver.z3.Z3Solver;
 
 /**
  * Factory for creating solver instances.
@@ -42,18 +40,12 @@ public class SolverFactory {
     }
 
     /**
-     * Builds a new solver instance based on the current properties.
+     * Builds a new solver instance.
      *
      * @return a {@link org.evosuite.symbolic.solver.Solver} object.
      */
     public Solver buildNewSolver() {
-        switch (Properties.DSE_SOLVER) {
-            case Z3_SOLVER:
-                return new Z3Solver(true);
-            case EVOSUITE_SOLVER:
-            default:
-                return new EvoSuiteSolver();
-        }
+        return new EvoSuiteSolver();
     }
 
 }
