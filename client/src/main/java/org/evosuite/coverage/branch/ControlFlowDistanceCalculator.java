@@ -20,7 +20,6 @@
 package org.evosuite.coverage.branch;
 
 import org.evosuite.coverage.ControlFlowDistance;
-import org.evosuite.coverage.TestCoverageGoal;
 import org.evosuite.graphs.cdg.ControlDependenceGraph;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.ControlDependency;
@@ -115,7 +114,7 @@ public class ControlFlowDistanceCalculator {
         }
 
         // handle timeout in ExecutionResult
-        if (TestCoverageGoal.hasTimeout(result)) {
+        if (result.hasTimeout()) {
             return getTimeoutDistance(result, branch);
         }
 
@@ -146,7 +145,7 @@ public class ControlFlowDistanceCalculator {
     private static ControlFlowDistance getTimeoutDistance(ExecutionResult result,
                                                           Branch branch) {
 
-        if (!TestCoverageGoal.hasTimeout(result)) {
+        if (!result.hasTimeout()) {
             throw new IllegalArgumentException("expect given result to have a timeout");
         }
         logger.debug("Has timeout!");

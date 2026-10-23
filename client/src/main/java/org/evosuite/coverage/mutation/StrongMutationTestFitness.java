@@ -21,7 +21,6 @@ package org.evosuite.coverage.mutation;
 
 import org.evosuite.Properties;
 import org.evosuite.assertion.*;
-import org.evosuite.coverage.TestCoverageGoal;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.testcase.TestCase;
@@ -138,7 +137,7 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 
         MutationExecutionResult result = new MutationExecutionResult();
 
-        if (TestCoverageGoal.hasTimeout(mutationResult)) {
+        if (mutationResult.hasTimeout()) {
             logger.debug("Found timeout in mutant!");
             MutationTimeouts.timeOut(mutation);
             result.setHasTimeout(true);
