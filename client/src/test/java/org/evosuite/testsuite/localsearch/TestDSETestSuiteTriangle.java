@@ -33,7 +33,6 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -145,61 +144,6 @@ public class TestDSETestSuiteTriangle {
         int finalSuiteSize = suite.size();
         assertTrue(coveredGoalsAfterLocalSearch >= coveredGoalsBeforeLocalSearch);
         assertTrue(finalSuiteSize >= 2);
-    }
-
-    @Test
-    public void testCVC4Solver() throws NoSuchMethodException, SecurityException, ClassNotFoundException {
-        String cvc4_path = System.getenv("cvc4_path");
-        if (cvc4_path != null) {
-            Properties.CVC4_PATH = cvc4_path;
-        }
-        Assumptions.assumeTrue(Properties.CVC4_PATH != null);
-        Properties.DSE_SOLVER = Properties.SolverType.CVC4_SOLVER;
-        Properties.CRITERION = new Properties.Criterion[]{Criterion.BRANCH};
-        Properties.TARGET_CLASS = Triangle.class.getName();
-
-        TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(Properties.TARGET_CLASS);
-
-        BranchCoverageSuiteFitness branchCoverageSuiteFitness = new BranchCoverageSuiteFitness();
-        TestSuiteChromosome suite = new TestSuiteChromosome();
-        suite.addFitness(branchCoverageSuiteFitness);
-        branchCoverageSuiteFitness.getFitness(suite);
-
-        // no goals covered yet
-        int coveredGoals0 = suite.getNumOfCoveredGoals();
-        int notCoveredGoals0 = suite.getNumOfNotCoveredGoals();
-        assertEquals(0, coveredGoals0);
-        assertNotEquals(0, notCoveredGoals0);
-
-        DefaultTestCase testCase0 = buildTestCase0();
-        TestChromosome testChromosome0 = new TestChromosome();
-        testChromosome0.setTestCase(testCase0);
-        suite.addTest(testChromosome0);
-
-        double fitnessBeforeLocalSearch = branchCoverageSuiteFitness.getFitness(suite);
-        int coveredGoalsBeforeLocalSearch = suite.getNumOfCoveredGoals();
-
-        // some goal was covered
-        assertTrue(coveredGoalsBeforeLocalSearch > 0);
-
-        LocalSearchObjective<TestSuiteChromosome> localSearchObjective = new DefaultLocalSearchObjective<>();
-        localSearchObjective.addFitnessFunction(branchCoverageSuiteFitness);
-
-        boolean improved;
-        do {
-            TestSuiteLocalSearch localSearch = new TestSuiteLocalSearch();
-            improved = localSearch.doSearch(suite, localSearchObjective);
-        } while (improved);
-
-        double fitnessAfterLocalSearch = branchCoverageSuiteFitness.getFitness(suite);
-        int coveredGoalsAfterLocalSearch = suite.getNumOfCoveredGoals();
-
-        assertTrue(fitnessAfterLocalSearch < fitnessBeforeLocalSearch);
-        assertTrue(coveredGoalsAfterLocalSearch > coveredGoalsBeforeLocalSearch);
-
-        int finalSuiteSize = suite.size();
-        assertEquals(18, coveredGoalsAfterLocalSearch);
-        assertTrue(finalSuiteSize > 1);
     }
 
 }

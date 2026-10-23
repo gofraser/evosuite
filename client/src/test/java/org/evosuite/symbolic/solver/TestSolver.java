@@ -34,30 +34,22 @@ public abstract class TestSolver {
 
     private static final String DEFAULT_Z3_PATH = Properties.Z3_PATH;
 
-    private static final String DEFAULT_CVC4_PATH = Properties.CVC4_PATH;
-
     @BeforeAll
     public static void configureSolverPath() {
         String z3_path = System.getenv("z3_path");
         if (z3_path != null) {
             Properties.Z3_PATH = z3_path;
         }
-        String cvc4_path = System.getenv("cvc4_path");
-        if (cvc4_path != null) {
-            Properties.CVC4_PATH = cvc4_path;
-        }
     }
 
     @AfterAll
     public static void restorePaths() {
         Properties.Z3_PATH = DEFAULT_Z3_PATH;
-        Properties.CVC4_PATH = DEFAULT_CVC4_PATH;
     }
 
     @BeforeEach
     public void checkSolverPaths() {
         Assumptions.assumeTrue(Properties.Z3_PATH != null);
-        Assumptions.assumeTrue(Properties.CVC4_PATH != null);
     }
 
     public abstract Solver getSolver();

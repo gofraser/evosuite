@@ -737,7 +737,7 @@ public class Properties {
     public static DSEType LOCAL_SEARCH_DSE = DSEType.TEST;
 
     public enum SolverType {
-        EVOSUITE_SOLVER, Z3_SOLVER, CVC4_SOLVER
+        EVOSUITE_SOLVER, Z3_SOLVER
     }
 
     @Parameter(key = "dse_solver", group = "DSE",

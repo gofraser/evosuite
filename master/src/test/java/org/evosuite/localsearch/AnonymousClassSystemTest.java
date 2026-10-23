@@ -80,34 +80,4 @@ public class AnonymousClassSystemTest extends SystemTestBase {
     public void before() {
     }
 
-    @Test
-    public void testCVC4() {
-
-        Assumptions.assumeTrue(System.getenv("cvc4_path") != null);
-
-        String targetClass = AnonymousClass.class.getCanonicalName();
-
-        Properties.CVC4_PATH = System.getenv("cvc4_path");
-        Properties.DSE_SOLVER = SolverType.CVC4_SOLVER;
-        Properties.STOPPING_CONDITION = StoppingCondition.MAXTIME;
-        Properties.SEARCH_BUDGET = 30;
-
-        Properties.TARGET_CLASS = targetClass;
-        Properties.CRITERION = new Criterion[]{Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION, Criterion.WEAKMUTATION,
-                Criterion.OUTPUT, Criterion.METHOD, Criterion.METHODNOEXCEPTION, Criterion.CBRANCH};
-        Properties.MINIMIZE = false;
-        Properties.ASSERTIONS = false;
-        Properties.DSE_PROBABILITY = 1.0; // force using only DSE, no LS
-
-        String[] command = new String[]{"-generateSuite", "-class",
-                targetClass};
-
-        EvoSuite evosuite = new EvoSuite();
-        Object result = evosuite.parseCommandLine(command);
-        GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
-        TestSuiteChromosome best = ga.getBestIndividual();
-        System.out.println("EvolvedTestSuite:\n" + best);
-
-    }
-
 }

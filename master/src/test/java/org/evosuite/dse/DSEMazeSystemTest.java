@@ -21,13 +21,11 @@ package org.evosuite.dse;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.examples.with.different.packagename.solver.MazeClientArrays;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.Properties.SolverType;
 import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.Properties.Strategy;
 import org.evosuite.SystemTestBase;
@@ -47,13 +45,6 @@ public class DSEMazeSystemTest extends SystemTestBase {
         // Properties.CONCOLIC_TIMEOUT = Integer.MAX_VALUE;
         Properties.RESET_STATIC_FIELD_GETS = true;
 
-        String cvc4_path = System.getenv("CVC4_PATH");
-        if (cvc4_path != null) {
-            Properties.CVC4_PATH = cvc4_path;
-        }
-
-        Properties.DSE_SOLVER = SolverType.CVC4_SOLVER;
-
         Properties.STOPPING_CONDITION = StoppingCondition.MAXTESTS;
         Properties.SEARCH_BUDGET = 300; // tests
         Properties.MINIMIZATION_TIMEOUT = 60 * 60;
@@ -65,8 +56,6 @@ public class DSEMazeSystemTest extends SystemTestBase {
 
         Properties.MINIMIZE = true;
         Properties.ASSERTIONS = true;
-
-        assumeTrue(Properties.CVC4_PATH != null);
     }
 
     @Test

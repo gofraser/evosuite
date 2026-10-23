@@ -28,7 +28,6 @@ import org.junit.jupiter.api.BeforeEach;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public abstract class DSESystemTestBase extends SystemTestBase {
     @BeforeEach
@@ -43,13 +42,6 @@ public abstract class DSESystemTestBase extends SystemTestBase {
         // Properties.CONCOLIC_TIMEOUT = Integer.MAX_VALUE;
         Properties.RESET_STATIC_FIELD_GETS = true;
 
-        String cvc4_path = System.getenv("CVC4_PATH");
-        if (cvc4_path != null) {
-            Properties.CVC4_PATH = cvc4_path;
-        }
-
-        Properties.DSE_SOLVER = Properties.SolverType.CVC4_SOLVER;
-
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXTIME;
         Properties.SEARCH_BUDGET = 60 * 60 * 10; // 10 hours
         Properties.MINIMIZATION_TIMEOUT = 60 * 60;
@@ -63,8 +55,6 @@ public abstract class DSESystemTestBase extends SystemTestBase {
 
         Properties.MINIMIZE = true;
         Properties.ASSERTIONS = true;
-
-        assumeTrue(Properties.CVC4_PATH != null);
     }
 
     /**

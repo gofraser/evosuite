@@ -99,31 +99,4 @@ public class ExampleHardForGASystemTest extends SystemTestBase {
         Assertions.assertTrue(best.getCoverage() < 1d);
     }
 
-    @Test
-    public void testCVC4() {
-        Assumptions.assumeTrue(System.getenv("cvc4_path") != null);
-        Properties.CVC4_PATH = System.getenv("cvc4_path");
-        Properties.DSE_SOLVER = SolverType.CVC4_SOLVER;
-
-        Properties.LOCAL_SEARCH_PROBABILITY = 1.0;
-        Properties.LOCAL_SEARCH_RATE = 8;
-        Properties.LOCAL_SEARCH_BUDGET_TYPE = Properties.LocalSearchBudgetType.TESTS;
-        Properties.LOCAL_SEARCH_BUDGET = 10;
-        Properties.DSE_PROBABILITY = 1.0; // force using only DSE, no LS
-        Properties.CONCOLIC_TIMEOUT = 1000;
-
-        EvoSuite evosuite = new EvoSuite();
-        String targetClass = ExampleHardForGA.class.getCanonicalName();
-        Properties.TARGET_CLASS = targetClass;
-
-        String[] command = new String[]{"-generateSuite", "-class", targetClass};
-
-        Object result = evosuite.parseCommandLine(command);
-        GeneticAlgorithm<?> ga = getGAFromResult(result);
-        TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
-        System.out.println("EvolvedTestSuite:\n" + best);
-
-        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
-    }
-
 }
