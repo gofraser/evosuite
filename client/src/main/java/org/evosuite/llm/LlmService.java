@@ -293,9 +293,8 @@ public class LlmService implements AutoCloseable {
 
     /**
      * Returns true if the service has remaining LLM call budget for the given
-     * feature. Coordinators that partition the budget (see
-     * {@link LlmBudgetCoordinator.FeatureShare}) report the feature-specific
-     * quota here; others fall back to the global budget.
+     * feature. When the budget is partitioned (see {@link LlmBudgetCoordinator})
+     * this reports the feature-specific quota; otherwise the global budget.
      */
     public boolean hasBudget(LlmFeature feature) {
         if (!available) {

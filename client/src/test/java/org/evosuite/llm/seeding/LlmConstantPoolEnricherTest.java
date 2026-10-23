@@ -527,7 +527,7 @@ class LlmConstantPoolEnricherTest {
                 "test-constant-enrichment");
         return new LlmService(
                 model,
-                new LlmBudgetCoordinator.Local(budget),
+                LlmBudgetCoordinator.of(budget),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));

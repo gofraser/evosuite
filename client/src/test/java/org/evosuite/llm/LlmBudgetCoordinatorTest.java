@@ -27,21 +27,21 @@ class LlmBudgetCoordinatorTest {
 
     @Test
     void finiteBudgetIsConsumedAtomically() {
-        LlmBudgetCoordinator.Local coordinator = new LlmBudgetCoordinator.Local(2);
+        LlmBudgetCoordinator coordinator = LlmBudgetCoordinator.of(2);
 
-        assertTrue(coordinator.tryAcquire());
-        assertTrue(coordinator.tryAcquire());
-        assertFalse(coordinator.tryAcquire());
-        assertEquals(0, coordinator.getRemaining());
+        assertTrue(coordinator.tryAcquire(LlmFeature.SEEDING));
+        assertTrue(coordinator.tryAcquire(LlmFeature.SEEDING));
+        assertFalse(coordinator.tryAcquire(LlmFeature.SEEDING));
+        assertEquals(0, coordinator.getRemaining(LlmFeature.SEEDING));
     }
 
     @Test
     void unlimitedBudgetAlwaysAcquires() {
-        LlmBudgetCoordinator.Local coordinator = new LlmBudgetCoordinator.Local(0);
+        LlmBudgetCoordinator coordinator = LlmBudgetCoordinator.of(0);
 
         for (int i = 0; i < 100; i++) {
-            assertTrue(coordinator.tryAcquire());
+            assertTrue(coordinator.tryAcquire(LlmFeature.SEEDING));
         }
-        assertEquals(-1, coordinator.getRemaining());
+        assertEquals(-1, coordinator.getRemaining(LlmFeature.SEEDING));
     }
 }

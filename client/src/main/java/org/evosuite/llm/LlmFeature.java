@@ -38,7 +38,7 @@ public enum LlmFeature {
 
     /**
      * Returns true for the semantic mutation/crossover features that share
-     * the operator budget share ({@link LlmBudgetCoordinator.FeatureShare})
+     * the operator budget share (see {@link LlmBudgetCoordinator})
      * and the optional operator model.
      */
     public boolean isOperator() {

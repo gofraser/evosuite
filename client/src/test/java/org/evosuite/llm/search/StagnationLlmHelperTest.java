@@ -395,7 +395,7 @@ class StagnationLlmHelperTest {
 
     @Test
     void featureQuotaExhausted_skipsSubmissionEvenWithOperatorBudgetRemaining() {
-        // LlmBudgetCoordinator.FeatureShare reserves a slice of the total
+        // LlmBudgetCoordinator reserves a slice of the total
         // call budget for the operator features (SEMANTIC_MUTATION/
         // SEMANTIC_CROSSOVER) and draws every other feature, including
         // STAGNATION, from what is left. With the operator share set to
@@ -938,7 +938,7 @@ class StagnationLlmHelperTest {
                 Paths.get("target/llm-test-traces"),
                 "stagnation-helper-test");
         return new LlmService(model,
-                new LlmBudgetCoordinator.Local(budget),
+                LlmBudgetCoordinator.of(budget),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));
@@ -959,8 +959,7 @@ class StagnationLlmHelperTest {
                 false,
                 Paths.get("target/llm-test-traces"),
                 "stagnation-helper-test");
-        LlmBudgetCoordinator.FeatureShare coordinator = new LlmBudgetCoordinator.FeatureShare(
-                new LlmBudgetCoordinator.Local(maxCalls), maxCalls, operatorShare);
+        LlmBudgetCoordinator coordinator = LlmBudgetCoordinator.withOperatorShare(maxCalls, operatorShare);
         return new LlmService(model,
                 coordinator,
                 configuration,

@@ -200,7 +200,7 @@ class JsonHttpClientCancellationTest {
                     Properties.LlmProvider.OPENAI, "local-model", "local-token", baseUrl,
                     0.0, 1024, 1, 0, 1, false, tempDir, "trickle-run");
             LlmStatistics statistics = new LlmStatistics();
-            LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1), configuration,
+            LlmService service = new LlmService(model, LlmBudgetCoordinator.of(1), configuration,
                     statistics, new LlmTraceRecorder(configuration));
 
             try {
@@ -299,7 +299,7 @@ class JsonHttpClientCancellationTest {
                     Properties.LlmProvider.OPENAI, "local-model", "local-token", baseUrl,
                     0.0, 1024, 30, 0, 1, false, tempDir, "trickle-overlap");
             LlmStatistics statistics = new LlmStatistics();
-            LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(2), configuration,
+            LlmService service = new LlmService(model, LlmBudgetCoordinator.of(2), configuration,
                     statistics, new LlmTraceRecorder(configuration));
 
             try {

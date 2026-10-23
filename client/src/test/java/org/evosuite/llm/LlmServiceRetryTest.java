@@ -64,7 +64,7 @@ class LlmServiceRetryTest {
                 "mock", "", "", 0.0, 1024, 2, 0, 1,
                 false, Paths.get("target/llm-test-traces"), "sandbox-worker");
         LlmService service = new LlmService(model,
-                new LlmBudgetCoordinator.Local(1), configuration,
+                LlmBudgetCoordinator.of(1), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
         try {
             assertEquals("ok", LlmServiceTestQueries.query(service, 
@@ -101,7 +101,7 @@ class LlmServiceRetryTest {
                 "run-1");
 
         LlmStatistics statistics = new LlmStatistics();
-        LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(2);
+        LlmBudgetCoordinator budget = LlmBudgetCoordinator.of(2);
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
         LlmService service = new LlmService(model,
                 budget,
@@ -117,7 +117,7 @@ class LlmServiceRetryTest {
             assertEquals(2, statistics.getTotalCalls());
             assertEquals(1, statistics.getSuccessfulCalls());
             assertEquals(0, statistics.getFailedCalls());
-            assertEquals(0, budget.getRemaining());
+            assertEquals(0, budget.getRemaining(LlmFeature.POST_PROCESSING));
             assertEquals(2, Files.readAllLines(recorder.getTraceFile(), java.nio.charset.StandardCharsets.UTF_8).size());
             String trace = new String(Files.readAllBytes(recorder.getTraceFile()), java.nio.charset.StandardCharsets.UTF_8);
             assertTrue(trace.contains("\"parse_status\":\"RETRYING\""));
@@ -151,7 +151,7 @@ class LlmServiceRetryTest {
 
         LlmStatistics statistics = new LlmStatistics();
         LlmService service = new LlmService(model,
-                new LlmBudgetCoordinator.Local(1),
+                LlmBudgetCoordinator.of(1),
                 configuration,
                 statistics,
                 new LlmTraceRecorder(configuration));
@@ -194,7 +194,7 @@ class LlmServiceRetryTest {
 
         LlmStatistics statistics = new LlmStatistics();
         LlmService service = new LlmService(model,
-                new LlmBudgetCoordinator.Local(1),
+                LlmBudgetCoordinator.of(1),
                 configuration,
                 statistics,
                 new LlmTraceRecorder(configuration));
@@ -271,7 +271,7 @@ class LlmServiceRetryTest {
                 "mock", "", "", 0.0, 1024, 2, 3, 1,
                 false, Paths.get("target/llm-test-traces"), "run-protocol");
         LlmService service = new LlmService(model,
-                new LlmBudgetCoordinator.Local(10),
+                LlmBudgetCoordinator.of(10),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));
@@ -328,7 +328,7 @@ class LlmServiceRetryTest {
                 org.evosuite.Properties.LlmProvider.NONE,
                 "mock", "", "", 0.0, 1024, 30, 2, 100,
                 false, Paths.get("target/llm-test-traces"), "deadline");
-        LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(2);
+        LlmBudgetCoordinator budget = LlmBudgetCoordinator.of(2);
         LlmService service = new LlmService(model, budget, configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
@@ -341,7 +341,7 @@ class LlmServiceRetryTest {
 
             assertTrue(failure.getMessage().contains("deadline"));
             assertEquals(0, calls.get());
-            assertEquals(2, budget.getRemaining());
+            assertEquals(2, budget.getRemaining(LlmFeature.POST_PROCESSING));
         } finally {
             service.close();
         }
@@ -358,7 +358,7 @@ class LlmServiceRetryTest {
                 true, tempDir, "budget-tail");
         LlmStatistics statistics = new LlmStatistics();
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1),
+        LlmService service = new LlmService(model, LlmBudgetCoordinator.of(1),
                 configuration, statistics, recorder);
 
         try {
@@ -389,7 +389,7 @@ class LlmServiceRetryTest {
                 true, tempDir, "deadline-tail");
         LlmStatistics statistics = new LlmStatistics();
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(10),
+        LlmService service = new LlmService(model, LlmBudgetCoordinator.of(10),
                 configuration, statistics, recorder);
 
         try {
@@ -420,7 +420,7 @@ class LlmServiceRetryTest {
                 "mock", "", "", 0.0, 1024, 5, 0, 1,
                 false, Paths.get("target/llm-test-traces"), "interrupt-stats");
         LlmStatistics statistics = new LlmStatistics();
-        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1), configuration,
+        LlmService service = new LlmService(model, LlmBudgetCoordinator.of(1), configuration,
                 statistics, new LlmTraceRecorder(configuration));
         Thread caller = new Thread(() -> {
             try {
@@ -459,7 +459,7 @@ class LlmServiceRetryTest {
                 true, tempDir, "interrupt-backoff");
         LlmStatistics statistics = new LlmStatistics();
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(10),
+        LlmService service = new LlmService(model, LlmBudgetCoordinator.of(10),
                 configuration, statistics, recorder);
         AtomicReference<Throwable> thrown = new AtomicReference<>();
         Thread caller = new Thread(() -> {
@@ -520,7 +520,7 @@ class LlmServiceRetryTest {
                 org.evosuite.Properties.LlmProvider.NONE,
                 "mock", "", "", 0.0, 1024, 1, 0, 1,
                 false, Paths.get("target/llm-test-traces"), "stuck-worker");
-        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1), configuration,
+        LlmService service = new LlmService(model, LlmBudgetCoordinator.of(1), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         try {
@@ -555,7 +555,7 @@ class LlmServiceRetryTest {
                 org.evosuite.Properties.LlmProvider.NONE,
                 "mock", "", "", 0.0, 1024, 5, 0, 1,
                 false, Paths.get("target/llm-test-traces"), "caller-interrupt");
-        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1), configuration,
+        LlmService service = new LlmService(model, LlmBudgetCoordinator.of(1), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
         Thread caller = new Thread(() -> {
             try {

@@ -95,7 +95,7 @@ class LlmServiceOperatorModelTest {
         RecordingChatLanguageModel operator = recordingModel();
         LlmConfiguration configuration = testConfiguration("operator-routing-test", "operator-model");
         LlmService service = new LlmService(primary, operator,
-                new LlmBudgetCoordinator.Local(10), configuration,
+                LlmBudgetCoordinator.of(10), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         try {
@@ -117,7 +117,7 @@ class LlmServiceOperatorModelTest {
         RecordingChatLanguageModel operator = recordingModel();
         LlmConfiguration configuration = testConfiguration("primary-routing-test", "operator-model");
         LlmService service = new LlmService(primary, operator,
-                new LlmBudgetCoordinator.Local(10), configuration,
+                LlmBudgetCoordinator.of(10), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         try {
@@ -136,7 +136,7 @@ class LlmServiceOperatorModelTest {
         RecordingChatLanguageModel primary = recordingModel();
         LlmConfiguration configuration = testConfiguration("no-operator-model-test");
         LlmService service = new LlmService(primary,
-                new LlmBudgetCoordinator.Local(10), configuration,
+                LlmBudgetCoordinator.of(10), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         try {
@@ -179,7 +179,7 @@ class LlmServiceOperatorModelTest {
         LlmConfiguration configuration = testConfiguration("inconsistent-operator-client-test");
 
         assertThrows(IllegalArgumentException.class, () -> new LlmService(primary, operator,
-                new LlmBudgetCoordinator.Local(10), configuration,
+                LlmBudgetCoordinator.of(10), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration)));
     }
 
@@ -189,7 +189,7 @@ class LlmServiceOperatorModelTest {
         LlmConfiguration configuration = testConfiguration("inconsistent-operator-model-test", "operator-model");
 
         assertThrows(IllegalArgumentException.class, () -> new LlmService(primary, null,
-                new LlmBudgetCoordinator.Local(10), configuration,
+                LlmBudgetCoordinator.of(10), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration)));
     }
 

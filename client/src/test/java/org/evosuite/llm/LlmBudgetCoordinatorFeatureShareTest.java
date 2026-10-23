@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for {@link LlmBudgetCoordinator.FeatureShare}, which reserves a
+ * Tests for {@link LlmBudgetCoordinator}, which reserves a
  * share of the total LLM call budget for the LLM operator calls
  * ({@link LlmFeature#SEMANTIC_MUTATION}, {@link LlmFeature#SEMANTIC_CROSSOVER})
  * so they cannot be crowded out by (or crowd out) the other LLM features,
@@ -55,10 +55,15 @@ class LlmBudgetCoordinatorFeatureShareTest {
         Properties.LLM_OPERATOR_CROSSOVER = savedOperatorCrossover;
     }
 
+    /** A partitioned budget leaves the non-operator features with only part of the total. */
+    private static boolean isPartitioned() {
+        long other = LlmBudgetCoordinator.fromProperties().getRemaining(LlmFeature.STAGNATION);
+        return other >= 0 && other < Properties.LLM_MAX_CALLS;
+    }
+
     @Test
     void operatorQuotaIsExhaustedIndependentlyOfOtherFeatures() {
-        LlmBudgetCoordinator.FeatureShare share = new LlmBudgetCoordinator.FeatureShare(
-                new LlmBudgetCoordinator.Local(10), 10, 0.5);
+        LlmBudgetCoordinator share = LlmBudgetCoordinator.withOperatorShare(10, 0.5);
 
         for (int i = 0; i < 5; i++) {
             assertTrue(share.tryAcquire(LlmFeature.SEMANTIC_MUTATION));
@@ -72,8 +77,7 @@ class LlmBudgetCoordinatorFeatureShareTest {
 
     @Test
     void nonOperatorFeaturesShareOneCombinedQuota() {
-        LlmBudgetCoordinator.FeatureShare share = new LlmBudgetCoordinator.FeatureShare(
-                new LlmBudgetCoordinator.Local(10), 10, 0.5);
+        LlmBudgetCoordinator share = LlmBudgetCoordinator.withOperatorShare(10, 0.5);
 
         int acquired = 0;
         while (share.tryAcquire(LlmFeature.STAGNATION)) {
@@ -88,8 +92,7 @@ class LlmBudgetCoordinatorFeatureShareTest {
 
     @Test
     void getRemainingReportsQuotaBoundedValue() {
-        LlmBudgetCoordinator.FeatureShare share = new LlmBudgetCoordinator.FeatureShare(
-                new LlmBudgetCoordinator.Local(10), 10, 0.5);
+        LlmBudgetCoordinator share = LlmBudgetCoordinator.withOperatorShare(10, 0.5);
 
         assertEquals(5, share.getRemaining(LlmFeature.SEMANTIC_MUTATION));
         assertEquals(5, share.getRemaining(LlmFeature.STAGNATION));
@@ -101,8 +104,7 @@ class LlmBudgetCoordinatorFeatureShareTest {
 
     @Test
     void fullShareLeavesNothingForOtherFeatures() {
-        LlmBudgetCoordinator.FeatureShare share = new LlmBudgetCoordinator.FeatureShare(
-                new LlmBudgetCoordinator.Local(10), 10, 1.0);
+        LlmBudgetCoordinator share = LlmBudgetCoordinator.withOperatorShare(10, 1.0);
 
         assertEquals(10, share.getRemaining(LlmFeature.SEMANTIC_MUTATION));
         assertEquals(0, share.getRemaining(LlmFeature.STAGNATION));
@@ -111,8 +113,7 @@ class LlmBudgetCoordinatorFeatureShareTest {
 
     @Test
     void zeroShareLeavesNothingForOperators() {
-        LlmBudgetCoordinator.FeatureShare share = new LlmBudgetCoordinator.FeatureShare(
-                new LlmBudgetCoordinator.Local(10), 10, 0.0);
+        LlmBudgetCoordinator share = LlmBudgetCoordinator.withOperatorShare(10, 0.0);
 
         assertEquals(0, share.getRemaining(LlmFeature.SEMANTIC_MUTATION));
         assertFalse(share.tryAcquire(LlmFeature.SEMANTIC_CROSSOVER));
@@ -121,53 +122,52 @@ class LlmBudgetCoordinatorFeatureShareTest {
 
     @Test
     void oddMaxCallsRoundsOperatorShareToNearestInteger() {
-        LlmBudgetCoordinator.FeatureShare share = new LlmBudgetCoordinator.FeatureShare(
-                new LlmBudgetCoordinator.Local(7), 7, 0.5);
+        LlmBudgetCoordinator share = LlmBudgetCoordinator.withOperatorShare(7, 0.5);
 
         assertEquals(4, share.getRemaining(LlmFeature.SEMANTIC_MUTATION));
         assertEquals(3, share.getRemaining(LlmFeature.STAGNATION));
     }
 
     @Test
-    void fromPropertiesReturnsLocalWhenStagnationIsOff() {
+    void fromPropertiesIsNotPartitionedWhenStagnationIsOff() {
         Properties.LLM_MAX_CALLS = 10;
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_ON_STAGNATION = false;
 
-        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
+        assertFalse(isPartitioned());
     }
 
     @Test
-    void fromPropertiesReturnsLocalWhenMaxCallsIsUnlimited() {
+    void fromPropertiesIsNotPartitionedWhenMaxCallsIsUnlimited() {
         Properties.LLM_MAX_CALLS = 0;
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_ON_STAGNATION = true;
 
-        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
+        assertFalse(isPartitioned());
     }
 
     @Test
-    void fromPropertiesReturnsLocalWhenOperatorsAreOff() {
+    void fromPropertiesIsNotPartitionedWhenOperatorsAreOff() {
         Properties.LLM_MAX_CALLS = 10;
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
         Properties.LLM_ON_STAGNATION = true;
 
-        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
+        assertFalse(isPartitioned());
     }
 
     @Test
-    void fromPropertiesReturnsFeatureShareWhenAllThreeConditionsHold() {
+    void fromPropertiesIsPartitionedWhenAllThreeConditionsHold() {
         Properties.LLM_MAX_CALLS = 10;
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_ON_STAGNATION = true;
         Properties.LLM_MUTATION_PROBABILITY = 0.1;
         Properties.LLM_CROSSOVER_PROBABILITY = 0.1;
 
-        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.FeatureShare);
+        assertTrue(isPartitioned());
     }
 
     @Test
-    void fromPropertiesReturnsLocalWhenAsyncOperatorsCannotSpendAnyCall() {
+    void fromPropertiesIsNotPartitionedWhenAsyncOperatorsCannotSpendAnyCall() {
         Properties.LLM_MAX_CALLS = 10;
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.ASYNC;
         Properties.LLM_ON_STAGNATION = true;
@@ -176,11 +176,11 @@ class LlmBudgetCoordinatorFeatureShareTest {
         // Reserving half the budget for an executor that never submits a call would just
         // strand it, unreachable by stagnation or any other LLM feature.
         assertFalse(LlmBudgetCoordinator.operatorsCanSpend());
-        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
+        assertFalse(isPartitioned());
     }
 
     @Test
-    void fromPropertiesReturnsLocalWhenSyncOperatorProbabilitiesAreBothZero() {
+    void fromPropertiesIsNotPartitionedWhenSyncOperatorProbabilitiesAreBothZero() {
         Properties.LLM_MAX_CALLS = 10;
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_ON_STAGNATION = true;
@@ -190,7 +190,7 @@ class LlmBudgetCoordinatorFeatureShareTest {
         // Neither breeding-loop hook can ever fire, so the SYNC operators can never spend
         // their reserved share either.
         assertFalse(LlmBudgetCoordinator.operatorsCanSpend());
-        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
+        assertFalse(isPartitioned());
     }
 
     @Test
@@ -203,7 +203,7 @@ class LlmBudgetCoordinatorFeatureShareTest {
     }
 
     @Test
-    void fromPropertiesReturnsLocalWhenCrossoverProbabilityIsPositiveButCrossoverTargetingIsOff() {
+    void fromPropertiesIsNotPartitionedWhenCrossoverProbabilityIsPositiveButCrossoverTargetingIsOff() {
         Properties.LLM_MAX_CALLS = 10;
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_ON_STAGNATION = true;
@@ -214,6 +214,6 @@ class LlmBudgetCoordinatorFeatureShareTest {
         // A positive crossover probability spends nothing when the selector never hands out a
         // crossover target to begin with, so reserving a share for it would just strand it.
         assertFalse(LlmBudgetCoordinator.operatorsCanSpend());
-        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
+        assertFalse(isPartitioned());
     }
 }

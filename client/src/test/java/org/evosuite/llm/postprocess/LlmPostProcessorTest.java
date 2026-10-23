@@ -973,7 +973,7 @@ class LlmPostProcessorTest {
                 Properties.LlmProvider.NONE, "mock", "", "", 0.0,
                 1024, 2, 0, 1, true, traceDir, "test-lifecycle");
         LlmService service = new LlmService(
-                model, new LlmBudgetCoordinator.Local(1), configuration,
+                model, LlmBudgetCoordinator.of(1), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         LlmPostProcessor phaseProcessor = processor(service, new RecordingFallbackRunner(0),
@@ -1012,7 +1012,7 @@ class LlmPostProcessorTest {
                 Properties.LlmProvider.NONE, "mock", "", "", 0.0,
                 1024, 2, 0, 1, true, traceDir, "test-compile-lifecycle");
         LlmService service = new LlmService(
-                model, new LlmBudgetCoordinator.Local(1), configuration,
+                model, LlmBudgetCoordinator.of(1), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         LlmPostProcessor phaseProcessor = processor(service, new RecordingFallbackRunner(0),
@@ -1633,7 +1633,7 @@ class LlmPostProcessorTest {
         suite.addTest(third);
         markAllTestsExecutedNormally(suite);
         InterruptCallerModel model = new InterruptCallerModel(Thread.currentThread());
-        LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(10);
+        LlmBudgetCoordinator budget = LlmBudgetCoordinator.of(10);
         RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
         LlmPostProcessor phaseProcessor =
                 processor(createService(model, budget), fallbackRunner, new FinalScopeCandidateRunner(7));
@@ -1648,7 +1648,7 @@ class LlmPostProcessorTest {
 
         assertTrue(interruptedAfterPhase, "the interrupt must stay visible to the caller");
         assertEquals(1, model.calls);
-        assertEquals(9, budget.getRemaining());
+        assertEquals(9, budget.getRemaining(org.evosuite.llm.LlmFeature.POST_PROCESSING));
         assertEquals(0, fallbackRunner.calls);
         assertEquals("interrupted", phaseContext.getTerminalReason());
         assertEquals("interrupted", node.value(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
@@ -1668,7 +1668,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         QueueCapturingModel model = new QueueCapturingModel();
         model.enqueue("{\"schemaVersion\":2,\"testName\":\"shouldNotApply\"}");
-        LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(10);
+        LlmBudgetCoordinator budget = LlmBudgetCoordinator.of(10);
         LlmPostProcessor phaseProcessor = processor(createService(model, budget));
         LlmPostProcessingPhaseContext phaseContext = phaseProcessor.createPhaseContext();
 
@@ -1682,7 +1682,7 @@ class LlmPostProcessorTest {
 
         assertTrue(interruptedAfterPhase);
         assertEquals(0, model.messages.size());
-        assertEquals(10, budget.getRemaining());
+        assertEquals(10, budget.getRemaining(org.evosuite.llm.LlmFeature.POST_PROCESSING));
         assertEquals("interrupted", phaseContext.getTerminalReason());
         assertNoAppliedPostProcessing(test);
     }
@@ -1715,7 +1715,7 @@ class LlmPostProcessorTest {
     }
 
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {
-        return createService(model, new LlmBudgetCoordinator.Local(budget));
+        return createService(model, LlmBudgetCoordinator.of(budget));
     }
 
     private static LlmService createService(LlmService.ChatLanguageModel model,
@@ -2006,7 +2006,7 @@ class LlmPostProcessorTest {
 
         private DeadlineCapturingLlmService(LlmService.ChatLanguageModel model) {
             super(model,
-                    new LlmBudgetCoordinator.Local(10),
+                    LlmBudgetCoordinator.of(10),
                     testConfiguration(),
                     new LlmStatistics(),
                     new LlmTraceRecorder(testConfiguration()));
@@ -2022,7 +2022,7 @@ class LlmPostProcessorTest {
     private static final class UnavailableTestLlmService extends LlmService {
         private UnavailableTestLlmService(LlmService.ChatLanguageModel model) {
             super(model,
-                    new LlmBudgetCoordinator.Local(1),
+                    LlmBudgetCoordinator.of(1),
                     testConfiguration(),
                     new LlmStatistics(),
                     new LlmTraceRecorder(testConfiguration()));
@@ -2047,7 +2047,7 @@ class LlmPostProcessorTest {
     private static final class NoBudgetTestLlmService extends LlmService {
         private NoBudgetTestLlmService(LlmService.ChatLanguageModel model) {
             super(model,
-                    new LlmBudgetCoordinator.Local(1),
+                    LlmBudgetCoordinator.of(1),
                     testConfiguration(),
                     new LlmStatistics(),
                     new LlmTraceRecorder(testConfiguration()));

@@ -274,7 +274,7 @@ class AsyncLlmTestProducerIntegrationTest {
                 Paths.get("target/llm-test-traces"),
                 "async-integration");
         return new LlmService(model,
-                new LlmBudgetCoordinator.Local(budget),
+                LlmBudgetCoordinator.of(budget),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));

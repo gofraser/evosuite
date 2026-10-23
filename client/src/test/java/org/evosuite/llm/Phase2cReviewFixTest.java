@@ -198,7 +198,7 @@ class Phase2cReviewFixTest {
             }
         };
 
-        LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(5);
+        LlmBudgetCoordinator budget = LlmBudgetCoordinator.of(5);
         LlmService service = new LlmService(model, budget, config, new LlmStatistics(), recorder);
 
         try {
@@ -248,7 +248,7 @@ class Phase2cReviewFixTest {
             }
         };
 
-        LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(5);
+        LlmBudgetCoordinator budget = LlmBudgetCoordinator.of(5);
         LlmService service = new LlmService(model, budget, config, new LlmStatistics(), recorder);
 
         try {
@@ -332,7 +332,7 @@ class Phase2cReviewFixTest {
                         return new LlmResponse("ok", 0, 0);
                     }
                 },
-                new LlmBudgetCoordinator.Local(5),
+                LlmBudgetCoordinator.of(5),
                 config,
                 new LlmStatistics(),
                 new LlmTraceRecorder(config));

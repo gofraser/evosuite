@@ -263,7 +263,7 @@ class StagnationDetectorIntegrationTest {
                 Paths.get("target/llm-test-traces"),
                 "stagnation-integration");
         return new LlmService(model,
-                new LlmBudgetCoordinator.Local(budget),
+                LlmBudgetCoordinator.of(budget),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));

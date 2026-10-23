@@ -763,7 +763,7 @@ class LlmStrategyBehaviorTest {
                 Paths.get("target/llm-test-traces"),
                 "phase6-test");
         return new LlmService(model,
-                new LlmBudgetCoordinator.Local(budget),
+                LlmBudgetCoordinator.of(budget),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));

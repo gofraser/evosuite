@@ -50,7 +50,7 @@ class LlmServiceQueryWithUsageTest {
                 false, Paths.get("target/llm-test-traces"), "usage-test");
         LlmStatistics statistics = new LlmStatistics();
         LlmService service = new LlmService(model,
-                new LlmBudgetCoordinator.Local(1), configuration,
+                LlmBudgetCoordinator.of(1), configuration,
                 statistics, new LlmTraceRecorder(configuration));
 
         PromptResult prompt = new PromptResult.Builder()
@@ -89,7 +89,7 @@ class LlmServiceQueryWithUsageTest {
                 "mock", "", "", 0.0, 1024, 2, 2, 1,
                 true, Paths.get("target/llm-test-traces"), "usage-retry-test");
         LlmService service = new LlmService(model,
-                new LlmBudgetCoordinator.Local(2), configuration,
+                LlmBudgetCoordinator.of(2), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
         PromptResult prompt = new PromptResult.Builder()

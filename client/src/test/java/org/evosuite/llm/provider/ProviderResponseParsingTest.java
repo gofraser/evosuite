@@ -272,7 +272,7 @@ class ProviderResponseParsingTest {
                 Properties.LlmProvider.OPENAI, "local-model", "local-token", baseUrl,
                 0.0, 1024, 3, 0, 1, false, tempDir, "malformed-run");
         LlmStatistics statistics = new LlmStatistics();
-        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1), configuration,
+        LlmService service = new LlmService(model, LlmBudgetCoordinator.of(1), configuration,
                 statistics, new LlmTraceRecorder(configuration));
 
         try {

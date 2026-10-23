@@ -25,64 +25,65 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Coordinates LLM call budget consumption.
+ *
+ * <p>By default every feature draws from one counter. When the LLM operators and the stagnation
+ * assistance can both spend under a finite cap (see {@link #fromProperties()}), a share of the
+ * total is reserved for the operator calls ({@link LlmFeature#SEMANTIC_MUTATION},
+ * {@link LlmFeature#SEMANTIC_CROSSOVER}) so that they cannot be crowded out by (or crowd out)
+ * every other feature, chiefly {@link LlmFeature#STAGNATION}. The two quotas sum to the total,
+ * so each is a hard cap on its own bucket and the total needs no counter of its own.
  */
-public interface LlmBudgetCoordinator {
+public final class LlmBudgetCoordinator {
 
-    /**
-     * Reserve one call budget unit if available.
-     *
-     * @return true when reservation succeeded
-     */
-    boolean tryAcquire();
+    /** Counter for every feature, or for the non-operator features when a share is reserved. */
+    private final AtomicInteger otherRemaining;
 
-    /**
-     * Returns the remaining budget, or -1 when unlimited.
-     *
-     * @return remaining budget or -1 when unlimited
-     */
-    long getRemaining();
+    /** Operator quota, or {@code null} when the budget is not partitioned. */
+    private final AtomicInteger operatorRemaining;
 
-    /**
-     * Reserve one call budget unit for the given feature, if available.
-     * Implementations that partition the budget by feature (see
-     * {@link FeatureShare}) override this; the default forwards to the
-     * global, feature-agnostic {@link #tryAcquire()}.
-     *
-     * @param feature the feature attempting to spend budget
-     * @return true when reservation succeeded
-     */
-    default boolean tryAcquire(LlmFeature feature) {
-        return tryAcquire();
+    private LlmBudgetCoordinator(AtomicInteger otherRemaining, AtomicInteger operatorRemaining) {
+        this.otherRemaining = otherRemaining;
+        this.operatorRemaining = operatorRemaining;
     }
 
     /**
-     * Returns the remaining budget for the given feature, or -1 when
-     * unlimited. Implementations that partition the budget by feature (see
-     * {@link FeatureShare}) override this; the default forwards to the
-     * global, feature-agnostic {@link #getRemaining()}.
+     * Creates an unpartitioned budget.
      *
-     * @param feature the feature asking about remaining budget
-     * @return remaining budget for that feature, or -1 when unlimited
+     * @param maxCalls the call cap; {@code maxCalls <= 0} means unlimited (the
+     *                 {@link Properties#LLM_MAX_CALLS} convention)
+     * @return the budget
      */
-    default long getRemaining(LlmFeature feature) {
-        return getRemaining();
+    public static LlmBudgetCoordinator of(int maxCalls) {
+        return new LlmBudgetCoordinator(new AtomicInteger(maxCalls <= 0 ? -1 : maxCalls), null);
+    }
+
+    /**
+     * Creates a budget that reserves a fraction of {@code maxCalls} for the operator features.
+     * A quota can legitimately round down to zero calls, and then stays zero.
+     *
+     * @param maxCalls the overall call cap
+     * @param share    the fraction of {@code maxCalls} reserved for operator calls
+     * @return the budget
+     */
+    public static LlmBudgetCoordinator withOperatorShare(int maxCalls, double share) {
+        int operatorCalls = (int) Math.round(share * maxCalls);
+        return new LlmBudgetCoordinator(
+                new AtomicInteger(Math.max(0, maxCalls - operatorCalls)),
+                new AtomicInteger(Math.max(0, operatorCalls)));
     }
 
     /**
      * Builds the coordinator configured by the current {@link Properties}.
-     * Returns a {@link FeatureShare} when the LLM operators and the
-     * stagnation assistance are both enabled under a finite call cap, so
-     * that operator calls cannot starve out (or be starved by) the
-     * stagnation prompt; otherwise returns a plain {@link Local} counter.
+     * Partitions the budget when the LLM operators and the stagnation assistance are both
+     * enabled under a finite call cap; otherwise returns a plain counter.
      *
      * @return the configured budget coordinator
      */
     static LlmBudgetCoordinator fromProperties() {
-        Local total = new Local(Properties.LLM_MAX_CALLS);
         if (Properties.LLM_MAX_CALLS > 0 && Properties.LLM_ON_STAGNATION && operatorsCanSpend()) {
-            return new FeatureShare(total, Properties.LLM_MAX_CALLS, Properties.LLM_OPERATOR_CALL_SHARE);
+            return withOperatorShare(Properties.LLM_MAX_CALLS, Properties.LLM_OPERATOR_CALL_SHARE);
         }
-        return total;
+        return of(Properties.LLM_MAX_CALLS);
     }
 
     /**
@@ -111,104 +112,38 @@ public interface LlmBudgetCoordinator {
     }
 
     /**
-     * Process-local atomic budget implementation used in non-island mode.
+     * Reserves one call budget unit for the given feature, if available.
+     *
+     * @param feature the feature attempting to spend budget
+     * @return true when reservation succeeded
      */
-    final class Local implements LlmBudgetCoordinator {
-
-        private final AtomicInteger remaining;
-
-        public Local(int maxCalls) {
-            this(maxCalls, true);
-        }
-
-        /**
-         * @param maxCalls               the call cap
-         * @param nonPositiveIsUnlimited when true, {@code maxCalls <= 0} means unlimited
-         *                               (the {@link Properties#LLM_MAX_CALLS} convention);
-         *                               when false, a computed quota of exactly 0 stays 0.
-         *                               Used internally by {@link FeatureShare}, whose quotas
-         *                               can legitimately round down to zero calls.
-         */
-        private Local(int maxCalls, boolean nonPositiveIsUnlimited) {
-            this.remaining = new AtomicInteger(
-                    nonPositiveIsUnlimited ? (maxCalls <= 0 ? -1 : maxCalls) : Math.max(0, maxCalls));
-        }
-
-        @Override
-        public boolean tryAcquire() {
-            while (true) {
-                int current = remaining.get();
-                if (current < 0) {
-                    return true;
-                }
-                if (current == 0) {
-                    return false;
-                }
-                if (remaining.compareAndSet(current, current - 1)) {
-                    return true;
-                }
+    public boolean tryAcquire(LlmFeature feature) {
+        AtomicInteger counter = counterFor(feature);
+        while (true) {
+            int current = counter.get();
+            if (current < 0) {
+                return true;
             }
-        }
-
-        @Override
-        public long getRemaining() {
-            return remaining.get();
+            if (current == 0) {
+                return false;
+            }
+            if (counter.compareAndSet(current, current - 1)) {
+                return true;
+            }
         }
     }
 
     /**
-     * Reserves a share of the total budget for the LLM operator calls
-     * ({@link LlmFeature#SEMANTIC_MUTATION}, {@link LlmFeature#SEMANTIC_CROSSOVER})
-     * so that they cannot be crowded out by (or crowd out) every other LLM
-     * feature, chiefly {@link LlmFeature#STAGNATION}. Each feature bucket
-     * draws from its own {@link Local} quota first, then from the shared
-     * delegate that tracks the actual total; the delegate is the same total
-     * as the two quotas combined, so it can only refuse once both quotas are
-     * already exhausted.
+     * Returns the remaining budget for the given feature, or -1 when unlimited.
+     *
+     * @param feature the feature asking about remaining budget
+     * @return remaining budget for that feature, or -1 when unlimited
      */
-    final class FeatureShare implements LlmBudgetCoordinator {
+    public long getRemaining(LlmFeature feature) {
+        return counterFor(feature).get();
+    }
 
-        private final LlmBudgetCoordinator delegate;
-        private final Local operatorQuota;
-        private final Local otherQuota;
-
-        /**
-         * @param delegate  the coordinator tracking the overall total
-         * @param maxCalls  the overall call cap the delegate was built from
-         * @param share     the fraction of {@code maxCalls} reserved for operator calls
-         */
-        public FeatureShare(LlmBudgetCoordinator delegate, int maxCalls, double share) {
-            this.delegate = delegate;
-            int operatorCalls = (int) Math.round(share * maxCalls);
-            this.operatorQuota = new Local(operatorCalls, false);
-            this.otherQuota = new Local(maxCalls - operatorCalls, false);
-        }
-
-        private Local quotaFor(LlmFeature feature) {
-            return feature.isOperator() ? operatorQuota : otherQuota;
-        }
-
-        @Override
-        public boolean tryAcquire() {
-            return delegate.tryAcquire();
-        }
-
-        @Override
-        public long getRemaining() {
-            return delegate.getRemaining();
-        }
-
-        @Override
-        public boolean tryAcquire(LlmFeature feature) {
-            if (!quotaFor(feature).tryAcquire()) {
-                return false;
-            }
-            return delegate.tryAcquire();
-        }
-
-        @Override
-        public long getRemaining(LlmFeature feature) {
-            return Math.min(quotaFor(feature).getRemaining(), delegate.getRemaining());
-        }
+    private AtomicInteger counterFor(LlmFeature feature) {
+        return operatorRemaining != null && feature.isOperator() ? operatorRemaining : otherRemaining;
     }
 }

@@ -579,7 +579,7 @@ class LlmPoolEnrichmentOrchestratorTest {
                 false, java.nio.file.Paths.get("target/llm-test-traces"), "test-orch");
         return new LlmService(
                 new org.evosuite.llm.mock.MockChatLanguageModel(),
-                new LlmBudgetCoordinator.Local(0),
+                LlmBudgetCoordinator.of(0),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));

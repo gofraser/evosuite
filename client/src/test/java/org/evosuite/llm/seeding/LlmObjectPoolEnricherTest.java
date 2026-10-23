@@ -658,7 +658,7 @@ class LlmObjectPoolEnricherTest {
                 "test-object-enrichment");
         return new LlmService(
                 new MockChatLanguageModel(),
-                new LlmBudgetCoordinator.Local(0),
+                LlmBudgetCoordinator.of(0),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));

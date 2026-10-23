@@ -203,7 +203,7 @@ class LlmGaIntegrationTest {
                 Paths.get("target/llm-test-traces"),
                 "ga-integration");
         return new LlmService(model,
-                new LlmBudgetCoordinator.Local(budget),
+                LlmBudgetCoordinator.of(budget),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));
