@@ -530,7 +530,6 @@
                     <excludes>
                         <exclude>${integrationTests}</exclude>
                         <exclude>${systemTests}</exclude>
-                        <exclude>${exclude.tests.concolic}</exclude>
                         <exclude>${exclude.tests.mimeType}</exclude>
                         <exclude>**/MSecurityManagerTest.java</exclude>
                         <exclude>**/SandboxFromJUnitTest.java</exclude>
@@ -740,7 +739,6 @@
         <logback.version>1.5.32</logback.version>
 
         <!-- Test classes excluded from the default test run -->
-        <exclude.tests.concolic>**/*Concolic*.java</exclude.tests.concolic>
         <exclude.tests.mimeType>**/*TestMIMEType.java</exclude.tests.mimeType>
 
         <jaxb.version>2.3.3</jaxb.version>
