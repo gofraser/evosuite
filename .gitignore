@@ -6,7 +6,6 @@ target/
 evosuite-files
 evosuite-report
 evosuite-tests
-plugins/jenkins/work
 build
 transitionLog.txt
 .DS_Store

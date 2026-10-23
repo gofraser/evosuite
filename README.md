@@ -160,10 +160,6 @@ Generated tests are written to `src/test/evosuite`, which the plugin adds to the
 regenerate tests for classes that changed. See [plugins/maven/README.md](plugins/maven/README.md) for setup
 and options.
 
-### EvoSuite plugin for IntelliJ
-
-Check out the [documentation](http://www.evosuite.org/documentation/intellij-idea-plugin/).
-
 # Getting EvoSuite
 
 The current release of EvoSuite (main EvoSuite jar file and plugins) is available for download at <http://www.evosuite.org/downloads/>.
