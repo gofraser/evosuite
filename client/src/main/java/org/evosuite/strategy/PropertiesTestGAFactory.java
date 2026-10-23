@@ -28,7 +28,6 @@ import org.evosuite.ga.FitnessReplacementFunction;
 import org.evosuite.ga.metaheuristics.BreederGA;
 import org.evosuite.ga.metaheuristics.CellularGA;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.ga.metaheuristics.LIPS;
 import org.evosuite.ga.metaheuristics.MonotonicGA;
 import org.evosuite.ga.metaheuristics.NSGAII;
 import org.evosuite.ga.metaheuristics.RandomSearch;
@@ -192,9 +191,6 @@ public class PropertiesTestGAFactory
             case MAP_ELITES:
                 logger.info("Chosen search algorithm: MAP-Elites");
                 return new MAPElites(factory);
-            case LIPS:
-                logger.info("Chosen search algorithm: LIPS");
-                return new LIPS(factory);
             default:
                 logger.info("Chosen search algorithm: StandardGA");
                 return new StandardGA<>(factory);

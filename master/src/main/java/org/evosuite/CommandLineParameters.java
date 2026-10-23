@@ -116,7 +116,6 @@ public class CommandLineParameters {
     private static boolean isManyObjectiveAlgorithm(Properties.Algorithm algo) {
         return algo == Properties.Algorithm.MOSA
             || algo == Properties.Algorithm.DYNAMOSA
-            || algo == Properties.Algorithm.LIPS
             || algo == Properties.Algorithm.MIO;
     }
 

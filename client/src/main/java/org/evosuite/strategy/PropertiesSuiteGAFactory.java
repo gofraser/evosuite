@@ -30,8 +30,6 @@ import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
 import org.evosuite.ga.metaheuristics.BreederGA;
 import org.evosuite.ga.metaheuristics.CellularGA;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.ga.metaheuristics.LIPS;
-import org.evosuite.ga.metaheuristics.LIPSTestSuiteAdapter;
 import org.evosuite.ga.metaheuristics.MIO;
 import org.evosuite.ga.metaheuristics.MIOTestSuiteAdapter;
 import org.evosuite.ga.metaheuristics.MonotonicGA;
@@ -266,16 +264,6 @@ public class PropertiesSuiteGAFactory
             case MAP_ELITES:
                 logger.info("Chosen search algorithm: MAP-Elites");
                 throw new RuntimeException("MAPElites only works on TestChromosome, not on TestSuiteChromosome");
-            case LIPS:
-                logger.info("Chosen search algorithm: LIPS");
-                if (factory instanceof TestSuiteChromosomeFactory) {
-                    final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
-                    return new LIPSTestSuiteAdapter(new LIPS(tscf.getTestChromosomeFactory()));
-                } else {
-                    logger.info("No specific factory for test cases given...");
-                    logger.info("Using a default factory that creates tests with variable length");
-                    return new LIPSTestSuiteAdapter(new LIPS(new RandomLengthTestFactory()));
-                }
             default:
                 logger.info("Chosen search algorithm: StandardGA");
                 return new StandardGA<>(factory);

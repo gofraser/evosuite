@@ -68,11 +68,6 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
 
     @Override
     public TestSuiteChromosome generateTests() {
-        // Currently only LIPS uses its own Archive
-        if (Properties.ALGORITHM == Properties.Algorithm.LIPS) {
-            Properties.TEST_ARCHIVE = false;
-        }
-
         // Set up search algorithm
         GeneticAlgorithm<TestSuiteChromosome> algorithm = createSearchAlgorithm();
 

@@ -24,7 +24,6 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.ga.metaheuristics.LIPS;
 import org.evosuite.ga.metaheuristics.MIO;
 import org.evosuite.ga.metaheuristics.TestSuiteAdapter;
 import org.evosuite.ga.metaheuristics.mosa.DynaMOSA;
@@ -185,19 +184,6 @@ class PropertiesSuiteGAFactoryTest {
         GeneticAlgorithm<?> algorithm = wrappedAlgorithm(buildAlgorithm());
 
         assertInstanceOf(MIO.class, algorithm);
-        assertInstanceOf(JUnitTestParsedChromosomeFactory.class, factoryOf(algorithm));
-    }
-
-    @Test
-    void lipsReceivesParsedFactoryUnderMosuite() {
-        Properties.STRATEGY = Properties.Strategy.MOSUITE;
-        Properties.TEST_FACTORY = Properties.TestFactory.PARSED_JUNIT;
-        Properties.ALGORITHM = Properties.Algorithm.LIPS;
-        Properties.CRITERION = new Criterion[]{Criterion.LINE};
-
-        GeneticAlgorithm<?> algorithm = wrappedAlgorithm(buildAlgorithm());
-
-        assertInstanceOf(LIPS.class, algorithm);
         assertInstanceOf(JUnitTestParsedChromosomeFactory.class, factoryOf(algorithm));
     }
 
