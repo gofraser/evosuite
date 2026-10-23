@@ -413,11 +413,11 @@ public class Properties {
             description = "Score for selection of insertion of UUT calls")
     public static double INSERTION_UUT = 0.5;
 
-    @Parameter(key = "insertion_uut", group = "Test Creation",
+    @Parameter(key = "insertion_parameter", group = "Test Creation",
             description = "Score for selection of insertion of call to a input parameter")
     public static double INSERTION_PARAMETER = 0.4;
 
-    @Parameter(key = "insertion_uut", group = "Test Creation",
+    @Parameter(key = "insertion_environment", group = "Test Creation",
             description = "Score for selection of insertion of call on the environment")
     public static double INSERTION_ENVIRONMENT = 0.1;
 
@@ -3780,7 +3780,9 @@ public class Properties {
         for (Field f : Properties.class.getFields()) {
             if (f.isAnnotationPresent(Parameter.class)) {
                 Parameter p = f.getAnnotation(Parameter.class);
-                parameterMap.put(p.key(), f);
+                if (parameterMap.put(p.key(), f) != null) {
+                    throw new IllegalStateException("Property key '" + p.key() + "' is declared more than once");
+                }
                 try {
                     defaultMap.put(f, f.get(null));
                 } catch (Exception e) {

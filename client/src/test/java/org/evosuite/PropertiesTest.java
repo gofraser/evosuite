@@ -26,9 +26,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -196,5 +199,28 @@ public class PropertiesTest {
         } finally {
             Files.deleteIfExists(file);
         }
+    }
+
+    @Test
+    public void everyParameterFieldHasItsOwnKey() {
+        Set<String> keys = new HashSet<>();
+        for (Field field : Properties.class.getFields()) {
+            Properties.Parameter parameter = field.getAnnotation(Properties.Parameter.class);
+            if (parameter != null) {
+                Assertions.assertTrue(keys.add(parameter.key()),
+                        "Key " + parameter.key() + " is declared more than once");
+            }
+        }
+        Assertions.assertEquals(keys, Properties.getParameters());
+    }
+
+    @Test
+    public void insertionProbabilitiesCanBeSetIndividually() throws Exception {
+        Properties.getInstance().setValue("insertion_uut", "0.3");
+        Properties.getInstance().setValue("insertion_parameter", "0.2");
+        Properties.getInstance().setValue("insertion_environment", "0.5");
+        Assertions.assertEquals(0.3, Properties.INSERTION_UUT, 0.0);
+        Assertions.assertEquals(0.2, Properties.INSERTION_PARAMETER, 0.0);
+        Assertions.assertEquals(0.5, Properties.INSERTION_ENVIRONMENT, 0.0);
     }
 }
