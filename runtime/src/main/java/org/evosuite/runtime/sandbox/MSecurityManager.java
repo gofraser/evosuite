@@ -1299,12 +1299,11 @@ public class MSecurityManager extends SecurityManager {
         // Allow network and runtime permissions when the call originates from
         // EvoSuite's own LLM infrastructure.  We verify by scanning the stack
         // trace, similar to how checkIfEvoSuiteRMI verifies RMI calls.
-        // This covers the LLM service itself (org.evosuite.llm.*) as well as
-        // the snippet compilation engine that executes LLM-generated code.
+        // The snippet engine is deliberately not covered: it runs SUT code,
+        // and its compiler thread is registered as privileged instead.
         for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
             String cls = element.getClassName();
-            if (cls.startsWith("org.evosuite.llm.")
-                    || cls.equals("org.evosuite.testcase.execution.ExecutableSnippetEngine")) {
+            if (cls.startsWith("org.evosuite.llm.")) {
                 return true;
             }
         }
