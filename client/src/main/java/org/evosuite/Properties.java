@@ -3125,10 +3125,7 @@ public class Properties {
     public static boolean HANDLE_STATIC_FIELDS = true;
 
     public enum TestFactory {
-        RANDOM, ALLMETHODS, TOURNAMENT, JUNIT, PARSED_JUNIT, ARCHIVE, SERIALIZATION,
-        SEED_BEST_INDIVIDUAL, SEED_RANDOM_INDIVIDUAL,
-        SEED_BEST_AND_RANDOM_INDIVIDUAL, SEED_BEST_INDIVIDUAL_METHOD,
-        SEED_RANDOM_INDIVIDUAL_METHOD, SEED_MUTATED_BEST_INDIVIDUAL, LLM
+        RANDOM, ALLMETHODS, TOURNAMENT, JUNIT, PARSED_JUNIT, ARCHIVE, SERIALIZATION, LLM
     }
 
     @Parameter(key = "test_archive", description = "Use an archive of covered goals during test generation")
