@@ -68,6 +68,9 @@ public final class JobProperties {
         properties.setProperty(LLM_TRACE_DIR, new File(ctgFolder, "llm-traces").getAbsolutePath());
         if (configured != null) {
             for (Map.Entry<String, String> entry : configured.entrySet()) {
+                if (org.evosuite.Properties.isRetired(entry.getKey().trim())) {
+                    continue;
+                }
                 properties.setProperty(entry.getKey().trim(),
                         entry.getValue() == null ? "" : entry.getValue().trim());
             }
@@ -86,12 +89,30 @@ public final class JobProperties {
         if (configured != null) {
             Set<String> known = org.evosuite.Properties.getParameters();
             for (String name : new TreeSet<>(configured.keySet())) {
-                if (!known.contains(name.trim())) {
+                if (!known.contains(name.trim()) && !org.evosuite.Properties.isRetired(name.trim())) {
                     unknown.add(name);
                 }
             }
         }
         return unknown;
+    }
+
+    /**
+     * The names among the configured properties that EvoSuite no longer has. They are not passed on.
+     *
+     * @param configured the properties configured in the pom, possibly {@code null}
+     * @return the retired names, sorted
+     */
+    public static List<String> retiredNames(Map<String, String> configured) {
+        List<String> retired = new ArrayList<>();
+        if (configured != null) {
+            for (String name : new TreeSet<>(configured.keySet())) {
+                if (org.evosuite.Properties.isRetired(name.trim())) {
+                    retired.add(name);
+                }
+            }
+        }
+        return retired;
     }
 
     /**

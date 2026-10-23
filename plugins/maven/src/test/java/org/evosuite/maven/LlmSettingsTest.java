@@ -80,6 +80,22 @@ public class LlmSettingsTest {
     }
 
     @Test
+    public void retiredPropertyNamesAreIgnoredInsteadOfRejected() {
+        Map<String, String> configured = new LinkedHashMap<>();
+        configured.put("epsilon", "0.1");
+        configured.put("search_budget", "30");
+        configured.put("llm_modle", "typo");
+
+        assertEquals(Arrays.asList("llm_modle"), JobProperties.unknownNames(configured));
+        assertEquals(Arrays.asList("epsilon"), JobProperties.retiredNames(configured));
+        assertTrue(JobProperties.retiredNames(null).isEmpty());
+
+        Properties forJobs = JobProperties.forJobs(new File("."), configured);
+        assertNull(forJobs.getProperty("epsilon"));
+        assertEquals("30", forJobs.getProperty("search_budget"));
+    }
+
+    @Test
     public void apiKeyComesFromTheDecryptedServerPassword() throws Exception {
         Settings settings = new Settings();
         Server server = new Server();

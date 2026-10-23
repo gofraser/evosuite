@@ -38,10 +38,14 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Central property repository. All global parameters of EvoSuite should be declared as fields here,
@@ -3734,6 +3738,42 @@ public class Properties {
     }
 
     /**
+     * Keys of parameters that no longer exist. Scripts and property files that still set one of
+     * them keep working: the key is reported once and otherwise ignored, instead of being
+     * rejected as an unknown property.
+     */
+    private static final Set<String> RETIRED_KEYS = Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(
+            "epsilon", "num_tests")));
+
+    private static final Set<String> reportedRetiredKeys = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Whether the key belonged to a parameter that was removed.
+     *
+     * @param key a property key
+     * @return true if the key is retired
+     */
+    public static boolean isRetired(String key) {
+        return RETIRED_KEYS.contains(key);
+    }
+
+    /**
+     * Report a retired key, once per key and JVM.
+     *
+     * @param key a property key
+     * @return true if the key is retired, in which case the caller ignores it
+     */
+    public static boolean warnIfRetired(String key) {
+        if (!isRetired(key)) {
+            return false;
+        }
+        if (reportedRetiredKeys.add(key)) {
+            logger.warn("The property '{}' no longer exists and is ignored", key);
+        }
+        return true;
+    }
+
+    /**
      * Determine fields that are declared as parameters.
      */
     private static void reflectMap() {
@@ -3754,6 +3794,11 @@ public class Properties {
      * Initialize properties from property file or command line parameters.
      */
     private void initializeProperties() throws IllegalStateException {
+        for (String key : RETIRED_KEYS) {
+            if (properties.containsKey(key) || System.getProperty(key) != null) {
+                warnIfRetired(key);
+            }
+        }
         for (String parameter : parameterMap.keySet()) {
             try {
                 String property = System.getProperty(parameter);

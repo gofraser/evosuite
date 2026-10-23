@@ -416,6 +416,9 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
             throw new MojoExecutionException("evosuiteProperties contains properties EvoSuite does not have: "
                     + String.join(", ", unknown));
         }
+        for (String retired : JobProperties.retiredNames(evosuiteProperties)) {
+            getLog().warn("evosuiteProperties contains " + retired + ", which EvoSuite no longer has; it is ignored");
+        }
         if (evosuiteProperties != null && evosuiteProperties.containsKey(JobProperties.LLM_API_KEY)) {
             getLog().warn("evosuiteProperties contains " + JobProperties.LLM_API_KEY
                     + ", which ends up on the command line of every test generation process;"

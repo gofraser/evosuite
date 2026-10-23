@@ -249,6 +249,10 @@ public class CommandLineParameters {
 
         for (String propertyName : properties.stringPropertyNames()) {
 
+            if (Properties.warnIfRetired(propertyName)) {
+                continue;
+            }
+
             if (!propertyNames.contains(propertyName)) {
                 LoggingUtils.getEvoLogger().error("* Unknown property: " + propertyName);
                 throw new Error("Unknown property: " + propertyName);

@@ -166,4 +166,35 @@ public class PropertiesTest {
             Files.deleteIfExists(tmp);
         }
     }
+
+    @Test
+    public void retiredKeysAreReportedOnceAndIgnoredInPropertyFiles() throws Exception {
+        Assertions.assertTrue(Properties.isRetired("epsilon"));
+        Assertions.assertFalse(Properties.isRetired("search_budget"));
+        Assertions.assertFalse(Properties.isRetired("no_such_key"));
+        Assertions.assertTrue(Properties.warnIfRetired("epsilon"));
+        Assertions.assertFalse(Properties.warnIfRetired("search_budget"));
+
+        Path file = Files.createTempFile("evosuite-retired", ".properties");
+        try {
+            Files.write(file, java.util.Arrays.asList("epsilon=0.5", "num_tests=9", "search_budget=7",
+                    "no_such_key=1"), StandardCharsets.UTF_8);
+            Properties.getInstance().loadProperties(file.toString(), true);
+            Assertions.assertEquals(7, Properties.SEARCH_BUDGET);
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
+
+    @Test
+    public void invalidValueOfLiveKeyInPropertyFileStillFails() throws Exception {
+        Path file = Files.createTempFile("evosuite-invalid", ".properties");
+        try {
+            Files.write(file, java.util.Arrays.asList("search_budget=abc"), StandardCharsets.UTF_8);
+            Assertions.assertThrows(IllegalStateException.class,
+                    () -> Properties.getInstance().loadProperties(file.toString(), true));
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
 }
