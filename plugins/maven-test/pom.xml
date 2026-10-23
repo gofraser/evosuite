@@ -50,16 +50,6 @@
                         <evosuiteVersion>${evosuiteVersion}</evosuiteVersion>
                     </systemPropertyVariables>
                 </configuration>
-                <executions>
-                    <execution>
-                        <!-- unlike the other modules, failing tests here must fail the build -->
-                        <id>failsafe-integration-tests</id>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

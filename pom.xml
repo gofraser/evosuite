@@ -536,7 +536,7 @@
                         <exclude>**/SandboxFromJUnitTest.java</exclude>
                         <exclude>com/examples/with/different/packagename/**/*.java</exclude>
                     </excludes>
-                    <argLine>-javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${bytebuddy.version}/byte-buddy-agent-${bytebuddy.version}.jar -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading -Xshare:off -Xms512m -Xmx4096m --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED --add-opens java.desktop/javax.swing=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED --add-opens java.desktop/sun.awt=ALL-UNNAMED --add-exports java.desktop/sun.awt=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
+                    <argLine>${test.jvm.args} -Xms512m -Xmx4096m -Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>
             </plugin>
             <!-- pluging to run tests after 'package' phase in 'integration-test' -->
@@ -545,18 +545,28 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <version>3.5.4</version>
                 <configuration>
-                    <!-- includes>
-                        <include>${integrationTests}</include>
-                        <include>${systemTests}</include>
-                    </includes -->
-                    <argLine>-javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${bytebuddy.version}/byte-buddy-agent-${bytebuddy.version}.jar -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading -Xshare:off --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED --add-opens java.desktop/javax.swing=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED --add-opens java.desktop/sun.awt=ALL-UNNAMED --add-exports java.desktop/sun.awt=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED</argLine>
+                    <!-- Same isolation as the unit tests: EvoSuite tests modify global state -->
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <reportFormat>xml</reportFormat>
+                    <runOrder>alphabetical</runOrder>
+                    <!-- The integration and system tests that surefire excludes -->
+                    <includes>
+                        <include>**/*IT.java</include>
+                        <include>**/*IntTest.java</include>
+                        <include>**/*SystemTest.java</include>
+                    </includes>
+                    <excludes>
+                        <exclude>com/examples/with/different/packagename/**/*.java</exclude>
+                    </excludes>
+                    <argLine>${test.jvm.args} -Xms512m -Xmx4096m -Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>
                 <executions>
                     <execution>
                         <id>failsafe-integration-tests</id>
-                        <phase>integration-test</phase>
                         <goals>
                             <goal>integration-test</goal>
+                            <goal>verify</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -719,6 +729,9 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- JVM arguments shared by the surefire and failsafe test forks -->
+        <test.jvm.args>-javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${bytebuddy.version}/byte-buddy-agent-${bytebuddy.version}.jar -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading -Xshare:off --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED --add-opens java.desktop/javax.swing=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED --add-opens java.desktop/sun.awt=ALL-UNNAMED --add-exports java.desktop/sun.awt=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED</test.jvm.args>
+
         <systemTests>**/*SystemTest.java</systemTests>
         <integrationTests>**/*IntTest.java</integrationTests>
 
