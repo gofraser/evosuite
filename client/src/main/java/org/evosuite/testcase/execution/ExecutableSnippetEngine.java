@@ -275,7 +275,15 @@ public final class ExecutableSnippetEngine {
         }
     }
 
-    private final Map<String, CompiledSnippet> cache = new ConcurrentHashMap<>();
+    /** Upper bound on the compiled snippets kept; the least recently used one is dropped first. */
+    private static final int DEFAULT_MAX_CACHED_SNIPPETS = 512;
+
+    /**
+     * Compiled snippets by key. Each one strongly retains its snippet class loader and so the
+     * SUT class loader it was compiled against, hence the bound: keys name a loader by identity,
+     * so the entries of a loader from an earlier generation are never hit again.
+     */
+    private final Map<String, CompiledSnippet> cache;
     private final Path compilationDir;
     /**
      * Parent-loader-keyed cache of snippet {@link URLClassLoader}s. Keys are weak
@@ -311,11 +319,28 @@ public final class ExecutableSnippetEngine {
     private ExecutableSnippetEngine() {
         this.compilationDir = new File(System.getProperty("java.io.tmpdir"), "evosuite-snippets").toPath();
         this.compilationExecutor = newCompilationExecutor();
+        this.cache = newCache(DEFAULT_MAX_CACHED_SNIPPETS);
     }
 
     ExecutableSnippetEngine(ExecutorService compilationExecutor) {
+        this(compilationExecutor, DEFAULT_MAX_CACHED_SNIPPETS);
+    }
+
+    ExecutableSnippetEngine(ExecutorService compilationExecutor, int maxCachedSnippets) {
         this.compilationDir = new File(System.getProperty("java.io.tmpdir"), "evosuite-snippets").toPath();
         this.compilationExecutor = compilationExecutor;
+        this.cache = newCache(maxCachedSnippets);
+    }
+
+    private static Map<String, CompiledSnippet> newCache(int maxEntries) {
+        return Collections.synchronizedMap(new LinkedHashMap<String, CompiledSnippet>(16, 0.75f, true) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, CompiledSnippet> eldest) {
+                return size() > maxEntries;
+            }
+        });
     }
 
     private static ExecutorService newCompilationExecutor() {
@@ -359,10 +384,14 @@ public final class ExecutableSnippetEngine {
             ClassLoader parentLoader = resolveSnippetParentClassLoader();
             String cacheKey = "STMT|" + classLoaderKey(parentLoader) + "|"
                     + sourceCode + "|" + returnExpression + "|" + signature(bindings);
-            CompiledSnippet snippet = cache.computeIfAbsent(cacheKey,
-                    key -> compileSnippet(key,
-                            buildStatementClassSource(key, sourceCode, bindings, returnExpression),
-                            parentLoader));
+            CompiledSnippet snippet = cache.get(cacheKey);
+            if (snippet == null) {
+                CompiledSnippet compiled = compileSnippet(cacheKey,
+                        buildStatementClassSource(cacheKey, sourceCode, bindings, returnExpression),
+                        parentLoader);
+                CompiledSnippet existing = cache.putIfAbsent(cacheKey, compiled);
+                snippet = existing == null ? compiled : existing;
+            }
             Map<String, Object> values = new LinkedHashMap<>(variableValues);
             Object returnValue = invoke(snippet, values);
             return new StatementResult(returnValue,
