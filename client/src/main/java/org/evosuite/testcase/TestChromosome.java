@@ -28,10 +28,6 @@ import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.llm.search.BlendChannel;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.runtime.util.AtMostOnceLogger;
-import org.evosuite.setup.TestCluster;
-import org.evosuite.symbolic.BranchCondition;
-import org.evosuite.symbolic.ConcolicMutation;
-import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.TestCaseExecutor;
@@ -57,8 +53,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
-
-import static java.util.stream.Collectors.toCollection;
 
 /**
  * Chromosome representation of test cases.
@@ -816,19 +810,10 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         double pl = 1d / (lastMutatableStatement + 1);
         TestFactory testFactory = TestFactory.getInstance();
 
-        if (Randomness.nextDouble() < Properties.CONCOLIC_MUTATION) {
-            try {
-                changed = mutationConcolic();
-            } catch (Exception exc) {
-                logger.warn("Encountered exception when trying to use concolic mutation: {}", exc.getMessage());
-                logger.debug("Detailed exception trace: ", exc);
-            }
-        }
-
         // EvoObj: with the slot bias on, half the time tune one of the primitive template
         // slots in place instead of mutating uniformly. Falls through to the uniform pass if there
         // are no slots or the slot mutation does not change anything.
-        if (!changed && Randomness.nextDouble() < 0.5) {
+        if (Randomness.nextDouble() < 0.5) {
             changed = mutateObjectRuleSlot(testFactory, lastMutatableStatement);
         }
 
@@ -915,54 +900,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             }
         }
         return changed;
-    }
-
-    /**
-     * Collect path constraints and negate one of them to derive new integer inputs.
-     *
-     * @return true if the chromosome was changed.
-     */
-    private boolean mutationConcolic() {
-        logger.info("Applying DSE mutation");
-        // concolicExecution = new ConcolicExecution();
-
-        // Apply DSE to gather constraints
-        List<BranchCondition> branches = new ConcolicExecutorImpl().getSymbolicPath(this);
-        logger.debug("Conditions: {}", branches);
-        if (branches.isEmpty()) {
-            return false;
-        }
-
-        boolean mutated = false;
-
-        List<BranchCondition> targetBranches = branches.stream()
-                .filter(b -> TestCluster.isTargetClassName(b.getClassName()))
-                .collect(toCollection(ArrayList::new));
-
-        // Select random branch
-        List<BranchCondition> bs = targetBranches.isEmpty() ? branches : targetBranches;
-        BranchCondition branch = Randomness.choice(bs);
-
-        logger.debug("Trying to negate branch {} - have {}/{} target branches",
-                branch.getInstructionIndex(), targetBranches.size(), branches.size());
-
-        // Try to solve negated constraint
-        TestCase newTest = ConcolicMutation.negateCondition(branches, branch, test);
-
-        // If successful, add resulting test to test suite
-        if (newTest != null) {
-            logger.debug("CONCOLIC: Created new test");
-            // logger.info(newTest.toCode());
-            // logger.info("Old test");
-            // logger.info(test.toCode());
-            this.test = newTest;
-            this.setChanged(true);
-            this.lastExecutionResult = null;
-        } else {
-            logger.debug("CONCOLIC: Did not create new test");
-        }
-
-        return mutated;
     }
 
     /**

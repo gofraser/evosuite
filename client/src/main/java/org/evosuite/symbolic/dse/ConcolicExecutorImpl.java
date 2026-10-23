@@ -33,7 +33,6 @@ import org.evosuite.symbolic.instrument.ConcolicBytecodeInstrumentation;
 import org.evosuite.symbolic.instrument.ConcolicInstrumentingClassLoader;
 import org.evosuite.symbolic.vm.*;
 import org.evosuite.testcase.DefaultTestCase;
-import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionObserver;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
@@ -70,21 +69,6 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
          * Prepare DSC configuration
          */
         MainConfig.setInstance();
-    }
-
-    /**
-     * Returns the symbolic path of the test chromosome.
-     *
-     * @param test a {@link org.evosuite.testcase.TestChromosome} object.
-     * @return a {@link java.util.List} object.
-     */
-    @Override
-    public List<BranchCondition> getSymbolicPath(TestChromosome test) {
-        TestChromosome dscCopy = test.clone();
-        DefaultTestCase defaultTestCase = (DefaultTestCase) dscCopy.getTestCase();
-
-        PathCondition pathCondition = execute(defaultTestCase);
-        return pathCondition.getBranchConditions();
     }
 
     /**
