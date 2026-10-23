@@ -66,10 +66,6 @@ public class TestSuiteGeneratorHelper {
                 return "All DU Pairs";
             case STATEMENT:
                 return "Statement Coverage";
-            case RHO:
-                return "Rho Coverage";
-            case AMBIGUITY:
-                return "Ambiguity Coverage";
             case ALLDEFS:
                 return "All Definitions";
             case EXCEPTION:
@@ -302,8 +298,6 @@ public class TestSuiteGeneratorHelper {
                 return new FixedNumRandomTestStrategy();
             case ONEBRANCH:
                 return new IndividualTestStrategy();
-            case ENTBUG:
-                return new EntBugTestStrategy();
             case MOSUITE:
                 return new MOSuiteStrategy();
             case DSE:

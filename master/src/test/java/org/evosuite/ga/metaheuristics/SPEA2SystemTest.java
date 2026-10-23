@@ -24,15 +24,12 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Algorithm;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.StoppingCondition;
-import org.evosuite.coverage.ambiguity.AmbiguityCoverageFactory;
-import org.evosuite.coverage.rho.RhoCoverageFactory;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.problems.metrics.Spacing;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.examples.with.different.packagename.BMICalculator;
 
@@ -48,16 +45,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class SPEA2SystemTest extends SystemTestBase {
 
-    @BeforeEach
-    public void reset() {
-        RhoCoverageFactory.getGoals().clear();
-        AmbiguityCoverageFactory.getGoals().clear();
-    }
-
     public double[][] test(String targetClass) {
         Properties.CRITERION = new Criterion[2];
-        Properties.CRITERION[0] = Criterion.RHO;
-        Properties.CRITERION[1] = Criterion.AMBIGUITY;
+        Properties.CRITERION[0] = Criterion.BRANCH;
+        Properties.CRITERION[1] = Criterion.LINE;
 
         Properties.ALGORITHM = Algorithm.SPEA2;
         Properties.SELECTION_FUNCTION = Properties.SelectionFunction.BINARY_TOURNAMENT;
@@ -76,7 +67,7 @@ public class SPEA2SystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = (GeneticAlgorithm<TestSuiteChromosome>) getGAFromResult(result);
 
         final FitnessFunction<TestSuiteChromosome> branch = ga.getFitnessFunctions().get(0);
-        final FitnessFunction<TestSuiteChromosome> rho = ga.getFitnessFunctions().get(1);
+        final FitnessFunction<TestSuiteChromosome> line = ga.getFitnessFunctions().get(1);
 
         List<TestSuiteChromosome> population = new ArrayList<>(ga.getBestIndividuals());
 
@@ -84,7 +75,7 @@ public class SPEA2SystemTest extends SystemTestBase {
         for (int i = 0; i < population.size(); i++) {
             Chromosome<TestSuiteChromosome> c = population.get(i);
             front[i][0] = c.getFitness(branch);
-            front[i][1] = c.getFitness(rho);
+            front[i][1] = c.getFitness(line);
         }
 
         return front;

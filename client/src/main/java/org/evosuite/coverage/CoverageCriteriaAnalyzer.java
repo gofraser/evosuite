@@ -24,8 +24,6 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.TimeController;
-import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
-import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.DefaultTestCase;
@@ -84,8 +82,6 @@ public class CoverageCriteriaAnalyzer {
         coverageVariables.put(Criterion.EXCEPTION, RuntimeVariable.ExceptionCoverage);
         coverageVariables.put(Criterion.DEFUSE, RuntimeVariable.DefUseCoverage);
         coverageVariables.put(Criterion.STATEMENT, RuntimeVariable.StatementCoverage);
-        coverageVariables.put(Criterion.RHO, RuntimeVariable.RhoScore);
-        coverageVariables.put(Criterion.AMBIGUITY, RuntimeVariable.AmbiguityScore);
         coverageVariables.put(Criterion.STRONGMUTATION, RuntimeVariable.MutationScore);
         coverageVariables.put(Criterion.MUTATION, RuntimeVariable.MutationScore);
         coverageVariables.put(Criterion.ONLYMUTATION, RuntimeVariable.OnlyMutationScore);
@@ -385,17 +381,6 @@ public class CoverageCriteriaAnalyzer {
 
             LoggingUtils.getEvoLogger().info("  - {}: {} ({}/{} goals)", criterionName,
                     NumberFormat.getPercentInstance().format(coverage), covered, goals.size());
-        }
-
-        // FIXME it works, but needs a better way of handling this
-        if (criterion == Properties.Criterion.RHO) {
-            RhoCoverageSuiteFitness rho = new RhoCoverageSuiteFitness();
-            ClientServices.getInstance().getClientNode().trackOutputVariable(
-                    RuntimeVariable.RhoScore, Math.abs(0.5 - rho.getFitness(testSuite)));
-        } else if (criterion == Properties.Criterion.AMBIGUITY) {
-            AmbiguityCoverageSuiteFitness ag = new AmbiguityCoverageSuiteFitness();
-            ClientServices.getInstance().getClientNode().trackOutputVariable(
-                    RuntimeVariable.AmbiguityScore, ag.getFitness(testSuite));
         }
     }
 

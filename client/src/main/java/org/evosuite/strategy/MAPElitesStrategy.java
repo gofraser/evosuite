@@ -75,9 +75,7 @@ public class MAPElitesStrategy extends TestGenerationStrategy {
 
         if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)
                 || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.ALLDEFS)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.STATEMENT)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.RHO)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.AMBIGUITY)) {
+                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.STATEMENT)) {
             ExecutionTracer.enableTraceCalls();
         }
 

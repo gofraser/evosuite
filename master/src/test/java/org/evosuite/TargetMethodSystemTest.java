@@ -72,12 +72,6 @@ public class TargetMethodSystemTest extends SystemTestBase {
     }
 
     @Test
-    public void testTargetMethodWithAMBIGUITY() {
-        this.test(Properties.Criterion.AMBIGUITY, "foo(Ljava/lang/Integer;)Z",
-                new String[]{"bar", "getY"});
-    }
-
-    @Test
     public void testTargetMethodWithBRANCH() {
         this.test(Properties.Criterion.BRANCH, "foo(Ljava/lang/Integer;)Z",
                 new String[]{"bar", "getY"});
@@ -164,11 +158,6 @@ public class TargetMethodSystemTest extends SystemTestBase {
     public void testTargetMethodWithOUTPUT() {
         this.test(Properties.Criterion.OUTPUT, "foo(Ljava/lang/Integer;)Z",
                 new String[]{"bar", "getY"});
-    }
-
-    @Test
-    public void testTargetMethodWithRHO() {
-        this.test(Properties.Criterion.RHO, "foo(Ljava/lang/Integer;)Z", new String[]{"bar", "getY"});
     }
 
     @Test

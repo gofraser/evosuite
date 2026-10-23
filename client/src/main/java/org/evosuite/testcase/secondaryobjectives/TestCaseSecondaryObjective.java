@@ -49,7 +49,6 @@ public class TestCaseSecondaryObjective {
                     break;
                 case SIZE:
                 case IBRANCH:
-                case RHO:
                     // These objectives are not applicable to single test cases
                     break;
                 default:

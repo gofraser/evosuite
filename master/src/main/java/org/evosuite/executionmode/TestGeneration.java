@@ -249,9 +249,7 @@ public class TestGeneration {
         Strategy javaOptStrategy = parseStrategyFromJavaOpts(javaOpts);
 
         Strategy strategy = null;
-        if (javaOptStrategy == Strategy.ENTBUG && line.hasOption("generateTests")) {
-            strategy = Strategy.ENTBUG;
-        } else if (javaOptStrategy == Strategy.NOVELTY) {
+        if (javaOptStrategy == Strategy.NOVELTY) {
             strategy = Strategy.NOVELTY;
         } else if (javaOptStrategy == Strategy.MAP_ELITES) {
             strategy = Strategy.MAP_ELITES;
@@ -482,9 +480,6 @@ public class TestGeneration {
                 break;
             case RANDOM_FIXED:
                 cmdLine.add("-Dstrategy=Random_Fixed");
-                break;
-            case ENTBUG:
-                cmdLine.add("-Dstrategy=EntBug");
                 break;
             case MOSUITE:
                 cmdLine.add("-Dstrategy=MOSuite");

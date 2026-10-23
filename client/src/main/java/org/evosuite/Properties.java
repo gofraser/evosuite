@@ -1058,7 +1058,7 @@ public class Properties {
             MutationProbabilityDistribution.UNIFORM;
 
     public enum SecondaryObjective {
-        AVG_LENGTH, MAX_LENGTH, TOTAL_LENGTH, SIZE, EXCEPTIONS, IBRANCH, RHO
+        AVG_LENGTH, MAX_LENGTH, TOTAL_LENGTH, SIZE, EXCEPTIONS, IBRANCH
     }
 
     @Parameter(key = "secondary_objectives", group = "Search Algorithm",
@@ -3359,7 +3359,7 @@ public class Properties {
 
     public enum Criterion {
         EXCEPTION, DEFUSE, ALLDEFS, BRANCH, CBRANCH, STRONGMUTATION, WEAKMUTATION,
-        MUTATION, STATEMENT, RHO, AMBIGUITY, IBRANCH, READABILITY,
+        MUTATION, STATEMENT, IBRANCH,
         ONLYBRANCH, ONLYMUTATION, METHODTRACE, METHOD, METHODNOEXCEPTION, LINE, ONLYLINE, OUTPUT, INPUT,
         TRYCATCH
     }
@@ -3433,7 +3433,7 @@ public class Properties {
     public static boolean EXCLUDE_IBRANCHES_CUT = false;
 
     public enum Strategy {
-        ONEBRANCH, EVOSUITE, RANDOM, RANDOM_FIXED, ENTBUG, MOSUITE, DSE, NOVELTY, MAP_ELITES, LLMSTRATEGY
+        ONEBRANCH, EVOSUITE, RANDOM, RANDOM_FIXED, MOSUITE, DSE, NOVELTY, MAP_ELITES, LLMSTRATEGY
     }
 
     @Parameter(key = "strategy", group = "Runtime", description = "Which mode to use")

@@ -21,7 +21,6 @@ package org.evosuite.statistics;
 
 import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
-import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
 import org.evosuite.coverage.branch.OnlyBranchCoverageSuiteFitness;
 import org.evosuite.coverage.cbranch.CBranchSuiteFitness;
@@ -34,7 +33,6 @@ import org.evosuite.coverage.method.MethodNoExceptionCoverageSuiteFitness;
 import org.evosuite.coverage.method.MethodTraceCoverageSuiteFitness;
 import org.evosuite.coverage.mutation.OnlyMutationSuiteFitness;
 import org.evosuite.coverage.mutation.WeakMutationSuiteFitness;
-import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.result.TestGenerationResult;
@@ -157,9 +155,9 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         sequenceOutputVariableFactories.put(RuntimeVariable.MethodNoExceptionCoverageTimeline.name(),
                 new MethodNoExceptionCoverageSequenceOutputVariableFactory());
         sequenceOutputVariableFactories.put(RuntimeVariable.RhoScoreTimeline.name(),
-                new RhoFitnessSequenceOutputVariableFactory());
+                new RetiredCriterionSequenceOutputVariableFactory(RuntimeVariable.RhoScoreTimeline));
         sequenceOutputVariableFactories.put(RuntimeVariable.AmbiguityScoreTimeline.name(),
-                new AmbiguityFitnessSequenceOutputVariableFactory());
+                new RetiredCriterionSequenceOutputVariableFactory(RuntimeVariable.AmbiguityScoreTimeline));
         sequenceOutputVariableFactories.put(RuntimeVariable.LineFitnessTimeline.name(),
                 new LineFitnessSequenceOutputVariableFactory());
         sequenceOutputVariableFactories.put(RuntimeVariable.LineCoverageTimeline.name(),
@@ -1282,28 +1280,19 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
     }
 
-    private static class RhoFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
+    /**
+     * The rho and ambiguity criteria no longer exist. Their timeline columns are still resolvable so that
+     * existing {@code output_variables} lists keep working; they always report zero.
+     */
+    private static class RetiredCriterionSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
 
-        public RhoFitnessSequenceOutputVariableFactory() {
-            super(RuntimeVariable.RhoScoreTimeline);
+        public RetiredCriterionSequenceOutputVariableFactory(RuntimeVariable variable) {
+            super(variable);
         }
 
         @Override
         public Double getValue(TestSuiteChromosome individual) {
-            Double d = individual.getFitnessInstanceOf(RhoCoverageSuiteFitness.class);
-            return d > 1.0 ? 0.0 : d;
-        }
-    }
-
-    private static class AmbiguityFitnessSequenceOutputVariableFactory extends DoubleSequenceOutputVariableFactory {
-
-        public AmbiguityFitnessSequenceOutputVariableFactory() {
-            super(RuntimeVariable.AmbiguityScoreTimeline);
-        }
-
-        @Override
-        public Double getValue(TestSuiteChromosome individual) {
-            return individual.getFitnessInstanceOf(AmbiguityCoverageSuiteFitness.class);
+            return 0.0;
         }
     }
 

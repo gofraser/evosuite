@@ -211,17 +211,13 @@ public enum RuntimeVariable {
     StatementCoverageBitString,
 
     /**
-     * The obtained rho coverage.
+     * Timeline of the retired rho criterion; always zero.
      */
-    RhoScore,
-    RhoScore_T0,
     RhoScoreTimeline,
 
     /**
-     * The obtained ambiguity coverage.
+     * Timeline of the retired ambiguity criterion; always zero.
      */
-    AmbiguityScore,
-    AmbiguityScore_T0,
     AmbiguityScoreTimeline,
 
     /**

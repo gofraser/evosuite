@@ -67,9 +67,9 @@ class TestGenerationStrategyParsingTest {
 
     @Test
     void existingStrategiesParseCaseInsensitively() {
-        assertEquals(Strategy.ENTBUG,
+        assertEquals(Strategy.MOSUITE,
                 TestGeneration.parseStrategyFromJavaOpts(
-                        Collections.singletonList("-Dstrategy=entbug")));
+                        Collections.singletonList("-Dstrategy=mosuite")));
         assertEquals(Strategy.NOVELTY,
                 TestGeneration.parseStrategyFromJavaOpts(
                         Collections.singletonList("-Dstrategy=Novelty")));

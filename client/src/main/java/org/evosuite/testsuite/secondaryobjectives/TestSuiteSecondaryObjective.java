@@ -21,7 +21,6 @@ package org.evosuite.testsuite.secondaryobjectives;
 
 import org.evosuite.Properties;
 import org.evosuite.coverage.ibranch.IBranchSecondaryObjective;
-import org.evosuite.coverage.rho.RhoTestSuiteSecondaryObjective;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
@@ -52,9 +51,6 @@ public class TestSuiteSecondaryObjective {
                     break;
                 case IBRANCH:
                     secondaryObjectiveInstance = new IBranchSecondaryObjective();
-                    break;
-                case RHO:
-                    secondaryObjectiveInstance = new RhoTestSuiteSecondaryObjective();
                     break;
                 default:
                     throw new RuntimeException(

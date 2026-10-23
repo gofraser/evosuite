@@ -292,8 +292,8 @@ public class NSGAIISystemTest extends SystemTestBase {
     public void testIntegration() {
         Properties.MUTATION_RATE = 1d / 1d;
         Properties.CRITERION = new Criterion[2];
-        Properties.CRITERION[0] = Criterion.RHO;
-        Properties.CRITERION[1] = Criterion.AMBIGUITY;
+        Properties.CRITERION[0] = Criterion.BRANCH;
+        Properties.CRITERION[1] = Criterion.LINE;
         Properties.ALGORITHM = Algorithm.NSGAII;
         Properties.SELECTION_FUNCTION = Properties.SelectionFunction.BINARY_TOURNAMENT;
         Properties.MINIMIZE = false;
@@ -318,11 +318,11 @@ public class NSGAIISystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga =
                 (GeneticAlgorithm<TestSuiteChromosome>) getGAFromResult(result);
 
-        final FitnessFunction<TestSuiteChromosome> rho = ga.getFitnessFunctions().get(0);
-        final FitnessFunction<TestSuiteChromosome> ag = ga.getFitnessFunctions().get(1);
+        final FitnessFunction<TestSuiteChromosome> branch = ga.getFitnessFunctions().get(0);
+        final FitnessFunction<TestSuiteChromosome> line = ga.getFitnessFunctions().get(1);
 
         List<TestSuiteChromosome> population = new ArrayList<>(ga.getBestIndividuals());
-        population.sort(new SortByFitness<>(rho, false));
+        population.sort(new SortByFitness<>(branch, false));
 
         // find the lowest rank id
         int minRank = population.stream().mapToInt(v -> v.getRank()).min().getAsInt();
@@ -338,7 +338,7 @@ public class NSGAIISystemTest extends SystemTestBase {
         Assertions.assertFalse(population.isEmpty());
 
         TestSuiteChromosome best = population.get(0);
-        Assertions.assertEquals(0.0, best.getFitness(rho), 0.0);
-        Assertions.assertEquals(0.0, best.getFitness(ag), 0.0);
+        Assertions.assertEquals(0.0, best.getFitness(branch), 0.0);
+        Assertions.assertEquals(0.0, best.getFitness(line), 0.0);
     }
 }

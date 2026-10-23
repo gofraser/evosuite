@@ -80,9 +80,7 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
 
         if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.RHO)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.AMBIGUITY)) {
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT)) {
             ExecutionTracer.enableTraceCalls();
         }
 

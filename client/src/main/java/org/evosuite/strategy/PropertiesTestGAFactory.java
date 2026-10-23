@@ -110,9 +110,6 @@ public class PropertiesTestGAFactory
                     factory = new RandomLengthTestFactory();
                 }
                 break;
-            case ENTBUG:
-                factory = new RandomLengthTestFactory();
-                break;
             default:
                 break;
         }

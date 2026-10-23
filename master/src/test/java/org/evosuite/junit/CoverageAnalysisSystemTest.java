@@ -111,26 +111,4 @@ public class CoverageAnalysisSystemTest extends SystemTestBase {
         assertEquals(8, (Integer) variables.get("Total_Goals").getValue(), 0.0);
         assertEquals(8, (Integer) variables.get("Covered_Goals").getValue(), 0.0);
     }
-
-    @Test
-    public void testRhoCoverage() {
-        SearchStatistics statistics = this.aux(new Properties.Criterion[]{
-                Properties.Criterion.RHO
-        });
-
-        Map<String, OutputVariable<?>> variables = statistics.getOutputVariables();
-        assertEquals(11, (Integer) variables.get("Total_Goals").getValue(), 0.0);
-        assertEquals(11, (Integer) variables.get("Covered_Goals").getValue(), 0.0);
-    }
-
-    @Test
-    public void testAmbiguityCoverage() {
-        SearchStatistics statistics = this.aux(new Properties.Criterion[]{
-                Properties.Criterion.AMBIGUITY
-        });
-
-        Map<String, OutputVariable<?>> variables = statistics.getOutputVariables();
-        assertEquals(11, (Integer) variables.get("Total_Goals").getValue(), 0.0);
-        assertEquals(11, (Integer) variables.get("Covered_Goals").getValue(), 0.0);
-    }
 }

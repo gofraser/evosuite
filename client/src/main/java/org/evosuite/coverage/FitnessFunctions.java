@@ -20,8 +20,6 @@
 package org.evosuite.coverage;
 
 import org.evosuite.Properties.Criterion;
-import org.evosuite.coverage.ambiguity.AmbiguityCoverageFactory;
-import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
 import org.evosuite.coverage.branch.*;
 import org.evosuite.coverage.cbranch.CBranchFitnessFactory;
 import org.evosuite.coverage.cbranch.CBranchSuiteFitness;
@@ -43,9 +41,6 @@ import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.coverage.line.OnlyLineCoverageSuiteFitness;
 import org.evosuite.coverage.method.*;
 import org.evosuite.coverage.mutation.*;
-import org.evosuite.coverage.readability.ReadabilitySuiteFitness;
-import org.evosuite.coverage.rho.RhoCoverageFactory;
-import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
 import org.evosuite.coverage.statement.StatementCoverageFactory;
 import org.evosuite.coverage.statement.StatementCoverageSuiteFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
@@ -130,16 +125,6 @@ public class FitnessFunctions {
                 StatementCoverageFactory::new,
                 StatementCoverageTestFitness.class
         ));
-        registry.put(Criterion.RHO, new FitnessRegistryEntry(
-                RhoCoverageSuiteFitness::new,
-                RhoCoverageFactory::new,
-                LineCoverageTestFitness.class
-        ));
-        registry.put(Criterion.AMBIGUITY, new FitnessRegistryEntry(
-                AmbiguityCoverageSuiteFitness::new,
-                AmbiguityCoverageFactory::new,
-                LineCoverageTestFitness.class
-        ));
         registry.put(Criterion.ALLDEFS, new FitnessRegistryEntry(
                 AllDefsCoverageSuiteFitness::new,
                 AllDefsCoverageFactory::new,
@@ -149,11 +134,6 @@ public class FitnessFunctions {
                 ExceptionCoverageSuiteFitness::new,
                 ExceptionCoverageFactory::new,
                 ExceptionCoverageTestFitness.class
-        ));
-        registry.put(Criterion.READABILITY, new FitnessRegistryEntry(
-                ReadabilitySuiteFitness::new,
-                BranchCoverageFactory::new, // Default behavior preserved
-                null // Will throw exception as per original code
         ));
         registry.put(Criterion.ONLYBRANCH, new FitnessRegistryEntry(
                 OnlyBranchCoverageSuiteFitness::new,

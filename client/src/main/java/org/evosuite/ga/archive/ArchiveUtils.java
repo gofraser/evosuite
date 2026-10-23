@@ -38,7 +38,6 @@ import org.evosuite.coverage.mutation.MutationTestFitness;
 import org.evosuite.coverage.mutation.OnlyMutationTestFitness;
 import org.evosuite.coverage.mutation.StrongMutationTestFitness;
 import org.evosuite.coverage.mutation.WeakMutationTestFitness;
-import org.evosuite.coverage.rho.RhoCoverageTestFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -67,10 +66,7 @@ public final class ArchiveUtils {
         criterionClasses.put(Properties.Criterion.WEAKMUTATION, WeakMutationTestFitness.class);
         criterionClasses.put(Properties.Criterion.MUTATION, MutationTestFitness.class);
         criterionClasses.put(Properties.Criterion.STATEMENT, StatementCoverageTestFitness.class);
-        criterionClasses.put(Properties.Criterion.RHO, RhoCoverageTestFitness.class);
-        criterionClasses.put(Properties.Criterion.AMBIGUITY, LineCoverageTestFitness.class);
         criterionClasses.put(Properties.Criterion.IBRANCH, IBranchTestFitness.class);
-        // READABILITY ignored
         criterionClasses.put(Properties.Criterion.ONLYBRANCH, OnlyBranchCoverageTestFitness.class);
         criterionClasses.put(Properties.Criterion.ONLYMUTATION, OnlyMutationTestFitness.class);
         criterionClasses.put(Properties.Criterion.METHODTRACE, MethodTraceCoverageTestFitness.class);
@@ -98,7 +94,7 @@ public final class ArchiveUtils {
                 if (clazz.isInstance(goal)) {
                     return true;
                 }
-            } else if (criterion != Properties.Criterion.READABILITY) {
+            } else {
                 AtMostOnceLogger.warn(logger, "Unknown criterion '" + criterion.name() + "'");
             }
         }
