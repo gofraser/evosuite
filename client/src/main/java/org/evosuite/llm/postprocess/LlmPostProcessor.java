@@ -24,7 +24,6 @@ import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.AssertionGenerator;
 import org.evosuite.assertion.CompleteAssertionGenerator;
-import org.evosuite.assertion.SimpleMutationAssertionGenerator;
 import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
@@ -842,12 +841,10 @@ public class LlmPostProcessor {
         try {
             int applied = assertionFallbackRunner.applyFallbackAssertions(test,
                     options.repairFallbackPolicy().fallbackStrategy());
-            return FallbackCounters.applied(trigger, applied,
-                    options.repairFallbackPolicy().fallbackStrategy());
+            return FallbackCounters.applied(trigger, applied);
         } catch (RuntimeException | AssertionError e) {
             logger.warn("Unified LLM post-processing assertion fallback failed: {}", e.getMessage());
-            return FallbackCounters.applied(trigger, 0,
-                    options.repairFallbackPolicy().fallbackStrategy());
+            return FallbackCounters.applied(trigger, 0);
         }
     }
 
@@ -868,14 +865,6 @@ public class LlmPostProcessor {
         }
         return options.repairFallbackPolicy().fallback()
                 == Properties.LlmPostProcessingAssertionFallback.ON_NO_ACCEPTED_ASSERTIONS;
-    }
-
-    private static AssertionGenerator createFallbackGenerator(
-            Properties.LlmPostProcessingAssertionFallbackStrategy strategy) {
-        if (strategy == Properties.LlmPostProcessingAssertionFallbackStrategy.MUTATION) {
-            return new SimpleMutationAssertionGenerator();
-        }
-        return new CompleteAssertionGenerator();
     }
 
     interface AssertionFallbackRunner {
@@ -953,7 +942,7 @@ public class LlmPostProcessor {
                                            Properties.LlmPostProcessingAssertionFallbackStrategy strategy) {
             TestCase fallbackTest = test.clone();
             fallbackTest.removeAssertions();
-            AssertionGenerator generator = createFallbackGenerator(strategy);
+            AssertionGenerator generator = new CompleteAssertionGenerator();
             generator.addAssertions(fallbackTest);
             if (fallbackTest.getAssertions().isEmpty()) {
                 return 0;
@@ -1203,15 +1192,13 @@ public class LlmPostProcessor {
         int infrastructure;
         int noAccepted;
         int all;
-        int mutation;
         int assertionsApplied;
 
         private static FallbackCounters none() {
             return new FallbackCounters();
         }
 
-        private static FallbackCounters applied(FallbackTrigger trigger, int assertionsApplied,
-                                                Properties.LlmPostProcessingAssertionFallbackStrategy strategy) {
+        private static FallbackCounters applied(FallbackTrigger trigger, int assertionsApplied) {
             FallbackCounters counters = new FallbackCounters();
             counters.total = 1;
             counters.assertionsApplied = assertionsApplied;
@@ -1220,11 +1207,7 @@ public class LlmPostProcessor {
             } else {
                 counters.noAccepted = 1;
             }
-            if (strategy == Properties.LlmPostProcessingAssertionFallbackStrategy.MUTATION) {
-                counters.mutation = 1;
-            } else {
-                counters.all = 1;
-            }
+            counters.all = 1;
             return counters;
         }
 
@@ -1233,7 +1216,6 @@ public class LlmPostProcessor {
             infrastructure += other.infrastructure;
             noAccepted += other.noAccepted;
             all += other.all;
-            mutation += other.mutation;
             assertionsApplied += other.assertionsApplied;
         }
     }

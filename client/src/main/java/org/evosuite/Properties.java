@@ -2584,7 +2584,7 @@ public class Properties {
             LlmPostProcessingAssertionFallback.NONE;
 
     public enum LlmPostProcessingAssertionFallbackStrategy {
-        ALL, MUTATION
+        ALL
     }
 
     @Parameter(key = "llm_postprocessing_assertion_fallback_strategy", group = "LLM",

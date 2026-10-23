@@ -74,8 +74,8 @@ final class PostProcessingTelemetryPublisher {
         values.put(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_No_Accepted,
                 fallbackCounters.noAccepted);
         values.put(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_All, fallbackCounters.all);
-        values.put(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_Mutation,
-                fallbackCounters.mutation);
+        // The column stays so the statistics CSV layout is unchanged; no fallback uses a mutation strategy.
+        values.put(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_Mutation, 0);
         values.put(RuntimeVariable.LLM_PostProcessing_Fallback_Assertions_Applied,
                 fallbackCounters.assertionsApplied);
         values.put(RuntimeVariable.LLM_PostProcessing_Processed_Tests, metrics.processedTests);
