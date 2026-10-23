@@ -1144,6 +1144,12 @@ final class OracleContext {
                 return "Float.NEGATIVE_INFINITY";
             }
         }
+        if (value instanceof Long) {
+            return value + "L";
+        }
+        if (value instanceof Float) {
+            return value + "f";
+        }
         if (value instanceof Number || value instanceof Boolean) {
             return String.valueOf(value);
         }

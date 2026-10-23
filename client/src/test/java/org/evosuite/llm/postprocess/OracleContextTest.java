@@ -25,6 +25,7 @@ import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.statements.numeric.DoublePrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.FloatPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.testcase.statements.numeric.LongPrimitiveStatement;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -206,6 +207,25 @@ class OracleContextTest {
         assertTrue(observations.contains("Float.POSITIVE_INFINITY"));
         assertTrue(observations.contains("Float.NEGATIVE_INFINITY"));
         assertTrue(observations.contains("Float.NaN"));
+    }
+
+    @Test
+    void captureKeepsLiteralSuffixesForLongAndFloatValues() {
+        DefaultTestCase test = new DefaultTestCase();
+        LongPrimitiveStatement longStatement = new LongPrimitiveStatement(test, 5000000000L);
+        test.addStatement(longStatement);
+        test.addStatement(new FloatPrimitiveStatement(test, 1.5f));
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        assertion.setSource(longStatement.getReturnValue());
+        assertion.setValue(5000000000L);
+        OracleContext context = OracleContext.from(test, null, Collections.singletonList(assertion),
+                PostProcessingOptions.fromProperties());
+
+        String observations = PostProcessingPromptRenderer.observationText(
+                context, null, PostProcessingOptions.fromProperties());
+        assertTrue(observations.contains("5000000000L"), observations);
+        assertTrue(observations.contains("1.5f"), observations);
+        assertEquals("5000000000L", context.getCandidateFacts().get(0).getObservedValue());
     }
 
     @Test
