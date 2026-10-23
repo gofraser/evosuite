@@ -168,16 +168,12 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
         ga.setCrossOverFunction(crossoverFunction);
 
         // What to do about bloat
-        // MaxLengthBloatControl bloat_control = new MaxLengthBloatControl();
-        // ga.setBloatControl(bloat_control);
-
         if (Properties.CHECK_BEST_LENGTH) {
             RelativeSuiteLengthBloatControl<TestChromosome> bloatControl =
                     new RelativeSuiteLengthBloatControl<>();
             ga.addBloatControl(bloatControl);
             ga.addListener(bloatControl);
         }
-        // ga.addBloatControl(new MaxLengthBloatControl());
 
         TestCaseSecondaryObjective.setSecondaryObjectives();
 
