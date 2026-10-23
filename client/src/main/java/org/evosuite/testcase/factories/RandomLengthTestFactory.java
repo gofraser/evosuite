@@ -99,41 +99,42 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             }
         }
 
-        final TestCase test = getNewTestCase();
-        final TestFactory testFactory = TestFactory.getInstance();
+        try {
+            final TestCase test = getNewTestCase();
+            final TestFactory testFactory = TestFactory.getInstance();
 
-        // Choose a random length between 1 (inclusive) and size (exclusive).
-        int length = 0;
-        if (size > 1) {
-            length = Randomness.nextInt(1, size);
-        } else {
-            logger.warn("Requested random test case size {} is too small, defaulting to empty test case.", size);
+            // Choose a random length between 1 (inclusive) and size (exclusive).
+            int length = 0;
+            if (size > 1) {
+                length = Randomness.nextInt(1, size);
+            } else {
+                logger.warn("Requested random test case size {} is too small, defaulting to empty test case.", size);
+            }
+
+            // Then add random statements until the test case reaches the chosen length or we run out of
+            // generation attempts.
+            for (int num = 0; test.size() < length && num < Properties.MAX_ATTEMPTS; num++) {
+                // NOTE: Even though extremely unlikely, insertRandomStatement could fail every time
+                // with return code -1, thus eventually exceeding MAX_ATTEMPTS. In this case, the
+                // returned test case would indeed be empty!
+                testFactory.insertRandomStatement(test, test.size() - 1);
+            }
+
+            // A single insertion may add a compound statement and its dependencies. Enforce the
+            // public exclusive bound after generation as well as in the loop condition.
+            while (size > 0 && test.size() >= size) {
+                test.remove(test.size() - 1);
+            }
+
+            if (logger.isDebugEnabled()) {
+                logger.debug("Randomized test case:" + test.toCode());
+            }
+            return test;
+        } finally {
+            if (tracerEnabled) {
+                ExecutionTracer.enable();
+            }
         }
-
-        // Then add random statements until the test case reaches the chosen length or we run out of
-        // generation attempts.
-        for (int num = 0; test.size() < length && num < Properties.MAX_ATTEMPTS; num++) {
-            // NOTE: Even though extremely unlikely, insertRandomStatement could fail every time
-            // with return code -1, thus eventually exceeding MAX_ATTEMPTS. In this case, the
-            // returned test case would indeed be empty!
-            testFactory.insertRandomStatement(test, test.size() - 1);
-        }
-
-        // A single insertion may add a compound statement and its dependencies. Enforce the
-        // public exclusive bound after generation as well as in the loop condition.
-        while (size > 0 && test.size() >= size) {
-            test.remove(test.size() - 1);
-        }
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("Randomized test case:" + test.toCode());
-        }
-
-        if (tracerEnabled) {
-            ExecutionTracer.enable();
-        }
-
-        return test;
     }
 
     private ObjectRuleGenerationCoordinator objectRuleCoordinator() {

@@ -94,55 +94,56 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
             ExecutionTracer.disable();
         }
 
-        TestCase test = getNewTestCase();
-        int num = 0;
+        try {
+            TestCase test = getNewTestCase();
+            int num = 0;
 
-        // Choose a random length in 0 - size
-        int length = Randomness.nextInt(size);
-        while (length == 0) {
-            length = Randomness.nextInt(size);
-        }
-
-        // Then add random stuff
-        while (test.size() < length && num < Properties.MAX_ATTEMPTS) {
-            // Select an uncovered method and add it
-
-            if (remainingMethods.isEmpty()) {
-                reset();
+            // Choose a random length in 0 - size
+            int length = Randomness.nextInt(size);
+            while (length == 0) {
+                length = Randomness.nextInt(size);
             }
 
-            int index = Randomness.nextInt(remainingMethods.size());
-            GenericAccessibleObject<?> call = remainingMethods.get(index);
-            Collections.swap(remainingMethods, index, remainingMethods.size() - 1);
-            remainingMethods.remove(remainingMethods.size() - 1);
+            // Then add random stuff
+            while (test.size() < length && num < Properties.MAX_ATTEMPTS) {
+                // Select an uncovered method and add it
 
-            attemptedMethods.add(call);
-
-            try {
-                TestFactory testFactory = TestFactory.getInstance();
-
-                if (call.isMethod()) {
-                    testFactory.addMethod(test, (GenericMethod) call, test.size(), 0);
-                } else if (call.isConstructor()) {
-                    testFactory.addConstructor(test, (GenericConstructor) call,
-                            test.size(), 0);
-                } else {
-                    throw new EvosuiteError("Found test call that is neither method nor constructor");
+                if (remainingMethods.isEmpty()) {
+                    reset();
                 }
-            } catch (ConstructionFailedException e) {
-                logger.debug("Construction failed for call {}: {}", call, e.getMessage());
+
+                int index = Randomness.nextInt(remainingMethods.size());
+                GenericAccessibleObject<?> call = remainingMethods.get(index);
+                Collections.swap(remainingMethods, index, remainingMethods.size() - 1);
+                remainingMethods.remove(remainingMethods.size() - 1);
+
+                attemptedMethods.add(call);
+
+                try {
+                    TestFactory testFactory = TestFactory.getInstance();
+
+                    if (call.isMethod()) {
+                        testFactory.addMethod(test, (GenericMethod) call, test.size(), 0);
+                    } else if (call.isConstructor()) {
+                        testFactory.addConstructor(test, (GenericConstructor) call,
+                                test.size(), 0);
+                    } else {
+                        throw new EvosuiteError("Found test call that is neither method nor constructor");
+                    }
+                } catch (ConstructionFailedException e) {
+                    logger.debug("Construction failed for call {}: {}", call, e.getMessage());
+                }
+                num++;
             }
-            num++;
+            if (logger.isDebugEnabled()) {
+                logger.debug("Randomized test case:" + test.toCode());
+            }
+            return test;
+        } finally {
+            if (tracerEnabled) {
+                ExecutionTracer.enable();
+            }
         }
-        if (logger.isDebugEnabled()) {
-            logger.debug("Randomized test case:" + test.toCode());
-        }
-
-        if (tracerEnabled) {
-            ExecutionTracer.enable();
-        }
-
-        return test;
     }
 
     /**
