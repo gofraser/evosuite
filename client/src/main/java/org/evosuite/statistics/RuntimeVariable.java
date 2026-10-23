@@ -530,15 +530,6 @@ public enum RuntimeVariable {
     /* -------------------------------------------------------------------- */
 
     /**
-     * Timings.
-     */
-    Time_Assertion,
-    Time_Coverage,
-    Time_StateDistance,
-    Time_Diversity,
-    /* -------------------------------------------------------------------- */
-
-    /**
      * Count of branch comparison types in bytecode (static).
      */
     Cmp_IntZero,
@@ -589,10 +580,6 @@ public enum RuntimeVariable {
     Covered_dcmpl,
     Covered_dcmpg,
 
-    /**
-     * For sanity-checking purposes.
-     */
-    RSM_OverMinimized,
     /* -------------------------------------------------------------------- */
     /* TODO following needs to be implemented/updated. Currently they are not (necessarily) supported */
 
@@ -601,10 +588,6 @@ public enum RuntimeVariable {
      * use for seeding strategies.
      */
     NumberOfInputPoolObjects,
-    Error_Predicates,
-    Error_Branches_Covered,
-    Error_Branchless_Methods,
-    Error_Branchless_Methods_Covered,
     AssertionContract,
     EqualsContract,
     EqualsHashcodeContract,
@@ -617,7 +600,6 @@ public enum RuntimeVariable {
     UndeclaredExceptionContract,
     Contract_Violations,
     Unique_Violations,
-    Data_File,
     /* --- Dataflow stuff. FIXME: Is this stuff still valid? --- */
     AllDefCoverage,
     AllDefCoverageBitString,
@@ -630,19 +612,6 @@ public enum RuntimeVariable {
     InterMethodPairs,
     IntraClassPairs,
     ParameterPairs,
-    LCSAJs,
-    AliasingIntraMethodPairs,
-    AliasingInterMethodPairs,
-    AliasingIntraClassPairs,
-    AliasingParameterPairs,
-    CoveredIntraMethodPairs,
-    CoveredInterMethodPairs,
-    CoveredIntraClassPairs,
-    CoveredParameterPairs,
-    CoveredAliasIntraMethodPairs,
-    CoveredAliasInterMethodPairs,
-    CoveredAliasIntraClassPairs,
-    CoveredAliasParameterPairs,
     /* -------------------------------------------------------------------- */
 
     /**
