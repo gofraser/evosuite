@@ -40,8 +40,6 @@ public class StatisticsBackendFactory {
                 return new ConsoleStatisticsBackend();
             case CSV:
                 return new CSVStatisticsBackend();
-            case HTML:
-                return new HTMLStatisticsBackend();
             case DEBUG:
                 return new DebugStatisticsBackend();
             case NONE:

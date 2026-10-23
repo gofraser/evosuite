@@ -451,7 +451,6 @@
                         <exclude>**/dk/brics/**</exclude>
                         <exclude>**/readme.txt</exclude>
                         <exclude>**/how_to.txt</exclude>
-                        <exclude>client/src/main/resources/report/**</exclude>
                         <exclude>client/src/main/resources/jdkPureMethods.txt</exclude>
                         <exclude>**/java9_invisible_packages.txt</exclude>
                         <exclude>**/.hgignore</exclude>
