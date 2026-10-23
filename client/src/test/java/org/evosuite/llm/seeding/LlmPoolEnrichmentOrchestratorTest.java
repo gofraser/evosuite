@@ -22,15 +22,12 @@ package org.evosuite.llm.seeding;
 import org.evosuite.Properties;
 import org.evosuite.llm.*;
 import org.evosuite.llm.mock.MockChatLanguageModel;
-import org.evosuite.setup.TestCluster;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;

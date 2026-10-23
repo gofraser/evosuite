@@ -24,8 +24,6 @@ import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.llm.LlmBudgetCoordinator;
 import org.evosuite.llm.LlmConfiguration;
 import org.evosuite.llm.LlmFeature;

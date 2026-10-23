@@ -27,7 +27,6 @@ import org.evosuite.llm.*;
 import org.evosuite.llm.mock.MockChatLanguageModel;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.seeding.CastClassManager;
-import org.evosuite.utils.generic.GenericClass;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +36,6 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
