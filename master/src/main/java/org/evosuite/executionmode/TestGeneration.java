@@ -439,15 +439,6 @@ public class TestGeneration {
         }
 
 
-        if (Properties.JMC) {
-            //FIXME: does not seem to work, at least on Mac. Looks like some RMI conflict
-            cmdLine.add("-XX:+UnlockCommercialFeatures");
-            cmdLine.add("-XX:+FlightRecorder");
-            cmdLine.add("-Dcom.sun.management.jmxremote");
-            cmdLine.add("-Dcom.sun.management.jmxremote.autodiscovery");
-            cmdLine.add("-Dcom.sun.management.jmxremote.authenticate=false");
-            cmdLine.add("-Dcom.sun.management.jmxremote.ssl=false");
-        }
         cmdLine.add("-XX:MaxJavaStackTraceDepth=1000000");
         // Without this, HotSpot strips stack traces from repeatedly-thrown exceptions, which
         // makes diagnosing instrumentation failures essentially impossible.
