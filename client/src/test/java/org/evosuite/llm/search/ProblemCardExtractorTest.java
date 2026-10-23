@@ -1077,7 +1077,7 @@ class ProblemCardExtractorTest {
             best.put(goal, 1.0);
 
             LlmService service = mock(LlmService.class);
-            StagnationDetector detector = new StagnationDetector(service, false, 10, 2, System::nanoTime);
+            StagnationDetector detector = new StagnationDetector(service, 10, 2, System::nanoTime);
             PromptResult prompt = detector.buildPrompt(Collections.singleton(goal),
                     Collections.singletonList(test), 10, 5, best);
 

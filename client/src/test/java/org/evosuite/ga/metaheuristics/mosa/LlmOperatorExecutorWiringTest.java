@@ -111,7 +111,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
 
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         assertEquals(mockExecutor, harness.llmOperators.executor);
         assertNotNull(harness.llmOperators.targetSelector);
@@ -124,7 +124,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         OperatorExecutorHarness harness = new OperatorExecutorHarness(null);
 
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         assertNotNull(harness.llmOperators.mutation);
         assertNotNull(harness.llmOperators.crossover);
@@ -139,7 +139,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         // under the new run's target class/sidecar name.
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         OperatorExecutorHarness onHarness = new OperatorExecutorHarness(null);
-        onHarness.initializeLlmAssistance(onHarness::getCurrentGoals, false);
+        onHarness.initializeLlmAssistance(onHarness::getCurrentGoals);
 
         TestChromosome parent = arrayListConstructorChromosome(1);
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
@@ -149,7 +149,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
         OperatorExecutorHarness offHarness = new OperatorExecutorHarness(null);
-        offHarness.initializeLlmAssistance(offHarness::getCurrentGoals, false);
+        offHarness.initializeLlmAssistance(offHarness::getCurrentGoals);
 
         @SuppressWarnings("unchecked")
         ClientNodeLocal<TestChromosome> clientNode = mock(ClientNodeLocal.class);
@@ -164,7 +164,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
         OperatorExecutorHarness harness = new OperatorExecutorHarness(null);
 
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         assertNull(harness.llmOperators.mutation);
         assertNull(harness.llmOperators.crossover);
@@ -181,7 +181,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
         when(mockExecutor.hasCapacity()).thenReturn(true);
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         TestChromosome candidate1 = arrayListConstructorChromosome(1);
         TestChromosome candidate2 = arrayListConstructorChromosome(2);
@@ -214,7 +214,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
         when(mockExecutor.hasCapacity()).thenReturn(true);
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         TestChromosome candidate1 = arrayListConstructorChromosome(1);
         TestChromosome candidate2 = arrayListConstructorChromosome(2);
@@ -251,7 +251,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         when(mockExecutor.hasCapacity()).thenReturn(false);
         when(mockExecutor.drain()).thenReturn(Collections.emptyList());
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         harness.collectExternalCandidates(new ArrayList<>());
@@ -269,7 +269,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         when(mockExecutor.hasCapacity()).thenReturn(true);
         when(mockExecutor.drain()).thenReturn(Collections.emptyList());
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         harness.collectExternalCandidates(new ArrayList<>());
@@ -282,7 +282,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.ASYNC;
         LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         harness.callShutdownLlmAssistance();
         assertNull(harness.llmOperators.executor);
@@ -303,7 +303,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
         when(mockExecutor.hasCapacity()).thenReturn(false);
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         TestChromosome first = arrayListConstructorChromosome(5);
         TestChromosome duplicate = arrayListConstructorChromosome(5);
@@ -330,7 +330,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         when(mockExecutor.hasCapacity()).thenReturn(true);
         when(mockExecutor.drain()).thenReturn(Collections.emptyList());
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
         harness.setCurrentIterationForTest(5);
 
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
@@ -349,7 +349,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         when(mockExecutor.getFailedCalls()).thenReturn(4L);
         when(mockExecutor.getInFlightGenerations()).thenReturn(5L);
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
         // ASYNC mode leaves the SYNC hooks null; set them directly too, so the four
         // pre-existing LLM_Semantic_* counters are exercised in the same pass.
         harness.llmOperators.mutation = new LanguageModelMutation(new LlmSemanticMutation(), null);
@@ -400,7 +400,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
         when(mockExecutor.hasCapacity()).thenReturn(true);
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         TestChromosome parent = arrayListConstructorChromosome(1);
         TestChromosome candidate = arrayListConstructorChromosome(2);
@@ -438,7 +438,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
         when(mockExecutor.hasCapacity()).thenReturn(true);
         OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
-        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.initializeLlmAssistance(harness::getCurrentGoals);
 
         TestFitnessFunction goal = mock(MethodCoverageTestFitness.class);
         when(goal.isCovered(org.mockito.ArgumentMatchers.any(TestChromosome.class))).thenReturn(true);

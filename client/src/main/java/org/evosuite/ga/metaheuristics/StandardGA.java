@@ -148,8 +148,7 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             initializePopulation();
         }
         try {
-            initializeLlmAssistance(this::getUncoveredGoalsForSuiteChromosomes,
-                    getFitnessFunction().isMaximizationFunction());
+            initializeLlmAssistance(this::getUncoveredGoalsForSuiteChromosomes);
             logger.debug("Starting evolution");
             int starvationCounter = 0;
             double bestFitness = Double.MAX_VALUE;
@@ -167,8 +166,6 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                 // Determine fitness
                 calculateFitnessAndSortPopulation();
                 integrateAsyncTestsIntoPopulation();
-                maybeInjectOnStagnationByFitness(
-                        getBestIndividual().getFitness(), getUncoveredGoalsForSuiteChromosomes());
 
                 applyLocalSearch();
 

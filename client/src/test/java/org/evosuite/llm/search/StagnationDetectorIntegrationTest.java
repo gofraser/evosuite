@@ -82,16 +82,14 @@ class StagnationDetectorIntegrationTest {
         when(goal.toString()).thenReturn("uncovered-goal");
 
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         try {
-            assertFalse(detector.checkStagnation(1.0));
+            assertFalse(detector.peekStagnation(0));
             // Advance past the 1s threshold; same fitness → no improvement → fires.
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            assertTrue(detector.checkStagnation(1.0));
+            assertTrue(detector.peekStagnation(0));
 
-            List<TestChromosome> help = detector.requestHelp(
-                    Collections.singleton(goal),
-                    Collections.singletonList(new TestChromosome()), 0, 0, null);
+            List<TestChromosome> help = requestTests(detector, goal);
             assertFalse(help.isEmpty(), "stagnation detector should inject at least one chromosome");
         } finally {
             service.close();
@@ -108,11 +106,9 @@ class StagnationDetectorIntegrationTest {
         when(goal.toString()).thenReturn("uncovered-goal");
 
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         try {
-            List<TestChromosome> help = detector.requestHelp(
-                    Collections.singleton(goal),
-                    Collections.singletonList(new TestChromosome()), 0, 0, null);
+            List<TestChromosome> help = requestTests(detector, goal);
 
             assertEquals(2, help.size(),
                     "stagnation detector should keep all tests parsed from all code blocks");
@@ -125,7 +121,7 @@ class StagnationDetectorIntegrationTest {
     void diagnosticPromptRequestsExplorationMatrixWithoutNumericBudget() throws Exception {
         MockChatLanguageModel model = new MockChatLanguageModel();
         LlmService service = createService(model, 2);
-        StagnationDetector detector = new StagnationDetector(service, false, 5, 1, System::nanoTime);
+        StagnationDetector detector = new StagnationDetector(service, 5, 1, System::nanoTime);
         try {
             Method method = StagnationDetector.class
                     .getDeclaredMethod("buildDiagnosticInstruction", int.class, int.class, int.class);
@@ -143,70 +139,11 @@ class StagnationDetectorIntegrationTest {
         }
     }
 
-    @Test
-    void requestHelpCreditsTheGoalsItsTestsCover() {
-        MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
-        LlmService service = createService(model, 2);
-        TestFitnessFunction goal = mock(TestFitnessFunction.class);
-        when(goal.toString()).thenReturn("uncovered-goal");
-        when(goal.isCovered(any(TestChromosome.class))).thenReturn(true);
-        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
-        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:g", "goal:g:v1");
-        // An earlier attempt on the same target gained nothing.
-        memory.recordAttemptOutcome(memory.registerAttempt(Collections.singletonList(target), true)
-                .getAttemptId(), 0);
-
-        try {
-            List<TestChromosome> help = detectorTargeting(service, memory, target).requestHelp(
-                    Collections.singleton(goal), Collections.singletonList(new TestChromosome()), 0, 0, null);
-            assertFalse(help.isEmpty());
-            memory.beginSelectionRound();
-            // A gain resets the no-gain streak, leaving the shortest (one-round) cooldown.
-            assertFalse(memory.adjustPriority(target, 1.0, true).isSuppressed(),
-                    "an attempt whose tests cover a goal must be credited with that gain");
-        } finally {
-            service.close();
-        }
-    }
-
-    @Test
-    void requestHelpReleasesAnAttemptWhoseCallFailed() {
-        // Nothing queued: the provider call fails, so no response is ever delivered.
-        LlmService service = createService(new MockChatLanguageModel(), 2);
-        TestFitnessFunction goal = mock(TestFitnessFunction.class);
-        when(goal.toString()).thenReturn("uncovered-goal");
-        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
-        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:g", "goal:g:v1");
-
-        try {
-            List<TestChromosome> help = detectorTargeting(service, memory, target).requestHelp(
-                    Collections.singleton(goal), Collections.singletonList(new TestChromosome()), 0, 0, null);
-            assertTrue(help.isEmpty());
-            memory.beginSelectionRound();
-            assertFalse(memory.adjustPriority(target, 1.0, true).isSuppressed(),
-                    "a call that never delivered a response must not count as a no-gain attempt");
-        } finally {
-            service.close();
-        }
-    }
-
-    /** A detector whose prompts carry {@code target} as their repeated-injection target. */
-    private static StagnationDetector detectorTargeting(LlmService service, RepeatedInjectionMemory memory,
-                                                        RepeatedInjectionTarget target) {
-        return new StagnationDetector(service, false, 1, 1, System::nanoTime, memory) {
-            @Override
-            public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
-                                            List<TestChromosome> currentPopulation,
-                                            int totalGoals, int coveredGoalCount,
-                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal,
-                                            boolean suppressInFlightRepeats) {
-                return super.buildPrompt(uncoveredGoals, currentPopulation, totalGoals, coveredGoalCount,
-                        bestFitnessPerGoal, suppressInFlightRepeats).toBuilder()
-                        .repeatedInjectionTargets(Collections.singletonList(target))
-                        .build();
-            }
-        };
+    /** Builds the stagnation prompt for one goal and runs the call, as the stagnation helper does. */
+    private static List<TestChromosome> requestTests(StagnationDetector detector, TestFitnessFunction goal) {
+        PromptResult prompt = detector.buildPrompt(Collections.singleton(goal),
+                Collections.singletonList(new TestChromosome()), 0, 0, null);
+        return detector.executeWithPrompt(prompt).getTests();
     }
 
     @Test
@@ -224,7 +161,7 @@ class StagnationDetectorIntegrationTest {
             }
         };
         LlmService service = createService(model, 2, 30);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, System::nanoTime);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, System::nanoTime);
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.toString()).thenReturn("uncovered-goal");
 

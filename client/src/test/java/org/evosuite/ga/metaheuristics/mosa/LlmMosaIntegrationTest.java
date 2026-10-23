@@ -26,7 +26,6 @@ import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.ProblemCardType;
-import org.evosuite.llm.search.StagnationDetector;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
@@ -55,10 +54,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
         InEvolveTestMOSA mosa = new InEvolveTestMOSA(() -> new TestChromosome());
         mosa.seedPopulation();
         // Register stagnation as an external candidate source
-        mosa.externalCandidateSources.add(() -> {
-            AlwaysInjectingStagnationDetector det = new AlwaysInjectingStagnationDetector();
-            return det.requestHelp(mosa.getUncoveredGoals(), new ArrayList<>(mosa.getPopulation()), 0, 0, null);
-        });
+        mosa.externalCandidateSources.add(() -> Collections.singletonList(new TestChromosome()));
 
         mosa.evolve();
 
@@ -431,10 +427,6 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
             }
         }
 
-        private void setDetector(StagnationDetector detector) {
-            this.stagnationDetector = detector;
-        }
-
         /** Replaces a population member, e.g. with a synthetic GA-evolved chromosome. */
         void replacePopulationMember(int index, TestChromosome chromosome) {
             population.set(index, chromosome);
@@ -484,8 +476,7 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
         }
 
         @Override
-        protected void initializeLlmAssistance(java.util.function.Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
-                                               boolean maximizationObjective) {
+        protected void initializeLlmAssistance(java.util.function.Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
             this.asyncProducer = fakeProducer;
             throw new RuntimeException("forced failure");
         }
@@ -500,29 +491,9 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
         }
 
         @Override
-        protected void initializeLlmAssistance(java.util.function.Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
-                                               boolean maximizationObjective) {
+        protected void initializeLlmAssistance(java.util.function.Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
             this.asyncProducer = fakeProducer;
             throw new RuntimeException("forced failure");
-        }
-    }
-
-    private static class AlwaysInjectingStagnationDetector extends StagnationDetector {
-        private AlwaysInjectingStagnationDetector() {
-            super(false);
-        }
-
-        @Override
-        public boolean checkStagnation(int currentCoveredGoals) {
-            return true;
-        }
-
-        @Override
-        public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
-                                                List<TestChromosome> currentPopulation,
-                                                int totalGoals, int coveredGoalCount,
-                                                java.util.Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-            return Collections.singletonList(new TestChromosome());
         }
     }
 

@@ -110,7 +110,7 @@ class StagnationLlmHelperTest {
         model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.SYNC, () -> -1L, 0);
 
@@ -154,7 +154,7 @@ class StagnationLlmHelperTest {
         model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
 
@@ -213,7 +213,7 @@ class StagnationLlmHelperTest {
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
         // Threshold = 1s.
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
 
@@ -284,7 +284,7 @@ class StagnationLlmHelperTest {
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
         // Threshold = 1s.
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
 
@@ -333,7 +333,7 @@ class StagnationLlmHelperTest {
         model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         // Guard at 60s; remaining is 5s — must skip.
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.SYNC, () -> 5L, 60);
@@ -364,7 +364,7 @@ class StagnationLlmHelperTest {
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
         AtomicLong remainingBudget = new AtomicLong(5L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         // Guard at 60s; remaining starts at 5s — must skip, then becomes 600s.
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.SYNC, remainingBudget::get, 60);
@@ -408,7 +408,7 @@ class StagnationLlmHelperTest {
         MockChatLanguageModel model = new MockChatLanguageModel();
         LlmService service = createServiceWithFeatureShare(model, 4, 1.0);
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.SYNC, () -> -1L, 0);
 
@@ -455,7 +455,7 @@ class StagnationLlmHelperTest {
         model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         // Guard 0 (no skip) + remaining=1s makes the wait cap at 1s, even
         // though LLM_TIMEOUT_SECONDS would normally allow much longer.
         StagnationLlmHelper helper = new StagnationLlmHelper(
@@ -504,7 +504,7 @@ class StagnationLlmHelperTest {
         model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
 
@@ -559,7 +559,7 @@ class StagnationLlmHelperTest {
         model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
 
@@ -602,7 +602,7 @@ class StagnationLlmHelperTest {
         model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
                 detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
 
@@ -642,7 +642,7 @@ class StagnationLlmHelperTest {
             model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
             LlmService service = createService(model, 2);
             AtomicLong clock = new AtomicLong(0L);
-            StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get) {
+            StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get) {
                 @Override
                 public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                                 List<TestChromosome> currentPopulation,
@@ -697,7 +697,7 @@ class StagnationLlmHelperTest {
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
         AtomicInteger capturedTotalGoals = new AtomicInteger(-1);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get) {
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get) {
             @Override
             public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                             List<TestChromosome> currentPopulation,
@@ -740,7 +740,7 @@ class StagnationLlmHelperTest {
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
         AtomicInteger capturedTotalGoals = new AtomicInteger(-1);
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get) {
+        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get) {
             @Override
             public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                             List<TestChromosome> currentPopulation,
@@ -881,7 +881,7 @@ class StagnationLlmHelperTest {
     private static StagnationDetector detectorTargeting(LlmService service, AtomicLong clock,
                                                         RepeatedInjectionMemory memory,
                                                         RepeatedInjectionTarget target) {
-        return new StagnationDetector(service, false, 1, 1, clock::get, memory) {
+        return new StagnationDetector(service, 1, 1, clock::get, memory) {
             @Override
             public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                             List<TestChromosome> currentPopulation,

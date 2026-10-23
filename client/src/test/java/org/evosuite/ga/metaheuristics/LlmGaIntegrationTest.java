@@ -259,8 +259,7 @@ class LlmGaIntegrationTest {
         }
 
         @Override
-        protected void initializeLlmAssistance(java.util.function.Supplier<java.util.Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
-                                               boolean maximizationObjective) {
+        protected void initializeLlmAssistance(java.util.function.Supplier<java.util.Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
             this.asyncProducer = fakeProducer;
         }
 
@@ -293,8 +292,7 @@ class LlmGaIntegrationTest {
         }
 
         @Override
-        protected void initializeLlmAssistance(java.util.function.Supplier<java.util.Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
-                                               boolean maximizationObjective) {
+        protected void initializeLlmAssistance(java.util.function.Supplier<java.util.Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
             this.asyncProducer = fakeProducer;
         }
 

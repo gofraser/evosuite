@@ -168,7 +168,7 @@ class LlmTestChromosomeFactoryFrontierWiringTest extends MosaTestSupport {
         }
 
         void wireLlmAssistance() {
-            initializeLlmAssistance(this::getCurrentGoals, false);
+            initializeLlmAssistance(this::getCurrentGoals);
         }
     }
 }

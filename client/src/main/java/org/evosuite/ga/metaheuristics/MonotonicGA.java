@@ -349,8 +349,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             assert !population.isEmpty() : "Could not create any test";
         }
         try {
-            initializeLlmAssistance(this::getUncoveredGoalsForSuiteChromosomes,
-                    getFitnessFunction().isMaximizationFunction());
+            initializeLlmAssistance(this::getUncoveredGoalsForSuiteChromosomes);
 
             logger.debug("Starting evolution");
             int starvationCounter = 0;
@@ -373,7 +372,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                     evolve();
                     sortPopulation();
                     integrateAsyncTestsIntoPopulation();
-                    maybeInjectOnStagnationByFitness(getBestFitness(), getUncoveredGoalsForSuiteChromosomes());
                     double bestFitnessAfterEvolution = getBestFitness();
 
                     if (getFitnessFunction().isMaximizationFunction()) {

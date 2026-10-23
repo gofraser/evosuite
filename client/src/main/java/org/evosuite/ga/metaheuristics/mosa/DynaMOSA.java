@@ -121,7 +121,7 @@ public class DynaMOSA extends AbstractMOSA {
         publishCurrentGoals();
         try {
             // Start the LLM assistance before the initial population is created, as MOSA does.
-            initializeLlmAssistance(this::getCurrentGoals, false);
+            initializeLlmAssistance(this::getCurrentGoals);
             registerExternalCandidateSources(
                     () -> goalsManager == null ? 0 : goalsManager.getCoveredGoals().size(),
                     this::getCurrentGoals);

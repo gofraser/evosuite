@@ -419,12 +419,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      *                             prompts. Read from background threads, so it must return a
      *                             snapshot.
      */
-    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier,
-                                           boolean maximizationObjective,
-                                           LlmInjectionAdapter<T> injectionAdapter) {
-        this.llmInjectionAdapter = injectionAdapter;
+    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier) {
         initializeAsyncProducer(currentGoalsSupplier);
-        initializeStagnationDetector(maximizationObjective);
+        initializeStagnationDetector();
         wireSearchStateIntoLlmTestFactory(currentGoalsSupplier);
     }
 
@@ -480,11 +477,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return null;
     }
 
-    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier,
-                                           boolean maximizationObjective) {
-        initializeLlmAssistance(currentGoalsSupplier, maximizationObjective, llmInjectionAdapter);
-    }
-
     public void setLlmInjectionAdapter(LlmInjectionAdapter<T> injectionAdapter) {
         this.llmInjectionAdapter = injectionAdapter;
     }
@@ -511,8 +503,22 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         asyncProducer.start();
     }
 
-    protected void initializeStagnationDetector(boolean maximizationObjective) {
+    /**
+     * Whether this algorithm can act on {@link Properties#LLM_ON_STAGNATION}. Stagnation
+     * assistance is driven by the covered-goal count of the MOSA family; the whole-suite
+     * algorithms have no such trigger.
+     */
+    protected boolean supportsLlmStagnation() {
+        return false;
+    }
+
+    protected void initializeStagnationDetector() {
         if (!Properties.LLM_ON_STAGNATION) {
+            return;
+        }
+        if (!supportsLlmStagnation()) {
+            logger.warn("llm_on_stagnation has no effect with {}; only the MOSA family supports it",
+                    getClass().getSimpleName());
             return;
         }
         if (repeatedInjectionMemory == null) {
@@ -520,7 +526,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
         stagnationDetector = new StagnationDetector(
                 org.evosuite.llm.LlmService.getInstance(),
-                maximizationObjective,
                 Properties.LLM_STAGNATION_TIMEOUT_SECONDS,
                 Properties.LLM_STAGNATION_TESTS,
                 repeatedInjectionMemory);
@@ -642,34 +647,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             }
             gainsByTicket.merge(ticket, gained, Integer::sum);
         }
-    }
-
-    /**
-     * Fitness-based stagnation trigger used by whole-suite GAs (StandardGA,
-     * MonotonicGA). Bypasses {@link StagnationLlmHelper} and calls
-     * {@link StagnationDetector#requestHelp} directly: <strong>always
-     * synchronous</strong>, regardless of {@link Properties#LLM_STAGNATION_MODE},
-     * and emits none of the {@code LLM_Stagnation*} runtime variables. The
-     * SYNC/ASYNC selector, budget guard, and per-call metrics introduced in
-     * the Phase 3 stagnation plan only apply to the MOSA-family path via
-     * {@link org.evosuite.ga.metaheuristics.mosa.AbstractMOSA}'s external
-     * candidate sources. Do not mix experiment arms across this method and
-     * the helper-based path without normalising metrics.
-     */
-    protected void maybeInjectOnStagnationByFitness(double currentBestFitness,
-                                                    Collection<TestFitnessFunction> uncoveredGoals) {
-        if (stagnationDetector == null) {
-            return;
-        }
-        if (!stagnationDetector.checkStagnation(currentBestFitness)) {
-            return;
-        }
-        List<TestChromosome> pop = getPopulationAsTestChromosomes();
-        int totalGoals = uncoveredGoals.size() + countCoveredGoals();
-        int coveredCount = totalGoals - uncoveredGoals.size();
-        Map<TestFitnessFunction, Double> bestFitness = computeBestFitnessPerGoal(uncoveredGoals, pop);
-        injectLlmTests(stagnationDetector.requestHelp(
-                uncoveredGoals, pop, totalGoals, coveredCount, bestFitness));
     }
 
     /**
@@ -802,46 +779,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             return tests;
         }
         return Collections.emptyList();
-    }
-
-    /** Rough count of covered goals based on fitnessFunctions (for diagnostics). */
-    private int countCoveredGoals() {
-        int covered = 0;
-        if (population.isEmpty()) {
-            return covered;
-        }
-        for (FitnessFunction<T> ff : fitnessFunctions) {
-            if (ff instanceof TestFitnessFunction && population.get(0) instanceof TestChromosome) {
-                TestFitnessFunction tff = (TestFitnessFunction) ff;
-                for (T individual : population) {
-                    if (tff.isCovered((TestChromosome) individual)) {
-                        covered++;
-                        break;
-                    }
-                }
-            }
-        }
-        return covered;
-    }
-
-    /** Computes the best (minimum) fitness distance per uncovered goal across the population. */
-    private Map<TestFitnessFunction, Double> computeBestFitnessPerGoal(
-            Collection<TestFitnessFunction> uncoveredGoals, List<TestChromosome> pop) {
-        if (pop.isEmpty() || uncoveredGoals.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        Map<TestFitnessFunction, Double> result = new LinkedHashMap<>();
-        for (TestFitnessFunction goal : uncoveredGoals) {
-            double best = Double.MAX_VALUE;
-            for (TestChromosome tc : pop) {
-                double f = goal.getFitness(tc);
-                if (f < best) {
-                    best = f;
-                }
-            }
-            result.put(goal, best);
-        }
-        return result;
     }
 
 

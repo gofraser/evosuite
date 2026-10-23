@@ -2197,8 +2197,7 @@ public class Properties {
                     + "and the LLM_Stagnation* runtime variables) only applies to "
                     + "MOSA-family algorithms (MOSA/DynaMOSA) which route stagnation "
                     + "through StagnationLlmHelper. Whole-suite GAs (StandardGA, "
-                    + "MonotonicGA) trigger stagnation via the fitness-based legacy "
-                    + "path and remain synchronous regardless of this flag.")
+                    + "MonotonicGA) ignore llm_on_stagnation.")
     public static LlmStagnationMode LLM_STAGNATION_MODE = LlmStagnationMode.ASYNC;
 
     @Parameter(key = "llm_stagnation_budget_guard_seconds", group = "LLM",

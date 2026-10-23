@@ -103,7 +103,7 @@ public class MOSA extends AbstractMOSA {
         try {
             // Start the LLM assistance before the initial population is created, as DynaMOSA
             // does, so that the LLM test factory and its attempt bookkeeping are in place for it.
-            initializeLlmAssistance(this::getCurrentGoals, false);
+            initializeLlmAssistance(this::getCurrentGoals);
             registerExternalCandidateSources(
                     this::getNumberOfCoveredGoals, this::getCurrentGoals);
 

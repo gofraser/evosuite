@@ -60,20 +60,18 @@ import java.util.function.LongSupplier;
 /**
  * Detects search stagnation and requests targeted LLM assistance.
  *
- * <p>Fires when wall-clock seconds without a fitness/coverage improvement
+ * <p>Fires when wall-clock seconds without a coverage improvement
  * exceed the configured threshold. The window resets on every improvement
  * and on every fired call.
  */
 public class StagnationDetector {
 
     private static final Logger logger = LoggerFactory.getLogger(StagnationDetector.class);
-    private static final double EPSILON = 1e-12;
     private static final int EXISTING_TESTS_CONTEXT_MAX = 3;
     private static final int EXISTING_TESTS_RELEVANCE_CANDIDATE_MULTIPLIER = 4;
     private static final int DIAGNOSTIC_PROBLEM_CARDS_MAX = 3;
 
     private final LlmService llmService;
-    private final boolean maximizationObjective;
     private final long stagnationThresholdNanos;
     private final int thresholdSeconds;
     private final int testsPerRequest;
@@ -91,7 +89,6 @@ public class StagnationDetector {
      */
     private volatile long windowStartNanos;
     private volatile boolean windowStarted = false;
-    private Double bestFitness = null;
     private Integer coveredGoals = null;
     /**
      * Cached repair loop reused across calls. Lazily initialised on first use
@@ -103,54 +100,34 @@ public class StagnationDetector {
 
     /** Creates a detector with singleton LLM service and Properties-configured thresholds. */
     public StagnationDetector() {
-        this(LlmService.getInstance(), false,
+        this(LlmService.getInstance(),
                 Properties.LLM_STAGNATION_TIMEOUT_SECONDS, Properties.LLM_STAGNATION_TESTS,
                 (RepeatedInjectionMemory) null);
     }
 
-    /** Creates a detector with the given maximization flag and Properties-configured thresholds. */
-    public StagnationDetector(boolean maximizationObjective) {
-        this(LlmService.getInstance(), maximizationObjective,
-                Properties.LLM_STAGNATION_TIMEOUT_SECONDS, Properties.LLM_STAGNATION_TESTS,
-                (RepeatedInjectionMemory) null);
-    }
-
-    /** Creates a detector with explicit LLM service, maximization flag, and threshold settings. */
     public StagnationDetector(LlmService llmService,
-                              boolean maximizationObjective,
-                              int stagnationTimeoutSeconds,
-                              int testsPerRequest) {
-        this(llmService, maximizationObjective, stagnationTimeoutSeconds, testsPerRequest,
-                (RepeatedInjectionMemory) null);
-    }
-
-    public StagnationDetector(LlmService llmService,
-                              boolean maximizationObjective,
                               int stagnationTimeoutSeconds,
                               int testsPerRequest,
                               RepeatedInjectionMemory repeatedInjectionMemory) {
-        this(llmService, maximizationObjective, stagnationTimeoutSeconds, testsPerRequest,
+        this(llmService, stagnationTimeoutSeconds, testsPerRequest,
                 System::nanoTime, repeatedInjectionMemory);
     }
 
     /** Package-private constructor for tests: allows injecting a clock. */
     StagnationDetector(LlmService llmService,
-                       boolean maximizationObjective,
                        int stagnationTimeoutSeconds,
                        int testsPerRequest,
                        LongSupplier nanoClock) {
-        this(llmService, maximizationObjective, stagnationTimeoutSeconds, testsPerRequest,
+        this(llmService, stagnationTimeoutSeconds, testsPerRequest,
                 nanoClock, null);
     }
 
     StagnationDetector(LlmService llmService,
-                       boolean maximizationObjective,
                        int stagnationTimeoutSeconds,
                        int testsPerRequest,
                        LongSupplier nanoClock,
                        RepeatedInjectionMemory repeatedInjectionMemory) {
         this.llmService = llmService;
-        this.maximizationObjective = maximizationObjective;
         this.thresholdSeconds = Math.max(1, stagnationTimeoutSeconds);
         this.stagnationThresholdNanos = TimeUnit.SECONDS.toNanos(this.thresholdSeconds);
         this.testsPerRequest = Math.max(1, testsPerRequest);
@@ -159,65 +136,12 @@ public class StagnationDetector {
     }
 
     /**
-     * Reports whether the search has stagnated based on the current best fitness,
-     * and consumes the stagnation window if so. Equivalent to
-     * {@link #peekStagnation(double)} followed by {@link #consumeWindow()} when
-     * the peek returns true.
-     */
-    public boolean checkStagnation(double currentBestFitness) {
-        boolean stagnated = peekStagnation(currentBestFitness);
-        if (stagnated) {
-            consumeWindow();
-        }
-        return stagnated;
-    }
-
-    /**
      * Reports whether the search has stagnated based on the current covered goals
-     * count, and consumes the stagnation window if so. Equivalent to
-     * {@link #peekStagnation(int)} followed by {@link #consumeWindow()} when the
-     * peek returns true.
-     */
-    public boolean checkStagnation(int currentCoveredGoals) {
-        boolean stagnated = peekStagnation(currentCoveredGoals);
-        if (stagnated) {
-            consumeWindow();
-        }
-        return stagnated;
-    }
-
-    /**
-     * Non-consuming variant of {@link #checkStagnation(double)}: returns true when
-     * the stagnation window has elapsed but does NOT reset it. Updates the
-     * tracked best-fitness baseline on observed improvement (which always resets
-     * the window). Callers that may decide to skip the actual stagnation action
-     * (budget guard, in-flight de-dup, etc.) should peek first and only call
-     * {@link #consumeWindow()} once they have committed to firing.
-     */
-    public boolean peekStagnation(double currentBestFitness) {
-        if (bestFitness == null) {
-            bestFitness = currentBestFitness;
-            startWindow();
-            return false;
-        }
-        boolean improved = maximizationObjective
-                ? currentBestFitness > (bestFitness + EPSILON)
-                : currentBestFitness < (bestFitness - EPSILON);
-        if (improved) {
-            bestFitness = currentBestFitness;
-            startWindow();
-            return false;
-        }
-        return peekTimeWindow();
-    }
-
-    /**
-     * Non-consuming variant of {@link #checkStagnation(int)}: returns true when
-     * the stagnation window has elapsed but does NOT reset it. Updates the
-     * tracked covered-goals baseline on observed improvement (which always
-     * resets the window). Callers that may decide to skip the actual stagnation
-     * action (budget guard, in-flight de-dup, etc.) should peek first and only
-     * call {@link #consumeWindow()} once they have committed to firing.
+     * count: returns true when the stagnation window has elapsed but does NOT reset
+     * it. Updates the tracked covered-goals baseline on observed improvement (which
+     * always resets the window). Callers that may decide to skip the actual
+     * stagnation action (budget guard, in-flight de-dup, etc.) should peek first and
+     * only call {@link #consumeWindow()} once they have committed to firing.
      */
     public boolean peekStagnation(int currentCoveredGoals) {
         if (coveredGoals == null) {
@@ -364,61 +288,6 @@ public class StagnationDetector {
             cachedRepairLoop = loop;
         }
         return loop;
-    }
-
-    /**
-     * Requests LLM-generated tests with enriched diagnostic context.
-     *
-     * @param uncoveredGoals     remaining uncovered goals
-     * @param currentPopulation  current best tests
-     * @param totalGoals         total number of coverage goals (0 to omit from prompt)
-     * @param coveredGoalCount   number of goals already covered
-     * @param bestFitnessPerGoal optional fitness-distance map for "almost covered" annotations
-     */
-    public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
-                                            List<TestChromosome> currentPopulation,
-                                            int totalGoals, int coveredGoalCount,
-                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-        if (!llmService.canCall(LlmFeature.STAGNATION)) {
-            return Collections.emptyList();
-        }
-        if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation,
-                totalGoals, coveredGoalCount, bestFitnessPerGoal, false);
-        AttemptTicket ticket = registerRepeatedAttempt(prompt, true);
-        CallResult result = executeWithPrompt(prompt);
-        if (!result.isDelivered()) {
-            ticket.release();
-        } else if (ticket.isTracked()) {
-            // Counting executes the tests, so it is only done when an attempt is owed the gain.
-            ticket.close(countCoveredGoals(uncoveredGoals, result.getTests()));
-        }
-        return result.getTests();
-    }
-
-    /**
-     * Counts the goals among {@code goals} that at least one of {@code tests}
-     * covers. Executes each test at most once; its result is cached on the
-     * chromosome, so the search does not run it again when it evaluates it.
-     */
-    private static int countCoveredGoals(Collection<TestFitnessFunction> goals, List<TestChromosome> tests) {
-        int covered = 0;
-        for (TestFitnessFunction goal : goals) {
-            for (TestChromosome test : tests) {
-                try {
-                    if (goal.isCovered(test)) {
-                        covered++;
-                        break;
-                    }
-                } catch (RuntimeException e) {
-                    logger.debug("Could not check goal {} against an injected test: {}", goal, e.getMessage());
-                }
-            }
-        }
-        return covered;
     }
 
     public void reset() {

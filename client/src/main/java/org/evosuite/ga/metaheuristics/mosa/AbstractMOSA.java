@@ -693,10 +693,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
     @Override
     protected void initializeLlmAssistance(
-            java.util.function.Supplier<java.util.Collection<TestFitnessFunction>> currentGoalsSupplier,
-            boolean maximizationObjective) {
-        super.initializeLlmAssistance(currentGoalsSupplier, maximizationObjective);
+            java.util.function.Supplier<java.util.Collection<TestFitnessFunction>> currentGoalsSupplier) {
+        super.initializeLlmAssistance(currentGoalsSupplier);
         initializeLlmOperators();
+    }
+
+    @Override
+    protected boolean supportsLlmStagnation() {
+        return true;
     }
 
     /**

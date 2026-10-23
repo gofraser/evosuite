@@ -32,7 +32,6 @@ import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
-import org.evosuite.llm.search.StagnationDetector;
 import org.evosuite.llm.search.TestSuiteChromosomeInjectionAdapter;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -128,29 +127,6 @@ class LlmWholeSuiteIntegrationTest {
         Collection<TestFitnessFunction> goals = ga.getUncoveredGoalsForSuiteChromosomes();
         assertEquals(2, goals.size(),
                 "should return pre-loaded test-level goals when none are covered");
-    }
-
-    @Test
-    void stagnationInjectionProducesTestSuiteChromosomes() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
-        Properties.POPULATION = 10;
-
-        SuiteGA ga = new SuiteGA(() -> newSuite());
-        ga.addFitnessFunction(new DummySuiteFitness());
-        ga.seedPopulation();
-        ga.setAdapter(new TestSuiteChromosomeInjectionAdapter());
-        ga.setDetector(new AlwaysInjectingStagnationDetector());
-
-        int before = ga.getPopulation().size();
-        ga.triggerStagnationInjection();
-
-        assertTrue(ga.getPopulation().size() > before,
-                "stagnation injection should add to population");
-        for (Object member : ga.getPopulation()) {
-            assertTrue(member instanceof TestSuiteChromosome,
-                    "all population members must be TestSuiteChromosome, got: "
-                            + member.getClass().getName());
-        }
     }
 
     @Test
@@ -252,31 +228,13 @@ class LlmWholeSuiteIntegrationTest {
         ga.addFitnessFunction(new DummySuiteFitness());
         ga.seedPopulation();
         ga.setAdapter(new TestSuiteChromosomeInjectionAdapter());
-        ga.setDetector(new AlwaysInjectingStagnationDetector());
+        ga.setAsyncProducer(new PreloadedAsyncProducer());
 
         int popBefore = ga.getPopulation().size();
-        ga.triggerStagnationInjection();
+        ga.triggerAsyncIntegration();
 
         assertEquals(popBefore, ga.getPopulation().size(),
                 "MERGE_INTO_EXISTING should not change population size");
-    }
-
-    @Test
-    void standardGaKeepsAnInjectedSuiteThatBeatsAFullPopulation() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
-        Properties.POPULATION = 3;
-        StandardGA<TestSuiteChromosome> ga = newEvaluatedStandardGa();
-        AlwaysInjectingStagnationDetector detector = new AlwaysInjectingStagnationDetector(2);
-        ga.stagnationDetector = detector;
-
-        ga.maybeInjectOnStagnationByFitness(ga.getBestIndividual().getFitness(),
-                Collections.singletonList(new DummyTestFitness()));
-
-        assertEquals(3, ga.getPopulation().size(), "the population stays at its limit");
-        TestSuiteChromosome injected = suiteHolding(ga.getPopulation(), detector.lastTests.get(0));
-        assertNotNull(injected, "the suite of two LLM tests is fitter than any one-test suite, so it must survive");
-        assertEquals(8.0, injected.getFitness(), "the injected suite is evaluated before it competes");
-        assertSame(injected, ga.getBestIndividual());
     }
 
     @Test
@@ -300,14 +258,13 @@ class LlmWholeSuiteIntegrationTest {
         Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.MERGE_INTO_EXISTING;
         Properties.POPULATION = 3;
         StandardGA<TestSuiteChromosome> ga = newEvaluatedStandardGa();
-        AlwaysInjectingStagnationDetector detector = new AlwaysInjectingStagnationDetector(2);
-        ga.stagnationDetector = detector;
+        PreloadedAsyncProducer producer = new PreloadedAsyncProducer(null, 2);
+        ga.asyncProducer = producer;
 
-        ga.maybeInjectOnStagnationByFitness(ga.getBestIndividual().getFitness(),
-                Collections.singletonList(new DummyTestFitness()));
+        ga.integrateAsyncTestsIntoPopulation();
 
         assertEquals(3, ga.getPopulation().size());
-        TestSuiteChromosome merged = suiteHolding(ga.getPopulation(), detector.lastTests.get(0));
+        TestSuiteChromosome merged = suiteHolding(ga.getPopulation(), producer.lastTests.get(0));
         assertNotNull(merged);
         assertEquals(3, merged.size(), "the two LLM tests join the suite's own test");
         assertEquals(7.0, merged.getFitness(),
@@ -387,20 +344,8 @@ class LlmWholeSuiteIntegrationTest {
             this.llmInjectionAdapter = (LlmInjectionAdapter) adapter;
         }
 
-        void setDetector(StagnationDetector detector) {
-            this.stagnationDetector = detector;
-        }
-
         void setAsyncProducer(AsyncLlmTestProducer producer) {
             this.asyncProducer = producer;
-        }
-
-        void triggerStagnationInjection() {
-            List<TestFitnessFunction> goals = new ArrayList<>(getUncoveredGoalsForSuiteChromosomes());
-            if (goals.isEmpty()) {
-                goals.add(new DummyTestFitness());
-            }
-            maybeInjectOnStagnationByFitness(0.0, goals);
         }
 
         void triggerAsyncIntegration() {
@@ -437,39 +382,6 @@ class LlmWholeSuiteIntegrationTest {
         void preloadTestLevelGoals(TestFitnessFunction... goals) {
             this.allTestLevelGoals = new ArrayList<>();
             Collections.addAll(this.allTestLevelGoals, goals);
-        }
-    }
-
-    private static class AlwaysInjectingStagnationDetector extends StagnationDetector {
-        private final int tests;
-        final List<TestChromosome> lastTests = new ArrayList<>();
-
-        AlwaysInjectingStagnationDetector() {
-            this(1);
-        }
-
-        AlwaysInjectingStagnationDetector(int tests) {
-            super(false);
-            this.tests = tests;
-        }
-
-        @Override
-        public boolean checkStagnation(double currentBestFitness) {
-            return true;
-        }
-
-        @Override
-        public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
-                                                List<TestChromosome> currentPopulation,
-                                                int totalGoals, int coveredGoalCount,
-                                                java.util.Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-            lastTests.clear();
-            for (int i = 0; i < tests; i++) {
-                TestChromosome tc = new TestChromosome();
-                tc.setTestCase(new DefaultTestCase());
-                lastTests.add(tc);
-            }
-            return new ArrayList<>(lastTests);
         }
     }
 
