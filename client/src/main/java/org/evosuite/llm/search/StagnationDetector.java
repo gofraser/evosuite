@@ -376,9 +376,11 @@ public class StagnationDetector {
                                                Map<TestFitnessFunction, Double> bestFitnessPerGoal,
                                                boolean suppressInFlightRepeats) {
         Set<String> goalMethods = collectGoalMethodKeys(uncoveredGoals);
-        exceptionBarrierTracker.observe(currentPopulation, goalMethods);
+        // The extractor counts the current population itself, so the historical stats must
+        // be taken before this population enters the tracker's window.
         Map<String, ExceptionBarrierTracker.AggregatedStats> historicalStats =
                 exceptionBarrierTracker.snapshot(goalMethods);
+        exceptionBarrierTracker.observe(currentPopulation, goalMethods);
         ProblemCardExtractor.ExtractionResult extraction = problemCardExtractor.extractWithTelemetry(
                 uncoveredGoals, currentPopulation, Integer.MAX_VALUE, historicalStats);
         List<ProblemCard> extractedCards = extraction.getCards();
