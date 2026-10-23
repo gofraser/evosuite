@@ -22,6 +22,7 @@ package org.evosuite.statistics.backend;
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.statistics.OutputVariable;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,7 +54,7 @@ public class CSVStatisticsBackend implements StatisticsBackend {
         Iterator<Entry<String, OutputVariable<?>>> it = data.entrySet().iterator();
         while (it.hasNext()) {
             Entry<String, OutputVariable<?>> e = it.next();
-            r.append(e.getKey());
+            r.append(SidecarCsv.escape(e.getKey()));
             if (it.hasNext()) {
                 r.append(",");
             }
@@ -73,7 +74,7 @@ public class CSVStatisticsBackend implements StatisticsBackend {
         Iterator<Entry<String, OutputVariable<?>>> it = data.entrySet().iterator();
         while (it.hasNext()) {
             Entry<String, OutputVariable<?>> e = it.next();
-            r.append(e.getValue().getValue());
+            r.append(SidecarCsv.escape(String.valueOf(e.getValue().getValue())));
             if (it.hasNext()) {
                 r.append(",");
             }
@@ -109,12 +110,12 @@ public class CSVStatisticsBackend implements StatisticsBackend {
         try {
             File outputDir = getReportDir();
             File f = new File(outputDir.getAbsolutePath() + File.separator + "statistics.csv");
-            BufferedWriter out = new BufferedWriter(new FileWriter(f, true));
-            if (f.length() == 0L) {
-                out.write(getCSVHeader(data) + "\n");
+            try (BufferedWriter out = new BufferedWriter(new FileWriter(f, true))) {
+                if (f.length() == 0L) {
+                    out.write(getCSVHeader(data) + "\n");
+                }
+                out.write(getCSVData(data) + "\n");
             }
-            out.write(getCSVData(data) + "\n");
-            out.close();
 
         } catch (IOException e) {
             logger.warn("Error while writing statistics: " + e.getMessage());
