@@ -30,6 +30,8 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.mock.java.lang.MockThrowable;
+import org.evosuite.runtime.mock.java.lang.ThrowableText;
 import org.evosuite.runtime.testdata.EvoSuiteFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -112,6 +114,21 @@ class TestUsageCheckerTest {
         RuntimeSettings.useVNET = false;
 
         Assertions.assertFalse(TestUsageChecker.canUse(EvoSuiteFile.class));
+    }
+
+    @Test
+    void testMockedExceptionTextHelperNotUsable() throws NoSuchMethodException {
+        boolean defaultMockJVMNonDeterminism = RuntimeSettings.mockJVMNonDeterminism;
+        RuntimeSettings.mockJVMNonDeterminism = true;
+        try {
+            // Mock classes are usable, so a public static helper on one would become a call
+            // that generated tests can make
+            Assertions.assertTrue(TestUsageChecker.canUse(MockThrowable.class));
+            Method describe = ThrowableText.class.getMethod("describe", Throwable.class);
+            Assertions.assertFalse(TestUsageChecker.canUse(describe.getDeclaringClass()));
+        } finally {
+            RuntimeSettings.mockJVMNonDeterminism = defaultMockJVMNonDeterminism;
+        }
     }
 
     @Test

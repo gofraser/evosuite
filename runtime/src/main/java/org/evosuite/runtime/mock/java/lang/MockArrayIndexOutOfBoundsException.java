@@ -130,7 +130,7 @@ public class MockArrayIndexOutOfBoundsException extends ArrayIndexOutOfBoundsExc
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        return MockThrowable.toString(this);
+        return ThrowableText.describe(this);
     }
 
     @Override

@@ -22,6 +22,7 @@ package org.evosuite.runtime.mock.java.io;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.runtime.mock.java.lang.MockThrowable;
+import org.evosuite.runtime.mock.java.lang.ThrowableText;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -153,7 +154,7 @@ public class MockIOException extends IOException implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        return MockThrowable.toString(this);
+        return ThrowableText.describe(this);
     }
 
     @Override

@@ -121,7 +121,7 @@ public class MockNullPointerException extends NullPointerException implements Ov
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        return MockThrowable.toString(this);
+        return ThrowableText.describe(this);
     }
 
     @Override

@@ -150,7 +150,7 @@ public class MockIllegalArgumentException extends IllegalArgumentException imple
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        return MockThrowable.toString(this);
+        return ThrowableText.describe(this);
     }
 
     @Override
