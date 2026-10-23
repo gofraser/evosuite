@@ -425,21 +425,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getAssertionCode()
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getAssertionCode() {
-        return assertions.stream()
-                .filter(Objects::nonNull)
-                .map(Assertion::getCode)
-                .collect(joining("\n"));
-    }
-
-    /* (non-Javadoc)
      * @see org.evosuite.testcase.StatementInterface#removeAssertions()
      */
 
@@ -574,12 +559,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
     public void changeClassLoader(ClassLoader loader) {
         getVariableReferences().forEach(v -> v.changeClassLoader(loader));
         assertions.forEach(a -> a.changeClassLoader(loader));
-    }
-
-    /**
-     * negate.
-     */
-    public void negate() {
     }
 
     @Override

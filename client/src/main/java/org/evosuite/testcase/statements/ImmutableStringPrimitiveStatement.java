@@ -45,10 +45,6 @@ public class ImmutableStringPrimitiveStatement extends StringPrimitiveStatement 
     }
 
     @Override
-    public void negate() {
-    }
-
-    @Override
     public void randomize() {
     }
 
@@ -56,6 +52,4 @@ public class ImmutableStringPrimitiveStatement extends StringPrimitiveStatement 
     public void setValue(String val) {
         // Is immutable - cannot be changed
     }
-
-
 }

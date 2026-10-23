@@ -102,45 +102,4 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
             value = (byte) constantPool.getRandomInt();
         }
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void increment() {
-        increment((byte) 1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void decrement() {
-        increment((byte) -1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMid(Byte min, Byte max) {
-        value = (byte) (min + ((max - min) / 2));
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isPositive() {
-        // TODO Auto-generated method stub
-        return false;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void negate() {
-        value = (byte) -value;
-    }
 }

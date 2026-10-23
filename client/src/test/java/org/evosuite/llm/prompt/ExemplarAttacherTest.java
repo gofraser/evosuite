@@ -24,7 +24,6 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
-import org.evosuite.testcase.AbstractTestChromosome;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -433,7 +432,7 @@ class ExemplarAttacherTest {
     private static TestChromosome chromosomeWithoutTestCase() {
         TestChromosome chromosome = new TestChromosome();
         try {
-            Field testField = AbstractTestChromosome.class.getDeclaredField("test");
+            Field testField = TestChromosome.class.getDeclaredField("test");
             testField.setAccessible(true);
             testField.set(chromosome, null);
         } catch (ReflectiveOperationException e) {

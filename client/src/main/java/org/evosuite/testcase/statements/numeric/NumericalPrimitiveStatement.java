@@ -49,16 +49,6 @@ public abstract class NumericalPrimitiveStatement<T> extends PrimitiveStatement<
     }
 
     /**
-     * Increases value by smallest possible increment.
-     */
-    public abstract void increment();
-
-    /**
-     * Decreases value by smallest possible increment.
-     */
-    public abstract void decrement();
-
-    /**
      * Changes value by delta.
      *
      * @param delta a long.
@@ -73,21 +63,6 @@ public abstract class NumericalPrimitiveStatement<T> extends PrimitiveStatement<
     public void increment(double delta) {
         increment((long) delta);
     }
-
-    /**
-     * Needed for binary search.
-     *
-     * @param min a T object.
-     * @param max a T object.
-     */
-    public abstract void setMid(T min, T max);
-
-    /**
-     * True if the value is greater than or equal to 0.
-     *
-     * @return a boolean.
-     */
-    public abstract boolean isPositive();
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
         oos.defaultWriteObject();

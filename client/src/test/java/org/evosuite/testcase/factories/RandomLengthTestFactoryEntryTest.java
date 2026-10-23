@@ -146,7 +146,7 @@ class RandomLengthTestFactoryEntryTest {
                 receiverClass.getName(), entrySignature, null);
 
         assertTrue(new ObjectRuleEntryBuilder().insertEntryMethodCallOnExistingReceiver(test, context));
-        assertNotNull(test.findMethodCallStatement(entrySignature));
+        assertNotNull(test.findMethodCallStatement(receiverClass.getName(), entrySignature));
     }
 
     @Test

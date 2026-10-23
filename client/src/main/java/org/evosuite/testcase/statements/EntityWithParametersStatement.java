@@ -269,27 +269,6 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         parameters.set(numParameter, var);
     }
 
-    /**
-     * Check if the given var is bounded in this method/constructor as input parameter.
-     *
-     * @param var the variable reference to check
-     * @return true if the variable is bounded
-     * @throws IllegalArgumentException if var is null
-     */
-    public boolean isBounded(VariableReference var) throws IllegalArgumentException {
-        Inputs.checkNull(var);
-
-        if (parameterAnnotations == null) {
-            if (!(this instanceof FunctionalMockStatement)) {
-                throw new IllegalStateException("parameterAnnotations is null but statement is"
-                        + " not a FunctionalMockStatement");
-            }
-            return false;
-        }
-
-        return false;
-    }
-
     protected int getNumParametersOfType(Class<?> clazz) {
         int num = 0;
         for (VariableReference var : parameters) {

@@ -24,7 +24,6 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.localsearch.LocalSearch;
 import org.evosuite.ga.localsearch.LocalSearchBudget;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
-import org.evosuite.testcase.AbstractTestChromosome;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCaseExpander;
 import org.evosuite.testcase.TestChromosome;
@@ -34,7 +33,6 @@ import org.evosuite.testcase.localsearch.AVMTestCaseLocalSearch;
 import org.evosuite.testcase.localsearch.BranchCoverageMap;
 import org.evosuite.testcase.localsearch.DSETestCaseLocalSearch;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
-import org.evosuite.testsuite.AbstractTestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.Randomness;
@@ -108,12 +106,12 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * @param suite a T object.
      * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
      */
-    private static <T extends AbstractTestSuiteChromosome<T, E>, E extends AbstractTestChromosome<E>>
-            void expandTestSuite(T suite, LocalSearchObjective<T> objective) {
+    private static void expandTestSuite(TestSuiteChromosome suite,
+                                        LocalSearchObjective<TestSuiteChromosome> objective) {
         logger.debug("Expanding tests for local search");
 
         TestSuiteChromosome newTestSuite = new TestSuiteChromosome();
-        for (E test : suite.getTestChromosomes()) {
+        for (TestChromosome test : suite.getTestChromosomes()) {
 
             // First make sure we are up to date with the execution
             if (test.getLastExecutionResult() == null || test.isChanged()) {
@@ -137,7 +135,7 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
         }
         suite.replaceWithTestChromosomes(newTestSuite.getTestChromosomes());
         suite.setChanged(true);
-        for (FitnessFunction<T> ff : objective.getFitnessFunctions()) {
+        for (FitnessFunction<TestSuiteChromosome> ff : objective.getFitnessFunctions()) {
             ff.getFitness(suite);
         }
     }
@@ -238,13 +236,12 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * Returns the set of predicate indexes whose true branches were covered by
      * the suite.
      *
-     * @param suite a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome} object.
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      * @return a {@link java.util.Set} object.
      */
-    private static <T extends AbstractTestSuiteChromosome<T, E>, E extends AbstractTestChromosome<E>> Set<Integer>
-            getCoveredTrueBranches(AbstractTestSuiteChromosome<T, E> suite) {
+    private static Set<Integer> getCoveredTrueBranches(TestSuiteChromosome suite) {
         Set<Integer> covered = new LinkedHashSet<>();
-        for (E testChromosome : suite.getTestChromosomes()) {
+        for (TestChromosome testChromosome : suite.getTestChromosomes()) {
             ExecutionResult lastResult = testChromosome.getLastExecutionResult();
             if (lastResult != null) {
                 covered.addAll(lastResult.getTrace().getCoveredTrueBranches());
@@ -257,13 +254,12 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * Returns the set of the predicate indexes whose false branch were covered
      * by the test suite.
      *
-     * @param suite a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome} object.
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      * @return the set of predicate indexes whose false branch were covered
      */
-    private static <T extends AbstractTestSuiteChromosome<T, E>, E extends AbstractTestChromosome<E>> Set<Integer>
-            getCoveredFalseBranches(AbstractTestSuiteChromosome<T, E> suite) {
+    private static Set<Integer> getCoveredFalseBranches(TestSuiteChromosome suite) {
         Set<Integer> covered = new LinkedHashSet<>();
-        for (E testChromosome : suite.getTestChromosomes()) {
+        for (TestChromosome testChromosome : suite.getTestChromosomes()) {
             ExecutionResult lastResult = testChromosome.getLastExecutionResult();
             if (lastResult != null) {
                 covered.addAll(lastResult.getTrace().getCoveredFalseBranches());

@@ -23,11 +23,9 @@ import org.evosuite.Properties;
 import org.evosuite.ga.localsearch.LocalSearchBudget;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.symbolic.dse.DSETestGenerator;
-import org.evosuite.testcase.AbstractTestChromosome;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionTrace;
-import org.evosuite.testsuite.AbstractTestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
 import java.util.HashSet;
@@ -288,10 +286,9 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
      * @param suite the suite.
      * @return .
      */
-    private static <E extends AbstractTestChromosome<E>> Set<Branch> collectCoveredBranches(
-            AbstractTestSuiteChromosome<?, E> suite) {
+    private static Set<Branch> collectCoveredBranches(TestSuiteChromosome suite) {
         final Set<Branch> suiteCoveredBranches = new HashSet<>();
-        for (E test : suite.getTestChromosomes()) {
+        for (TestChromosome test : suite.getTestChromosomes()) {
             final Set<Branch> testCoveredBranches = getCoveredBranches(test);
             suiteCoveredBranches.addAll(testCoveredBranches);
         }
@@ -305,7 +302,7 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
      * @param test the test case.
      * @return .
      */
-    private static <E extends AbstractTestChromosome<E>> Set<Branch> getCoveredBranches(E test) {
+    private static Set<Branch> getCoveredBranches(TestChromosome test) {
         final Set<Branch> testCoveredBranches = new HashSet<>();
 
         ExecutionTrace trace = test.getLastExecutionResult().getTrace();

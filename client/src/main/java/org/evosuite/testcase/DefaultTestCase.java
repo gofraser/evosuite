@@ -290,14 +290,6 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     /**
      * {@inheritDoc}
-     */
-    @Override
-    public void addStatements(List<? extends Statement> statements) {
-        this.statements.addAll(statements);
-    }
-
-    /**
-     * {@inheritDoc}
      *
      * @param loader a {@link java.lang.ClassLoader} object.
      */
@@ -703,23 +695,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getObject(org.evosuite.testcase.VariableReference,
-     * org.evosuite.testcase.Scope)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Object getObject(VariableReference reference, Scope scope) {
-        try {
-            return reference.getObject(scope);
-        } catch (CodeUnderTestException e) {
-            throw new AssertionError("This case isn't handled yet");
-        }
-    }
-
-    /* (non-Javadoc)
      * @see org.evosuite.testcase.TestCase#getObjects(int)
      */
 
@@ -830,48 +805,6 @@ public class DefaultTestCase implements TestCase, Serializable {
      * {@inheritDoc}
      */
     @Override
-    public VariableReference getRandomNonNullNonPrimitiveObject(Type type, int position)
-            throws ConstructionFailedException {
-        Inputs.checkNull(type);
-
-        List<VariableReference> variables = getObjects(type, position);
-        Iterator<VariableReference> iterator = variables.iterator();
-        while (iterator.hasNext()) {
-            VariableReference var = iterator.next();
-            if (var instanceof NullReference) {
-                iterator.remove();
-            } else {
-                if (getStatement(var.getStPosition()) instanceof PrimitiveStatement) {
-                    iterator.remove();
-                } else {
-                    if (var.isPrimitive() || var.isWrapperType()) {
-                        iterator.remove();
-                    } else {
-                        if (this.getStatement(var.getStPosition()) instanceof FunctionalMockStatement
-                                && !(this.getStatement(var.getStPosition())
-                                instanceof FunctionalMockForAbstractClassStatement)) {
-                            iterator.remove();
-                        }
-                    }
-                }
-            }
-        }
-        if (variables.isEmpty()) {
-            throw new ConstructionFailedException("Found no variables of type " + type
-                    + " at position " + position);
-        }
-
-        return Randomness.choice(variables);
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getRandomObject(java.lang.reflect.Type, int)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public VariableReference getRandomNonNullObject(Type type, int position)
             throws ConstructionFailedException {
         Inputs.checkNull(type);
@@ -887,48 +820,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
 
         return Randomness.choice(variables);
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getRandomObject()
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public VariableReference getRandomObject() {
-        return getRandomObject(statements.size());
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getRandomObject(int)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public VariableReference getRandomObject(int position) {
-        List<VariableReference> variables = getObjects(position);
-        if (variables.isEmpty()) {
-            return null;
-        }
-
-        return Randomness.choice(variables);
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getRandomObject(java.lang.reflect.Type)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public VariableReference getRandomObject(Type type)
-            throws ConstructionFailedException {
-        return getRandomObject(type, statements.size());
     }
 
     /* (non-Javadoc)
@@ -1061,24 +952,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     }
 
     @Override
-    public MethodStatement findMethodCallStatement(String methodSignature) {
-        if (methodSignature == null || methodSignature.isEmpty()) {
-            return null;
-        }
-        for (int i = 0; i < this.size(); i++) {
-            Statement stat = this.getStatement(i);
-            if (stat instanceof MethodStatement) {
-                MethodStatement methodStat = (MethodStatement) stat;
-                if (methodStat.getMethod().getNameWithDescriptor().equals(methodSignature)) {
-                    return methodStat;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    @Override
     public MethodStatement findMethodCallStatement(String className, String methodSignature) {
         if (className == null || className.isEmpty()
                 || methodSignature == null || methodSignature.isEmpty()) {
@@ -1120,18 +993,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     @Override
     public boolean hasAssertions() {
         return statements.stream().anyMatch(Statement::hasAssertions);
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasCastableObject(java.lang.reflect.Type)
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean hasCastableObject(Type type) {
-        return statements.stream().anyMatch(s -> s.getReturnValue().isAssignableFrom(type));
     }
 
     /**

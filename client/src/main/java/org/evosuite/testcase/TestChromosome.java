@@ -59,11 +59,16 @@ import java.util.stream.Stream;
  *
  * @author Gordon Fraser
  */
-public final class TestChromosome extends AbstractTestChromosome<TestChromosome> {
+public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
 
     private static final long serialVersionUID = 7532366007973252782L;
 
     private static final Logger logger = LoggerFactory.getLogger(TestChromosome.class);
+
+    /**
+     * The test case encoded in this chromosome.
+     */
+    protected TestCase test = new DefaultTestCase();
 
     /**
      * Secondary objectives used during ranking.
@@ -348,6 +353,27 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                 this.lastMutationResult.put(mutation, copy);
             }
         }
+    }
+
+    /**
+     * Sets the test case encoded in this chromosome.
+     *
+     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
+     */
+    public void setTestCase(TestCase testCase) {
+        test = Objects.requireNonNull(testCase, "TestChromosome.test must not be null");
+        clearCachedResults();
+        clearCachedMutationResults();
+        setChanged(true);
+    }
+
+    /**
+     * Returns the test case encoded in this chromosome.
+     *
+     * @return a {@link org.evosuite.testcase.TestCase} object.
+     */
+    public TestCase getTestCase() {
+        return test;
     }
 
     /**

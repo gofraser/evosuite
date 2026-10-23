@@ -104,13 +104,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     VariableReference addStatement(Statement statement, int position);
 
     /**
-     * <p>addStatements.</p>
-     *
-     * @param statements a {@link java.util.List} object.
-     */
-    void addStatements(List<? extends Statement> statements);
-
-    /**
      * Remove all statements after a given position.
      *
      * @param length Length of the test case after chopping
@@ -209,15 +202,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
 
     /**
-     * Get actual object represented by a variable for a given execution scope.
-     *
-     * @param reference Variable
-     * @param scope     Excution scope
-     * @return Object in scope
-     */
-    Object getObject(VariableReference reference, Scope scope);
-
-    /**
      * Get all objects up to the given position.
      *
      * @param position a int.
@@ -242,45 +226,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      * @throws org.evosuite.ga.ConstructionFailedException if no such object exists
      */
-    VariableReference getRandomNonNullNonPrimitiveObject(Type type, int position)
-            throws ConstructionFailedException;
-
-    /**
-     * Get a random object matching type.
-     *
-     * @param type     a {@link java.lang.reflect.Type} object.
-     * @param position Upper bound in test case up to which objects are considered
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @throws org.evosuite.ga.ConstructionFailedException if no such object exists
-     */
     VariableReference getRandomNonNullObject(Type type, int position)
-            throws ConstructionFailedException;
-
-    /**
-     * Get a random object matching type.
-     *
-     * @return Random object
-     * @throws ConstructionFailedException if any.
-     */
-    VariableReference getRandomObject();
-
-    /**
-     * Get a random object matching type.
-     *
-     * @param position Upper bound in test case up to which objects are considered
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @throws ConstructionFailedException if no such object exists
-     */
-    VariableReference getRandomObject(int position);
-
-    /**
-     * Get a random object matching type.
-     *
-     * @param type Class we are looking for
-     * @return Random object
-     * @throws org.evosuite.ga.ConstructionFailedException if any.
-     */
-    VariableReference getRandomObject(Type type)
             throws ConstructionFailedException;
 
     /**
@@ -339,16 +285,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
             findTargetExecutableStatement();
 
     /**
-     * Find the first {@link org.evosuite.testcase.statements.MethodStatement} whose name+descriptor
-     * equals {@code methodSignature} (EvoObj whole-class mode). Returns null if the test
-     * does not call it, or if {@code methodSignature} is null/empty.
-     *
-     * @param methodSignature the method name+descriptor to look for
-     * @return the matching call statement, or null
-     */
-    org.evosuite.testcase.statements.MethodStatement findMethodCallStatement(String methodSignature);
-
-    /**
      * Find the first method call whose declaring class and name+descriptor both match. This is the
      * target-safe variant used by EvoObj whole-class mode, where unrelated classes commonly expose
      * identical signatures such as {@code getTransitions()Ljava/util/Set;}.
@@ -374,14 +310,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      * @return True if there are assertions
      */
     boolean hasAssertions();
-
-    /**
-     * <p>hasCastableObject.</p>
-     *
-     * @param type a {@link java.lang.reflect.Type} object.
-     * @return a boolean.
-     */
-    boolean hasCastableObject(Type type);
 
     /**
      * Check if the test case has an object of a given class.

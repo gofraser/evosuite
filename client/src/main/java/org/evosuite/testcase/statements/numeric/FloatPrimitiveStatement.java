@@ -124,44 +124,4 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
             value = constantPool.getRandomFloat();
         }
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void increment() {
-        increment(1.0F);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMid(Float min, Float max) {
-        value = min + ((max - min) / 2);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void decrement() {
-        increment(-1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isPositive() {
-        return value > 0;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void negate() {
-        value = -value;
-    }
 }

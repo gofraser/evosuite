@@ -294,7 +294,7 @@ public class WholeClassModeTest {
 			org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, publicBranch, java.util.Collections.emptyList());
 			TestChromosome chromosome = factory.getChromosome();
 			TestCase test = chromosome.getTestCase();
-			if (test.findMethodCallStatement(entrySig) != null) {
+			if (test.findMethodCallStatement(WholeClassExample.class.getName(), entrySig) != null) {
 				built = true;
 				ExecutionResult result = TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE);
 				assertNotNull(result, "the whole-class template should execute");
@@ -467,9 +467,9 @@ public class WholeClassModeTest {
 		org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, branch, java.util.Collections.emptyList());
 		TestCase test = new RandomLengthTestFactory().getChromosome().getTestCase();
 
-		assertNotNull(test.findMethodCallStatement(factorySig),
+		assertNotNull(test.findMethodCallStatement(FactoryOnlyWholeClassExample.class.getName(), factorySig),
 				"the registered static factory should construct the private-constructor receiver");
-		assertNotNull(test.findMethodCallStatement(entrySig),
+		assertNotNull(test.findMethodCallStatement(FactoryOnlyWholeClassExample.class.getName(), entrySig),
 				"the selected entry should be invoked on the factory result");
 		assertNotNull(TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE));
 	}
@@ -515,7 +515,7 @@ public class WholeClassModeTest {
 			org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, privateBranch, java.util.Collections.emptyList());
 			TestChromosome chromosome = factory.getChromosome();
 			TestCase test = chromosome.getTestCase();
-			if (test.findMethodCallStatement(entrySig) != null) {
+			if (test.findMethodCallStatement(WholeClassExample.class.getName(), entrySig) != null) {
 				built = true;
 				ExecutionResult result = TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE);
 				assertNotNull(result, "the private-branch template should execute through its public caller");

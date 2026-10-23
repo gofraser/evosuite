@@ -55,14 +55,6 @@ public class TestCaseUpdater {
 
     private static final Logger logger = LoggerFactory.getLogger(TestCaseUpdater.class);
 
-    public static final int DEFAULT_STRING_LENGTH = 10;
-    public static final int ARRAY_DIMENSION_LOWER_BOUND = 0;
-    /**
-     * TODO (ilebrero): At some point there can be an empirical study about the max length
-     * that arrays usually have in open source projects.
-     */
-    public static final int DEFAULT_ARRAY_LENGTH_UPPER_BOUND = 20;
-
     public static final String NEW_VALUE = "New value: ";
     public static final String UNEXPECTED_VALUE = "Unexpected value: ";
     public static final String NEW_VALUE_IS_NULL = "New value is null";
@@ -506,99 +498,6 @@ public class TestCaseUpdater {
                         VariableReference stringVariable = testCaseBuilder.appendStringPrimitive("");
                         arguments.add(stringVariable);
                     } else {
-                        VariableReference objectVariable = testCaseBuilder.appendNull(argumentClass);
-                        arguments.add(objectVariable);
-                    }
-                    break;
-                }
-                default: {
-                    throw new UnsupportedOperationException();
-                }
-            }
-        }
-
-        testCaseBuilder.appendMethod(null, targetStaticMethod,
-                arguments.toArray(new VariableReference[]{}));
-        DefaultTestCase testCase = testCaseBuilder.getDefaultTestCase();
-
-        return testCase;
-    }
-
-    /**
-     * Builds a random test case for a static target method.
-     *
-     * @param targetStaticMethod the target static method.
-     * @return .
-     */
-    public static DefaultTestCase buildTestCaseWithRandomValues(Method targetStaticMethod) {
-        TestCaseBuilder testCaseBuilder = new TestCaseBuilder();
-
-        Type[] argumentTypes = Type.getArgumentTypes(targetStaticMethod);
-        Class<?>[] argumentClasses = targetStaticMethod.getParameterTypes();
-
-        ArrayList<VariableReference> arguments = new ArrayList<>();
-        for (int i = 0; i < argumentTypes.length; i++) {
-
-            Type argumentType = argumentTypes[i];
-            Class<?> argumentClass = argumentClasses[i];
-
-            switch (argumentType.getSort()) {
-                case Type.BOOLEAN: {
-                    VariableReference booleanVariable = testCaseBuilder.appendBooleanPrimitive(
-                            Randomness.nextBoolean());
-                    arguments.add(booleanVariable);
-                    break;
-                }
-                case Type.BYTE: {
-                    VariableReference byteVariable = testCaseBuilder.appendBytePrimitive(
-                            (byte) Randomness.nextInt());
-                    arguments.add(byteVariable);
-                    break;
-                }
-                case Type.CHAR: {
-                    VariableReference charVariable = testCaseBuilder.appendCharPrimitive((char) Randomness.nextInt());
-                    arguments.add(charVariable);
-                    break;
-                }
-                case Type.SHORT: {
-                    VariableReference shortVariable = testCaseBuilder.appendShortPrimitive(
-                            (short) Randomness.nextInt());
-                    arguments.add(shortVariable);
-                    break;
-                }
-                case Type.INT: {
-                    VariableReference intVariable = testCaseBuilder.appendIntPrimitive(Randomness.nextInt());
-                    arguments.add(intVariable);
-                    break;
-                }
-                case Type.LONG: {
-                    VariableReference longVariable = testCaseBuilder.appendLongPrimitive(Randomness.nextLong());
-                    arguments.add(longVariable);
-                    break;
-                }
-                case Type.FLOAT: {
-                    VariableReference floatVariable = testCaseBuilder.appendFloatPrimitive(Randomness.nextFloat());
-                    arguments.add(floatVariable);
-                    break;
-                }
-                case Type.DOUBLE: {
-                    VariableReference doubleVariable = testCaseBuilder.appendDoublePrimitive(Randomness.nextDouble());
-                    arguments.add(doubleVariable);
-                    break;
-                }
-                case Type.ARRAY: {
-                    VariableReference arrayVariable = testCaseBuilder.appendArrayStmt(argumentClass,
-                            ArrayUtil.buildRandomDimensionsArray(argumentType));
-                    arguments.add(arrayVariable);
-                    break;
-                }
-                case Type.OBJECT: {
-                    if (argumentClass.equals(String.class)) {
-                        VariableReference stringVariable = testCaseBuilder.appendStringPrimitive(
-                                Randomness.nextString(DEFAULT_STRING_LENGTH));
-                        arguments.add(stringVariable);
-                    } else {
-                        // TODO: complete the randomness
                         VariableReference objectVariable = testCaseBuilder.appendNull(argumentClass);
                         arguments.add(objectVariable);
                     }

@@ -90,44 +90,4 @@ public class LongPrimitiveStatement extends NumericalPrimitiveStatement<Long> {
             value = constantPool.getRandomLong();
         }
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void increment() {
-        increment(1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMid(Long min, Long max) {
-        value = min + ((max - min) / 2);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void decrement() {
-        increment(-1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isPositive() {
-        return value >= 0;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void negate() {
-        value = -value;
-    }
 }

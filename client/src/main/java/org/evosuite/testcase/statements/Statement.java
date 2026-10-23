@@ -135,13 +135,6 @@ public interface Statement {
     GenericAccessibleObject<?> getAccessibleObject();
 
     /**
-     * Get Java code representation of assertions.
-     *
-     * @return String representing all assertions attached to this statement
-     */
-    String getAssertionCode();
-
-    /**
      * Return list of assertions.
      *
      * @return a {@link java.util.Set} object.

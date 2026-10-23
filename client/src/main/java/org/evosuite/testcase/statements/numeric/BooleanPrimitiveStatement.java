@@ -22,7 +22,6 @@ package org.evosuite.testcase.statements.numeric;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.utils.Randomness;
 
-
 /**
  * Primitive statement for boolean values.
  *
@@ -81,46 +80,5 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
     @Override
     public void randomize() {
         value = Randomness.nextBoolean();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void increment() {
-        delta();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void decrement() {
-        delta();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMid(Boolean min, Boolean max) {
-        // TODO Auto-generated method stub
-
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isPositive() {
-        return !value;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void negate() {
-        value = !value;
     }
 }

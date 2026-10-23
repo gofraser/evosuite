@@ -50,7 +50,7 @@ class TargetMethodLookupTest {
 
         TargetContext.setActive(new TargetContext(String.class.getName(), signature, null));
 
-        Assertions.assertNotNull(test.findMethodCallStatement(signature));
+        Assertions.assertNotNull(test.findMethodCallStatement(StringBuilder.class.getName(), signature));
         Assertions.assertNull(test.findTargetMethodCallStatement(),
                 "a same-signature call on another class is not the target");
 

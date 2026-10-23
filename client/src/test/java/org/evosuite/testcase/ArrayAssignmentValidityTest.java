@@ -65,7 +65,7 @@ public class ArrayAssignmentValidityTest {
         
         // Bypass addStatement()'s invariant assertion so that isValid() can inspect the malformed
         // test case directly without logging an expected error.
-        tc.addStatements(Collections.singletonList(assignment));
+        tc.statements.add(assignment);
 
         // isValid() should return false, not throw a ClassCastException or crash
 
@@ -179,7 +179,7 @@ public class ArrayAssignmentValidityTest {
                 value.getReturnValue());
         
         // Bypass addStatement()'s invariant assertion to test isValid() directly.
-        tc.addStatements(Collections.singletonList(assign1));
+        tc.statements.add(assign1);
 
         assertFalse(tc.isValid(), "arr[1] on length-1 array should be invalid");
     }

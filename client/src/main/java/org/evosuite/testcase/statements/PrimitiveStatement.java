@@ -36,7 +36,6 @@ import org.evosuite.utils.generic.GenericClassFactory;
 
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.LinkedHashSet;
@@ -195,31 +194,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
                         + genericClass);
                 statement = new ClassPrimitiveStatement(tc);
             }
-            /*
-                        if (genericClass.hasWildcardTypes()) {
-                            Class<?> bound = GenericTypeReflector.erase(TypeUtils
-                                    .getImplicitUpperBounds((WildcardType) typeParameter)[0]);
-                            if (!bound.equals(Object.class)) {
-                                Set<Class<?>> assignableClasses = TestClusterGenerator.getConcreteClasses(bound,
-                                        DependencyAnalysis.getInheritanceTree());
-                                statement = new ClassPrimitiveStatement(tc, genericClass,
-                                        assignableClasses);
-                            } else {
-                                statement = new ClassPrimitiveStatement(tc);
-                            }
-                        } else {
-                        */
-            /*
-            if (typeParameter instanceof Class<?>) {
-                logger.debug("Creating class primitive with value " + typeParameter);
-                statement = new ClassPrimitiveStatement(tc, (Class<?>) typeParameter);
-            } else {
-                logger.debug("Creating class primitive with random value / "
-                        + typeParameter);
-                statement = new ClassPrimitiveStatement(tc);
-            }
-            */
-            //}
         } else {
             throw new RuntimeException("Getting unknown type: " + clazz + " / "
                     + clazz.getClass());
@@ -395,36 +369,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         return getCode();
     }
 
-    @SuppressWarnings("unused")
-    private void mutateTransformedBoolean(TestCase test) {
-        if (Randomness.nextDouble() > Properties.RANDOM_PERTURBATION) {
-            boolean done = false;
-            for (Statement s : test) {
-                if (s instanceof MethodStatement) {
-                    MethodStatement ms = (MethodStatement) s;
-                    List<VariableReference> parameters = ms.getParameterReferences();
-                    int index = parameters.indexOf(retval);
-                    if (index >= 0) {
-                        Method m = ms.getMethod().getMethod();
-                        org.objectweb.asm.Type[] types = org.objectweb.asm.Type.getArgumentTypes(m);
-                        if (types[index].equals(org.objectweb.asm.Type.BOOLEAN_TYPE)) {
-                            logger.warn("MUTATING");
-                            this.negate();
-                            done = true;
-                            break;
-                        }
-
-                    }
-                }
-            }
-            if (!done) {
-                randomize();
-            }
-        } else {
-            randomize();
-        }
-    }
-
     /**
      * {@inheritDoc}
      */
@@ -442,8 +386,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
                 // and we would lose "negation" as a mutation
                 if (Properties.TT && getClass().equals(IntPrimitiveStatement.class)) {
                     if (Randomness.nextDouble() <= Properties.RANDOM_PERTURBATION) {
-                        // mutateTransformedBoolean(test);
-                        this.negate();
+                        ((IntPrimitiveStatement) this).negate();
 
                     } else {
                         randomize();

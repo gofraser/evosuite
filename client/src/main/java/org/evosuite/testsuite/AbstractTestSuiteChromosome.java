@@ -293,7 +293,7 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
         // Defensive: a null entry would NPE here and abort statistics export
         // over RMI. Skip such entries so a single bad chromosome does not
         // poison the whole stats round-trip. The companion guard in
-        // AbstractTestChromosome.setTestCase rejects a null test field at the
+        // TestChromosome.setTestCase rejects a null test field at the
         // source, so we only need to filter null list entries here.
         return tests.stream()
                 .filter(Objects::nonNull)

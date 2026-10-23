@@ -275,25 +275,6 @@ public abstract class ArrayUtil {
     }
 
     /**
-     * Creates the random lengths array required to create the array referenes.
-     *
-     * @param argumentType the type
-     * @return the random dimensions array
-     */
-    public static int[] buildRandomDimensionsArray(Type argumentType) {
-        int dimensions = argumentType.getDimensions();
-        int[] lengths = new int[dimensions];
-
-        for (int dimension = 0; dimension < dimensions; ++dimension) {
-            lengths[dimension] = Randomness.nextInt(TestCaseUpdater.ARRAY_DIMENSION_LOWER_BOUND,
-                    TestCaseUpdater.DEFAULT_ARRAY_LENGTH_UPPER_BOUND);
-        }
-
-        return lengths;
-    }
-
-
-    /**
      * Create a shallow copy of an array.
      *
      * @param originalArray the array to copy

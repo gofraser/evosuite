@@ -124,44 +124,4 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
             value = constantPool.getRandomDouble();
         }
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void increment() {
-        increment(1.0);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMid(Double min, Double max) {
-        value = min + ((max - min) / 2);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void decrement() {
-        increment(-1.0);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isPositive() {
-        return value >= 0;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void negate() {
-        value = -value;
-    }
 }

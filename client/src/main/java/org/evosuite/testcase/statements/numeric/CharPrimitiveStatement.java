@@ -23,7 +23,6 @@ import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.utils.Randomness;
 
-
 /**
  * Primitive statement for character values.
  *
@@ -83,38 +82,5 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
     @Override
     public void randomize() {
         value = Randomness.nextChar();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void increment() {
-        increment((char) 1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMid(Character min, Character max) {
-        value = (char) (min + ((max - min) / 2));
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void decrement() {
-        increment(-1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isPositive() {
-        // chars are always positive
-        return true;
     }
 }

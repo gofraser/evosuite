@@ -91,44 +91,4 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
             value = (short) constantPool.getRandomInt();
         }
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void increment() {
-        increment((short) 1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMid(Short min, Short max) {
-        value = (short) (min + ((max - min) / 2));
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void decrement() {
-        increment(-1);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isPositive() {
-        return value >= 0;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void negate() {
-        value = (short) -value;
-    }
 }
