@@ -152,11 +152,6 @@ public class MethodCallReplacementCacheTest {
         String newJTextAreaDocumentKey = "<init>(Ljavax/swing/text/Document;)V";
         String newJTextAreaDocumentTextRowsColsKey = "<init>(Ljavax/swing/text/Document;Ljava/lang/String;II)V";
         String newMenuBarKey = "<init>()V";
-        String newWindowFrameOwnerKey = "<init>(Ljava/awt/Frame;)V";
-        String newWindowWindowOwnerKey = "<init>(Ljava/awt/Window;)V";
-        String newWindowWithGcKey = "<init>(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)V";
-        String newFrameDefaultKey = "<init>()V";
-        String newFrameTitleKey = "<init>(Ljava/lang/String;)V";
         String newDialogFrameOwnerKey = "<init>(Ljava/awt/Frame;)V";
         String newDialogFrameModalKey = "<init>(Ljava/awt/Frame;Z)V";
         String newDialogFrameTitleKey = "<init>(Ljava/awt/Frame;Ljava/lang/String;)V";
@@ -231,11 +226,6 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextArea", newJTextAreaDocumentKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextArea", newJTextAreaDocumentTextRowsColsKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/MenuBar", newMenuBarKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Window", newWindowFrameOwnerKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Window", newWindowWindowOwnerKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Window", newWindowWithGcKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Frame", newFrameDefaultKey));
-        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Frame", newFrameTitleKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Dialog", newDialogFrameOwnerKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Dialog", newDialogFrameModalKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Dialog", newDialogFrameTitleKey));
@@ -250,6 +240,41 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertFalse(cache.hasReplacementCall("java/awt/KeyboardFocusManager", getCurrentKfmKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/KeyboardFocusManager", setCurrentKfmKey));
         Assertions.assertFalse(cache.hasReplacementCall("java/awt/DefaultKeyboardFocusManager", newDefaultKfmKey));
+    }
+
+    @Test
+    public void testWindowAndFrameConstructorsAreNullStandInsOnlyWithoutGuiMocks() {
+        String[] windowKeys = {"<init>(Ljava/awt/Frame;)V", "<init>(Ljava/awt/Window;)V",
+                "<init>(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)V"};
+        String[] frameKeys = {"<init>()V", "<init>(Ljava/lang/String;)V"};
+
+        RuntimeSettings.mockGUI = false;
+        MethodCallReplacementCache.resetSingleton();
+        MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
+        for (String key : windowKeys) {
+            Assertions.assertTrue(cache.hasReplacementCall("java/awt/Window", key));
+            Assertions.assertFalse(cache.hasSpecialReplacementCall("java/awt/Window", key));
+        }
+        for (String key : frameKeys) {
+            Assertions.assertTrue(cache.hasReplacementCall("java/awt/Frame", key));
+            Assertions.assertFalse(cache.hasSpecialReplacementCall("java/awt/Frame", key));
+        }
+
+        RuntimeSettings.mockGUI = true;
+        try {
+            MethodCallReplacementCache.resetSingleton();
+            cache = MethodCallReplacementCache.getInstance();
+            for (String key : windowKeys) {
+                Assertions.assertFalse(cache.hasReplacementCall("java/awt/Window", key));
+                Assertions.assertTrue(cache.hasSpecialReplacementCall("java/awt/Window", key));
+            }
+            for (String key : frameKeys) {
+                Assertions.assertFalse(cache.hasReplacementCall("java/awt/Frame", key));
+                Assertions.assertTrue(cache.hasSpecialReplacementCall("java/awt/Frame", key));
+            }
+        } finally {
+            RuntimeSettings.mockGUI = false;
+        }
     }
 
     @Test

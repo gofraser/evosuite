@@ -393,27 +393,32 @@ public class MethodCallReplacementCache {
                     "()V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_newMenuBar",
                     "()Ljava/awt/MenuBar;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Window", "<init>",
-                    "(Ljava/awt/Frame;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newWindow",
-                    "(Ljava/awt/Frame;)Ljava/awt/Window;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Window", "<init>",
-                    "(Ljava/awt/Window;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newWindow",
-                    "(Ljava/awt/Window;)Ljava/awt/Window;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Window", "<init>",
-                    "(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newWindow",
-                    "(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)Ljava/awt/Window;",
-                    true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Frame", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newFrame",
-                    "()Ljava/awt/Frame;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Frame", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newFrame",
-                    "(Ljava/lang/String;)Ljava/awt/Frame;", true, true));
+            // With mockGUI, MockWindow and MockFrame construct real, display-less objects and are
+            // registered as constructor replacements through the mock list, so a null stand-in
+            // is only needed when they are not in use.
+            if (!RuntimeSettings.mockGUI) {
+                addReplacementCall(new MethodCallReplacement("java/awt/Window", "<init>",
+                        "(Ljava/awt/Frame;)V", Opcodes.INVOKESTATIC,
+                        headlessSwing, "replacement_newWindow",
+                        "(Ljava/awt/Frame;)Ljava/awt/Window;", true, true));
+                addReplacementCall(new MethodCallReplacement("java/awt/Window", "<init>",
+                        "(Ljava/awt/Window;)V", Opcodes.INVOKESTATIC,
+                        headlessSwing, "replacement_newWindow",
+                        "(Ljava/awt/Window;)Ljava/awt/Window;", true, true));
+                addReplacementCall(new MethodCallReplacement("java/awt/Window", "<init>",
+                        "(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)V", Opcodes.INVOKESTATIC,
+                        headlessSwing, "replacement_newWindow",
+                        "(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)Ljava/awt/Window;",
+                        true, true));
+                addReplacementCall(new MethodCallReplacement("java/awt/Frame", "<init>",
+                        "()V", Opcodes.INVOKESTATIC,
+                        headlessSwing, "replacement_newFrame",
+                        "()Ljava/awt/Frame;", true, true));
+                addReplacementCall(new MethodCallReplacement("java/awt/Frame", "<init>",
+                        "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
+                        headlessSwing, "replacement_newFrame",
+                        "(Ljava/lang/String;)Ljava/awt/Frame;", true, true));
+            }
             addReplacementCall(new MethodCallReplacement("java/awt/Dialog", "<init>",
                     "(Ljava/awt/Frame;)V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_newDialog",
