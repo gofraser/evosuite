@@ -380,7 +380,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 
         T oldVal = value;
 
-        while (value == oldVal && value != null) {
+        while (value != null && value.equals(oldVal)) {
             if (Randomness.nextDouble() <= Properties.RANDOM_PERTURBATION) {
                 // When using TT, then an integer may represent a boolean,
                 // and we would lose "negation" as a mutation
