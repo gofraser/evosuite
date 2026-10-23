@@ -638,16 +638,6 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
-    public final void printBudget() {
-        algorithm.printBudget();
-    }
-
-    @Override
-    public final String getBudgetString() {
-        return algorithm.getBudgetString();
-    }
-
-    @Override
     protected final double progress() {
         return algorithm.progress();
     }

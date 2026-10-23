@@ -63,7 +63,6 @@ import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.factories.TestSuiteChromosomeFactory;
 import org.evosuite.utils.ArrayUtil;
-import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -673,35 +672,11 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
                 uncoveredGoals, pop, totalGoals, coveredCount, bestFitness));
     }
 
-    protected Collection<TestFitnessFunction> getUncoveredGoalsForTestChromosomes() {
-        List<TestFitnessFunction> goals = new ArrayList<>();
-        for (FitnessFunction<T> ff : fitnessFunctions) {
-            if (ff instanceof TestFitnessFunction) {
-                goals.add((TestFitnessFunction) ff);
-            }
-        }
-        if (goals.isEmpty()) {
-            return Collections.emptyList();
-        }
-        if (population.isEmpty() || !(population.get(0) instanceof TestChromosome)) {
-            return goals;
-        }
-        TestChromosome best = (TestChromosome) population.get(0);
-        List<TestFitnessFunction> uncovered = new ArrayList<>();
-        for (TestFitnessFunction goal : goals) {
-            if (!goal.isCovered(best)) {
-                uncovered.add(goal);
-            }
-        }
-        return uncovered;
-    }
-
     /**
      * Returns uncovered test-level goals for WholeSuite algorithms.
      *
      * <p>WholeSuite GAs use {@link org.evosuite.testsuite.TestSuiteFitnessFunction}
-     * (not {@link TestFitnessFunction}), so {@link #getUncoveredGoalsForTestChromosomes()}
-     * yields nothing. This method derives test-level goals from
+     * (not {@link TestFitnessFunction}). This method derives test-level goals from
      * {@link org.evosuite.coverage.FitnessFunctions#getFitnessFactory} and
      * filters out goals already covered by the best suite in the population.
      *
@@ -1577,30 +1552,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         } else {
             return chromosome1.compareTo(chromosome2) <= 0;
         }
-    }
-
-    /**
-     * Prints out all information regarding this GAs stopping conditions.
-     *
-     * <p>So far only used for testing purposes in TestSuiteGenerator.
-     */
-    public void printBudget() {
-        final Logger logger = LoggingUtils.getEvoLogger();
-        logger.info("* GA-Budget:");
-        stoppingConditions.stream()
-                .map(sc -> "\t- " + sc.toString())
-                .forEach(logger::info);
-    }
-
-    /**
-     * getBudgetString.
-     *
-     * @return a {@link java.lang.String} object.
-     */
-    public String getBudgetString() {
-        return stoppingConditions.stream()
-                .map(StoppingCondition::toString)
-                .collect(joining(" "));
     }
 
     /**

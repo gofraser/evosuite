@@ -28,8 +28,6 @@ import org.evosuite.coverage.CoverageCriteriaAnalyzer;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
-import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmRunLifecycle;
@@ -70,7 +68,6 @@ import org.evosuite.testsuite.OracleReplayConfiguration;
 import org.evosuite.testsuite.StructuralSuiteArtifact;
 import org.evosuite.testsuite.StructuralSuiteMetadata;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.testsuite.TestSuiteMinimizer;
 import org.evosuite.testsuite.TestSuiteSerialization;
 import org.evosuite.utils.ArrayUtil;
@@ -810,7 +807,6 @@ public class TestSuiteGenerator {
                             + NumberFormat.getPercentInstance().format(coverage));
         }
 
-        // printBudget(ga); // TODO - need to move this somewhere else
         if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) && Properties.ANALYSIS_CRITERIA.isEmpty()) {
             DefUseCoverageSuiteFitness.printCoverage();
         }
@@ -1201,52 +1197,6 @@ public class TestSuiteGenerator {
     }
 
     /**
-     * Get the fitness functions for the configured criteria.
-     *
-     * @return a list of {@link org.evosuite.testsuite.TestSuiteFitnessFunction}
-     *         objects.
-     */
-    public static List<TestSuiteFitnessFunction> getFitnessFunctions() {
-        List<TestSuiteFitnessFunction> ffs = new ArrayList<>();
-        for (int i = 0; i < Properties.CRITERION.length; i++) {
-            ffs.add(FitnessFunctions.getFitnessFunction(Properties.CRITERION[i]));
-        }
-
-        return ffs;
-    }
-
-    /**
-     * Prints out all information regarding this GAs stopping conditions.
-     * <p>
-     * So far only used for testing purposes in TestSuiteGenerator.
-     * </p>
-     *
-     * @param algorithm the genetic algorithm to print the budget for
-     */
-    public void printBudget(GeneticAlgorithm<?> algorithm) {
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Search Budget:");
-        for (StoppingCondition<?> sc : algorithm.getStoppingConditions()) {
-            LoggingUtils.getEvoLogger().info("\t- " + sc.toString());
-        }
-    }
-
-    /**
-     * Get the budget string for the genetic algorithm.
-     *
-     * @param algorithm the genetic algorithm to get the budget string for
-     * @return a {@link java.lang.String} object.
-     */
-    public String getBudgetString(GeneticAlgorithm<?> algorithm) {
-        StringBuilder r = new StringBuilder();
-        for (StoppingCondition<?> sc : algorithm.getStoppingConditions()) {
-            r.append(sc.toString()).append(" ");
-        }
-
-        return r.toString();
-    }
-
-    /**
      * Get the fitness factories for the configured criteria.
      *
      * @return a list of {@link org.evosuite.coverage.TestFitnessFactory}
@@ -1259,17 +1209,6 @@ public class TestSuiteGenerator {
         }
 
         return goalsFactory;
-    }
-
-    /**
-     * Main method.
-     *
-     * @param args an array of {@link java.lang.String} objects.
-     */
-    public static void main(String[] args) {
-        TestSuiteGenerator generator = new TestSuiteGenerator();
-        generator.generateTestSuite();
-        System.exit(0);
     }
 
 }

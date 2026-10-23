@@ -24,7 +24,6 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.LlmSuiteInjectionPolicy;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.ga.FitnessFunction;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
 import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
@@ -49,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -130,19 +128,6 @@ class LlmWholeSuiteIntegrationTest {
         Collection<TestFitnessFunction> goals = ga.getUncoveredGoalsForSuiteChromosomes();
         assertEquals(2, goals.size(),
                 "should return pre-loaded test-level goals when none are covered");
-    }
-
-    @Test
-    void testChromosomeGoalSupplierReturnsEmptyForSuitePopulation() {
-        SuiteGA ga = new SuiteGA(() -> newSuite());
-        ga.addFitnessFunction(new DummySuiteFitness());
-        ga.seedPopulation();
-
-        Collection<TestFitnessFunction> goals = ga.getUncoveredGoalsForTestChromosomes();
-
-        assertTrue(goals.isEmpty(),
-                "getUncoveredGoalsForTestChromosomes should return empty for suite population "
-                        + "(this is the bug the suite supplier fixes)");
     }
 
     @Test
