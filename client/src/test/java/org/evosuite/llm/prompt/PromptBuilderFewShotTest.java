@@ -181,6 +181,20 @@ class PromptBuilderFewShotTest {
         assertFalse(userPrompt.contains("Existing tests:"));
     }
 
+    @Test
+    void chainOfThoughtDoesNotDemandJavaCodeFromEnrichmentPrompts() {
+        List<LlmMessage> messages = new PromptBuilder()
+                .withEnrichmentSystemPrompt()
+                .withPromptTechnique(LlmPromptTechnique.CHAIN_OF_THOUGHT)
+                .withInstruction("Suggest constants.")
+                .build();
+
+        String userPrompt = messages.get(1).getContent();
+        assertTrue(userPrompt.contains("Think step by step"));
+        assertFalse(userPrompt.contains("Java code"),
+                "Enrichment prompts ask for literals or JSON, not Java code");
+    }
+
     // -- Finding 1: Prompt-level char-budget enforcement via snippets --
 
     @Test

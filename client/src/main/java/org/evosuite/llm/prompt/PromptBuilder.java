@@ -477,7 +477,8 @@ public class PromptBuilder {
             return this;
         }
         if (technique == Properties.LlmPromptTechnique.CHAIN_OF_THOUGHT) {
-            userSections.add("Think step by step and then provide only final Java code.");
+            userSections.add("Think step by step and then provide only the final answer in the "
+                    + "requested output format.");
         }
         if (technique == Properties.LlmPromptTechnique.FEW_SHOT) {
             if (fewShotSnippets != null && !fewShotSnippets.isEmpty()) {
