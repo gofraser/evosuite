@@ -60,8 +60,8 @@ public class ListInstrumentation extends ErrorBranchInstrumenter {
 
                 Map<Integer, Integer> tempVariables = getMethodCallee(desc);
                 tagBranchStart();
-                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, owner,
-                        "size", "()I", false);
+                mv.visitMethodInsn(itf ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL, owner,
+                        "size", "()I", itf);
 
                 // index >= size
                 mv.loadLocal(tempVariables.get(0));

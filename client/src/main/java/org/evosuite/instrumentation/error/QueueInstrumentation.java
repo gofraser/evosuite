@@ -49,8 +49,8 @@ public class QueueInstrumentation extends ErrorBranchInstrumenter {
                 Map<Integer, Integer> tempVariables = getMethodCallee(desc);
 
                 tagBranchStart();
-                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, owner,
-                        "isEmpty", "()Z", false);
+                mv.visitMethodInsn(itf ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL, owner,
+                        "isEmpty", "()Z", itf);
                 insertBranch(Opcodes.IFLE, "java/util/NoSuchElementException");
                 tagBranchEnd();
                 restoreMethodParameters(tempVariables, desc);
