@@ -44,6 +44,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
+import java.io.Writer;
+import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -164,6 +169,50 @@ class TestRepairLoopSalvageTest {
         TestCase salvaged = result.getTestCases().get(0);
         assertEquals(3, salvaged.size());
         assertTrue(salvaged.getStatement(2) instanceof MethodStatement);
+    }
+
+    @Test
+    void dropPolicySalvageDoesNotReturnCandidatesTheCompileProbeRejects() {
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(targetGetTest(), "getTest"));
+            }
+        };
+        TestRepairLoop loop = new TestRepairLoop(mock(LlmService.class), parser, new LlmResponseParser(),
+                mock(ClusterExpansionManager.class), TestRepairLoopSalvageTest::simulate,
+                0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(false));
+
+        TestRepairLoop.setParseCompileCompilerForTesting(rejectingCompiler());
+        RepairResult result;
+        try {
+            result = loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
+                    SEED_PROMPT, LlmFeature.TEST_REPAIR);
+        } finally {
+            TestRepairLoop.setParseCompileCompilerForTesting(null);
+        }
+
+        assertTrue(result.getTestCases().isEmpty(), String.valueOf(result.getDiagnostics()));
+    }
+
+    /** A compiler that reports a compile error for every source. */
+    private JavaCompiler rejectingCompiler() {
+        JavaCompiler system = ToolProvider.getSystemJavaCompiler();
+        return (JavaCompiler) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[]{JavaCompiler.class}, (proxy, method, args) -> {
+                    if (!method.getName().equals("getTask")) {
+                        return method.invoke(system, args);
+                    }
+                    Writer out = (Writer) args[0];
+                    return Proxy.newProxyInstance(getClass().getClassLoader(),
+                            new Class<?>[]{JavaCompiler.CompilationTask.class}, (task, taskMethod, taskArgs) -> {
+                                if (taskMethod.getName().equals("call")) {
+                                    out.write("Probe.java:1: error: cannot find symbol\n");
+                                    return Boolean.FALSE;
+                                }
+                                return null;
+                            });
+                });
     }
 
     /** Target class: {@code size()} returns 0 and {@code get(int)} always throws. */

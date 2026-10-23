@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static org.evosuite.llm.response.RepairText.safeMethodName;
 
@@ -72,14 +73,17 @@ final class LlmTestSalvager {
      * considered (they passed the compile gate), and only the assertions that
      * do not hold are removed; see {@link #performAssertionPreservingSalvage}.
      * Candidates whose method already survived as an executable test in a
-     * later attempt are skipped, since the LLM repaired them.
+     * later attempt are skipped, since the LLM repaired them. A brute-force
+     * result must also pass {@code compileRejects} to be kept, because the
+     * stripped or truncated test was not compiled before.
      */
     void salvageFailedCandidates(List<ParseResult> droppedAtParse,
                                          Collection<ParseResult> droppedAtExecution,
                                          List<String> diagnostics,
                                          Map<String, ParseResult> salvagedExecutableTests,
                                          Consumer<List<ParseResult>> salvagedTestsConsumer,
-                                         long repairDeadlineNanos) {
+                                         long repairDeadlineNanos,
+                                         Predicate<ParseResult> compileRejects) {
         List<ParseResult> candidates = new ArrayList<>();
         if (!keepAssertions && droppedAtParse != null) {
             candidates.addAll(droppedAtParse);
@@ -108,6 +112,10 @@ final class LlmTestSalvager {
             ParseResult salvagedResult = new ParseResult(salvaged.get(),
                                                          pr.getOriginalMethodName(),
                                                          pr.getDiagnostics());
+            if (!keepAssertions && compileRejects.test(salvagedResult)) {
+                logger.warn("Discarded salvaged test {} as it does not compile.", safeMethodName(pr));
+                continue;
+            }
             List<ParseResult> accepted = mergeSalvagedTests(salvagedExecutableTests,
                     Collections.singletonList(salvagedResult));
             salvagedCount += accepted.size();

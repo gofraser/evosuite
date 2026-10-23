@@ -717,7 +717,8 @@ public class TestRepairLoop {
                 } else {
                     salvager.salvageFailedCandidates(droppedAtParse, executionDropsForSalvage.values(),
                             diagnostics, salvagedExecutableTests, salvagedTestsConsumer,
-                            repairDeadlineNanos);
+                            repairDeadlineNanos,
+                            salvaged -> checkRenderedCompilation(salvaged, repairDeadlineNanos).isRejected());
                     salvageAttempted = true;
                 }
                 if (!salvagedExecutableTests.isEmpty()) {
@@ -735,7 +736,8 @@ public class TestRepairLoop {
             // produced executable-but-failing candidates.
             salvager.salvageFailedCandidates(Collections.<ParseResult>emptyList(),
                     executionDropsForSalvage.values(), diagnostics, salvagedExecutableTests,
-                    salvagedTestsConsumer, repairDeadlineNanos);
+                    salvagedTestsConsumer, repairDeadlineNanos,
+                    salvaged -> checkRenderedCompilation(salvaged, repairDeadlineNanos).isRejected());
         }
         if (!salvagedExecutableTests.isEmpty()) {
             diagnostics.add("Returned partial success from previously executable tests.");
