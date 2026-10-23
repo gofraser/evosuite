@@ -261,7 +261,7 @@ public class JobHandler extends Thread {
         return Math.max(MIN_MASTER_MEMORY_MB, jobMemoryInMB / 4);
     }
 
-    private List<String> getCommandString(JobDefinition job) {
+    List<String> getCommandString(JobDefinition job) {
 
         List<String> commands = new ArrayList<>();
         commands.add(JavaExecCmdUtil.getJavaBinExecutablePath()/*"java"*/);
@@ -409,7 +409,10 @@ public class JobHandler extends Thread {
 
         commands.add("-Dprint_to_system=" + Properties.PRINT_TO_SYSTEM);
 
-        commands.add("-Dp_object_pool=" + Properties.P_OBJECT_POOL);
+        // jobs that use object pools of their dependencies have already got a probability for them
+        if (commands.stream().noneMatch(c -> c.startsWith("-Dp_object_pool="))) {
+            commands.add("-Dp_object_pool=" + Properties.P_OBJECT_POOL);
+        }
 
         /*
          * these 4 options should always be 'true'.
