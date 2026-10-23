@@ -20,8 +20,10 @@
 package org.evosuite.junit;
 
 import org.junit.jupiter.api.Test;
+import org.junit.runner.Description;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Result;
+import org.junit.runner.notification.Failure;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -43,5 +45,17 @@ public class JUnitResultBuilderTest {
 
         JUnitFailure junitFailure = junitResult.getFailures().get(0);
         assertTrue(junitFailure.isAssertionError());
+    }
+
+    @Test
+    public void testJUnit4FailureClassNameIsPlainName() {
+        Failure failure = new Failure(Description.createTestDescription("T", "test0"),
+                new java.util.concurrent.TimeoutException("timed out"));
+
+        assertEquals("java.util.concurrent.TimeoutException",
+                JUnitResultBuilder.toFailure(failure).getExceptionClassName());
+        assertEquals("java.util.concurrent.TimeoutException",
+                JUnitResultBuilder.toFailureWithoutDetail(failure).getExceptionClassName());
+        assertTrue(JUnitFailurePolicy.isTimeoutException(JUnitResultBuilder.toFailure(failure)));
     }
 }

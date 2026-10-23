@@ -75,7 +75,7 @@ public class JUnitResultBuilder {
      */
     static JUnitFailure toFailure(Failure failure) {
         String descriptionMethodName = failure.getDescription().getMethodName();
-        String exceptionClassName = failure.getException().getClass().toString();
+        String exceptionClassName = failure.getException().getClass().getName();
         String message = failure.getMessage();
         String trace = failure.getTrace();
         boolean isAssertionError = (failure.getException() instanceof java.lang.AssertionError);
@@ -100,7 +100,7 @@ public class JUnitResultBuilder {
     static JUnitFailure toFailureWithoutDetail(Failure failure) {
         Throwable exception = failure.getException();
         String name = exception == null ? "unknown" : exception.getClass().getName();
-        String exceptionClassName = exception == null ? "unknown" : exception.getClass().toString();
+        String exceptionClassName = name;
         return new JUnitFailure(name, exceptionClassName, failure.getDescription().getClassName(),
                 failure.getDescription().getMethodName(), exception instanceof AssertionError, name);
     }
