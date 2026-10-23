@@ -1,6 +1,3 @@
-[![Build Status](https://travis-ci.org/EvoSuite/evosuite.svg?branch=master)](https://travis-ci.org/EvoSuite/evosuite)
-[![CircleCI](https://circleci.com/gh/EvoSuite/evosuite.svg?style=svg&circle-token=f00c8d84b9dcf7dae4a82438441823f3be9df090)](https://circleci.com/gh/EvoSuite/evosuite)
-
 # What is EvoSuite?
 
 EvoSuite automatically generates JUnit test suites for Java classes, targeting code coverage criteria such as branch coverage. It uses an evolutionary approach based on a genetic algorithm to derive test suites. To improve readability, the generated unit tests are minimized, and regression assertions that capture the current behavior of the tested classes are added to the tests.
@@ -54,7 +51,6 @@ or by manually building the image locally:
 ```
 git clone https://github.com/EvoSuite/evosuite.git
 cd evosuite
-docker build -f Dockerfile.java8 . --tag evosuite/evosuite:latest-java-8
 docker build -f Dockerfile.java11 . --tag evosuite/evosuite:latest-java-11
 ```
 
@@ -81,7 +77,6 @@ or by manually building the image locally:
 git clone https://github.com/EvoSuite/evosuite.git
 cd evosuite
 git checkout <version> # e.g. git checkout v1.1.0
-docker build -f Dockerfile.java8-experiment . --tag evosuite/evosuite:<version>-java-8-experiment
 docker build -f Dockerfile.java11-experiment . --tag evosuite/evosuite:<version>-java-11-experiment
 ```
 

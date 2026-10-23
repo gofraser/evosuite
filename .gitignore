@@ -28,3 +28,6 @@ nbactions.xml
 
 # Generated Maven repositories of the build-support integration fixtures
 plugins/build-support-test/projects/*/.m2/
+log.txt
+__pycache__/
+*.pyc
