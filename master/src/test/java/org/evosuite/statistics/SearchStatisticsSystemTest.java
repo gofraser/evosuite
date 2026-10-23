@@ -22,7 +22,6 @@ package org.evosuite.statistics;
 import java.util.Map;
 
 import com.examples.with.different.packagename.Calculator;
-import com.examples.with.different.packagename.ExampleGradientBranches;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
@@ -103,30 +102,6 @@ public class SearchStatisticsSystemTest extends SystemTestBase {
         Assertions.assertNotNull(coveredBranchlessMethods);
         Assertions.assertEquals(5, branchlessMethods.getValue());
         Assertions.assertEquals(5, coveredBranchlessMethods.getValue());
-    }
-
-    @Test
-    public void testGradientBranchesOutputVariable() {
-        EvoSuite evosuite = new EvoSuite();
-
-        String targetClass = ExampleGradientBranches.class.getCanonicalName();
-
-        Properties.TARGET_CLASS = targetClass;
-        Properties.SEARCH_BUDGET = 2500;
-        Properties.TRACK_BOOLEAN_BRANCHES = true;
-        Properties.OUTPUT_VARIABLES = "" + RuntimeVariable.Coverage + "," + RuntimeVariable.Gradient_Branches;
-
-        String[] command = new String[]{"-generateSuite", "-class", targetClass};
-        evosuite.parseCommandLine(command);
-
-        Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
-        Assertions.assertNotNull(map);
-        OutputVariable<?> coverage = map.get(RuntimeVariable.Coverage.toString());
-        Assertions.assertNotNull(coverage);
-        Assertions.assertEquals(1.0, coverage.getValue());
-        OutputVariable<?> gradientBranches = map.get(RuntimeVariable.Gradient_Branches.toString());
-        Assertions.assertNotNull(gradientBranches);
-        Assertions.assertEquals(4, gradientBranches.getValue());
     }
 
     @SuppressWarnings("unused")

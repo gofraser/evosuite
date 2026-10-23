@@ -21,7 +21,6 @@ package org.evosuite.testcase.execution;
 
 import org.evosuite.coverage.dataflow.DefUse;
 import org.evosuite.setup.CallContext;
-import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
 
 import java.util.HashMap;
 import java.util.List;
@@ -521,13 +520,6 @@ public interface ExecutionTrace {
      * @return a copy without {@link #getMethodCalls()} data
      */
     ExecutionTrace withoutMethodCalls();
-
-    /**
-     * <p>getBranchesTrace.</p>
-     *
-     * @return a {@link java.util.List} object.
-     */
-    List<BranchEval> getBranchesTrace();
 
     /**
      * <p>getPassedUses.</p>

@@ -79,16 +79,6 @@ public enum RuntimeVariable {
     Covered_Branches,
 
     /**
-     * Total number of gradient branches.
-     */
-    Gradient_Branches,
-
-    /**
-     * Total number of covered gradient branches.
-     */
-    Gradient_Branches_Covered,
-
-    /**
      * The number of lines in the CUT.
      */
     Lines,
@@ -527,59 +517,6 @@ public enum RuntimeVariable {
     AuthPermission,
     AudioPermission,
     OtherPermission,
-    /* -------------------------------------------------------------------- */
-
-    /**
-     * Count of branch comparison types in bytecode (static).
-     */
-    Cmp_IntZero,
-    Cmp_IntInt,
-    Cmp_RefNull,
-    Cmp_RefRef,
-
-    /**
-     * Count of branch comparisons reached (dynamic).
-     */
-    Reached_IntZero,
-    Reached_IntInt,
-    Reached_RefNull,
-    Reached_RefRef,
-
-    /**
-     * Count of branch comparisons covered (dynamic).
-     */
-    Covered_IntZero,
-    Covered_IntInt,
-    Covered_RefNull,
-    Covered_RefRef,
-
-    /**
-     * Count of bytecode instructions (static).
-     */
-    BC_lcmp,
-    BC_fcmpl,
-    BC_fcmpg,
-    BC_dcmpl,
-    BC_dcmpg,
-
-    /**
-     * Count of bytecode instructions reached (dynamic).
-     */
-    Reached_lcmp,
-    Reached_fcmpl,
-    Reached_fcmpg,
-    Reached_dcmpl,
-    Reached_dcmpg,
-
-    /**
-     * Count of bytecode instructions reached (dynamic).
-     */
-    Covered_lcmp,
-    Covered_fcmpl,
-    Covered_fcmpg,
-    Covered_dcmpl,
-    Covered_dcmpg,
-
     /* -------------------------------------------------------------------- */
     /* TODO following needs to be implemented/updated. Currently they are not (necessarily) supported */
 

@@ -1085,7 +1085,6 @@ public class TestSuiteGenerator {
         }
 
         StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
-        TestSuiteGeneratorHelper.getBytecodeStatistics();
 
         ClientServices.getInstance().getClientNode().publishPermissionStatistics();
 

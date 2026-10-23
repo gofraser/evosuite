@@ -21,7 +21,6 @@ package org.evosuite.testcase.execution;
 
 import org.evosuite.coverage.dataflow.DefUse;
 import org.evosuite.setup.CallContext;
-import org.evosuite.testcase.execution.ExecutionTraceImpl.BranchEval;
 
 import java.util.HashMap;
 import java.util.List;
@@ -765,14 +764,6 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
     @Override
     public boolean wasMutationTouched(int mutationId) {
         return trace.wasMutationTouched(mutationId);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<BranchEval> getBranchesTrace() {
-        return trace.getBranchesTrace();
     }
 
     /**

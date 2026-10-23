@@ -26,21 +26,13 @@ import org.evosuite.assertion.CompleteAssertionGenerator;
 import org.evosuite.assertion.SimpleMutationAssertionGenerator;
 import org.evosuite.assertion.UnitAssertionGenerator;
 import org.evosuite.contracts.ContractChecker;
-import org.evosuite.coverage.branch.Branch;
-import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.instrumentation.LinePool;
-import org.evosuite.rmi.ClientServices;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.strategy.*;
 import org.evosuite.symbolic.dse.DSEStrategy;
-import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.LoggingUtils;
-import org.objectweb.asm.Opcodes;
 
 import java.util.Arrays;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Created by sina on 06/04/2017.
@@ -101,136 +93,6 @@ public class TestSuiteGeneratorHelper {
 
     static void printTestCriterion(Criterion criterion) {
         LoggingUtils.getEvoLogger().info("  - {}", getCriterionDisplayName(criterion));
-    }
-
-    private static int getBytecodeCount(RuntimeVariable v, Map<RuntimeVariable, Set<Integer>> m) {
-        Set<Integer> branchSet = m.get(v);
-        return (branchSet == null) ? 0 : branchSet.size();
-    }
-
-    static void getBytecodeStatistics() {
-        if (Properties.TRACK_BOOLEAN_BRANCHES) {
-            int gradientBranchCount = ExecutionTraceImpl.getGradientBranches().size() * 2;
-            ClientServices.track(RuntimeVariable.Gradient_Branches, gradientBranchCount);
-        }
-        if (Properties.TRACK_COVERED_GRADIENT_BRANCHES) {
-            int coveredGradientBranchCount = ExecutionTraceImpl.getGradientBranchesCoveredTrue().size()
-                    + ExecutionTraceImpl.getGradientBranchesCoveredFalse().size();
-            ClientServices.track(RuntimeVariable.Gradient_Branches_Covered, coveredGradientBranchCount);
-        }
-        if (Properties.BRANCH_COMPARISON_TYPES) {
-            int cmpIntZero = 0;
-            int cmpIntInt = 0;
-            int cmpRefRef = 0;
-            int cmpRefNull = 0;
-            int bcLcmp = 0;
-            int bcFcmpl = 0;
-            int bcFcmpg = 0;
-            int bcDcmpl = 0;
-            int bcDcmpg = 0;
-            for (Branch b : BranchPool
-                    .getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                    .getAllBranches()) {
-                int branchOpCode = b.getInstruction().getASMNode().getOpcode();
-                int previousOpcode = -2;
-                if (b.getInstruction().getASMNode().getPrevious() != null) {
-                    previousOpcode = b.getInstruction().getASMNode().getPrevious().getOpcode();
-                }
-                switch (previousOpcode) {
-                    case Opcodes.LCMP:
-                        bcLcmp++;
-                        break;
-                    case Opcodes.FCMPL:
-                        bcFcmpl++;
-                        break;
-                    case Opcodes.FCMPG:
-                        bcFcmpg++;
-                        break;
-                    case Opcodes.DCMPL:
-                        bcDcmpl++;
-                        break;
-                    case Opcodes.DCMPG:
-                        bcDcmpg++;
-                        break;
-                    default:
-                        // No comparison bytecode
-                        break;
-                }
-                switch (branchOpCode) {
-                    // copmpare int with zero
-                    case Opcodes.IFEQ:
-                    case Opcodes.IFNE:
-                    case Opcodes.IFLT:
-                    case Opcodes.IFGE:
-                    case Opcodes.IFGT:
-                    case Opcodes.IFLE:
-                        cmpIntZero++;
-                        break;
-                    // copmpare int with int
-                    case Opcodes.IF_ICMPEQ:
-                    case Opcodes.IF_ICMPNE:
-                    case Opcodes.IF_ICMPLT:
-                    case Opcodes.IF_ICMPGE:
-                    case Opcodes.IF_ICMPGT:
-                    case Opcodes.IF_ICMPLE:
-                        cmpIntInt++;
-                        break;
-                    // copmpare reference with reference
-                    case Opcodes.IF_ACMPEQ:
-                    case Opcodes.IF_ACMPNE:
-                        cmpRefRef++;
-                        break;
-                    // compare reference with null
-                    case Opcodes.IFNULL:
-                    case Opcodes.IFNONNULL:
-                        cmpRefNull++;
-                        break;
-                    default:
-                        // No branch opcode
-                        break;
-
-                }
-            }
-            ClientServices.track(RuntimeVariable.Cmp_IntZero, cmpIntZero);
-            ClientServices.track(RuntimeVariable.Cmp_IntInt, cmpIntInt);
-            ClientServices.track(RuntimeVariable.Cmp_RefRef, cmpRefRef);
-            ClientServices.track(RuntimeVariable.Cmp_RefNull, cmpRefNull);
-
-            ClientServices.track(RuntimeVariable.BC_lcmp, bcLcmp);
-            ClientServices.track(RuntimeVariable.BC_fcmpl, bcFcmpl);
-            ClientServices.track(RuntimeVariable.BC_fcmpg, bcFcmpg);
-            ClientServices.track(RuntimeVariable.BC_dcmpl, bcDcmpl);
-            ClientServices.track(RuntimeVariable.BC_dcmpg, bcDcmpg);
-
-            RuntimeVariable[] bytecodeVarsCovered = new RuntimeVariable[]{RuntimeVariable.Covered_lcmp,
-                    RuntimeVariable.Covered_fcmpl, RuntimeVariable.Covered_fcmpg,
-                    RuntimeVariable.Covered_dcmpl,
-                    RuntimeVariable.Covered_dcmpg, RuntimeVariable.Covered_IntInt,
-                    RuntimeVariable.Covered_IntInt,
-                    RuntimeVariable.Covered_IntZero, RuntimeVariable.Covered_RefRef,
-                    RuntimeVariable.Covered_RefNull};
-
-            for (RuntimeVariable bcvar : bytecodeVarsCovered) {
-                ClientServices.track(bcvar,
-                        getBytecodeCount(bcvar, ExecutionTraceImpl.getBytecodeInstructionCoveredFalse())
-                                + getBytecodeCount(bcvar, ExecutionTraceImpl.getBytecodeInstructionCoveredTrue()));
-            }
-
-            RuntimeVariable[] bytecodeVarsReached = new RuntimeVariable[]{RuntimeVariable.Reached_lcmp,
-                    RuntimeVariable.Reached_fcmpl, RuntimeVariable.Reached_fcmpg,
-                    RuntimeVariable.Reached_dcmpl,
-                    RuntimeVariable.Reached_dcmpg, RuntimeVariable.Reached_IntInt,
-                    RuntimeVariable.Reached_IntInt,
-                    RuntimeVariable.Reached_IntZero, RuntimeVariable.Reached_RefRef,
-                    RuntimeVariable.Reached_RefNull};
-
-            for (RuntimeVariable bcvar : bytecodeVarsReached) {
-                ClientServices.track(bcvar,
-                        getBytecodeCount(bcvar, ExecutionTraceImpl.getBytecodeInstructionReached()) * 2);
-            }
-
-        }
-
     }
 
     static void printTestCriterion() {
