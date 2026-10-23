@@ -948,8 +948,7 @@ public class TestRepairLoop {
         }
         repairMessage.append("The following issue was found in the generated tests:\n")
                      .append(error);
-        hintComposer.appendFailureHints(state, error, previousResponse, executionFailures,
-                repairAttempt, repairMessage);
+        hintComposer.appendFailureHints(state, error, previousResponse, executionFailures, repairMessage);
         // Include the bulk dependency-types catalog only on the first repair
         // turn (repairAttempt == 2 in the conversation numbering: 1 = initial
         // seed, 2 = first repair). On later turns the LLM already has it in

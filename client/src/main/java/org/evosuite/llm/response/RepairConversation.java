@@ -25,10 +25,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -63,7 +61,6 @@ final class RepairConversation {
      */
     private final Set<String> poisonedClasses = new LinkedHashSet<>();
     /** Hint-id -> last repair attempt where it was emitted, for cooldown/dedup. */
-    private final Map<String, Integer> hintLastShownAttemptById = new LinkedHashMap<>();
     /**
      * Access-violation tracking keys ("memberName:declaringClass") accumulated
      * across repair attempts. Used to detect recurrent inaccessible-member
@@ -150,14 +147,6 @@ final class RepairConversation {
 
     Set<String> getPoisonedClasses() {
         return Collections.unmodifiableSet(poisonedClasses);
-    }
-
-    Map<String, Integer> getHintLastShownAttempts() {
-        return Collections.unmodifiableMap(hintLastShownAttemptById);
-    }
-
-    void recordHintShown(String hintId, int repairAttempt) {
-        hintLastShownAttemptById.put(hintId, repairAttempt);
     }
 
     /**

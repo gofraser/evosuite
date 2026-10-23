@@ -15,15 +15,6 @@ Initialization/dependency failure hint:
 - Replace failing tests with alternatives that only use available SUT/JDK types.
 - Prefer pure constructors/methods and precondition checks that do not require GUI/native/plugin containers.
 
-Observed failure signals:
-- NoClassDefFoundError: org/apache/commons/Missing
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-- NoClassDefFoundError/ClassNotFound signals unavailable dependencies; avoid those paths and prefer pure SUT/JDK flows.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -51,11 +42,6 @@ Dependency-missing repair instructions:
 
 Context-specific repair facts:
 - Symbol 'Widgetz' is not present in provided context; replace it with a context-listed SUT/JDK type.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -93,17 +79,6 @@ Poisoned-class avoidance:
   * com.dep.Poisoned
 - Do NOT reference these classes from any test in the corrected class, including via fields, parameters, return types, factories, or methods that internally construct or load them. Choose alternative SUT/JDK types from the dependency summary instead.
 
-Observed failure signals:
-- Class remains unusable after failed static init: com.dep.Poisoned
-- NoClassDefFoundError: Could not initialize class com.dep.Poisoned
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-- Static initialization failed. Do not touch the poisoned class path in this run; rewrite the test to avoid loading it.
-- NoClassDefFoundError/ClassNotFound signals unavailable dependencies; avoid those paths and prefer pure SUT/JDK flows.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -133,18 +108,6 @@ Poisoned-class avoidance:
   * com.dep.Poisoned
 - Do NOT reference these classes from any test in the corrected class, including via fields, parameters, return types, factories, or methods that internally construct or load them. Choose alternative SUT/JDK types from the dependency summary instead.
 
-Observed failure signals:
-- Static initialization failed for <unknown>
-- ExceptionInInitializerError
-- Static initialization failed for com.dep.Poisoned
-- Class remains unusable after failed static init: com.dep.Poisoned
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-- Static initialization failed. Do not touch the poisoned class path in this run; rewrite the test to avoid loading it.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -170,11 +133,6 @@ Initialization/dependency failure hint:
 - Prefer pure constructors/methods and precondition checks that do not require GUI/native/plugin containers.
 - AWT/Swing initialization failed in headless execution: avoid UI construction paths that require a real display toolkit.
 - Prefer non-visual SUT logic and model-level methods; only create GUI objects when constructor preconditions are fully initialized.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -210,11 +168,6 @@ HEADLESS ESCALATION (final attempt for this failure mode):
 - Do NOT extract construction into a private helper method; the parser cannot inline GUI-touching helpers and the SUT will be elided to a typed null.
 - If a test fundamentally requires a real Target, remove that test from the class — partial coverage is preferable to a class that yields zero executable tests.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 Please provide the corrected complete test class with all test methods.
 === repair: instantiation ===
 The following issue was found in the generated tests:
@@ -226,11 +179,6 @@ Instantiation failure hint:
 - Prefer concrete implementations listed in the dependency summary (use concrete subtype constructors).
 - If only an abstract/interface type is available at the call site, use a known concrete subtype or a mock.
 - Avoid reflective instantiation or helper patterns that hide non-instantiable types.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -254,15 +202,6 @@ Expected-vs-actual exception mismatch:
 - The actual runtime exception is what executes; the expected class came from the method's declared `throws` clause but the SUT does not actually translate the runtime failure into that type in this environment.
 - For each test above, EITHER change the assertThrows expectation to the actually observed class, OR replace the test with one that does not reach the failing call. Do NOT keep the same expected class hoping a different setup will produce it.
 - Note: tests [testShaded] failed with an exception under org.evosuite.runtime.mock.*; that is the EvoSuite test harness, not the SUT, and you cannot eliminate it by changing test inputs. Either accept it via assertThrows on that exact class or drop those tests.
-
-Observed failure signals:
-- IllegalStateException: closed
-- RuntimeException: boom
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -304,15 +243,6 @@ NPE precondition hint:
 Context-specific repair facts:
 - Null variable 'elem' is explicitly assigned null. Repair by initializing required precondition objects at construction site first.
 
-Observed failure signals:
-- Null receiver 'elem' in call 'org.w3c.dom.Element.getAttribute(String)'
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-- Receiver-null NPE indicates missing collaborator initialization. Initialize/stub upstream dependencies so the receiver is non-null before dereference.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -351,17 +281,6 @@ NPE precondition hint:
 Context-specific repair facts:
 - Null variable 'shape' has non-instantiable declared type 'Shape'. Repair construction first using a concrete subtype such as com.example.Circle, com.example.Square.
 
-Observed failure signals:
-- Null receiver 'shape' in call 'com.example.Shape.area()'
-- NullPointerException: npe
-- RuntimeException: x
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-- Receiver-null NPE indicates missing collaborator initialization. Initialize/stub upstream dependencies so the receiver is non-null before dereference.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -391,14 +310,6 @@ NPE precondition hint:
 - Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
 - If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
 
-Observed failure signals:
-- NullPointerException
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -427,14 +338,6 @@ NPE precondition hint:
 - Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
 - If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
 
-Observed failure signals:
-- NullPointerException
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -451,15 +354,6 @@ Please provide the corrected complete test class with all test methods.
 === repair: npe only in sibling ===
 The following issue was found in the generated tests:
 java.lang.NullPointerException in one test; IllegalStateException in another
-
-Observed failure signals:
-- NullPointerException
-- IllegalStateException: x
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -485,11 +379,6 @@ Mockito usage hint:
 - If a collaborator type is interface/abstract, use Mockito.mock(Type.class) or a concrete subtype; never use new on the interface/abstract type.
 - Do NOT use Mockito.spy(...) or doReturn(...).when(spy)...; regenerate failing tests using real instances or Mockito.mock(...) collaborators.
 - Complete each stubbing expression fully (avoid unfinished stubbing chains).
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -527,11 +416,6 @@ Not-a-mock repair instructions:
 - Only use Mockito.when() or Mockito.doReturn() on objects created via Mockito.mock().
 - If the object was created using a 'new' constructor, it is a real instance. Remove the Mockito stubbing for this object.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -566,11 +450,6 @@ Argument precondition hint:
 - Typical fixes: provide at least one required line/entry/token/element instead of empty structures or empty strings.
 - If testing validation behavior, use assertThrows(...) for the invalid-input case and add a separate valid-input smoke test.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -598,11 +477,6 @@ Argument precondition hint:
 - Never build `new ActionEvent(null, ...)`: the first constructor argument (event source) must be non-null.
 - If receiver construction collapsed to a typed null placeholder (`__llm_fallback...`), do not keep emitting event-driven tests on that null receiver; repair upstream construction or rewrite/drop those tests.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -628,11 +502,6 @@ Indexed fixture/bounds hint:
 - Rebuild the fixture so every set/get index stays within the actual bounds created by the constructor and setup calls.
 - If the behavior under test is rejection of invalid sizes or indices, stop the test at the offending constructor/mutator with assertThrows(...) instead of continuing with normal-path assertions.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -657,11 +526,6 @@ Reflection wrapper hint:
 - Then assert the wrapped cause type/message (e.getCause()) matches the expected SUT exception.
 - Avoid Class.forName/getDeclaredMethod/setAccessible when the target method is public or package-private.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -685,11 +549,6 @@ Reflective assertThrows fallback hint:
 - Prefer direct invocation of accessible SUT methods over reflection.
 - If reflection is unavoidable, capture InvocationTargetException with Assertions.assertThrows(...), then cast/check invocationTargetException.getCause() as the expected SUT exception type.
 - Do not assign assertThrows(...) results to synthetic null/fallback placeholders.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -734,11 +593,6 @@ Context-specific repair facts:
 - Method call 'radius.radius(...)' is invalid: method name equals receiver variable name. Replace/remove this self-call typo and invoke a real method on 'com.example.Circle'.
 - Cannot resolve method 'area2(...)' on variable 'c' of type 'com.example.Circle'. Use an existing method from the provided context.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -767,11 +621,6 @@ Context-specific repair facts:
 - Invalid member access 'o.size': receiver is typed as Object (often a __llm_fallback alias). Remove this assertion/access and replace with assertions over real typed collaborators.
 - Cannot resolve member 'radius' on variable 'c' of type 'com.example.Circle'. Use accessible members that actually exist.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -791,11 +640,6 @@ error: cannot find symbol in expression
 
 Context-specific repair facts:
 - Resolve symbol/package errors by using exact type names/packages from the provided context; do not invent FQCNs.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -841,11 +685,6 @@ Context-specific repair facts:
 - Unresolved class 'Circle' appears in a __llm_fallback declaration. Do not introduce short unresolved type aliases (e.g., 'Circle __llm_fallback...'); use a resolvable fully-qualified type or Object.
 - Symbol 'Circle' exists in provided context; use its exact context form/package and avoid invented qualifiers.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -884,11 +723,6 @@ Member-access repair hint:
 - If no accessible API exposes the same state, drop that assertion rather than forcing illegal member access.
 - Also avoid non-public cross-package types in imports/declarations/constructors; use only public accessible types/paths from context.
 - ANTLR-specific: never access `lexer.state` / `BaseRecognizer.state` directly. Remove assertions like `lexer.state.type` and assert behavior via public lexer APIs or tokenization results.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -932,11 +766,6 @@ Mock-stubbing hint:
 - Keep the rest of the test unchanged unless it depends on the missing stub.
 - Do not replace the collaborator with null; make the mock return the value or nested collaborator the SUT needs.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -961,11 +790,6 @@ Mock-stubbing hint:
 - Keep the rest of the test unchanged unless it depends on the missing stub.
 - Do not replace the collaborator with null; make the mock return the value or nested collaborator the SUT needs.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -989,11 +813,6 @@ No-test-method parsing hint:
 - Invalid import from previous response: import com/example/Shape;
 - Java imports must use dotted package names, for example `import br.com.jnfe.base.service.SimpleSecurityHandlerBean;`.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -1016,11 +835,6 @@ No-test-method parsing hint:
 - The previous response used invalid 'import ... as ...' alias syntax, which Java does not support.
 - To resolve naming conflicts (e.g., between two classes named 'Query'), use the fully qualified name at the call site instead of aliasing the import.
 - Example: `net.sourceforge.beanbin.query.Query beanBinQuery = new net.sourceforge.beanbin.query.Query();`.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1046,11 +860,6 @@ No-test-method parsing hint:
 - Generate actual test code with concrete @Test methods that instantiate and interact with the target class.
 - If your previous response was cut off or hit a token limit, generate fewer test cases but include actual test code.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -1072,11 +881,6 @@ No-test-method parsing hint:
 - Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
 - The previous response already looked like a test class, so malformed Java syntax likely prevented method extraction. Recheck imports, class declaration, braces, and method headers.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -1097,11 +901,6 @@ Parser produced no test methods.
 No-test-method parsing hint:
 - Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
 - Do not return prose or helper snippets only; include actual @Test methods in the final class.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1126,11 +925,6 @@ Collaborator fallback hint:
 - Replace it with a real collaborator before invoking the SUT.
 - If Shape is interface/abstract-like in context, prefer Mockito.mock(Shape.class, new ViolatedAssumptionAnswer()) and stub only the minimal methods the SUT call actually uses.
 - If that collaborator cannot be constructed or mocked with available SUT/JDK types, rewrite the failing test to avoid that path instead of keeping the synthetic fallback.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1175,14 +969,6 @@ Synthetic fallback usage error:
 - This variable is a placeholder and should NEVER be used as a valid object instance.
 - You MUST fix the constructor call that led to this fallback by providing valid data (e.g., a valid byte array header like {0xCA, 0xFE, 0xBA, 0xBE} for ASM ClassReader).
 
-Observed failure signals:
-- NullPointerException
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -1220,11 +1006,6 @@ Anonymous implementation repair hint:
 - Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.
 - If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
 
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -1250,11 +1031,6 @@ Anonymous implementation repair hint:
 - Replace it with Mockito.mock(java.util.AbstractList.class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.
 - Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.
 - If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1282,11 +1058,6 @@ Anonymous implementation repair hint:
 - Replace it with Mockito.mock(java.lang.Thread.class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.
 - Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.
 - If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1321,14 +1092,6 @@ Context-specific repair facts:
 - Detected construction of non-instantiable type 'Shape'. Prefer one of these concrete subtypes from context: com.example.Circle, com.example.Square.
 - Null variable 's' has non-instantiable declared type 'Shape'. Repair construction first using a concrete subtype such as com.example.Circle, com.example.Square.
 
-Observed failure signals:
-- NullPointerException
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -1360,14 +1123,6 @@ NPE precondition hint:
 
 Context-specific repair facts:
 - Null variable 'k' is explicitly assigned null. Repair by initializing required precondition objects at construction site first.
-
-Observed failure signals:
-- NullPointerException
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1401,14 +1156,6 @@ NPE precondition hint:
 Context-specific repair facts:
 - Null variable 'w' has non-instantiable declared type 'Shape'. Repair construction first using a concrete subtype such as com.example.Circle, com.example.Square.
 
-Observed failure signals:
-- NullPointerException
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -1425,11 +1172,6 @@ Please provide the corrected complete test class with all test methods.
 === repair: fallback strategy ===
 The following issue was found in the generated tests:
 Preserved as UninterpretedStatement: setField(sut, "x", 1)
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1458,14 +1200,7 @@ Please provide the corrected complete test class with all test methods.
 The following issue was found in the generated tests:
 java.lang.ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
 
-Observed failure signals:
-- Class cast mismatch: java.lang.String -> java.lang.Integer
-- ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
-
 Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 - ClassCastException indicates wrong-type setup/stubbing. Return the exact runtime type expected at that lookup/call site.
 
 For reference, here are the available constructors and methods:
@@ -1485,30 +1220,21 @@ Please provide the corrected complete test class with all test methods.
 The following issue was found in the generated tests:
 java.lang.ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
 
+Targeted repair hints:
+- ClassCastException indicates wrong-type setup/stubbing. Return the exact runtime type expected at that lookup/call site.
+
 Please provide the corrected complete test class with all test methods.
 --- turn 3 ---
 The following issue was found in the generated tests:
 java.lang.ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
 
-Observed failure signals:
-- Class cast mismatch: java.lang.String -> java.lang.Integer
-- ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
-
 Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 - ClassCastException indicates wrong-type setup/stubbing. Return the exact runtime type expected at that lookup/call site.
 
 Please provide the corrected complete test class with all test methods.
 === repair: catalogue on later turn ===
 The following issue was found in the generated tests:
 java.lang.IllegalStateException: plain failure
-
-Targeted repair hints:
-- Avoid blanket stubs on heterogeneous key/value APIs. Use key-specific, type-correct stubbing.
-- Satisfy constructor and lifecycle preconditions before invoking behavior under test.
-- If uncertain, prefer null plus explicit expectation handling over wrong-type placeholder objects.
 
 Please provide the corrected complete test class with all test methods.
 === combined: shared npe with parse hints ===

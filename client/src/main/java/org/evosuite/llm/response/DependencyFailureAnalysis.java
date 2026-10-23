@@ -266,7 +266,7 @@ public final class DependencyFailureAnalysis {
         return null;
     }
 
-    private static Throwable unwrap(Throwable throwable) {
+    static Throwable unwrap(Throwable throwable) {
         Throwable current = throwable;
         int depth = 0;
         while (current != null && depth < 12) {

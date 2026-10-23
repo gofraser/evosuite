@@ -43,7 +43,6 @@ import static org.evosuite.llm.response.MockRuntimeExceptions.errorMentionsMockR
 import static org.evosuite.llm.response.MockRuntimeExceptions.isRaisedByEvoSuiteRuntime;
 import static org.evosuite.llm.response.MockRuntimeExceptions.reportedExceptionName;
 import static org.evosuite.llm.response.ParsedTestExecutionCheck.matchesExpectedExceptionName;
-import static org.evosuite.llm.response.RepairHintResolver.NPE_CANNOT_INVOKE_PATTERN;
 import static org.evosuite.llm.response.RepairText.MISSING_METHOD_DIAGNOSTIC_PATTERN;
 import static org.evosuite.llm.response.RepairText.NEW_CALL_PATTERN;
 import static org.evosuite.llm.response.RepairText.NULL_DECLARATION_PATTERN;
@@ -59,8 +58,8 @@ import static org.evosuite.llm.response.RepairText.stripTypeDecorators;
 /**
  * Writes the failure-specific hint section of a repair turn: the hint blocks
  * chosen from the error text, the execution failures and the previous
- * response, the dependency facts, and the rule-based hints of
- * {@link RepairHintResolver}. It also supplies the shared-failure line of the
+ * response, the dependency facts, and the
+ * class-cast hint. It also supplies the shared-failure line of the
  * batch attrition summary and the hints appended to parse diagnostics.
  *
  * <p>Hint blocks are appended in a fixed order; the order is part of the
@@ -128,10 +127,15 @@ final class RepairHintComposer {
             "NegativeArraySizeException"
     ));
 
+    /** Helpful NullPointerException message: group 1 is the member, group 2 the null receiver. */
+    private static final java.util.regex.Pattern NPE_CANNOT_INVOKE_PATTERN = java.util.regex.Pattern.compile(
+            "Cannot invoke\\s+\"([^\"]+)\"\\s+because\\s+\"([^\"]+)\"\\s+is null");
+    private static final java.util.regex.Pattern CLASS_CAST_PATTERN = java.util.regex.Pattern.compile(
+            "class\\s+([^\\s]+)\\s+cannot be cast to class\\s+([^\\s]+)");
+
     private final Supplier<String> sutContextSummary;
     private final ExecutionFailureFormatter failureFormatter;
     private final DependencyCodeContextResolver dependencyCodeResolver = new DependencyCodeContextResolver();
-    private final RepairHintResolver repairHintResolver = new RepairHintResolver();
 
     RepairHintComposer(Supplier<String> sutContextSummary, ExecutionFailureFormatter failureFormatter) {
         this.sutContextSummary = sutContextSummary;
@@ -145,7 +149,6 @@ final class RepairHintComposer {
                             String error,
                             String previousResponse,
                             Map<ParseResult, ExecutionFailureContext> executionFailures,
-                            int repairAttempt,
                             StringBuilder repairMessage) {
         FailureScopes scopes = classifyExecutionFailures(executionFailures);
         appendDependencyMissingRepairInstructions(error, repairMessage);
@@ -171,7 +174,7 @@ final class RepairHintComposer {
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
         appendContextSpecificRepairFacts(error, previousResponse, repairMessage);
         appendDependencyCodeContext(state, executionFailures, repairMessage);
-        appendRuleBasedRepairHints(state, error, executionFailures, repairAttempt, repairMessage);
+        appendClassCastRepairHint(error, executionFailures, repairMessage);
     }
 
     private void appendDependencyMissingRepairInstructions(String error, StringBuilder repairMessage) {
@@ -1326,42 +1329,31 @@ final class RepairHintComposer {
                 + "inputs to it.");
     }
 
-    private void appendRuleBasedRepairHints(RepairConversation state,
-                                            String error,
-                                            Map<ParseResult, ExecutionFailureContext> executionFailures,
-                                            int repairAttempt,
-                                            StringBuilder repairMessage) {
-        if (!Properties.LLM_REPAIR_HINTS_ENABLED) {
+    private void appendClassCastRepairHint(String error,
+                                           Map<ParseResult, ExecutionFailureContext> executionFailures,
+                                           StringBuilder repairMessage) {
+        if (!isClassCastFailure(error, executionFailures)) {
             return;
         }
-        List<Throwable> throwables = collectExecutionThrowables(executionFailures);
-        RepairHintResolver.Resolution resolution = repairHintResolver.resolve(
-                error,
-                throwables,
-                state.getPoisonedClasses(),
-                repairAttempt,
-                state.getHintLastShownAttempts(),
-                Properties.LLM_REPAIR_HINTS_MAX_PER_ATTEMPT,
-                Properties.LLM_REPAIR_HINTS_COOLDOWN_ATTEMPTS,
-                Properties.LLM_REPAIR_HINTS_ALWAYS_ON);
-        if (resolution.isEmpty()) {
-            return;
-        }
+        repairMessage.append("\n\nTargeted repair hints:")
+                .append("\n- ClassCastException indicates wrong-type setup/stubbing. Return the exact runtime "
+                        + "type expected at that lookup/call site.");
+    }
 
-        List<RepairFailureSignal> signals = resolution.getSignals();
-        if (signals != null && !signals.isEmpty()) {
-            repairMessage.append("\n\nObserved failure signals:");
-            int maxSignals = Math.min(4, signals.size());
-            for (int i = 0; i < maxSignals; i++) {
-                repairMessage.append("\n- ").append(signals.get(i).getSummary());
+    /** Whether the error text or any failing test's root cause is a ClassCastException naming both types. */
+    private boolean isClassCastFailure(String error, Map<ParseResult, ExecutionFailureContext> executionFailures) {
+        if (error != null && error.contains("ClassCastException")
+                && CLASS_CAST_PATTERN.matcher(error).find()) {
+            return true;
+        }
+        for (Throwable throwable : collectExecutionThrowables(executionFailures)) {
+            Throwable root = DependencyFailureAnalysis.unwrap(throwable);
+            if (root instanceof ClassCastException && root.getMessage() != null
+                    && CLASS_CAST_PATTERN.matcher(root.getMessage()).find()) {
+                return true;
             }
         }
-
-        repairMessage.append("\n\nTargeted repair hints:");
-        for (RepairHintRule hint : resolution.getHints()) {
-            repairMessage.append("\n- ").append(hint.getText());
-            state.recordHintShown(hint.getId(), repairAttempt);
-        }
+        return false;
     }
 
     private List<Throwable> collectExecutionThrowables(
