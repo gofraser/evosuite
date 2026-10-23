@@ -33,7 +33,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 
-public class VirtualFileSystemTest {
+public class VirtualFileSystemBehaviourTest {
 
     @BeforeEach
     public void init() {

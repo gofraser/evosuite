@@ -122,15 +122,21 @@
             </build>
         </profile>
         <profile>
+            <!-- Also runs the system tests (*SystemTest) in the failsafe execution -->
             <id>SystemTests</id>
-            <!-- properties>
-                <systemTests>**/*SystemTest.java</systemTests>
-                <integrationTests>**/*IntTest.java</integrationTests>
-            </properties -->
-            <properties>
-                <systemTests />
-                <integrationTests />
-            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <includes combine.children="append">
+                                <include>**/*SystemTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
     <dependencyManagement>
@@ -550,11 +556,10 @@
                     <reuseForks>false</reuseForks>
                     <reportFormat>xml</reportFormat>
                     <runOrder>alphabetical</runOrder>
-                    <!-- The integration and system tests that surefire excludes -->
+                    <!-- The integration tests that surefire excludes; the SystemTests profile adds the system tests -->
                     <includes>
                         <include>**/*IT.java</include>
                         <include>**/*IntTest.java</include>
-                        <include>**/*SystemTest.java</include>
                     </includes>
                     <excludes>
                         <exclude>com/examples/with/different/packagename/**/*.java</exclude>
