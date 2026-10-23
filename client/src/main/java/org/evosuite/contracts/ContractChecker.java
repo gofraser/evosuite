@@ -21,7 +21,6 @@ package org.evosuite.contracts;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionObserver;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
@@ -139,17 +138,6 @@ public class ContractChecker extends ExecutionObserver {
     @Override
     public void output(int position, String output) {
         // Not used
-    }
-
-    /**
-     * Set the current test case, on which we check oracles while it is executed.
-     *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
-     */
-    public static void currentTest(TestCase test) {
-        currentTest = test;
-        ContractChecker.invalid.clear();
-        // TODO: Keep track of objects that raised an exception, and exclude them from contract checking
     }
 
     /* (non-Javadoc)

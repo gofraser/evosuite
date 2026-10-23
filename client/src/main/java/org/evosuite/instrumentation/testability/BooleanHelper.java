@@ -57,17 +57,6 @@ public class BooleanHelper {
         lastDistance.clear();
     }
 
-    /**
-     * Helper function that is called instead of Object.equals.
-     *
-     * @param obj1 a {@link java.lang.Object} object.
-     * @param obj2 a {@link java.lang.Object} object.
-     * @return a int.
-     */
-    public static int objectEquals(Object obj1, Object obj2) {
-        return obj1.equals(obj2) ? TRUE : FALSE;
-    }
-
 
     /**
      * Keep track of the distance for this predicate.
@@ -390,118 +379,6 @@ public class BooleanHelper {
      */
     public static boolean intToBoolean(int x) {
         return x > 0;
-    }
-
-    /**
-     * <p>
-     * min.
-     * </p>
-     *
-     * @param a a int.
-     * @param b a int.
-     * @param c a int.
-     * @return a int.
-     */
-    public static int min(int a, int b, int c) {
-        if (a < b) {
-            return Math.min(a, c);
-        } else {
-            return Math.min(b, c);
-        }
-    }
-
-    /**
-     * <p>
-     * compareBoolean.
-     * </p>
-     *
-     * @param a a int.
-     * @param b a int.
-     * @return a int.
-     */
-    public static int compareBoolean(int a, int b) {
-        if ((a > 0 && b > 0) || (a <= 0 && b <= 0)) {
-            return Math.abs(a - b);
-        } else {
-            return -1 * Math.abs(a - b);
-        }
-    }
-
-    /**
-     * <p>
-     * editDistance_old.
-     * </p>
-     *
-     * @param s a {@link java.lang.String} object.
-     * @param t a {@link java.lang.String} object.
-     * @return a int.
-     */
-    public static int editDistance_old(String s, String t) {
-        int[][] d; // matrix
-        int n; // length of s
-        int m; // length of t
-        int i; // iterates through s
-        int j; // iterates through t
-        char si; // ith character of s
-        char tj; // jth character of t
-        int cost; // cost
-
-        int k = 127;
-
-        // Step 1
-
-        n = s.length();
-        m = t.length();
-        if (n == 0) {
-            return m;
-        }
-        if (m == 0) {
-            return n;
-        }
-        d = new int[n + 1][m + 1];
-
-        // Step 2
-
-        for (i = 0; i <= n; i++) {
-            d[i][0] = i;
-        }
-
-        for (j = 0; j <= m; j++) {
-            d[0][j] = j;
-        }
-
-        // Step 3
-
-        for (i = 1; i <= n; i++) {
-
-            si = s.charAt(i - 1);
-
-            // Step 4
-
-            for (j = 1; j <= m; j++) {
-
-                tj = t.charAt(j - 1);
-
-                // Step 5
-
-                if (si == tj) {
-                    cost = 0;
-                } else {
-                    // cost = 127/4 + 3 * Math.abs(si - tj)/4;
-                    cost = 127;
-                }
-
-                // Step 6
-
-                d[i][j] = min(d[i - 1][j] + k, d[i][j - 1] + k, d[i - 1][j - 1] + cost);
-
-            }
-
-        }
-
-        // Step 7
-
-        return d[n][m];
     }
 
 

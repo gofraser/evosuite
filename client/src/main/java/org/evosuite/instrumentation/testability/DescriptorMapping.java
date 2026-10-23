@@ -117,32 +117,6 @@ public class DescriptorMapping {
     }
 
     /**
-     * <p>hasTransformedArguments.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a boolean.
-     */
-    public boolean hasTransformedArguments(String className, String methodName,
-                                           String desc) {
-        getMethodDesc(className, methodName, desc);
-        if (!originalDesc.containsKey(className.replace('.', '/') + "/" + methodName
-                + desc)) {
-            return false;
-        } else {
-            String newDesc = originalDesc.get(className.replace('.', '/') + "/"
-                    + methodName + desc);
-            for (Type type : Type.getArgumentTypes(newDesc)) {
-                if (type.equals(Type.BOOLEAN_TYPE)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
-
-    /**
      * <p>isTransformedField.</p>
      *
      * @param className a {@link java.lang.String} object.
@@ -176,19 +150,6 @@ public class DescriptorMapping {
         return originalDesc.containsKey(name) || isBooleanMethod(desc);
     }
 
-    private boolean isStringReplacement(String className, String methodName) {
-
-        //FIXME the class TestabilityTransformation does not seem to exist any more...
-        if (className.equals("org/evosuite/instrumentation/TestabilityTransformation")) {
-            return methodName.equals("StringEquals")
-                    || methodName.equals("StringEqualsIgnoreCase")
-                    || methodName.equals("StringIsEmpty")
-                    || methodName.equals("StringStartsWith")
-                    || methodName.equals("StringEndsWith");
-        }
-        return false;
-    }
-
     /**
      * <p>isTransformedOrBooleanReturnMethod.</p>
      *
@@ -199,10 +160,6 @@ public class DescriptorMapping {
      */
     public boolean isTransformedOrBooleanReturnMethod(String className,
                                                       String methodName, String desc) {
-        if (isStringReplacement(className, methodName)) {
-            return true;
-        }
-
         logger.info("Checking method: " + className + "." + methodName + desc);
         String newDesc = getMethodDesc(className, methodName, desc);
         logger.info("Transformed desc is " + newDesc);
@@ -653,44 +610,6 @@ public class DescriptorMapping {
             logger.info("Don't have transformed version of " + className + "."
                     + methodName + desc);
             return methodName;
-        }
-    }
-
-    /**
-     * <p>getOriginalDescriptor.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
-     */
-    public String getOriginalDescriptor(String className, String methodName, String desc) {
-        String key = className.replace('.', '/') + "/" + methodName + desc;
-        if (originalDesc.containsKey(key)) {
-            logger.info("Found transformed version of " + className + "." + methodName
-                    + desc);
-            return originalDesc.get(key);
-        } else {
-            logger.info("Don't have transformed version of " + className + "."
-                    + methodName + desc);
-            return desc;
-        }
-    }
-
-    /**
-     * <p>getOriginalTypes.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return an array of {@link org.objectweb.asm.Type} objects.
-     */
-    public Type[] getOriginalTypes(String className, String methodName, String desc) {
-        String key = className.replace('.', '/') + "/" + methodName + desc;
-        if (originalDesc.containsKey(key)) {
-            return org.objectweb.asm.Type.getArgumentTypes(originalDesc.get(key));
-        } else {
-            return org.objectweb.asm.Type.getArgumentTypes(desc);
         }
     }
 }

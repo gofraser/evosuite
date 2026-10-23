@@ -20,14 +20,12 @@
 package org.evosuite.seeding;
 
 import org.evosuite.Properties;
-import org.evosuite.testcarver.extraction.CarvingRunListener;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
-import org.junit.runner.JUnitCore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -218,41 +216,6 @@ public class ObjectPool implements Serializable {
                     && test.hasObject(targetClass, test.size())) {
                 pool.addSequence(GenericClassFactory.get(targetClass), test);
             }
-        }
-
-        return pool;
-    }
-
-    /**
-     * Execute all tests in a JUnit test suite and add resulting sequences from
-     * carver.
-     *
-     * @param targetClass the target class
-     * @param testSuite   the test suite
-     * @return the object pool
-     */
-    public static ObjectPool getPoolFromJUnit(GenericClass<?> targetClass, Class<?> testSuite) {
-        final JUnitCore runner = new JUnitCore();
-        final CarvingRunListener listener = new CarvingRunListener();
-        runner.addListener(listener);
-
-        final org.evosuite.testcarver.extraction.CarvingClassLoader classLoader =
-                new org.evosuite.testcarver.extraction.CarvingClassLoader();
-
-        try {
-            // instrument target class
-            classLoader.loadClass(Properties.TARGET_CLASS);
-        } catch (final ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-
-        runner.run(testSuite);
-
-        ObjectPool pool = new ObjectPool();
-
-        for (TestCase test : listener.getTestCases().get(Properties.getTargetClassAndDontInitialise())) {
-            // TODO: Maybe we would get the targetClass from the last object generated in the sequence?
-            pool.addSequence(targetClass, test);
         }
 
         return pool;
