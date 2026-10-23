@@ -120,6 +120,19 @@ public class MethodCallReplacement {
      */
     public void insertMethodCall(MethodCallReplacementMethodAdapter mv, int opcode, int originalOpcode,
                                  boolean originalIsInterface, boolean uninitialisedReferenceIsDuplicated) {
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, MockFramework.class.getCanonicalName().replace('.', '/'),
+                "isEnabled", "()Z", false);
+        Label origCallLabel = new Label();
+        Label afterOrigCallLabel = new Label();
+
+        Label annotationStartTag = new AnnotatedLabel(true, true);
+        annotationStartTag.info = Boolean.TRUE;
+        mv.visitLabel(annotationStartTag);
+        mv.visitJumpInsn(Opcodes.IFEQ, origCallLabel);
+        Label annotationEndTag = new AnnotatedLabel(true, false);
+        annotationEndTag.info = Boolean.FALSE;
+        mv.visitLabel(annotationEndTag);
+
         if (popUninitialisedReference) {
             // Constructor-to-static-factory replacement. javac emits either
             //   NEW X; DUP; arg1..argN; INVOKESPECIAL X.<init>   if the new object is used, or
@@ -149,23 +162,7 @@ public class MethodCallReplacement {
                 // factory result as well to keep the stack height unchanged.
                 mv.pop();
             }
-            return;
-        }
-
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, MockFramework.class.getCanonicalName().replace('.', '/'),
-                "isEnabled", "()Z", false);
-        Label origCallLabel = new Label();
-        Label afterOrigCallLabel = new Label();
-
-        Label annotationStartTag = new AnnotatedLabel(true, true);
-        annotationStartTag.info = Boolean.TRUE;
-        mv.visitLabel(annotationStartTag);
-        mv.visitJumpInsn(Opcodes.IFEQ, origCallLabel);
-        Label annotationEndTag = new AnnotatedLabel(true, false);
-        annotationEndTag.info = Boolean.FALSE;
-        mv.visitLabel(annotationEndTag);
-
-        if (popCallee) {
+        } else if (popCallee) {
             Type[] args = Type.getArgumentTypes(desc);
             Map<Integer, Integer> to = new HashMap<>();
             for (int i = args.length - 1; i >= 0; i--) {
@@ -175,28 +172,28 @@ public class MethodCallReplacement {
             }
 
             mv.pop();//callee
-            if (popUninitialisedReference) {
-                mv.pop();
-            }
 
             for (int i = 0; i < args.length; i++) {
                 mv.loadLocal(to.get(i));
             }
         }
-        if (opcode == Opcodes.INVOKESPECIAL && MockList.shouldBeMocked(className.replace('/', '.'))) {
-            insertInvokeSpecialForMockedSuperclass(mv);
-        } else {
-            if (opcode == Opcodes.INVOKESPECIAL) {
-                logger.info("Not mocking invokespecial: " + replacementMethodName + " for class " + className);
+        if (!popUninitialisedReference) {
+            if (opcode == Opcodes.INVOKESPECIAL && MockList.shouldBeMocked(className.replace('/', '.'))) {
+                insertInvokeSpecialForMockedSuperclass(mv);
+            } else {
+                if (opcode == Opcodes.INVOKESPECIAL) {
+                    logger.info("Not mocking invokespecial: " + replacementMethodName + " for class " + className);
+                }
+                mv.visitMethodInsn(opcode, replacementClassName, replacementMethodName,
+                        replacementDesc, false);
             }
-            mv.visitMethodInsn(opcode, replacementClassName, replacementMethodName,
-                    replacementDesc, false);
         }
         mv.visitJumpInsn(Opcodes.GOTO, afterOrigCallLabel);
         mv.visitLabel(origCallLabel);
         // Re-emit the original call exactly as it was observed. Using the opcode stored in the
         // replacement table would be wrong whenever that entry is inaccurate, and a mismatching
-        // opcode makes the two branches of the diamond disagree on the stack height.
+        // opcode makes the two branches of the diamond disagree on the stack height. For a
+        // constructor this leaves the NEW/DUP references untouched for the real INVOKESPECIAL.
         mv.getNextVisitor().visitMethodInsn(originalOpcode, className, methodName, desc, originalIsInterface);
         mv.visitLabel(afterOrigCallLabel);
     }
