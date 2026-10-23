@@ -84,15 +84,15 @@ public class PropertiesTest {
     @Test
     public void testOutOfRangeInput() throws IllegalArgumentException, IllegalAccessException, NoSuchParameterException {
 
-        Properties.getInstance().setValue("crossover_rate", 0.6); //this should be OK
+        Properties.getInstance().setValue("crossover_rate", "0.6"); //this should be OK
 
         try {
-            Properties.getInstance().setValue("crossover_rate", 2.5);
+            Properties.getInstance().setValue("crossover_rate", "2.5");
             fail();
         } catch (Exception e) {/* OK*/}
 
         try {
-            Properties.getInstance().setValue("crossover_rate", -10.6);
+            Properties.getInstance().setValue("crossover_rate", "-10.6");
             fail();
         } catch (Exception e) {/* OK*/}
     }
@@ -102,12 +102,8 @@ public class PropertiesTest {
 
         final boolean defaultValue = Properties.TEST_CARVING;
 
-        boolean value = Properties.getBooleanValue("test_carving");
-        Assertions.assertEquals(defaultValue, value);
-
-        Properties.getInstance().setValue("test_carving", !defaultValue);
-        value = Properties.getBooleanValue("test_carving");
-        Assertions.assertNotEquals(defaultValue, value);
+        Properties.getInstance().setValue("test_carving", Boolean.toString(!defaultValue));
+        Assertions.assertNotEquals(defaultValue, Properties.TEST_CARVING);
 
         try {
             Properties.getInstance().setValue("test_carving", "tru");
@@ -120,7 +116,7 @@ public class PropertiesTest {
     @Test
     public void testObjectRuleIsEnabledByDefault() throws Exception {
         Assertions.assertTrue(Properties.APPLY_OBJECT_RULE);
-        Assertions.assertTrue(Properties.getBooleanValue("apply_object_rule"));
+        Assertions.assertTrue(Properties.APPLY_OBJECT_RULE);
     }
 
     @Test

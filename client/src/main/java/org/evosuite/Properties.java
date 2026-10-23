@@ -3668,7 +3668,7 @@ public class Properties {
      * @param propertiesPath a {@link java.lang.String} object.
      * @param silent         whether to suppress output
      */
-    public void loadPropertiesFile(String propertiesPath, boolean silent) {
+    private void loadPropertiesFile(String propertiesPath, boolean silent) {
         properties = new java.util.Properties();
         try {
             InputStream in = null;
@@ -3731,184 +3731,6 @@ public class Properties {
     private static final Set<String> changedFields = new HashSet<>();
 
     /**
-     * Get class of parameter.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a {@link java.lang.Class} object.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     */
-    public static Class<?> getType(String key) throws NoSuchParameterException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-        return f.getType();
-    }
-
-    /**
-     * Get description string of parameter.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     */
-    public static String getDescription(String key)
-            throws NoSuchParameterException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-        Parameter p = f.getAnnotation(Parameter.class);
-        return p.description();
-    }
-
-    /**
-     * Get group name of parameter.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     */
-    public static String getGroup(String key) throws NoSuchParameterException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-        Parameter p = f.getAnnotation(Parameter.class);
-        return p.group();
-    }
-
-    /**
-     * Get integer boundaries.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.Properties.IntValue} object.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     */
-    public static IntValue getIntLimits(String key)
-            throws NoSuchParameterException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-        return f.getAnnotation(IntValue.class);
-    }
-
-    /**
-     * Get long boundaries.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.Properties.LongValue} object.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     */
-    public static LongValue getLongLimits(String key)
-            throws NoSuchParameterException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-        return f.getAnnotation(LongValue.class);
-    }
-
-    /**
-     * Get double boundaries.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.Properties.DoubleValue} object.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     */
-    public static DoubleValue getDoubleLimits(String key)
-            throws NoSuchParameterException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-        return f.getAnnotation(DoubleValue.class);
-    }
-
-    /**
-     * Get an integer parameter value.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a int.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     * @throws java.lang.IllegalAccessException                 if any.
-     */
-    public static int getIntegerValue(String key)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        return parameterMap.get(key).getInt(null);
-    }
-
-    /**
-     * Get an integer parameter value.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a long.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     * @throws java.lang.IllegalAccessException                 if any.
-     */
-    public static long getLongValue(String key)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        return parameterMap.get(key).getLong(null);
-    }
-
-    /**
-     * Get a boolean parameter value.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a boolean.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     * @throws java.lang.IllegalAccessException                 if any.
-     */
-    public static boolean getBooleanValue(String key)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        return parameterMap.get(key).getBoolean(null);
-    }
-
-    /**
-     * Get a double parameter value.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a double.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     * @throws java.lang.IllegalAccessException                 if any.
-     */
-    public static double getDoubleValue(String key)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        return parameterMap.get(key).getDouble(null);
-    }
-
-    /**
      * Get parameter value as string (works for all types).
      *
      * @param key a {@link java.lang.String} object.
@@ -3942,118 +3764,6 @@ public class Properties {
     }
 
     /**
-     * Check if there exist any parameter with given name.
-     *
-     * @param parameterName the name of the parameter to check
-     * @return true if the parameter exists, false otherwise
-     */
-    public static boolean hasParameter(String parameterName) {
-        return parameterMap.containsKey(parameterName);
-    }
-
-    /**
-     * Set parameter to new integer value.
-     *
-     * @param key   a {@link java.lang.String} object.
-     * @param value a int.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalAccessException                 if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     */
-    public void setValue(String key, int value)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-
-        if (f.isAnnotationPresent(IntValue.class)) {
-            IntValue i = f.getAnnotation(IntValue.class);
-            if (value < i.min() || value > i.max()) {
-                throw new IllegalArgumentException();
-            }
-        }
-
-        f.setInt(this, value);
-    }
-
-    /**
-     * Set parameter to new long value.
-     *
-     * @param key   a {@link java.lang.String} object.
-     * @param value a long.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalAccessException                 if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     */
-    public void setValue(String key, long value)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-
-        if (f.isAnnotationPresent(LongValue.class)) {
-            LongValue i = f.getAnnotation(LongValue.class);
-            if (value < i.min() || value > i.max()) {
-                throw new IllegalArgumentException();
-            }
-        }
-
-        f.setLong(this, value);
-    }
-
-    /**
-     * Set parameter to new boolean value.
-     *
-     * @param key   a {@link java.lang.String} object.
-     * @param value a boolean.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalAccessException                 if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     */
-    public void setValue(String key, boolean value)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-        f.setBoolean(this, value);
-    }
-
-    /**
-     * Set parameter to new double value.
-     *
-     * @param key   a {@link java.lang.String} object.
-     * @param value a double.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     * @throws java.lang.IllegalAccessException                 if any.
-     */
-    public void setValue(String key, double value)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-        if (f.isAnnotationPresent(DoubleValue.class)) {
-            DoubleValue i = f.getAnnotation(DoubleValue.class);
-            if (value < i.min() || value > i.max()) {
-                throw new IllegalArgumentException();
-            }
-        }
-        f.setDouble(this, value);
-    }
-
-    /**
      * Set parameter to new value from String.
      *
      * @param key   a {@link java.lang.String} object.
@@ -4078,28 +3788,34 @@ public class Properties {
             f.set(null, parseEnum((Class<Enum>) f.getType(), key, value));
         } else if (f.getType().equals(int.class)) {
             //Integers
-            setValue(key, Integer.parseInt(value));
+            int intValue = Integer.parseInt(value);
+            checkRange(f, intValue);
+            f.setInt(null, intValue);
         } else if (f.getType().equals(Integer.class)) {
-            setValue(key, (Integer) Integer.parseInt(value));
+            f.set(null, Integer.parseInt(value));
         } else if (f.getType().equals(long.class)) {
             //Long
-            setValue(key, Long.parseLong(value));
+            long longValue = Long.parseLong(value);
+            checkRange(f, longValue);
+            f.setLong(null, longValue);
         } else if (f.getType().equals(Long.class)) {
-            setValue(key, (Long) Long.parseLong(value));
+            f.set(null, Long.parseLong(value));
         } else if (f.getType().equals(boolean.class)) {
             //Boolean
-            setValue(key, strictParseBoolean(value));
+            f.setBoolean(null, strictParseBoolean(value));
         } else if (f.getType().equals(Boolean.class)) {
-            setValue(key, (Boolean) strictParseBoolean(value));
+            f.set(null, strictParseBoolean(value));
         } else if (f.getType().equals(double.class)) {
             //Double
-            setValue(key, Double.parseDouble(value));
+            double doubleValue = Double.parseDouble(value);
+            checkRange(f, doubleValue);
+            f.setDouble(null, doubleValue);
         } else if (f.getType().equals(Double.class)) {
-            setValue(key, (Double) Double.parseDouble(value));
+            f.set(null, Double.parseDouble(value));
         } else if (f.getType().isArray()) {
             //Array
             if (f.getType().isAssignableFrom(String[].class)) {
-                setValue(key, value.split(":"));
+                f.set(null, value.split(":"));
             } else if (f.getType().getComponentType().equals(Criterion.class)) {
                 String[] values = value.split(":");
                 Criterion[] criteria = new Criterion[values.length];
@@ -4109,10 +3825,54 @@ public class Properties {
                     criteria[pos++] = parseEnum(Criterion.class, key, stringValue);
                 }
 
-                f.set(this, criteria);
+                f.set(null, criteria);
             }
         } else {
             f.set(null, value);
+        }
+    }
+
+    /**
+     * Set the given <code>key</code> variable to the given input Object <code>value</code>.
+     *
+     * @param key a {@link java.lang.String} object identifying the parameter.
+     * @param value the new value for the parameter.
+     * @throws NoSuchParameterException if the parameter key is not found.
+     * @throws IllegalArgumentException if the value is invalid.
+     * @throws IllegalAccessException if the field cannot be accessed.
+     */
+    public void setValue(String key, Object value)
+            throws NoSuchParameterException, IllegalArgumentException,
+            IllegalAccessException {
+        if (!parameterMap.containsKey(key)) {
+            throw new NoSuchParameterException(key);
+        }
+
+        Field f = parameterMap.get(key);
+
+        f.set(null, value);
+    }
+
+    /**
+     * Rejects a number outside the bounds given by the parameter's {@link IntValue},
+     * {@link LongValue} or {@link DoubleValue} annotation, if it has one.
+     */
+    private static void checkRange(Field f, Number value) {
+        if (f.isAnnotationPresent(IntValue.class)) {
+            IntValue range = f.getAnnotation(IntValue.class);
+            if (value.longValue() < range.min() || value.longValue() > range.max()) {
+                throw new IllegalArgumentException();
+            }
+        } else if (f.isAnnotationPresent(LongValue.class)) {
+            LongValue range = f.getAnnotation(LongValue.class);
+            if (value.longValue() < range.min() || value.longValue() > range.max()) {
+                throw new IllegalArgumentException();
+            }
+        } else if (f.isAnnotationPresent(DoubleValue.class)) {
+            DoubleValue range = f.getAnnotation(DoubleValue.class);
+            if (value.doubleValue() < range.min() || value.doubleValue() > range.max()) {
+                throw new IllegalArgumentException();
+            }
         }
     }
 
@@ -4155,48 +3915,6 @@ public class Properties {
 
         throw new IllegalArgumentException(
                 "Invalid string representing a boolean: " + s);
-    }
-
-    /**
-     * Set parameter to new value from array of Strings.
-     *
-     * @param key   a {@link java.lang.String} object identifying the parameter.
-     * @param value an array of {@link java.lang.String} objects representing the new values.
-     * @throws org.evosuite.Properties.NoSuchParameterException if the parameter key is not found.
-     * @throws java.lang.IllegalArgumentException               if the value is invalid.
-     * @throws java.lang.IllegalAccessException                 if the field cannot be accessed.
-     */
-    public void setValue(String key, String[] value)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-
-        f.set(this, value);
-    }
-
-    /**
-     * Set the given <code>key</code> variable to the given input Object <code>value</code>.
-     *
-     * @param key a {@link java.lang.String} object identifying the parameter.
-     * @param value the new value for the parameter.
-     * @throws NoSuchParameterException if the parameter key is not found.
-     * @throws IllegalArgumentException if the value is invalid.
-     * @throws IllegalAccessException if the field cannot be accessed.
-     */
-    public void setValue(String key, Object value)
-            throws NoSuchParameterException, IllegalArgumentException,
-            IllegalAccessException {
-        if (!parameterMap.containsKey(key)) {
-            throw new NoSuchParameterException(key);
-        }
-
-        Field f = parameterMap.get(key);
-
-        f.set(this, value);
     }
 
     /**
