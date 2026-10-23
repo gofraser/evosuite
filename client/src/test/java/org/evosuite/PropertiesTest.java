@@ -223,4 +223,45 @@ public class PropertiesTest {
         Assertions.assertEquals(0.2, Properties.INSERTION_PARAMETER, 0.0);
         Assertions.assertEquals(0.5, Properties.INSERTION_ENVIRONMENT, 0.0);
     }
+
+    @Test
+    public void unknownEnumValueNamesKeyValueAndValidValues() {
+        IllegalArgumentException e = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> Properties.getInstance().setValue("strategy", "no_such_strategy"));
+        Assertions.assertTrue(e.getMessage().contains("'strategy'"), e.getMessage());
+        Assertions.assertTrue(e.getMessage().contains("'no_such_strategy'"), e.getMessage());
+        Assertions.assertTrue(e.getMessage().contains("MOSUITE"), e.getMessage());
+    }
+
+    @Test
+    public void unknownCriterionInListNamesKeyValueAndValidValues() {
+        IllegalArgumentException e = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> Properties.getInstance().setValue("criterion", "branch:no_such_criterion"));
+        Assertions.assertTrue(e.getMessage().contains("'criterion'"), e.getMessage());
+        Assertions.assertTrue(e.getMessage().contains("'no_such_criterion'"), e.getMessage());
+        Assertions.assertTrue(e.getMessage().contains("LINE"), e.getMessage());
+    }
+
+    @Test
+    public void enumValuesAreMatchedIgnoringCase() throws Exception {
+        Properties.getInstance().setValue("strategy", "mosuite");
+        Assertions.assertEquals(Properties.Strategy.MOSUITE, Properties.STRATEGY);
+        Properties.getInstance().setValue("criterion", "line:Branch");
+        Assertions.assertArrayEquals(new Properties.Criterion[]{Properties.Criterion.LINE, Properties.Criterion.BRANCH},
+                Properties.CRITERION);
+    }
+
+    @Test
+    public void unknownEnumValueInPropertyFileNamesKey() throws Exception {
+        Path file = Files.createTempFile("evosuite-enum", ".properties");
+        try {
+            Files.write(file, java.util.Arrays.asList("strategy=no_such_strategy"), StandardCharsets.UTF_8);
+            IllegalStateException e = Assertions.assertThrows(IllegalStateException.class,
+                    () -> Properties.getInstance().loadProperties(file.toString(), true));
+            Assertions.assertTrue(e.getMessage().contains("'no_such_strategy'"), e.getMessage());
+            Assertions.assertTrue(e.getMessage().contains("MOSUITE"), e.getMessage());
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
 }

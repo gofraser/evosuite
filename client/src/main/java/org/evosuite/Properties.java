@@ -4307,8 +4307,7 @@ public class Properties {
 
         //Enum
         if (f.getType().isEnum()) {
-            f.set(null, Enum.valueOf((Class<Enum>) f.getType(),
-                    value.toUpperCase()));
+            f.set(null, parseEnum((Class<Enum>) f.getType(), key, value));
         } else if (f.getType().equals(int.class)) {
             //Integers
             setValue(key, Integer.parseInt(value));
@@ -4339,8 +4338,7 @@ public class Properties {
 
                 int pos = 0;
                 for (String stringValue : values) {
-                    criteria[pos++] = Enum.valueOf(Criterion.class,
-                            stringValue.toUpperCase());
+                    criteria[pos++] = parseEnum(Criterion.class, key, stringValue);
                 }
 
                 f.set(this, criteria);
@@ -4348,6 +4346,22 @@ public class Properties {
         } else {
             f.set(null, value);
         }
+    }
+
+    /**
+     * Looks up an enum constant by name, ignoring case.
+     *
+     * @throws IllegalArgumentException naming the key and the value if there is no such constant,
+     *                                  and listing the valid values
+     */
+    private static <E extends Enum<E>> E parseEnum(Class<E> type, String key, String value) {
+        for (E constant : type.getEnumConstants()) {
+            if (constant.name().equals(value.toUpperCase())) {
+                return constant;
+            }
+        }
+        throw new IllegalArgumentException("Invalid value '" + value + "' for property '" + key
+                + "', valid values are " + Arrays.toString(type.getEnumConstants()));
     }
 
     /**

@@ -36,8 +36,10 @@ public class CommandLineParametersTest {
 
     @AfterEach
     public void reset() {
-        Properties.getInstance().resetToDefaults();
         System.clearProperty("search_budget");
+        System.clearProperty("strategy");
+        System.clearProperty("no_such_key");
+        Properties.getInstance().resetToDefaults();
     }
 
     private static List<String> addOptions(String... args) throws Exception {
@@ -59,5 +61,13 @@ public class CommandLineParametersTest {
     public void unknownPropertyStillFails() {
         Error error = assertThrows(Error.class, () -> addOptions("-Dno_such_key=1"));
         assertTrue(error.getMessage().contains("no_such_key"), error.getMessage());
+    }
+
+    @Test
+    public void unknownEnumValueIsRejectedWithTheValidValues() {
+        Error error = assertThrows(Error.class, () -> addOptions("-Dstrategy=no_such_strategy"));
+        assertTrue(error.getMessage().contains("strategy"), error.getMessage());
+        assertTrue(error.getMessage().contains("no_such_strategy"), error.getMessage());
+        assertTrue(error.getMessage().contains("MOSUITE"), error.getMessage());
     }
 }
