@@ -361,7 +361,7 @@ public class DependencyAnalysis {
                 && className.startsWith(Properties.TARGET_CLASS_PREFIX)) {
             // exclude existing tests from the target project
             try {
-                Class<?> clazz = Class.forName(className);
+                Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
                 return !CoverageAnalysis.isTest(clazz);
             } catch (ClassNotFoundException e) {
                 logger.info("Could not find class " + className);
