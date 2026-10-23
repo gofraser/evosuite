@@ -21,6 +21,7 @@ package org.evosuite.runtime.instrumentation;
 
 
 import org.evosuite.PackageInfo;
+import org.evosuite.runtime.util.ComputeClassWriter;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -421,9 +422,11 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         if (owner.startsWith("javax/swing/") || owner.startsWith("java/awt/")) {
             return true;
         }
-        // Also support project-specific wrappers/subclasses (eg custom JList subclasses).
-        // Keep JDK/Javax non-Swing owners excluded to avoid broad accidental rewrites.
-        return !(owner.startsWith("java/") || owner.startsWith("javax/"));
+        // Also support project-specific wrappers/subclasses (eg custom JList subclasses), but only
+        // those that are components: the replacement calls the method reflectively, which fails for
+        // a non-public method of any other application class.
+        return !(owner.startsWith("java/") || owner.startsWith("javax/"))
+                && ComputeClassWriter.isSubclassOf(owner, "java/awt/Component");
     }
 
     private static boolean isSocketLikeOwner(String owner) {

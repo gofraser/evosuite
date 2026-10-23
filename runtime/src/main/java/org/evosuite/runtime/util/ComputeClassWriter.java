@@ -85,6 +85,19 @@ public class ComputeClassWriter extends ClassWriter {
         super(flags);
     }
 
+    /**
+     * Whether {@code type} is {@code ancestor} or one of its subclasses, judged from the bytecode
+     * the context class loader can read. A type whose bytecode cannot be found is not a subclass.
+     *
+     * @param type     the internal name of the class to test
+     * @param ancestor the internal name of a class (not an interface)
+     * @return true if {@code type} extends {@code ancestor}
+     */
+    public static boolean isSubclassOf(String type, String ancestor) {
+        return type.equals(ancestor)
+                || ancestor.equals(new ComputeClassWriter(0).getCommonSuperClass(type, ancestor));
+    }
+
     @Override
     protected String getCommonSuperClass(final String type1, final String type2) {
         cache = CACHES.computeIfAbsent(contextLoader(), cl -> new LoaderCache());
