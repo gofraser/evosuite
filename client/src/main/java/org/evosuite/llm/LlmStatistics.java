@@ -481,15 +481,6 @@ public class LlmStatistics {
 
     /**
      * Records a successful LLM call for the given feature, updating token and
-     * latency totals, with zero cached input tokens. Retained for callers
-     * that do not track provider-side prompt caching.
-     */
-    public void recordCall(LlmFeature feature, int inputTokenCount, int outputTokenCount, long latencyMs) {
-        recordCall(feature, inputTokenCount, 0, outputTokenCount, latencyMs);
-    }
-
-    /**
-     * Records a successful LLM call for the given feature, updating token and
      * latency totals. {@code cachedInputTokenCount} is the portion of
      * {@code inputTokenCount} that the provider served from a prompt cache.
      */
@@ -536,7 +527,6 @@ public class LlmStatistics {
         FeatureStats stats = perFeature.computeIfAbsent(feature, ignored -> new FeatureStats());
         if (timedOut) {
             timedOutCalls.incrementAndGet();
-            stats.timedOut.incrementAndGet();
         } else {
             failedCalls.incrementAndGet();
             stats.failures.incrementAndGet();
@@ -946,7 +936,6 @@ public class LlmStatistics {
     private static final class FeatureStats {
         private final AtomicLong calls = new AtomicLong();
         private final AtomicLong failures = new AtomicLong();
-        private final AtomicLong timedOut = new AtomicLong();
         private final AtomicLong input = new AtomicLong();
         private final AtomicLong cachedInput = new AtomicLong();
         private final AtomicLong output = new AtomicLong();
@@ -973,13 +962,12 @@ public class LlmStatistics {
 
         void recordTimeout(long latencyMs) {
             calls.incrementAndGet();
-            timedOut.incrementAndGet();
             latency.addAndGet(Math.max(0L, latencyMs));
         }
 
         /** Returns an immutable snapshot of this feature's statistics. */
         FeatureSnapshot snapshot() {
-            return new FeatureSnapshot(calls.get(), failures.get(), timedOut.get(),
+            return new FeatureSnapshot(calls.get(), failures.get(),
                     input.get(), cachedInput.get(), output.get(), latency.get());
         }
     }
@@ -987,28 +975,16 @@ public class LlmStatistics {
     public static final class FeatureSnapshot {
         private final long calls;
         private final long failures;
-        private final long timedOut;
         private final long inputTokens;
         private final long cachedInputTokens;
         private final long outputTokens;
         private final long latencyMs;
 
-        /**
-         * Constructs a snapshot with per-feature call, failure, token, and
-         * latency counts, with zero cached input tokens. Retained for source
-         * compatibility with callers that predate cached-token accounting.
-         */
-        public FeatureSnapshot(long calls, long failures, long timedOut,
-                               long inputTokens, long outputTokens, long latencyMs) {
-            this(calls, failures, timedOut, inputTokens, 0L, outputTokens, latencyMs);
-        }
-
         /** Constructs a snapshot with per-feature call, failure, token, and latency counts. */
-        public FeatureSnapshot(long calls, long failures, long timedOut,
+        public FeatureSnapshot(long calls, long failures,
                                long inputTokens, long cachedInputTokens, long outputTokens, long latencyMs) {
             this.calls = calls;
             this.failures = failures;
-            this.timedOut = timedOut;
             this.inputTokens = inputTokens;
             this.cachedInputTokens = cachedInputTokens;
             this.outputTokens = outputTokens;

@@ -156,28 +156,29 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     private LlmSeededPopulationFactory resolveLlmSeededPopulationFactory() {
-        ChromosomeFactory<?> factory = unwrapFactory(chromosomeFactory);
-        if (factory instanceof LlmSeededPopulationFactory) {
-            return (LlmSeededPopulationFactory) factory;
-        }
-        return null;
+        return findInFactoryChain(chromosomeFactory, LlmSeededPopulationFactory.class);
     }
 
-    private ChromosomeFactory<?> unwrapFactory(ChromosomeFactory<?> factory) {
-        ChromosomeFactory<?> current = factory;
+    /**
+     * Walks the chromosome-factory chain (suite factory to test factory, LLM test factory to its
+     * fallback) and returns the first factory of the given type, or {@code null} if there is none.
+     */
+    private static <F> F findInFactoryChain(ChromosomeFactory<?> root, Class<F> type) {
+        ChromosomeFactory<?> current = root;
         int guard = 0;
         while (current != null && guard++ < 8) {
+            if (type.isInstance(current)) {
+                return type.cast(current);
+            }
             if (current instanceof TestSuiteChromosomeFactory) {
                 current = ((TestSuiteChromosomeFactory) current).getTestChromosomeFactory();
-                continue;
-            }
-            if (current instanceof LlmTestChromosomeFactory) {
+            } else if (current instanceof LlmTestChromosomeFactory) {
                 current = ((LlmTestChromosomeFactory) current).getFallbackFactory();
-                continue;
+            } else {
+                break;
             }
-            break;
         }
-        return current;
+        return null;
     }
 
     /**
@@ -443,7 +444,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (currentGoalsSupplier == null) {
             return;
         }
-        LlmTestChromosomeFactory factory = findLlmTestChromosomeFactory(chromosomeFactory);
+        LlmTestChromosomeFactory factory = findInFactoryChain(chromosomeFactory, LlmTestChromosomeFactory.class);
         if (factory == null) {
             return;
         }
@@ -459,22 +460,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         // The factory never executes its own tests; the GA's evaluation of
         // the new individual closes the prompt attempt behind it.
         addListener(factory.evaluationListener());
-    }
-
-    private static LlmTestChromosomeFactory findLlmTestChromosomeFactory(ChromosomeFactory<?> root) {
-        ChromosomeFactory<?> current = root;
-        int guard = 0;
-        while (current != null && guard++ < 8) {
-            if (current instanceof LlmTestChromosomeFactory) {
-                return (LlmTestChromosomeFactory) current;
-            }
-            if (current instanceof TestSuiteChromosomeFactory) {
-                current = ((TestSuiteChromosomeFactory) current).getTestChromosomeFactory();
-                continue;
-            }
-            break;
-        }
-        return null;
     }
 
     public void setLlmInjectionAdapter(LlmInjectionAdapter<T> injectionAdapter) {
