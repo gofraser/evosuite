@@ -220,24 +220,6 @@ class LlmWholeSuiteIntegrationTest {
     }
 
     @Test
-    void mergePolicyMergesIntoExistingSuite() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.MERGE_INTO_EXISTING;
-        Properties.POPULATION = 10;
-
-        SuiteGA ga = new SuiteGA(() -> newSuite());
-        ga.addFitnessFunction(new DummySuiteFitness());
-        ga.seedPopulation();
-        ga.setAdapter(new TestSuiteChromosomeInjectionAdapter());
-        ga.setAsyncProducer(new PreloadedAsyncProducer());
-
-        int popBefore = ga.getPopulation().size();
-        ga.triggerAsyncIntegration();
-
-        assertEquals(popBefore, ga.getPopulation().size(),
-                "MERGE_INTO_EXISTING should not change population size");
-    }
-
-    @Test
     void standardGaKeepsTheSuiteOfDrainedAsyncTestsWhenItBeatsAFullPopulation() {
         Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         Properties.POPULATION = 3;
@@ -251,24 +233,6 @@ class LlmWholeSuiteIntegrationTest {
         TestSuiteChromosome injected = suiteHolding(ga.getPopulation(), producer.lastTests.get(0));
         assertNotNull(injected, "the suite of two drained tests is fitter than any one-test suite, so it must survive");
         assertEquals(8.0, injected.getFitness());
-    }
-
-    @Test
-    void standardGaReevaluatesTheSuiteItMergesLlmTestsInto() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.MERGE_INTO_EXISTING;
-        Properties.POPULATION = 3;
-        StandardGA<TestSuiteChromosome> ga = newEvaluatedStandardGa();
-        PreloadedAsyncProducer producer = new PreloadedAsyncProducer(null, 2);
-        ga.asyncProducer = producer;
-
-        ga.integrateAsyncTestsIntoPopulation();
-
-        assertEquals(3, ga.getPopulation().size());
-        TestSuiteChromosome merged = suiteHolding(ga.getPopulation(), producer.lastTests.get(0));
-        assertNotNull(merged);
-        assertEquals(3, merged.size(), "the two LLM tests join the suite's own test");
-        assertEquals(7.0, merged.getFitness(),
-                "selection must see the fitness of the merged suite, not the one it had before");
     }
 
     @Test

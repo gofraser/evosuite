@@ -131,33 +131,6 @@ class LlmInjectionAdapterTest {
     }
 
     @Test
-    void suiteAdapterMergePolicyAddsTestsToWorstSuite() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.MERGE_INTO_EXISTING;
-        TestSuiteChromosomeInjectionAdapter adapter = new TestSuiteChromosomeInjectionAdapter();
-
-        List<TestSuiteChromosome> population = new ArrayList<>();
-        TestSuiteChromosome good = new TestSuiteChromosome();
-        good.addTest(new DefaultTestCase());
-        good.setFitness(null, 0.1); // low fitness = good
-        TestSuiteChromosome bad = new TestSuiteChromosome();
-        bad.addTest(new DefaultTestCase());
-        bad.setFitness(null, 5.0); // high fitness = bad
-        population.add(good);
-        population.add(bad);
-
-        TestChromosome tc = new TestChromosome();
-        tc.setTestCase(new DefaultTestCase());
-        List<TestChromosome> tests = Collections.singletonList(tc);
-
-        adapter.inject(tests, population, Collections.emptyList(), 0);
-
-        assertEquals(2, population.size(), "population size should remain same (merge, not add)");
-        assertEquals(2, bad.size(), "worst suite should now have 2 tests (original + LLM)");
-        assertEquals(1, good.size(), "good suite should be unchanged");
-        assertTrue(bad.isChanged(), "merged suite should be marked changed");
-    }
-
-    @Test
     void suiteAdapterRespectsPopulationLimit() {
         Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         TestSuiteChromosomeInjectionAdapter adapter = new TestSuiteChromosomeInjectionAdapter();
@@ -224,35 +197,6 @@ class LlmInjectionAdapterTest {
     }
 
     // --- Maximization-aware tests ---
-
-    @Test
-    void suiteAdapterMergePolicySelectsWorstForMaximization() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.MERGE_INTO_EXISTING;
-        TestSuiteChromosomeInjectionAdapter adapter = new TestSuiteChromosomeInjectionAdapter();
-
-        List<TestSuiteChromosome> population = new ArrayList<>();
-        TestSuiteChromosome lowFitness = new TestSuiteChromosome();
-        lowFitness.addTest(new DefaultTestCase());
-        lowFitness.setFitness(null, 1.0); // low = worst for maximization
-        TestSuiteChromosome highFitness = new TestSuiteChromosome();
-        highFitness.addTest(new DefaultTestCase());
-        highFitness.setFitness(null, 10.0); // high = best for maximization
-        population.add(lowFitness);
-        population.add(highFitness);
-
-        TestChromosome tc = new TestChromosome();
-        tc.setTestCase(new DefaultTestCase());
-
-        List<FitnessFunction<TestSuiteChromosome>> ffs = Collections.singletonList(
-                new MaximizingSuiteFitness());
-
-        adapter.inject(Collections.singletonList(tc), population, ffs, 0);
-
-        assertEquals(2, lowFitness.size(),
-                "For maximization, worst (lowest fitness) suite should receive merge");
-        assertEquals(1, highFitness.size(),
-                "Best (highest fitness) suite should be unchanged");
-    }
 
     @Test
     void suiteAdapterTrimmingKeepsBestForMaximization() {

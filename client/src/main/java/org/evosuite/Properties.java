@@ -2662,17 +2662,12 @@ public class Properties {
         /**
          * Build a new TestSuiteChromosome from LLM-generated tests and compete it.
          */
-        NEW_SUITE,
-        /**
-         * Merge LLM-generated tests into existing (e.g., worst-ranked) suites.
-         */
-        MERGE_INTO_EXISTING
+        NEW_SUITE
     }
 
     @Parameter(key = "llm_suite_injection_policy", group = "LLM",
             description = "How LLM-generated tests are injected into WholeSuite populations: "
-                    + "NEW_SUITE creates a new suite from LLM tests; "
-                    + "MERGE_INTO_EXISTING merges them into the worst existing suite")
+                    + "NEW_SUITE creates a new suite from LLM tests")
     public static LlmSuiteInjectionPolicy LLM_SUITE_INJECTION_POLICY =
             LlmSuiteInjectionPolicy.NEW_SUITE;
 

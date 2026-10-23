@@ -19,8 +19,6 @@
  */
 package org.evosuite.llm.search;
 
-import org.evosuite.Properties;
-import org.evosuite.Properties.LlmSuiteInjectionPolicy;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -35,17 +33,11 @@ import java.util.List;
  * evolve {@link TestSuiteChromosome}.
  *
  * <p>LLM-generated {@link TestChromosome}s cannot be inserted directly into a
- * {@code TestSuiteChromosome} population. This adapter supports two policies:
- * <ul>
- *   <li>{@link LlmSuiteInjectionPolicy#NEW_SUITE} (default):
- *       Creates a new {@link TestSuiteChromosome} from the LLM-generated tests
- *       and adds it to the population to compete via normal replacement.</li>
- *   <li>{@link LlmSuiteInjectionPolicy#MERGE_INTO_EXISTING}:
- *       Merges LLM-generated tests into the worst-fitness existing suite,
- *       then marks it for re-evaluation.</li>
- * </ul>
+ * {@code TestSuiteChromosome} population. This adapter creates a new
+ * {@link TestSuiteChromosome} from the LLM-generated tests and adds it to the
+ * population to compete via normal replacement.
  *
- * <p>Into a non-empty population the new or merged suite is evaluated straight away: the
+ * <p>Into a non-empty population the new suite is evaluated straight away: the
  * population is trimmed by fitness and selected from before the GA evaluates it again, and an
  * unevaluated suite carries the worst possible fitness (or its fitness from before the merge).
  * An empty population is filled and evaluated by the GA, so its seed suite is left to it.
@@ -72,20 +64,7 @@ public class TestSuiteChromosomeInjectionAdapter
 
         boolean maximization = !fitnessFunctions.isEmpty()
                 && fitnessFunctions.get(0).isMaximizationFunction();
-
-        LlmSuiteInjectionPolicy policy = Properties.LLM_SUITE_INJECTION_POLICY;
-        switch (policy) {
-            case NEW_SUITE:
-                evaluate(injectAsNewSuite(tests, population, fitnessFunctions), fitnessFunctions);
-                break;
-            case MERGE_INTO_EXISTING:
-                evaluate(mergeIntoExisting(tests, population, maximization), fitnessFunctions);
-                break;
-            default:
-                logger.warn("Unknown LLM suite injection policy: {}; falling back to NEW_SUITE", policy);
-                evaluate(injectAsNewSuite(tests, population, fitnessFunctions), fitnessFunctions);
-                break;
-        }
+        evaluate(injectAsNewSuite(tests, population, fitnessFunctions), fitnessFunctions);
 
         // Trim population to limit if exceeded — remove worst-fitness individuals
         if (populationLimit > 0 && population.size() > populationLimit) {
@@ -128,34 +107,5 @@ public class TestSuiteChromosomeInjectionAdapter
         logger.debug("Injected new TestSuiteChromosome with {} LLM test(s) into population (size={})",
                 tests.size(), population.size());
         return suite;
-    }
-
-    private TestSuiteChromosome mergeIntoExisting(List<TestChromosome> tests,
-                                                  List<TestSuiteChromosome> population,
-                                                  boolean maximization) {
-        // Select worst-fitness suite according to objective direction
-        TestSuiteChromosome target;
-        if (maximization) {
-            // Maximization: worst = lowest fitness value
-            target = population.stream()
-                    .min(Comparator.comparingDouble(c -> c.getFitness()))
-                    .orElse(null);
-        } else {
-            // Minimization: worst = highest fitness value
-            target = population.stream()
-                    .max(Comparator.comparingDouble(c -> c.getFitness()))
-                    .orElse(null);
-        }
-        if (target == null) {
-            logger.warn("No target suite found for merge; skipping injection");
-            return null;
-        }
-        for (TestChromosome test : tests) {
-            target.addTestChromosome(test);
-        }
-        target.setChanged(true);
-        logger.debug("Merged {} LLM test(s) into existing suite (now {} tests)",
-                tests.size(), target.size());
-        return target;
     }
 }
