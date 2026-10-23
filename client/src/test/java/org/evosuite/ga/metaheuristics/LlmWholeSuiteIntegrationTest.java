@@ -21,7 +21,6 @@ package org.evosuite.ga.metaheuristics;
 
 import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
-import org.evosuite.Properties.LlmSuiteInjectionPolicy;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
@@ -60,7 +59,6 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class LlmWholeSuiteIntegrationTest {
 
-    private LlmSuiteInjectionPolicy originalPolicy;
     private int originalPopulation;
     private String originalTargetClass;
     private Properties.Criterion[] originalCriterion;
@@ -68,7 +66,6 @@ class LlmWholeSuiteIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        originalPolicy = Properties.LLM_SUITE_INJECTION_POLICY;
         originalPopulation = Properties.POPULATION;
         originalTargetClass = Properties.TARGET_CLASS;
         originalCriterion = Properties.CRITERION;
@@ -84,7 +81,6 @@ class LlmWholeSuiteIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        Properties.LLM_SUITE_INJECTION_POLICY = originalPolicy;
         Properties.POPULATION = originalPopulation;
         Properties.TARGET_CLASS = originalTargetClass;
         Properties.CRITERION = originalCriterion;
@@ -131,7 +127,6 @@ class LlmWholeSuiteIntegrationTest {
 
     @Test
     void asyncInjectionProducesTestSuiteChromosomes() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         Properties.POPULATION = 10;
 
         SuiteGA ga = new SuiteGA(() -> newSuite());
@@ -154,7 +149,6 @@ class LlmWholeSuiteIntegrationTest {
 
     @Test
     void asyncInjectionSettlesItsAttemptWithTheCoverageItGains() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         Properties.POPULATION = 10;
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal-a", "fp");
@@ -180,7 +174,6 @@ class LlmWholeSuiteIntegrationTest {
 
     @Test
     void asyncInjectionClosesAnAttemptWithoutGainWhenItCoversNothingNew() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         Properties.POPULATION = 10;
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal-a", "fp");
@@ -221,7 +214,6 @@ class LlmWholeSuiteIntegrationTest {
 
     @Test
     void standardGaKeepsTheSuiteOfDrainedAsyncTestsWhenItBeatsAFullPopulation() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         Properties.POPULATION = 3;
         StandardGA<TestSuiteChromosome> ga = newEvaluatedStandardGa();
         PreloadedAsyncProducer producer = new PreloadedAsyncProducer(null, 2);

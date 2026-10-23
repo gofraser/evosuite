@@ -655,13 +655,6 @@ public class Properties {
     //----------- DSE, which is a special case of LS ---------------
 
     /**
-     * The legacy module has been removed; NEW is the only value left.
-     */
-    public enum DseModuleVersion {
-        NEW
-    }
-
-    /**
      * ilebrero: Hope it doesn't make a lot of confusion that there are two versions of arrays
      * supported. - ARRAYS_THEORY: Supports Integers and Reals. - LAZY_VARIABLES: Supports Integers
      * and Reals.
@@ -674,10 +667,6 @@ public class Properties {
     @Parameter(key = "dse_enable_objects_support", group = "DSE",
             description = "If objects should be supported by the concolic engine")
     public static boolean IS_DSE_OBJECTS_SUPPORT_ENABLED = false;
-
-    @Parameter(key = "dse_module_version", group = "DSE",
-            description = "Module version of DSE. NEW is the only version left.")
-    public static DseModuleVersion CURRENT_DseModuleVersion = DseModuleVersion.NEW;
 
     @Parameter(key = "dse_enable_arrays_support", group = "DSE",
             description = "If arrays should be supported by the concolic engine")
@@ -735,14 +724,6 @@ public class Properties {
 
     @Parameter(key = "local_search_dse", group = "DSE", description = "Granularity of DSE application")
     public static DSEType LOCAL_SEARCH_DSE = DSEType.TEST;
-
-    public enum SolverType {
-        EVOSUITE_SOLVER
-    }
-
-    @Parameter(key = "dse_solver", group = "DSE",
-            description = "Specify which constraint solver to use. EVOSUITE_SOLVER is the only solver left.")
-    public static SolverType DSE_SOLVER = SolverType.EVOSUITE_SOLVER;
 
     public enum DSEStoppingConditionCriterion {
         TARGETCOVERAGE,
@@ -2113,26 +2094,6 @@ public class Properties {
     @IntValue(min = 1)
     public static int LLM_STAGNATION_TESTS = 3;
 
-    /**
-     * Threading mode for stagnation-triggered LLM calls.
-     */
-    public enum LlmStagnationMode {
-        /**
-         * Submit to a background worker; the GA continues evolving.
-         */
-        ASYNC
-    }
-
-    @Parameter(key = "llm_stagnation_mode", group = "LLM",
-            description = "How stagnation LLM calls interact with the search: "
-                    + "ASYNC submits to a background worker and the search continues. "
-                    + "Scope: this setting (and llm_stagnation_budget_guard_seconds, "
-                    + "and the LLM_Stagnation* runtime variables) only applies to "
-                    + "MOSA-family algorithms (MOSA/DynaMOSA) which route stagnation "
-                    + "through StagnationLlmHelper. Whole-suite GAs (StandardGA, "
-                    + "MonotonicGA) ignore llm_on_stagnation.")
-    public static LlmStagnationMode LLM_STAGNATION_MODE = LlmStagnationMode.ASYNC;
-
     @Parameter(key = "llm_stagnation_budget_guard_seconds", group = "LLM",
             description = "Skip new stagnation LLM submissions when the remaining "
                     + "search budget (seconds) is below this threshold. Use 0 to "
@@ -2564,19 +2525,6 @@ public class Properties {
     @Parameter(key = "llm_trace_dir", group = "LLM",
             description = "Directory for LLM trace artifacts")
     public static String LLM_TRACE_DIR = "";
-
-    public enum LlmSuiteInjectionPolicy {
-        /**
-         * Build a new TestSuiteChromosome from LLM-generated tests and compete it.
-         */
-        NEW_SUITE
-    }
-
-    @Parameter(key = "llm_suite_injection_policy", group = "LLM",
-            description = "How LLM-generated tests are injected into WholeSuite populations: "
-                    + "NEW_SUITE creates a new suite from LLM tests")
-    public static LlmSuiteInjectionPolicy LLM_SUITE_INJECTION_POLICY =
-            LlmSuiteInjectionPolicy.NEW_SUITE;
 
     /**
      * How LLM variation operators take part in the MOSA breeding loop.
@@ -3398,25 +3346,24 @@ public class Properties {
      * rejected as an unknown property.
      */
     private static final Set<String> RETIRED_KEYS = Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(
-            "alternative_fitness_calculation_mode", "branch_comparison_types", "branch_eval",
-            "branch_statement", "bytecode_logging_enabled", "bytecode_logging_mode",
-            "bytecode_logging_report_dir", "classpath", "concolic_mutation", "connection_data",
-            "constraint_solution_attempts", "cvc4_path", "dmon_only_target_class_constructor",
-            "dmon_validate_promoted_once", "dse_keep_all_tests", "dse_negate_all_conditions",
-            "dse_rank_branch_conditions", "dynamic_seeding", "enable_alternative_fitness_calculation",
+            "PROJECT_DIR", "TT_stack", "UI_BACKGROUND_COVERAGE_DELAY", "alternative_fitness_calculation_mode",
+            "branch_comparison_types", "branch_eval", "branch_statement", "bytecode_logging_enabled",
+            "bytecode_logging_mode", "bytecode_logging_report_dir", "classpath", "concolic_mutation",
+            "connection_data", "constraint_solution_attempts", "cvc4_path", "dmon_only_target_class_constructor",
+            "dmon_validate_promoted_once", "dse_keep_all_tests", "dse_module_version", "dse_negate_all_conditions",
+            "dse_rank_branch_conditions", "dse_solver", "dynamic_seeding", "enable_alternative_fitness_calculation",
             "epsilon", "evosuite_use_uispec", "handle_servlets", "hierarchy_data", "insertion_score_object",
-            "insertion_score_parameter", "insertion_score_uut", "jee", "jmc",
-            "junit_check_on_separate_process", "junit_extend", "junit_strict", "junit_unstable_diagnostics",
-            "kincompensation", "llm_blend_keep_raw", "llm_cluster_summary_absolute_override_chars",
-            "llm_repair_hints_always_on", "llm_repair_hints_cooldown_attempts", "llm_repair_hints_enabled",
-            "llm_repair_hints_max_per_attempt", "local_search_selective", "local_search_selective_primitives",
-            "log_goals", "max_coverage_depth", "max_mutants", "minimize_old", "minimize_strings",
-            "mutation_generations", "new_object_selection", "num_tests", "plot", "PROJECT_DIR",
-            "random_tests", "randomize_difficulty", "recycle_chromosomes", "remote_testing", "reuse_budget",
-            "seed_file", "selected_dse_module_objects_model_version", "skip_covered", "sourcepath",
-            "test_excludes", "test_includes", "testability_transformation", "track_boolean_branches",
-            "track_covered_gradient_branches", "TT_stack", "UI_BACKGROUND_COVERAGE_DELAY", "usage_models",
-            "usage_rate", "z3_path")));
+            "insertion_score_parameter", "insertion_score_uut", "jee", "jmc", "junit_check_on_separate_process",
+            "junit_extend", "junit_strict", "junit_unstable_diagnostics", "kincompensation", "llm_blend_keep_raw",
+            "llm_cluster_summary_absolute_override_chars", "llm_repair_hints_always_on",
+            "llm_repair_hints_cooldown_attempts", "llm_repair_hints_enabled", "llm_repair_hints_max_per_attempt",
+            "llm_stagnation_mode", "llm_suite_injection_policy", "local_search_selective",
+            "local_search_selective_primitives", "log_goals", "max_coverage_depth", "max_mutants", "minimize_old",
+            "minimize_strings", "mutation_generations", "new_object_selection", "num_tests", "plot", "random_tests",
+            "randomize_difficulty", "recycle_chromosomes", "remote_testing", "reuse_budget", "seed_file",
+            "selected_dse_module_objects_model_version", "skip_covered", "sourcepath", "test_excludes",
+            "test_includes", "testability_transformation", "track_boolean_branches",
+            "track_covered_gradient_branches", "usage_models", "usage_rate", "z3_path")));
 
     private static final Set<String> reportedRetiredKeys = ConcurrentHashMap.newKeySet();
 

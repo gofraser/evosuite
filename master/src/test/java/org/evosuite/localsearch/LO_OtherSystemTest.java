@@ -73,7 +73,6 @@ public class LO_OtherSystemTest extends SystemTestBase {
         Properties.LOCAL_SEARCH_BUDGET_TYPE = Properties.LocalSearchBudgetType.TESTS;
         Properties.LOCAL_SEARCH_BUDGET = 100;
         Properties.DSE_PROBABILITY = 1.0; // force DSE, not LS
-        Properties.DSE_SOLVER = Properties.SolverType.EVOSUITE_SOLVER;
         Properties.CONCOLIC_TIMEOUT = Integer.MAX_VALUE; // no timeout
 
         String targetClass = LO_Other.class.getCanonicalName();

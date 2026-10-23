@@ -22,7 +22,6 @@ package org.evosuite.localsearch;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.Properties.SolverType;
 import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
@@ -55,7 +54,6 @@ public class DseWithUrlSystemTest extends SystemTestBase {
     @Test
     public void testDSE() {
 
-        Properties.DSE_SOLVER = SolverType.EVOSUITE_SOLVER;
 
         Properties.STOPPING_CONDITION = StoppingCondition.MAXTIME;
         Properties.SEARCH_BUDGET = 120;

@@ -22,7 +22,6 @@ package org.evosuite.localsearch;
 import com.examples.with.different.packagename.concolic.MIMEType;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.Properties.SolverType;
 import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
@@ -213,7 +212,6 @@ public class TestLocalSearchMIMEType {
         Properties.LOCAL_SEARCH_RATE = 1;
         Properties.LOCAL_SEARCH_BUDGET_TYPE = Properties.LocalSearchBudgetType.TESTS;
         Properties.LOCAL_SEARCH_BUDGET = 100;
-        Properties.DSE_SOLVER = SolverType.EVOSUITE_SOLVER;
         Properties.STOPPING_CONDITION = StoppingCondition.MAXTIME;
         Properties.SEARCH_BUDGET = 120;
         Properties.TARGET_CLASS = MIMEType.class.getName();

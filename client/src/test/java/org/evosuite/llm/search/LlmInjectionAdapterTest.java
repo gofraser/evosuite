@@ -20,7 +20,6 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
-import org.evosuite.Properties.LlmSuiteInjectionPolicy;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -39,16 +38,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class LlmInjectionAdapterTest {
 
-    private LlmSuiteInjectionPolicy originalPolicy;
 
     @BeforeEach
     void setUp() {
-        originalPolicy = Properties.LLM_SUITE_INJECTION_POLICY;
     }
 
     @AfterEach
     void tearDown() {
-        Properties.LLM_SUITE_INJECTION_POLICY = originalPolicy;
     }
 
     // --- TestChromosomeInjectionAdapter tests ---
@@ -108,7 +104,6 @@ class LlmInjectionAdapterTest {
 
     @Test
     void suiteAdapterNewSuitePolicyCreatesNewSuiteChromosome() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         TestSuiteChromosomeInjectionAdapter adapter = new TestSuiteChromosomeInjectionAdapter();
 
         List<TestSuiteChromosome> population = new ArrayList<>();
@@ -132,7 +127,6 @@ class LlmInjectionAdapterTest {
 
     @Test
     void suiteAdapterRespectsPopulationLimit() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         TestSuiteChromosomeInjectionAdapter adapter = new TestSuiteChromosomeInjectionAdapter();
 
         List<TestSuiteChromosome> population = new ArrayList<>();
@@ -154,7 +148,6 @@ class LlmInjectionAdapterTest {
 
     @Test
     void suiteAdapterHandlesEmptyPopulation() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         TestSuiteChromosomeInjectionAdapter adapter = new TestSuiteChromosomeInjectionAdapter();
 
         List<TestSuiteChromosome> population = new ArrayList<>();
@@ -180,7 +173,6 @@ class LlmInjectionAdapterTest {
     @Test
     void suiteAdapterNeverInjectsTestChromosomeDirectly() {
         // Verify the core invariant: no TestChromosome in a TestSuiteChromosome population
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         TestSuiteChromosomeInjectionAdapter adapter = new TestSuiteChromosomeInjectionAdapter();
 
         List<TestSuiteChromosome> population = new ArrayList<>();
@@ -200,7 +192,6 @@ class LlmInjectionAdapterTest {
 
     @Test
     void suiteAdapterTrimmingKeepsBestForMaximization() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         TestSuiteChromosomeInjectionAdapter adapter = new TestSuiteChromosomeInjectionAdapter();
 
         List<TestSuiteChromosome> population = new ArrayList<>();
@@ -234,7 +225,6 @@ class LlmInjectionAdapterTest {
 
     @Test
     void suiteAdapterTrimmingKeepsBestForMinimization() {
-        Properties.LLM_SUITE_INJECTION_POLICY = LlmSuiteInjectionPolicy.NEW_SUITE;
         TestSuiteChromosomeInjectionAdapter adapter = new TestSuiteChromosomeInjectionAdapter();
 
         List<TestSuiteChromosome> population = new ArrayList<>();

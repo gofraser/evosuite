@@ -98,7 +98,6 @@ public class TestDSETestSuiteFlag {
 
     private static final long DEFAULT_LOCAL_SEARCH_BUDGET = Properties.LOCAL_SEARCH_BUDGET;
     private static final Properties.LocalSearchBudgetType DEFAULT_LOCAL_SEARCH_BUDGET_TYPE = Properties.LOCAL_SEARCH_BUDGET_TYPE;
-    private static final Properties.SolverType DEFAULT_DSE_SOLVER = Properties.DSE_SOLVER;
     private static final Properties.DSEType DEFAULT_LOCAL_SEARCH_DSE = Properties.LOCAL_SEARCH_DSE;
     private static final double DEFAULT_DSE_PROBABILITY = Properties.DSE_PROBABILITY;
 
@@ -115,7 +114,6 @@ public class TestDSETestSuiteFlag {
     public void restoreProperties() {
         Properties.LOCAL_SEARCH_BUDGET = DEFAULT_LOCAL_SEARCH_BUDGET;
         Properties.LOCAL_SEARCH_BUDGET_TYPE = DEFAULT_LOCAL_SEARCH_BUDGET_TYPE;
-        Properties.DSE_SOLVER = DEFAULT_DSE_SOLVER;
         Properties.DSE_PROBABILITY = DEFAULT_DSE_PROBABILITY;
         Properties.LOCAL_SEARCH_DSE = DEFAULT_LOCAL_SEARCH_DSE;
     }
@@ -123,7 +121,6 @@ public class TestDSETestSuiteFlag {
     @Test
     public void testAVMSolver() throws NoSuchMethodException, SecurityException, ClassNotFoundException {
 
-        Properties.DSE_SOLVER = Properties.SolverType.EVOSUITE_SOLVER;
         Properties.CRITERION = new Properties.Criterion[]{Criterion.BRANCH};
         Properties.TARGET_CLASS = Flag.class.getName();
 
