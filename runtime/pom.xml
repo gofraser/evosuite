@@ -17,18 +17,6 @@
 
     <profiles>
         <profile>
-            <id>Java8</id>
-            <activation>
-                <jdk>1.8</jdk>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>com.sun</groupId>
-                    <artifactId>tools</artifactId>
-                </dependency>
-            </dependencies>
-        </profile>
-        <profile>
             <id>modern-runtime</id>
             <activation>
                 <jdk>[11,)</jdk>
@@ -49,22 +37,6 @@
                                     <sources>
                                         <source>${project.basedir}/src/main/java11</source>
                                     </sources>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-jar-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>attach-modern-runtime</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                                <configuration>
-                                    <classifier>${publish.classifier}</classifier>
                                 </configuration>
                             </execution>
                         </executions>
@@ -310,11 +282,6 @@
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-util</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.github.stefanbirkner</groupId>
-            <artifactId>system-rules</artifactId>
-            <scope>test</scope>
-        </dependency>
 
 
         <!-- https://mvnrepository.com/artifact/javax.xml.ws/jaxws-api -->
@@ -323,11 +290,6 @@
             <artifactId>jaxws-api</artifactId>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/javax.annotation/javax.annotation-api -->
-        <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-        </dependency>
 
 
     </dependencies>

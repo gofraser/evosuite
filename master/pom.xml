@@ -11,114 +11,6 @@
     <artifactId>evosuite-master</artifactId>
     <packaging>jar</packaging>
 
-    <profiles>
-        <profile>
-            <id>java9</id>
-            <activation>
-                <jdk>[9,)</jdk>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>jaxb2-maven-plugin</artifactId>
-                        <version>2.5.0</version>
-                        <executions>
-                            <execution>
-                                <id>xjc</id>
-                                <goals>
-                                    <goal>xjc</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                        <configuration>
-                            <sources>
-                                <source>${project.basedir}/src/main/resources/xsd</source>
-                            </sources>
-                            <xjcSourceExcludeFilters>
-                                <filter implementation="org.codehaus.mojo.jaxb2.shared.filters.pattern.PatternFileFilter">
-                                    <patterns>
-                                        <pattern>\.xml$</pattern>
-                                    </patterns>
-                                </filter>
-                            </xjcSourceExcludeFilters>
-                            <packageName>org.evosuite.xsd</packageName>
-                        </configuration>
-                        <dependencies>
-                            <dependency>
-                                <!-- Needed to compile with Java 9 -->
-                                <groupId>javax.activation</groupId>
-                                <artifactId>javax.activation-api</artifactId>
-                                <version>1.2.0</version>
-                            </dependency>
-                        </dependencies>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>Java-8</id>
-            <activation><jdk>1.8</jdk></activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>jaxb2-maven-plugin</artifactId>
-                        <version>2.5.0</version>
-                        <executions>
-                            <execution>
-                                <id>xjc</id>
-                                <goals>
-                                    <goal>xjc</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                        <configuration>
-                            <sources>
-                                <source>${project.basedir}/src/main/resources/xsd</source>
-                            </sources>
-                            <xjcSourceExcludeFilters>
-                                <filter implementation="org.codehaus.mojo.jaxb2.shared.filters.pattern.PatternFileFilter">
-                                    <patterns>
-                                        <pattern>\.xml$</pattern>
-                                    </patterns>
-                                </filter>
-                            </xjcSourceExcludeFilters>
-                            <packageName>org.evosuite.xsd</packageName>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>modern-master</id>
-            <activation>
-                <jdk>[11,)</jdk>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-jar-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>attach-modern-master</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                                <configuration>
-                                    <classifier>${publish.classifier}</classifier>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
-
     <!-- dependency versions are inherited from parent pom -->
     <dependencies>
 
@@ -150,7 +42,7 @@
             <artifactId>evosuite-client</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency> <!--TODO: this is added in parent pom too -->
+        <dependency>
             <!-- FindBugs Jsr305 -->
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
@@ -185,6 +77,10 @@
             <artifactId>commons-cli</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
         </dependency>
@@ -202,9 +98,40 @@
 
     <build>
         <plugins>
-
-
-
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>jaxb2-maven-plugin</artifactId>
+                <version>2.5.0</version>
+                <executions>
+                    <execution>
+                        <id>xjc</id>
+                        <goals>
+                            <goal>xjc</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <sources>
+                        <source>${project.basedir}/src/main/resources/xsd</source>
+                    </sources>
+                    <xjcSourceExcludeFilters>
+                        <filter implementation="org.codehaus.mojo.jaxb2.shared.filters.pattern.PatternFileFilter">
+                            <patterns>
+                                <pattern>\.xml$</pattern>
+                            </patterns>
+                        </filter>
+                    </xjcSourceExcludeFilters>
+                    <packageName>org.evosuite.xsd</packageName>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <!-- Needed to compile with Java 9 -->
+                        <groupId>javax.activation</groupId>
+                        <artifactId>javax.activation-api</artifactId>
+                        <version>${activation.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
 
             <!-- be sure classes get shaded -->
             <plugin>
@@ -260,83 +187,6 @@
                     </archive>
                 </configuration>
             </plugin>
-
-            <!-- Force all tests in Master to be run as Integration Tests after the "package" Maven phase.
-                 This is to avoid issues with Java Agent that requires a built jar -->
-            <!-- //FIXME: tmp disable to understand what the hack is happening on Jenkins
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.18</version>
-                <configuration>
-                    <skipTests>${skipTests}</skipTests>
-                    <forkCount>1</forkCount>
-                    <reuseForks>false</reuseForks>
-                    <reportFormat>xml</reportFormat>
-                    <excludes>
-                        <exclude>**/Test*.java</exclude>
-                        <exclude>**/*Test.java</exclude>
-                        <exclude>**/*TestCase.java</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <version>2.18</version>
-                <configuration>
-                    <includes>
-                        <include>**/*IT.java</include>
-                        <include>**/Test*.java</include>
-                        <include>**/*Test.java</include>
-                        <include>**/*TestCase.java</include>
-                    </includes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>failsafe-integration-tests</id>
-                        <phase>integration-test</phase>
-                        <goals>
-                            <goal>integration-test</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-    -->
-            
-            <!--
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.5.1</version>
-                <configuration>
-                    <archive>
-                        <manifest>
-                            <mainClass>org.evosuite.EvoSuite</mainClass>
-                        </manifest>
-                        <manifestEntries>
-                            <Premain-Class>org.evosuite.runtime.agent.InstrumentingAgent</Premain-Class>
-                            <Agent-Class>org.evosuite.runtime.agent.InstrumentingAgent</Agent-Class>
-                            <Can-Redefine-Classes>true</Can-Redefine-Classes>
-                            <Can-Retransform-Classes>true</Can-Retransform-Classes>
-                        </manifestEntries>
-                    </archive>
-                    <descriptors>
-                        <descriptor>src/main/assembly/jar-minimal.xml</descriptor>
-                    </descriptors>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>make-assembly</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            -->
         </plugins>
     </build>
 
