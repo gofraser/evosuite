@@ -398,8 +398,6 @@ public class LlmService implements AutoCloseable {
                     } else {
                         logger.warn("LLM call failed after {} attempts: {}", attempt, friendly);
                     }
-                    LlmModelListDiagnostics.logIfModelRejected(configuration, feature, friendly,
-                            deadlineNanos);
                     logger.debug("Full LLM error detail", lastError);
                     if (lastError instanceof TimeoutException) {
                         statistics.recordTimeout(feature, latency);
