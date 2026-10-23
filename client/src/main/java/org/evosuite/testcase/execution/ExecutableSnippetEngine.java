@@ -28,6 +28,7 @@ import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.utils.ReplaceableWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +69,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.jar.Attributes;
@@ -301,13 +303,18 @@ public final class ExecutableSnippetEngine {
     private final Map<String, String> sanitizedCompilerClasspathEntries = new ConcurrentHashMap<>();
 
     /**
-     * Single-thread executor used for snippet compilation.  Its thread is
+     * Single worker used for snippet compilation.  Its thread is
      * registered as privileged with the EvoSuite sandbox so that filesystem
      * I/O (writing source files, invoking javac) is not blocked by the
      * security manager even when compilation is triggered from an
-     * unprivileged test-execution thread.
+     * unprivileged test-execution thread.  A compilation that hangs is
+     * abandoned and the worker replaced, so later snippets do not queue
+     * behind it.
      */
-    private final ExecutorService compilationExecutor;
+    private final ReplaceableWorker compilationWorker;
+
+    /** How long a compilation without an explicit timeout may take before it is abandoned. */
+    private static final long DEFAULT_COMPILE_TIMEOUT_MS = 120_000L;
 
     private static final Map<String, String> HEAVY_GUI_MOCK_CONSTRUCTOR_REPLACEMENTS =
             createHeavyGuiMockConstructorReplacements();
@@ -318,7 +325,7 @@ public final class ExecutableSnippetEngine {
 
     private ExecutableSnippetEngine() {
         this.compilationDir = new File(System.getProperty("java.io.tmpdir"), "evosuite-snippets").toPath();
-        this.compilationExecutor = newCompilationExecutor();
+        this.compilationWorker = newCompilationWorker();
         this.cache = newCache(DEFAULT_MAX_CACHED_SNIPPETS);
     }
 
@@ -328,7 +335,8 @@ public final class ExecutableSnippetEngine {
 
     ExecutableSnippetEngine(ExecutorService compilationExecutor, int maxCachedSnippets) {
         this.compilationDir = new File(System.getProperty("java.io.tmpdir"), "evosuite-snippets").toPath();
-        this.compilationExecutor = compilationExecutor;
+        this.compilationWorker = newCompilationWorker();
+        this.compilationWorker.setForTesting(compilationExecutor);
         this.cache = newCache(maxCachedSnippets);
     }
 
@@ -343,10 +351,19 @@ public final class ExecutableSnippetEngine {
         });
     }
 
-    private static ExecutorService newCompilationExecutor() {
-        return Executors.newSingleThreadExecutor(r -> {
+    private static ReplaceableWorker newCompilationWorker() {
+        return new ReplaceableWorker(r -> {
             Thread t = new Thread(r, "EvoSuite-SnippetCompiler");
             t.setDaemon(true);
+            // The factory runs on the submitting thread, before the new thread starts. A
+            // replacement worker is created while the sandbox may already be active.
+            if (Sandbox.isSecurityManagerInitialized()) {
+                try {
+                    Sandbox.addPrivilegedThread(t);
+                } catch (SecurityException e) {
+                    logger.debug("Could not mark snippet compilation thread as privileged: {}", e.getMessage());
+                }
+            }
             return t;
         });
     }
@@ -363,8 +380,7 @@ public final class ExecutableSnippetEngine {
             return;
         }
         try {
-            Future<Thread> future = compilationExecutor.submit(Thread::currentThread);
-            Thread compilerThread = future.get();
+            Thread compilerThread = compilationWorker.call(Thread::currentThread, 10, TimeUnit.SECONDS);
             Sandbox.addPrivilegedThread(compilerThread);
             logger.debug("Registered snippet compilation thread '{}' as privileged",
                     compilerThread.getName());
@@ -543,16 +559,13 @@ public final class ExecutableSnippetEngine {
     private CompiledSnippet compileSnippet(String key, String source, ClassLoader parentLoader,
                                            long timeoutMs) {
         Callable<CompiledSnippet> task = () -> doCompileSnippet(key, source, parentLoader);
-        Future<CompiledSnippet> future = compilationExecutor.submit(task);
+        long effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : DEFAULT_COMPILE_TIMEOUT_MS;
         try {
-            return timeoutMs > 0
-                    ? future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-                    : future.get();
+            return compilationWorker.call(task, effectiveTimeoutMs, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            future.cancel(true);
             increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
             throw new AssertionCompilationTimeoutException("Snippet compilation timed out after "
-                    + timeoutMs + " ms");
+                    + effectiveTimeoutMs + " ms");
         } catch (java.util.concurrent.ExecutionException e) {
             Throwable cause = e.getCause();
             if (cause instanceof SnippetCompilationException) {
@@ -561,7 +574,6 @@ public final class ExecutableSnippetEngine {
             increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
             throw new SnippetCompilationException("Snippet compilation failed", cause);
         } catch (InterruptedException e) {
-            future.cancel(true);
             Thread.currentThread().interrupt();
             increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
             throw new SnippetCompilationException("Snippet compilation interrupted", e);
