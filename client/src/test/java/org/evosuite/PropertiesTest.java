@@ -98,6 +98,30 @@ public class PropertiesTest {
     }
 
     @Test
+    public void testEnumArrayInputIsParsed() throws Exception {
+        Properties.getInstance().setValue("secondary_objectives", "size:avg_length");
+        Assertions.assertArrayEquals(new Properties.SecondaryObjective[]{
+                Properties.SecondaryObjective.SIZE, Properties.SecondaryObjective.AVG_LENGTH
+        }, Properties.SECONDARY_OBJECTIVE);
+
+        Properties.getInstance().setValue("error_instrumentation", "npe:array");
+        Assertions.assertArrayEquals(new Properties.ErrorInstrumentation[]{
+                Properties.ErrorInstrumentation.NPE, Properties.ErrorInstrumentation.ARRAY
+        }, Properties.ERROR_INSTRUMENTATION);
+
+        Properties.getInstance().setValue("criterion", "line:branch");
+        Assertions.assertArrayEquals(new Properties.Criterion[]{
+                Properties.Criterion.LINE, Properties.Criterion.BRANCH
+        }, Properties.CRITERION);
+    }
+
+    @Test
+    public void testInvalidEnumArrayElementIsRejected() {
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> Properties.getInstance().setValue("secondary_objectives", "size:nonsense"));
+    }
+
+    @Test
     public void testInvalidBooleanInput() throws Exception {
 
         final boolean defaultValue = Properties.TEST_CARVING;

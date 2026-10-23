@@ -3639,16 +3639,17 @@ public class Properties {
             //Array
             if (f.getType().isAssignableFrom(String[].class)) {
                 f.set(null, value.split(":"));
-            } else if (f.getType().getComponentType().equals(Criterion.class)) {
+            } else if (f.getType().getComponentType().isEnum()) {
+                Class<Enum> enumType = (Class<Enum>) f.getType().getComponentType();
                 String[] values = value.split(":");
-                Criterion[] criteria = new Criterion[values.length];
+                Object enums = Array.newInstance(enumType, values.length);
 
                 int pos = 0;
                 for (String stringValue : values) {
-                    criteria[pos++] = parseEnum(Criterion.class, key, stringValue);
+                    Array.set(enums, pos++, parseEnum(enumType, key, stringValue));
                 }
 
-                f.set(null, criteria);
+                f.set(null, enums);
             }
         } else {
             f.set(null, value);
