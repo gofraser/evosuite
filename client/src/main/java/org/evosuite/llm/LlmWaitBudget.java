@@ -93,24 +93,6 @@ public final class LlmWaitBudget {
     }
 
     /**
-     * Worst-case wall-clock wait in seconds, clamped to the remaining budget
-     * returned by {@code remainingBudgetSecondsSupplier}. A supplier returning
-     * a negative value (or null supplier) means "no clamp". The result is
-     * floored at 1 second.
-     */
-    public static long repairAwareWaitSeconds(LongSupplier remainingBudgetSecondsSupplier) {
-        long derived = repairAwareWaitSeconds();
-        if (remainingBudgetSecondsSupplier == null) {
-            return derived;
-        }
-        long remaining = remainingBudgetSecondsSupplier.getAsLong();
-        if (remaining < 0) {
-            return derived;
-        }
-        return Math.max(1L, Math.min(derived, remaining));
-    }
-
-    /**
      * Worst-case wall-clock wait in milliseconds, clamped to the remaining
      * budget returned by {@code remainingBudgetMillisSupplier}. A supplier
      * returning a negative value (or null supplier) means "no clamp". The

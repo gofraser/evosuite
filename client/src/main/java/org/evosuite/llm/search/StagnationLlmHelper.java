@@ -20,11 +20,8 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
-import org.evosuite.Properties.LlmStagnationMode;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmStatistics;
-import org.evosuite.llm.LlmWaitBudget;
-import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
@@ -39,37 +36,30 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
 /**
  * Wraps {@link StagnationDetector} and dispatches stagnation-triggered LLM
- * calls either synchronously (blocking the GA evolve loop) or asynchronously
- * (on a background worker thread). The choice is controlled by
- * {@link Properties#LLM_STAGNATION_MODE}; the {@link #maybeSubmit} and
- * {@link #drain} entry points have identical contracts in both modes, so the
- * caller is mode-agnostic and the two arms can be compared head-to-head.
+ * calls on a background worker thread, so the GA keeps evolving while a call
+ * is in flight. {@link #maybeSubmit} submits a call when the search has
+ * stagnated and {@link #drain} returns the tests of calls that have finished.
  *
- * <p>Per-call metrics are emitted as {@link RuntimeVariable} totals so the
- * cost of blocking (vs. async drift) is visible in statistics output.
+ * <p>Per-call metrics are emitted as {@link RuntimeVariable} totals.
  *
- * <p><b>Stagnation cadence (T2):</b> the detector's stagnation window is
+ * <p><b>Stagnation cadence:</b> the detector's stagnation window is
  * re-armed when a stagnation call <i>completes</i>, not when it is
- * submitted. In SYNC mode {@link #maybeSubmit} blocks until completion, so
- * submission and completion coincide. In ASYNC mode the window stays armed
+ * submitted. The window stays armed
  * (pending) for the whole in-flight duration of a call and is only reset
  * once that call's results are computed and published, regardless of
- * whether it produced any tests. This keeps ASYNC stagnation reactive:
+ * whether it produced any tests. This keeps stagnation reactive:
  * successive calls require a fresh {@code llm_stagnation_timeout_seconds}
  * of no covered-goal improvement measured after the previous call's
  * results were integrated, rather than degenerating into a fixed-interval
@@ -81,7 +71,6 @@ public final class StagnationLlmHelper {
     private static final Logger logger = LoggerFactory.getLogger(StagnationLlmHelper.class);
 
     private final StagnationDetector detector;
-    private final LlmStagnationMode mode;
     private final LongSupplier remainingBudgetSecondsSupplier;
     private final int budgetGuardSeconds;
 
@@ -91,7 +80,6 @@ public final class StagnationLlmHelper {
      * shutdown before any response can be consumed.
      */
     private static final int DEFAULT_BUDGET_GUARD_SECONDS = 45;
-    private static final long SYNC_RETURN_MARGIN_NANOS = TimeUnit.SECONDS.toNanos(2);
 
     private final BlockingQueue<AttributedCandidate> resultQueue;
     /** Serializes completion publication with drain() and hard shutdown. */
@@ -112,39 +100,30 @@ public final class StagnationLlmHelper {
     private final AtomicLong stagnationTestsPublished = new AtomicLong();
 
     /**
-     * Creates a helper using the configured stagnation mode and budget guard.
+     * Creates a helper using the configured budget guard.
      * @param detector detects stagnation and builds prompts
      * @param remainingBudgetSecondsSupplier supplies the remaining search budget in seconds
      */
     public StagnationLlmHelper(StagnationDetector detector,
                                LongSupplier remainingBudgetSecondsSupplier) {
-        this(detector,
-                Properties.LLM_STAGNATION_MODE,
-                remainingBudgetSecondsSupplier,
-                resolveBudgetGuardSeconds());
+        this(detector, remainingBudgetSecondsSupplier, resolveBudgetGuardSeconds());
     }
 
     StagnationLlmHelper(StagnationDetector detector,
-                        LlmStagnationMode mode,
                         LongSupplier remainingBudgetSecondsSupplier,
                         int budgetGuardSeconds) {
         if (detector == null) {
             throw new IllegalArgumentException("detector must not be null");
         }
         this.detector = detector;
-        this.mode = mode == null ? LlmStagnationMode.ASYNC : mode;
         this.remainingBudgetSecondsSupplier = remainingBudgetSecondsSupplier == null
                 ? () -> -1L : remainingBudgetSecondsSupplier;
         this.budgetGuardSeconds = Math.max(0, budgetGuardSeconds);
         // Stagnation accepts all parsed tests from the LLM response, including
         // over-production beyond the requested count.
         this.resultQueue = new LinkedBlockingQueue<>();
-        // A single-thread daemon executor is allocated for both modes. ASYNC
-        // submits and returns immediately; SYNC submits and waits with a
-        // truncated timeout so the call can be interrupted via Future.cancel
-        // if it would otherwise outlast the search budget.
-        String role = "stagnation-" + this.mode.name().toLowerCase();
-        this.worker = Executors.newSingleThreadExecutor(r -> LlmPrivilegedThreads.newThread(r, role));
+        this.worker = Executors.newSingleThreadExecutor(
+                r -> LlmPrivilegedThreads.newThread(r, "stagnation-async"));
     }
 
     public static int resolveBudgetGuardSeconds() {
@@ -154,21 +133,14 @@ public final class StagnationLlmHelper {
         }
         // Conservative floor: avoid firing prompts in the final seconds where
         // the call is likely to be interrupted by end-of-search teardown.
-        // The per-call wait in runSync still caps actual blocking at
-        // min(timeout, remaining). ASYNC drops late results via shutdown().
+        // Late results are dropped via shutdown().
         return DEFAULT_BUDGET_GUARD_SECONDS;
     }
 
-    public LlmStagnationMode getMode() {
-        return mode;
-    }
-
     /**
-     * Inspects stagnation state and, if triggered, runs the LLM call now (SYNC)
-     * or submits it to the background worker (ASYNC). Non-blocking in ASYNC,
-     * blocking-for-up-to-{@code llm_timeout_seconds × (1 + repairAttempts)} (worst case, full repair chain)
-     * in SYNC. The {@code populationSnapshot} should be a defensive copy: it
-     * is read from the worker thread in ASYNC mode.
+     * Inspects stagnation state and, if triggered, submits the LLM call to the
+     * background worker. Non-blocking. The {@code populationSnapshot} should be
+     * a defensive copy: it is read from the worker thread.
      *
      * @param coveredCount       goals covered so far, drives stagnation detection
      * @param totalGoals         all goals, covered or not; only the progress line in the
@@ -196,9 +168,7 @@ public final class StagnationLlmHelper {
         int uncoveredSize = Math.max(0, totalGoals - coveredCount);
         int targetCount = targetGoals.size();
         if (!detector.peekStagnation(coveredCount)) {
-            if (mode == LlmStagnationMode.ASYNC) {
-                tickInFlightGeneration();
-            }
+            tickInFlightGeneration();
             return;
         }
         if (!detector.getLlmService().canCall(LlmFeature.STAGNATION)) {
@@ -215,61 +185,42 @@ public final class StagnationLlmHelper {
             traceOutcome("skipped:budget", coveredCount, uncoveredSize, targetCount, -1L, 0);
             return;
         }
-        if (mode == LlmStagnationMode.ASYNC) {
-            Future<?> current = inFlight.get();
-            if (current != null && !current.isDone()) {
-                if (hardShutdown) {
-                    return;
-                }
-                stagnationSkippedInFlight.incrementAndGet();
-                ClientServices.track(RuntimeVariable.LLM_StagnationSkippedInFlight,
-                        stagnationSkippedInFlight.get());
-                tickInFlightGeneration();
-                traceOutcome("skipped:in_flight", coveredCount, uncoveredSize, targetCount, -1L, 0);
+        Future<?> current = inFlight.get();
+        if (current != null && !current.isDone()) {
+            if (hardShutdown) {
                 return;
             }
+            stagnationSkippedInFlight.incrementAndGet();
+            ClientServices.track(RuntimeVariable.LLM_StagnationSkippedInFlight,
+                    stagnationSkippedInFlight.get());
+            tickInFlightGeneration();
+            traceOutcome("skipped:in_flight", coveredCount, uncoveredSize, targetCount, -1L, 0);
+            return;
         }
-        // Committed to firing. SYNC's runSync blocks until the call returns
-        // (and publishes its results) before maybeSubmit returns, so submit
-        // and completion are effectively simultaneous -- consume the window
-        // now. ASYNC instead re-arms the window when the call *completes*
+        // Committed to firing. The window is re-armed when the call *completes*
         // (see runAsync): a ~50s call would otherwise let a 60s window
         // elapse again before its results are even available, degenerating
-        // ASYNC stagnation into a fixed-interval producer (T2).
+        // stagnation into a fixed-interval producer.
         synchronized (lifecycleLock) {
             if (hardShutdown) {
                 return;
             }
-            if (mode == LlmStagnationMode.SYNC) {
-                detector.consumeWindow();
-            }
             recordPromptSubmitted();
         }
-        traceOutcome("fired:" + mode.name().toLowerCase(), coveredCount, uncoveredSize, targetCount, -1L, 0);
+        traceOutcome("fired:async", coveredCount, uncoveredSize, targetCount, -1L, 0);
 
         Map<TestFitnessFunction, Double> bestFitness =
                 StagnationDetector.computeBestFitnessPerGoal(targetGoals, populationSnapshot);
         PromptResult prompt = detector.buildPrompt(targetGoals, populationSnapshot,
-                totalGoals, coveredCount, bestFitness, mode == LlmStagnationMode.ASYNC);
+                totalGoals, coveredCount, bestFitness, true);
 
-        switch (mode) {
-            case SYNC:
-                runSync(prompt, coveredCount, uncoveredSize, targetCount);
-                break;
-            case ASYNC:
-                runAsync(prompt);
-                break;
-            default:
-                break;
-        }
+        runAsync(prompt);
     }
 
     /**
      * Removes and returns any LLM-produced tests that are ready. Non-blocking.
-     * In SYNC mode this typically returns the tests of the call that just
-     * completed; in ASYNC mode it may be empty for many generations and then
-     * return a batch. Each test comes with its attribution; the caller now
-     * owns the drained tickets.
+     * May be empty for many generations and then return a batch. Each test
+     * comes with its attribution; the caller now owns the drained tickets.
      */
     public List<AttributedCandidate> drain() {
         List<AttributedCandidate> out = new ArrayList<>();
@@ -298,101 +249,6 @@ public final class StagnationLlmHelper {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    private void runSync(PromptResult prompt, int coveredCount, int uncoveredSize, int targetCount) {
-        long t0 = System.nanoTime();
-        long waitSeconds = computeSyncWaitSeconds();
-        long deadlineNanos = deadlineAfterWait(waitSeconds, SYNC_RETURN_MARGIN_NANOS);
-        AttemptTicket ticket;
-        synchronized (lifecycleLock) {
-            if (hardShutdown) {
-                return;
-            }
-            // In flight although this thread blocks on it: other features keep selecting
-            // targets on their own threads meanwhile.
-            ticket = detector.registerRepeatedAttempt(prompt, true);
-        }
-        Future<StagnationDetector.CallResult> future;
-        try {
-            future = worker.submit(() -> detector.executeWithPrompt(prompt, deadlineNanos));
-        } catch (RejectedExecutionException e) {
-            // Worker shut down between our shutdown-flag check and submit.
-            logger.debug("Sync stagnation submission rejected (shutting down): {}",
-                    e.getMessage());
-            if (!hardShutdown) {
-                ticket.release();
-            }
-            return;
-        }
-        inFlight.set(future);
-        StagnationDetector.CallResult result;
-        try {
-            result = future.get(waitSeconds, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            future.cancel(true);
-            // Wall-clock timeout: the call never produced a response — don't penalize
-            // the repeated-injection cooldown for what is effectively a non-delivery.
-            recordSyncNonResponse(ticket, false, "timeout:sync", t0, coveredCount, uncoveredSize, targetCount);
-            return;
-        } catch (CancellationException e) {
-            // Cancelled before completion — treat as non-delivery.
-            recordSyncNonResponse(ticket, false, "cancelled:sync", t0, coveredCount, uncoveredSize, targetCount);
-            return;
-        } catch (InterruptedException e) {
-            future.cancel(true);
-            Thread.currentThread().interrupt();
-            // Interrupt during the wait — non-delivery.
-            recordSyncNonResponse(ticket, false, "interrupted:sync", t0, coveredCount, uncoveredSize,
-                    targetCount);
-            return;
-        } catch (ExecutionException e) {
-            // Worker raised an exception while executing the call — the call was
-            // "delivered" in the sense that it reached the LLM service path and
-            // failed there, so the cooldown should reflect "no gain" as before.
-            Throwable cause = e.getCause();
-            logger.debug("Sync stagnation call failed: {}",
-                    cause == null ? e.toString() : cause.toString());
-            recordSyncNonResponse(ticket, true, "error:sync", t0, coveredCount, uncoveredSize, targetCount);
-            return;
-        }
-        synchronized (lifecycleLock) {
-            if (hardShutdown) {
-                return;
-            }
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-            if (result.isDelivered()) {
-                recordResponseReceived();
-            }
-            recordCallCompleted(elapsedMs, elapsedMs);
-            traceOutcome("completed:sync", coveredCount, uncoveredSize, targetCount, elapsedMs,
-                    result.getTests().size());
-            publishResult(result, prompt, ticket);
-        }
-    }
-
-    /**
-     * Settles a sync call that produced no tests. Only a delivered call ({@code delivered}) counts
-     * against the repeated-injection cooldown; a non-delivery just releases its attempt.
-     */
-    private void recordSyncNonResponse(AttemptTicket ticket, boolean delivered, String label, long t0,
-                                       int coveredCount, int uncoveredSize, int targetCount) {
-        if (hardShutdown) {
-            return;
-        }
-        ticket.settleWithoutGain(delivered);
-        long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-        traceOutcome(label, coveredCount, uncoveredSize, targetCount, elapsedMs, 0);
-    }
-
-    private long computeSyncWaitSeconds() {
-        return LlmWaitBudget.repairAwareWaitSeconds(remainingBudgetSecondsSupplier);
-    }
-
-    private static long deadlineAfterWait(long waitSeconds, long returnMarginNanos) {
-        long waitNanos = TimeUnit.SECONDS.toNanos(Math.max(1L, waitSeconds));
-        return PhaseDeadline.fromNow(waitNanos <= returnMarginNanos
-                ? 1L : waitNanos - returnMarginNanos);
     }
 
     private void runAsync(PromptResult prompt) {
@@ -572,7 +428,7 @@ public final class StagnationLlmHelper {
      * One structured debug line per stagnation outcome. Fields that don't
      * apply to the event are passed as {@code -1}. Format is grep-friendly:
      *
-     * <pre>stagnation outcome={x} mode={SYNC|ASYNC} covered={n} uncovered={n} targets={n} latencyMs={n} tests={n}</pre>
+     * <pre>stagnation outcome={x} covered={n} uncovered={n} targets={n} latencyMs={n} tests={n}</pre>
      *
      * <p>{@code uncovered} is the true count of goals not yet covered; {@code targets} is how many
      * of them the prompt listed (DynaMOSA narrows this to its frontier). Cheap (single SLF4J call,
@@ -583,7 +439,7 @@ public final class StagnationLlmHelper {
         if (!logger.isDebugEnabled()) {
             return;
         }
-        logger.debug("stagnation outcome={} mode={} covered={} uncovered={} targets={} latencyMs={} tests={}",
-                outcome, mode, coveredCount, uncoveredSize, targetCount, latencyMs, testsProduced);
+        logger.debug("stagnation outcome={} covered={} uncovered={} targets={} latencyMs={} tests={}",
+                outcome, coveredCount, uncoveredSize, targetCount, latencyMs, testsProduced);
     }
 }

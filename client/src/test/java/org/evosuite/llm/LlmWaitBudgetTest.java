@@ -105,24 +105,9 @@ class LlmWaitBudgetTest {
     }
 
     @Test
-    void clampLimitsWaitToRemainingBudget() {
-        Properties.LLM_TIMEOUT_SECONDS = 180;
-        Properties.LLM_REPAIR_ATTEMPTS = 4;
-        assertEquals(300L, LlmWaitBudget.repairAwareWaitSeconds(() -> 300L));
-    }
-
-    @Test
-    void clampDoesNotInflateWhenRemainingExceedsDerived() {
-        Properties.LLM_TIMEOUT_SECONDS = 30;
-        Properties.LLM_REPAIR_ATTEMPTS = 2;
-        assertEquals(90L, LlmWaitBudget.repairAwareWaitSeconds(() -> 600L));
-    }
-
-    @Test
     void negativeSupplierMeansNoClamp() {
         Properties.LLM_TIMEOUT_SECONDS = 180;
         Properties.LLM_REPAIR_ATTEMPTS = 4;
-        assertEquals(900L, LlmWaitBudget.repairAwareWaitSeconds(() -> -1L));
         assertEquals(900_000L, LlmWaitBudget.repairAwareWaitMillis(() -> -1L));
     }
 
@@ -130,7 +115,6 @@ class LlmWaitBudgetTest {
     void nullSupplierMeansNoClamp() {
         Properties.LLM_TIMEOUT_SECONDS = 60;
         Properties.LLM_REPAIR_ATTEMPTS = 4;
-        assertEquals(300L, LlmWaitBudget.repairAwareWaitSeconds(null));
         assertEquals(300_000L, LlmWaitBudget.repairAwareWaitMillis(null));
     }
 
@@ -138,7 +122,6 @@ class LlmWaitBudgetTest {
     void zeroRemainingIsFlooredAtOne() {
         Properties.LLM_TIMEOUT_SECONDS = 60;
         Properties.LLM_REPAIR_ATTEMPTS = 4;
-        assertEquals(1L, LlmWaitBudget.repairAwareWaitSeconds(() -> 0L));
         assertEquals(1L, LlmWaitBudget.repairAwareWaitMillis(() -> 0L));
     }
 

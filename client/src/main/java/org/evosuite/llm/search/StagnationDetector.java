@@ -24,7 +24,6 @@ import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
-import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
@@ -199,16 +198,6 @@ public class StagnationDetector {
      * invoke from a background worker.
      */
     public CallResult executeWithPrompt(PromptResult prompt) {
-        return executeWithPrompt(prompt, PhaseDeadline.NONE);
-    }
-
-    /**
-     * Executes the stagnation LLM call with a deadline. The initial query gives
-     * up at the deadline, and repair requests are not launched past it, so
-     * already parsed or salvaged tests can be returned to the SYNC caller
-     * before the outer future timeout cancels the worker.
-     */
-    public CallResult executeWithPrompt(PromptResult prompt, long repairDeadlineNanos) {
         if (prompt == null) {
             return CallResult.UNDELIVERED;
         }
@@ -216,7 +205,6 @@ public class StagnationDetector {
             return CallResult.UNDELIVERED;
         }
         GeneratedTestRequest.Outcome outcome = GeneratedTestRequest.of(prompt, LlmFeature.STAGNATION)
-                .withDeadlineNanos(repairDeadlineNanos)
                 .send(llmService, this::repairLoop);
         switch (outcome.getStatus()) {
             case NO_BUDGET:
@@ -274,10 +262,10 @@ public class StagnationDetector {
      * its main loop).
      *
      * <p>Thread-safe enough for our use: a benign race could initialise the
-     * field twice if SYNC and ASYNC callers were to race; both instances are
+     * field twice if two callers were to race; both instances are
      * functionally equivalent, and {@link TestRepairLoop#attemptParse} keeps
-     * its conversation state per call, so a worker and {@code requestHelp}
-     * may use the loop at the same time.
+     * its conversation state per call, so several callers may use the loop at
+     * the same time.
      */
     private TestRepairLoop repairLoop() {
         TestRepairLoop loop = cachedRepairLoop;

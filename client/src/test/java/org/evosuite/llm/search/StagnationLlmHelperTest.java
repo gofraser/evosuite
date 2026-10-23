@@ -23,7 +23,6 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.Properties;
-import org.evosuite.Properties.LlmStagnationMode;
 import org.evosuite.llm.LlmBudgetCoordinator;
 import org.evosuite.llm.LlmConfiguration;
 import org.evosuite.llm.LlmFeature;
@@ -50,7 +49,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -104,39 +102,6 @@ class StagnationLlmHelperTest {
                     "```";
 
     @Test
-    void syncMode_returnsTestsImmediatelyOnDrain() {
-        LlmStatistics.resetDiagnosticCardCounters();
-        MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
-        LlmService service = createService(model, 2);
-        AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
-        StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.SYNC, () -> -1L, 0);
-
-        try {
-            TestFitnessFunction goal = makeGoal("g");
-            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
-
-            // First call: not stagnant yet.
-            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
-            assertTrue(helper.drain().isEmpty());
-
-            // Advance past the 1s threshold; second call ticks stagnation, SYNC runs inline.
-            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
-            List<TestChromosome> tests = AttributedCandidate.candidatesOf(helper.drain());
-            assertFalse(tests.isEmpty(), "SYNC mode should produce tests on the same call");
-            assertEquals(1L, helper.getPromptsSubmitted());
-            assertEquals(1L, helper.getResponsesReceived());
-            assertEquals(tests.size(), helper.getTestsPublished());
-        } finally {
-            helper.shutdown();
-            service.close();
-        }
-    }
-
-    @Test
     void asyncMode_returnsEmptyImmediately_thenDeliversLater() throws Exception {
         LlmStatistics.resetDiagnosticCardCounters();
         CountDownLatch responseGate = new CountDownLatch(1);
@@ -156,7 +121,7 @@ class StagnationLlmHelperTest {
         AtomicLong clock = new AtomicLong(0L);
         StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+                detector, () -> -1L, 0);
 
         try {
             TestFitnessFunction goal = makeGoal("g");
@@ -215,7 +180,7 @@ class StagnationLlmHelperTest {
         // Threshold = 1s.
         StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+                detector, () -> -1L, 0);
 
         try {
             TestFitnessFunction goal = makeGoal("g");
@@ -286,7 +251,7 @@ class StagnationLlmHelperTest {
         // Threshold = 1s.
         StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+                detector, () -> -1L, 0);
 
         try {
             TestFitnessFunction goal = makeGoal("g");
@@ -336,7 +301,7 @@ class StagnationLlmHelperTest {
         StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         // Guard at 60s; remaining is 5s — must skip.
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.SYNC, () -> 5L, 60);
+                detector, () -> 5L, 60);
 
         try {
             TestFitnessFunction goal = makeGoal("g");
@@ -354,7 +319,7 @@ class StagnationLlmHelperTest {
     }
 
     @Test
-    void budgetGuardSkip_doesNotConsumeStagnationWindow() {
+    void budgetGuardSkip_doesNotConsumeStagnationWindow() throws Exception {
         // Phase 3 T1.1: a skipped submission (here: budget guard) must leave the
         // detector window intact, so the *next* generation still observes
         // stagnation and can fire once the guard relaxes. Pre-fix behavior
@@ -367,7 +332,7 @@ class StagnationLlmHelperTest {
         StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         // Guard at 60s; remaining starts at 5s — must skip, then becomes 600s.
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.SYNC, remainingBudget::get, 60);
+                detector, remainingBudget::get, 60);
 
         try {
             TestFitnessFunction goal = makeGoal("g");
@@ -383,7 +348,7 @@ class StagnationLlmHelperTest {
             // call should fire without waiting another stagnation_timeout.
             remainingBudget.set(600L);
             helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
-            List<TestChromosome> tests = AttributedCandidate.candidatesOf(helper.drain());
+            List<TestChromosome> tests = AttributedCandidate.candidatesOf(awaitCallSettled(helper));
             assertFalse(tests.isEmpty(),
                     "After the budget guard relaxes, the helper must fire immediately "
                             + "instead of waiting for a fresh stagnation window.");
@@ -410,7 +375,7 @@ class StagnationLlmHelperTest {
         AtomicLong clock = new AtomicLong(0L);
         StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.SYNC, () -> -1L, 0);
+                detector, () -> -1L, 0);
 
         try {
             assertTrue(service.hasBudget(LlmFeature.SEMANTIC_MUTATION),
@@ -430,55 +395,6 @@ class StagnationLlmHelperTest {
             assertEquals(0, helper.getPromptsSubmitted(),
                     "Helper must not record a submitted prompt when its feature quota is exhausted");
         } finally {
-            helper.shutdown();
-            service.close();
-        }
-    }
-
-    @Test
-    void syncMode_truncatesWaitToRemainingBudget() throws Exception {
-        // The SYNC arm wraps the LLM call in a Future and waits at most the
-        // remaining search budget, even though the normal wait can cover the
-        // full prompt+repair chain.
-        CountDownLatch responseGate = new CountDownLatch(1);
-        MockChatLanguageModel model = new MockChatLanguageModel() {
-            @Override
-            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
-                try {
-                    responseGate.await();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                return super.generate(messages, feature);
-            }
-        };
-        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
-        LlmService service = createService(model, 2);
-        AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
-        // Guard 0 (no skip) + remaining=1s makes the wait cap at 1s, even
-        // though LLM_TIMEOUT_SECONDS would normally allow much longer.
-        StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.SYNC, () -> 1L, 0);
-
-        try {
-            TestFitnessFunction goal = makeGoal("g");
-            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
-
-            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // not stagnant
-            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-
-            long t0 = System.nanoTime();
-            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // SYNC fires, hangs
-            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-
-            assertTrue(elapsedMs < 4_000,
-                    "SYNC must abort the wait near the truncated deadline, "
-                            + "not block on the full LLM timeout. Took " + elapsedMs + "ms");
-            assertEquals(0, helper.drain().size(),
-                    "Aborted SYNC call must not deliver tests");
-        } finally {
-            responseGate.countDown();
             helper.shutdown();
             service.close();
         }
@@ -511,7 +427,7 @@ class StagnationLlmHelperTest {
         AtomicLong clock = new AtomicLong(0L);
         StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+                detector, () -> -1L, 0);
 
         try {
             TestFitnessFunction goal = makeGoal("g");
@@ -556,7 +472,7 @@ class StagnationLlmHelperTest {
         AtomicLong clock = new AtomicLong(0L);
         StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+                detector, () -> -1L, 0);
 
         try {
             TestFitnessFunction goal = makeGoal("g");
@@ -576,7 +492,7 @@ class StagnationLlmHelperTest {
     }
 
     @Test
-    void drainPreservesDiagnosticCardAttributionMetadata() {
+    void drainPreservesDiagnosticCardAttributionMetadata() throws Exception {
         // Intent: when the diagnostic-prompt pathway produces card types, those
         // types must flow through prompt -> publishTests -> drained candidates so
         // attribution telemetry can read them via consumeAttemptMetadata.
@@ -609,7 +525,7 @@ class StagnationLlmHelperTest {
                 }
             };
             StagnationLlmHelper helper = new StagnationLlmHelper(
-                    detector, LlmStagnationMode.SYNC, () -> -1L, 0);
+                    detector, () -> -1L, 0);
             try {
                 TestFitnessFunction goal = makeGoal("g", "com.example.Foo", "doWork()V");
                 TestChromosome popEntry = mock(TestChromosome.class);
@@ -626,7 +542,7 @@ class StagnationLlmHelperTest {
                 helper.maybeSubmit(0, 1, Collections.singleton(goal), Collections.singletonList(popEntry));
                 clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
                 helper.maybeSubmit(0, 1, Collections.singleton(goal), Collections.singletonList(popEntry));
-                List<AttributedCandidate> drained = helper.drain();
+                List<AttributedCandidate> drained = awaitCallSettled(helper);
                 assertFalse(drained.isEmpty());
                 assertTrue(drained.get(0).getMetadata().getDiagnosticCardTypes()
                                 .contains(ProblemCardType.UNREACHED_METHOD),
@@ -662,7 +578,7 @@ class StagnationLlmHelperTest {
             }
         };
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.SYNC, () -> -1L, 0);
+                detector, () -> -1L, 0);
 
         try {
             TestFitnessFunction goal = makeGoal("g");
@@ -674,7 +590,6 @@ class StagnationLlmHelperTest {
             helper.maybeSubmit(0, 99, Collections.singleton(goal), pop);  // not stagnant yet
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
             helper.maybeSubmit(0, 99, Collections.singleton(goal), pop);  // fires
-            helper.drain();
 
             assertEquals(99, capturedTotalGoals.get(),
                     "the 4-arg maybeSubmit must pass its explicit totalGoals through to buildPrompt");
@@ -685,87 +600,8 @@ class StagnationLlmHelperTest {
     }
 
     @Test
-    void maybeSubmitThreeArgDerivesTotalGoalsFromCoveredPlusGoalsSize() {
-        LlmStatistics.resetDiagnosticCardCounters();
-        MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
-        LlmService service = createService(model, 2);
-        AtomicLong clock = new AtomicLong(0L);
-        AtomicInteger capturedTotalGoals = new AtomicInteger(-1);
-        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get) {
-            @Override
-            public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
-                                            List<TestChromosome> currentPopulation,
-                                            int totalGoals, int coveredGoalCount,
-                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal,
-                                            boolean suppressInFlightRepeats) {
-                capturedTotalGoals.set(totalGoals);
-                return super.buildPrompt(uncoveredGoals, currentPopulation, totalGoals,
-                        coveredGoalCount, bestFitnessPerGoal, suppressInFlightRepeats);
-            }
-        };
-        StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.SYNC, () -> -1L, 0);
-
-        try {
-            TestFitnessFunction goalA = makeGoal("a");
-            TestFitnessFunction goalB = makeGoal("b");
-            List<TestFitnessFunction> goals = java.util.Arrays.asList(goalA, goalB);
-            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
-            int coveredCount = 3;
-
-            // 3-arg overload: no explicit totalGoals.
-            helper.maybeSubmit(coveredCount, coveredCount + goals.size(), goals, pop);  // not stagnant yet
-            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(coveredCount, coveredCount + goals.size(), goals, pop);  // fires
-            helper.drain();
-
-            assertEquals(coveredCount + goals.size(), capturedTotalGoals.get(),
-                    "the 3-arg maybeSubmit must derive totalGoals as coveredCount + goals.size()");
-        } finally {
-            helper.shutdown();
-            service.close();
-        }
-    }
-
-    @Test
-    void syncCallKeepsItsTargetInFlightWhileTheSearchBlocks() {
-        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
-        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:g", "goal:g:v1");
-        AtomicReference<DiagnosticCardSelector.DiscardReason> reasonDuringCall = new AtomicReference<>();
-        MockChatLanguageModel model = new MockChatLanguageModel() {
-            @Override
-            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
-                // Another feature's selection (e.g. the async producer) runs while the search
-                // thread blocks on this call; it must see the target as in flight.
-                reasonDuringCall.set(memory.adjustPriority(target, 1.0, true).getDiscardReason());
-                return super.generate(messages, feature);
-            }
-        };
-        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
-        LlmService service = createService(model, 2);
-        AtomicLong clock = new AtomicLong(0L);
-        StagnationLlmHelper helper = new StagnationLlmHelper(
-                detectorTargeting(service, clock, memory, target), LlmStagnationMode.SYNC, () -> -1L, 0);
-
-        try {
-            fireOnce(helper, clock);
-            assertEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT, reasonDuringCall.get(),
-                    "a SYNC stagnation call must register its targets as in flight");
-        } finally {
-            helper.shutdown();
-            service.close();
-        }
-    }
-
-    @Test
-    void syncCallThatFailsReleasesItsAttemptInsteadOfCountingNoGain() throws Exception {
-        assertFailedCallReleasesAttempt(LlmStagnationMode.SYNC);
-    }
-
-    @Test
     void asyncCallThatFailsReleasesItsAttemptInsteadOfCountingNoGain() throws Exception {
-        assertFailedCallReleasesAttempt(LlmStagnationMode.ASYNC);
+        assertFailedCallReleasesAttempt();
     }
 
     @Test
@@ -778,7 +614,7 @@ class StagnationLlmHelperTest {
         LlmService service = createService(model, 2);
         AtomicLong clock = new AtomicLong(0L);
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detectorTargeting(service, clock, memory, target), LlmStagnationMode.ASYNC, () -> -1L, 0);
+                detectorTargeting(service, clock, memory, target), () -> -1L, 0);
 
         try {
             fireOnce(helper, clock);
@@ -796,24 +632,27 @@ class StagnationLlmHelperTest {
      * Waits until the helper has completed one call and settled its attempt. The completion
      * counter is bumped under the lifecycle lock before the attempt is settled, and
      * {@code drain()} takes the same lock, so it returns only once settlement is done.
+     *
+     * @return the candidates drained while waiting
      */
-    private static void awaitCallSettled(StagnationLlmHelper helper) throws InterruptedException {
+    private static List<AttributedCandidate> awaitCallSettled(StagnationLlmHelper helper)
+            throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (helper.getCalls() < 1 && System.nanoTime() < deadline) {
             Thread.sleep(10);
         }
         assertTrue(helper.getCalls() >= 1, "the stagnation call should have completed");
-        helper.drain();
+        return helper.drain();
     }
 
-    private void assertFailedCallReleasesAttempt(LlmStagnationMode mode) throws InterruptedException {
+    private void assertFailedCallReleasesAttempt() throws InterruptedException {
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:g", "goal:g:v1");
         // Nothing queued: the provider call fails, so no response is ever delivered.
         LlmService service = createService(new MockChatLanguageModel(), 2);
         AtomicLong clock = new AtomicLong(0L);
         StagnationLlmHelper helper = new StagnationLlmHelper(
-                detectorTargeting(service, clock, memory, target), mode, () -> -1L, 0);
+                detectorTargeting(service, clock, memory, target), () -> -1L, 0);
 
         try {
             fireOnce(helper, clock);

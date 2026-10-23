@@ -2161,10 +2161,8 @@ public class Properties {
     @Parameter(key = "llm_stagnation_timeout_seconds", group = "LLM",
             description = "Wall-clock seconds without fitness/coverage improvement before a "
                     + "stagnation intervention fires. The window resets on improvement and "
-                    + "on each stagnation LLM call: in SYNC mode (llm_stagnation_mode) when "
-                    + "the call returns, since submission and completion are effectively "
-                    + "simultaneous; in ASYNC mode when the call completes and its results "
-                    + "are published, not when it is submitted -- so a long-running ASYNC "
+                    + "on each stagnation LLM call: when the call completes and its results "
+                    + "are published, not when it is submitted -- so a long-running "
                     + "call still requires a fresh stagnation period afterwards before the "
                     + "next one fires.")
     @IntValue(min = 1)
@@ -2180,10 +2178,6 @@ public class Properties {
      */
     public enum LlmStagnationMode {
         /**
-         * Block the GA evolve loop until the LLM call (and any repair) returns.
-         */
-        SYNC,
-        /**
          * Submit to a background worker; the GA continues evolving.
          */
         ASYNC
@@ -2191,7 +2185,6 @@ public class Properties {
 
     @Parameter(key = "llm_stagnation_mode", group = "LLM",
             description = "How stagnation LLM calls interact with the search: "
-                    + "SYNC blocks the evolve loop until the call returns; "
                     + "ASYNC submits to a background worker and the search continues. "
                     + "Scope: this setting (and llm_stagnation_budget_guard_seconds, "
                     + "and the LLM_Stagnation* runtime variables) only applies to "
@@ -2205,10 +2198,7 @@ public class Properties {
                     + "search budget (seconds) is below this threshold. Use 0 to "
                     + "disable the guard entirely. When -1 (default), the helper "
                     + "uses a conservative minimum (~45s) to avoid late-run calls "
-                    + "that are likely to be interrupted at search shutdown. SYNC mode additionally caps "
-                    + "the prompt+repair wait at min(llm_timeout_seconds * "
-                    + "(1 + llm_repair_attempts), remaining budget) so a "
-                    + "late-firing call cannot block past the search deadline. "
+                    + "that are likely to be interrupted at search shutdown. "
                     + "Set explicitly to require a larger remaining budget before "
                     + "stagnation fires.")
     @IntValue(min = -1)

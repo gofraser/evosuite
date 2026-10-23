@@ -2063,7 +2063,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * Single drive step for the stagnation helper: snapshots the search state (covered count,
      * uncovered goals, population), calls {@code maybeSubmit} so the helper can decide whether to
-     * fire (SYNC) or enqueue (ASYNC) an LLM call, and drains any tests ready to be merged into the
+     * enqueue an LLM call, and drains any tests ready to be merged into the
      * current generation's union. Factored out of the lambda registered in {@link
      * #registerExternalCandidateSources} so the snapshot logic lives in one named place — easier to
      * extend (e.g., tracing) and to test.
