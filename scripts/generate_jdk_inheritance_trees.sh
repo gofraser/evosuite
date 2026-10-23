@@ -270,11 +270,9 @@ for lts in "${LTS_VERSIONS[@]}"; do
     fi
     (cd "$ROOT_DIR" && JAVA_HOME="$java_home" "$java_bin" "${add_opens[@]}" -cp "$JAR_PATH:$CLIENT_CP" org.evosuite.setup.InheritanceTreeGenerator)
     expected_xml="$ROOT_DIR/client/src/main/resources/JDK_inheritance_${lts}.xml"
-    expected_shaded="$ROOT_DIR/client/src/main/resources/JDK_inheritance_${lts}_shaded.xml"
-    if [[ ! -f "$expected_xml" || ! -f "$expected_shaded" ]]; then
+    if [[ ! -f "$expected_xml" ]]; then
       echo "WARNING: Expected outputs not found for JDK $lts:"
       echo "  missing: $expected_xml"
-      echo "  missing: $expected_shaded"
     fi
     generated=$((generated + 1))
   fi

@@ -21,7 +21,6 @@ package org.evosuite.setup;
 
 import com.thoughtworks.xstream.XStream;
 import org.evosuite.ClientProcess;
-import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
@@ -57,13 +56,10 @@ public class InheritanceTreeGenerator {
     private static final Logger logger = LoggerFactory.getLogger(InheritanceTreeGenerator.class);
 
     private static final String resourceFolder = "client/src/main/resources/";
-    private static final String jdkFile = "JDK_inheritance.xml";
-    private static final String shadedJdkFile = "JDK_inheritance_shaded.xml";
     private static final int[] LTS_VERSIONS = new int[]{
             8, 11, 17, 21, 25
     };
     private static final String jdkFilePattern = "JDK_inheritance_%d.xml";
-    private static final String shadedJdkFilePattern = "JDK_inheritance_%d_shaded.xml";
     private static final Map<String, String> jrtClassResourcePathByClassName = new HashMap<>();
 
     private static XStream newConfiguredXStream() {
@@ -519,7 +515,7 @@ public class InheritanceTreeGenerator {
 
         // Write data to XML file
         try {
-            String outputFile = getJdkResourceFileNameForCurrentJvm(false);
+            String outputFile = getJdkResourceFileNameForCurrentJvm();
             FileOutputStream stream = new FileOutputStream(new File(resourceFolder, outputFile));
             XStream xstream = newConfiguredXStream();
             xstream.toXML(inheritanceTree, stream);
@@ -536,22 +532,12 @@ public class InheritanceTreeGenerator {
     public static InheritanceTree readJDKData() {
         XStream xstream = newConfiguredXStream();
 
-        String primaryFileName = "/" + getJdkResourceFileNameForCurrentJvm(PackageInfo.isCurrentlyShaded());
+        String primaryFileName = "/" + getJdkResourceFileNameForCurrentJvm();
         InputStream inheritance = InheritanceTreeGenerator.class
                 .getResourceAsStream(primaryFileName);
 
         if (inheritance != null) {
             logger.info("Loaded JDK inheritance tree from resource: {}", primaryFileName);
-            return (InheritanceTree) xstream.fromXML(inheritance);
-        }
-
-        String fallbackFileName = "/" + getLegacyJdkResourceFileName(PackageInfo.isCurrentlyShaded());
-        inheritance = InheritanceTreeGenerator.class.getResourceAsStream(fallbackFileName);
-
-        if (inheritance != null) {
-            logger.warn("Found no version-specific JDK inheritance tree for this JVM; falling back to {}",
-                    fallbackFileName);
-            logger.info("Loaded JDK inheritance tree from resource: {}", fallbackFileName);
             return (InheritanceTree) xstream.fromXML(inheritance);
         }
 
@@ -736,36 +722,6 @@ public class InheritanceTreeGenerator {
     }
 
     /**
-     * Create a shaded copy of the JDK inheritance tree.
-     *
-     * @param sourceFileName the source file name
-     * @param targetFileName the target file name
-     */
-    private static void makeShadedCopy(String sourceFileName, String targetFileName) {
-
-        String content;
-        try {
-            content = new Scanner(new File(resourceFolder, sourceFileName)).useDelimiter("\\Z").next();
-        } catch (Exception e) {
-            logger.error("Error when reading JDK file", e);
-            return;
-        }
-
-        String shadedContent = content.replace(PackageInfo.getEvoSuitePackage(),
-                PackageInfo.getShadedEvoSuitePackage());
-
-        File shadedFile = new File(resourceFolder, targetFileName);
-        if (shadedFile.exists()) {
-            shadedFile.delete();
-        }
-        try (PrintWriter out = new PrintWriter(shadedFile)) {
-            out.write(shadedContent);
-        } catch (Exception e) {
-            logger.error("Error when making shaded copy");
-        }
-    }
-
-    /**
      * Usage example from command line.
      *
      * <p>
@@ -776,16 +732,12 @@ public class InheritanceTreeGenerator {
      * <p>
      * Run this once per target JDK LTS (8/11/17/21/25) to generate:
      * client/src/main/resources/JDK_inheritance_&lt;LTS&gt;.xml
-     * client/src/main/resources/JDK_inheritance_&lt;LTS&gt;_shaded.xml
      * </p>
      *
      * @param args command line arguments
      */
     public static void main(String[] args) {
         generateJDKCluster(args);
-        String sourceFileName = getJdkResourceFileNameForCurrentJvm(false);
-        String targetFileName = getJdkResourceFileNameForCurrentJvm(true);
-        makeShadedCopy(sourceFileName, targetFileName);
     }
 
     static int getCurrentJdkMajorVersion() {
@@ -817,17 +769,10 @@ public class InheritanceTreeGenerator {
         return candidate;
     }
 
-    static String getJdkResourceFileNameForCurrentJvm(boolean shaded) {
+    static String getJdkResourceFileNameForCurrentJvm() {
         int major = getCurrentJdkMajorVersion();
         int lts = mapToSupportedLts(major);
-        if (shaded) {
-            return String.format(shadedJdkFilePattern, lts);
-        }
         return String.format(jdkFilePattern, lts);
-    }
-
-    static String getLegacyJdkResourceFileName(boolean shaded) {
-        return shaded ? shadedJdkFile : jdkFile;
     }
 
 }
