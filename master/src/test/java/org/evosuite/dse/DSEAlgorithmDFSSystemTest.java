@@ -38,7 +38,6 @@ public class DSEAlgorithmDFSSystemTest extends DSESystemTestBase {
     public void init() {
         super.init();
 
-        Properties.CURRENT_DseModuleVersion = Properties.DseModuleVersion.NEW;
         Properties.DSE_EXPLORATION_ALGORITHM_TYPE = DSEAlgorithms.DFS;
         Properties.SELECTED_DseArraysMemoryModelVersion = Properties.DseArraysMemoryModelVersion.SELECT_STORE_EXPRESSIONS;
     }

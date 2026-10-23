@@ -655,11 +655,9 @@ public class Properties {
     //----------- DSE, which is a special case of LS ---------------
 
     /**
-     * ilebrero: Mostly for benchmarks for new module, I dont think the legacy strategy is gonna be
-     * used anymore.
+     * The legacy module has been removed; NEW is the only value left.
      */
     public enum DseModuleVersion {
-        LEGACY,
         NEW
     }
 
@@ -678,8 +676,7 @@ public class Properties {
     public static boolean IS_DSE_OBJECTS_SUPPORT_ENABLED = false;
 
     @Parameter(key = "dse_module_version", group = "DSE",
-            description = "Module version of DSE, mostly used for benchmarking between modules. "
-                    + "For other things the new one is recomended.")
+            description = "Module version of DSE. NEW is the only version left.")
     public static DseModuleVersion CURRENT_DseModuleVersion = DseModuleVersion.NEW;
 
     @Parameter(key = "dse_enable_arrays_support", group = "DSE",

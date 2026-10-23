@@ -60,7 +60,6 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
         super.init();
 
         Properties.DSE_EXPLORATION_ALGORITHM_TYPE = DSEAlgorithms.GENERATIONAL_SEARCH;
-        Properties.CURRENT_DseModuleVersion = Properties.DseModuleVersion.NEW;
     }
 
     @Test

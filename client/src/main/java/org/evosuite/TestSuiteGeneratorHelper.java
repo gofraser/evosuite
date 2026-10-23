@@ -32,7 +32,7 @@ import org.evosuite.instrumentation.LinePool;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.strategy.*;
-import org.evosuite.symbolic.dse.DSEStrategyFactory;
+import org.evosuite.symbolic.dse.DSEStrategy;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.LoggingUtils;
@@ -307,7 +307,7 @@ public class TestSuiteGeneratorHelper {
             case MOSUITE:
                 return new MOSuiteStrategy();
             case DSE:
-                return DSEStrategyFactory.getDSEStrategy(Properties.CURRENT_DseModuleVersion);
+                return new DSEStrategy();
             case NOVELTY:
                 return new NoveltyStrategy();
             case MAP_ELITES:
