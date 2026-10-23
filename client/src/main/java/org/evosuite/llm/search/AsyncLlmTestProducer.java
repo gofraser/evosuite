@@ -420,7 +420,7 @@ public class AsyncLlmTestProducer {
             builder.withExistingTests(currentTests);
         }
         return builder.buildWithMetadata().toBuilder()
-                .repeatedInjectionTargets(toRepeatedTargets(promptGoals))
+                .repeatedInjectionTargets(toRepeatedTargets(promptGoals, goalDescriptionMapper))
                 .build();
     }
 
@@ -528,19 +528,20 @@ public class AsyncLlmTestProducer {
         if (goal == null || repeatedInjectionMemory == null) {
             return goal == null ? Double.NEGATIVE_INFINITY : 1.0;
         }
-        RepeatedInjectionTarget target = toRepeatedTarget(goal);
+        RepeatedInjectionTarget target = toRepeatedTarget(goal, goalDescriptionMapper);
         RepeatedInjectionMemory.SelectionAdjustment adjustment =
                 repeatedInjectionMemory.adjustPriority(target, 1.0, true);
         return adjustment.isSuppressed() ? Double.NEGATIVE_INFINITY : adjustment.getPriority();
     }
 
-    private List<RepeatedInjectionTarget> toRepeatedTargets(Collection<TestFitnessFunction> goals) {
+    static List<RepeatedInjectionTarget> toRepeatedTargets(Collection<TestFitnessFunction> goals,
+                                                           GoalDescriptionMapper goalDescriptionMapper) {
         if (goals == null || goals.isEmpty()) {
             return Collections.emptyList();
         }
         List<RepeatedInjectionTarget> targets = new ArrayList<>();
         for (TestFitnessFunction goal : goals) {
-            RepeatedInjectionTarget target = toRepeatedTarget(goal);
+            RepeatedInjectionTarget target = toRepeatedTarget(goal, goalDescriptionMapper);
             if (target != null && !target.getKey().isEmpty()) {
                 targets.add(target);
             }
@@ -548,7 +549,8 @@ public class AsyncLlmTestProducer {
         return targets;
     }
 
-    private RepeatedInjectionTarget toRepeatedTarget(TestFitnessFunction goal) {
+    private static RepeatedInjectionTarget toRepeatedTarget(TestFitnessFunction goal,
+                                                            GoalDescriptionMapper goalDescriptionMapper) {
         if (goal == null) {
             return null;
         }

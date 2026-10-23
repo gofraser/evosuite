@@ -502,7 +502,10 @@ public class StagnationDetector {
         if (!existingTests.isEmpty()) {
             builder.withExistingTests(existingTests);
         }
-        return builder.buildWithMetadata();
+        return builder.buildWithMetadata().toBuilder()
+                .repeatedInjectionTargets(AsyncLlmTestProducer.toRepeatedTargets(
+                        uncoveredGoals, goalDescriptionMapper))
+                .build();
     }
 
     private List<TestCase> selectExistingTestsForPoolPrompt(
