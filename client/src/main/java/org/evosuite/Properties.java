@@ -722,11 +722,6 @@ public class Properties {
     public enum DSEType {
 
         /**
-         * apply DSE per statement.
-         */
-        STATEMENT,
-
-        /**
          * apply DSE with all primitives in a test.
          */
         TEST,

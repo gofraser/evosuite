@@ -58,12 +58,6 @@ public class DFSExplorationAlgorithm extends ExplorationAlgorithm {
         /* Strategies */
         setCachingStrategy(new CounterExampleCache());
 
-        /*
-         * Note (ilebrero): Not sure why is not working so far, reverted generational search expansion
-         *                  algorithm should suffice for now.
-         */
-        // setPathsExpansionStrategy(new DFSStrategy());
-
         setPathsExpansionStrategy(new RevertedExpandExecutionStrategy());
         setTestCaseBuildingStrategy(new DefaultTestCaseBuildingStrategy());
         setTestCaseSelectionStrategy(new TopTestCaseSelectionStrategy());
