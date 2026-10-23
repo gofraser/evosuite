@@ -119,12 +119,12 @@ class StagnationLlmHelperTest {
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
 
             // First call: not stagnant yet.
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             assertTrue(helper.drain().isEmpty());
 
             // Advance past the 1s threshold; second call ticks stagnation, SYNC runs inline.
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             List<TestChromosome> tests = AttributedCandidate.candidatesOf(helper.drain());
             assertFalse(tests.isEmpty(), "SYNC mode should produce tests on the same call");
             assertEquals(1L, helper.getPromptsSubmitted());
@@ -162,15 +162,15 @@ class StagnationLlmHelperTest {
             TestFitnessFunction goal = makeGoal("g");
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
 
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // not stagnant
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // not stagnant
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // submits async
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // submits async
             assertTrue(helper.drain().isEmpty(),
                     "ASYNC mode must not deliver tests on the submission call");
 
             // Subsequent submit during in-flight: deduped.
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             assertTrue(helper.drain().isEmpty());
 
             // Let the response complete.
@@ -221,9 +221,9 @@ class StagnationLlmHelperTest {
             TestFitnessFunction goal = makeGoal("g");
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
 
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // baseline; window starts at t=0
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // baseline; window starts at t=0
             clock.set(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // stagnant: submits async (gated)
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // stagnant: submits async (gated)
             assertEquals(1L, helper.getPromptsSubmitted());
 
             // The window is NOT consumed at submit time: even though the
@@ -231,7 +231,7 @@ class StagnationLlmHelperTest {
             // the in-flight call dedups the next submission instead of
             // firing again.
             clock.set(TimeUnit.SECONDS.toNanos(5));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             assertEquals(1L, helper.getPromptsSubmitted(),
                     "An in-flight ASYNC call must dedup, not fire a second prompt");
 
@@ -243,13 +243,13 @@ class StagnationLlmHelperTest {
 
             // Just past completion (t=5.5 < 5+threshold): must not fire again.
             clock.set(TimeUnit.SECONDS.toNanos(5) + TimeUnit.MILLISECONDS.toNanos(500));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             assertEquals(1L, helper.getPromptsSubmitted(),
                     "maybeSubmit must not fire before completion + threshold");
 
             // At completion + threshold (t=6s): fires again, absent improvement.
             clock.set(TimeUnit.SECONDS.toNanos(6));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             assertEquals(2L, helper.getPromptsSubmitted(),
                     "maybeSubmit must fire at completion + threshold absent improvement");
             assertFalse(drainWithTimeout(helper, 10_000).isEmpty(),
@@ -292,9 +292,9 @@ class StagnationLlmHelperTest {
             TestFitnessFunction goal = makeGoal("g");
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
 
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // baseline covered=0, window starts at t=0
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // baseline covered=0, window starts at t=0
             clock.set(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // stagnant: submits async (gated)
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // stagnant: submits async (gated)
             assertEquals(1L, helper.getPromptsSubmitted());
 
             // Complete the call at t=2; consumeWindow() re-arms the window to t=2.
@@ -304,7 +304,7 @@ class StagnationLlmHelperTest {
 
             // Covered goals increase before completion + threshold (t=2.5 < 3).
             clock.set(TimeUnit.SECONDS.toNanos(2) + TimeUnit.MILLISECONDS.toNanos(500));
-            helper.maybeSubmit(1, Collections.singleton(goal), pop);
+            helper.maybeSubmit(1, 1 + 1, Collections.singleton(goal), pop);
             assertEquals(1L, helper.getPromptsSubmitted(),
                     "Covered-goal improvement must not itself trigger a call");
 
@@ -312,13 +312,13 @@ class StagnationLlmHelperTest {
             // improvement at t=2.5 reset the window, so 3 - 2.5 = 0.5s is
             // still below the 1s threshold.
             clock.set(TimeUnit.SECONDS.toNanos(3));
-            helper.maybeSubmit(1, Collections.singleton(goal), pop);
+            helper.maybeSubmit(1, 1 + 1, Collections.singleton(goal), pop);
             assertEquals(1L, helper.getPromptsSubmitted(),
                     "Covered-goal improvement after completion must defer the next fire");
 
             // A full threshold after the improvement (t=3.5) fires.
             clock.set(TimeUnit.SECONDS.toNanos(3) + TimeUnit.MILLISECONDS.toNanos(500));
-            helper.maybeSubmit(1, Collections.singleton(goal), pop);
+            helper.maybeSubmit(1, 1 + 1, Collections.singleton(goal), pop);
             assertEquals(2L, helper.getPromptsSubmitted(),
                     "maybeSubmit must fire a full threshold after the improvement-driven reset");
         } finally {
@@ -342,9 +342,9 @@ class StagnationLlmHelperTest {
             TestFitnessFunction goal = makeGoal("g");
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
 
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // not stagnant
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);   // not stagnant
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // stagnant but guarded
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);   // stagnant but guarded
             assertEquals(0, helper.drain().size(),
                     "Helper must skip submission when remaining budget is below guard");
         } finally {
@@ -373,16 +373,16 @@ class StagnationLlmHelperTest {
             TestFitnessFunction goal = makeGoal("g");
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
 
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // not stagnant yet
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);   // not stagnant yet
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // stagnant but skipped (budget)
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);   // stagnant but skipped (budget)
             assertEquals(0, helper.drain().size(),
                     "Budget-guarded submission must not deliver tests");
 
             // Relax the guard; window should still be expired and the next
             // call should fire without waiting another stagnation_timeout.
             remainingBudget.set(600L);
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             List<TestChromosome> tests = AttributedCandidate.candidatesOf(helper.drain());
             assertFalse(tests.isEmpty(),
                     "After the budget guard relaxes, the helper must fire immediately "
@@ -421,9 +421,9 @@ class StagnationLlmHelperTest {
             TestFitnessFunction goal = makeGoal("g");
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
 
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // not stagnant yet
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);   // not stagnant yet
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // stagnant, but no quota
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);   // stagnant, but no quota
 
             assertEquals(0, helper.drain().size(),
                     "Helper must not deliver tests when its feature quota is exhausted");
@@ -465,11 +465,11 @@ class StagnationLlmHelperTest {
             TestFitnessFunction goal = makeGoal("g");
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
 
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // not stagnant
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // not stagnant
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
 
             long t0 = System.nanoTime();
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // SYNC fires, hangs
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // SYNC fires, hangs
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
 
             assertTrue(elapsedMs < 4_000,
@@ -479,56 +479,6 @@ class StagnationLlmHelperTest {
                     "Aborted SYNC call must not deliver tests");
         } finally {
             responseGate.countDown();
-            helper.shutdown();
-            service.close();
-        }
-    }
-
-    @Test
-    void asyncMode_gracefulShutdown_capturesInFlightCall() throws Exception {
-        // Phase 3 T3.3: stopAcceptingSubmissions + awaitTermination should let
-        // an in-flight call finish and its tests be drained, instead of
-        // cancelling mid-flight like shutdown() would.
-        CountDownLatch responseGate = new CountDownLatch(1);
-        MockChatLanguageModel model = new MockChatLanguageModel() {
-            @Override
-            public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
-                try {
-                    responseGate.await();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                return super.generate(messages, feature);
-            }
-        };
-        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
-        LlmService service = createService(model, 2);
-        AtomicLong clock = new AtomicLong(0L);
-        StagnationDetector detector = new StagnationDetector(service, 1, 1, clock::get);
-        StagnationLlmHelper helper = new StagnationLlmHelper(
-                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
-
-        try {
-            TestFitnessFunction goal = makeGoal("g");
-            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
-
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // not stagnant
-            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // submits async
-
-            // Soft-stop while the worker is blocked on responseGate.
-            helper.stopAcceptingSubmissions();
-
-            // Let the response flow; the worker is still alive, will publish.
-            responseGate.countDown();
-
-            boolean terminated = helper.awaitTermination(2, TimeUnit.SECONDS);
-            assertTrue(terminated, "Worker should finish in-flight call after stopAcceptingSubmissions");
-
-            List<TestChromosome> tests = AttributedCandidate.candidatesOf(helper.drain());
-            assertFalse(tests.isEmpty(),
-                    "Graceful shutdown must allow the in-flight call's tests to be drained");
-        } finally {
             helper.shutdown();
             service.close();
         }
@@ -566,15 +516,17 @@ class StagnationLlmHelperTest {
         try {
             TestFitnessFunction goal = makeGoal("g");
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             assertTrue(providerEntered.await(1, TimeUnit.SECONDS));
 
             helper.shutdown();
             releaseProvider.countDown();
             assertTrue(providerReturned.await(1, TimeUnit.SECONDS));
-            assertTrue(helper.awaitTermination(2, TimeUnit.SECONDS));
+            // Nothing observable marks the worker's late return, so give it time to reach the
+            // lifecycle lock; the assertions below only hold if it drops the completion.
+            Thread.sleep(200);
 
             assertTrue(helper.drain().isEmpty(),
                     "A completion returned after hard shutdown must not be published");
@@ -610,10 +562,10 @@ class StagnationLlmHelperTest {
             TestFitnessFunction goal = makeGoal("g");
             List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
 
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // not stagnant yet
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);  // not stagnant yet
             helper.shutdown();
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
             assertTrue(helper.drain().isEmpty(),
                     "Post-shutdown maybeSubmit must produce no tests");
             // Calling shutdown() a second time must be safe.
@@ -671,9 +623,9 @@ class StagnationLlmHelperTest {
                 when(result.hasTestException()).thenReturn(false);
                 when(popEntry.getLastExecutionResult()).thenReturn(result);
 
-                helper.maybeSubmit(0, Collections.singleton(goal), Collections.singletonList(popEntry));
+                helper.maybeSubmit(0, 1, Collections.singleton(goal), Collections.singletonList(popEntry));
                 clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-                helper.maybeSubmit(0, Collections.singleton(goal), Collections.singletonList(popEntry));
+                helper.maybeSubmit(0, 1, Collections.singleton(goal), Collections.singletonList(popEntry));
                 List<AttributedCandidate> drained = helper.drain();
                 assertFalse(drained.isEmpty());
                 assertTrue(drained.get(0).getMetadata().getDiagnosticCardTypes()
@@ -763,9 +715,9 @@ class StagnationLlmHelperTest {
             int coveredCount = 3;
 
             // 3-arg overload: no explicit totalGoals.
-            helper.maybeSubmit(coveredCount, goals, pop);  // not stagnant yet
+            helper.maybeSubmit(coveredCount, coveredCount + goals.size(), goals, pop);  // not stagnant yet
             clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-            helper.maybeSubmit(coveredCount, goals, pop);  // fires
+            helper.maybeSubmit(coveredCount, coveredCount + goals.size(), goals, pop);  // fires
             helper.drain();
 
             assertEquals(coveredCount + goals.size(), capturedTotalGoals.get(),
@@ -830,8 +782,7 @@ class StagnationLlmHelperTest {
 
         try {
             fireOnce(helper, clock);
-            helper.stopAcceptingSubmissions();
-            assertTrue(helper.awaitTermination(10, TimeUnit.SECONDS));
+            awaitCallSettled(helper);
             memory.beginSelectionRound();
             assertTrue(memory.adjustPriority(target, 1.0, true).isSuppressed(),
                     "a delivered response that yields nothing must lengthen the cooldown");
@@ -839,6 +790,20 @@ class StagnationLlmHelperTest {
             helper.shutdown();
             service.close();
         }
+    }
+
+    /**
+     * Waits until the helper has completed one call and settled its attempt. The completion
+     * counter is bumped under the lifecycle lock before the attempt is settled, and
+     * {@code drain()} takes the same lock, so it returns only once settlement is done.
+     */
+    private static void awaitCallSettled(StagnationLlmHelper helper) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (helper.getCalls() < 1 && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertTrue(helper.getCalls() >= 1, "the stagnation call should have completed");
+        helper.drain();
     }
 
     private void assertFailedCallReleasesAttempt(LlmStagnationMode mode) throws InterruptedException {
@@ -852,8 +817,7 @@ class StagnationLlmHelperTest {
 
         try {
             fireOnce(helper, clock);
-            helper.stopAcceptingSubmissions();
-            assertTrue(helper.awaitTermination(10, TimeUnit.SECONDS));
+            awaitCallSettled(helper);
             memory.beginSelectionRound();
             // One selection round later a released attempt is off its (one-round) cooldown; a
             // no-gain outcome would have lengthened the cooldown to two rounds.
@@ -872,9 +836,9 @@ class StagnationLlmHelperTest {
     private static void fireOnce(StagnationLlmHelper helper, AtomicLong clock) {
         TestFitnessFunction goal = makeGoal("g");
         List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
-        helper.maybeSubmit(0, Collections.singleton(goal), pop);
+        helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
         clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
-        helper.maybeSubmit(0, Collections.singleton(goal), pop);
+        helper.maybeSubmit(0, 1, Collections.singleton(goal), pop);
     }
 
     /** A detector whose prompts carry {@code target} as their repeated-injection target. */

@@ -254,7 +254,6 @@ class LlmOperatorExecutorTest {
 
         try {
             assertEquals(2, executor.submit(targets, 2, 0));
-            assertEquals(2, executor.getSubmittedCalls());
         } finally {
             executor.shutdown();
         }
@@ -275,7 +274,6 @@ class LlmOperatorExecutorTest {
             // combine into one call while the crossover target gets its own — two calls total,
             // never a call mixing both kinds.
             assertEquals(2, executor.submit(Arrays.asList(mutationA, crossover, mutationB), 10, 0));
-            assertEquals(2, executor.getSubmittedCalls());
         } finally {
             executor.shutdown();
         }
@@ -412,7 +410,6 @@ class LlmOperatorExecutorTest {
             assertTrue(executor.drain().isEmpty());
             assertEquals(1, executor.getDroppedBudget());
             assertEquals(0, executor.getFailedCalls());
-            assertEquals(0, executor.getProducedCandidates());
 
             // The attempt log still gets a row for the target, with a NO_BUDGET parse status; the
             // row is a terminal one, so it has already retired from memory into the sidecar.
@@ -444,7 +441,6 @@ class LlmOperatorExecutorTest {
             assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
             awaitInFlightZero(executor, 5);
             assertTrue(executor.drain().isEmpty());
-            assertEquals(0, executor.getProducedCandidates());
             assertEquals(1, executor.getFailedCalls());
             assertEquals(0, executor.getDroppedBudget());
 
@@ -578,7 +574,6 @@ class LlmOperatorExecutorTest {
             assertNotNull(openRecord);
             assertFalse(openRecord.toCsvRow().contains(",PARSE_FAILED,"),
                     "no response should be recorded yet: " + openRecord.toCsvRow());
-            assertEquals(0, executor.getProducedCandidates());
             assertEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
                     memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
 

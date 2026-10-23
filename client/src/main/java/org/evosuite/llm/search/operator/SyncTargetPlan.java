@@ -80,9 +80,4 @@ public final class SyncTargetPlan {
         byParent.remove(parent);
         return target;
     }
-
-    /** Number of parents that still have an unconsumed target this generation. */
-    public int remaining() {
-        return byParent.size();
-    }
 }

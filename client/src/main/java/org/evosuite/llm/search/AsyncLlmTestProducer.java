@@ -155,10 +155,6 @@ public class AsyncLlmTestProducer {
         return stoppedReason.get();
     }
 
-    public long getLoopIterations() {
-        return loopIterations.get();
-    }
-
     /**
      * Drains and returns all currently queued candidates with their attribution, without
      * blocking. The caller now owns the drained candidates' tickets.

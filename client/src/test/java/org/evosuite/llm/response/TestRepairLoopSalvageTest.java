@@ -24,6 +24,7 @@ import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.LlmService;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
@@ -62,6 +63,9 @@ import static org.mockito.Mockito.when;
  */
 class TestRepairLoopSalvageTest {
 
+    private static final PromptResult SEED_PROMPT = new PromptResult.Builder()
+            .messages(Collections.singletonList(LlmMessage.user("seed"))).build();
+
     private String originalTargetClass;
 
     @BeforeEach
@@ -82,7 +86,7 @@ class TestRepairLoopSalvageTest {
                 new ParseResult(targetSizeTest(), "sizeTest")));
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+                SEED_PROMPT, LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess(), String.valueOf(result.getDiagnostics()));
         assertEquals(1, result.getTestCases().size());
@@ -98,7 +102,7 @@ class TestRepairLoopSalvageTest {
                 new ParseResult(targetGetTest(), "getTest")));
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+                SEED_PROMPT, LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess(), String.valueOf(result.getDiagnostics()));
         TestCase salvaged = result.getTestCases().get(0);
@@ -127,7 +131,7 @@ class TestRepairLoopSalvageTest {
         });
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+                SEED_PROMPT, LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess(), String.valueOf(result.getDiagnostics()));
         assertEquals(1, result.getTestCases().size());
@@ -151,7 +155,7 @@ class TestRepairLoopSalvageTest {
                 }, 0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(false));
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+                SEED_PROMPT, LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess(), String.valueOf(result.getDiagnostics()));
         assertEquals(1, result.getTestCases().size());

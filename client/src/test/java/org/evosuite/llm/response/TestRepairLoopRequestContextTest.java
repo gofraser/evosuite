@@ -67,7 +67,7 @@ class TestRepairLoopRequestContextTest {
         };
         TestRepairLoop loop = new TestRepairLoop(llmService, parser, new LlmResponseParser(),
                 mock(ClusterExpansionManager.class), testCase -> new ExecutionResult(testCase),
-                1, "system", "");
+                1, "system", "", TestRepairLoop.RepairOptions.defaults());
         PromptResult prompt = new PromptResult.Builder()
                 .messages(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("seed")))
                 .sutContextMode(Properties.LlmSutContextMode.SOURCE_CODE)

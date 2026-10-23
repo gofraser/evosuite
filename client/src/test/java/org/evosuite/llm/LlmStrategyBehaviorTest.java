@@ -29,8 +29,6 @@ import org.evosuite.llm.mock.MockChatLanguageModel;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.postprocess.LlmPostProcessor;
-import org.evosuite.llm.response.ClusterExpansionManager;
-import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.strategy.LlmStrategy;
@@ -283,19 +281,17 @@ class LlmStrategyBehaviorTest {
         }
         LlmService service = createService(model, 30);
         int[] attempts = {0};
-        TestRepairLoop droppingLoop = new TestRepairLoop(service,
-                new TestParser(getClass().getClassLoader()), new LlmResponseParser(),
-                new ClusterExpansionManager(), testCase -> null, 0) {
-            @Override
-            public RepairResult attemptParse(String llmResponse, PromptResult prompt,
-                                             LlmFeature feature, long repairDeadlineNanos) {
-                attempts[0]++;
-                return RepairResult.failure(Arrays.asList(
-                        "Applied wrapper normalization (block #1): wrapper-normalized",
-                        "Execution error in test 'test0': java.lang.IllegalStateException - boom"),
-                        1, Collections.<String>emptyList(), true);
-            }
-        };
+        TestRepairLoop droppingLoop = org.mockito.Mockito.mock(TestRepairLoop.class);
+        org.mockito.Mockito.when(droppingLoop.attemptParse(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PromptResult.class),
+                org.mockito.ArgumentMatchers.any(LlmFeature.class), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> {
+                    attempts[0]++;
+                    return RepairResult.failure(Arrays.asList(
+                            "Applied wrapper normalization (block #1): wrapper-normalized",
+                            "Execution error in test 'test0': java.lang.IllegalStateException - boom"),
+                            1, Collections.<String>emptyList(), true);
+                });
 
         LlmStrategy strategy = createTestableIterativeStrategyWithGenLimit(service, 50, droppingLoop);
         try {

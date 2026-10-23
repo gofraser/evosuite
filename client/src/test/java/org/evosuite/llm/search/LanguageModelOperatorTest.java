@@ -131,7 +131,7 @@ class LanguageModelOperatorTest {
 
         assertEquals(OperatorAttemptResult.SkipReason.DISABLED, result.getSkipReason());
         assertFalse(result.isAttemptedSemantic());
-        assertEquals(1, plan.remaining(), "target must be untouched when the mode is off");
+        assertNotNull(plan.take(parent, OperatorTarget.Kind.MUTATION), "target must be untouched when the mode is off");
         verify(mockSemantic, never()).applyMapped(anyList());
     }
 
@@ -150,7 +150,7 @@ class LanguageModelOperatorTest {
         OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         assertEquals(OperatorAttemptResult.SkipReason.PROBABILITY, result.getSkipReason());
-        assertEquals(1, plan.remaining(),
+        assertNotNull(plan.take(parent, OperatorTarget.Kind.MUTATION),
                 "a rejected parent must keep its target for a later selection this generation");
         verify(mockSemantic, never()).applyMapped(anyList());
     }
@@ -171,7 +171,7 @@ class LanguageModelOperatorTest {
 
         assertEquals(OperatorAttemptResult.SkipReason.NO_BUDGET, result.getSkipReason());
         assertFalse(result.isAttemptedSemantic());
-        assertEquals(1, plan.remaining());
+        assertNotNull(plan.take(parent, OperatorTarget.Kind.MUTATION));
         assertEquals(0, mutation.getFallbackCount(), "a skipped call is not a fallback");
         verify(mockSemantic, never()).applyMapped(anyList());
     }
@@ -221,7 +221,7 @@ class LanguageModelOperatorTest {
         assertTrue(offspring.isChanged());
         assertEquals(1, mutation.getAppliedCount());
         assertEquals(0, mutation.getFallbackCount());
-        assertEquals(0, plan.remaining(), "the target must be consumed on a successful attempt");
+        assertNull(plan.take(parent, OperatorTarget.Kind.MUTATION), "the target must be consumed on a successful attempt");
 
         // The SYNC attempt log row reflects the applied call: mode, PARSED status, and (once
         // the GA evaluates the offspring) the target distance and admission.
@@ -460,7 +460,6 @@ class LanguageModelOperatorTest {
         assertSame(crossover, result.getTarget());
         assertSame(childTest, offspring1.getTestCase());
         assertEquals(1, crossoverHook.getAppliedCount());
-        assertEquals(1, plan.remaining(), "the untouched mutation-kind target must remain in the plan");
 
         OperatorAttemptResult secondAttempt =
                 crossoverHook.tryApply(makeChromosome(), mutationOnlyParent, plan);

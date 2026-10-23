@@ -55,7 +55,7 @@ class MemberAccessRecurrenceTest {
                 service, mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
                 testCase -> new ExecutionResult(testCase), 3,
-                null, "");
+                null, "", TestRepairLoop.RepairOptions.defaults());
         RepairConversation state = new RepairConversation();
         Method requestRepair = TestRepairLoop.class.getDeclaredMethod("requestRepair",
                 RepairConversation.class, List.class, String.class, String.class, LlmFeature.class,

@@ -158,7 +158,7 @@ class RepairHintTextGoldenTest {
                 service, mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
                 testCase -> new ExecutionResult(testCase), 3,
-                null, SUT_CONTEXT);
+                null, SUT_CONTEXT, TestRepairLoop.RepairOptions.defaults());
     }
 
     private static ParseResult parseResult(String name) {

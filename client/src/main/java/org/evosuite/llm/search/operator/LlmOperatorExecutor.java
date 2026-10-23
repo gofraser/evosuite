@@ -83,12 +83,10 @@ public final class LlmOperatorExecutor {
     private final AtomicInteger workerCounter = new AtomicInteger();
     private volatile boolean shutDown = false;
 
-    private final AtomicLong submittedCalls = new AtomicLong();
     private final AtomicLong droppedBudget = new AtomicLong();
     private final AtomicLong droppedInFlight = new AtomicLong();
     private final AtomicLong droppedTime = new AtomicLong();
     private final AtomicLong failedCalls = new AtomicLong();
-    private final AtomicLong producedCandidates = new AtomicLong();
     private final AtomicLong inFlightGenerations = new AtomicLong();
 
     public LlmOperatorExecutor(LlmSemanticMutation mutation, LlmSemanticCrossover crossover,
@@ -175,7 +173,6 @@ public final class LlmOperatorExecutor {
             abandon(attribution);
             return false;
         }
-        submittedCalls.incrementAndGet();
         return true;
     }
 
@@ -261,7 +258,6 @@ public final class LlmOperatorExecutor {
     }
 
     private void publish(TargetedResponse mapped, OperatorBatchAttribution attribution) {
-        int produced = 0;
         for (int i = 1; i <= attribution.size(); i++) {
             OperatorBatchAttribution.TargetSnapshot snapshot = attribution.snapshot(i - 1);
             AttemptTicket ticket = snapshot.getTicket();
@@ -281,7 +277,6 @@ public final class LlmOperatorExecutor {
             if (!offer(newChromosome(test, snapshot.getLineages()), metadata)) {
                 return;
             }
-            produced++;
         }
         for (TestCase test : mapped.unmatched()) {
             // Cannot be tied to one target's attempt; carries the batch's card types/goals only.
@@ -291,9 +286,7 @@ public final class LlmOperatorExecutor {
             if (!offer(newChromosome(test, attribution.getLineages()), metadata)) {
                 return;
             }
-            produced++;
         }
-        producedCandidates.addAndGet(produced);
     }
 
     private static TestChromosome newChromosome(TestCase test, Set<Long> lineages) {
@@ -378,12 +371,10 @@ public final class LlmOperatorExecutor {
         }
     }
 
-    public long getSubmittedCalls() { return submittedCalls.get(); }
     public long getDroppedBudget() { return droppedBudget.get(); }
     public long getDroppedInFlight() { return droppedInFlight.get(); }
     public long getDroppedTime() { return droppedTime.get(); }
     public long getFailedCalls() { return failedCalls.get(); }
-    public long getProducedCandidates() { return producedCandidates.get(); }
     public long getInFlightGenerations() { return inFlightGenerations.get(); }
 
     /**

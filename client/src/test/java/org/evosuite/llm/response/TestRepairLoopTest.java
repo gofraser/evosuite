@@ -26,6 +26,7 @@ import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.postprocess.LlmPostProcessingResponse;
 import org.evosuite.llm.prompt.DecompiledContextProvider;
@@ -98,6 +99,9 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
 class TestRepairLoopTest {
+
+    private static final PromptResult SEED_PROMPT = new PromptResult.Builder()
+            .messages(Collections.singletonList(LlmMessage.user("seed"))).build();
 
     private final boolean originalTruncationRecovery = Properties.LLM_ENABLE_TRUNCATION_RECOVERY;
     private final String originalTargetClass = Properties.TARGET_CLASS;
@@ -176,7 +180,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0);
+                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
         ParseResult candidate = new ParseResult(new DefaultTestCase(), "testRecovered");
         Method compileGate = TestRepairLoop.class.getDeclaredMethod(
                 "checkRenderedCompilation", ParseResult.class, long.class);
@@ -202,7 +206,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0);
+                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
         DefaultTestCase testCase = new DefaultTestCase();
         testCase.addStatement(new UninterpretedStatement(testCase, "int x = noSuchSymbolForProbe;"));
         ParseResult candidate = new ParseResult(testCase, "testBroken");
@@ -245,7 +249,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0);
+                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
         ParseResult candidate = new ParseResult(new DefaultTestCase(), "testCrashingCompiler");
         Method compileGate = TestRepairLoop.class.getDeclaredMethod(
                 "checkRenderedCompilation", ParseResult.class, long.class);
@@ -281,7 +285,7 @@ class TestRepairLoopTest {
             TestRepairLoop loop = new TestRepairLoop(
                     mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                     mock(ClusterExpansionManager.class),
-                    testCase -> new ExecutionResult(testCase), 0);
+                    testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
             DefaultTestCase testCase = new DefaultTestCase();
             testCase.addStatement(new UninterpretedStatement(testCase,
                     "int v = new probecp.OnlyOnProjectClasspath().value();"));
@@ -309,7 +313,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0);
+                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
         Method compileGate = TestRepairLoop.class.getDeclaredMethod(
                 "checkRenderedCompilation", ParseResult.class, long.class);
         compileGate.setAccessible(true);
@@ -344,7 +348,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0);
+                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
         DefaultTestCase testCase = new DefaultTestCase();
         testCase.addStatement(new UninterpretedStatement(testCase, "int x = noSuchSymbolForProbe;"));
         ParseResult candidate = new ParseResult(testCase, "testBroken");
@@ -371,11 +375,11 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, new TestParser(getClass().getClassLoader()), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0);
+                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "I cannot write a test for this class because it only contains abstract methods.",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess(),
@@ -425,11 +429,11 @@ class TestRepairLoopTest {
         };
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 2);
+                testCase -> new ExecutionResult(testCase), 2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess(), "an infrastructure failure of the compile probe must not drop the test");
@@ -456,7 +460,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2);
+                2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         String truncated = "```java\n"
                 + "public class GeneratedLlmTest {\n"
@@ -466,7 +470,7 @@ class TestRepairLoopTest {
                 + "  public void broken(){ int x =\n";
 
         RepairResult result = loop.attemptParse(truncated,
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -500,10 +504,10 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, responseParser, expansionManager,
-                testCase -> new ExecutionResult(testCase), 2);
+                testCase -> new ExecutionResult(testCase), 2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess(), "the parsed block must survive the unrecoverable one");
@@ -537,11 +541,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, new IllegalArgumentException("InputStream cannot be null"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -582,7 +586,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                0);
+                0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         String reflectiveResponse = "import static org.junit.jupiter.api.Assertions.*;\n"
                 + "import java.lang.reflect.Method;\n"
@@ -598,7 +602,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 reflectiveResponse,
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.SEEDING);
 
         assertTrue(result.isSuccess());
@@ -617,7 +621,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                0);
+                0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         Set<Class<?>> imports = new LinkedHashSet<>();
         imports.add(org.mockito.Mockito.class);
@@ -678,10 +682,10 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                0);
+                0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -721,10 +725,10 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                0);
+                0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -764,7 +768,7 @@ class TestRepairLoopTest {
                 TestRepairLoop.RepairOptions.parseOnly(false, false));
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -805,10 +809,10 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2);
+                2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -837,11 +841,11 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2);
+                2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR,
                 System.nanoTime() + 1L);
 
@@ -883,7 +887,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -918,11 +922,11 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 executor,
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -955,10 +959,10 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -993,10 +997,10 @@ class TestRepairLoopTest {
                     }
                     return new ExecutionResult(testCase);
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -1029,10 +1033,10 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -1064,7 +1068,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n"
@@ -1079,7 +1083,7 @@ class TestRepairLoopTest {
                         + "    }\n"
                         + "}\n"
                         + "```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -1125,7 +1129,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n"
@@ -1138,7 +1142,7 @@ class TestRepairLoopTest {
                         + "    }\n"
                         + "}\n"
                         + "```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess(),
@@ -1179,10 +1183,10 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 3);
+                testCase -> new ExecutionResult(testCase), 3, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1226,7 +1230,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -1275,7 +1279,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -1313,7 +1317,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test public void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1363,7 +1367,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -1410,7 +1414,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -1455,7 +1459,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -1587,7 +1591,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1627,11 +1631,11 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1668,11 +1672,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, new NoClassDefFoundError("com/example/MissingFramework"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1712,11 +1716,11 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1759,11 +1763,11 @@ class TestRepairLoopTest {
                                     + "\"sessionInfoProv\" is null"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1819,11 +1823,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, npe);
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1876,11 +1880,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(1, wrapper);
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1935,11 +1939,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(2, wrapper);
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -1992,11 +1996,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(testCase.size(), timeout);
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2072,11 +2076,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(6, cast);
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2125,11 +2129,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(1, cast);
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2171,11 +2175,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(1, new NullPointerException("boom"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2217,11 +2221,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(1, new NullPointerException("boom"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2263,11 +2267,11 @@ class TestRepairLoopTest {
                                     + "\"<local1>\" is null"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2309,11 +2313,11 @@ class TestRepairLoopTest {
                             new IllegalArgumentException("InputStream cannot be null"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2356,11 +2360,11 @@ class TestRepairLoopTest {
                                     + "but was: <java.lang.reflect.InvocationTargetException>"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2411,11 +2415,11 @@ class TestRepairLoopTest {
                                     + "```"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2468,11 +2472,11 @@ class TestRepairLoopTest {
                                     + "```"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2543,11 +2547,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(2, npe);
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2611,11 +2615,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(3, wrapper);
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2681,11 +2685,11 @@ class TestRepairLoopTest {
                                     + "```"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2755,7 +2759,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2798,11 +2802,11 @@ class TestRepairLoopTest {
                             new IllegalArgumentException("The scheme has no lines."));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2846,11 +2850,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, ex);
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2892,11 +2896,11 @@ class TestRepairLoopTest {
                             "Cannot invoke \"org.w3c.dom.Element.getAttribute(String)\" because \"model\" is null"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -2947,11 +2951,11 @@ class TestRepairLoopTest {
                                     + "```"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3013,11 +3017,11 @@ class TestRepairLoopTest {
                                     + "```\n"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3089,11 +3093,11 @@ class TestRepairLoopTest {
                                     + "```\n"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3134,11 +3138,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, new NoClassDefFoundError("com/example/MissingFramework"));
                     return result;
                 },
-                3);
+                3, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3179,7 +3183,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3259,10 +3263,10 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 5);
+                testCase -> new ExecutionResult(testCase), 5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3299,10 +3303,10 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 5);
+                testCase -> new ExecutionResult(testCase), 5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         ArgumentCaptor<LlmRequest> conversationCaptor = ArgumentCaptor.forClass(LlmRequest.class);
@@ -3375,11 +3379,11 @@ class TestRepairLoopTest {
                                     + "Illegal character in path at index 29: file:/sf110/105_freemind/lib/\\"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3420,11 +3424,11 @@ class TestRepairLoopTest {
                                     + "MissingThing value0 = new MissingThing();\n"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3479,11 +3483,11 @@ class TestRepairLoopTest {
                             new AWTError("Local GraphicsEnvironment must not be null"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3532,11 +3536,11 @@ class TestRepairLoopTest {
                                 new AWTError("Local GraphicsEnvironment must not be null"));
                         return result;
                     },
-                    3);
+                    3, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
             RepairResult result = loop.attemptParse(
                     "```java\n@org.junit.Test\npublic void test(){}\n```",
-                    Collections.singletonList(LlmMessage.user("seed")),
+                    SEED_PROMPT,
                     LlmFeature.TEST_REPAIR);
 
             assertFalse(result.isSuccess());
@@ -3597,11 +3601,11 @@ class TestRepairLoopTest {
                             new AWTError("Local GraphicsEnvironment must not be null"));
                     return result;
                 },
-                5);
+                5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3676,11 +3680,11 @@ class TestRepairLoopTest {
                                     "Mock call to prepareStatement which was not presented when the test was generated"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3723,11 +3727,11 @@ class TestRepairLoopTest {
                                     "Mock call to prepareStatement which was not presented when the test was generated"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3771,11 +3775,11 @@ class TestRepairLoopTest {
                                             + "[Dependency Stack] java.sql.Connection.prepareStatement(Connection.java:123)"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3815,11 +3819,11 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, new InstantiationException());
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3860,11 +3864,11 @@ class TestRepairLoopTest {
                             "org.mockito.exceptions.misusing.NotAMockException"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3923,7 +3927,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 llmResponse,
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -3964,11 +3968,11 @@ class TestRepairLoopTest {
                             new ArrayIndexOutOfBoundsException("Index 2 out of bounds for length 2"));
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -4019,7 +4023,7 @@ class TestRepairLoopTest {
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -4078,11 +4082,11 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -4143,11 +4147,11 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -4185,7 +4189,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
                 testCase -> new ExecutionResult(testCase),
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         ParseResult warningOnly = new ParseResult(new DefaultTestCase(), "testDroppedAtParse");
         warningOnly.addDiagnostic(new ParseDiagnostic(
@@ -4222,7 +4226,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
                 testCase -> new ExecutionResult(testCase),
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         TestParser parser = new TestParser(getClass().getClassLoader());
         parser.setMarkParsedFromLlm(true);
@@ -4294,7 +4298,7 @@ class TestRepairLoopTest {
                     new LlmResponseParser(),
                     mock(ClusterExpansionManager.class),
                     testCase -> new ExecutionResult(testCase),
-                    1);
+                    1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
             Method buildCombinedRepairMessage = TestRepairLoop.class.getDeclaredMethod(
                     "buildCombinedRepairMessage", List.class, List.class, List.class, Map.class);
@@ -4335,7 +4339,7 @@ class TestRepairLoopTest {
                 null,
                 "ChangeNodeLevelAction [class]\n"
                         + "  setController(MindMapController)\n"
-                        + "  getMindMapController()\n");
+                        + "  getMindMapController()\n", TestRepairLoop.RepairOptions.defaults());
 
         ParseResult missingSetter = new ParseResult(new DefaultTestCase(), "invoke_whenNoSelecteds");
         missingSetter.addDiagnostic(new ParseDiagnostic(
@@ -4374,7 +4378,7 @@ class TestRepairLoopTest {
                 null,
                 "ChangeNodeLevelAction [class]\n"
                         + "  setController(MindMapController)\n"
-                        + "  getMindMapController()\n");
+                        + "  getMindMapController()\n", TestRepairLoop.RepairOptions.defaults());
 
         ParseResult unresolvedType = new ParseResult(new DefaultTestCase(), "invoke_whenNoSelecteds");
         unresolvedType.addDiagnostic(new ParseDiagnostic(
@@ -4447,11 +4451,11 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -4524,11 +4528,11 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -4604,11 +4608,11 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -4650,11 +4654,11 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2);
+                2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -4707,11 +4711,11 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1);
+                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 seedResponse,
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         // Should fail (cannot generate tests from bytecode-only responses)
@@ -4783,11 +4787,11 @@ class TestRepairLoopTest {
                     new LlmResponseParser(),
                     expansionManager,
                     executor,
-                    1);
+                    1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
             loop.attemptParse(
                     "```java\n@org.junit.Test\npublic void test(){}\n```",
-                    Collections.singletonList(LlmMessage.user("seed")),
+                    SEED_PROMPT,
                     LlmFeature.TEST_REPAIR);
 
             ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
@@ -4848,11 +4852,11 @@ class TestRepairLoopTest {
                     new LlmResponseParser(),
                     expansionManager,
                     executor,
-                    1);
+                    1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
             loop.attemptParse(
                     "```java\n@org.junit.Test\npublic void test(){}\n```",
-                    Collections.singletonList(LlmMessage.user("seed")),
+                    SEED_PROMPT,
                     LlmFeature.TEST_REPAIR);
 
             ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
@@ -4910,11 +4914,11 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 5); // budget of 5
+                testCase -> new ExecutionResult(testCase), 5, null, (String) null, TestRepairLoop.RepairOptions.defaults()); // budget of 5
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void testChangeNodeLevel(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -4958,11 +4962,11 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 2);
+                testCase -> new ExecutionResult(testCase), 2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void testAccess(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         ArgumentCaptor<LlmRequest> conversationCaptor = ArgumentCaptor.forClass(LlmRequest.class);
@@ -5006,11 +5010,11 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 3);
+                testCase -> new ExecutionResult(testCase), 3, null, (String) null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         // Should NOT contain "recurrent access violations" diagnostic
@@ -5044,11 +5048,11 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 "loop-provided-system-prompt",
-                null);
+                null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Arrays.asList(LlmMessage.system("original-prompt-system-message"), LlmMessage.user("seed")),
+                new PromptResult.Builder().messages(Arrays.asList(LlmMessage.system("original-prompt-system-message"), LlmMessage.user("seed"))).build(),
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -5096,7 +5100,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 "loop-provided-system-prompt",
-                "CATALOG-TEXT-MARKER-of-constructors-and-methods");
+                "CATALOG-TEXT-MARKER-of-constructors-and-methods", TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -5148,7 +5152,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 "loop-provided-system-prompt",
-                "CATALOG-TEXT-MARKER-of-constructors-and-methods");
+                "CATALOG-TEXT-MARKER-of-constructors-and-methods", TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -5195,12 +5199,12 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 "loop-provided-system-prompt",
-                "CATALOG-TEXT-MARKER-of-constructors-and-methods");
+                "CATALOG-TEXT-MARKER-of-constructors-and-methods", TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
-                Arrays.asList(LlmMessage.system("You are a test generator, no dependency catalogue here."),
-                        LlmMessage.user("seed")),
+                new PromptResult.Builder().messages(Arrays.asList(LlmMessage.system("You are a test generator, no dependency catalogue here."),
+                        LlmMessage.user("seed"))).build(),
                 LlmFeature.TEST_REPAIR);
 
         assertFalse(result.isSuccess());
@@ -5258,14 +5262,14 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                5);
+                5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
         loop.setTestClusterSupplierForTesting(() -> clusterWithDependency(GrowthDep.class));
 
         String systemMessageWithDependencyContext = "You are a test generator.\n\n"
                 + StaticPromptContext.DEPENDENCY_SECTION_HEADER + "\nsome cached catalogue";
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void initial(){}\n```",
-                Arrays.asList(LlmMessage.system(systemMessageWithDependencyContext), LlmMessage.user("seed")),
+                new PromptResult.Builder().messages(Arrays.asList(LlmMessage.system(systemMessageWithDependencyContext), LlmMessage.user("seed"))).build(),
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -5332,11 +5336,11 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                5);
+                5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
         loop.setTestClusterSupplierForTesting(() -> clusterWithDependency(GrowthDep.class));
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void initial(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")),
+                SEED_PROMPT,
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
@@ -5366,7 +5370,7 @@ class TestRepairLoopTest {
         assertEquals(0, clusterReads.get(), "building the loop must not summarise the cluster");
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+                SEED_PROMPT, LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
         verify(llmService, never()).query(any(LlmRequest.class));
@@ -5392,7 +5396,7 @@ class TestRepairLoopTest {
         cluster.set(clusterWithDependency(GrowthDep.class));
 
         RepairResult result = loop.attemptParse("```java\nthis is not a test class\n```",
-                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+                SEED_PROMPT, LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
         ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);

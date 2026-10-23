@@ -249,16 +249,9 @@ public class TestRepairLoop {
     }
 
     /**
-     * Creates a standard repair loop wired to the given LLM service, using
-     * the SUT-aware parser, default response parser, and cluster expansion manager.
-     */
-    public static TestRepairLoop createDefault(LlmService llmService) {
-        return createDefault(llmService, RepairOptions.defaults());
-    }
-
-    /**
-     * Creates a standard repair loop wired to the given LLM service and options,
-     * allowing {@link Properties#LLM_REPAIR_ATTEMPTS} repair round-trips.
+     * Creates a standard repair loop wired to the given LLM service, using the SUT-aware
+     * parser, default response parser, and cluster expansion manager, and allowing
+     * {@link Properties#LLM_REPAIR_ATTEMPTS} repair round-trips.
      */
     public static TestRepairLoop createDefault(LlmService llmService, RepairOptions options) {
         return createDefault(llmService, options, Properties.LLM_REPAIR_ATTEMPTS);
@@ -333,48 +326,8 @@ public class TestRepairLoop {
         }
     }
 
-    /** Creates a repair loop using Properties-configured max attempts and a default test executor. */
-    public TestRepairLoop(LlmService llmService,
-                          TestParser testParser,
-                          LlmResponseParser responseParser,
-                          ClusterExpansionManager clusterExpansionManager) {
-        this(llmService,
-                testParser,
-                responseParser,
-                clusterExpansionManager,
-                new DefaultExecutor(),
-                Properties.LLM_REPAIR_ATTEMPTS,
-                null,
-                (String) null,
-                RepairOptions.defaults());
-    }
-
-    /** Creates a repair loop with explicit executor and attempt count (no system prompt/SUT context). */
-    public TestRepairLoop(LlmService llmService,
-                          TestParser testParser,
-                          LlmResponseParser responseParser,
-                          ClusterExpansionManager clusterExpansionManager,
-                          TestExecutor testExecutor,
-                          int maxAttempts) {
-        this(llmService, testParser, responseParser, clusterExpansionManager,
-                testExecutor, maxAttempts, null, (String) null, RepairOptions.defaults());
-    }
-
-    /** Creates a repair loop with explicit executor, attempt count, and optional repair context. */
-    public TestRepairLoop(LlmService llmService,
-                          TestParser testParser,
-                          LlmResponseParser responseParser,
-                          ClusterExpansionManager clusterExpansionManager,
-                          TestExecutor testExecutor,
-                          int maxAttempts,
-                          String systemPrompt,
-                          String sutContextSummary) {
-        this(llmService, testParser, responseParser, clusterExpansionManager, testExecutor,
-                maxAttempts, systemPrompt, sutContextSummary, RepairOptions.defaults());
-    }
-
-    /** Creates a repair loop with explicit options controlling assertion handling. */
-    public TestRepairLoop(LlmService llmService,
+    /** Creates a repair loop from explicit collaborators. Production code uses {@link #createDefault}. */
+    TestRepairLoop(LlmService llmService,
                           TestParser testParser,
                           LlmResponseParser responseParser,
                           ClusterExpansionManager clusterExpansionManager,
@@ -424,41 +377,6 @@ public class TestRepairLoop {
         return repairOptions;
     }
 
-    /** Attempts to parse the LLM response and repair it iteratively if parsing fails. */
-    public RepairResult attemptParse(String llmResponse,
-                                     List<LlmMessage> conversationHistory,
-                                     LlmFeature feature) {
-        return attemptParse(llmResponse, conversationHistory, feature, NO_REPAIR_DEADLINE);
-    }
-
-    /**
-     * Attempts to parse the LLM response and repair it iteratively if parsing
-     * fails, stopping before {@code repairDeadlineNanos} when another repair
-     * request would risk losing already parsed or salvaged tests to the caller's
-     * outer timeout.
-     */
-    public RepairResult attemptParse(String llmResponse,
-                                     List<LlmMessage> conversationHistory,
-                                     LlmFeature feature,
-                                     long repairDeadlineNanos) {
-        return attemptParse(llmResponse, conversationHistory, feature, repairDeadlineNanos, null);
-    }
-
-    /**
-     * Variant of {@link #attemptParse(String, List, LlmFeature, long)} that
-     * publishes newly validated executable tests as soon as they are salvaged.
-     * This lets async orchestrators retain partial results if an outer future
-     * timeout interrupts a later repair turn before the final result returns.
-     */
-    public RepairResult attemptParse(String llmResponse,
-                                     List<LlmMessage> conversationHistory,
-                                     LlmFeature feature,
-                                     long repairDeadlineNanos,
-                                     Consumer<List<ParseResult>> salvagedTestsConsumer) {
-        return attemptParse(llmResponse, conversationHistory, null, feature,
-                repairDeadlineNanos, salvagedTestsConsumer);
-    }
-
     /** Parses and repairs a response to {@code prompt}, which also supplies the starting conversation. */
     public RepairResult attemptParse(String llmResponse,
                                      PromptResult prompt,
@@ -475,8 +393,11 @@ public class TestRepairLoop {
     }
 
     /**
-     * Variant of {@link #attemptParse(String, List, LlmFeature, long, Consumer)} that takes the
-     * conversation from {@code prompt}, which also says whether the dependency-type catalogue is
+     * Variant of {@link #attemptParse(String, PromptResult, LlmFeature, long)} that
+     * publishes newly validated executable tests as soon as they are salvaged.
+     * This lets async orchestrators retain partial results if an outer future
+     * timeout interrupts a later repair turn before the final result returns.
+     * The conversation comes from {@code prompt}, which also says whether the dependency-type catalogue is
      * already part of it so a repair turn does not send it a second time. Repair turns are traced
      * with the context metadata of {@code prompt}.
      */

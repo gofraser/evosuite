@@ -164,17 +164,6 @@ public final class StagnationLlmHelper {
     }
 
     /**
-     * As {@link #maybeSubmit(int, int, Collection, List)}, treating every
-     * uncovered goal as a prompt target.
-     */
-    public void maybeSubmit(int coveredCount,
-                            Collection<TestFitnessFunction> uncoveredGoals,
-                            List<TestChromosome> populationSnapshot) {
-        int totalGoals = coveredCount + (uncoveredGoals == null ? 0 : uncoveredGoals.size());
-        maybeSubmit(coveredCount, totalGoals, uncoveredGoals, populationSnapshot);
-    }
-
-    /**
      * Inspects stagnation state and, if triggered, runs the LLM call now (SYNC)
      * or submits it to the background worker (ASYNC). Non-blocking in ASYNC,
      * blocking-for-up-to-{@code llm_timeout_seconds × (1 + repairAttempts)} (worst case, full repair chain)
@@ -291,36 +280,8 @@ public final class StagnationLlmHelper {
     }
 
     /**
-     * Soft-stop: refuses new submissions but lets any in-flight async call
-     * complete and publish its results. After this returns, callers may
-     * still {@link #drain()} those results. Use
-     * {@link #awaitTermination(long, java.util.concurrent.TimeUnit)} to wait
-     * for the in-flight call to finish, then {@link #shutdown()} to release
-     * the worker. In SYNC mode there is nothing in flight by the time the
-     * caller can invoke this (runSync is synchronous), so it just sets the
-     * "no more submissions" flag and quiesces the worker.
-     */
-    void stopAcceptingSubmissions() {
-        shutdown = true;
-        // shutdown() (not shutdownNow()) — keeps any in-flight task running.
-        worker.shutdown();
-    }
-
-    /**
-     * Waits up to {@code timeout} for the worker to finish any in-flight call
-     * after {@link #stopAcceptingSubmissions()}. Returns {@code true} if the
-     * worker terminated within the timeout; {@code false} if the timeout
-     * elapsed first.
-     */
-    boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
-        return worker.awaitTermination(timeout, unit);
-    }
-
-    /**
      * Hard-stop: cancels any in-flight call and forcibly stops the worker.
-     * Safe to call multiple times, and safe to call after
-     * {@link #stopAcceptingSubmissions()} (in which case it is mostly a
-     * cleanup no-op).
+     * Safe to call multiple times.
      */
     public void shutdown() {
         synchronized (lifecycleLock) {

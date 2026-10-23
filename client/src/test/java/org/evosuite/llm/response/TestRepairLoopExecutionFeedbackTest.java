@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.LlmService;
 import org.evosuite.runtime.mock.java.lang.MockIllegalArgumentException;
 import org.evosuite.testcase.DefaultTestCase;
@@ -56,6 +57,9 @@ import static org.mockito.Mockito.mock;
  * LLM-generated tests.
  */
 class TestRepairLoopExecutionFeedbackTest {
+
+    private static final PromptResult SEED_PROMPT = new PromptResult.Builder()
+            .messages(Collections.singletonList(LlmMessage.user("seed"))).build();
 
     private String originalTargetClass;
 
@@ -199,7 +203,7 @@ class TestRepairLoopExecutionFeedbackTest {
                 },
                 0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(true));
         return loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+                SEED_PROMPT, LlmFeature.TEST_REPAIR);
     }
 
     private RepairResult runWithExceptionAtFirstStatement(Function<TestCase, Throwable> exception) {
@@ -218,7 +222,7 @@ class TestRepairLoopExecutionFeedbackTest {
                 },
                 0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(true));
         return loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
-                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
+                SEED_PROMPT, LlmFeature.TEST_REPAIR);
     }
 
     private static String executionError(RepairResult result) {

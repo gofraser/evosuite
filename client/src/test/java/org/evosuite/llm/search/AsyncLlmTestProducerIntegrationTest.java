@@ -176,7 +176,6 @@ class AsyncLlmTestProducerIntegrationTest {
             }
             assertEquals(AsyncLlmTestProducer.StopReason.CONFIRMED_NO_GOALS,
                     producer.getStoppedReason());
-            assertEquals(3L, producer.getLoopIterations());
         } finally {
             producer.stop();
         }
