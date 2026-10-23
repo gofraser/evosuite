@@ -69,6 +69,23 @@ public final class RuntimeRequirements {
         );
     }
 
+    /**
+     * These requirements extended by what the given ones need on top of them. The output mode
+     * and the agent decision stay as they are: they come from the configuration, not from results.
+     *
+     * @param other the requirements to add
+     * @return the combined requirements
+     */
+    public RuntimeRequirements union(RuntimeRequirements other) {
+        return new RuntimeRequirements(
+                outputMode,
+                useAgent,
+                hasSecurityException || other.hasSecurityException,
+                hasTimeout || other.hasTimeout,
+                usesMocks || other.usesMocks,
+                shouldResetProperties || other.shouldResetProperties);
+    }
+
     public boolean isRuntimeEnabled() {
         return outputMode != TestOutputMode.NO_RUNTIME;
     }

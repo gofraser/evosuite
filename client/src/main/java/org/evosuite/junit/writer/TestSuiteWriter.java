@@ -285,7 +285,10 @@ public class TestSuiteWriter implements Opcodes {
 
         RuntimeRequirements requirements = replayScaffoldingSnapshot == null
                 ? RuntimeRequirements.fromResults(results)
-                : replayScaffoldingSnapshot.getRuntimeRequirements();
+                // the bodies follow the results of this execution, so a replayed file needs
+                // the imports of whatever they use on top of the snapshot
+                : replayScaffoldingSnapshot.getRuntimeRequirements()
+                        .union(RuntimeRequirements.fromResults(results));
 
 
         if (Properties.OUTPUT_GRANULARITY == OutputGranularity.MERGED || testCases.size() == 0) {
