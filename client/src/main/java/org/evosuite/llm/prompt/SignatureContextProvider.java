@@ -57,11 +57,6 @@ public class SignatureContextProvider implements SutContextProvider {
         return Optional.empty();
     }
 
-    @Override
-    public String modeLabel() {
-        return "API signatures";
-    }
-
     private GenericClass<?> findTargetClass(String className, TestCluster cluster) {
         if (cluster == null) {
             return null;

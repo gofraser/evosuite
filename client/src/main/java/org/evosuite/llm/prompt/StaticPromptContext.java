@@ -96,11 +96,6 @@ public final class StaticPromptContext {
         DEPENDENCY_ENTRIES.clear();
     }
 
-    /** Clears both memos for test isolation. */
-    public static void resetInstanceForTesting() {
-        resetForRunCompletion();
-    }
-
     /**
      * Snapshot of the class names the test cluster currently has generators
      * for. Used to seed a {@link DependencyEntry} at render time and, later,

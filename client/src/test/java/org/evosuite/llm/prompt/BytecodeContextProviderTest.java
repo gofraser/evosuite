@@ -59,12 +59,6 @@ class BytecodeContextProviderTest {
     }
 
     @Test
-    void modeLabelIsCorrect() {
-        BytecodeContextProvider provider = new BytecodeContextProvider();
-        assertEquals("Disassembled bytecode", provider.modeLabel());
-    }
-
-    @Test
     void filterInaccessibleMembersRemovesPrivateMethodBlock() {
         String src = ""
                 + "// access flags 0x1\n"

@@ -62,28 +62,6 @@ class TestClusterSummarizerTest {
         Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = originalCompactSignatures;
     }
 
-    @Test
-    void summarizeUsesClusterSurfacesBeyondAnalyzedClasses() {
-        TestCluster cluster = mock(TestCluster.class);
-        when(cluster.getAnalyzedClasses()).thenReturn(Collections.<Class<?>>emptySet());
-
-        GenericAccessibleObject<?> call = mock(GenericAccessibleObject.class);
-        GenericClass<?> owner = GenericClassFactory.get(String.class);
-        GenericClass<?> generated = GenericClassFactory.get(Integer.class);
-        doReturn(owner).when(call).getOwnerClass();
-        doReturn(generated).when(call).getGeneratedClass();
-
-        when(cluster.getGenerators()).thenReturn(Collections.<GenericAccessibleObject<?>>singleton(call));
-        when(cluster.getModifiers()).thenReturn(Collections.<GenericAccessibleObject<?>>emptySet());
-        when(cluster.getTestCalls()).thenReturn(Arrays.<GenericAccessibleObject<?>>asList(call));
-
-        TestClusterSummarizer summarizer = new TestClusterSummarizer();
-        String summary = summarizer.summarize(cluster);
-
-        assertTrue(summary.contains("java.lang.String"));
-        assertTrue(summary.contains("java.lang.Integer"));
-    }
-
     // --- summarizeClass tests ---
 
     @Test

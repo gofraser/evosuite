@@ -44,7 +44,7 @@ import java.util.Set;
  */
 public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPoolEnricher.EnrichmentResult> {
 
-    // Types that parseConstants can actually produce AND that StaticConstantPool
+    // Types that ConstantResponseParser.parseConstants can actually produce AND that StaticConstantPool
     // can store. boolean/char/byte/short have no parser path and no pool slot —
     // surfacing them in the param-type digest would mislead the LLM into emitting
     // tokens the parser silently drops.
@@ -68,7 +68,7 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
             return EnrichmentResult.failure("Cancelled after LLM query");
         }
 
-        List<Object> constants = parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         int sutParsed = constants.size();
         int sutAdded = addToPool(constants, true);
         int nonSutParsed = 0;
@@ -92,7 +92,7 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                         logger.debug("Cancelled after dependency constant query, stopping");
                         break;
                     }
-                    List<Object> depConstants = capDependencyConstants(parseConstants(depResponse));
+                    List<Object> depConstants = capDependencyConstants(ConstantResponseParser.parseConstants(depResponse));
                     nonSutParsed += depConstants.size();
                     nonSutAdded += addToPool(depConstants, false);
                 } catch (Throwable t) {
@@ -257,16 +257,6 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
         return new ArrayList<>(parsedConstants.subList(0, max));
     }
 
-    /**
-     * Parses typed constants from LLM response text. Delegates to
-     * {@link ConstantResponseParser#parseConstants(String)} — retained as a
-     * static method on the enricher for binary compatibility with existing
-     * tests and call sites.
-     */
-    static List<Object> parseConstants(String response) {
-        return ConstantResponseParser.parseConstants(response);
-    }
-
     private int addToPool(List<Object> constants, boolean sutPool) {
         ConstantPoolManager poolManager = ConstantPoolManager.getInstance();
         int added = 0;
@@ -294,15 +284,6 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
             }
         }
         return added;
-    }
-
-    /**
-     * Unescapes a Java string literal body. Delegates to
-     * {@link ConstantResponseParser#unescapeJavaString(String)} — retained
-     * here for test/binary compatibility.
-     */
-    static String unescapeJavaString(String escaped) {
-        return ConstantResponseParser.unescapeJavaString(escaped);
     }
 
     /**

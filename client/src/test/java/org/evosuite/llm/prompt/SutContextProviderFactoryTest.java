@@ -343,8 +343,6 @@ class SutContextProviderFactoryTest {
         public Optional<String> getContext(String className, org.evosuite.setup.TestCluster cluster) {
             return Optional.of(output);
         }
-        @Override
-        public String modeLabel() { return "stub"; }
     }
 
     private static class FailingProvider implements SutContextProvider {
@@ -352,8 +350,6 @@ class SutContextProviderFactoryTest {
         public Optional<String> getContext(String className, org.evosuite.setup.TestCluster cluster) {
             return Optional.empty();
         }
-        @Override
-        public String modeLabel() { return "failing"; }
     }
 
     private static class ThrowingProvider implements SutContextProvider {
@@ -361,8 +357,6 @@ class SutContextProviderFactoryTest {
         public Optional<String> getContext(String className, org.evosuite.setup.TestCluster cluster) {
             throw new RuntimeException("provider crashed");
         }
-        @Override
-        public String modeLabel() { return "throwing"; }
     }
 
     private static class CountingProvider implements SutContextProvider {
@@ -374,7 +368,5 @@ class SutContextProviderFactoryTest {
             callCount++;
             return Optional.of(output);
         }
-        @Override
-        public String modeLabel() { return "counting"; }
     }
 }

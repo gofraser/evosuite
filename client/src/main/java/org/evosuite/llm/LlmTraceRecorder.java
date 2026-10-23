@@ -485,8 +485,7 @@ public class LlmTraceRecorder {
         traceRecord.put("effective_retry_base_delay_ms", configuration.getRetryBaseDelayMs());
         traceRecord.put("prompt_hash", deterministicPromptHash(safeMessages));
         traceRecord.put("system_prompt_hash", messageContentHash(safeMessages, LlmMessage.Role.SYSTEM));
-        // Same function PromptResult.getPrefixHash() uses, so trace rows and prompt
-        // metadata agree on which calls shared a cacheable prefix.
+        // Hash of the system message content: rows with the same value shared a cacheable prefix.
         traceRecord.put("prefix_hash", PrefixHash.of(safeMessages));
         traceRecord.put("user_prompt_hash", messageContentHash(safeMessages, LlmMessage.Role.USER));
         traceRecord.put("postprocessing_prompt_version",

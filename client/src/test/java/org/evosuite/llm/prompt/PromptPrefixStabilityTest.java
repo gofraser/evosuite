@@ -21,7 +21,6 @@ package org.evosuite.llm.prompt;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.LlmSutContextMode;
-import org.evosuite.llm.LlmMessage;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
@@ -64,7 +63,7 @@ class PromptPrefixStabilityTest {
         originalPromptCacheStaticContext = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
         Properties.LLM_SUT_CONTEXT_MODE = LlmSutContextMode.SIGNATURE_ONLY;
         Properties.TARGET_CLASS = "com.example.Foo";
-        StaticPromptContext.resetInstanceForTesting();
+        StaticPromptContext.resetForRunCompletion();
         SutContextProviderFactory.resetInstanceForTesting();
     }
 
@@ -73,7 +72,7 @@ class PromptPrefixStabilityTest {
         Properties.LLM_SUT_CONTEXT_MODE = originalMode;
         Properties.TARGET_CLASS = originalTargetClass;
         Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = originalPromptCacheStaticContext;
-        StaticPromptContext.resetInstanceForTesting();
+        StaticPromptContext.resetForRunCompletion();
         SutContextProviderFactory.resetInstanceForTesting();
     }
 
@@ -90,10 +89,6 @@ class PromptPrefixStabilityTest {
                 return Optional.of(output);
             }
 
-            @Override
-            public String modeLabel() {
-                return "stub";
-            }
         };
         return new SutContextProviderFactory(stub, stub, stub, stub);
     }
@@ -109,7 +104,7 @@ class PromptPrefixStabilityTest {
 
     private static PromptBuilder newBuilder(SutContextProviderFactory factory) {
         return new PromptBuilder(new SystemPromptProvider(), new TestClusterSummarizer(),
-                new SourceCodeProvider(), new CoverageGoalFormatter(), new TestCaseFormatter(), factory);
+                new CoverageGoalFormatter(), new TestCaseFormatter(), factory);
     }
 
     @Test
@@ -121,18 +116,18 @@ class PromptPrefixStabilityTest {
         PromptResult result1 = newBuilder(factory)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", cluster)
-                .withExistingTest(makeTestCase("first"))
+                .withExistingTests(Collections.singletonList(makeTestCase("first")))
                 .withInstruction("Cover branch A.")
                 .buildWithMetadata();
 
         PromptResult result2 = newBuilder(factory)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", cluster)
-                .withExistingTest(makeTestCase("second, totally different content"))
+                .withExistingTests(Collections.singletonList(makeTestCase("second, totally different content")))
                 .withInstruction("Cover a completely different branch B instead.")
                 .buildWithMetadata();
 
-        assertEquals(result1.getPrefixHash(), result2.getPrefixHash(),
+        assertEquals(PrefixHash.of(result1.getMessages()), PrefixHash.of(result2.getMessages()),
                 "Prefix hash must be stable across prompts that differ only in dynamic content");
         assertEquals(result1.getMessages().get(0).getContent(), result2.getMessages().get(0).getContent(),
                 "System message must be identical across prompts that differ only in dynamic content");
@@ -164,7 +159,7 @@ class PromptPrefixStabilityTest {
         assertFalse(systemMessage.contains("CLASS UNDER TEST (SUT): com.example.Foo"));
         assertTrue(userMessage.contains("CLASS UNDER TEST (SUT): com.example.Foo"));
         assertTrue(userMessage.contains(StaticPromptContext.DEPENDENCY_SECTION_HEADER));
-        assertEquals(PrefixHash.ofText(systemMessage), result.getPrefixHash());
+        assertEquals(PrefixHash.ofText(systemMessage), PrefixHash.of(result.getMessages()));
     }
 
     @Test
@@ -174,12 +169,12 @@ class PromptPrefixStabilityTest {
         TestCluster cluster = clusterWithDependency(GenericClassFactory.get(SignatureContextProvider.class));
         CountingSummarizer summarizer = new CountingSummarizer();
 
-        new PromptBuilder(new SystemPromptProvider(), summarizer, new SourceCodeProvider(),
+        new PromptBuilder(new SystemPromptProvider(), summarizer,
                 new CoverageGoalFormatter(), new TestCaseFormatter(), factory)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", cluster)
                 .build();
-        new PromptBuilder(new SystemPromptProvider(), summarizer, new SourceCodeProvider(),
+        new PromptBuilder(new SystemPromptProvider(), summarizer,
                 new CoverageGoalFormatter(), new TestCaseFormatter(), factory)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", cluster)
@@ -190,7 +185,7 @@ class PromptPrefixStabilityTest {
 
         StaticPromptContext.resetForRunCompletion();
 
-        new PromptBuilder(new SystemPromptProvider(), summarizer, new SourceCodeProvider(),
+        new PromptBuilder(new SystemPromptProvider(), summarizer,
                 new CoverageGoalFormatter(), new TestCaseFormatter(), factory)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", cluster)
@@ -212,7 +207,7 @@ class PromptPrefixStabilityTest {
                 .withSutContext("com.example.Foo", cluster)
                 .buildWithMetadata();
         String systemMessage1 = result1.getMessages().get(0).getContent();
-        String prefixHash1 = result1.getPrefixHash();
+        String prefixHash1 = PrefixHash.of(result1.getMessages());
         assertTrue(systemMessage1.contains(StaticPromptContext.DEPENDENCY_SECTION_HEADER));
 
         // Simulate cluster expansion (e.g. ClusterExpansionManager.tryExpandFrom)
@@ -232,7 +227,7 @@ class PromptPrefixStabilityTest {
 
         assertEquals(systemMessage1, systemMessage2,
                 "Memoised system message must not change when the cluster grows");
-        assertEquals(prefixHash1, result2.getPrefixHash(),
+        assertEquals(prefixHash1, PrefixHash.of(result2.getMessages()),
                 "Prefix hash must not change when the cluster grows");
         assertTrue(userMessage2.contains(ClusterGrowthDelta.HEADER),
                 "Growth-delta header should introduce the newly added dependency class");
@@ -259,7 +254,7 @@ class PromptPrefixStabilityTest {
                 .withSutContext("com.example.Foo", cluster)
                 .buildWithMetadata();
         String systemMessage1 = result1.getMessages().get(0).getContent();
-        String prefixHash1 = result1.getPrefixHash();
+        String prefixHash1 = PrefixHash.of(result1.getMessages());
         assertFalse(systemMessage1.contains(StaticPromptContext.DEPENDENCY_SECTION_HEADER),
                 "No dependency section should be cached when the cluster starts with nothing to summarize");
 
@@ -279,7 +274,7 @@ class PromptPrefixStabilityTest {
 
         assertEquals(systemMessage1, systemMessage2,
                 "Memoised (empty) system message must stay empty of dependency context");
-        assertEquals(prefixHash1, result2.getPrefixHash(),
+        assertEquals(prefixHash1, PrefixHash.of(result2.getMessages()),
                 "Prefix hash must not change when the cluster grows");
         assertTrue(userMessage2.contains(ClusterGrowthDelta.HEADER),
                 "Growth delta must appear even though the initial summary was empty: " + userMessage2);

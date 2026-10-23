@@ -110,33 +110,9 @@ public class FewShotExampleProvider {
     }
 
     /**
-     * Returns up to {@code maxExamples} example test cases for FEW_SHOT prompting,
-     * subject to character-budget constraints (count filtering only — individual
-     * examples are not truncated). Prefer {@link #getExampleSnippets} for prompt
-     * rendering, which returns already-truncated code strings.
-     *
-     * @param uncoveredGoals currently uncovered goals (may be null)
-     * @param archiveCandidates explicit archive/population candidates (may be null;
-     *                          if null the global archive is consulted)
-     * @return a list of example {@link TestCase}s, never null
-     */
-    public List<TestCase> getExamples(
-            Collection<TestFitnessFunction> uncoveredGoals,
-            Collection<TestChromosome> archiveCandidates) {
-        List<TestCase> examples = selectExamples(uncoveredGoals, archiveCandidates);
-
-        // Apply character-budget constraints (count filtering only)
-        examples = applyCharBudget(examples);
-
-        logger.debug("FewShotExampleProvider: returning {} examples "
-                + "(parsed={}, archive={})", examples.size(), useParsedJunit, useArchive);
-        return examples;
-    }
-
-    /**
      * Returns up to {@code maxExamples} example code snippets for FEW_SHOT
      * prompting, with per-example and total character budgets enforced on the
-     * actual rendered text. This is the recommended API for prompt construction.
+     * actual rendered text.
      *
      * @param uncoveredGoals currently uncovered goals (may be null)
      * @param archiveCandidates explicit archive/population candidates (may be null)
@@ -153,21 +129,10 @@ public class FewShotExampleProvider {
         return snippets;
     }
 
-    /** Convenience overload with no explicit archive candidates. */
-    public List<String> getExampleSnippets(
-            Collection<TestFitnessFunction> uncoveredGoals) {
-        return getExampleSnippets(uncoveredGoals, null);
-    }
-
-    /** Convenience overload with no goals or candidates. */
-    public List<String> getExampleSnippets() {
-        return getExampleSnippets(null, null);
-    }
-
     /**
      * Selects examples from parsed and archive sources, capped to maxExamples.
      */
-    private List<TestCase> selectExamples(
+    List<TestCase> selectExamples(
             Collection<TestFitnessFunction> uncoveredGoals,
             Collection<TestChromosome> archiveCandidates) {
         List<TestCase> examples = new ArrayList<>();
@@ -188,21 +153,6 @@ public class FewShotExampleProvider {
             examples = new ArrayList<>(examples.subList(0, maxExamples));
         }
         return examples;
-    }
-
-    /**
-     * Convenience overload with no explicit archive candidates.
-     */
-    public List<TestCase> getExamples(
-            Collection<TestFitnessFunction> uncoveredGoals) {
-        return getExamples(uncoveredGoals, null);
-    }
-
-    /**
-     * Convenience overload with no goals or candidates.
-     */
-    public List<TestCase> getExamples() {
-        return getExamples(null, null);
     }
 
     private void addParsedExamples(List<TestCase> examples) {
@@ -383,44 +333,6 @@ public class FewShotExampleProvider {
         return result;
     }
 
-    /**
-     * Applies per-example and total character budget constraints (count
-     * filtering only — returned TestCases are not truncated).
-     */
-    List<TestCase> applyCharBudget(List<TestCase> examples) {
-        if (maxCharsTotal <= 0 && maxCharsPerExample <= 0) {
-            return examples;
-        }
-
-        List<TestCase> result = new ArrayList<>();
-        int totalChars = 0;
-
-        for (TestCase tc : examples) {
-            String code;
-            try {
-                code = tc.toCode();
-            } catch (Exception e) {
-                code = "";
-            }
-
-            // Per-example cap: truncate if needed
-            if (maxCharsPerExample > 0 && code.length() > maxCharsPerExample) {
-                code = code.substring(0, maxCharsPerExample);
-            }
-
-            // Total budget check
-            if (maxCharsTotal > 0 && totalChars + code.length() > maxCharsTotal
-                    && !result.isEmpty()) {
-                break;
-            }
-
-            totalChars += code.length();
-            result.add(tc);
-        }
-
-        return result;
-    }
-
     static String stableKey(TestCase tc) {
         if (tc == null) {
             return "";
@@ -436,7 +348,7 @@ public class FewShotExampleProvider {
      * Convenience method for call sites: collects FEW_SHOT example snippets
      * (already truncated per char budgets) only when the technique is
      * {@link Properties.LlmPromptTechnique#FEW_SHOT}. Returns an empty list
-     * otherwise. This is the recommended API for prompt construction.
+     * otherwise.
      *
      * @param uncoveredGoals currently uncovered goals (may be null)
      * @param archiveCandidates explicit candidates (may be null)
@@ -458,38 +370,5 @@ public class FewShotExampleProvider {
         }
         return new FewShotExampleProvider(parsedTests)
                 .getExampleSnippets(uncoveredGoals, archiveCandidates);
-    }
-
-    /**
-     * Convenience method for call sites: collects FEW_SHOT examples only when the
-     * technique is {@link Properties.LlmPromptTechnique#FEW_SHOT}. Returns an
-     * empty list otherwise.
-     *
-     * <p>Automatically obtains parsed examples from
-     * {@link ParsedFewShotExampleSource} when {@code llm_few_shot_use_parsed_junit}
-     * is enabled.
-     *
-     * @param uncoveredGoals currently uncovered goals (may be null)
-     * @param archiveCandidates explicit candidates (may be null)
-     * @return example tests, never null
-     * @deprecated Use {@link #collectSnippetsIfFewShot} for prompt rendering.
-     */
-    @Deprecated
-    public static List<TestCase> collectIfFewShot(
-            Collection<TestFitnessFunction> uncoveredGoals,
-            Collection<TestChromosome> archiveCandidates) {
-        if (Properties.LLM_PROMPT_TECHNIQUE != Properties.LlmPromptTechnique.FEW_SHOT) {
-            return Collections.emptyList();
-        }
-        List<TestCase> parsedTests = Collections.emptyList();
-        if (Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT) {
-            try {
-                parsedTests = ParsedFewShotExampleSource.getInstance().getParsedTests();
-            } catch (Exception e) {
-                logger.debug("Could not load parsed tests for FEW_SHOT", e);
-            }
-        }
-        return new FewShotExampleProvider(parsedTests)
-                .getExamples(uncoveredGoals, archiveCandidates);
     }
 }

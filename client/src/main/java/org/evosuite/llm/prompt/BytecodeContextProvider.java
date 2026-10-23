@@ -68,11 +68,6 @@ public class BytecodeContextProvider implements SutContextProvider {
         }
     }
 
-    @Override
-    public String modeLabel() {
-        return "Disassembled bytecode";
-    }
-
     ClassLoader getClassLoader() {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         return cl != null ? cl : getClass().getClassLoader();

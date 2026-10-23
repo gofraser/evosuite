@@ -78,12 +78,6 @@ class DecompiledContextProviderTest {
     }
 
     @Test
-    void modeLabelIsCorrect() {
-        DecompiledContextProvider provider = new DecompiledContextProvider();
-        assertEquals("Decompiled source", provider.modeLabel());
-    }
-
-    @Test
     void timedOutInterruptIgnoringTaskDoesNotPoisonNextDecompilation() {
         Properties.LLM_DECOMPILER_TIMEOUT_SECONDS = 1;
         AtomicBoolean releaseBlockedTask = new AtomicBoolean();

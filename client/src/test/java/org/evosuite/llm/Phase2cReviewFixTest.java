@@ -27,7 +27,6 @@ import org.evosuite.llm.prompt.SutContextProvider;
 import org.evosuite.llm.prompt.SutContextProviderFactory;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
-import org.evosuite.llm.prompt.SourceCodeProvider;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.TestCaseFormatter;
 import org.evosuite.setup.TestCluster;
@@ -164,7 +163,6 @@ class Phase2cReviewFixTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
@@ -212,7 +210,6 @@ class Phase2cReviewFixTest {
             PromptResult promptResult = new PromptBuilder(
                     new SystemPromptProvider(),
                     new TestClusterSummarizer(),
-                    new SourceCodeProvider(),
                     new CoverageGoalFormatter(),
                     new TestCaseFormatter(),
                     factory)
@@ -360,8 +357,6 @@ class Phase2cReviewFixTest {
         public Optional<String> getContext(String className, TestCluster cluster) {
             return Optional.of(output);
         }
-        @Override
-        public String modeLabel() { return "stub"; }
     }
 
     private static class FailingProvider implements SutContextProvider {
@@ -369,8 +364,6 @@ class Phase2cReviewFixTest {
         public Optional<String> getContext(String className, TestCluster cluster) {
             return Optional.empty();
         }
-        @Override
-        public String modeLabel() { return "failing"; }
     }
 
     private static class CountingProvider implements SutContextProvider {
@@ -382,7 +375,5 @@ class Phase2cReviewFixTest {
             callCount++;
             return Optional.of(output);
         }
-        @Override
-        public String modeLabel() { return "counting"; }
     }
 }

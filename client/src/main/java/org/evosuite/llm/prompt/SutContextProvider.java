@@ -37,9 +37,4 @@ public interface SutContextProvider {
      * @return context text, or empty if extraction fails
      */
     Optional<String> getContext(String className, TestCluster cluster);
-
-    /**
-     * Human-readable label for the context mode (used in prompt formatting).
-     */
-    String modeLabel();
 }

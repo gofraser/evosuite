@@ -41,7 +41,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -69,30 +68,6 @@ public class TestClusterSummarizer {
         EXCLUDED_TYPES.add("java.lang.Double");
         EXCLUDED_TYPES.add("java.lang.Void");
         EXCLUDED_TYPES.add("java.lang.Number");
-    }
-
-    /** Summarizes available classes and generators from the given cluster. */
-    public String summarize(TestCluster cluster) {
-        if (cluster == null) {
-            return "No test cluster available.";
-        }
-
-        Set<Class<?>> classes = collectAvailableClasses(cluster);
-        StringBuilder builder = new StringBuilder();
-        builder.append("Available classes:").append(System.lineSeparator());
-        int shown = 0;
-        for (Class<?> clazz : classes) {
-            builder.append("- ").append(clazz.getName()).append(System.lineSeparator());
-            shown++;
-            if (shown >= 20) {
-                builder.append("- ... (truncated)").append(System.lineSeparator());
-                break;
-            }
-        }
-        if (shown == 0) {
-            builder.append("- (none discovered)").append(System.lineSeparator());
-        }
-        return builder.toString();
     }
 
     /**
@@ -1224,46 +1199,6 @@ public class TestClusterSummarizer {
             return "";
         }
         return " throws " + genericParameterList(exceptionTypes);
-    }
-
-    private Set<Class<?>> collectAvailableClasses(TestCluster cluster) {
-        Set<Class<?>> classes = new LinkedHashSet<>();
-        try {
-            classes.addAll(cluster.getAnalyzedClasses());
-        } catch (Exception e) {
-            logger.debug("Failed to collect analyzed classes from test cluster", e);
-        }
-        addFromCalls(classes, cluster.getGenerators());
-        addFromCalls(classes, cluster.getModifiers());
-        addFromCalls(classes, cluster.getTestCalls());
-        return classes;
-    }
-
-    private void addFromCalls(Set<Class<?>> classes, Collection<GenericAccessibleObject<?>> calls) {
-        if (calls == null) {
-            return;
-        }
-        for (GenericAccessibleObject<?> call : calls) {
-            if (call == null) {
-                continue;
-            }
-            try {
-                GenericClass<?> owner = call.getOwnerClass();
-                if (owner != null && owner.getRawClass() != null) {
-                    classes.add(owner.getRawClass());
-                }
-            } catch (Exception e) {
-                logger.debug("Failed to collect owner class from cluster call {}", call, e);
-            }
-            try {
-                GenericClass<?> generated = call.getGeneratedClass();
-                if (generated != null && generated.getRawClass() != null) {
-                    classes.add(generated.getRawClass());
-                }
-            } catch (Exception e) {
-                logger.debug("Failed to collect generated class from cluster call {}", call, e);
-            }
-        }
     }
 
     /** Returns true if the class name belongs to a JDK package (java.* or javax.*) or is a primitive array. */

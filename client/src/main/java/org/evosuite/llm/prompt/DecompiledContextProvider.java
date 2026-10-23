@@ -97,11 +97,6 @@ public class DecompiledContextProvider implements SutContextProvider {
         WORKER.reset();
     }
 
-    @Override
-    public String modeLabel() {
-        return "Decompiled source";
-    }
-
     /**
      * Reads the (original) class bytes for {@code className}, or {@code null} if unavailable.
      */

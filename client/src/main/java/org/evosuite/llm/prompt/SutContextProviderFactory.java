@@ -272,18 +272,6 @@ public class SutContextProviderFactory {
             this(text, modeUsed, contextUnavailable, false, false, false);
         }
 
-        /** Constructs a context result with text, mode, availability, and truncation flags. */
-        public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable,
-                             boolean contextTruncated) {
-            this(text, modeUsed, contextUnavailable, contextTruncated, false, false);
-        }
-
-        /** Constructs a context result with text, mode, availability, truncation, and comment-stripping flags. */
-        public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable,
-                             boolean contextTruncated, boolean commentsStripped) {
-            this(text, modeUsed, contextUnavailable, contextTruncated, commentsStripped, false);
-        }
-
         /** Constructs a context result with all metadata flags including selective truncation. */
         public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable,
                              boolean contextTruncated, boolean commentsStripped, boolean selectivelyTruncated) {

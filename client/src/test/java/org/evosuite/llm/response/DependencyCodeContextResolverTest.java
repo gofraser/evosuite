@@ -27,7 +27,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DependencyCodeContextResolverTest {
@@ -186,10 +185,6 @@ class DependencyCodeContextResolverTest {
                 return Optional.of(text);
             }
 
-            @Override
-            public String modeLabel() {
-                return "fixed";
-            }
         };
     }
 
@@ -200,10 +195,6 @@ class DependencyCodeContextResolverTest {
                 return Optional.empty();
             }
 
-            @Override
-            public String modeLabel() {
-                return "never";
-            }
         };
     }
 
@@ -221,9 +212,5 @@ class DependencyCodeContextResolverTest {
             return Optional.of(payload);
         }
 
-        @Override
-        public String modeLabel() {
-            return "counting";
-        }
     }
 }

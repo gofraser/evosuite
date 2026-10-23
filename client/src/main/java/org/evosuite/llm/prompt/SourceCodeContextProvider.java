@@ -42,9 +42,4 @@ public class SourceCodeContextProvider implements SutContextProvider {
     public Optional<String> getContext(String className, TestCluster cluster) {
         return sourceCodeProvider.getSourceCode(className);
     }
-
-    @Override
-    public String modeLabel() {
-        return "Source code";
-    }
 }

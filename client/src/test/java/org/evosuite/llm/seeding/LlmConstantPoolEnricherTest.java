@@ -92,7 +92,7 @@ class LlmConstantPoolEnricherTest {
     @Test
     void parseConstants_extractsStrings() {
         String response = "\"hello world\"\n\"edge \\\"case\\\"\"\n\"\"";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         assertTrue(constants.stream().anyMatch(c -> "hello world".equals(c)));
         assertTrue(constants.stream().anyMatch(c -> "".equals(c)));
         assertTrue(constants.stream().anyMatch(c -> "edge \"case\"".equals(c)));
@@ -101,7 +101,7 @@ class LlmConstantPoolEnricherTest {
     @Test
     void parseConstants_extractsIntegers() {
         String response = "0\n-1\n42\n2147483647\n-2147483648\n";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         assertTrue(constants.contains(0));
         assertTrue(constants.contains(-1));
         assertTrue(constants.contains(42));
@@ -112,7 +112,7 @@ class LlmConstantPoolEnricherTest {
     @Test
     void parseConstants_extractsLongs() {
         String response = "0L\n-1L\n9223372036854775807L\n";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         assertTrue(constants.contains(0L));
         assertTrue(constants.contains(-1L));
         assertTrue(constants.contains(Long.MAX_VALUE));
@@ -123,7 +123,7 @@ class LlmConstantPoolEnricherTest {
         // Integer-shaped literal (no L suffix) that doesn't fit in int range
         // should be kept as Long rather than silently dropped.
         String response = "2147483648\n-2147483649\n9999999999\n";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         assertTrue(constants.contains(2147483648L));
         assertTrue(constants.contains(-2147483649L));
         assertTrue(constants.contains(9999999999L));
@@ -132,7 +132,7 @@ class LlmConstantPoolEnricherTest {
     @Test
     void parseConstants_extractsDoubles() {
         String response = "3.14\n0.0\n-1.5\n1.0e10\n";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         assertTrue(constants.contains(3.14));
         assertTrue(constants.contains(0.0));
         assertTrue(constants.contains(-1.5));
@@ -141,7 +141,7 @@ class LlmConstantPoolEnricherTest {
     @Test
     void parseConstants_extractsFloats() {
         String response = "3.14f\n0.0f\n-1.5f\n";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         assertTrue(constants.contains(3.14f));
         assertTrue(constants.contains(0.0f));
         assertTrue(constants.contains(-1.5f));
@@ -150,7 +150,7 @@ class LlmConstantPoolEnricherTest {
     @Test
     void parseConstants_extractsSpecialDoubles() {
         String response = "Double.NaN\nDouble.POSITIVE_INFINITY\nDouble.NEGATIVE_INFINITY\n";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         assertTrue(constants.stream().anyMatch(c -> c instanceof Double && Double.isNaN((Double) c)));
         assertTrue(constants.contains(Double.POSITIVE_INFINITY));
         assertTrue(constants.contains(Double.NEGATIVE_INFINITY));
@@ -159,21 +159,21 @@ class LlmConstantPoolEnricherTest {
     @Test
     void parseConstants_negativeInfinityDoesNotAddPositiveInfinity() {
         String response = "-Infinity\n";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         assertTrue(constants.contains(Double.NEGATIVE_INFINITY));
         assertFalse(constants.contains(Double.POSITIVE_INFINITY));
     }
 
     @Test
     void parseConstants_handlesEmptyResponse() {
-        assertTrue(LlmConstantPoolEnricher.parseConstants("").isEmpty());
-        assertTrue(LlmConstantPoolEnricher.parseConstants(null).isEmpty());
+        assertTrue(ConstantResponseParser.parseConstants("").isEmpty());
+        assertTrue(ConstantResponseParser.parseConstants(null).isEmpty());
     }
 
     @Test
     void parseConstants_handlesMalformedInput() {
         String response = "not a number\nfoo\nbar\n";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         // Should not throw, may extract partial results
         assertNotNull(constants);
     }
@@ -182,7 +182,7 @@ class LlmConstantPoolEnricherTest {
     void parseConstants_mixedTypes() {
         String response =
                 "\"test string\"\n42\n3.14\n100L\n0.5f\n\"another\"\n-7\n";
-        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        List<Object> constants = ConstantResponseParser.parseConstants(response);
         assertTrue(constants.stream().anyMatch(c -> "test string".equals(c)));
         assertTrue(constants.stream().anyMatch(c -> "another".equals(c)));
         assertTrue(constants.contains(42));
@@ -196,11 +196,11 @@ class LlmConstantPoolEnricherTest {
 
     @Test
     void unescapeJavaString_handlesEscapes() {
-        assertEquals("hello\nworld", LlmConstantPoolEnricher.unescapeJavaString("hello\\nworld"));
-        assertEquals("tab\there", LlmConstantPoolEnricher.unescapeJavaString("tab\\there"));
-        assertEquals("quote\"s", LlmConstantPoolEnricher.unescapeJavaString("quote\\\"s"));
-        assertEquals("back\\slash", LlmConstantPoolEnricher.unescapeJavaString("back\\\\slash"));
-        assertEquals("", LlmConstantPoolEnricher.unescapeJavaString(null));
+        assertEquals("hello\nworld", ConstantResponseParser.unescapeJavaString("hello\\nworld"));
+        assertEquals("tab\there", ConstantResponseParser.unescapeJavaString("tab\\there"));
+        assertEquals("quote\"s", ConstantResponseParser.unescapeJavaString("quote\\\"s"));
+        assertEquals("back\\slash", ConstantResponseParser.unescapeJavaString("back\\\\slash"));
+        assertEquals("", ConstantResponseParser.unescapeJavaString(null));
     }
 
     // ---- Async/failure behavior tests ----

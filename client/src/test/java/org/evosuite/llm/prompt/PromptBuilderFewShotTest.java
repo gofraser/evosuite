@@ -32,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -59,6 +58,17 @@ class PromptBuilderFewShotTest {
         Properties.LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST = originalExistingTestsMaxPerTest;
     }
 
+    private static List<String> snippetsOf(List<TestCase> tests) {
+        if (tests == null) {
+            return null;
+        }
+        List<String> snippets = new java.util.ArrayList<>();
+        for (TestCase test : tests) {
+            snippets.add(test.toCode());
+        }
+        return snippets;
+    }
+
     private static TestCase makeTestCase(String marker) {
         DefaultTestCase tc = new DefaultTestCase();
         tc.addStatement(new StringPrimitiveStatement(tc, marker));
@@ -66,13 +76,13 @@ class PromptBuilderFewShotTest {
     }
 
     @Test
-    void fewShotInjectsExamplesViaWithExistingTests() {
+    void fewShotInjectsExamplesViaWithExistingTestSnippets() {
         List<TestCase> examples = Arrays.asList(
                 makeTestCase("example1"), makeTestCase("example2"));
 
         List<LlmMessage> messages = new PromptBuilder()
                 .withSystemPrompt()
-                .withFewShotExamples(examples)
+                .withFewShotSnippets(snippetsOf(examples))
                 .withPromptTechnique(LlmPromptTechnique.FEW_SHOT)
                 .withInstruction("Generate tests.")
                 .build();
@@ -90,7 +100,7 @@ class PromptBuilderFewShotTest {
     void fewShotWithNoExamplesDoesNotCrash() {
         List<LlmMessage> messages = new PromptBuilder()
                 .withSystemPrompt()
-                .withFewShotExamples(Collections.emptyList())
+                .withFewShotSnippets(snippetsOf(Collections.emptyList()))
                 .withPromptTechnique(LlmPromptTechnique.FEW_SHOT)
                 .withInstruction("Generate tests.")
                 .build();
@@ -105,7 +115,7 @@ class PromptBuilderFewShotTest {
     void fewShotWithNullExamplesDoesNotCrash() {
         List<LlmMessage> messages = new PromptBuilder()
                 .withSystemPrompt()
-                .withFewShotExamples(null)
+                .withFewShotSnippets(snippetsOf(null))
                 .withPromptTechnique(LlmPromptTechnique.FEW_SHOT)
                 .withInstruction("Generate tests.")
                 .build();
@@ -119,7 +129,7 @@ class PromptBuilderFewShotTest {
     void fewShotDoesNotAppendStyleHintToSystemPrompt() {
         List<LlmMessage> messages = new PromptBuilder()
                 .withSystemPrompt()
-                .withFewShotExamples(Collections.singletonList(makeTestCase("x")))
+                .withFewShotSnippets(snippetsOf(Collections.singletonList(makeTestCase("x"))))
                 .withPromptTechnique(LlmPromptTechnique.FEW_SHOT)
                 .withInstruction("Generate tests.")
                 .build();
@@ -133,7 +143,7 @@ class PromptBuilderFewShotTest {
     void noneDoesNotInjectAnything() {
         List<LlmMessage> messages = new PromptBuilder()
                 .withSystemPrompt()
-                .withFewShotExamples(Collections.singletonList(makeTestCase("x")))
+                .withFewShotSnippets(snippetsOf(Collections.singletonList(makeTestCase("x"))))
                 .withPromptTechnique(LlmPromptTechnique.NONE)
                 .withInstruction("Generate tests.")
                 .build();
@@ -160,7 +170,7 @@ class PromptBuilderFewShotTest {
     void chainOfThoughtUnchangedByFewShotExamples() {
         List<LlmMessage> messages = new PromptBuilder()
                 .withSystemPrompt()
-                .withFewShotExamples(Collections.singletonList(makeTestCase("x")))
+                .withFewShotSnippets(snippetsOf(Collections.singletonList(makeTestCase("x"))))
                 .withPromptTechnique(LlmPromptTechnique.CHAIN_OF_THOUGHT)
                 .withInstruction("Generate tests.")
                 .build();
@@ -205,7 +215,7 @@ class PromptBuilderFewShotTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 Collections.singletonList(tc), true, false, 3,
                 Properties.LlmFewShotArchiveStrategy.GOAL_OVERLAP, 0, perExampleCap);
-        List<String> snippets = provider.getExampleSnippets();
+        List<String> snippets = provider.getExampleSnippets(null, null);
 
         List<LlmMessage> messages = new PromptBuilder()
                 .withSystemPrompt()
@@ -236,7 +246,7 @@ class PromptBuilderFewShotTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 Arrays.asList(tc1, tc2, tc3), true, false, 10,
                 Properties.LlmFewShotArchiveStrategy.GOAL_OVERLAP, singleLen, 0);
-        List<String> snippets = provider.getExampleSnippets();
+        List<String> snippets = provider.getExampleSnippets(null, null);
 
         List<LlmMessage> messages = new PromptBuilder()
                 .withSystemPrompt()
@@ -265,7 +275,7 @@ class PromptBuilderFewShotTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 Collections.singletonList(tc), true, false, 3,
                 Properties.LlmFewShotArchiveStrategy.GOAL_OVERLAP, 10, 0);
-        List<String> snippets = provider.getExampleSnippets();
+        List<String> snippets = provider.getExampleSnippets(null, null);
 
         assertEquals(1, snippets.size(),
                 "First example should be included even if exceeding total cap");
@@ -280,24 +290,6 @@ class PromptBuilderFewShotTest {
         String userPrompt = messages.get(1).getContent();
         assertTrue(userPrompt.contains("Existing tests:"),
                 "Even oversized first example should produce content");
-    }
-
-    @Test
-    void fewShotSnippetsPreferredOverTestCases() {
-        // When both snippets and TestCases are set, snippets win
-        List<String> snippets = Collections.singletonList("// snippet wins");
-        List<TestCase> testCases = Collections.singletonList(makeTestCase("testcase_loses"));
-
-        List<LlmMessage> messages = new PromptBuilder()
-                .withSystemPrompt()
-                .withFewShotExamples(testCases)
-                .withFewShotSnippets(snippets)
-                .withPromptTechnique(LlmPromptTechnique.FEW_SHOT)
-                .withInstruction("Generate tests.")
-                .build();
-
-        String userPrompt = messages.get(1).getContent();
-        assertTrue(userPrompt.contains("snippet wins"));
     }
 
     @Test

@@ -74,7 +74,7 @@ class PromptBuilderSutContextTest {
         // system message instead. Individual tests that exercise the cache
         // opt back in explicitly.
         Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = false;
-        StaticPromptContext.resetInstanceForTesting();
+        StaticPromptContext.resetForRunCompletion();
         SutContextProviderFactory.resetInstanceForTesting();
     }
 
@@ -91,7 +91,7 @@ class PromptBuilderSutContextTest {
         Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = originalClusterAbsoluteOverride;
         Properties.TARGET_CLASS = originalTargetClass;
         Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = originalPromptCacheStaticContext;
-        StaticPromptContext.resetInstanceForTesting();
+        StaticPromptContext.resetForRunCompletion();
         SutContextProviderFactory.resetInstanceForTesting();
     }
 
@@ -107,7 +107,6 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
@@ -168,7 +167,6 @@ class PromptBuilderSutContextTest {
         return new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
@@ -187,7 +185,6 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
@@ -219,15 +216,14 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
 
-        builder.withSutContext("com.example.Foo", null);
+        PromptResult result = builder.withSutContext("com.example.Foo", null).buildWithMetadata();
 
-        assertEquals(LlmSutContextMode.SOURCE_CODE, builder.getSutContextModeUsed());
-        assertTrue(builder.isSutContextUnavailable());
+        assertEquals(LlmSutContextMode.SOURCE_CODE, result.getSutContextMode());
+        assertTrue(result.isContextUnavailable());
     }
 
     @Test
@@ -243,15 +239,14 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
 
-        builder.withSutContext("com.example.Foo", null);
+        PromptResult result = builder.withSutContext("com.example.Foo", null).buildWithMetadata();
 
-        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, builder.getSutContextModeUsed());
-        assertFalse(builder.isSutContextUnavailable());
+        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getSutContextMode());
+        assertFalse(result.isContextUnavailable());
     }
 
     @Test
@@ -266,7 +261,6 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
@@ -293,7 +287,6 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
@@ -326,7 +319,6 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
@@ -340,7 +332,7 @@ class PromptBuilderSutContextTest {
 
         List<LlmMessage> messages = builder
                 .withSutContext("com.example.Foo", cluster)
-                .withTestClusterContext("com.example.Foo", cluster)
+                .withSutContext("com.example.Foo", cluster)
                 .build();
 
         String userPrompt = messages.get(1).getContent();
@@ -366,7 +358,7 @@ class PromptBuilderSutContextTest {
 
         for (boolean cached : new boolean[] {false, true}) {
             Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = cached;
-            StaticPromptContext.resetInstanceForTesting();
+            StaticPromptContext.resetForRunCompletion();
             assertTrue(newBuilder(factory).withSutContext("com.example.Foo", cluster)
                     .buildWithMetadata().isDependencyContextIncluded(), "cached=" + cached);
             assertFalse(newBuilder(factory).withSutContext("com.example.Foo", cluster, true, false)
@@ -380,7 +372,6 @@ class PromptBuilderSutContextTest {
         return new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 factory);
@@ -400,7 +391,6 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 summarizer,
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 SutContextProviderFactory.getInstance());
@@ -409,7 +399,7 @@ class PromptBuilderSutContextTest {
         when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
         when(cluster.getGeneratorsByType()).thenReturn(java.util.Collections.emptyMap());
 
-        builder.withTestClusterContext("com.example.Foo", cluster).build();
+        builder.withSutContext("com.example.Foo", cluster).build();
 
         assertEquals(10_000, summarizer.lastMaxChars);
     }
@@ -428,7 +418,6 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 summarizer,
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 SutContextProviderFactory.getInstance());
@@ -437,7 +426,7 @@ class PromptBuilderSutContextTest {
         when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
         when(cluster.getGeneratorsByType()).thenReturn(java.util.Collections.emptyMap());
 
-        builder.withTestClusterContext("com.example.Foo", cluster).build();
+        builder.withSutContext("com.example.Foo", cluster).build();
 
         assertEquals(7_777, summarizer.lastMaxChars);
     }
@@ -454,7 +443,6 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 summarizer,
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 SutContextProviderFactory.getInstance());
@@ -463,7 +451,7 @@ class PromptBuilderSutContextTest {
         when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
         when(cluster.getGeneratorsByType()).thenReturn(java.util.Collections.emptyMap());
 
-        builder.withTestClusterContext("com.example.Foo", cluster).build();
+        builder.withSutContext("com.example.Foo", cluster).build();
 
         assertEquals(12_345, summarizer.lastMaxChars);
     }
@@ -477,8 +465,6 @@ class PromptBuilderSutContextTest {
         public Optional<String> getContext(String className, TestCluster cluster) {
             return Optional.of(output);
         }
-        @Override
-        public String modeLabel() { return "stub"; }
     }
 
     /** Fails on its first call only, like a decompiler timing out on a cold JVM. */
@@ -490,8 +476,6 @@ class PromptBuilderSutContextTest {
         public Optional<String> getContext(String className, TestCluster cluster) {
             return ++calls == 1 ? Optional.empty() : Optional.of(output);
         }
-        @Override
-        public String modeLabel() { return "flaky"; }
     }
 
     private static class FailingSutContextProvider implements SutContextProvider {
@@ -499,8 +483,6 @@ class PromptBuilderSutContextTest {
         public Optional<String> getContext(String className, TestCluster cluster) {
             return Optional.empty();
         }
-        @Override
-        public String modeLabel() { return "failing"; }
     }
 
     private static class RecordingSummarizer extends TestClusterSummarizer {

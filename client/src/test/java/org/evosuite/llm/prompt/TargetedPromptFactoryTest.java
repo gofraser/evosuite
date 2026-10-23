@@ -429,12 +429,8 @@ class TargetedPromptFactoryTest {
         PromptResult result2 = new TargetedPromptFactory().build(
                 Collections.singletonList(OperatorTarget.builder(parent2, g2).distance(0.9).build()));
 
-        if (result1.getPrefixHash() != null && result2.getPrefixHash() != null) {
-            assertEquals(result1.getPrefixHash(), result2.getPrefixHash(),
-                    "prefix hash must be stable since the system message is static");
-        } else {
-            assertEquals(systemText(result1), systemText(result2));
-        }
+        assertEquals(PrefixHash.of(result1.getMessages()), PrefixHash.of(result2.getMessages()),
+                "prefix hash must be stable since the system message is static");
     }
 
     // ---- argument validation ---------------------------------------------------------

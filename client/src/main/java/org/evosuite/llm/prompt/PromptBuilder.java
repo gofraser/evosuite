@@ -50,7 +50,6 @@ public class PromptBuilder {
 
     private final SystemPromptProvider systemPromptProvider;
     private final TestClusterSummarizer testClusterSummarizer;
-    private final SourceCodeProvider sourceCodeProvider;
     private final CoverageGoalFormatter coverageGoalFormatter;
     private final TestCaseFormatter testCaseFormatter;
     private final SutContextProviderFactory sutContextProviderFactory;
@@ -77,44 +76,30 @@ public class PromptBuilder {
     private String staticSutSectionText;
     private String staticDependencySectionText;
 
-    private List<TestCase> fewShotExamples;
     private List<String> fewShotSnippets;
 
     /** Creates a builder with default provider implementations. */
     public PromptBuilder() {
         this(new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new SourceCodeProvider(),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
                 SutContextProviderFactory.getInstance());
     }
 
     /**
-     * Creates a builder using the default {@link SutContextProviderFactory} singleton.
+     * Creates a builder with all providers and factory explicitly specified.
      *
      * <p><b>Note:</b> Each builder instance should be used for a single {@link #build()} or
      * {@link #buildWithMetadata()} call. Do not reuse builders across multiple prompts.
      */
     public PromptBuilder(SystemPromptProvider systemPromptProvider,
                          TestClusterSummarizer testClusterSummarizer,
-                         SourceCodeProvider sourceCodeProvider,
-                         CoverageGoalFormatter coverageGoalFormatter,
-                         TestCaseFormatter testCaseFormatter) {
-        this(systemPromptProvider, testClusterSummarizer, sourceCodeProvider,
-                coverageGoalFormatter, testCaseFormatter, SutContextProviderFactory.getInstance());
-    }
-
-    /** Creates a builder with all providers and factory explicitly specified. */
-    public PromptBuilder(SystemPromptProvider systemPromptProvider,
-                         TestClusterSummarizer testClusterSummarizer,
-                         SourceCodeProvider sourceCodeProvider,
                          CoverageGoalFormatter coverageGoalFormatter,
                          TestCaseFormatter testCaseFormatter,
                          SutContextProviderFactory sutContextProviderFactory) {
         this.systemPromptProvider = systemPromptProvider;
         this.testClusterSummarizer = testClusterSummarizer;
-        this.sourceCodeProvider = sourceCodeProvider;
         this.coverageGoalFormatter = coverageGoalFormatter;
         this.testCaseFormatter = testCaseFormatter;
         this.sutContextProviderFactory = sutContextProviderFactory;
@@ -143,7 +128,8 @@ public class PromptBuilder {
 
     /**
      * Add CUT context using the configured {@code LLM_SUT_CONTEXT_MODE}.
-     * Dependency context is added separately by {@link #withTestClusterContext(String, TestCluster)}.
+     * The dependency summary (constructors, enum constants) is added with it; the CUT itself is
+     * excluded from that summary because this section already covers it.
      */
     public PromptBuilder withSutContext(String className, TestCluster cluster) {
         return withSutContext(className, cluster, true, true);
@@ -217,15 +203,6 @@ public class PromptBuilder {
         return new StaticPromptContext.SutEntry(sectionText, reminders, result.getModeUsed(),
                 result.isContextUnavailable(), result.isContextTruncated(), result.isCommentsStripped(),
                 result.isSelectivelyTruncated(), stable);
-    }
-
-    /**
-     * Adds a compact dependency summary (constructors, enum constants) to the user prompt.
-     * The CUT itself is excluded since it's already covered by {@link #withSutContext}.
-     */
-    public PromptBuilder withTestClusterContext(String className, TestCluster cluster) {
-        addDependencyContext(className, cluster);
-        return this;
     }
 
     private void addDependencyContext(String className, TestCluster cluster) {
@@ -375,15 +352,6 @@ public class PromptBuilder {
         return this;
     }
 
-    /** Adds an existing test case to the user prompt as context. */
-    public PromptBuilder withExistingTest(TestCase test) {
-        String formatted = Properties.LLM_ANNOTATE_EXISTING_TESTS
-                ? testCaseFormatter.formatWithCoverage(test)
-                : testCaseFormatter.format(test);
-        userSections.add("Existing test:\n```java\n" + formatted + "\n```");
-        return this;
-    }
-
     /**
      * Adds multiple existing test cases to the user prompt as context,
      * enforcing per-test and total character budgets from
@@ -481,24 +449,9 @@ public class PromptBuilder {
     }
 
     /**
-     * Sets FEW_SHOT example tests to be injected when the prompt technique is
-     * {@link Properties.LlmPromptTechnique#FEW_SHOT}.
-     *
-     * @param examples concrete test examples (may be null or empty)
-     * @return this builder
-     * @deprecated Use {@link #withFewShotSnippets(List)} for char-budget enforcement.
-     */
-    @Deprecated
-    public PromptBuilder withFewShotExamples(List<TestCase> examples) {
-        this.fewShotExamples = examples;
-        return this;
-    }
-
-    /**
      * Sets FEW_SHOT example code snippets (already truncated per char budgets)
      * to be injected when the prompt technique is
-     * {@link Properties.LlmPromptTechnique#FEW_SHOT}. This is the recommended
-     * API — use with {@link FewShotExampleProvider#collectSnippetsIfFewShot}.
+     * {@link Properties.LlmPromptTechnique#FEW_SHOT}. Use with {@link FewShotExampleProvider#collectSnippetsIfFewShot}.
      *
      * @param snippets pre-rendered and budget-bounded code snippets (may be null or empty)
      * @return this builder
@@ -534,8 +487,6 @@ public class PromptBuilder {
         if (technique == Properties.LlmPromptTechnique.FEW_SHOT) {
             if (fewShotSnippets != null && !fewShotSnippets.isEmpty()) {
                 withExistingTestSnippets(fewShotSnippets);
-            } else if (fewShotExamples != null && !fewShotExamples.isEmpty()) {
-                withExistingTests(fewShotExamples);
             }
         }
         return this;
@@ -582,17 +533,5 @@ public class PromptBuilder {
                 .dependencySummaryMetadata(dependencySummaryMetadata)
                 .dependencyContextIncluded(dependencyCatalogueIncluded)
                 .build();
-    }
-
-    /**
-     * Returns the context mode used by the last {@link #withSutContext} call, or null if not called.
-     */
-    public Properties.LlmSutContextMode getSutContextModeUsed() {
-        return sutContextModeUsed;
-    }
-
-    /** Returns true if context was unavailable (strict mode, no fallback). */
-    public boolean isSutContextUnavailable() {
-        return sutContextUnavailable;
     }
 }

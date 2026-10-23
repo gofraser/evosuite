@@ -122,7 +122,7 @@ class FewShotExampleProviderTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 parsed, true, false, 3, LlmFewShotArchiveStrategy.GOAL_OVERLAP);
 
-        List<TestCase> examples = provider.getExamples();
+        List<TestCase> examples = provider.selectExamples(null, null);
 
         assertEquals(2, examples.size());
         assertEquals(parsed.get(0), examples.get(0));
@@ -135,7 +135,7 @@ class FewShotExampleProviderTest {
                 Arrays.asList(makeTestCase("x")),
                 false, false, 3, LlmFewShotArchiveStrategy.GOAL_OVERLAP);
 
-        List<TestCase> examples = provider.getExamples();
+        List<TestCase> examples = provider.selectExamples(null, null);
 
         assertTrue(examples.isEmpty());
     }
@@ -145,7 +145,7 @@ class FewShotExampleProviderTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 null, true, false, 3, LlmFewShotArchiveStrategy.GOAL_OVERLAP);
 
-        List<TestCase> examples = provider.getExamples();
+        List<TestCase> examples = provider.selectExamples(null, null);
 
         assertTrue(examples.isEmpty());
     }
@@ -159,7 +159,7 @@ class FewShotExampleProviderTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 parsed, true, false, 2, LlmFewShotArchiveStrategy.GOAL_OVERLAP);
 
-        List<TestCase> examples = provider.getExamples();
+        List<TestCase> examples = provider.selectExamples(null, null);
 
         assertEquals(2, examples.size());
     }
@@ -172,7 +172,7 @@ class FewShotExampleProviderTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 null, false, true, 3, LlmFewShotArchiveStrategy.COVERAGE_BREADTH);
 
-        List<TestCase> examples = provider.getExamples(null, Arrays.asList(c1, c2));
+        List<TestCase> examples = provider.selectExamples(null, Arrays.asList(c1, c2));
 
         assertEquals(2, examples.size());
     }
@@ -185,7 +185,7 @@ class FewShotExampleProviderTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 parsed, true, true, 3, LlmFewShotArchiveStrategy.COVERAGE_BREADTH);
 
-        List<TestCase> examples = provider.getExamples(null, Collections.singletonList(archiveTest));
+        List<TestCase> examples = provider.selectExamples(null, Collections.singletonList(archiveTest));
 
         assertEquals(2, examples.size());
     }
@@ -198,7 +198,7 @@ class FewShotExampleProviderTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 parsed, true, true, 2, LlmFewShotArchiveStrategy.COVERAGE_BREADTH);
 
-        List<TestCase> examples = provider.getExamples(null, Collections.singletonList(c1));
+        List<TestCase> examples = provider.selectExamples(null, Collections.singletonList(c1));
 
         assertEquals(2, examples.size());
         assertEquals(parsed.get(0), examples.get(0));
@@ -218,7 +218,7 @@ class FewShotExampleProviderTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 null, false, true, 3, LlmFewShotArchiveStrategy.COVERAGE_BREADTH);
 
-        List<TestCase> examples = provider.getExamples(null, Arrays.asList(few, many));
+        List<TestCase> examples = provider.selectExamples(null, Arrays.asList(few, many));
 
         assertEquals(2, examples.size());
         // Many goals first
@@ -234,25 +234,13 @@ class FewShotExampleProviderTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 parsed, true, false, 2, LlmFewShotArchiveStrategy.GOAL_OVERLAP);
 
-        List<TestCase> run1 = provider.getExamples();
-        List<TestCase> run2 = provider.getExamples();
+        List<TestCase> run1 = provider.selectExamples(null, null);
+        List<TestCase> run2 = provider.selectExamples(null, null);
 
         assertEquals(run1.size(), run2.size());
         for (int i = 0; i < run1.size(); i++) {
             assertEquals(run1.get(i).toCode(), run2.get(i).toCode());
         }
-    }
-
-    @Test
-    void collectIfFewShotReturnsEmptyForNone() {
-        Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.NONE;
-        assertTrue(FewShotExampleProvider.collectIfFewShot(null, null).isEmpty());
-    }
-
-    @Test
-    void collectIfFewShotReturnsEmptyForChainOfThought() {
-        Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.CHAIN_OF_THOUGHT;
-        assertTrue(FewShotExampleProvider.collectIfFewShot(null, null).isEmpty());
     }
 
     // -- New tests for Fix B: GOAL_OVERLAP ranking quality --
@@ -272,7 +260,7 @@ class FewShotExampleProviderTest {
                 null, false, true, 3, LlmFewShotArchiveStrategy.GOAL_OVERLAP);
 
         Set<TestFitnessFunction> uncovered = new LinkedHashSet<>(Arrays.asList(uncoveredA, uncoveredB));
-        List<TestCase> examples = provider.getExamples(uncovered, Arrays.asList(c1, c2));
+        List<TestCase> examples = provider.selectExamples(uncovered, Arrays.asList(c1, c2));
 
         assertEquals(2, examples.size());
         // c2 should rank first (2 overlaps vs 1)
@@ -293,8 +281,8 @@ class FewShotExampleProviderTest {
 
         Set<TestFitnessFunction> uncovered = Collections.singleton(uncoveredA);
 
-        List<TestCase> run1 = provider.getExamples(uncovered, Arrays.asList(c1, c2));
-        List<TestCase> run2 = provider.getExamples(uncovered, Arrays.asList(c2, c1));
+        List<TestCase> run1 = provider.selectExamples(uncovered, Arrays.asList(c1, c2));
+        List<TestCase> run2 = provider.selectExamples(uncovered, Arrays.asList(c2, c1));
 
         assertEquals(run1.get(0).toCode(), run2.get(0).toCode(),
                 "Tie-breaking must be deterministic regardless of input order");
@@ -312,7 +300,7 @@ class FewShotExampleProviderTest {
                 null, false, true, 3, LlmFewShotArchiveStrategy.GOAL_OVERLAP);
 
         // No uncovered goals → falls back to COVERAGE_BREADTH
-        List<TestCase> examples = provider.getExamples(null, Arrays.asList(small, big));
+        List<TestCase> examples = provider.selectExamples(null, Arrays.asList(small, big));
 
         assertEquals(2, examples.size());
         assertEquals(2, examples.get(0).getCoveredGoals().size(),
@@ -334,7 +322,7 @@ class FewShotExampleProviderTest {
                 parsed, true, false, 3, LlmFewShotArchiveStrategy.GOAL_OVERLAP,
                 0, 50);  // maxCharsPerExample = 50
 
-        List<TestCase> examples = provider.getExamples();
+        List<TestCase> examples = provider.selectExamples(null, null);
 
         // The example should still be returned (truncation happens at prompt level)
         assertEquals(1, examples.size());
@@ -352,7 +340,7 @@ class FewShotExampleProviderTest {
                 parsed, true, false, 10, LlmFewShotArchiveStrategy.GOAL_OVERLAP,
                 40, 0);  // very tight total budget
 
-        List<TestCase> examples = provider.getExamples();
+        List<String> examples = provider.getExampleSnippets(null, null);
 
         assertTrue(examples.size() < 3,
                 "Total char budget should cap number of examples");
@@ -369,7 +357,7 @@ class FewShotExampleProviderTest {
                 parsed, true, false, 10, LlmFewShotArchiveStrategy.GOAL_OVERLAP,
                 0, 0);  // 0 = unlimited
 
-        List<TestCase> examples = provider.getExamples();
+        List<TestCase> examples = provider.selectExamples(null, null);
 
         assertEquals(3, examples.size());
     }
@@ -388,7 +376,7 @@ class FewShotExampleProviderTest {
                 true, false, 10, LlmFewShotArchiveStrategy.GOAL_OVERLAP,
                 len1, 0);
 
-        List<TestCase> examples = provider.getExamples();
+        List<String> examples = provider.getExampleSnippets(null, null);
 
         assertEquals(1, examples.size(),
                 "Budget of exactly one example's length should yield exactly one example");
@@ -397,7 +385,7 @@ class FewShotExampleProviderTest {
     // -- New tests for Fix A: ParsedFewShotExampleSource wiring --
 
     @Test
-    void collectIfFewShotUsesParsedSource() {
+    void collectSnippetsIfFewShotUsesParsedSource() {
         Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.FEW_SHOT;
         Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = true;
         Properties.LLM_FEW_SHOT_USE_ARCHIVE = false;
@@ -407,15 +395,15 @@ class FewShotExampleProviderTest {
         ParsedFewShotExampleSource.setInstance(
                 ParsedFewShotExampleSource.ofTests(Collections.singletonList(parsed)));
 
-        List<TestCase> result = FewShotExampleProvider.collectIfFewShot(null, null);
+        List<String> result = FewShotExampleProvider.collectSnippetsIfFewShot(null, null);
 
         assertEquals(1, result.size());
-        assertEquals(parsed.toCode(), result.get(0).toCode(),
-                "collectIfFewShot should use ParsedFewShotExampleSource");
+        assertEquals(parsed.toCode(), result.get(0),
+                "collectSnippetsIfFewShot should use ParsedFewShotExampleSource");
     }
 
     @Test
-    void collectIfFewShotSkipsParsedWhenDisabled() {
+    void collectSnippetsIfFewShotSkipsParsedWhenDisabled() {
         Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.FEW_SHOT;
         Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = false;
         Properties.LLM_FEW_SHOT_USE_ARCHIVE = false;
@@ -424,14 +412,14 @@ class FewShotExampleProviderTest {
         ParsedFewShotExampleSource.setInstance(
                 ParsedFewShotExampleSource.ofTests(Collections.singletonList(parsed)));
 
-        List<TestCase> result = FewShotExampleProvider.collectIfFewShot(null, null);
+        List<String> result = FewShotExampleProvider.collectSnippetsIfFewShot(null, null);
 
         assertTrue(result.isEmpty(),
                 "Parsed examples should not be used when llm_few_shot_use_parsed_junit=false");
     }
 
     @Test
-    void collectIfFewShotGracefulWhenNoParsedTests() {
+    void collectSnippetsIfFewShotGracefulWhenNoParsedTests() {
         Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.FEW_SHOT;
         Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = true;
         Properties.LLM_FEW_SHOT_USE_ARCHIVE = false;
@@ -440,7 +428,7 @@ class FewShotExampleProviderTest {
         ParsedFewShotExampleSource.setInstance(
                 ParsedFewShotExampleSource.ofTests(Collections.emptyList()));
 
-        List<TestCase> result = FewShotExampleProvider.collectIfFewShot(null, null);
+        List<String> result = FewShotExampleProvider.collectSnippetsIfFewShot(null, null);
 
         assertTrue(result.isEmpty(),
                 "Should gracefully return empty when no parsed tests available");
@@ -462,7 +450,7 @@ class FewShotExampleProviderTest {
         FewShotExampleProvider provider = new FewShotExampleProvider(
                 null, false, true, 3, LlmFewShotArchiveStrategy.COVERAGE_BREADTH);
 
-        List<TestCase> examples = provider.getExamples(null, Arrays.asList(small, big));
+        List<TestCase> examples = provider.selectExamples(null, Arrays.asList(small, big));
 
         assertEquals(2, examples.size());
         assertEquals(3, examples.get(0).size());
@@ -491,7 +479,7 @@ class FewShotExampleProviderTest {
         Set<TestFitnessFunction> uncovered = Collections.singleton(uncoveredA);
 
         // Must not throw
-        List<TestCase> examples = provider.getExamples(uncovered,
+        List<TestCase> examples = provider.selectExamples(uncovered,
                 Arrays.asList(nullGoals, normalGoals));
 
         assertEquals(2, examples.size());
@@ -512,8 +500,8 @@ class FewShotExampleProviderTest {
 
         Set<TestFitnessFunction> uncovered = Collections.singleton(uncoveredA);
 
-        List<TestCase> run1 = provider.getExamples(uncovered, Arrays.asList(c1, c2));
-        List<TestCase> run2 = provider.getExamples(uncovered, Arrays.asList(c2, c1));
+        List<TestCase> run1 = provider.selectExamples(uncovered, Arrays.asList(c1, c2));
+        List<TestCase> run2 = provider.selectExamples(uncovered, Arrays.asList(c2, c1));
 
         assertEquals(run1.get(0).toCode(), run2.get(0).toCode(),
                 "Ranking must be deterministic with empty covered goals");
@@ -530,7 +518,7 @@ class FewShotExampleProviderTest {
                 parsed, true, false, 3, LlmFewShotArchiveStrategy.GOAL_OVERLAP,
                 0, 0);
 
-        List<String> snippets = provider.getExampleSnippets();
+        List<String> snippets = provider.getExampleSnippets(null, null);
 
         assertEquals(2, snippets.size());
         assertTrue(snippets.get(0).contains("snippet1"));
@@ -552,7 +540,7 @@ class FewShotExampleProviderTest {
                 Collections.singletonList(tc), true, false, 3,
                 LlmFewShotArchiveStrategy.GOAL_OVERLAP, 0, cap);
 
-        List<String> snippets = provider.getExampleSnippets();
+        List<String> snippets = provider.getExampleSnippets(null, null);
 
         assertEquals(1, snippets.size());
         // The truncated snippet body (before marker) must be <= cap
@@ -574,7 +562,7 @@ class FewShotExampleProviderTest {
                 Arrays.asList(tc1, tc2, tc3), true, false, 10,
                 LlmFewShotArchiveStrategy.GOAL_OVERLAP, singleLen, 0);
 
-        List<String> snippets = provider.getExampleSnippets();
+        List<String> snippets = provider.getExampleSnippets(null, null);
 
         assertEquals(1, snippets.size(),
                 "Total budget should cap at 1 snippet");
@@ -593,7 +581,7 @@ class FewShotExampleProviderTest {
                 Collections.singletonList(tc), true, false, 3,
                 LlmFewShotArchiveStrategy.GOAL_OVERLAP, 10, 0);
 
-        List<String> snippets = provider.getExampleSnippets();
+        List<String> snippets = provider.getExampleSnippets(null, null);
 
         // First example should still be included (graceful behavior)
         assertEquals(1, snippets.size(),
@@ -628,7 +616,7 @@ class FewShotExampleProviderTest {
                     Collections.singletonList(tc), true, false, 3,
                     LlmFewShotArchiveStrategy.GOAL_OVERLAP, 0, cap);
 
-            List<String> snippets = provider.getExampleSnippets();
+            List<String> snippets = provider.getExampleSnippets(null, null);
             assertEquals(1, snippets.size());
             assertTrue(snippets.get(0).length() <= cap,
                     "Snippet length " + snippets.get(0).length()
@@ -646,7 +634,7 @@ class FewShotExampleProviderTest {
                 Collections.singletonList(tc), true, false, 3,
                 LlmFewShotArchiveStrategy.GOAL_OVERLAP, 0, 1);
 
-        List<String> snippets = provider.getExampleSnippets();
+        List<String> snippets = provider.getExampleSnippets(null, null);
         assertEquals(1, snippets.size());
         assertEquals(1, snippets.get(0).length(),
                 "Snippet with cap=1 must be exactly 1 char");
@@ -664,7 +652,7 @@ class FewShotExampleProviderTest {
                 Collections.singletonList(tc), true, false, 3,
                 LlmFewShotArchiveStrategy.GOAL_OVERLAP, 0, cap);
 
-        List<String> snippets = provider.getExampleSnippets();
+        List<String> snippets = provider.getExampleSnippets(null, null);
         assertEquals(1, snippets.size());
         assertTrue(snippets.get(0).length() <= cap,
                 "Snippet length " + snippets.get(0).length() + " must be <= " + cap);
