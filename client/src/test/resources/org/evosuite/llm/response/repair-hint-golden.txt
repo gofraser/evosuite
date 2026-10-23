@@ -231,7 +231,7 @@ NPE precondition hint:
 - For failing tests only, ensure the object named 'elem' is initialized before invoking the SUT.
 - Detected null dereference: 'elem' was used in call 'org.w3c.dom.Element.getAttribute(String)'.
 - Initialize 'elem' with a non-null value compatible with org.w3c.dom.Element before invoking the SUT.
-- For DOM collaborators, build a minimal in-memory element (DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument().createElement("model")) instead of null.
+- For DOM collaborators, build a minimal in-memory element (DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument().createElement("element")) instead of null.
 - If this collaborator is required by the constructor, pass a concrete non-null argument during object construction (do not rely on later null-state assertions).
 - Prefer minimal straight-line setup with concrete objects over anonymous classes.
 - Do not call the target method with null for mandatory provider/session arguments.
@@ -680,7 +680,6 @@ Collaborator fallback hint:
 Context-specific repair facts:
 - Unresolved class 'Node' appears in a __llm_fallback declaration. Do not introduce short unresolved type aliases (e.g., 'Node __llm_fallback...'); use a resolvable fully-qualified type or Object.
 - Unresolved class 'Node' is being instantiated (`new Node(...)`). Do not invent helper/stub classes. Replace with an existing SUT/JDK type, or use Mockito.mock(ExpectedType.class, new ViolatedAssumptionAnswer()) for collaborator parameters.
-- For dom4j tests, unqualified cast type `Node` is unresolved here. Use `org.dom4j.Node` (or an already imported compatible type such as `org.dom4j.Element`) instead of bare `Node`.
 - Symbol 'Node' is not present in provided context; replace it with a context-listed SUT/JDK type.
 - Unresolved class 'Circle' appears in a __llm_fallback declaration. Do not introduce short unresolved type aliases (e.g., 'Circle __llm_fallback...'); use a resolvable fully-qualified type or Object.
 - Symbol 'Circle' exists in provided context; use its exact context form/package and avoid invented qualifiers.
@@ -722,7 +721,6 @@ Member-access repair hint:
 - Do not assert internal fields such as receiver.superclassField; assert externally visible behavior instead.
 - If no accessible API exposes the same state, drop that assertion rather than forcing illegal member access.
 - Also avoid non-public cross-package types in imports/declarations/constructors; use only public accessible types/paths from context.
-- ANTLR-specific: never access `lexer.state` / `BaseRecognizer.state` directly. Remove assertions like `lexer.state.type` and assert behavior via public lexer APIs or tokenization results.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -751,7 +749,6 @@ Member-access repair hint:
 - Do not assert internal fields such as receiver.superclassField; assert externally visible behavior instead.
 - If no accessible API exposes the same state, drop that assertion rather than forcing illegal member access.
 - Also avoid non-public cross-package types in imports/declarations/constructors; use only public accessible types/paths from context.
-- ANTLR-specific: never access `lexer.state` / `BaseRecognizer.state` directly. Remove assertions like `lexer.state.type` and assert behavior via public lexer APIs or tokenization results.
 
 Please provide the corrected complete test class with all test methods.
 === repair: false positive mock ===
@@ -811,7 +808,7 @@ No-test-method parsing hint:
 - Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
 - The previous response used invalid Java import syntax with file-path separators instead of package dots.
 - Invalid import from previous response: import com/example/Shape;
-- Java imports must use dotted package names, for example `import br.com.jnfe.base.service.SimpleSecurityHandlerBean;`.
+- Java imports must use dotted package names, for example `import com.example.service.ExampleBean;`.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -834,7 +831,7 @@ No-test-method parsing hint:
 - Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
 - The previous response used invalid 'import ... as ...' alias syntax, which Java does not support.
 - To resolve naming conflicts (e.g., between two classes named 'Query'), use the fully qualified name at the call site instead of aliasing the import.
-- Example: `net.sourceforge.beanbin.query.Query beanBinQuery = new net.sourceforge.beanbin.query.Query();`.
+- Example: `com.example.query.Query exampleQuery = new com.example.query.Query();`.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -967,7 +964,7 @@ NPE precondition hint:
 Synthetic fallback usage error:
 - You are attempting to call a method on a variable named '__llm_fallback...' which is 'null'.
 - This variable is a placeholder and should NEVER be used as a valid object instance.
-- You MUST fix the constructor call that led to this fallback by providing valid data (e.g., a valid byte array header like {0xCA, 0xFE, 0xBA, 0xBE} for ASM ClassReader).
+- You MUST fix the constructor call that led to this fallback by providing valid data (e.g., a well-formed byte array for a class that parses binary input).
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1004,7 +1001,7 @@ Anonymous implementation repair hint:
 - Do NOT write new Runnable() { ... } just to override one method.
 - Replace it with Mockito.mock(java.lang.Runnable.class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.
 - Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.
-- If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
+- If the intended assertion is that a callback method must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1030,7 +1027,7 @@ Anonymous implementation repair hint:
 - Do NOT write new AbstractList() { ... } just to override one method.
 - Replace it with Mockito.mock(java.util.AbstractList.class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.
 - Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.
-- If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
+- If the intended assertion is that a callback method must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -1057,7 +1054,7 @@ Anonymous implementation repair hint:
 - Do NOT write new Thread() { ... } just to override one method.
 - Replace it with Mockito.mock(java.lang.Thread.class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.
 - Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.
-- If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
+- If the intended assertion is that a callback method must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]

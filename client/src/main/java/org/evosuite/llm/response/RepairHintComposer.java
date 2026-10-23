@@ -395,7 +395,7 @@ final class RepairHintComposer {
                 if (isDomElementType(dereferenceInfo.receiverType)) {
                     repairMessage.append("\n- For DOM collaborators, build a minimal in-memory element "
                             + "(DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument()"
-                            + ".createElement(\"model\")) "
+                            + ".createElement(\"element\")) "
                             + "instead of null.");
                 }
             } else {
@@ -814,11 +814,6 @@ final class RepairHintComposer {
                 + "illegal member access.");
         repairMessage.append("\n- Also avoid non-public cross-package types in imports/declarations/constructors; use "
                 + "only public accessible types/paths from context.");
-        if (lower.contains("baserecognizer") || lower.contains(".state.")) {
-            repairMessage.append("\n- ANTLR-specific: never access `lexer.state` / `BaseRecognizer.state` directly.")
-                    .append(" Remove assertions like `lexer.state.type` and assert behavior via public lexer APIs or "
-                            + "tokenization results.");
-        }
     }
 
     static boolean isReflectiveAssertThrowsFallbackError(String error) {
@@ -899,7 +894,7 @@ final class RepairHintComposer {
             repairMessage.append("\n- This variable is a placeholder and should NEVER be used as a valid object "
                     + "instance.");
             repairMessage.append("\n- You MUST fix the constructor call that led to this fallback by providing valid "
-                    + "data (e.g., a valid byte array header like {0xCA, 0xFE, 0xBA, 0xBE} for ASM ClassReader).");
+                    + "data (e.g., a well-formed byte array for a class that parses binary input).");
         }
     }
 
@@ -971,7 +966,7 @@ final class RepairHintComposer {
                 .append(".class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.");
         repairMessage.append("\n- Stub or verify only the minimal method actually relevant to the failing path instead "
                 + "of hand-writing an anonymous class body.");
-        repairMessage.append("\n- If the intended assertion is that a callback like showErrorDialog(...) must not be "
+        repairMessage.append("\n- If the intended assertion is that a callback method must not be "
                 + "reached, keep the collaborator as a mock and verify the method is never invoked instead of calling "
                 + "fail(...) inside an anonymous override.");
     }
@@ -995,8 +990,8 @@ final class RepairHintComposer {
                         + "Java does not support.");
                 repairMessage.append("\n- To resolve naming conflicts (e.g., between two classes named 'Query'), use "
                         + "the fully qualified name at the call site instead of aliasing the import.");
-                repairMessage.append("\n- Example: `net.sourceforge.beanbin.query.Query beanBinQuery = new "
-                        + "net.sourceforge.beanbin.query.Query();`.");
+                repairMessage.append("\n- Example: `com.example.query.Query exampleQuery = new "
+                        + "com.example.query.Query();`.");
             } else {
                 repairMessage.append("\n- The previous response used invalid Java import syntax with file-path "
                         + "separators instead of package dots.");
@@ -1004,7 +999,7 @@ final class RepairHintComposer {
                     repairMessage.append("\n- Invalid import from previous response: ").append(importLine);
                 }
                 repairMessage.append("\n- Java imports must use dotted package names, for example `import "
-                        + "br.com.jnfe.base.service.SimpleSecurityHandlerBean;`.");
+                        + "com.example.service.ExampleBean;`.");
             }
         } else if (error.contains("LLM response was empty") || error.contains("hit a token limit")
                 || error.contains("contained only bytecode")) {
@@ -1817,13 +1812,6 @@ final class RepairHintComposer {
                         + "Replace with an existing SUT/JDK type, or use Mockito.mock(ExpectedType.class, new "
                                 + "ViolatedAssumptionAnswer()) "
                         + "for collaborator parameters.");
-            }
-            if ("Node".equals(symbol)
-                    && error.contains("org.dom4j")
-                    && error.contains("NodeComparator")) {
-                facts.add("For dom4j tests, unqualified cast type `Node` is unresolved here. "
-                        + "Use `org.dom4j.Node` (or an already imported compatible type such as `org.dom4j.Element`) "
-                        + "instead of bare `Node`.");
             }
             if (context.isKnownType(symbol)) {
                 facts.add("Symbol '" + symbol + "' exists in provided context; use its exact context form/package and "

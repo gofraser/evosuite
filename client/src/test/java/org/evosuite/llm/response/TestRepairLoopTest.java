@@ -1098,7 +1098,7 @@ class TestRepairLoopTest {
         assertTrue(userRepairMessage.contains("Java import declarations must use package dots, not file-path slashes"));
         assertTrue(userRepairMessage.contains("No-test-method parsing hint:"));
         assertTrue(userRepairMessage.contains("invalid Java import syntax with file-path separators instead of package dots"));
-        assertTrue(userRepairMessage.contains("import br.com.jnfe.base.service.SimpleSecurityHandlerBean;"));
+        assertTrue(userRepairMessage.contains("import com.example.service.ExampleBean;"));
     }
 
     @Test
@@ -2913,7 +2913,7 @@ class TestRepairLoopTest {
         assertTrue(userRepairMessage.contains("org.w3c.dom.Element.getAttribute(String)"));
         assertTrue(userRepairMessage.contains("model"));
         assertTrue(userRepairMessage.contains("DocumentBuilderFactory"));
-        assertTrue(userRepairMessage.contains("createElement(\"model\")"));
+        assertTrue(userRepairMessage.contains("createElement(\"element\")"));
     }
 
     @Test

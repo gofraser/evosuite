@@ -990,7 +990,7 @@ public class TestRepairLoop {
             }
             error.append("\nRepair action: Java import declarations must use package dots, not file-path slashes, and "
                     + "do NOT support 'as' aliases. ");
-            error.append("Example: import net.sourceforge.beanbin.query.Query; (not 'import ... as ...'). ");
+            error.append("Example: import com.example.query.Query; (not 'import ... as ...'). ");
             error.append("To resolve naming conflicts, use fully qualified names at the call site.");
         } else if (extractedClass == null || extractedClass.trim().isEmpty()) {
             error.append("\nThe LLM response was empty or contained no Java code. This can happen when:");
