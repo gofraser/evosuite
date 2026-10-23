@@ -20,6 +20,7 @@
 package org.evosuite.runtime.mock.java.lang;
 
 import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.runtime.mock.java.io.MockIOException;
 import org.junit.After;
 import org.junit.Test;
 
@@ -66,5 +67,113 @@ public class MockThrowableTest {
         MockThrowable.replacement_printStackTrace(new IOException("boom"), new PrintWriter(out, true));
         String frame = "<evosuite>.<evosuite>(<evosuite>)\n";
         assertEquals(frame + frame + frame, out.toString());
+    }
+
+    @Test
+    public void iOExceptionWithoutStackTraceCanBeConstructed() {
+        MockFramework.enable();
+        Throwable t = new MockIOException("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals("msg", t.getMessage());
+    }
+
+    @Test
+    public void exceptionWithoutStackTraceCanBeConstructed() {
+        MockFramework.enable();
+        Throwable t = new MockException("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals("msg", t.getMessage());
+    }
+
+    @Test
+    public void errorWithoutStackTraceCanBeConstructed() {
+        MockFramework.enable();
+        Throwable t = new MockError("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals("msg", t.getMessage());
+    }
+
+    @Test
+    public void illegalArgumentExceptionWithoutStackTraceCanBeConstructed() {
+        MockFramework.enable();
+        Throwable t = new MockIllegalArgumentException("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals("msg", t.getMessage());
+    }
+
+    @Test
+    public void illegalStateExceptionWithoutStackTraceCanBeConstructed() {
+        MockFramework.enable();
+        Throwable t = new MockIllegalStateException("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals("msg", t.getMessage());
+    }
+
+    @Test
+    public void illegalAccessExceptionWithoutStackTraceCanBeConstructed() {
+        MockFramework.enable();
+        Throwable t = new MockIllegalAccessException("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals("msg", t.getMessage());
+    }
+
+    @Test
+    public void arithmeticExceptionWithoutStackTraceCanBeConstructed() {
+        MockFramework.enable();
+        Throwable t = new MockArithmeticException("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals("msg", t.getMessage());
+    }
+
+    @Test
+    public void nullPointerExceptionWithoutStackTraceCanBeConstructed() {
+        MockFramework.enable();
+        Throwable t = new MockNullPointerException("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals("msg", t.getMessage());
+    }
+
+    @Test
+    public void arrayIndexOutOfBoundsExceptionWithoutStackTraceCanBeConstructed() {
+        MockFramework.enable();
+        Throwable t = new MockArrayIndexOutOfBoundsException("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals("msg", t.getMessage());
     }
 }

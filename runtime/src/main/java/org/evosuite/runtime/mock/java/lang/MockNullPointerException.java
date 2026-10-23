@@ -54,7 +54,10 @@ public class MockNullPointerException extends NullPointerException implements Ov
     private MockThrowable getDelegate() {
         if (delegate == null) {
             delegate = new MockThrowable(); //placeholder
-            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+            if (super.getStackTrace().length > 0) {
+                // stack trace may be empty
+                delegate.setOriginForDelegate(super.getStackTrace()[0]);
+            }
         }
         return delegate;
     }
@@ -67,7 +70,10 @@ public class MockNullPointerException extends NullPointerException implements Ov
     public MockNullPointerException() {
         super();
         delegate = new MockThrowable();
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     /**
@@ -78,7 +84,10 @@ public class MockNullPointerException extends NullPointerException implements Ov
     public MockNullPointerException(String message) {
         super(message);
         delegate = new MockThrowable(message);
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     // ----- delegation methods -------

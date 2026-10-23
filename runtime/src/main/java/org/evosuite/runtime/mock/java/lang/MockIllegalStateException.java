@@ -54,7 +54,10 @@ public class MockIllegalStateException extends IllegalStateException implements 
     private MockThrowable getDelegate() {
         if (delegate == null) {
             delegate = new MockThrowable(); //placeholder
-            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+            if (super.getStackTrace().length > 0) {
+                // stack trace may be empty
+                delegate.setOriginForDelegate(super.getStackTrace()[0]);
+            }
         }
         return delegate;
     }
@@ -67,7 +70,10 @@ public class MockIllegalStateException extends IllegalStateException implements 
     public MockIllegalStateException() {
         super();
         delegate = new MockThrowable();
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     /**
@@ -78,7 +84,10 @@ public class MockIllegalStateException extends IllegalStateException implements 
     public MockIllegalStateException(String message) {
         super(message);
         delegate = new MockThrowable(message);
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     /**
@@ -89,7 +98,10 @@ public class MockIllegalStateException extends IllegalStateException implements 
     public MockIllegalStateException(Throwable cause) {
         super(cause);
         delegate = new MockThrowable(cause);
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     /**
@@ -101,7 +113,10 @@ public class MockIllegalStateException extends IllegalStateException implements 
     public MockIllegalStateException(String message, Throwable cause) {
         super(message, cause);
         delegate = new MockThrowable(message, cause);
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     // ----- delegation methods -------

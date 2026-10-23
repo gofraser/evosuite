@@ -54,7 +54,10 @@ public class MockException extends Exception implements OverrideMock {
     private MockThrowable getDelegate() {
         if (delegate == null) {
             delegate = new MockThrowable(); //placeholder
-            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+            if (super.getStackTrace().length > 0) {
+                // stack trace may be empty
+                delegate.setOriginForDelegate(super.getStackTrace()[0]);
+            }
         }
         return delegate;
     }
@@ -67,7 +70,10 @@ public class MockException extends Exception implements OverrideMock {
     public MockException() {
         super();
         delegate = new MockThrowable();
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     /**
@@ -78,7 +84,10 @@ public class MockException extends Exception implements OverrideMock {
     public MockException(String message) {
         super(message);
         delegate = new MockThrowable(message);
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     /**
@@ -89,7 +98,10 @@ public class MockException extends Exception implements OverrideMock {
     public MockException(Throwable cause) {
         super(cause);
         delegate = new MockThrowable(cause);
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     /**
@@ -101,7 +113,10 @@ public class MockException extends Exception implements OverrideMock {
     public MockException(String message, Throwable cause) {
         super(message, cause);
         delegate = new MockThrowable(message, cause);
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     protected MockException(String message, Throwable cause,
@@ -109,7 +124,10 @@ public class MockException extends Exception implements OverrideMock {
             boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
         delegate = new MockThrowable(message, cause, enableSuppression, writableStackTrace);
-        delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        if (super.getStackTrace().length > 0) {
+            // stack trace may be empty
+            delegate.setOriginForDelegate(super.getStackTrace()[0]);
+        }
     }
 
     // ----- delegation methods -------
