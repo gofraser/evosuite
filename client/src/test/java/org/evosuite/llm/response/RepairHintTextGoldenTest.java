@@ -80,10 +80,6 @@ class RepairHintTextGoldenTest {
 
     private String originalTargetClass;
     private boolean originalPromptCache;
-    private boolean originalHintsEnabled;
-    private boolean originalHintsAlwaysOn;
-    private int originalHintsMax;
-    private int originalHintsCooldown;
     private boolean originalDependencyCode;
 
     @BeforeEach
@@ -92,15 +88,7 @@ class RepairHintTextGoldenTest {
         originalPromptCache = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
         Properties.TARGET_CLASS = "com.example.Target";
         Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = false;
-        originalHintsEnabled = Properties.LLM_REPAIR_HINTS_ENABLED;
-        originalHintsAlwaysOn = Properties.LLM_REPAIR_HINTS_ALWAYS_ON;
-        originalHintsMax = Properties.LLM_REPAIR_HINTS_MAX_PER_ATTEMPT;
-        originalHintsCooldown = Properties.LLM_REPAIR_HINTS_COOLDOWN_ATTEMPTS;
         originalDependencyCode = Properties.LLM_INCLUDE_DEPENDENCY_CODE_ON_REPAIR;
-        Properties.LLM_REPAIR_HINTS_ENABLED = true;
-        Properties.LLM_REPAIR_HINTS_ALWAYS_ON = true;
-        Properties.LLM_REPAIR_HINTS_MAX_PER_ATTEMPT = 6;
-        Properties.LLM_REPAIR_HINTS_COOLDOWN_ATTEMPTS = 1;
         Properties.LLM_INCLUDE_DEPENDENCY_CODE_ON_REPAIR = true;
     }
 
@@ -108,10 +96,6 @@ class RepairHintTextGoldenTest {
     void tearDown() {
         Properties.TARGET_CLASS = originalTargetClass;
         Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = originalPromptCache;
-        Properties.LLM_REPAIR_HINTS_ENABLED = originalHintsEnabled;
-        Properties.LLM_REPAIR_HINTS_ALWAYS_ON = originalHintsAlwaysOn;
-        Properties.LLM_REPAIR_HINTS_MAX_PER_ATTEMPT = originalHintsMax;
-        Properties.LLM_REPAIR_HINTS_COOLDOWN_ATTEMPTS = originalHintsCooldown;
         Properties.LLM_INCLUDE_DEPENDENCY_CODE_ON_REPAIR = originalDependencyCode;
     }
 

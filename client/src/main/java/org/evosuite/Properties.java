@@ -744,12 +744,6 @@ public class Properties {
             description = "Specify which constraint solver to use. EVOSUITE_SOLVER is the only solver left.")
     public static SolverType DSE_SOLVER = SolverType.EVOSUITE_SOLVER;
 
-    @Parameter(key = "z3_path", group = "DSE", description = "Indicates the path to the Z3 solver")
-    public static String Z3_PATH = null;
-
-    @Parameter(key = "cvc4_path", group = "DSE", description = "Indicates the path to the CVC4 solver")
-    public static String CVC4_PATH = null;
-
     public enum DSEStoppingConditionCriterion {
         TARGETCOVERAGE,
         MAXTIME,
@@ -769,19 +763,6 @@ public class Properties {
     @Parameter(key = "dse_stopping_condition", group = "DSE",
             description = "Indicate which stopping condition to use.")
     public static DSEStoppingConditionCriterion DSE_STOPPING_CONDITION = DSEStoppingConditionCriterion.DEFAULTS;
-
-    @Parameter(key = "bytecode_logging_enabled", group = "DSE",
-            description = "Indicates whether bytecode instructions that are being executed should be logged.")
-    public static boolean BYTECODE_LOGGING_ENABLED = false;
-
-    @Parameter(key = "bytecode_logging_mode", group = "DSE", description = "How to log executed bytecode")
-    public static DSEBytecodeLoggingMode BYTECODE_LOGGING_MODE = DSEBytecodeLoggingMode.STD_OUT;
-
-    // TODO (ilebrero): add other modes
-    public enum DSEBytecodeLoggingMode {
-        STD_OUT,
-        FILE_DUMP
-    }
 
     // --------- LS ---------
 
@@ -1150,18 +1131,6 @@ public class Properties {
             description = "If a phase is ended before its timeout, allow the next phase to run over its timeout")
     public static boolean REUSE_LEFTOVER_TIME = false;
 
-    @Parameter(key = "track_boolean_branches", group = "Search Algorithm",
-            description = "Track branches that have a distance of either 0 or 1")
-    public static boolean TRACK_BOOLEAN_BRANCHES = false;
-
-    @Parameter(key = "track_covered_gradient_branches", group = "Search Algorithm",
-            description = "Track gradient branches that were covered")
-    public static boolean TRACK_COVERED_GRADIENT_BRANCHES = false;
-
-    @Parameter(key = "branch_comparison_types", group = "Search Algorithm",
-            description = "Track branch comparison types based on the bytecode")
-    public static boolean BRANCH_COMPARISON_TYPES = false;
-
     @Parameter(key = "track_diversity", group = "Search Algorithm",
             description = "Track population diversity")
     public static boolean TRACK_DIVERSITY = false;
@@ -1348,25 +1317,9 @@ public class Properties {
 
     // ---------------------------------------------------------------
     // Single branch mode
-    @Parameter(key = "random_tests", group = "Single Branch Mode",
-            description = "Number of random tests to run before test generation (Single branch mode)")
-    public static int RANDOM_TESTS = 0;
-
-    @Parameter(key = "skip_covered", group = "Single Branch Mode",
-            description = "Skip coverage goals that have already been (coincidentally) covered")
-    public static boolean SKIP_COVERED = true;
-
-    @Parameter(key = "reuse_budget", group = "Single Branch Mode",
-            description = "Use leftover budget on unsatisfied test goals (Single branch mode)")
-    public static boolean REUSE_BUDGET = true;
-
     @Parameter(key = "shuffle_goals", group = "Single Branch Mode",
             description = "Shuffle test goals before test generation (Single branch mode)")
     public static boolean SHUFFLE_GOALS = true;
-
-    @Parameter(key = "recycle_chromosomes", group = "Single Branch Mode",
-            description = "Seed initial population with related individuals (Single branch mode)")
-    public static boolean RECYCLE_CHROMOSOMES = true;
 
     // ---------------------------------------------------------------
     // Output
@@ -1445,10 +1398,6 @@ public class Properties {
     @Parameter(key = "junit_check", group = "Output",
             description = "Compile and run resulting JUnit test suite (if any was created)")
     public static JUnitCheckValues JUNIT_CHECK = JUnitCheckValues.TRUE;
-
-    @Parameter(key = "junit_unstable_diagnostics", group = "Output",
-            description = "Print detailed origin diagnostics for unstable tests detected during JUnit check")
-    public static boolean JUNIT_UNSTABLE_DIAGNOSTICS = false;
 
     @Parameter(key = "junit_suffix", group = "Output",
             description = "Suffix that is appended at each generated JUnit file name")
@@ -1543,10 +1492,6 @@ public class Properties {
     @Parameter(key = "report_dir", group = "Output",
             description = "Directory in which to put HTML and CSV reports")
     public static String REPORT_DIR = "evosuite-report";
-
-    @Parameter(key = "bytecode_logging_report_dir", group = "Output",
-            description = "Directory in which to put TXT executed bytecode logs.")
-    public static String BYTECODE_LOGGING_REPORT_DIR = "executed-bytecode-logs";
 
     @Parameter(key = "output_variables", group = "Output",
             description = "List of variables to output to CSV file. Variables are separated by "
@@ -1876,11 +1821,6 @@ public class Properties {
             description = "Upper bound for dynamically scaled dependency summary budget (0 = unlimited)")
     @IntValue(min = 0)
     public static int LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = 32000;
-
-    @Parameter(key = "llm_cluster_summary_absolute_override_chars", group = "LLM",
-            description = "Absolute override for dependency summary budget (0 = no override)")
-    @IntValue(min = 0)
-    public static int LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = 0;
 
     @Parameter(key = "llm_cluster_summary_per_class_soft_cap_chars", group = "LLM",
             description = "Soft cap per dependency class in summary output "
@@ -2291,11 +2231,6 @@ public class Properties {
     @IntValue(min = 0)
     public static int LLM_BLEND_MAX_EVALS_PER_GEN = 20;
 
-    @Parameter(key = "llm_blend_keep_raw", group = "LLM",
-            description = "Admit the unmodified injected candidate alongside its blends "
-                    + "(false = blend-only ablation)")
-    public static boolean LLM_BLEND_KEEP_RAW = true;
-
     @Parameter(key = "llm_lineage_elitism_generations", group = "LLM",
             description = "Speciation-free incubation: for this many generations after injection, "
                     + "each injected lineage keeps its best member in the population "
@@ -2598,24 +2533,6 @@ public class Properties {
             description = "Inline decompiled/bytecode excerpts of non-CUT classes whose code triggered "
                     + "a repair-blocking exception")
     public static boolean LLM_INCLUDE_DEPENDENCY_CODE_ON_REPAIR = true;
-
-    @Parameter(key = "llm_repair_hints_enabled", group = "LLM",
-            description = "Enable generic, error-triggered repair hints in addition to SUT-specific diagnostics")
-    public static boolean LLM_REPAIR_HINTS_ENABLED = true;
-
-    @Parameter(key = "llm_repair_hints_always_on", group = "LLM",
-            description = "Include a small always-on baseline of generic repair hints in every repair prompt")
-    public static boolean LLM_REPAIR_HINTS_ALWAYS_ON = true;
-
-    @Parameter(key = "llm_repair_hints_max_per_attempt", group = "LLM",
-            description = "Maximum number of generic repair hints injected per repair attempt")
-    @IntValue(min = 0)
-    public static int LLM_REPAIR_HINTS_MAX_PER_ATTEMPT = 6;
-
-    @Parameter(key = "llm_repair_hints_cooldown_attempts", group = "LLM",
-            description = "Minimum number of repair attempts before repeating the same generic hint")
-    @IntValue(min = 0)
-    public static int LLM_REPAIR_HINTS_COOLDOWN_ATTEMPTS = 1;
 
     @Parameter(key = "llm_dependency_code_max_chars", group = "LLM",
             description = "Maximum characters of dependency code to inline per repair turn")
@@ -3070,9 +2987,6 @@ public class Properties {
     @Parameter(key = "inheritance_file", description = "Cached version of inheritance tree")
     public static String INHERITANCE_FILE = "";
 
-    @Parameter(key = "branch_eval", description = "Jeremy's branch evaluation")
-    public static boolean BRANCH_EVAL = false;
-
     @Parameter(key = "cpu_timeout", description = "Measure timeouts on CPU time, not global time")
     public static boolean CPU_TIMEOUT = false;
 
@@ -3150,11 +3064,6 @@ public class Properties {
 
     @Parameter(key = "seed_dir", group = "Output", description = "Directory name where the best chromosomes are saved")
     public static String SEED_DIR = "evosuite-seeds";
-
-    @Parameter(key = "concolic_mutation", description = "Deprecated. Probability of using concolic mutation operator")
-    @DoubleValue(min = 0.0, max = 1.0)
-    @Deprecated
-    public static double CONCOLIC_MUTATION = 0.0;
 
     @Parameter(key = "TT", description = "Testability transformation")
     public static boolean TT = false;
@@ -3316,11 +3225,6 @@ public class Properties {
                     + "debugger; defaults to 1044")
     @IntValue(min = 1024, max = 65535)
     public static int PORT = 1044;
-
-    @Parameter(key = "jmc", group = "Debugging",
-            description = "Experimental: activate Flight Recorder in spawn client process for "
-                    + "Java Mission Control")
-    public static boolean JMC = false;
 
     // ---------------------------------------------------------------
     @Parameter(key = "starve_by_fitness", description = "")
@@ -3494,19 +3398,25 @@ public class Properties {
      * rejected as an unknown property.
      */
     private static final Set<String> RETIRED_KEYS = Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(
-            "alternative_fitness_calculation_mode", "branch_statement", "classpath", "connection_data",
-            "constraint_solution_attempts", "dmon_only_target_class_constructor",
+            "alternative_fitness_calculation_mode", "branch_comparison_types", "branch_eval",
+            "branch_statement", "bytecode_logging_enabled", "bytecode_logging_mode",
+            "bytecode_logging_report_dir", "classpath", "concolic_mutation", "connection_data",
+            "constraint_solution_attempts", "cvc4_path", "dmon_only_target_class_constructor",
             "dmon_validate_promoted_once", "dse_keep_all_tests", "dse_negate_all_conditions",
             "dse_rank_branch_conditions", "dynamic_seeding", "enable_alternative_fitness_calculation",
             "epsilon", "evosuite_use_uispec", "handle_servlets", "hierarchy_data", "insertion_score_object",
-            "insertion_score_parameter", "insertion_score_uut", "jee", "junit_check_on_separate_process",
-            "junit_extend", "junit_strict", "kincompensation", "local_search_selective",
-            "local_search_selective_primitives", "log_goals", "max_coverage_depth", "max_mutants",
-            "minimize_old", "minimize_strings", "mutation_generations", "new_object_selection", "num_tests",
-            "plot", "PROJECT_DIR", "randomize_difficulty", "remote_testing", "seed_file",
-            "selected_dse_module_objects_model_version", "sourcepath", "test_excludes", "test_includes",
-            "testability_transformation", "TT_stack", "UI_BACKGROUND_COVERAGE_DELAY", "usage_models",
-            "usage_rate")));
+            "insertion_score_parameter", "insertion_score_uut", "jee", "jmc",
+            "junit_check_on_separate_process", "junit_extend", "junit_strict", "junit_unstable_diagnostics",
+            "kincompensation", "llm_blend_keep_raw", "llm_cluster_summary_absolute_override_chars",
+            "llm_repair_hints_always_on", "llm_repair_hints_cooldown_attempts", "llm_repair_hints_enabled",
+            "llm_repair_hints_max_per_attempt", "local_search_selective", "local_search_selective_primitives",
+            "log_goals", "max_coverage_depth", "max_mutants", "minimize_old", "minimize_strings",
+            "mutation_generations", "new_object_selection", "num_tests", "plot", "PROJECT_DIR",
+            "random_tests", "randomize_difficulty", "recycle_chromosomes", "remote_testing", "reuse_budget",
+            "seed_file", "selected_dse_module_objects_model_version", "skip_covered", "sourcepath",
+            "test_excludes", "test_includes", "testability_transformation", "track_boolean_branches",
+            "track_covered_gradient_branches", "TT_stack", "UI_BACKGROUND_COVERAGE_DELAY", "usage_models",
+            "usage_rate", "z3_path")));
 
     private static final Set<String> reportedRetiredKeys = ConcurrentHashMap.newKeySet();
 

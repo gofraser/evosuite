@@ -51,8 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests the blend-brood path in {@link AbstractMOSA#collectExternalCandidates}:
  * goal-directed partner selection, brood admission (new coverage first, then
  * strict target-goal improvement), lineage/channel tagging, attempt
- * attribution, the per-generation evaluation budget, the blend-only ablation
- * ({@code llm_blend_keep_raw=false}), and the default-off contract.
+ * attribution, the per-generation evaluation budget, and the default-off contract.
  *
  * <p>The harness overrides {@code calculateFitness} as a counter no-op, so a
  * variant's "evaluated" fitness is whatever its clone inherited from the
