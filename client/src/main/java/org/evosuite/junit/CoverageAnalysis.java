@@ -49,7 +49,6 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
-import org.evosuite.utils.ExternalProcessUtilities;
 import org.evosuite.utils.LoggingUtils;
 import org.junit.Test;
 import org.junit.jupiter.api.RepeatedTest;
@@ -866,29 +865,6 @@ public class CoverageAnalysis {
      */
     private static void sortTestClasses(List<Class<?>> tests) {
         tests.sort((t0, t1) -> Integer.compare(t1.getName().length(), t0.getName().length()));
-    }
-
-    /**
-     * run.
-     */
-    public void run() {
-
-        LoggingUtils.getEvoLogger().info("* Connecting to master process on port "
-                + Properties.PROCESS_COMMUNICATION_PORT);
-
-        ExternalProcessUtilities util = new ExternalProcessUtilities();
-        if (!util.connectToMainProcess()) {
-            throw new RuntimeException("Could not connect to master process on port "
-                    + Properties.PROCESS_COMMUNICATION_PORT);
-        }
-
-        analyzeCoverage();
-        /*
-         * for now, we ignore the instruction (originally was meant to support several client in parallel and
-         * restarts, but that will be done in RMI)
-         */
-
-        util.informSearchIsFinished(null);
     }
 
     // just for testing

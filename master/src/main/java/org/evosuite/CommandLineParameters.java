@@ -155,7 +155,6 @@ public class CommandLineParameters {
                 "classpath of EvoSuite jar file(s). This is needed when EvoSuite is called in plugins "
                         + "like Eclipse/Maven");
 
-        Option junitPrefix = new Option("junit", true, "junit prefix");
         Option criterion = new Option("criterion", true,
                 "target criterion for test generation. Can define more than one criterion "
                         + "by using a ':' separated list");
@@ -199,7 +198,6 @@ public class CommandLineParameters {
         options.addOption(targetClass);
         options.addOption(targetPrefix);
         options.addOption(targetCP);
-        options.addOption(junitPrefix);
         options.addOption(criterion);
         options.addOption(seed);
         options.addOption(mem);

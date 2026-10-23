@@ -23,8 +23,6 @@ import org.evosuite.ClientProcess;
 import org.evosuite.ConsoleProgressBar;
 import org.evosuite.Properties;
 import org.evosuite.executionmode.ExecutionModeUtils;
-import org.evosuite.result.TestGenerationResult;
-import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
 import org.evosuite.rmi.service.ClientState;
@@ -36,13 +34,10 @@ import java.rmi.ConnectException;
 import java.rmi.RemoteException;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /*
  * this code should be used by the main master process.
- *
- * FIXME: once RMI is stable tested, we ll need to remove all the TCP stuff, and refactor
  */
 
 public class ExternalProcessGroupHandler {
@@ -52,25 +47,12 @@ public class ExternalProcessGroupHandler {
     protected static final Logger logger = LoggerFactory.getLogger(ExternalProcessGroupHandler.class);
 
     protected Process[] processGroup;
-    protected String[][] lastCommands;
 
     protected Thread[] outputPrinters;
     protected Thread[] errorPrinters;
-    protected Thread[] messageHandlers;
-
-    protected ObjectInputStream in;
-
-    protected Object finalResult;
-    /**
-     * Constant <code>WAITING_FOR_DATA</code>.
-     */
-    protected static final Object WAITING_FOR_DATA = "waiting_for_data_"
-            + System.currentTimeMillis();
 
     protected Thread[] processKillHooks;
     protected Thread clientRunningOnThread;
-
-    protected volatile CountDownLatch[] latches;
 
     protected String baseDir = System.getProperty("user.dir");
 
@@ -94,14 +76,11 @@ public class ExternalProcessGroupHandler {
      */
     public ExternalProcessGroupHandler(final int nrOfProcesses) {
         this.processGroup = new Process[nrOfProcesses];
-        this.lastCommands = new String[nrOfProcesses][];
 
         this.outputPrinters = new Thread[nrOfProcesses];
         this.errorPrinters = new Thread[nrOfProcesses];
-        this.messageHandlers = new Thread[nrOfProcesses];
 
         this.processKillHooks = new Thread[nrOfProcesses];
-        this.latches = new CountDownLatch[nrOfProcesses];
         this.hsErrFiles = new String[nrOfProcesses];
         this.clientFailureDetected = false;
     }
@@ -193,7 +172,7 @@ public class ExternalProcessGroupHandler {
             String option = "-XX:ErrorFile=" + hsErrFiles[i];
             formatted.add(1, option); // add it after the first "java" command
 
-            if (!startProcess(formatted.toArray(new String[0]), i, null)) {
+            if (!startProcess(formatted.toArray(new String[0]), i)) {
                 rollbackToI = i;
                 break;
             }
@@ -279,18 +258,13 @@ public class ExternalProcessGroupHandler {
      *
      * @param command         an array of {@link java.lang.String} objects.
      * @param processIndex    index of process
-     * @param populationData a {@link java.lang.Object} object.
      * @return a boolean.
      */
-    protected boolean startProcess(String[] command, int processIndex, Object populationData) {
+    protected boolean startProcess(String[] command, int processIndex) {
         if (processGroup[processIndex] != null) {
             logger.warn("Already running an external process");
             return false;
         }
-
-        latches[processIndex] = new CountDownLatch(1);
-        finalResult = WAITING_FOR_DATA;
-
 
         //the following thread is important to make sure that the external process is killed
         //when current process ends
@@ -346,7 +320,6 @@ public class ExternalProcessGroupHandler {
         }
 
         startSignalHandler(processIndex);
-        lastCommands[processIndex] = command;
 
         return true;
     }
@@ -441,11 +414,6 @@ public class ExternalProcessGroupHandler {
             errorPrinters[processIndex].interrupt();
         }
         errorPrinters[processIndex] = null;
-
-        if (messageHandlers[processIndex] != null && messageHandlers[processIndex].isAlive()) {
-            messageHandlers[processIndex].interrupt();
-        }
-        messageHandlers[processIndex] = null;
     }
 
     /**
@@ -490,20 +458,6 @@ public class ExternalProcessGroupHandler {
         }
 
         return MasterServices.getInstance().getRegistryPort();
-
-        /*
-        if (server == null) {
-            try {
-                server = new ServerSocket();
-                server.setSoTimeout(10000);
-                server.bind(null);
-                return server.getLocalPort();
-            } catch (Exception e) {
-                logger.error("Not possible to start TCP server", e);
-            }
-        }
-        return -1;
-         */
     }
 
     /**
@@ -628,75 +582,6 @@ public class ExternalProcessGroupHandler {
     }
 
     /**
-     * <p>
-     * startExternalProcessMessageHandler.
-     * </p>
-     *
-     * @param processIndex index of process
-     */
-    protected void startExternalProcessMessageHandler(final int processIndex) {
-        if (messageHandlers[processIndex] != null && messageHandlers[processIndex].isAlive()) {
-            return;
-        }
-
-        messageHandlers[processIndex] = new Thread() {
-            @Override
-            public void run() {
-                boolean read = true;
-                while (read && !isInterrupted()) {
-                    String message = null;
-                    Object data = null;
-
-                    try {
-                        message = (String) in.readObject();
-                        data = in.readObject();
-                        logger.debug("Received msg: " + message);
-                        logger.debug("Received data: " + data);
-                    } catch (Exception e) {
-                        /*
-                         * TODO: this parts need to be improved.
-                         * An exception here is most likely due to the client crashing.
-                         * If there is still enough budget (this might not be trivial to check,
-                         * eg it could be fine for time, but not number of fitness evaluations), then
-                         * we should try to re-start based on the partial info received so far, eg
-                         * the best solutions found so far which was sent to master
-                         */
-                        logger.error("Class "
-                                + Properties.TARGET_CLASS
-                                + ". Error when reading message. Likely the client has crashed. Error message: "
-                                + e.getMessage());
-                        message = Messages.FINISHED_COMPUTATION;
-                        data = null;
-                    }
-
-                    if (message.equals(Messages.FINISHED_COMPUTATION)) {
-                        LoggingUtils.getEvoLogger().info("* Computation finished");
-                        read = false;
-                        killProcess(processIndex);
-                        finalResult = data;
-                        latches[processIndex].countDown();
-                    } else if (message.equals(Messages.NEED_RESTART)) {
-                        //now data represent the current generation
-                        LoggingUtils.getEvoLogger().info("* Restarting client process");
-                        killProcess(processIndex);
-                        /*
-                         * TODO: this will need to be changed, to take into account
-                         * a possible reduced budget
-                         */
-                        startProcess(lastCommands[processIndex], processIndex, data);
-                    } else {
-                        killProcess(processIndex);
-                        logger.error("Class " + Properties.TARGET_CLASS
-                                + ". Error, received invalid message: ", message);
-                        return;
-                    }
-                }
-            }
-        };
-        messageHandlers[processIndex].start();
-    }
-
-    /**
      * Starts the signal handler for process with given index.
      *
      * @param processIndex index of process
@@ -749,9 +634,8 @@ public class ExternalProcessGroupHandler {
      * </p>
      *
      * @param timeout a int.
-     * @return a {@link java.lang.Object} object.
      */
-    public TestGenerationResult waitForResult(int timeout) {
+    public void waitForResult(int timeout) {
         clientFailureDetected = false;
         try {
             long start = System.currentTimeMillis();
@@ -759,7 +643,7 @@ public class ExternalProcessGroupHandler {
                     .getMasterNode().getClientsOnceAllConnected(timeout);
             if (clients == null) {
                 logger.error("Could not access client process");
-                return TestGenerationResultBuilder.buildErrorResult("Could not access client process");
+                return;
             }
 
             for (Entry<String, ClientNodeRemote> entry : clients.entrySet()) {
@@ -849,19 +733,6 @@ public class ExternalProcessGroupHandler {
             killProcess(i);
         }
         LoggingUtils.getEvoLogger().info("* Computation finished");
-        return null; //TODO refactoring
-        /*
-        try {
-            latch.await(timeout, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            logger.warn("Class "
-                                + Properties.TARGET_CLASS
-                                + ". Thread interrupted while waiting for results from client process",
-                        e);
-        }
-
-        return finalResult;
-         */
     }
 
     private boolean waitUntilFinishedWithTimeout(ClientNodeRemote client, long timeoutMs, String clientId)
