@@ -188,10 +188,6 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
         listeners.add(new OtherVM(symbolicEnvironment));
         listeners.add(new SymbolicFunctionVM(symbolicEnvironment, pathConditionCollector));
 
-        if (Properties.BYTECODE_LOGGING_ENABLED) {
-            listeners.add(new InstructionLoggerVM());
-        }
-
         VM.getInstance().setListeners(listeners);
         VM.getInstance().prepareConcolicExecution();
     }

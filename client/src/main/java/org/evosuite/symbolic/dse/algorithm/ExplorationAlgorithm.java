@@ -238,9 +238,6 @@ public abstract class ExplorationAlgorithm extends ExplorationAlgorithmBase {
             LoggingUtils.getEvoLogger().info("* " + GENERATING_TESTS_FOR_ENTRY_DEBUG_MESSAGE, entryMethod.getName());
             int testCaseCount = testSuite.getTests().size();
 
-            /* Setting up current method being targeted */
-            Properties.CURRENT_TARGET_METHOD = entryMethod.getName();
-
             explore(entryMethod);
             int numOfGeneratedTestCases = testSuite.getTests().size() - testCaseCount;
             LoggingUtils.getEvoLogger().info("* " + TESTS_WERE_GENERATED_FOR_ENTRY_METHOD_DEBUG_MESSAGE,
