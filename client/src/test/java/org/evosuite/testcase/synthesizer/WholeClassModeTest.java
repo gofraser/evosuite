@@ -34,7 +34,6 @@ import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -109,7 +108,6 @@ public class WholeClassModeTest {
 		}
 
 		LoopCounter.getInstance().setActive(false);
-		ExceptionMapGenerator.initializeExceptionMap(Properties.TARGET_CLASS);
 		TestCaseExecutor.initExecutor();
 	}
 

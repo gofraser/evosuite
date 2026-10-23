@@ -22,7 +22,6 @@ import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -317,7 +316,6 @@ public class ObjectRuleStatisticsTest {
             throw new AssertionError("analyzeClass failed for " + clazz, failure);
         }
         LoopCounter.getInstance().setActive(false);
-        ExceptionMapGenerator.initializeExceptionMap(Properties.TARGET_CLASS);
         TestCaseExecutor.initExecutor();
     }
 

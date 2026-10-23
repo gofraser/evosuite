@@ -28,7 +28,6 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
@@ -127,7 +126,6 @@ public class ConstructionPathSynthesizerStatementCapRollbackTest {
             throw new AssertionError("analyzeClass failed for " + clazz, e);
         }
         LoopCounter.getInstance().setActive(false);
-        ExceptionMapGenerator.initializeExceptionMap(Properties.TARGET_CLASS);
         TestCaseExecutor.initExecutor();
     }
 

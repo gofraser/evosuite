@@ -20,14 +20,18 @@
 package org.evosuite.instrumentation;
 
 import org.evosuite.runtime.instrumentation.AnnotatedLabel;
+import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -66,23 +70,43 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
     }
 
     /**
+     * Looks up the exceptions that the callee declares in its throws clause.
+     *
+     * @param owner the internal name of the class that declares the callee
+     * @param name  the name of the callee
+     * @param desc  the descriptor of the callee
+     * @return the declared exception types, empty if the callee or its class is unknown
+     */
+    private static Set<Type> getDeclaredExceptions(String owner, String name, String desc) {
+        Set<Type> exceptionTypes = new LinkedHashSet<>();
+        ClassNode calleeClass = DependencyAnalysis.getClassNode(owner);
+        if (calleeClass == null) {
+            return exceptionTypes;
+        }
+        for (MethodNode callee : calleeClass.methods) {
+            if (callee.name.equals(name) && callee.desc.equals(desc)) {
+                if (callee.exceptions != null) {
+                    for (String exceptionName : callee.exceptions) {
+                        exceptionTypes.add(Type.getObjectType(exceptionName));
+                    }
+                }
+                break;
+            }
+        }
+        return exceptionTypes;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
 
-        if (!ExceptionTransformationClassAdapter.methodExceptionMap.containsKey(owner)
-                || !ExceptionTransformationClassAdapter.methodExceptionMap.get(owner).containsKey(name + desc)) {
-            logger.debug("Method {} does not throw exceptions", name);
-            super.visitMethodInsn(opcode, owner, name, desc, itf);
-            return;
-        }
-
-        Set<Type> declaredExceptions = ExceptionTransformationClassAdapter.methodExceptionMap.get(owner)
-                .get(name + desc);
+        Set<Type> declaredExceptions = getDeclaredExceptions(owner, name, desc);
 
         // No instrumentation if the method doesn't throw anything
         if (declaredExceptions.isEmpty()) {
+            logger.debug("Method {} does not throw exceptions", name);
             super.visitMethodInsn(opcode, owner, name, desc, itf);
             return;
         }

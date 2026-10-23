@@ -25,13 +25,9 @@ import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Created by gordon on 17/03/2016.
@@ -42,8 +38,6 @@ public class ExceptionTransformationClassAdapter extends ClassVisitor {
 
     private final String className;
 
-    public static Map<String, Map<String, Set<Type>>> methodExceptionMap = new LinkedHashMap<>();
-
     /**
      * Constructor for ExceptionTransformationClassAdapter.
      *
@@ -53,9 +47,6 @@ public class ExceptionTransformationClassAdapter extends ClassVisitor {
     public ExceptionTransformationClassAdapter(ClassVisitor cv, String className) {
         super(Opcodes.ASM9, cv);
         this.className = className;
-        if (!methodExceptionMap.containsKey(className)) {
-            methodExceptionMap.put(className, new LinkedHashMap<>());
-        }
     }
 
     /* (non-Javadoc)

@@ -32,7 +32,6 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.TestCaseExecutor;
@@ -148,7 +147,6 @@ public class ObjectRuleFactoryTest {
         }
 
         LoopCounter.getInstance().setActive(false);
-        ExceptionMapGenerator.initializeExceptionMap(Properties.TARGET_CLASS);
         TestCaseExecutor.initExecutor();
     }
 
