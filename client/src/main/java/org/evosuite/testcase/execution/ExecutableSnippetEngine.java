@@ -670,6 +670,9 @@ public final class ExecutableSnippetEngine {
         // to avoid classpath-dependent processor crashes (eg lombok on JDK 9+ modules)
         // and reduce compile latency for fallback snippets.
         args.add("-proc:none");
+        // The sources are written as UTF-8; javac would otherwise read them in the platform charset.
+        args.add("-encoding");
+        args.add(StandardCharsets.UTF_8.name());
         args.add("-classpath");
         args.add(classpath);
         args.add("-d");
