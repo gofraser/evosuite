@@ -397,8 +397,17 @@ public class CoverageArchive extends Archive {
     protected TestSuiteChromosome createMergedSolution(TestSuiteChromosome solution) {
         // Deactivate in case a test is executed and would access the archive as this might cause a
         // concurrent access
+        boolean archiveWasEnabled = Properties.TEST_ARCHIVE;
         Properties.TEST_ARCHIVE = false;
+        try {
+            return mergeArchiveInto(solution);
+        } finally {
+            // re-activate it, unless it was disabled before
+            Properties.TEST_ARCHIVE = archiveWasEnabled;
+        }
+    }
 
+    private TestSuiteChromosome mergeArchiveInto(TestSuiteChromosome solution) {
         TestSuiteChromosome mergedSolution = solution.clone();
 
         // Skip solutions that have been modified as those might not have been evaluated yet, or
@@ -441,9 +450,6 @@ public class CoverageArchive extends Archive {
         for (FitnessFunction<TestSuiteChromosome> ff : solution.getFitnessValues().keySet()) {
             ff.getFitness(mergedSolution);
         }
-
-        // re-active it
-        Properties.TEST_ARCHIVE = true;
 
         return mergedSolution;
     }
