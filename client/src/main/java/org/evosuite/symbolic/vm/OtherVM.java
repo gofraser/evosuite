@@ -58,9 +58,4 @@ public final class OtherVM extends AbstractVM {
         return;
     }
 
-    @Override
-    public void WIDE() {
-        throw new UnsupportedOperationException();
-    }
-
 }

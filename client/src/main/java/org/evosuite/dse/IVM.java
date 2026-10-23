@@ -228,8 +228,6 @@ public interface IVM {
 
     void LDC(float x);
 
-    void LDC_W();
-
     void LDC2_W(long x);
 
     void LDC2_W(double x);
@@ -250,46 +248,6 @@ public interface IVM {
     void DLOAD(int i);
 
     void ALOAD(int i);
-
-    void ILOAD_0();
-
-    void ILOAD_1();
-
-    void ILOAD_2();
-
-    void ILOAD_3();
-
-    void LLOAD_0();
-
-    void LLOAD_1();
-
-    void LLOAD_2();
-
-    void LLOAD_3();
-
-    void FLOAD_0();
-
-    void FLOAD_1();
-
-    void FLOAD_2();
-
-    void FLOAD_3();
-
-    void DLOAD_0();
-
-    void DLOAD_1();
-
-    void DLOAD_2();
-
-    void DLOAD_3();
-
-    void ALOAD_0();
-
-    void ALOAD_1();
-
-    void ALOAD_2();
-
-    void ALOAD_3();
 
     /**
      * IALOAD instruction.
@@ -333,46 +291,6 @@ public interface IVM {
     void DSTORE(int i);
 
     void ASTORE(int i);
-
-    void ISTORE_0();
-
-    void ISTORE_1();
-
-    void ISTORE_2();
-
-    void ISTORE_3();
-
-    void LSTORE_0();
-
-    void LSTORE_1();
-
-    void LSTORE_2();
-
-    void LSTORE_3();
-
-    void FSTORE_0();
-
-    void FSTORE_1();
-
-    void FSTORE_2();
-
-    void FSTORE_3();
-
-    void DSTORE_0();
-
-    void DSTORE_1();
-
-    void DSTORE_2();
-
-    void DSTORE_3();
-
-    void ASTORE_0();
-
-    void ASTORE_1();
-
-    void ASTORE_2();
-
-    void ASTORE_3();
 
     void IASTORE(Object receiver, int index, String className, String methodName);
 
@@ -638,8 +556,6 @@ public interface IVM {
 
     void MONITOREXIT();
 
-    void WIDE();
-
     void MULTIANEWARRAY(String arrayTypeDesc, int nrDimensions, String className, String methodName);
 
     void IFNULL(String className, String methNane, int branchIndex,
@@ -647,10 +563,6 @@ public interface IVM {
 
     void IFNONNULL(String className, String methNane, int branchIndex,
                    Object param);
-
-    void GOTO_W();
-
-    void JSR_W();
 
     void cleanUp();
 }

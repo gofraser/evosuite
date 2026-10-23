@@ -19,7 +19,6 @@
  */
 package org.evosuite.dse;
 
-import org.evosuite.dse.util.Assertions;
 
 /*
     This class is taken and adapted from the DSC tool developed by Christoph Csallner.
@@ -423,10 +422,6 @@ public abstract class AbstractVM implements IVM {
     }
 
     @Override
-    public void GOTO_W() { /* stub */
-    }
-
-    @Override
     public void I2B() { /* stub */
     }
 
@@ -664,10 +659,6 @@ public abstract class AbstractVM implements IVM {
     }
 
     @Override
-    public void JSR_W() { /* stub */
-    }
-
-    @Override
     public void L2D() { /* stub */
     }
 
@@ -859,222 +850,6 @@ public abstract class AbstractVM implements IVM {
 
     @Override
     public void UNUSED() { /* stub */
-    }
-
-    @Override
-    public void WIDE() { /* stub */
-    }
-
-    /**
-     * ASM handles following by the more general XLOAD(int).
-     */
-    @Override
-    public final void ILOAD_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc6.html#iload_n
-
-    @Override
-    public final void ILOAD_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ILOAD_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ILOAD_3() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void LLOAD_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc8.html#lload_n
-
-    @Override
-    public final void LLOAD_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void LLOAD_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void LLOAD_3() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void FLOAD_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc4.html#fload_n
-
-    @Override
-    public final void FLOAD_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void FLOAD_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void FLOAD_3() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void DLOAD_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc3.html#dload_n
-
-    @Override
-    public final void DLOAD_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void DLOAD_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void DLOAD_3() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ALOAD_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc.html#aload_n
-
-    @Override
-    public final void ALOAD_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ALOAD_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ALOAD_3() {
-        Assertions.check(false);
-    }
-
-    /**
-     * ASM handles following by the more general XSTORE(int).
-     */
-    @Override
-    public final void ISTORE_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc6.html#istore_n
-
-    @Override
-    public final void ISTORE_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ISTORE_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ISTORE_3() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void LSTORE_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc8.html#lstore_n
-
-    @Override
-    public final void LSTORE_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void LSTORE_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void LSTORE_3() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void FSTORE_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc4.html#fstore_n
-
-    @Override
-    public final void FSTORE_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void FSTORE_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void FSTORE_3() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void DSTORE_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc3.html#dstore_n
-
-    @Override
-    public final void DSTORE_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void DSTORE_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void DSTORE_3() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ASTORE_0() {
-        Assertions.check(false);
-    } // http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc.html#astore_n
-
-    @Override
-    public final void ASTORE_1() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ASTORE_2() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void ASTORE_3() {
-        Assertions.check(false);
-    }
-
-    @Override
-    public final void LDC_W() {
-        Assertions.check(false,
-                "Should never be called, as ASM redirects all LDC_W calls to LDC.");
     }
 
     @Override

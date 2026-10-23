@@ -411,11 +411,6 @@ public final class JumpVM extends AbstractVM {
     }
 
     @Override
-    public void GOTO_W() {
-        GOTO();
-    }
-
-    @Override
     public void ATHROW(Throwable throwable) {
         /*
          * This instructions pops the operand stack and throws an exception. We only
@@ -441,11 +436,6 @@ public final class JumpVM extends AbstractVM {
     @Override
     public void JSR() {
         throw new UnsupportedOperationException("Implement ME!");
-    }
-
-    @Override
-    public void JSR_W() {
-        JSR();
     }
 
     /**
