@@ -85,17 +85,9 @@ public class ExcludedClasses {
         // when loaded by both the app classloader and InstrumentingClassLoader.
         // Only for the shaded standalone runtime; excluding them during test generation
         // stops their classes being instrumented, which among other things means a loop
-        // inside them can no longer be terminated by the kill switch. Skipped when the
-        // target class is IN one of these packages, i.e. we are testing that library.
-        String targetPrefix = RuntimeInstrumentation.getTargetClassPrefix();
-        boolean applyLibraryExclusions = RuntimeInstrumentation.getAvoidInstrumentingShadedClasses();
-        if (applyLibraryExclusions) {
-            for (String pkg : PROBLEMATIC_LIBRARY_PREFIXES) {
-                if (targetPrefix != null && targetPrefix.startsWith(pkg)) {
-                    continue;
-                }
-                list.add(pkg);
-            }
+        // inside them can no longer be terminated by the kill switch.
+        if (RuntimeInstrumentation.getAvoidInstrumentingShadedClasses()) {
+            list.addAll(PROBLEMATIC_LIBRARY_PREFIXES);
         }
 
         return list;

@@ -79,11 +79,6 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
     private final String className;
 
     /**
-     * Constant <code>staticClasses</code>.
-     */
-    public static List<String> staticClasses = new ArrayList<>();
-
-    /**
      * Classes for which {@code __STATIC_RESET()} generation was skipped
      * because {@link ClinitResetSafetyAnalyzer} judged their {@code
      * <clinit>} unsafe to replay (classpath/resource scan building an

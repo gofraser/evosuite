@@ -50,8 +50,6 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
 
     private boolean isInterface = false;
 
-    private boolean definesUid = false;
-
     private boolean canChangeSignature = true;
 
     /**
@@ -105,7 +103,6 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
     public FieldVisitor visitField(int access, String name, String desc,
                                    String signature, Object value) {
         if (name.equals("serialVersionUID")) {
-            definesUid = true;
             // FIXXME: This shouldn't be necessary, but the ASM SerialUIDVisitor seems to set a
             //         wrong access modifier for the serialVersionUID field on interfaces
             //         so we're overriding the access modifier here.

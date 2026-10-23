@@ -55,14 +55,6 @@ public class RuntimeInstrumentation {
     private static boolean avoidInstrumentingShadedClasses = false;
 
     /**
-     * Package prefix of the target class under test (e.g., "org.dom4j.").
-     * When set, the problematic-library exclusion list is applied to avoid
-     * classloader conflicts, but classes in this prefix are exempted so
-     * the target class can still be instrumented.
-     */
-    private static volatile String targetClassPrefix = null;
-
-    /**
      * <p>Constructor for RuntimeInstrumentation.</p>
      */
     public RuntimeInstrumentation() {
@@ -103,14 +95,6 @@ public class RuntimeInstrumentation {
      */
     public static boolean getAvoidInstrumentingShadedClasses() {
         return RuntimeInstrumentation.avoidInstrumentingShadedClasses;
-    }
-
-    public static void setTargetClassPrefix(String prefix) {
-        RuntimeInstrumentation.targetClassPrefix = prefix;
-    }
-
-    public static String getTargetClassPrefix() {
-        return RuntimeInstrumentation.targetClassPrefix;
     }
 
     /**

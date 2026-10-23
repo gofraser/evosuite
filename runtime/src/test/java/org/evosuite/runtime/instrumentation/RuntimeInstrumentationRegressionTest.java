@@ -65,7 +65,6 @@ public class RuntimeInstrumentationRegressionTest {
         RuntimeSettings.useVFS = false;
         RuntimeSettings.useVNET = false;
         RuntimeInstrumentation.setAvoidInstrumentingShadedClasses(false);
-        RuntimeInstrumentation.setTargetClassPrefix(null);
     }
 
     @Test
@@ -106,8 +105,6 @@ public class RuntimeInstrumentationRegressionTest {
      */
     @Test
     public void testEvoSuiteOwnPackagesAreNeverInstrumented() {
-        RuntimeInstrumentation.setTargetClassPrefix("com.acme.");
-
         Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
                 PackageInfo.getEvoSuitePackage() + ".runtime.mock.java.lang.MockThrowable"));
         Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
@@ -123,23 +120,9 @@ public class RuntimeInstrumentationRegressionTest {
     @Test
     public void testSubjectLibrariesStayInstrumentableDuringGeneration() {
         RuntimeInstrumentation.setAvoidInstrumentingShadedClasses(false);
-        RuntimeInstrumentation.setTargetClassPrefix("com.acme.");
 
         Assertions.assertTrue(RuntimeInstrumentation.checkIfCanInstrument("org.hsqldb.Log"));
         Assertions.assertTrue(RuntimeInstrumentation.checkIfCanInstrument("org.hibernate.Session"));
-    }
-
-    /**
-     * The standalone shaded runtime still applies the library list, and still exempts the
-     * package the target itself lives in.
-     */
-    @Test
-    public void testTargetPackageIsExemptFromLibraryExclusions() {
-        RuntimeInstrumentation.setAvoidInstrumentingShadedClasses(true);
-        RuntimeInstrumentation.setTargetClassPrefix("org.hsqldb.");
-
-        Assertions.assertTrue(RuntimeInstrumentation.checkIfCanInstrument("org.hsqldb.Log"));
-        Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument("org.hibernate.Session"));
     }
 
     private static byte[] createSimpleClassBytes(String internalName) {

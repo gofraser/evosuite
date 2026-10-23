@@ -310,14 +310,6 @@ public class MethodCallReplacement {
         return methodName + desc;
     }
 
-    public String getReplacementClassName() {
-        return replacementClassName;
-    }
-
-    public String getReplacementMethodName() {
-        return replacementMethodName;
-    }
-
     /**
      * <p>Getter for the field <code>desc</code>.</p>
      *
