@@ -139,7 +139,6 @@ public class TimeController {
         Properties.getInstance();
 
 
-        phaseTimeouts.put(ClientState.SEARCH, 1000L * getSearchBudgetInSeconds());
         phaseTimeouts.put(ClientState.MINIMIZATION, 1000L * Properties.MINIMIZATION_TIMEOUT);
         phaseTimeouts.put(ClientState.ASSERTION_GENERATION, 1000L * Properties.ASSERTION_TIMEOUT);
         phaseTimeouts.put(ClientState.LLM_POSTPROCESSING, 1000L * getLlmPostProcessingTimeoutInSeconds());
@@ -480,10 +479,14 @@ public class TimeController {
     }
 
     private long getCurrentPhaseTimeout() {
+        if (state == ClientState.SEARCH) {
+            // Read on every call: the dynamic limit rewrites the search budget after start-up
+            return 1000L * getSearchBudgetInSeconds();
+        }
         return phaseTimeouts.get(state);
     }
 
     private boolean currentPhaseHasTimeout() {
-        return phaseTimeouts.containsKey(state);
+        return state == ClientState.SEARCH || phaseTimeouts.containsKey(state);
     }
 }

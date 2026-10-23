@@ -79,6 +79,19 @@ public class TimeControllerPhaseBudgetTest {
     }
 
     @Test
+    public void searchFollowsABudgetRewrittenAfterStartUp() {
+        TimeController controller = TimeController.getInstance();
+        // The dynamic limit scales the search budget once the class under test is known.
+        Properties.SEARCH_BUDGET = 10 * SEARCH;
+        controller.updateState(ClientState.STARTED);
+        controller.updateState(ClientState.SEARCH);
+
+        Assertions.assertTrue(controller.getRemainingTimeInPhaseMs() > (10 * SEARCH - 5) * 1000L,
+                "the search phase must use the rewritten budget, not the one seen at start-up");
+        Assertions.assertTrue(controller.isThereStillTimeInThisPhase((10 * SEARCH - 5) * 1000L));
+    }
+
+    @Test
     public void aPhaseWithoutATimeoutIsBoundedByWhatIsLeftForTheLaterPhases() {
         TimeController controller = controllerInPhase(ClientState.COVERAGE_ANALYSIS);
 
