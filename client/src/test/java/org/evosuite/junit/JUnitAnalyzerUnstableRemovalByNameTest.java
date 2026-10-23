@@ -22,6 +22,10 @@ package org.evosuite.junit;
 import com.examples.with.different.packagename.test.DowncastExample;
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
+import org.evosuite.coverage.method.MethodCoverageTestFitness;
+import org.evosuite.junit.writer.TestSuiteWriter;
+import org.evosuite.testcase.TestPresentationMetadata;
+import org.apache.commons.io.FileUtils;
 import org.evosuite.symbolic.TestCaseBuilder;
 import org.evosuite.testcase.TestCase;
 import org.junit.jupiter.api.AfterEach;
@@ -29,7 +33,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.io.File;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Collections;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,6 +57,7 @@ public class JUnitAnalyzerUnstableRemovalByNameTest {
     private static final String defaultTargetClass = Properties.TARGET_CLASS;
     private static final Properties.OutputFormat defaultTestFormat = Properties.TEST_FORMAT;
     private static final boolean defaultScaffolding = Properties.TEST_SCAFFOLDING;
+    private static final Properties.TestNamingStrategy defaultNaming = Properties.TEST_NAMING_STRATEGY;
 
     @BeforeEach
     public void setUp() {
@@ -61,6 +72,7 @@ public class JUnitAnalyzerUnstableRemovalByNameTest {
         Properties.TARGET_CLASS = defaultTargetClass;
         Properties.TEST_FORMAT = defaultTestFormat;
         Properties.TEST_SCAFFOLDING = defaultScaffolding;
+        Properties.TEST_NAMING_STRATEGY = defaultNaming;
         TimeController.resetSingleton();
     }
 
@@ -82,6 +94,67 @@ public class JUnitAnalyzerUnstableRemovalByNameTest {
         assertSame(third, tests.get(0),
                 "the passing test2 must be kept; the second failure was matched against the"
                         + " renumbered list and removed the wrong test");
+    }
+
+    @Test
+    public void removesATestWhoseMethodWasRenamedByPostProcessing() throws Exception {
+        TestCase first = compilingTestCase();
+        TestCase second = compilingTestCase();
+        TestPresentationMetadata.getOrCreate(second).setTestName("constructsTheExample");
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(first);
+        tests.add(second);
+
+        // the writer emits the recorded name, not test1
+        int numUnstable = checkWith(tests, "constructsTheExample");
+
+        assertEquals(1, numUnstable);
+        assertEquals(1, tests.size(), "the renamed failing test must be removed");
+        assertSame(first, tests.get(0));
+    }
+
+    @Test
+    public void removesATestWhoseMethodWasNamedByCoverage() throws Exception {
+        Properties.TEST_NAMING_STRATEGY = Properties.TestNamingStrategy.COVERAGE;
+        TestCase first = compilingTestCase();
+        TestCase second = compilingTestCase();
+        second.addCoveredGoal(new MethodCoverageTestFitness(DowncastExample.class.getName(), "getSomeStuff"));
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(first);
+        tests.add(second);
+        // find out what the writer calls the second test
+        List<String> names = emittedMethodNames(tests);
+        String emitted = names.get(1);
+
+        int numUnstable = checkWith(tests, emitted);
+
+        assertEquals(1, numUnstable);
+        assertEquals(1, tests.size(), "the failing test must be removed under name " + emitted + " of " + names);
+        assertSame(first, tests.get(0));
+    }
+
+    private static List<String> emittedMethodNames(List<TestCase> tests) throws Exception {
+        TestSuiteWriter writer = new TestSuiteWriter();
+        List<TestCase> copies = new ArrayList<>();
+        for (TestCase test : tests) {
+            copies.add(test.clone());
+        }
+        writer.insertAllTests(copies);
+        File dir = Files.createTempDirectory("emitted").toFile();
+        try {
+            List<String> names = new ArrayList<>();
+            for (File file : writer.writeTestSuite("Names_ESTest", dir.getAbsolutePath(),
+                    Collections.emptyList())) {
+                Matcher matcher = Pattern.compile("@Test[^\\n]*\\n\\s*public void (\\w+)\\(").matcher(
+                        new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
+                while (matcher.find()) {
+                    names.add(matcher.group(1));
+                }
+            }
+            return names;
+        } finally {
+            FileUtils.deleteDirectory(dir);
+        }
     }
 
     private static TestCase compilingTestCase() throws Exception {

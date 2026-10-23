@@ -280,7 +280,7 @@ public abstract class JUnitAnalyzer {
         }
 
         @Override
-        Integer judge(JUnitResult result, Class<?>[] testClasses) {
+        Integer judge(JUnitResult result, Class<?>[] testClasses, List<String> testMethodNames) {
             if (result.wasSuccessful()) {
                 return numUnstable; //everything is OK
             }
@@ -296,13 +296,11 @@ public abstract class JUnitAnalyzer {
                 String testName = failure.getDescriptionMethodName();//TODO check if correct
                 // A test that hung is not one whose failure was expected: a test recorded as
                 // failing during the search may well be the one that was killed there.
-                for (int i = 0; i < written.size(); i++) {
-                    if (TestSuiteWriterUtils.getNameOfTest(written, i).equals(testName)) {
-                        if (JUnitFailurePolicy.isExpectedFailure(written.get(i), failure)) {
-                            logger.info("Failure is expected, continuing...");
-                            continue failure_loop;
-                        }
-                    }
+                int writtenIndex = testMethodNames.indexOf(testName);
+                if (testName != null && writtenIndex >= 0
+                        && JUnitFailurePolicy.isExpectedFailure(written.get(writtenIndex), failure)) {
+                    logger.info("Failure is expected, continuing...");
+                    continue failure_loop;
                 }
 
                 if (testName == null) {
@@ -368,7 +366,7 @@ public abstract class JUnitAnalyzer {
                 if (JUnitFailurePolicy.isDeterministicEnvironmentFailure(failure)) {
                     logger.warn("Removing test {} due deterministic environment failure: {}: {}",
                             testName, failure.getExceptionClassName(), failure.getMessage());
-                    removeTestByName(tests, written, testName);
+                    removeTestByName(tests, written, testMethodNames, testName);
                     continue failure_loop;
                 }
 
@@ -387,7 +385,7 @@ public abstract class JUnitAnalyzer {
 
                 boolean toRemove = !(failure.isAssertionError());
                 for (int i = 0; i < written.size(); i++) {
-                    if (TestSuiteWriterUtils.getNameOfTest(written, i).equals(testName)) {
+                    if (testName.equals(testMethodNames.get(i))) {
                         final TestCase failingTest = written.get(i);
                         logger.warn("Failing test:\n " + failingTest.toCode());
                         // An unstable test that is kept is written with the stubs its code shows
@@ -430,12 +428,11 @@ public abstract class JUnitAnalyzer {
         }
     }
 
-    private static void removeTestByName(List<TestCase> tests, List<TestCase> written, String testName) {
-        for (int i = 0; i < written.size(); i++) {
-            if (TestSuiteWriterUtils.getNameOfTest(written, i).equals(testName)) {
-                removeByIdentity(tests, written.get(i));
-                return;
-            }
+    private static void removeTestByName(List<TestCase> tests, List<TestCase> written,
+                                         List<String> testMethodNames, String testName) {
+        int index = testMethodNames.indexOf(testName);
+        if (index >= 0) {
+            removeByIdentity(tests, written.get(index));
         }
     }
 
@@ -660,11 +657,11 @@ public abstract class JUnitAnalyzer {
             }
 
             @Override
-            Set<String> judge(JUnitResult result, Class<?>[] testClasses) {
+            Set<String> judge(JUnitResult result, Class<?>[] testClasses, List<String> testMethodNames) {
                 if (result.wasSuccessful()) {
                     return Collections.emptySet();
                 }
-                return mapUnexpectedFailureNames(result, tests, testClasses);
+                return mapUnexpectedFailureNames(result, tests, testClasses, testMethodNames);
             }
 
             @Override
@@ -682,10 +679,11 @@ public abstract class JUnitAnalyzer {
     }
 
     private static Set<String> mapUnexpectedFailureNames(JUnitResult result, List<TestCase> tests,
-                                                          Class<?>[] testClasses) {
+                                                          Class<?>[] testClasses,
+                                                          List<String> testMethodNames) {
         Map<String, TestCase> testByName = new LinkedHashMap<>();
         for (int i = 0; i < tests.size(); i++) {
-            testByName.put(TestSuiteWriterUtils.getNameOfTest(tests, i), tests.get(i));
+            testByName.putIfAbsent(testMethodNames.get(i), tests.get(i));
         }
 
         Set<String> failures = new LinkedHashSet<>();
@@ -742,22 +740,25 @@ public abstract class JUnitAnalyzer {
      */
     static final class CompileOutcome {
 
-        static final CompileOutcome REJECTED = new CompileOutcome(null, null);
+        static final CompileOutcome REJECTED = new CompileOutcome(null, null, null);
 
         private final List<File> files;
+        private final List<String> testMethodNames;
         private final NotJudgedReason notJudgedReason;
 
-        private CompileOutcome(List<File> files, NotJudgedReason notJudgedReason) {
+        private CompileOutcome(List<File> files, List<String> testMethodNames,
+                               NotJudgedReason notJudgedReason) {
             this.files = files;
+            this.testMethodNames = testMethodNames;
             this.notJudgedReason = notJudgedReason;
         }
 
-        static CompileOutcome compiled(List<File> files) {
-            return new CompileOutcome(files, null);
+        static CompileOutcome compiled(List<File> files, List<String> testMethodNames) {
+            return new CompileOutcome(files, testMethodNames, null);
         }
 
         static CompileOutcome notJudged(NotJudgedReason reason) {
-            return new CompileOutcome(null, reason);
+            return new CompileOutcome(null, null, reason);
         }
 
         boolean isCompiled() {
@@ -774,6 +775,11 @@ public abstract class JUnitAnalyzer {
 
         NotJudgedReason getNotJudgedReason() {
             return notJudgedReason;
+        }
+
+        /** The names of the written test methods, by position in the list of tests. */
+        List<String> getTestMethodNames() {
+            return testMethodNames;
         }
 
         /** The written source files, which javac compiled into class files next to them. */
@@ -908,7 +914,7 @@ public abstract class JUnitAnalyzer {
                         compilerClasspath);
                 return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
-            return CompileOutcome.compiled(generated);
+            return CompileOutcome.compiled(generated, suite.getTestMethodNames());
 
         } catch (OutOfMemoryError e) {
             // Not a verdict on the tests: reporting them as not compiling would delete them.
@@ -1460,8 +1466,14 @@ public abstract class JUnitAnalyzer {
         /** The compiled suite could not be loaded. */
         abstract R notLoaded();
 
-        /** Judges the result of running the suite. */
-        abstract R judge(JUnitResult result, Class<?>[] testClasses) throws Exception;
+        /**
+         * Judges the result of running the suite.
+         *
+         * @param testMethodNames the names of the test methods the suite was written with, by
+         *                        position in the list of tests
+         */
+        abstract R judge(JUnitResult result, Class<?>[] testClasses, List<String> testMethodNames)
+                throws Exception;
 
         /** Compiling, loading, running or judging the suite threw. */
         abstract R failed(Exception e);
@@ -1515,7 +1527,8 @@ public abstract class JUnitAnalyzer {
             if (testClasses == null) {
                 return check.notLoaded();
             }
-            return check.judge(runTests(testClasses, dir, compiled.getFiles()), testClasses);
+            return check.judge(runTests(testClasses, dir, compiled.getFiles()), testClasses,
+                    compiled.getTestMethodNames());
         } catch (Exception e) {
             return check.failed(e);
         } finally {

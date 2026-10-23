@@ -100,6 +100,7 @@ public class TestSuiteWriter implements Opcodes {
     private Scaffolding.ReplaySnapshot replayScaffoldingSnapshot = null;
     private final Set<String> emittedMethodNames = new HashSet<>();
     private final Map<String, Integer> emittedMethodNameSuffixes = new HashMap<>();
+    private final List<String> testMethodNames = new ArrayList<>();
 
     /**
      * Set the order in which extensions should be initialized.
@@ -194,6 +195,7 @@ public class TestSuiteWriter implements Opcodes {
     public List<File> writeTestSuite(String name, String directory, List<ExecutionResult> cachedResults)
             throws IllegalArgumentException {
 
+        testMethodNames.clear();
         if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("Empty test class name");
         }
@@ -848,6 +850,7 @@ public class TestSuiteWriter implements Opcodes {
             methodName = TestSuiteWriterUtils.getNameOfTest(testCases, number);
         }
         methodName = ensureUniqueMethodName(methodName);
+        recordTestMethodName(id, methodName);
         if (endsOnResourceLimit(result)) {
             builder.append(METHOD_SPACE).append("@").append(EvoSuiteEndsOnResourceLimit.class.getName())
                     .append(NEWLINE);
@@ -966,6 +969,22 @@ public class TestSuiteWriter implements Opcodes {
         TestGenerationResultBuilder.getInstance().setTestCase(methodName, testCode, test,
                 testInfo, result);
         return testCode;
+    }
+
+    private void recordTestMethodName(int id, String methodName) {
+        while (testMethodNames.size() <= id) {
+            testMethodNames.add(null);
+        }
+        testMethodNames.set(id, methodName);
+    }
+
+    /**
+     * The names of the test methods written by the last call to {@link #writeTestSuite}, by
+     * position in the list of tests. The names come from the naming strategy, so they are not
+     * necessarily the positional ones; a test that was not written has a null name.
+     */
+    public List<String> getTestMethodNames() {
+        return Collections.unmodifiableList(testMethodNames);
     }
 
     private void resetEmittedMethodNameTracking() {
