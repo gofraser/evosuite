@@ -71,7 +71,6 @@ public class EvoRunnerJUnit5 implements TestInstanceFactory {
         RuntimeSettings.useVFS = ep.useVFS();
         RuntimeSettings.useVNET = ep.useVNET();
         RuntimeSettings.useSeparateClassLoader = ep.separateClassLoader();
-        RuntimeSettings.useJEE = ep.useJEE();
 
         if (RuntimeSettings.useSeparateClassLoader && useClassLoader) {
             return;

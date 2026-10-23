@@ -78,7 +78,6 @@ public class ExtensionModeResourceLimitTest {
     private boolean useVFS;
     private boolean useVNET;
     private boolean useSeparateClassLoader;
-    private boolean useJEE;
     private int maxNumberOfThreads;
     private long maxNumberOfIterationsPerLoop;
 
@@ -91,7 +90,6 @@ public class ExtensionModeResourceLimitTest {
         useVFS = RuntimeSettings.useVFS;
         useVNET = RuntimeSettings.useVNET;
         useSeparateClassLoader = RuntimeSettings.useSeparateClassLoader;
-        useJEE = RuntimeSettings.useJEE;
         maxNumberOfThreads = RuntimeSettings.maxNumberOfThreads;
         maxNumberOfIterationsPerLoop = RuntimeSettings.maxNumberOfIterationsPerLoop;
     }
@@ -105,7 +103,6 @@ public class ExtensionModeResourceLimitTest {
         RuntimeSettings.useVFS = useVFS;
         RuntimeSettings.useVNET = useVNET;
         RuntimeSettings.useSeparateClassLoader = useSeparateClassLoader;
-        RuntimeSettings.useJEE = useJEE;
         RuntimeSettings.maxNumberOfThreads = maxNumberOfThreads;
         RuntimeSettings.maxNumberOfIterationsPerLoop = maxNumberOfIterationsPerLoop;
     }

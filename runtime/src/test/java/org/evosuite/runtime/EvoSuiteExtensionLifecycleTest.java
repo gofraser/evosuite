@@ -113,7 +113,6 @@ public class EvoSuiteExtensionLifecycleTest {
     private final boolean defaultUseVnet = RuntimeSettings.useVNET;
     private final boolean defaultResetStaticState = RuntimeSettings.resetStaticState;
     private final boolean defaultSeparateClassLoader = RuntimeSettings.useSeparateClassLoader;
-    private final boolean defaultUseJee = RuntimeSettings.useJEE;
 
     @AfterEach
     public void restoreRuntimeSettings() {
@@ -125,7 +124,6 @@ public class EvoSuiteExtensionLifecycleTest {
         RuntimeSettings.useVNET = defaultUseVnet;
         RuntimeSettings.resetStaticState = defaultResetStaticState;
         RuntimeSettings.useSeparateClassLoader = defaultSeparateClassLoader;
-        RuntimeSettings.useJEE = defaultUseJee;
         java.lang.System.clearProperty(EvoSuiteExtension.EAGER_GUI_INIT_PROPERTY);
         SystemInUtil.resetSingleton();
         JOptionPaneInputs.resetSingleton();
@@ -146,7 +144,6 @@ public class EvoSuiteExtensionLifecycleTest {
         Assertions.assertTrue(RuntimeSettings.useVNET);
         Assertions.assertFalse(RuntimeSettings.resetStaticState);
         Assertions.assertFalse(RuntimeSettings.useSeparateClassLoader);
-        Assertions.assertTrue(RuntimeSettings.useJEE);
     }
 
     @Test

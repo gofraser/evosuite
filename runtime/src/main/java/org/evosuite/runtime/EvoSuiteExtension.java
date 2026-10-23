@@ -401,7 +401,6 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         RuntimeSettings.useVFS = parameters.useVFS();
         RuntimeSettings.useVNET = parameters.useVNET();
         RuntimeSettings.useSeparateClassLoader = parameters.separateClassLoader();
-        RuntimeSettings.useJEE = parameters.useJEE();
         RuntimeSettings.maxNumberOfThreads = parameters.maxNumberOfThreads();
         RuntimeSettings.maxNumberOfIterationsPerLoop = parameters.maxNumberOfIterationsPerLoop();
 
@@ -440,7 +439,6 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
             copyField(RuntimeSettings.class, systemSettings, "useVFS");
             copyField(RuntimeSettings.class, systemSettings, "useVNET");
             copyField(RuntimeSettings.class, systemSettings, "useSeparateClassLoader");
-            copyField(RuntimeSettings.class, systemSettings, "useJEE");
             copyField(RuntimeSettings.class, systemSettings, "maxNumberOfThreads");
             copyField(RuntimeSettings.class, systemSettings, "maxNumberOfIterationsPerLoop");
             copyField(RuntimeSettings.class, systemSettings, "mockSystemIn");

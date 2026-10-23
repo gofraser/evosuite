@@ -283,15 +283,6 @@
             <artifactId>asm-util</artifactId>
         </dependency>
 
-
-        <!-- https://mvnrepository.com/artifact/javax.xml.ws/jaxws-api -->
-        <dependency>
-            <groupId>javax.xml.ws</groupId>
-            <artifactId>jaxws-api</artifactId>
-        </dependency>
-
-
-
     </dependencies>
 
     <build>

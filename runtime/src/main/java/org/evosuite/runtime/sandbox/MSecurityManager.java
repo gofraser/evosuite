@@ -34,7 +34,6 @@ import javax.security.auth.PrivateCredentialPermission;
 import javax.security.auth.kerberos.DelegationPermission;
 import javax.security.auth.kerberos.ServicePermission;
 import javax.sound.sampled.AudioPermission;
-import javax.xml.ws.WebServicePermission;
 import java.awt.*;
 import java.io.File;
 import java.io.FilePermission;
@@ -1143,10 +1142,6 @@ public class MSecurityManager extends SecurityManager {
             return checkPrivateCredentialPermission((PrivateCredentialPermission) perm);
         }
 
-        if (perm instanceof WebServicePermission) {
-            return checkWebServicePermission((WebServicePermission) perm);
-        }
-
         if (perm instanceof SubjectDelegationPermission) {
             return checkSubjectDelegationPermission((SubjectDelegationPermission) perm);
         }
@@ -1449,14 +1444,6 @@ public class MSecurityManager extends SecurityManager {
          * seems fine
          */
         return true;
-    }
-
-    protected boolean checkWebServicePermission(WebServicePermission perm) {
-        /*
-         * "publishing a web service endpoint" should be fine, but unsure whether it has 
-         * effects or not on opening UDP/TCP ports. Need more investigations before allowing it
-         */
-        return false;
     }
 
     protected boolean checkPrivateCredentialPermission(PrivateCredentialPermission perm) {

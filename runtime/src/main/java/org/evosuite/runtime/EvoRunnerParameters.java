@@ -68,10 +68,11 @@ public @interface EvoRunnerParameters {
     boolean separateClassLoader() default false;
 
     /**
-     * Should JEE support be enabled.
+     * Ignored; kept so that existing tests that set it still compile.
      *
-     * @return true if JEE support should be enabled
+     * @return ignored
      */
+    @Deprecated
     boolean useJEE() default false;
 
     /**

@@ -98,7 +98,6 @@ public class EvoRunner extends BlockJUnit4ClassRunner {
         RuntimeSettings.useVFS = ep.useVFS();
         RuntimeSettings.useVNET = ep.useVNET();
         RuntimeSettings.useSeparateClassLoader = ep.separateClassLoader();
-        RuntimeSettings.useJEE = ep.useJEE();
 
         if (RuntimeSettings.useSeparateClassLoader && useClassLoader) {
             return getFromEvoSuiteClassloader(klass);
