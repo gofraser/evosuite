@@ -121,7 +121,7 @@ public class MockIllegalAccessException extends IllegalAccessException implement
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        return getDelegate().toString();
+        return MockThrowable.toString(this);
     }
 
     @Override

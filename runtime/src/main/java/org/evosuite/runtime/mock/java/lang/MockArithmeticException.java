@@ -121,7 +121,7 @@ public class MockArithmeticException extends ArithmeticException implements Over
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        return getDelegate().toString();
+        return MockThrowable.toString(this);
     }
 
     @Override

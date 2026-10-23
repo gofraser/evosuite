@@ -176,4 +176,23 @@ public class MockThrowableTest {
         };
         assertEquals("msg", t.getMessage());
     }
+
+    @Test
+    public void toStringNamesTheClassOfTheMockedException() {
+        MockFramework.enable();
+        assertEquals("java.io.IOException: msg", new MockIOException("msg").toString());
+        assertEquals("java.lang.IllegalStateException: msg", new MockIllegalStateException("msg").toString());
+        assertEquals("java.lang.RuntimeException", new MockRuntimeException().toString());
+    }
+
+    @Test
+    public void toStringKeepsTheNameOfAnApplicationSubclass() {
+        MockFramework.enable();
+        class AppException extends MockIOException {
+            AppException(String message) {
+                super(message);
+            }
+        }
+        assertEquals(AppException.class.getName() + ": msg", new AppException("msg").toString());
+    }
 }

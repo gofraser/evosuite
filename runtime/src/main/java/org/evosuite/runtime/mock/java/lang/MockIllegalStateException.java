@@ -150,7 +150,7 @@ public class MockIllegalStateException extends IllegalStateException implements 
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        return getDelegate().toString();
+        return MockThrowable.toString(this);
     }
 
     @Override

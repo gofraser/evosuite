@@ -161,7 +161,7 @@ public class MockRuntimeException extends RuntimeException implements OverrideMo
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        return getDelegate().toString();
+        return MockThrowable.toString(this);
     }
 
     @Override

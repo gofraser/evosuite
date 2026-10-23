@@ -119,6 +119,24 @@ public class MockThrowable extends Throwable implements OverrideMock {
     }
 
     /**
+     * Describes a mocked exception the way {@link Throwable#toString()} does, but names the
+     * class the application sees: the mock classes stand in for a JDK exception, which is
+     * their superclass, so the mock's own name is replaced by it.
+     *
+     * @param exception the mocked exception
+     * @return the class name, followed by the message if there is one
+     */
+    public static String toString(Throwable exception) {
+        Class<?> clazz = exception.getClass();
+        if (clazz.getSimpleName().startsWith("Mock")
+                && clazz.getName().startsWith("org.evosuite.runtime.mock.")) {
+            clazz = clazz.getSuperclass();
+        }
+        String message = exception.getLocalizedMessage();
+        return message != null ? clazz.getName() + ": " + message : clazz.getName();
+    }
+
+    /**
      * Replacement for {@link Throwable#getStackTrace()}.
      *
      * @param source the throwable

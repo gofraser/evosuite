@@ -161,7 +161,7 @@ public class MockException extends Exception implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.toString();
         }
-        return getDelegate().toString();
+        return MockThrowable.toString(this);
     }
 
     @Override
