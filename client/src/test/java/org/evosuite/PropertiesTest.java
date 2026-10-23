@@ -71,23 +71,6 @@ public class PropertiesTest {
     }
 
     @Test
-    public void dmonOnlyTargetClassAliasAppliesOnlyWhenNewKeyIsUnset() {
-        Properties.DMON_ONLY_TARGET_CLASS = true;
-        Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = false;
-        Properties.resolveDmonOnlyTargetClassAlias(false, false);
-        assertEquals(true, Properties.DMON_ONLY_TARGET_CLASS);
-
-        Properties.resolveDmonOnlyTargetClassAlias(false, true);
-        assertEquals(true, Properties.DMON_ONLY_TARGET_CLASS);
-
-        Properties.resolveDmonOnlyTargetClassAlias(true, true);
-        assertEquals(true, Properties.DMON_ONLY_TARGET_CLASS);
-
-        Properties.resolveDmonOnlyTargetClassAlias(true, false);
-        assertEquals(false, Properties.DMON_ONLY_TARGET_CLASS);
-    }
-
-    @Test
     public void testParameterThatDoesNotExist() {
         try {
             Properties.getInstance().setValue("a_parameter_that_does_not_exist", 1);

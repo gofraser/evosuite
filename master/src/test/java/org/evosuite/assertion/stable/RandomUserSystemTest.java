@@ -41,7 +41,6 @@ import org.objectweb.asm.Type;
 import com.examples.with.different.packagename.stable.RandomUser;
 
 public class RandomUserSystemTest extends SystemTestBase {
-    private final boolean DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS = Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS;
     private final boolean DEFAULT_REPLACE_CALLS = Properties.REPLACE_CALLS;
     private final Properties.JUnitCheckValues DEFAULT_JUNIT_CHECK = Properties.JUNIT_CHECK;
     private final boolean DEFAULT_JUNIT_TESTS = Properties.JUNIT_TESTS;
@@ -57,13 +56,11 @@ public class RandomUserSystemTest extends SystemTestBase {
         Properties.JUNIT_CHECK = Properties.JUnitCheckValues.TRUE;
         Properties.JUNIT_TESTS = true;
         Properties.PURE_INSPECTORS = true;
-        Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
 
     }
 
     @AfterEach
     public void restoreProperties() {
-        Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
         Properties.SANDBOX = DEFAULT_SANDBOX;
         Properties.REPLACE_CALLS = DEFAULT_REPLACE_CALLS;
         Properties.JUNIT_CHECK = DEFAULT_JUNIT_CHECK;

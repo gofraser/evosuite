@@ -244,13 +244,11 @@ public class DmonPromotionOperatorTest {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
-        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // Checks the shape of the promoted test, not its validation.
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -274,7 +272,6 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
         }
     }
 
@@ -283,13 +280,11 @@ public class DmonPromotionOperatorTest {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
-        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // Checks the shape of the promoted test, not its validation.
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -313,7 +308,6 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
         }
     }
 
@@ -321,13 +315,11 @@ public class DmonPromotionOperatorTest {
     public void validatePromotedOnceAcceptsPassingPromotion() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
-        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
         int oldTimeout = Properties.TIMEOUT;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // This test drives a real TestCaseExecutor.runTest() (via
             // validateOrRollback) that creates a Mockito mock. The first such
@@ -364,7 +356,6 @@ public class DmonPromotionOperatorTest {
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
             Properties.TIMEOUT = oldTimeout;
             ValidateTarget.dep = null;
@@ -430,13 +421,11 @@ public class DmonPromotionOperatorTest {
     public void promotionThatLeavesTheFailureUnchangedIsKept() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
-        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
         int oldTimeout = Properties.TIMEOUT;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // See validatePromotedOnceAcceptsPassingPromotion.
             Properties.TIMEOUT = 60000;
@@ -478,7 +467,6 @@ public class DmonPromotionOperatorTest {
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
             Properties.TIMEOUT = oldTimeout;
             NullArgumentTarget.fallback = null;
@@ -489,13 +477,11 @@ public class DmonPromotionOperatorTest {
     public void promotionIsKeptWhenTheRerunFailsWhereTheAssistRepairedTheOriginal() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
-        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
         int oldTimeout = Properties.TIMEOUT;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // See validatePromotedOnceAcceptsPassingPromotion.
             Properties.TIMEOUT = 60000;
@@ -545,7 +531,6 @@ public class DmonPromotionOperatorTest {
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
             Properties.TIMEOUT = oldTimeout;
             NullArgumentTarget.fallback = null;
@@ -557,13 +542,11 @@ public class DmonPromotionOperatorTest {
     public void validatePromotedOnceRollsBackFailingPromotion() throws Exception {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
-        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
         int oldTimeout = Properties.TIMEOUT;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // See validatePromotedOnceAcceptsPassingPromotion: this also drives a
             // real TestCaseExecutor.runTest() and can hit the same one-off warm-up
@@ -603,7 +586,6 @@ public class DmonPromotionOperatorTest {
         } finally {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
             Properties.TIMEOUT = oldTimeout;
             ValidateFailTarget.dep = null;
@@ -646,13 +628,11 @@ public class DmonPromotionOperatorTest {
         boolean oldEnabled = Properties.DMON_ENABLED;
         boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
-        boolean oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         try {
             Properties.DMON_ENABLED = true;
             Properties.DMON_PROMOTE_IN_PLACE = true;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
             // Checks the shape of the promoted test, not its validation.
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
 
             TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(new DefaultTestCase());
@@ -678,7 +658,6 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
-            Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
         }
     }
 

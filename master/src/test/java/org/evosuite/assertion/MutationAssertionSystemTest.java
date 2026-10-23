@@ -42,7 +42,7 @@ public class MutationAssertionSystemTest extends SystemTestBase {
 
         String[] command = new String[]{
                 //EvoSuite.JAVA_CMD,
-                "-generateTests", "-class", targetClass, "-Dplot=false",
+                "-generateTests", "-class", targetClass,
                 "-Djunit_tests=false", "-Dshow_progress=false",
                 "-Dgenerations=" + generations, "-assertions",
                 "-Dassertion_strategy=mutation", "-Dserialize_result=true"};

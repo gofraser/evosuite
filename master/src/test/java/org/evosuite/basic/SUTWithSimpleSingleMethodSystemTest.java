@@ -49,7 +49,6 @@ public class SUTWithSimpleSingleMethodSystemTest extends SystemTestBase {
                 "-generateTests",
                 "-class",
                 targetClass,
-                "-Dplot=false",
                 "-Djunit_tests=false",
                 "-Dshow_progress=false",
                 "-Dgenerations=" + generations,

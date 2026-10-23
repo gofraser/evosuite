@@ -55,14 +55,12 @@ public class DmonLinkageErrorTest {
     private boolean oldEnabled;
     private boolean oldPromote;
     private boolean oldReflection;
-    private boolean oldValidate;
 
     @Before
     public void setUp() throws Exception {
         oldEnabled = Properties.DMON_ENABLED;
         oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
         oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
-        oldValidate = Properties.DMON_VALIDATE_PROMOTED_ONCE;
         Properties.DMON_ENABLED = true;
         Properties.DMON_PROMOTE_IN_PLACE = true;
         Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
@@ -91,7 +89,6 @@ public class DmonLinkageErrorTest {
         Properties.DMON_ENABLED = oldEnabled;
         Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
         Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
-        Properties.DMON_VALIDATE_PROMOTED_ONCE = oldValidate;
         TestGenerationContext.getInstance().resetContext();
     }
 
@@ -143,7 +140,6 @@ public class DmonLinkageErrorTest {
         Files.write(dir.resolve("BadInit.class"), cw.toByteArray());
         TestGenerationContext.getInstance().resetContext();
         ClassPathHandler.getInstance().addElementToTargetProjectClassPath(dir.getParent().toString());
-        Properties.DMON_VALIDATE_PROMOTED_ONCE = true;
 
         TestChromosome chromosome = new TestChromosome();
         chromosome.setTestCase(new DefaultTestCase());

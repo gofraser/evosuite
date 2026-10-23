@@ -30,8 +30,6 @@ import java.util.List;
 public abstract class TestStabilityChecker {
     public static boolean checkStability(List<TestCase> list) {
         int n = list.size();
-        boolean previousRunOnSeparateProcess = Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS;
-        Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
 
         TestCaseExecutor.initExecutor(); //needed because it gets pulled down after the search
 
@@ -67,7 +65,6 @@ public abstract class TestStabilityChecker {
 
             return true;
         } finally {
-            Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = previousRunOnSeparateProcess;
             if (Properties.SANDBOX) {
                 Sandbox.resetDefaultSecurityManager();
             }

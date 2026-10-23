@@ -75,7 +75,6 @@ public class MethodNoExceptionCoverageFitnessFunctionSystemTest extends SystemTe
 
         String targetClass = UnlikelyNoException.class.getCanonicalName();
         Properties.TARGET_CLASS = targetClass;
-        Properties.DYNAMIC_SEEDING = true;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
         Object result = evosuite.parseCommandLine(command);

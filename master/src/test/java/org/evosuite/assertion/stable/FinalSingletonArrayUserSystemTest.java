@@ -46,7 +46,6 @@ public class FinalSingletonArrayUserSystemTest extends SystemTestBase {
         Properties.JUNIT_CHECK = Properties.JUnitCheckValues.TRUE;
         Properties.JUNIT_TESTS = true;
         Properties.PURE_INSPECTORS = true;
-        Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
     }
 
     @Test

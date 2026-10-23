@@ -89,7 +89,6 @@ public class SearchStatisticsSystemTest extends SystemTestBase {
         String targetClass = Calculator.class.getCanonicalName();
 
         Properties.TARGET_CLASS = targetClass;
-        Properties.DYNAMIC_SEEDING = true;
         Properties.SEARCH_BUDGET = 30;
         Properties.OUTPUT_VARIABLES = "" + RuntimeVariable.Branchless_Methods + "," + RuntimeVariable.Covered_Branchless_Methods;
 
@@ -113,7 +112,6 @@ public class SearchStatisticsSystemTest extends SystemTestBase {
         String targetClass = ExampleGradientBranches.class.getCanonicalName();
 
         Properties.TARGET_CLASS = targetClass;
-        Properties.DYNAMIC_SEEDING = true;
         Properties.SEARCH_BUDGET = 2500;
         Properties.TRACK_BOOLEAN_BRANCHES = true;
         Properties.OUTPUT_VARIABLES = "" + RuntimeVariable.Coverage + "," + RuntimeVariable.Gradient_Branches;

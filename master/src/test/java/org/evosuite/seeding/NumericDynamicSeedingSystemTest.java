@@ -49,7 +49,6 @@ public class NumericDynamicSeedingSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.CLIENT_ON_THREAD = true;
 
-        Properties.DYNAMIC_SEEDING = true;
 
         //Properties.ALGORITHM = Properties.Algorithm.ONEPLUSONEEA;
 
@@ -78,7 +77,6 @@ public class NumericDynamicSeedingSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.CLIENT_ON_THREAD = true;
 
-        Properties.DYNAMIC_SEEDING = true;
 
         //Properties.ALGORITHM = Properties.Algorithm.ONEPLUSONEEA;
 
@@ -107,7 +105,6 @@ public class NumericDynamicSeedingSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.CLIENT_ON_THREAD = true;
 
-        Properties.DYNAMIC_SEEDING = true;
 
         //Properties.ALGORITHM = Properties.Algorithm.ONEPLUSONEEA;
 
@@ -137,7 +134,6 @@ public class NumericDynamicSeedingSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.CLIENT_ON_THREAD = true;
 
-        Properties.DYNAMIC_SEEDING = true;
 
         //Properties.ALGORITHM = Properties.Algorithm.ONEPLUSONEEA;
 

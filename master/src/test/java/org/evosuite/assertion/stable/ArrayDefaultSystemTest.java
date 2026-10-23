@@ -41,7 +41,6 @@ import com.examples.with.different.packagename.stable.IntegerArrayDefault;
 import com.examples.with.different.packagename.stable.ObjectArrayDefault;
 
 public class ArrayDefaultSystemTest extends SystemTestBase {
-    private final boolean DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS = Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS;
     private final boolean DEFAULT_RESET_STATIC_FIELDS = Properties.RESET_STATIC_FIELDS;
     private final Properties.JUnitCheckValues DEFAULT_JUNIT_CHECK = Properties.JUNIT_CHECK;
     private final boolean DEFAULT_JUNIT_TESTS = Properties.JUNIT_TESTS;
@@ -56,12 +55,10 @@ public class ArrayDefaultSystemTest extends SystemTestBase {
         Properties.JUNIT_CHECK = Properties.JUnitCheckValues.TRUE;
         Properties.JUNIT_TESTS = true;
         Properties.PURE_INSPECTORS = true;
-        Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
     }
 
     @AfterEach
     public void restoreProperties() {
-        Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
         Properties.SANDBOX = DEFAULT_SANDBOX;
         Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC_FIELDS;
         Properties.JUNIT_CHECK = DEFAULT_JUNIT_CHECK;

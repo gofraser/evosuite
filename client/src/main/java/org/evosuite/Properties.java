@@ -142,20 +142,6 @@ public class Properties {
         double max() default Double.MAX_VALUE;
     }
 
-    // ---------------------------------------------------------------
-    // Test sequence creation
-    @Parameter(key = "test_excludes", group = "Test Creation",
-            description = "File containing methods that should not be used in testing")
-    public static String TEST_EXCLUDES = "test.excludes";
-
-    @Parameter(key = "test_includes", group = "Test Creation",
-            description = "File containing methods that should be included in testing")
-    public static String TEST_INCLUDES = "test.includes";
-
-    @Parameter(key = "evosuite_use_uispec", group = "Test Creation",
-            description = "If set to true EvoSuite test generation inits UISpec in order to avoid display of UI")
-    public static boolean EVOSUITE_USE_UISPEC = false;
-
     // --- EvoObj: graph-based seed object synthesis ---
 
     @Parameter(key = "apply_object_rule", group = "Test Creation",
@@ -281,10 +267,6 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static boolean VARIABLE_POOL = false;
 
-    @Deprecated
-    @Parameter(key = "dynamic_seeding", group = "Test Creation", description = "Use numeric dynamic seeding")
-    public static boolean DYNAMIC_SEEDING = true;
-
     @Parameter(key = "dynamic_pool_size", group = "Test Creation", description = "Number of dynamic constants to keep")
     public static int DYNAMIC_POOL_SIZE = 50;
 
@@ -319,11 +301,6 @@ public class Properties {
     @Parameter(key = "max_string", group = "Test Creation", description = "Maximum length of strings in assertions")
     @IntValue(min = 1, max = 32767) // String literals may not be longer than 32767
     public static int MAX_STRING = 1000;
-
-    @Parameter(key = "epsilon", group = "Test Creation", description = "Epsilon for floats in local search")
-    @Deprecated
-    // does not seem to be used anywhere
-    public static double EPSILON = 0.001;
 
     @Parameter(key = "max_int", group = "Test Creation",
             description = "Maximum size of randomly generated integers (minimum range = -1 * max)")
@@ -387,9 +364,6 @@ public class Properties {
             description = "Maximum number of test cases in a test suite")
     public static int MAX_SIZE = 100;
 
-    @Parameter(key = "num_tests", group = "Test Creation", description = "Number of tests in initial test suites")
-    public static int NUM_TESTS = 2;
-
     @Parameter(key = "num_random_tests", group = "Test Creation", description = "Number of random tests")
     public static int NUM_RANDOM_TESTS = 20;
 
@@ -405,10 +379,6 @@ public class Properties {
             description = "Include deprecated methods in tests")
     public static boolean USE_DEPRECATED = false;
 
-    @Parameter(key = "insertion_score_uut", group = "Test Creation",
-            description = "Score for selection of insertion of UUT calls")
-    public static int INSERTION_SCORE_UUT = 1;
-
     @Parameter(key = "insertion_uut", group = "Test Creation",
             description = "Score for selection of insertion of UUT calls")
     public static double INSERTION_UUT = 0.5;
@@ -420,18 +390,6 @@ public class Properties {
     @Parameter(key = "insertion_environment", group = "Test Creation",
             description = "Score for selection of insertion of call on the environment")
     public static double INSERTION_ENVIRONMENT = 0.1;
-
-    @Parameter(key = "new_object_selection", group = "Test Creation",
-            description = "Score for selection of insertion of UUT calls")
-    public static boolean NEW_OBJECT_SELECTION = true;
-
-    @Parameter(key = "insertion_score_object", group = "Test Creation",
-            description = "Score for selection of insertion of call on existing object")
-    public static int INSERTION_SCORE_OBJECT = 1;
-
-    @Parameter(key = "insertion_score_parameter", group = "Test Creation",
-            description = "Score for selection of insertion call with existing object")
-    public static int INSERTION_SCORE_PARAMETER = 1;
 
     @Parameter(key = "consider_main_methods", group = "Test Creation",
             description = "Generate unit tests for 'main(String[] args)' methods as well")
@@ -558,12 +516,6 @@ public class Properties {
                     + "ephemeral-assist analysis used mid-execution to chase cascading dependencies")
     public static boolean DMON_ONLY_TARGET_CLASS = true;
 
-    @Parameter(key = "dmon_only_target_class_constructor", group = "Test Creation",
-            description = "Deprecated alias for dmon_only_target_class; only honoured when "
-                    + "dmon_only_target_class is not set")
-    @Deprecated
-    public static boolean DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
-
     @Parameter(key = "dmon_helpful_npe_parse", group = "Test Creation",
             description = "Use Java 14+ helpful NPE messages to extract null dereference hints for DMoN")
     public static boolean DMON_HELPFUL_NPE_PARSE = true;
@@ -583,13 +535,6 @@ public class Properties {
     @Parameter(key = "dmon_promote_in_place", group = "Test Creation",
             description = "Apply DMoN promotion in-place on the evaluated chromosome (Option 1 integration)")
     public static boolean DMON_PROMOTE_IN_PLACE = true;
-
-    @Parameter(key = "dmon_validate_promoted_once", group = "Test Creation",
-            description = "Deprecated, no effect: a DMoN promotion is always validated by re-running the test once "
-                    + "with DMoN disabled, and rolled back if it now throws at an earlier statement or still hits "
-                    + "the null but fails differently. Setting it to false only logs a warning")
-    @Deprecated
-    public static boolean DMON_VALIDATE_PROMOTED_ONCE = true;
 
     @Parameter(key = "dmon_max_ephemeral_retries", group = "Test Creation",
             description = "Maximum number of DMoN assist+retry attempts for constructor NPEs within one execution")
@@ -728,22 +673,9 @@ public class Properties {
         LAZY_VARIABLES
     }
 
-    /**
-     * TODO (ilebrero) : Implement private fields tracking.
-     */
-    public enum DseObjectsModelVersion {
-        PUBLIC_FIELDS_NO_SUBCLASSES,
-        PUBLIC_FIELDS_AND_SUBCLASSES // TODO: Implement me!
-    }
-
     @Parameter(key = "dse_enable_objects_support", group = "DSE",
             description = "If objects should be supported by the concolic engine")
     public static boolean IS_DSE_OBJECTS_SUPPORT_ENABLED = false;
-
-    @Parameter(key = "selected_dse_module_objects_model_version", group = "DSE",
-            description = "Which implementation of objects is used on the concolic engine.")
-    public static DseObjectsModelVersion SELECTED_DseObjectsModelVersion =
-            DseObjectsModelVersion.PUBLIC_FIELDS_NO_SUBCLASSES;
 
     @Parameter(key = "dse_module_version", group = "DSE",
             description = "Module version of DSE, mostly used for benchmarking between modules. "
@@ -767,13 +699,6 @@ public class Properties {
     @Parameter(key = "dse_constraint_solver_timeout_millis", group = "DSE",
             description = "Maximum number of solving time for Constraint solver in milliseconds")
     public static long DSE_CONSTRAINT_SOLVER_TIMEOUT_MILLIS = 1000;
-
-    @Parameter(key = "dse_rank_branch_conditions", group = "DSE", description = "Rank branch conditions")
-    public static boolean DSE_RANK_BRANCH_CONDITIONS = true;
-
-    @Parameter(key = "dse_negate_all_conditions", group = "DSE",
-            description = "Negate all branch conditions in the path condition (covered or not)")
-    public static boolean DSE_NEGATE_ALL_CONDITIONS = true;
 
     @Parameter(key = "dse_constraint_length", group = "DSE",
             description = "Maximal length of the constraints in DSE")
@@ -825,11 +750,6 @@ public class Properties {
     @Parameter(key = "local_search_dse", group = "DSE", description = "Granularity of DSE application")
     public static DSEType LOCAL_SEARCH_DSE = DSEType.TEST;
 
-    @Deprecated
-    @Parameter(key = "dse_keep_all_tests", group = "DSE",
-            description = "Keep tests even if they do not increase fitness")
-    public static boolean DSE_KEEP_ALL_TESTS = false;
-
     public enum SolverType {
         EVOSUITE_SOLVER, Z3_SOLVER, CVC4_SOLVER
     }
@@ -880,6 +800,10 @@ public class Properties {
 
     // --------- LS ---------
 
+    @Parameter(key = "local_search_expand_tests", group = "Local Search",
+            description = "Expand test cases before applying local search such that each primitive is used only once")
+    public static boolean LOCAL_SEARCH_EXPAND_TESTS = true;
+
     @Parameter(key = "local_search_rate", group = "Local Search",
             description = "Apply local search at every X generation")
     public static int LOCAL_SEARCH_RATE = -1;
@@ -888,19 +812,6 @@ public class Properties {
             description = "Probability of applying local search at every X generation")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LOCAL_SEARCH_PROBABILITY = 1.0;
-
-    @Deprecated
-    @Parameter(key = "local_search_selective", group = "Local Search",
-            description = "Apply local search only to individuals that changed fitness")
-    public static boolean LOCAL_SEARCH_SELECTIVE = false;
-
-    @Parameter(key = "local_search_selective_primitives", group = "Local Search",
-            description = "Only check primitives for selective LS")
-    public static boolean LOCAL_SEARCH_SELECTIVE_PRIMITIVES = false; //TODO what is this? unclear
-
-    @Parameter(key = "local_search_expand_tests", group = "Local Search",
-            description = "Expand test cases before applying local search such that each primitive is used only once")
-    public static boolean LOCAL_SEARCH_EXPAND_TESTS = true;
 
     @Parameter(key = "local_search_ensure_double_execution", group = "Local Search",
             description = "If a branch is only executed once by a test suite, duplicate that test")
@@ -1007,11 +918,6 @@ public class Properties {
             description = "Probability of inserting new statements during mutation")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double P_TEST_INSERT = 1d / 3d;
-
-    @Parameter(key = "kincompensation", group = "Search Algorithm",
-            description = "Penalty for duplicate individuals")
-    @DoubleValue(min = 0.0, max = 1.0)
-    public static double KINCOMPENSATION = 1.0;
 
     @Parameter(key = "elite", group = "Search Algorithm",
             description = "Elite size for search algorithm")
@@ -1518,11 +1424,6 @@ public class Properties {
             description = "Allow test output on console")
     public static boolean PRINT_TO_SYSTEM = false;
 
-    @Parameter(key = "plot", group = "Output",
-            description = "Deprecated, no effect (legacy size/fitness plotting)")
-    @Deprecated
-    public static boolean PLOT = false;
-
     @Parameter(key = "coverage_matrix", group = "Output",
             description = "Create a coverage matrix (each row represents the coverage a test case, "
                     + "and each column represents one goal")
@@ -1560,12 +1461,6 @@ public class Properties {
             description = "Compile and run resulting JUnit test suite (if any was created)")
     public static JUnitCheckValues JUNIT_CHECK = JUnitCheckValues.TRUE;
 
-    @Parameter(key = "junit_check_on_separate_process", group = "Output",
-            description = "Compile and run resulting JUnit test suite on a separate process")
-    @Deprecated
-    //this gives quite a few issues. and hopefully the problems it was aimed to fix are no longer
-    public static boolean JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
-
     @Parameter(key = "junit_unstable_diagnostics", group = "Output",
             description = "Print detailed origin diagnostics for unstable tests detected during JUnit check")
     public static boolean JUNIT_UNSTABLE_DIAGNOSTICS = false;
@@ -1600,21 +1495,11 @@ public class Properties {
                     + "known to be pure (no side-effects)")
     public static boolean PURE_EQUALS = false;
 
-    /**
-     * TODO: this functionality is not implemented yet.
-     */
-    @Parameter(key = "junit_extend", group = "Output",
-            description = "Extend existing JUnit test suite")
-    public static String JUNIT_EXTEND = "";
-
     @Parameter(key = "junit", group = "Experimental",
             description = "A colon(:) separated list of JUnit suites to execute. Can be a prefix "
                     + "(i.e., package name), a directory, a jar file, or the full name of a "
                     + "JUnit suite.")
     public static String JUNIT = "";
-
-    @Parameter(key = "log_goals", group = "Output", description = "Create a CSV file for each individual evolution")
-    public static boolean LOG_GOALS = false;
 
     @Parameter(key = "log.level", group = "Output",
             description = "Verbosity level of logger")
@@ -1640,11 +1525,6 @@ public class Properties {
             description = "Minimize test suite after generation")
     public static boolean MINIMIZE_SKIP_COINCIDENTAL = true;
 
-    @Parameter(key = "minimize_old", group = "Output",
-            description = "Minimize test suite using old algorithm")
-    @Deprecated
-    public static boolean MINIMIZE_OLD = false;
-
     @Parameter(key = "minimize_values", group = "Output",
             description = "Minimize constants and method calls")
     public static boolean MINIMIZE_VALUES = false;
@@ -1652,11 +1532,6 @@ public class Properties {
     @Parameter(key = "lm_strings", group = "Output",
             description = "Use language model on strings.  The parameter minimize_values must also be true.")
     public static boolean LM_STRINGS = false;
-
-    @Parameter(key = "minimize_strings", group = "Output",
-            description = "Try to minimise strings by deleting non-printables. The parameter "
-                    + "minimize_values must also be true,")
-    public static boolean MINIMIZE_STRINGS = true;
 
     @Parameter(key = "lm_src", description = "Text file for the language model.")
     public static String LM_SRC = "ukwac_char_lm";
@@ -1840,10 +1715,6 @@ public class Properties {
     @Parameter(key = "output_granularity", group = "Output",
             description = "Write all test cases for a class into a single file or to separate files.")
     public static OutputGranularity OUTPUT_GRANULARITY = OutputGranularity.MERGED;
-
-    @Parameter(key = "max_coverage_depth", group = "Output",
-            description = "Maximum depth in the calltree to count a branch as covered")
-    public static int MAX_COVERAGE_DEPTH = -1;
 
     // ---------------------------------------------------------------
     // Naming
@@ -3215,14 +3086,6 @@ public class Properties {
     // ---------------------------------------------------------------
     // Experimental
 
-    @Deprecated
-    @Parameter(key = "jee", description = "Support for JEE")
-    public static boolean JEE = false;
-
-    @Deprecated
-    @Parameter(key = "handle_servlets", description = "Special treatment of JEE Servlets")
-    public static boolean HANDLE_SERVLETS = false;
-
     @Parameter(key = "cluster_recursion",
             description = "The maximum level of recursion when calculating the dependencies in the test cluster")
     public static int CLUSTER_RECURSION = 10;
@@ -3241,12 +3104,6 @@ public class Properties {
     @Parameter(key = "branch_eval", description = "Jeremy's branch evaluation")
     public static boolean BRANCH_EVAL = false;
 
-    @Parameter(key = "branch_statement", description = "Require statement coverage for branch coverage")
-    public static boolean BRANCH_STATEMENT = false;
-
-    @Parameter(key = "remote_testing", description = "Include remote calls")
-    public static boolean REMOTE_TESTING = false;
-
     @Parameter(key = "cpu_timeout", description = "Measure timeouts on CPU time, not global time")
     public static boolean CPU_TIMEOUT = false;
 
@@ -3257,13 +3114,6 @@ public class Properties {
             description = "Probability to reuse an existing test case, if it produces a required object")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double CALL_PROBABILITY = 0.0;
-
-    @Parameter(key = "usage_models", description = "Names of usage model files")
-    public static String USAGE_MODELS = "";
-
-    @Parameter(key = "usage_rate", description = "Probability with which to use transitions out of the OUM")
-    @DoubleValue(min = 0.0, max = 1.0)
-    public static double USAGE_RATE = 0.5;
 
     @Parameter(key = "instrumentation_skip_debug",
             description = "Skip debug information in bytecode instrumentation (needed for "
@@ -3313,9 +3163,6 @@ public class Properties {
     @Parameter(key = "archive_type", description = "Which type of archive to keep track of covered goals during search")
     public static ArchiveType ARCHIVE_TYPE = ArchiveType.COVERAGE;
 
-    @Parameter(key = "seed_file", description = "File storing TestGenerationResult or GeneticAlgorithm")
-    public static String SEED_FILE = "";
-
     @Parameter(key = "seed_probability", description = "Probability to seed on methods with randomness involved")
     public static double SEED_PROBABILITY = 0.1;
 
@@ -3323,9 +3170,6 @@ public class Properties {
             description = "List of fully qualified class names (separated by ':') indicating which "
                     + "JUnit test suites the user has selected (e.g., for seeding)")
     public static String SELECTED_JUNIT = null;
-
-    @Parameter(key = "junit_strict", description = "Only include test files containing the target classname")
-    public static boolean JUNIT_STRICT = false;
 
     @Parameter(key = "seed_clone", description = "Probability with which existing individuals are cloned")
     @DoubleValue(min = 0.0, max = 1.0)
@@ -3345,16 +3189,6 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     @Deprecated
     public static double CONCOLIC_MUTATION = 0.0;
-
-    @Parameter(key = "constraint_solution_attempts",
-            description = "Number of attempts to solve constraints related to one code branch")
-    public static int CONSTRAINT_SOLUTION_ATTEMPTS = 3;
-
-    @Parameter(key = "testability_transformation", description = "Apply testability transformation (Yanchuan)")
-    public static boolean TESTABILITY_TRANSFORMATION = false;
-
-    @Parameter(key = "TT_stack", description = "Maximum stack depth for testability transformation")
-    public static int TT_stack = 10;
 
     @Parameter(key = "TT", description = "Testability transformation")
     public static boolean TT = false;
@@ -3474,14 +3308,6 @@ public class Properties {
                     + " been registered as allocation-sensitive at runtime")
     public static int ALLOCATION_SENSITIVE_STRING_INPUT_LIMIT = 256;
 
-    @Parameter(key = "max_mutants", group = "Test Execution",
-            description = "Maximum number of mutants to target at the same time")
-    public static int MAX_MUTANTS = 100;
-
-    @Parameter(key = "mutation_generations", group = "Test Execution",
-            description = "Number of generations before changing the currently targeted mutants")
-    public static int MUTATION_GENERATIONS = 10;
-
     @Parameter(key = "replace_calls", group = "Test Execution",
             description = "Replace nondeterministic calls and System.exit")
     public static boolean REPLACE_CALLS = true;
@@ -3531,23 +3357,8 @@ public class Properties {
     public static boolean JMC = false;
 
     // ---------------------------------------------------------------
-    // TODO: Fix description
-    public enum AlternativeFitnessCalculationMode {
-        SUM, MIN, MAX, AVG, SINGLE
-    }
-
-    /**
-     * Constant <code>ALTERNATIVE_FITNESS_CALCULATION_MODE</code>.
-     */
-    @Parameter(key = "alternative_fitness_calculation_mode", description = "")
-    public static AlternativeFitnessCalculationMode ALTERNATIVE_FITNESS_CALCULATION_MODE =
-            AlternativeFitnessCalculationMode.SUM;
-
     @Parameter(key = "starve_by_fitness", description = "")
     public static boolean STARVE_BY_FITNESS = true;
-
-    @Parameter(key = "enable_alternative_fitness_calculation", description = "")
-    public static boolean ENABLE_ALTERNATIVE_FITNESS_CALCULATION = false;
 
     @Parameter(key = "enable_alternative_suite_fitness", description = "")
     public static boolean ENABLE_ALTERNATIVE_SUITE_FITNESS = false;
@@ -3557,16 +3368,6 @@ public class Properties {
 
     @Parameter(key = "defuse_aliases", description = "")
     public static boolean DEFUSE_ALIASES = true;
-
-    @Parameter(key = "randomize_difficulty", description = "")
-    public static boolean RANDOMIZE_DIFFICULTY = true;
-
-    // ---------------------------------------------------------------
-    // UI Test generation parameters
-    @Parameter(key = "UI_BACKGROUND_COVERAGE_DELAY", group = "EXSYST",
-            description = "How often to write out coverage information in the background (in ms). "
-                    + "-1 to disable.")
-    public static int UI_BACKGROUND_COVERAGE_DELAY = -1;
 
     // ---------------------------------------------------------------
     // Runtime parameters
@@ -3602,9 +3403,6 @@ public class Properties {
 
     @Parameter(key = "PROJECT_PREFIX", group = "Runtime", description = "Package name of target package")
     public static String PROJECT_PREFIX = "";
-
-    @Parameter(key = "PROJECT_DIR", group = "Runtime", description = "Directory name of target package")
-    public static String PROJECT_DIR = null;
 
     /**
      * Package name of target class (might be a subpackage).
@@ -3644,12 +3442,6 @@ public class Properties {
     @Parameter(key = "target_method_list", group = "Runtime",
             description = "A colon(:) separated list of methods for which to generate tests")
     public static String TARGET_METHOD_LIST = "";
-
-    @Parameter(key = "hierarchy_data", group = "Runtime", description = "File in which hierarchy data is stored")
-    public static String HIERARCHY_DATA = "hierarchy.xml";
-
-    @Parameter(key = "connection_data", group = "Runtime", description = "File in which connection data is stored")
-    public static String CONNECTION_DATA = "connection.xml";
 
     @Parameter(key = "exclude_ibranches_cut", group = "Runtime",
             description = "Exclude ibranches in the cut, to speed up ibranch as secondary criterion")
@@ -3706,13 +3498,6 @@ public class Properties {
     // ---------------------------------------------------------------
     // Seeding test cases
 
-    @Parameter(key = "classpath", group = "Test Seeding",
-            description = "The classpath needed to compile the seeding test case.")
-    public static String[] CLASSPATH = new String[]{""};
-
-    @Parameter(key = "sourcepath", group = "Test Seeding", description = "The path to the test case source.")
-    public static String[] SOURCEPATH = new String[]{""};
-
     // ---------------------------------------------------------------
     // Eclipse Plug-in flag
 
@@ -3743,7 +3528,19 @@ public class Properties {
      * rejected as an unknown property.
      */
     private static final Set<String> RETIRED_KEYS = Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(
-            "epsilon", "num_tests")));
+            "alternative_fitness_calculation_mode", "branch_statement", "classpath", "connection_data",
+            "constraint_solution_attempts", "dmon_only_target_class_constructor",
+            "dmon_validate_promoted_once", "dse_keep_all_tests", "dse_negate_all_conditions",
+            "dse_rank_branch_conditions", "dynamic_seeding", "enable_alternative_fitness_calculation",
+            "epsilon", "evosuite_use_uispec", "handle_servlets", "hierarchy_data", "insertion_score_object",
+            "insertion_score_parameter", "insertion_score_uut", "jee", "junit_check_on_separate_process",
+            "junit_extend", "junit_strict", "kincompensation", "local_search_selective",
+            "local_search_selective_primitives", "log_goals", "max_coverage_depth", "max_mutants",
+            "minimize_old", "minimize_strings", "mutation_generations", "new_object_selection", "num_tests",
+            "plot", "PROJECT_DIR", "randomize_difficulty", "remote_testing", "seed_file",
+            "selected_dse_module_objects_model_version", "sourcepath", "test_excludes", "test_includes",
+            "testability_transformation", "TT_stack", "UI_BACKGROUND_COVERAGE_DELAY", "usage_models",
+            "usage_rate")));
 
     private static final Set<String> reportedRetiredKeys = ConcurrentHashMap.newKeySet();
 
@@ -3820,35 +3617,6 @@ public class Properties {
             }
         }
         resolveLlmOperatorModeAlias();
-        resolveDmonOnlyTargetClassAlias();
-        warnIfPromotionValidationDisabled();
-    }
-
-    /**
-     * Warns when {@code dmon_validate_promoted_once=false} is set: promotions are always
-     * validated now, so the setting is ignored.
-     */
-    static void warnIfPromotionValidationDisabled() {
-        if (!DMON_VALIDATE_PROMOTED_ONCE) {
-            logger.warn("dmon_validate_promoted_once=false is ignored: DMoN promotions are always validated");
-        }
-    }
-
-    /**
-     * Copies the deprecated {@code dmon_only_target_class_constructor} onto
-     * {@code dmon_only_target_class} when only the old key was set. Runtime code reads only
-     * {@link #DMON_ONLY_TARGET_CLASS}.
-     */
-    static void resolveDmonOnlyTargetClassAlias() {
-        resolveDmonOnlyTargetClassAlias(changedFields.contains("dmon_only_target_class_constructor"),
-                changedFields.contains("dmon_only_target_class"));
-    }
-
-    static void resolveDmonOnlyTargetClassAlias(boolean oldKeySet, boolean newKeySet) {
-        if (oldKeySet && !newKeySet) {
-            logger.warn("dmon_only_target_class_constructor is deprecated; use dmon_only_target_class");
-            DMON_ONLY_TARGET_CLASS = DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
-        }
     }
 
     /**

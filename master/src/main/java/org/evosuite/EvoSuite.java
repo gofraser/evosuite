@@ -317,10 +317,6 @@ public class EvoSuite {
                 }
             }
 
-            if (Properties.JEE) {
-                throw new IllegalStateException("JEE is not supported due to the Java 9+ update of EvoSuite");
-            }
-
             if (line.hasOption("base_dir")) {
                 base_dir_path = line.getOptionValue("base_dir");
                 File baseDir = new File(base_dir_path);

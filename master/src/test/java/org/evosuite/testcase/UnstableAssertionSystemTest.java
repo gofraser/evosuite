@@ -38,7 +38,6 @@ import com.examples.with.different.packagename.staticfield.UnstableAssertion;
 
 public class UnstableAssertionSystemTest extends SystemTestBase {
 
-    //private final boolean DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS = Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS;
     private final boolean DEFAULT_RESET_STATIC_FIELDS = Properties.RESET_STATIC_FIELDS;
     private final Properties.JUnitCheckValues DEFAULT_JUNIT_CHECK = Properties.JUNIT_CHECK;
     private final boolean DEFAULT_JUNIT_TESTS = Properties.JUNIT_TESTS;
@@ -46,7 +45,6 @@ public class UnstableAssertionSystemTest extends SystemTestBase {
 
     @BeforeEach
     public void saveProperties() {
-        // Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = true;
         Properties.RESET_STATIC_FIELDS = true;
         Properties.JUNIT_CHECK = Properties.JUnitCheckValues.TRUE;
         Properties.JUNIT_TESTS = true;
@@ -55,7 +53,6 @@ public class UnstableAssertionSystemTest extends SystemTestBase {
 
     @AfterEach
     public void restoreProperties() {
-        // Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
         Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC_FIELDS;
         Properties.JUNIT_CHECK = DEFAULT_JUNIT_CHECK;
         Properties.JUNIT_TESTS = DEFAULT_JUNIT_TESTS;

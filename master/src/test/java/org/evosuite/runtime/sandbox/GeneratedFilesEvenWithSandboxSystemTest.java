@@ -71,7 +71,6 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
         Properties.SANDBOX = true;
         Properties.JUNIT_TESTS = true;
         Properties.VIRTUAL_FS = false;
-        Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
 

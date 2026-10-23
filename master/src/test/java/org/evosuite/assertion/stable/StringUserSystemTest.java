@@ -40,7 +40,6 @@ public class StringUserSystemTest extends SystemTestBase {
     private final Properties.JUnitCheckValues DEFAULT_JUNIT_CHECK = Properties.JUNIT_CHECK;
     private final boolean DEFAULT_JUNIT_TESTS = Properties.JUNIT_TESTS;
     private final boolean DEFAULT_PURE_INSPECTORS = Properties.PURE_INSPECTORS;
-    private final boolean DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS = Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS;
     private final boolean DEFAULT_SANDBOX = Properties.SANDBOX;
 
     @BeforeEach
@@ -49,7 +48,6 @@ public class StringUserSystemTest extends SystemTestBase {
         Properties.JUNIT_CHECK = Properties.JUnitCheckValues.TRUE;
         Properties.JUNIT_TESTS = true;
         Properties.PURE_INSPECTORS = true;
-        Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = false;
     }
 
     @AfterEach
@@ -58,7 +56,6 @@ public class StringUserSystemTest extends SystemTestBase {
         Properties.JUNIT_CHECK = DEFAULT_JUNIT_CHECK;
         Properties.JUNIT_TESTS = DEFAULT_JUNIT_TESTS;
         Properties.PURE_INSPECTORS = DEFAULT_PURE_INSPECTORS;
-        Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS = DEFAULT_JUNIT_CHECK_ON_SEPARATE_PROCESS;
     }
 
     @Test
