@@ -594,6 +594,7 @@ public abstract class DepVariable {
             case "BSTORE":
                 return "byte";
             case "BIPUSH":
+            case "SIPUSH":
                 return "int";
             case "CALOAD":
                 return "char";
@@ -608,7 +609,7 @@ public abstract class DepVariable {
                 }
                 return OTHER_TYPE;
             case "D2F":
-                return "double";
+                return "float";
             case "D2I":
                 return "int";
             case "D2L":
