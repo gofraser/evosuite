@@ -294,11 +294,6 @@ public class PromptBuilder {
 
     /** Package-private (not private) so {@link ClusterGrowthDelta} can size its own budget off the same logic. */
     static BudgetDecision resolveDependencySummaryBudget() {
-        int absoluteOverride = Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS;
-        if (absoluteOverride > 0) {
-            return new BudgetDecision(absoluteOverride, "absolute_override");
-        }
-
         if (!Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING) {
             return new BudgetDecision(Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS, "legacy_static");
         }

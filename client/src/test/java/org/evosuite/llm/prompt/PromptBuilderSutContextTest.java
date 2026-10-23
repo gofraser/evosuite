@@ -52,7 +52,6 @@ class PromptBuilderSutContextTest {
     private double originalClusterDynamicRatio;
     private int originalClusterDynamicMinChars;
     private int originalClusterDynamicMaxChars;
-    private int originalClusterAbsoluteOverride;
     private String originalTargetClass;
     private boolean originalPromptCacheStaticContext;
 
@@ -66,7 +65,6 @@ class PromptBuilderSutContextTest {
         originalClusterDynamicRatio = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO;
         originalClusterDynamicMinChars = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS;
         originalClusterDynamicMaxChars = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS;
-        originalClusterAbsoluteOverride = Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS;
         originalTargetClass = Properties.TARGET_CLASS;
         originalPromptCacheStaticContext = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
         // Most tests here assert where sections land in the *user* message;
@@ -88,7 +86,6 @@ class PromptBuilderSutContextTest {
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO = originalClusterDynamicRatio;
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS = originalClusterDynamicMinChars;
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = originalClusterDynamicMaxChars;
-        Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = originalClusterAbsoluteOverride;
         Properties.TARGET_CLASS = originalTargetClass;
         Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = originalPromptCacheStaticContext;
         StaticPromptContext.resetForRunCompletion();
@@ -384,7 +381,6 @@ class PromptBuilderSutContextTest {
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO = 0.10;
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS = 4_000;
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = 20_000;
-        Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = 0;
 
         RecordingSummarizer summarizer = new RecordingSummarizer();
 
@@ -405,38 +401,10 @@ class PromptBuilderSutContextTest {
     }
 
     @Test
-    void dependencyBudgetAbsoluteOverrideWins() {
-        Properties.LLM_CONTEXT_MAX_CHARS = 100_000;
-        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING = true;
-        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO = 0.10;
-        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS = 4_000;
-        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = 20_000;
-        Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = 7_777;
-
-        RecordingSummarizer summarizer = new RecordingSummarizer();
-
-        PromptBuilder builder = new PromptBuilder(
-                new SystemPromptProvider(),
-                summarizer,
-                new CoverageGoalFormatter(),
-                new TestCaseFormatter(),
-                SutContextProviderFactory.getInstance());
-
-        TestCluster cluster = mock(TestCluster.class);
-        when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
-        when(cluster.getGeneratorsByType()).thenReturn(java.util.Collections.emptyMap());
-
-        builder.withSutContext("com.example.Foo", cluster).build();
-
-        assertEquals(7_777, summarizer.lastMaxChars);
-    }
-
-    @Test
     void dependencyBudgetUsesDynamicMaxWhenContextUnlimited() {
         Properties.LLM_CONTEXT_MAX_CHARS = 0;
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING = true;
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = 12_345;
-        Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = 0;
 
         RecordingSummarizer summarizer = new RecordingSummarizer();
 
