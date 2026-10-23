@@ -21,12 +21,14 @@ public class SwingFallbackInstrumentationTest {
     @BeforeEach
     public void setup() {
         RuntimeSettings.mockJVMNonDeterminism = true;
+        RuntimeSettings.mockGUI = true;
         MethodCallReplacementCache.resetSingleton();
     }
 
     @AfterEach
     public void cleanup() {
         RuntimeSettings.mockJVMNonDeterminism = false;
+        RuntimeSettings.mockGUI = false;
         MethodCallReplacementCache.resetSingleton();
     }
 

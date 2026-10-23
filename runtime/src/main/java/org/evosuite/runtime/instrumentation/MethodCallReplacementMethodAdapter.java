@@ -21,6 +21,7 @@ package org.evosuite.runtime.instrumentation;
 
 
 import org.evosuite.PackageInfo;
+import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.util.ComputeClassWriter;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
@@ -286,7 +287,7 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
 
         // Generic Swing/AWT fallbacks for methods not covered by the cache-based
         // replacements (e.g., subclass calls that don't match the exact owner).
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL) {
+        if (!isReplaced && RuntimeSettings.mockGUI && opcode == Opcodes.INVOKEVIRTUAL) {
             for (SwingFallback fallback : SWING_FALLBACKS) {
                 if (fallback.name.equals(name) && fallback.desc.equals(desc) && isSwingAwtOrAppOwner(owner)) {
                     super.visitMethodInsn(Opcodes.INVOKESTATIC,
@@ -302,7 +303,7 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         // Generic socket connect fallback for Socket subclasses (eg SSLSocket).
         // Cache-based replacements are owner-exact (java/net/Socket), so subclass
         // owners may otherwise bypass VNET and attempt real network connects.
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
+        if (!isReplaced && RuntimeSettings.useVNET && opcode == Opcodes.INVOKEVIRTUAL
                 && "connect".equals(name)
                 && "(Ljava/net/SocketAddress;)V".equals(desc)
                 && isSocketLikeOwner(owner)) {
@@ -315,7 +316,7 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
             isReplaced = true;
         }
 
-        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
+        if (!isReplaced && RuntimeSettings.useVNET && opcode == Opcodes.INVOKEVIRTUAL
                 && "connect".equals(name)
                 && "(Ljava/net/SocketAddress;I)V".equals(desc)
                 && isSocketLikeOwner(owner)) {
@@ -332,6 +333,7 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         // INVOKESTATIC on the current class owner (eg TestClockLike.sleep).
         // Route these to MockThread.sleep so sleep-guarding remains active.
         if (!isReplaced
+                && RuntimeSettings.mockJVMNonDeterminism
                 && opcode == Opcodes.INVOKESTATIC
                 && owner.equals(className)
                 && isCurrentClassThreadSubclass()
