@@ -140,7 +140,7 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 
         if (TestCoverageGoal.hasTimeout(mutationResult)) {
             logger.debug("Found timeout in mutant!");
-            MutationTimeoutStoppingCondition.timeOut(mutation);
+            MutationTimeouts.timeOut(mutation);
             result.setHasTimeout(true);
         }
 
@@ -352,7 +352,7 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         if (executionDistance <= 0 && !result.calledReflection()) {
 
             // Don't re-execute on the mutant if we believe the mutant causes timeouts
-            if (MutationTimeoutStoppingCondition.isDisabled(mutation) && infectionDistance <= 0) {
+            if (MutationTimeouts.isDisabled(mutation) && infectionDistance <= 0) {
                 impactDistance = 0.0;
             } else if (infectionDistance <= 0) {
                 // If infected check if it is also killed
@@ -370,7 +370,7 @@ public class StrongMutationTestFitness extends MutationTestFitness {
                 }
                 if (mutationResult.hasTimeout()) {
                     logger.debug("Found timeout in mutant!");
-                    MutationTimeoutStoppingCondition.timeOut(mutation);
+                    MutationTimeouts.timeOut(mutation);
                     fitness = 0.0; // Timeout = dead
                     exceptionCase = true;
                 }

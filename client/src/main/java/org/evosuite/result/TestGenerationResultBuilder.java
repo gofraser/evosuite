@@ -27,7 +27,7 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationPool;
-import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
+import org.evosuite.coverage.mutation.MutationTimeouts;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
@@ -165,7 +165,7 @@ public class TestGenerationResultBuilder {
         Set<MutationInfo> exceptionMutants = new LinkedHashSet<>();
         for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getMutants()) {
-            if (MutationTimeoutStoppingCondition.isDisabled(m)) {
+            if (MutationTimeouts.isDisabled(m)) {
                 MutationInfo info = new MutationInfo(m);
                 exceptionMutants.add(info);
                 uncoveredMutants.remove(info);

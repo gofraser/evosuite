@@ -20,7 +20,6 @@
 package org.evosuite.strategy;
 
 import org.evosuite.Properties;
-import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
 import org.evosuite.ga.metaheuristics.mapelites.MAPElites;
@@ -93,12 +92,8 @@ public class PropertiesMapElitesSearchFactory
         setUpStoppingConditions(ga, stoppingCondition);
 
         if (usesMutationCriterion()) {
-            if (Properties.STRATEGY == Properties.Strategy.ONEBRANCH) {
-                ga.addStoppingCondition(new MutationTimeoutStoppingCondition<>());
-            } else {
-                // MutationTestPool is suite-only and incompatible with TestChromosome.
-                throw new RuntimeException("Broken code :(");
-            }
+            // MutationTestPool is suite-only and incompatible with TestChromosome.
+            throw new RuntimeException("Broken code :(");
         }
         ga.resetStoppingConditions();
 

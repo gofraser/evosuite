@@ -85,11 +85,6 @@ class GAFactoryAssemblyTest {
         return describe(new PropertiesSuiteGAFactory().getSearchAlgorithm());
     }
 
-    private static String test() throws Exception {
-        Properties.STRATEGY = Properties.Strategy.ONEBRANCH;
-        return describe(new PropertiesTestGAFactory().getSearchAlgorithm());
-    }
-
     private static String novelty() throws Exception {
         Properties.STRATEGY = Properties.Strategy.NOVELTY;
         return describe(new PropertiesNoveltySearchFactory().getSearchAlgorithm());
@@ -103,7 +98,6 @@ class GAFactoryAssemblyTest {
     @Test
     void defaults() throws Exception {
         assertEquals("listeners=[RelativeSuiteLengthBloatControl] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", suite());
-        assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeTestLengthBloatControl, TestCaseRecycler, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", test());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", novelty());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", mapElites());
     }
@@ -112,7 +106,6 @@ class GAFactoryAssemblyTest {
     void nonTimeStoppingConditionAddsGlobalTime() throws Exception {
         Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXGENERATIONS;
         assertEquals("listeners=[RelativeSuiteLengthBloatControl] stop=[GlobalTimeStoppingCondition=120, MaxGenerationStoppingCondition=60, ZeroFitnessStoppingCondition=0]", suite());
-        assertEquals("listeners=[GlobalTimeStoppingCondition, MaxGenerationStoppingCondition, MaxGenerationStoppingCondition, RelativeTestLengthBloatControl, TestCaseRecycler, ZeroFitnessStoppingCondition] stop=[GlobalTimeStoppingCondition=120, MaxGenerationStoppingCondition=60, ZeroFitnessStoppingCondition=0]", test());
         assertEquals("listeners=[GlobalTimeStoppingCondition, MaxGenerationStoppingCondition, MaxGenerationStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[GlobalTimeStoppingCondition=120, MaxGenerationStoppingCondition=60, ZeroFitnessStoppingCondition=0]", novelty());
         assertEquals("listeners=[GlobalTimeStoppingCondition, MaxGenerationStoppingCondition, MaxGenerationStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[GlobalTimeStoppingCondition=120, MaxGenerationStoppingCondition=60, ZeroFitnessStoppingCondition=0]", mapElites());
     }
@@ -121,7 +114,6 @@ class GAFactoryAssemblyTest {
     void stopZeroOff() throws Exception {
         Properties.STOP_ZERO = false;
         assertEquals("listeners=[RelativeSuiteLengthBloatControl] stop=[MaxTimeStoppingCondition=60]", suite());
-        assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeTestLengthBloatControl, TestCaseRecycler] stop=[MaxTimeStoppingCondition=60]", test());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController] stop=[MaxTimeStoppingCondition=60]", novelty());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController] stop=[MaxTimeStoppingCondition=60]", mapElites());
     }
@@ -139,9 +131,6 @@ class GAFactoryAssemblyTest {
         assertEquals("listeners=[GlobalTimeStoppingCondition, MaxGenerationStoppingCondition, MaxGenerationStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[GlobalTimeStoppingCondition=120, MaxGenerationStoppingCondition=300, ZeroFitnessStoppingCondition=0]", suite());
         assertEquals(300L, Properties.SEARCH_BUDGET);
         Properties.SEARCH_BUDGET = 60;
-        assertEquals("listeners=[GlobalTimeStoppingCondition, MaxGenerationStoppingCondition, MaxGenerationStoppingCondition, RelativeTestLengthBloatControl, TestCaseRecycler, ZeroFitnessStoppingCondition] stop=[GlobalTimeStoppingCondition=120, MaxGenerationStoppingCondition=300, ZeroFitnessStoppingCondition=0]", test());
-        assertEquals(300L, Properties.SEARCH_BUDGET);
-        Properties.SEARCH_BUDGET = 60;
         assertEquals("listeners=[GlobalTimeStoppingCondition, MaxGenerationStoppingCondition, MaxGenerationStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[GlobalTimeStoppingCondition=120, MaxGenerationStoppingCondition=300, ZeroFitnessStoppingCondition=0]", novelty());
         assertEquals(300L, Properties.SEARCH_BUDGET);
         Properties.SEARCH_BUDGET = 60;
@@ -153,22 +142,12 @@ class GAFactoryAssemblyTest {
     void shutdownHookAddsShutdownConditions() throws Exception {
         Properties.SHUTDOWN_HOOK = true;
         assertEquals("listeners=[RelativeSuiteLengthBloatControl] stop=[MaxTimeStoppingCondition=60, RMIStoppingCondition=0, ShutdownTestWriter=0, ZeroFitnessStoppingCondition=0]", suite());
-        assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeTestLengthBloatControl, TestCaseRecycler, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", test());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RMIStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ShutdownTestWriter, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, RMIStoppingCondition=0, ShutdownTestWriter=0, ZeroFitnessStoppingCondition=0]", novelty());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RMIStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ShutdownTestWriter, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, RMIStoppingCondition=0, ShutdownTestWriter=0, ZeroFitnessStoppingCondition=0]", mapElites());
     }
 
     @Test
-    void mutationCriterionTimeout() throws Exception {
-        Properties.CRITERION = new Criterion[]{Criterion.BRANCH, Criterion.STRONGMUTATION};
-        assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, MutationTimeoutStoppingCondition, RelativeTestLengthBloatControl, TestCaseRecycler, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, MutationTimeoutStoppingCondition=3, ZeroFitnessStoppingCondition=0]", test());
-        Properties.STRATEGY = Properties.Strategy.ONEBRANCH;
-        assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, MutationTimeoutStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, MutationTimeoutStoppingCondition=3, ZeroFitnessStoppingCondition=0]", describe(new PropertiesNoveltySearchFactory().getSearchAlgorithm()));
-        assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, MutationTimeoutStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, MutationTimeoutStoppingCondition=3, ZeroFitnessStoppingCondition=0]", describe(new PropertiesMapElitesSearchFactory().getSearchAlgorithm()));
-    }
-
-    @Test
-    void mutationCriterionOutsideOneBranch() throws Exception {
+    void mutationCriterionUnderWholeSuiteAndNovelty() throws Exception {
         Properties.CRITERION = new Criterion[]{Criterion.BRANCH, Criterion.MUTATION};
         assertEquals("listeners=[RelativeSuiteLengthBloatControl] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", suite());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", novelty());
@@ -193,16 +172,13 @@ class GAFactoryAssemblyTest {
         Properties.TEST_FACTORY = Properties.TestFactory.RANDOM;
         Properties.ALGORITHM = Properties.Algorithm.MONOTONIC_GA;
         assertEquals("listeners=[BranchCoverageMap, MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", suite());
-        assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeTestLengthBloatControl, TestCaseRecycler, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", test());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", novelty());
     }
 
     @Test
-    void bloatControlAndRecyclingOff() throws Exception {
+    void bloatControlOff() throws Exception {
         Properties.CHECK_BEST_LENGTH = false;
-        Properties.RECYCLE_CHROMOSOMES = false;
         assertEquals("listeners=[] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", suite());
-        assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", test());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, ResourceController, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", novelty());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, ResourceController, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", mapElites());
     }
@@ -211,7 +187,6 @@ class GAFactoryAssemblyTest {
     void newStatisticsListener() throws Exception {
         Properties.NEW_STATISTICS = true;
         assertEquals("listeners=[RelativeSuiteLengthBloatControl, StatisticsListener] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", suite());
-        assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeTestLengthBloatControl, StatisticsListener, TestCaseRecycler, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", test());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, StatisticsListener, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", novelty());
         assertEquals("listeners=[MaxGenerationStoppingCondition, MaxTimeStoppingCondition, RelativeSuiteLengthBloatControl, ResourceController, StatisticsListener, ZeroFitnessStoppingCondition] stop=[MaxTimeStoppingCondition=60, ZeroFitnessStoppingCondition=0]", mapElites());
     }

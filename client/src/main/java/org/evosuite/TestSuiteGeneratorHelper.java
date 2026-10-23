@@ -296,8 +296,6 @@ public class TestSuiteGeneratorHelper {
                 return new RandomTestStrategy();
             case RANDOM_FIXED:
                 return new FixedNumRandomTestStrategy();
-            case ONEBRANCH:
-                return new IndividualTestStrategy();
             case MOSUITE:
                 return new MOSuiteStrategy();
             case DSE:

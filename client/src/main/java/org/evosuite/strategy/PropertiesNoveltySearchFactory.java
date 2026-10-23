@@ -20,7 +20,6 @@
 package org.evosuite.strategy;
 
 import org.evosuite.Properties;
-import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
 import org.evosuite.ga.metaheuristics.NoveltySearch;
@@ -161,11 +160,6 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
         StoppingCondition<TestChromosome> stoppingCondition = getStoppingCondition();
         setUpStoppingConditions(ga, stoppingCondition);
 
-        if (usesMutationCriterion()) {
-            if (Properties.STRATEGY == Properties.Strategy.ONEBRANCH) {
-                ga.addStoppingCondition(new MutationTimeoutStoppingCondition<>());
-            }
-        }
         ga.resetStoppingConditions();
         ga.setPopulationLimit(getPopulationLimit());
 

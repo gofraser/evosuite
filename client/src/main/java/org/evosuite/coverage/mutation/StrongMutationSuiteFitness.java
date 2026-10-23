@@ -154,7 +154,7 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
                 }
                 MutationTestFitness goal = entry.getValue();
 
-                if (MutationTimeoutStoppingCondition.isDisabled(goal.getMutation())) {
+                if (MutationTimeouts.isDisabled(goal.getMutation())) {
                     logger.debug("Skipping timed out mutation " + goal.getMutation().getId());
                     continue;
                 }

@@ -21,9 +21,7 @@ package org.evosuite.strategy;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.Properties.Strategy;
 import org.evosuite.Properties.TheReplacementFunction;
-import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessReplacementFunction;
 import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
@@ -341,11 +339,6 @@ public class PropertiesSuiteGAFactory
         StoppingCondition<TestSuiteChromosome> stoppingCondition = getStoppingCondition();
         setUpStoppingConditions(ga, stoppingCondition);
 
-        if (usesMutationCriterion()) {
-            if (Properties.STRATEGY == Strategy.ONEBRANCH) {
-                ga.addStoppingCondition(new MutationTimeoutStoppingCondition<>());
-            }
-        }
         ga.resetStoppingConditions();
         ga.setPopulationLimit(getPopulationLimit());
 

@@ -143,8 +143,6 @@ public class TestGeneration {
     public static Option[] getOptions() {
         return new Option[]{
                 new Option("generateSuite", "use whole suite generation."),
-                new Option("generateTests", "use individual test generation (old approach for reference "
-                        + "purposes)"),
                 new Option("generateRandom", "use random test generation"),
                 new Option("generateNumRandom", true, "generate fixed number of random tests"),
                 new Option("generateMOSuite", "use many objective test generation (MOSA). "
@@ -253,8 +251,6 @@ public class TestGeneration {
             strategy = Strategy.NOVELTY;
         } else if (javaOptStrategy == Strategy.MAP_ELITES) {
             strategy = Strategy.MAP_ELITES;
-        } else if (line.hasOption("generateTests")) {
-            strategy = Strategy.ONEBRANCH;
         } else if (line.hasOption("generateSuite")) {
             strategy = Strategy.EVOSUITE;
         } else if (line.hasOption("generateRandom")) {
@@ -465,12 +461,6 @@ public class TestGeneration {
         switch (strategy) {
             case EVOSUITE:
                 cmdLine.add("-Dstrategy=EvoSuite");
-                if (!args.stream().anyMatch(a -> a.startsWith("-Dalgorithm"))) {
-                    cmdLine.add("-Dalgorithm=Monotonic_GA");
-                }
-                break;
-            case ONEBRANCH:
-                cmdLine.add("-Dstrategy=OneBranch");
                 if (!args.stream().anyMatch(a -> a.startsWith("-Dalgorithm"))) {
                     cmdLine.add("-Dalgorithm=Monotonic_GA");
                 }

@@ -22,7 +22,7 @@ package org.evosuite.assertion;
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.mutation.Mutation;
-import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
+import org.evosuite.coverage.mutation.MutationTimeouts;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
@@ -188,7 +188,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
             }
 
             assert (m != null);
-            if (MutationTimeoutStoppingCondition.isDisabled(m)) {
+            if (MutationTimeouts.isDisabled(m)) {
                 killed.add(m.getId());
                 continue;
             }
@@ -242,7 +242,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 } else {
                     timedOutMutations.put(m, timedOutMutations.get(m) + 1);
                 }
-                MutationTimeoutStoppingCondition.timeOut(m);
+                MutationTimeouts.timeOut(m);
 
             } else if (!mutantResult.noThrownExceptions()
                     && origResult.noThrownExceptions()) {
@@ -252,7 +252,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 } else {
                     exceptionMutations.put(m, exceptionMutations.get(m) + 1);
                 }
-                MutationTimeoutStoppingCondition.raisedException(m);
+                MutationTimeouts.raisedException(m);
             }
 
             if (numKilled > 0

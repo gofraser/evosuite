@@ -3433,7 +3433,7 @@ public class Properties {
     public static boolean EXCLUDE_IBRANCHES_CUT = false;
 
     public enum Strategy {
-        ONEBRANCH, EVOSUITE, RANDOM, RANDOM_FIXED, MOSUITE, DSE, NOVELTY, MAP_ELITES, LLMSTRATEGY
+        EVOSUITE, RANDOM, RANDOM_FIXED, MOSUITE, DSE, NOVELTY, MAP_ELITES, LLMSTRATEGY
     }
 
     @Parameter(key = "strategy", group = "Runtime", description = "Which mode to use")

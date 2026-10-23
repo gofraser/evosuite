@@ -96,7 +96,7 @@ public class MutationFactory extends AbstractFitnessFactory<MutationTestFitness>
             }
 
             // We need to return all mutants to make coverage values and bitstrings consistent
-            //if (MutationTimeoutStoppingCondition.isDisabled(m))
+            //if (MutationTimeouts.isDisabled(m))
             //    continue;
             if (strong) {
                 goals.add(new StrongMutationTestFitness(m));
