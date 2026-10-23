@@ -70,7 +70,8 @@ public class ScaffoldingRegressionTest {
         Properties.RESET_STANDARD_STREAMS = true;
 
         List<ExecutionResult> results = Collections.emptyList();
-        String code = Scaffolding.getScaffoldingFileContent("Bug4Test", results, false);
+        String code = Scaffolding.getScaffoldingFileContent("Bug4Test", results,
+                RuntimeRequirements.fromResults(results));
         Assertions.assertTrue(code.contains("import java.io.PrintStream;"));
         Assertions.assertTrue(code.contains("import javax.swing.DebugGraphics;"));
     }
@@ -256,9 +257,11 @@ public class ScaffoldingRegressionTest {
         configureDefaults();
 
         String first = Scaffolding.getScaffoldingFileContent(
-                "DeterministicTest", Collections.emptyList(), false);
+                "DeterministicTest", Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()));
         String second = Scaffolding.getScaffoldingFileContent(
-                "DeterministicTest", Collections.emptyList(), false);
+                "DeterministicTest", Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()));
 
         Assertions.assertEquals(first, second);
         Assertions.assertTrue(first.contains(
@@ -272,7 +275,8 @@ public class ScaffoldingRegressionTest {
         Scaffolding.ReplaySnapshot snapshot = new Scaffolding.ReplaySnapshot(
                 Collections.singletonList("example.StructuralClass"),
                 Collections.singletonList("example.InitializedClass"),
-                Collections.singletonList("example.MockedType"));
+                Collections.singletonList("example.MockedType"),
+                RuntimeRequirements.fromResults(Collections.emptyList()));
 
         String code = new Scaffolding().getBeforeAndAfterMethods(
                 "ReplayTest", false, Collections.emptyList(), snapshot);
@@ -294,7 +298,8 @@ public class ScaffoldingRegressionTest {
         timedOut.reportNewThrownException(test.size(), new TestCaseExecutor.TimeoutExceeded());
         List<ExecutionResult> results = Collections.singletonList(timedOut);
 
-        String code = Scaffolding.getScaffoldingFileContent("TimeoutTest", results, false);
+        String code = Scaffolding.getScaffoldingFileContent("TimeoutTest", results,
+                RuntimeRequirements.fromResults(results));
         Assertions.assertTrue(code.contains("protected static ExecutorService executor;"), code);
         Assertions.assertTrue(code.contains("import java.util.concurrent.ExecutorService;"), code);
         Assertions.assertTrue(code.contains("executor = Executors.newCachedThreadPool();"), code);

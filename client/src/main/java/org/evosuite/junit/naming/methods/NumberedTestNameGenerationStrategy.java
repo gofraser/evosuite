@@ -21,7 +21,6 @@ package org.evosuite.junit.naming.methods;
 
 import org.apache.commons.lang3.StringUtils;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
 import java.util.HashMap;
@@ -35,7 +34,7 @@ public class NumberedTestNameGenerationStrategy implements TestNameGenerationStr
 
     private final Map<TestCase, String> testToName = new HashMap<>();
 
-    public NumberedTestNameGenerationStrategy(List<TestCase> testCases, List<ExecutionResult> results) {
+    public NumberedTestNameGenerationStrategy(List<TestCase> testCases) {
         generateNames(testCases);
     }
 

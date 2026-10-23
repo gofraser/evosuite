@@ -129,8 +129,10 @@ public class ScaffoldingAllocationLimitReplayTest {
         Properties.CUMULATIVE_ARRAY_LIMIT_BYTES = limit;
         String testName = "AllocationReplayTest";
         String scaffoldingName = Scaffolding.getFileName(testName);
-        String scaffolding = Scaffolding.getScaffoldingFileContent(testName,
-                Collections.singletonList(new ExecutionResult(new DefaultTestCase())), false);
+        List<ExecutionResult> results =
+                Collections.singletonList(new ExecutionResult(new DefaultTestCase()));
+        String scaffolding = Scaffolding.getScaffoldingFileContent(testName, results,
+                RuntimeRequirements.fromResults(results));
         Path source = directory.resolve(scaffoldingName + ".java");
         Files.write(source, scaffolding.getBytes(StandardCharsets.UTF_8));
         Path probe = directory.resolve("AllocationReplayProbe.java");

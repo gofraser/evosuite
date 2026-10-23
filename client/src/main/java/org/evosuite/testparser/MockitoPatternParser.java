@@ -502,33 +502,6 @@ class MockitoPatternParser {
         return true;
     }
 
-    boolean tryPreserveStandaloneThrowStubbingSource(String source) {
-        if (!parser.isBestEffort() || source == null || !source.contains("thenThrow(")) {
-            return false;
-        }
-
-        String trimmed = source.trim();
-        if (trimmed.endsWith(";")) {
-            trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
-        }
-
-        Expression parsedExpression;
-        try {
-            parsedExpression = StaticJavaParser.parseExpression(trimmed);
-        } catch (Throwable ignored) {
-            return false;
-        }
-
-        String rewritten = rewriteThenThrowSource(trimmed);
-        if (rewritten != null) {
-            parser.addWarning(parsedExpression, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
-                    "Rewrote Mockito thenThrow chain to doThrow(...).when(...) form");
-            parser.addStatement(parser.createUninterpretedStatement(parsedExpression, rewritten));
-            return true;
-        }
-        return false;
-    }
-
     String rewriteThenThrowSource(String source) {
         if (source == null) {
             return null;

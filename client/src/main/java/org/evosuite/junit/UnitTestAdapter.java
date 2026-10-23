@@ -23,9 +23,7 @@ import org.evosuite.junit.writer.JUnitAnnotationProvider;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 
-import java.util.List;
 import java.util.Map;
-
 
 /**
  * UnitTestAdapter interface.
@@ -56,26 +54,6 @@ public interface UnitTestAdapter extends JUnitAnnotationProvider {
      * @return a {@link java.lang.String} object.
      */
     String getMethodDefinition(String testName);
-
-    /**
-     * Get the class definition of a test suite.
-     *
-     * @param tests a {@link java.util.List} object.
-     * @return a {@link java.lang.String} object.
-     */
-    String getSuite(List<String> tests);
-
-    /**
-     * Return the sequence of method calls for a test.
-     *
-     * @param test       a {@link org.evosuite.testcase.TestCase} object.
-     * @param exceptions a {@link java.util.Map} object.
-     * @param id         a int.
-     * @return a {@link java.lang.String} object.
-     */
-    default String getTestString(int id, TestCase test, Map<Integer, Throwable> exceptions) {
-        return test.toCode(exceptions);
-    }
 
     /**
      * Return the sequence of method calls for a test.

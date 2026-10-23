@@ -190,24 +190,6 @@ public abstract class AssertionGenerator {
     }
 
     /**
-     * Filters out failing assertions from the list of test cases.
-     *
-     * @param testCases the list of test cases to filter
-     */
-    public void filterFailingAssertions(List<TestCase> testCases) {
-        List<TestCase> tests = new ArrayList<>(testCases);
-        for (TestCase test : tests) {
-            filterFailingAssertions(test);
-        }
-
-        // Execute again in different order
-        Randomness.shuffle(tests);
-        for (TestCase test : tests) {
-            filterFailingAssertions(test);
-        }
-    }
-
-    /**
      * Filters out failing assertions from the test suite chromosome.
      *
      * @param testSuite the test suite chromosome to filter

@@ -69,10 +69,6 @@ public final class RuntimeRequirements {
         );
     }
 
-    public TestOutputMode getOutputMode() {
-        return outputMode;
-    }
-
     public boolean isRuntimeEnabled() {
         return outputMode != TestOutputMode.NO_RUNTIME;
     }

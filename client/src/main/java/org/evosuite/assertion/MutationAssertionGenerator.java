@@ -270,30 +270,6 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
         }
     }
 
-    protected boolean primitiveWithoutAssertion(Statement statement) {
-        if (!statement.getReturnValue().isPrimitive()) {
-            return false;
-        }
-
-        Set<Assertion> assertions = statement.getAssertions();
-        if (assertions.isEmpty()) {
-            return true;
-        } else {
-            Iterator<Assertion> iterator = assertions.iterator();
-            VariableReference ret = statement.getReturnValue();
-            while (iterator.hasNext()) {
-                Assertion ass = iterator.next();
-                if (ass instanceof PrimitiveAssertion) {
-                    if (ass.getReferencedVariables().contains(ret)) {
-                        return false;
-                    }
-                }
-            }
-
-            return true;
-        }
-    }
-
     /**
      * Returns true if the statement has a non-void return value but no meaningful
      * assertion (i.e., only NullAssertions or no assertions) on that return value.

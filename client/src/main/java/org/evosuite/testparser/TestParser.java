@@ -215,13 +215,6 @@ public class TestParser {
         return parseTestMethod(wrapped, "__testMethod__");
     }
 
-    /**
-     * Parse a single MethodDeclaration into a ParseResult.
-     */
-    private ParseResult parseMethod(MethodDeclaration method, List<String> imports) {
-        return parseMethod(method, imports, Collections.emptyMap(), Collections.emptyList());
-    }
-
     private ParseResult parseMethod(MethodDeclaration method,
                                     List<String> imports,
                                     Map<String, MethodDeclaration> inlineHelperMethods,

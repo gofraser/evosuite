@@ -69,22 +69,6 @@ public class CheapPurityAnalyzer {
     }
 
     /**
-     * Gets the list of pure methods for a given class.
-     *
-     * @param className the name of the class
-     * @return a list of pure method names with descriptors
-     */
-    public List<String> getPureMethods(String className) {
-        ArrayList<String> list = new ArrayList<>();
-        for (MethodEntry m : methodEntries) {
-            if (m.className.equals(className) && isPure(m) && !m.methodName.equals(ClassResetter.STATIC_RESET)) {
-                list.add(m.methodName + m.descriptor);
-            }
-        }
-        return list;
-    }
-
-    /**
      * Returns if the method is cheap-pure.
      *
      * @param className  The declaring class name

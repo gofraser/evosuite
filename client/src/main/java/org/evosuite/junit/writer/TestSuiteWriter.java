@@ -265,7 +265,7 @@ public class TestSuiteWriter implements Opcodes {
         Properties.TestNamingStrategy effectiveNamingStrategy = Properties.TEST_NAMING_STRATEGY;
 
         if (effectiveNamingStrategy == Properties.TestNamingStrategy.NUMBERED) {
-            nameGenerator = new NumberedTestNameGenerationStrategy(testCases, results);
+            nameGenerator = new NumberedTestNameGenerationStrategy(testCases);
         } else if (effectiveNamingStrategy == Properties.TestNamingStrategy.COVERAGE) {
             nameGenerator = new CoverageGoalTestNameGenerationStrategy(testCases, results);
         } else {
@@ -576,7 +576,7 @@ public class TestSuiteWriter implements Opcodes {
         }
 
         if (requirements.isInlineScaffoldingMode()) {
-            importNames.addAll(Scaffolding.getScaffoldingImports(requirements, results));
+            importNames.addAll(Scaffolding.getScaffoldingImports(requirements));
         }
 
         // If a CodeUnderTestException happens, the test will be chopped before that exception

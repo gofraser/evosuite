@@ -72,15 +72,8 @@ public class Scaffolding {
 
         ReplaySnapshot(List<String> classesToReset,
                        List<String> classesToInitialize,
-                       List<String> mockClasses) {
-            this(classesToReset, classesToInitialize, mockClasses,
-                    RuntimeRequirements.fromResults(Collections.emptyList()));
-        }
-
-        private ReplaySnapshot(List<String> classesToReset,
-                               List<String> classesToInitialize,
-                               List<String> mockClasses,
-                               RuntimeRequirements runtimeRequirements) {
+                       List<String> mockClasses,
+                       RuntimeRequirements runtimeRequirements) {
             this.classesToReset = new ArrayList<>(classesToReset);
             this.classesToInitialize = new ArrayList<>(classesToInitialize);
             this.mockClasses = new ArrayList<>(mockClasses);
@@ -146,19 +139,6 @@ public class Scaffolding {
      *
      * @param testName name of the test
      * @param results execution results
-     * @param wasSecurityException if a security exception occurred
-     * @return content of the scaffolding file
-     */
-    public static String getScaffoldingFileContent(String testName, List<ExecutionResult> results,
-                                                   boolean wasSecurityException) {
-        return getScaffoldingFileContent(testName, results, RuntimeRequirements.fromResults(results));
-    }
-
-    /**
-     * Return full JUnit code for scaffolding file for the give test.
-     *
-     * @param testName name of the test
-     * @param results execution results
      * @param requirements resolved runtime/output requirements
      * @return content of the scaffolding file
      */
@@ -212,7 +192,7 @@ public class Scaffolding {
         }
         builder.append("\n");
 
-        for (String imp : getScaffoldingImports(requirements, results)) {
+        for (String imp : getScaffoldingImports(requirements)) {
             builder.append("import ");
             builder.append(imp);
             builder.append(";\n");
@@ -247,22 +227,10 @@ public class Scaffolding {
     /**
      * Return all classes for which we need an import statement.
      *
-     * @param wasSecurityException if a security exception occurred
-     * @param results execution results
-     * @return list of imports
-     */
-    public static List<String> getScaffoldingImports(boolean wasSecurityException, List<ExecutionResult> results) {
-        return getScaffoldingImports(RuntimeRequirements.fromResults(results), results);
-    }
-
-    /**
-     * Return all classes for which we need an import statement.
-     *
      * @param requirements resolved runtime/output requirements
-     * @param results execution results
      * @return list of imports
      */
-    public static List<String> getScaffoldingImports(RuntimeRequirements requirements, List<ExecutionResult> results) {
+    public static List<String> getScaffoldingImports(RuntimeRequirements requirements) {
         List<String> list = new ArrayList<>();
 
         list.add(EvoSuiteClassExclude.class.getCanonicalName());

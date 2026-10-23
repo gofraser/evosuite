@@ -198,21 +198,6 @@ public class TestSuiteWriterUtils {
     }
 
     /**
-     * Create subdirectory for package in test directory.
-     *
-     * @param directory a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
-     */
-    public static String mainDirectory(String directory) {
-        String dirname = directory + File.separator
-                + Properties.PROJECT_PREFIX.replace('.', File.separatorChar); // +"/GeneratedTests";
-        File dir = new File(dirname);
-        logger.debug("Target directory: " + dirname);
-        dir.mkdirs();
-        return dirname;
-    }
-
-    /**
      * Retrieves the appropriate unit test adapter based on the configured output format.
      *
      * @return the unit test adapter

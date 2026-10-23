@@ -24,8 +24,6 @@ import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.vnet.NonFunctionalRequirementExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.util.List;
-
 /**
  * Used to adapt the internal representations of test suites to JUnit 5 test cases.
  */
@@ -101,7 +99,6 @@ public class JUnit5TestAdapter implements UnitTestAdapter {
         return "public class " + testName;
     }
 
-
     public String getTimeoutAnnotation() {
         return "@Timeout(value = " + Properties.TIMEOUT
                 + " , unit = java.util.concurrent.TimeUnit.MILLISECONDS)";
@@ -115,14 +112,6 @@ public class JUnit5TestAdapter implements UnitTestAdapter {
         //TODO remove once JUnit is fixed. See comments in Scaffolding regarding Timeout rule
         return "  @" + getJUnitTestShortName() + "\n  " + getTimeoutAnnotation()
                 + "\n" + "  public void " + testName + "() ";
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getSuite(List<String> suites) {
-        throw new UnsupportedOperationException("getSuite is not supported in JUNIT 5");
     }
 
     @Override

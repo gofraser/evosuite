@@ -40,7 +40,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -126,8 +125,7 @@ class LlmPostProcessingEditApplierTest {
         DefaultTestCase fallback = new DefaultTestCase();
         fallback.addStatement(new IntPrimitiveStatement(fallback, 2));
         NumberedTestNameGenerationStrategy numbered =
-                new NumberedTestNameGenerationStrategy(java.util.Arrays.<TestCase>asList(named, fallback),
-                        Collections.emptyList());
+                new NumberedTestNameGenerationStrategy(java.util.Arrays.<TestCase>asList(named, fallback));
         PresentationMetadataTestNameStrategy strategy = new PresentationMetadataTestNameStrategy(numbered);
 
         assertEquals("customName", strategy.getName(named));

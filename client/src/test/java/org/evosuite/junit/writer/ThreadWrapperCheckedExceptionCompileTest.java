@@ -33,7 +33,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -88,7 +87,7 @@ public class ThreadWrapperCheckedExceptionCompileTest {
         Field nameGenerator = TestSuiteWriter.class.getDeclaredField("nameGenerator");
         nameGenerator.setAccessible(true);
         nameGenerator.set(writer, new NumberedTestNameGenerationStrategy(
-                writer.getTestCases(), Collections.singletonList(result)));
+                writer.getTestCases()));
 
         String method = writer.testToString(0, 0, result);
         assertTrue(method.contains("getDeclaredConstructor"),

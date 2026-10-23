@@ -23,8 +23,6 @@ import org.evosuite.Properties;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.vnet.NonFunctionalRequirementRule;
 
-import java.util.List;
-
 /**
  * JUnit4TestAdapter class.
  *
@@ -112,44 +110,6 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
         builder.append("(timeout = " + Properties.TIMEOUT + ")");
         builder.append("\n");
         builder.append("  public void " + testName + "() ");
-        return builder.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getSuite(List<String> suites) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("import org.junit.runner.RunWith;\n");
-        builder.append("import org.junit.runners.Suite;\n\n");
-
-        for (String suite : suites) {
-            if (suite.contains(".")) {
-                builder.append("import ");
-                builder.append(suite);
-                builder.append(";\n");
-            }
-        }
-        builder.append("\n");
-
-        builder.append("@RunWith(Suite.class)\n");
-        builder.append("@Suite.SuiteClasses({\n");
-        boolean first = true;
-        for (String suite : suites) {
-            if (!first) {
-                builder.append(",\n");
-            }
-            first = false;
-            builder.append("  ");
-            builder.append(suite.substring(suite.lastIndexOf(".") + 1));
-            builder.append(".class");
-        }
-        builder.append("})\n");
-
-        builder.append(getClassDefinition("GeneratedTestSuite"));
-        builder.append(" {\n");
-        builder.append("}\n");
         return builder.toString();
     }
 
