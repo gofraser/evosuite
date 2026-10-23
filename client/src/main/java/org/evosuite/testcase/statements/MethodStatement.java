@@ -507,6 +507,11 @@ public class MethodStatement extends EntityWithParametersStatement {
      */
     private static final long ABSURD_INT_THRESHOLD = Integer.MAX_VALUE / 2L;
 
+    /** The product of two positive factors, or {@link Long#MAX_VALUE} if it does not fit a long. */
+    private static long saturatedProduct(long product, int factor) {
+        return product > Long.MAX_VALUE / factor ? Long.MAX_VALUE : product * factor;
+    }
+
     private void rejectAbsurdIntInputs(Object[] inputs) throws CodeUnderTestException {
         if (!org.evosuite.testcase.StatementFactory.isAllocationSensitive(
                 method.getMethod().getDeclaringClass())) {
@@ -526,7 +531,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     throw allocationRejected();
                 }
                 if (val > 0) {
-                    product *= val;
+                    product = saturatedProduct(product, val);
                     hasPositiveInt = true;
                 }
             }
@@ -571,7 +576,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     throw allocationRejected();
                 }
                 if (val > 0) {
-                    product *= val;
+                    product = saturatedProduct(product, val);
                     hasPositiveInt = true;
                 }
             }
