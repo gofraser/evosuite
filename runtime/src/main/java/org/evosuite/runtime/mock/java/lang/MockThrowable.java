@@ -141,6 +141,7 @@ public class MockThrowable extends Throwable implements OverrideMock {
     public static void replacement_printStackTrace(Throwable source, PrintWriter p) {
         if (!MockFramework.isEnabled() || source instanceof EvoSuiteMock) {
             source.printStackTrace(p);
+            return;
         }
         for (StackTraceElement elem : getDefaultStackTrace()) {
             p.append(elem.toString());
@@ -157,6 +158,7 @@ public class MockThrowable extends Throwable implements OverrideMock {
     public static void replacement_printStackTrace(Throwable source, PrintStream p) {
         if (!MockFramework.isEnabled() || source instanceof EvoSuiteMock) {
             source.printStackTrace(p);
+            return;
         }
         for (StackTraceElement elem : getDefaultStackTrace()) {
             p.append(elem.toString());
