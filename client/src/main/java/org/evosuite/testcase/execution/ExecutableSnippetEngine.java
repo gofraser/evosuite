@@ -80,6 +80,10 @@ public final class ExecutableSnippetEngine {
     private static final Logger logger = LoggerFactory.getLogger(ExecutableSnippetEngine.class);
 
     public static final ExecutableSnippetEngine INSTANCE = new ExecutableSnippetEngine();
+    private static final Pattern THROWS_CLAUSE_PATTERN = Pattern.compile("\\bthrows\\s+([^\\{;]+)");
+    private static final Pattern GENERIC_CLAUSE_PATTERN = Pattern.compile("<([^<>]+)>");
+    private static final Pattern UNQUALIFIED_TYPE_NAME_PATTERN =
+            Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b");
     private static final Pattern NOT_A_STATEMENT_PATTERN =
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+not a statement");
     private static final Pattern PACKAGE_NOT_VISIBLE_PATTERN =
@@ -917,7 +921,8 @@ public final class ExecutableSnippetEngine {
                 i = sanitizeSecurityManagerMutation(lines, i);
                 changed = true;
             } else if (FORBIDDEN_HEAVY_GUI_CONSTRUCTION_PATTERN.matcher(line).find()) {
-                String rewritten = rewriteHeavyGuiConstructionToMocks(line);
+                String rewritten = rewriteConstructionToMocks(line, HEAVY_GUI_NEW_EXPRESSION_PATTERN,
+                        HEAVY_GUI_MOCK_CONSTRUCTOR_REPLACEMENTS);
                 if (rewritten != null) {
                     lines[i] = rewritten;
                 } else {
@@ -930,7 +935,8 @@ public final class ExecutableSnippetEngine {
                 boolean lineChanged = false;
 
                 if (VFS_IO_NEW_EXPRESSION_PATTERN.matcher(rewrittenLine).find()) {
-                    String rewrittenCtor = rewriteVfsIoConstructionToMocks(rewrittenLine);
+                    String rewrittenCtor = rewriteConstructionToMocks(rewrittenLine, VFS_IO_NEW_EXPRESSION_PATTERN,
+                            VFS_IO_MOCK_CONSTRUCTOR_REPLACEMENTS);
                     if (rewrittenCtor != null) {
                         rewrittenLine = rewrittenCtor;
                         lineChanged = true;
@@ -1009,36 +1015,15 @@ public final class ExecutableSnippetEngine {
         return Math.min(lineIndex, lineCount - 1);
     }
 
-    private String rewriteHeavyGuiConstructionToMocks(String line) {
-        Matcher matcher = HEAVY_GUI_NEW_EXPRESSION_PATTERN.matcher(line);
-        StringBuffer rewritten = new StringBuffer();
-        boolean anyReplacement = false;
-        boolean unresolvedHeavyCtor = false;
-        while (matcher.find()) {
-            String typeToken = matcher.group(1);
-            String replacementType = HEAVY_GUI_MOCK_CONSTRUCTOR_REPLACEMENTS.get(typeToken);
-            if (replacementType == null) {
-                unresolvedHeavyCtor = true;
-                continue;
-            }
-            anyReplacement = true;
-            matcher.appendReplacement(rewritten, Matcher.quoteReplacement("new " + replacementType + "("));
-        }
-        if (!anyReplacement || unresolvedHeavyCtor) {
-            return null;
-        }
-        matcher.appendTail(rewritten);
-        return rewritten.toString();
-    }
-
-    private String rewriteVfsIoConstructionToMocks(String line) {
-        Matcher matcher = VFS_IO_NEW_EXPRESSION_PATTERN.matcher(line);
+    private String rewriteConstructionToMocks(String line, Pattern newExpression,
+                                              Map<String, String> replacements) {
+        Matcher matcher = newExpression.matcher(line);
         StringBuffer rewritten = new StringBuffer();
         boolean anyReplacement = false;
         boolean unresolvedCtor = false;
         while (matcher.find()) {
             String typeToken = matcher.group(1);
-            String replacementType = VFS_IO_MOCK_CONSTRUCTOR_REPLACEMENTS.get(typeToken);
+            String replacementType = replacements.get(typeToken);
             if (replacementType == null) {
                 unresolvedCtor = true;
                 continue;
@@ -1434,15 +1419,8 @@ public final class ExecutableSnippetEngine {
                                         Set<String> collidingSimpleNames) {
         Matcher matcher = Pattern.compile(regex).matcher(text);
         while (matcher.find()) {
-            String simpleName = matcher.group(1);
-            if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
-                continue;
-            }
-            Class<?> resolved = resolveSimpleClassName(simpleName, knownClasses);
-            if (resolved != null) {
-                rememberKnownClass(resolved, knownClasses);
-                addClassImport(resolved, simpleNameToFqn, collidingSimpleNames);
-            }
+            registerSimpleNameImport(matcher.group(1), boundNames, seen, knownClasses, simpleNameToFqn,
+                    collidingSimpleNames);
         }
     }
 
@@ -1452,22 +1430,10 @@ public final class ExecutableSnippetEngine {
                                            Set<Class<?>> knownClasses,
                                            Map<String, String> simpleNameToFqn,
                                            Set<String> collidingSimpleNames) {
-        Matcher throwsMatcher = Pattern.compile("\\bthrows\\s+([^\\{;]+)").matcher(text);
+        Matcher throwsMatcher = THROWS_CLAUSE_PATTERN.matcher(text);
         while (throwsMatcher.find()) {
-            String clause = throwsMatcher.group(1);
-            Matcher typeMatcher = Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b")
-                    .matcher(clause);
-            while (typeMatcher.find()) {
-                String simpleName = typeMatcher.group(1);
-                if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
-                    continue;
-                }
-                Class<?> resolved = resolveSimpleClassName(simpleName, knownClasses);
-                if (resolved != null) {
-                    rememberKnownClass(resolved, knownClasses);
-                    addClassImport(resolved, simpleNameToFqn, collidingSimpleNames);
-                }
-            }
+            registerClauseTypeImports(throwsMatcher.group(1), boundNames, seen, knownClasses, simpleNameToFqn,
+                    collidingSimpleNames);
         }
     }
 
@@ -1477,22 +1443,39 @@ public final class ExecutableSnippetEngine {
                                                     Set<Class<?>> knownClasses,
                                                     Map<String, String> simpleNameToFqn,
                                                     Set<String> collidingSimpleNames) {
-        Matcher matcher = Pattern.compile("<([^<>]+)>").matcher(text);
+        Matcher matcher = GENERIC_CLAUSE_PATTERN.matcher(text);
         while (matcher.find()) {
-            String genericClause = matcher.group(1);
-            Matcher typeMatcher = Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b")
-                    .matcher(genericClause);
-            while (typeMatcher.find()) {
-                String simpleName = typeMatcher.group(1);
-                if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
-                    continue;
-                }
-                Class<?> resolved = resolveSimpleClassName(simpleName, knownClasses);
-                if (resolved != null) {
-                    rememberKnownClass(resolved, knownClasses);
-                    addClassImport(resolved, simpleNameToFqn, collidingSimpleNames);
-                }
-            }
+            registerClauseTypeImports(matcher.group(1), boundNames, seen, knownClasses, simpleNameToFqn,
+                    collidingSimpleNames);
+        }
+    }
+
+    private void registerClauseTypeImports(String clause,
+                                           Set<String> boundNames,
+                                           Set<String> seen,
+                                           Set<Class<?>> knownClasses,
+                                           Map<String, String> simpleNameToFqn,
+                                           Set<String> collidingSimpleNames) {
+        Matcher typeMatcher = UNQUALIFIED_TYPE_NAME_PATTERN.matcher(clause);
+        while (typeMatcher.find()) {
+            registerSimpleNameImport(typeMatcher.group(1), boundNames, seen, knownClasses, simpleNameToFqn,
+                    collidingSimpleNames);
+        }
+    }
+
+    private void registerSimpleNameImport(String simpleName,
+                                          Set<String> boundNames,
+                                          Set<String> seen,
+                                          Set<Class<?>> knownClasses,
+                                          Map<String, String> simpleNameToFqn,
+                                          Set<String> collidingSimpleNames) {
+        if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
+            return;
+        }
+        Class<?> resolved = resolveSimpleClassName(simpleName, knownClasses);
+        if (resolved != null) {
+            rememberKnownClass(resolved, knownClasses);
+            addClassImport(resolved, simpleNameToFqn, collidingSimpleNames);
         }
     }
 
