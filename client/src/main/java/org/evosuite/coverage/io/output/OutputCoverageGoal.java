@@ -20,22 +20,14 @@
 package org.evosuite.coverage.io.output;
 
 
-import org.apache.commons.lang3.ClassUtils;
-import org.evosuite.assertion.Inspector;
-import org.evosuite.assertion.InspectorManager;
+import org.evosuite.coverage.io.IOValueDescriptors;
 import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.Type;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
-import java.lang.reflect.Array;
-import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
-
-import static org.evosuite.coverage.io.IOCoverageConstants.*;
 
 /**
  * A single output coverage goal.
@@ -46,8 +38,6 @@ import static org.evosuite.coverage.io.IOCoverageConstants.*;
 public class OutputCoverageGoal implements Serializable, Comparable<OutputCoverageGoal> {
 
     private static final long serialVersionUID = 3539419075883329059L;
-
-    private static final Logger logger = LoggerFactory.getLogger(OutputCoverageGoal.class);
 
     private final String className;
     private final String methodName;
@@ -273,104 +263,16 @@ public class OutputCoverageGoal implements Serializable, Comparable<OutputCovera
         String methodNameWithDesc = methodName + methodDesc;
         Type returnType = Type.getReturnType(methodDesc);
 
-        int typeSort = returnType.getSort();
-        if (typeSort == Type.OBJECT && returnValue != null) {
-            if (ClassUtils.isPrimitiveWrapper(returnValue.getClass())) {
-                typeSort = Type.getType(ClassUtils.wrapperToPrimitive(returnValue.getClass())).getSort();
-            }
+        if (returnValue == null && returnType.getSort() != Type.ARRAY && returnType.getSort() != Type.OBJECT) {
+            // only references can be null
+            return goals;
         }
-        switch (typeSort) {
-            case Type.BOOLEAN:
-                String desc = ((boolean) returnValue) ? BOOL_TRUE : BOOL_FALSE;
-                goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, desc));
-                break;
-            case Type.CHAR:
-                char c = (char) returnValue;
-                Number numberValue = (int) c;
-                if (Character.isAlphabetic(c)) {
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_ALPHA,
-                            numberValue));
-                } else if (Character.isDigit(c)) {
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_DIGIT,
-                            numberValue));
-                } else {
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, CHAR_OTHER,
-                            numberValue));
-                }
-                break;
-            case Type.BYTE:
-            case Type.SHORT:
-            case Type.INT:
-            case Type.FLOAT:
-            case Type.LONG:
-            case Type.DOUBLE:
-                assert (returnValue instanceof Number);
-                if (isJavaNumber(returnValue)) {
-                    double value = ((Number) returnValue).doubleValue();
-                    String numDesc = (value < 0) ? NUM_NEGATIVE : (value == 0) ? NUM_ZERO : NUM_POSITIVE;
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, numDesc,
-                            (Number) returnValue));
-                }
-                break;
-            case Type.ARRAY:
-                if (returnValue == null) {
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NULL));
-                } else {
-                    String arrDesc = (Array.getLength(returnValue) == 0) ? ARRAY_EMPTY : ARRAY_NONEMPTY;
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, arrDesc));
-                }
-                break;
-            case Type.OBJECT:
-                if (returnValue == null) {
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NULL));
-                } else {
-                    goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, REF_NONNULL));
-                    if (returnType.getClassName().equals("java.lang.String")) {
-                        String valDesc = ((String) returnValue).isEmpty() ? STRING_EMPTY : STRING_NONEMPTY;
-                        goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType, valDesc));
-                        break;
-                    }
-                    for (Inspector inspector : InspectorManager.getInstance().getInspectors(returnValue.getClass())) {
-                        String insp = inspector.getMethodCall()
-                                + Type.getMethodDescriptor(inspector.getMethod());
-                        try {
-                            Object val = inspector.getValue(returnValue);
-                            if (val instanceof Boolean) {
-                                String valDesc = ((boolean) val) ? BOOL_TRUE : BOOL_FALSE;
-                                goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType,
-                                        REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + valDesc));
-                            } else if (isJavaNumber(val)) {
-                                double dv = ((Number) val).doubleValue();
-                                String valDesc = (dv < 0) ? NUM_NEGATIVE : (dv == 0) ? NUM_ZERO : NUM_POSITIVE;
-                                goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType,
-                                        REF_NONNULL + ":" + returnType.getClassName() + ":" + insp + ":" + valDesc));
-                            }
-                        } catch (InvocationTargetException e) {
-                            // Exceptions in inspectors can happen
-                            logger.debug(e.getMessage(), e);
-                        } catch (IllegalAccessException e) {
-                            logger.warn(e.getMessage(), e);
-                        }
-                    }
 
-                }
-                break;
-            default:
-                // IGNORE
-                break;
+        for (IOValueDescriptors.ObservedDescriptor observed
+                : IOValueDescriptors.observedDescriptors(returnType, returnValue, false)) {
+            goals.add(new OutputCoverageGoal(className, methodNameWithDesc, returnType,
+                    observed.getDescriptor(), observed.getNumericValue()));
         }
         return goals;
-    }
-
-    /**
-     * The SUT could have classes extending Number. Calling doubleValue()
-     * on those would lead to many problems, like for example security and
-     * loop counter checks.
-     *
-     * @param val the object to check
-     * @return true if it is a standard Java number
-     */
-    private static boolean isJavaNumber(Object val) {
-        return val instanceof Number && val.getClass().getName().startsWith("java.");
     }
 }

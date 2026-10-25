@@ -119,10 +119,10 @@ public class IOObservedGoalsTest {
     public void outputValues() {
         Assertions.assertEquals(Arrays.asList("False|null"), output("()Z", false));
         Assertions.assertEquals(Arrays.asList("AlphabeticChar|97"), output("()C", 'a'));
-        Assertions.assertEquals(Arrays.asList("Negative|-7"), output("()I", -7));
+        Assertions.assertEquals(Arrays.asList("Negative|-7.0"), output("()I", -7));
         Assertions.assertEquals(Arrays.asList("Zero|0.0"), output("()D", 0.0));
         Assertions.assertEquals(Arrays.asList("Null|null"), output("()Ljava/lang/Integer;", null));
-        Assertions.assertEquals(Arrays.asList("Positive|2"), output("()Ljava/lang/Integer;", 2));
+        Assertions.assertEquals(Arrays.asList("Positive|2.0"), output("()Ljava/lang/Integer;", 2));
         Assertions.assertEquals(Arrays.asList("Null|null"), output("()[I", null));
         Assertions.assertEquals(Arrays.asList("EmptyArray|null"), output("()[I", new int[0]));
         Assertions.assertEquals(Arrays.asList("Null|null"), output("()Ljava/lang/String;", null));

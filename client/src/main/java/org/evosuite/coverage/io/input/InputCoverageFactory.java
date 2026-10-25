@@ -19,12 +19,10 @@
  */
 package org.evosuite.coverage.io.input;
 
-import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.assertion.Inspector;
-import org.evosuite.assertion.InspectorManager;
+import org.evosuite.coverage.io.IOValueDescriptors;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
@@ -35,8 +33,6 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.util.*;
-
-import static org.evosuite.coverage.io.IOCoverageConstants.*;
 
 /**
  * Factory for creating input coverage goals.
@@ -80,89 +76,9 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
                 Type[] argumentTypes = Type.getArgumentTypes(method);
                 Class<?>[] argumentClasses = method.getParameterTypes();
                 for (int i = 0; i < argumentTypes.length; i++) {
-                    Type argType = argumentTypes[i];
-
-                    int typeSort = argType.getSort();
-                    if (typeSort == Type.OBJECT) {
-                        Class<?> typeClass = argumentClasses[i];
-                        if (ClassUtils.isPrimitiveWrapper(typeClass)) {
-                            typeSort = Type.getType(ClassUtils.wrapperToPrimitive(typeClass)).getSort();
-                            goals.add(createGoal(className, methodName, i, argType, REF_NULL));
-                        }
-                    }
-
-                    switch (typeSort) {
-                        case Type.BOOLEAN:
-                            goals.add(createGoal(className, methodName, i, argType, BOOL_TRUE));
-                            goals.add(createGoal(className, methodName, i, argType, BOOL_FALSE));
-                            break;
-                        case Type.CHAR:
-                            goals.add(createGoal(className, methodName, i, argType, CHAR_ALPHA));
-                            goals.add(createGoal(className, methodName, i, argType, CHAR_DIGIT));
-                            goals.add(createGoal(className, methodName, i, argType, CHAR_OTHER));
-                            break;
-                        case Type.BYTE:
-                        case Type.SHORT:
-                        case Type.INT:
-                        case Type.FLOAT:
-                        case Type.LONG:
-                        case Type.DOUBLE:
-                            goals.add(createGoal(className, methodName, i, argType, NUM_NEGATIVE));
-                            goals.add(createGoal(className, methodName, i, argType, NUM_ZERO));
-                            goals.add(createGoal(className, methodName, i, argType, NUM_POSITIVE));
-                            break;
-                        case Type.ARRAY:
-                            goals.add(createGoal(className, methodName, i, argType, REF_NULL));
-                            goals.add(createGoal(className, methodName, i, argType, ARRAY_EMPTY));
-                            goals.add(createGoal(className, methodName, i, argType, ARRAY_NONEMPTY));
-                            break;
-                        case Type.OBJECT:
-                            goals.add(createGoal(className, methodName, i, argType, REF_NULL));
-                            if (argType.getClassName().equals("java.lang.String")) {
-                                goals.add(createGoal(className, methodName, i, argType, STRING_EMPTY));
-                                goals.add(createGoal(className, methodName, i, argType, STRING_NONEMPTY));
-                            } else if (List.class.isAssignableFrom(argumentClasses[i])) {
-                                goals.add(createGoal(className, methodName, i, argType, LIST_EMPTY));
-                                goals.add(createGoal(className, methodName, i, argType, LIST_NONEMPTY));
-
-                            } else if (Set.class.isAssignableFrom(argumentClasses[i])) {
-                                goals.add(createGoal(className, methodName, i, argType, SET_EMPTY));
-                                goals.add(createGoal(className, methodName, i, argType, SET_NONEMPTY));
-
-                            } else if (Map.class.isAssignableFrom(argumentClasses[i])) {
-                                goals.add(createGoal(className, methodName, i, argType, MAP_EMPTY));
-                                goals.add(createGoal(className, methodName, i, argType, MAP_NONEMPTY));
-                                // TODO: Collection.class?
-                            } else {
-                                goals.add(createGoal(className, methodName, i, argType, REF_NONNULL));
-                                Class<?> paramClazz = argumentClasses[i];
-                                for (Inspector inspector : InspectorManager.getInstance().getInspectors(paramClazz)) {
-                                    String insp = inspector.getMethodCall()
-                                            + Type.getMethodDescriptor(inspector.getMethod());
-                                    Type t = Type.getReturnType(inspector.getMethod());
-                                    if (t.getSort() == Type.BOOLEAN) {
-                                        goals.add(createGoal(className, methodName, i, argType,
-                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
-                                                        + BOOL_TRUE));
-                                        goals.add(createGoal(className, methodName, i, argType,
-                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
-                                                        + BOOL_FALSE));
-                                    } else if (t.getSort() >= Type.BYTE && t.getSort() <= Type.DOUBLE) {
-                                        goals.add(createGoal(className, methodName, i, argType,
-                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
-                                                        + NUM_NEGATIVE));
-                                        goals.add(createGoal(className, methodName, i, argType,
-                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
-                                                        + NUM_ZERO));
-                                        goals.add(createGoal(className, methodName, i, argType,
-                                                REF_NONNULL + ":" + argType.getClassName() + ":" + insp + ":"
-                                                        + NUM_POSITIVE));
-                                    }
-                                }
-                            }
-                            break;
-                        default:
-                            break;
+                    for (String descriptor : IOValueDescriptors.staticDescriptors(argumentTypes[i],
+                            argumentClasses[i], true)) {
+                        goals.add(createGoal(className, methodName, i, argumentTypes[i], descriptor));
                     }
                 }
             }

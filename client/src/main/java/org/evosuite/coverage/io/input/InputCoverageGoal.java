@@ -19,17 +19,11 @@
  */
 package org.evosuite.coverage.io.input;
 
-import org.apache.commons.lang3.ClassUtils;
-import org.evosuite.assertion.Inspector;
-import org.evosuite.assertion.InspectorManager;
+import org.evosuite.coverage.io.IOValueDescriptors;
 import org.objectweb.asm.Type;
 
 import java.io.Serializable;
-import java.lang.reflect.Array;
-import java.lang.reflect.InvocationTargetException;
 import java.util.*;
-
-import static org.evosuite.coverage.io.IOCoverageConstants.*;
 
 /**
  * A single input coverage goal.
@@ -276,7 +270,6 @@ public class InputCoverageGoal implements Serializable, Comparable<InputCoverage
      * @param argumentsValues the list of argument values
      * @return a set of covered input goals
      */
-    @SuppressWarnings("rawtypes")
     public static Set<InputCoverageGoal> createCoveredGoalsFromParameters(String className, String methodName,
                                                                           String methodDesc,
                                                                           List<Object> argumentsValues) {
@@ -285,130 +278,13 @@ public class InputCoverageGoal implements Serializable, Comparable<InputCoverage
         Type[] argTypes = Type.getArgumentTypes(methodDesc);
 
         for (int i = 0; i < argTypes.length; i++) {
-            Type argType = argTypes[i];
-            Object argValue = argumentsValues.get(i);
-            String argValueDesc;
-            Number numberValue = null;
-
-            if (argValue == null) {
-                argValueDesc = REF_NULL;
-                goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                        argValueDesc, numberValue));
-                continue;
-            }
-
-            int typeSort = argType.getSort();
-            if (typeSort == Type.OBJECT) { // argValue is known not to be null here
-                if (ClassUtils.isPrimitiveWrapper(argValue.getClass())) {
-                    typeSort = Type.getType(ClassUtils.wrapperToPrimitive(argValue.getClass())).getSort();
-                } else {
-                    // It is an object and not null, so it covers REF_NONNULL
-                    goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                            REF_NONNULL, numberValue));
-                }
-            }
-            switch (typeSort) {
-                case Type.BOOLEAN:
-                    argValueDesc = (((boolean) argValue)) ? BOOL_TRUE : BOOL_FALSE;
-                    goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                            argValueDesc, numberValue));
-                    break;
-                case Type.CHAR:
-                    char c = (char) argValue;
-                    numberValue = (int) c; // Suite fitness uses the numeric representation to estimate distances
-                    if (Character.isAlphabetic(c)) {
-                        argValueDesc = CHAR_ALPHA;
-                    } else if (Character.isDigit(c)) {
-                        argValueDesc = CHAR_DIGIT;
-                    } else {
-                        argValueDesc = CHAR_OTHER;
-                    }
-                    goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                            argValueDesc, numberValue));
-                    break;
-                case Type.BYTE:
-                case Type.SHORT:
-                case Type.INT:
-                case Type.FLOAT:
-                case Type.LONG:
-                case Type.DOUBLE:
-                    double value;
-                    if (argValue instanceof Character) {
-                        value = ((Number) ((int) (char) argValue)).doubleValue();
-                    } else {
-                        value = ((Number) argValue).doubleValue();
-                    }
-                    numberValue = value;
-                    argValueDesc = (value < 0) ? NUM_NEGATIVE : (value == 0) ? NUM_ZERO : NUM_POSITIVE;
-                    goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                            argValueDesc, numberValue));
-                    break;
-                case Type.ARRAY:
-                    argValueDesc = (Array.getLength(argValue) == 0) ? ARRAY_EMPTY : ARRAY_NONEMPTY;
-                    goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                            argValueDesc, numberValue));
-                    break;
-                case Type.OBJECT:
-                    if (argType.getClassName().equals("java.lang.String")) {
-                        argValueDesc = ((String) argValue).isEmpty() ? STRING_EMPTY : STRING_NONEMPTY;
-                        goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                                argValueDesc, numberValue));
-                    } else if (argValue instanceof List) {
-                        argValueDesc = ((List) argValue).isEmpty() ? LIST_EMPTY : LIST_NONEMPTY;
-                        goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                                argValueDesc, numberValue));
-                    } else if (argValue instanceof Set) {
-                        argValueDesc = ((Set) argValue).isEmpty() ? SET_EMPTY : SET_NONEMPTY;
-                        goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                                argValueDesc, numberValue));
-                    } else if (argValue instanceof Map) {
-                        argValueDesc = ((Map) argValue).isEmpty() ? MAP_EMPTY : MAP_NONEMPTY;
-                        goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argType,
-                                argValueDesc, numberValue));
-                    } else {
-                        Collection<Inspector> inspectors = InspectorManager.getInstance()
-                                .getInspectors(argValue.getClass());
-                        for (Inspector inspector : inspectors) {
-                            String insp = inspector.getMethodCall()
-                                    + Type.getMethodDescriptor(inspector.getMethod());
-                            try {
-                                Object val = inspector.getValue(argValue);
-                                if (val instanceof Boolean) {
-                                    String valDesc = ((boolean) val) ? BOOL_TRUE : BOOL_FALSE;
-                                    goals.add(new InputCoverageGoal(className, methodName + methodDesc,
-                                            i, argType, REF_NONNULL + ":" + argType.getClassName()
-                                            + ":" + insp + ":" + valDesc));
-                                } else if (isJavaNumber(val)) {
-                                    double dv = ((Number) val).doubleValue();
-                                    String valDesc = (dv < 0) ? NUM_NEGATIVE : (dv == 0) ? NUM_ZERO : NUM_POSITIVE;
-                                    goals.add(new InputCoverageGoal(className, methodName + methodDesc,
-                                            i, argType, REF_NONNULL + ":" + argType.getClassName()
-                                            + ":" + insp + ":" + valDesc));
-                                }
-                            } catch (InvocationTargetException | IllegalAccessException e) {
-                                // Exceptions in inspectors can happen
-                            }
-                        }
-                    }
-                    break;
-                default:
-                    break;
+            for (IOValueDescriptors.ObservedDescriptor observed
+                    : IOValueDescriptors.observedDescriptors(argTypes[i], argumentsValues.get(i), true)) {
+                goals.add(new InputCoverageGoal(className, methodName + methodDesc, i, argTypes[i],
+                        observed.getDescriptor(), observed.getNumericValue()));
             }
         }
 
         return goals;
-    }
-
-    /**
-     * Checks if the value is a standard Java Number.
-     * The SUT could have classes extending Number. Calling doubleValue()
-     * on those would lead to many problems, like for example security and
-     * loop counter checks.
-     *
-     * @param val the value to check
-     * @return true if the value is a Java Number from the java package
-     */
-    private static boolean isJavaNumber(Object val) {
-        return val instanceof Number && val.getClass().getName().startsWith("java.");
     }
 }
