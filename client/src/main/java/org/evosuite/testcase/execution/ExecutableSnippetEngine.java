@@ -53,6 +53,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -93,8 +94,6 @@ public final class ExecutableSnippetEngine {
     private static final Pattern STATEMENTS_OUTSIDE_METHOD_PATTERN =
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+statements\\s+not\\s+expected\\s+"
                     + "outside\\s+of\\s+methods\\s+and\\s+initializers");
-    private static final Pattern MISSING_RETURN_PATTERN =
-            Pattern.compile("\\.java:(\\d+):\\s+error:\\s+missing\\s+return\\s+statement");
     private static final Pattern ABSTRACT_INSTANTIATION_PATTERN =
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+.*is abstract; cannot be instantiated");
     private static final Pattern PROTECTED_ACCESS_PATTERN =
@@ -141,6 +140,20 @@ public final class ExecutableSnippetEngine {
                     + "FileOutputStream|FileReader|FileWriter|PrintStream|PrintWriter))\\s*\\(");
     private static final Pattern VFS_IO_STATIC_CALL_OWNER_PATTERN =
             Pattern.compile("\\b((?:java\\.io\\.)?File|(?:java\\.nio\\.file\\.)?(?:Files|Paths|FileSystems))\\s*\\.");
+
+    /** Source patterns whose first group is a simple class name the snippet refers to. */
+    private static final List<Pattern> SNIPPET_TYPE_REFERENCE_PATTERNS = Arrays.asList(
+            Pattern.compile("\\b([A-Z][A-Za-z0-9_]*)\\s*\\."),
+            Pattern.compile("\\b([A-Z][A-Za-z0-9_]*)\\s*\\.class\\b"),
+            Pattern.compile("\\(\\s*([A-Z][A-Za-z0-9_]*)\\s*\\)"),
+            Pattern.compile("\\binstanceof\\s+([A-Z][A-Za-z0-9_]*)\\b"),
+            Pattern.compile("\\bnew\\s+([A-Z][A-Za-z0-9_]*)\\s*(?:<[^>]*>)?\\s*\\("),
+            Pattern.compile("\\b(?:public|protected|private)\\s+"
+                    + "(?:static\\s+|final\\s+|abstract\\s+|synchronized\\s+)*"
+                    + "([A-Z][A-Za-z0-9_]*)\\s*(?:<[^\\n\\r{};=]*>)?\\s+"
+                    + "[A-Za-z_$][A-Za-z0-9_$]*\\s*\\("),
+            Pattern.compile("\\b([A-Z][A-Za-z0-9_]*)\\s*(?:<[^;{}()=]*>)?\\s*(?:\\[\\s*\\])*\\s+"
+                    + "[A-Za-z_$][A-Za-z0-9_$]*\\s*(?==|;|,|\\))"));
 
     private static final class Binding {
         private final Type type;
@@ -633,11 +646,6 @@ public final class ExecutableSnippetEngine {
             throw new SnippetCompilationException("Snippet compilation failed", attempt.getInfrastructureFailure());
         }
         return attempt.isCompiled() ? null : attempt.getCompilerOutput().trim();
-    }
-
-    private String sanitizeSourceForKnownCompileIssues(String source, String diagnostics) {
-        SourceSanitizationOutcome outcome = sanitizeSourceForKnownCompileIssuesWithOutcome(source, diagnostics);
-        return outcome == null ? null : outcome.sanitizedSource;
     }
 
     private SourceSanitizationOutcome sanitizeSourceForKnownCompileIssuesWithOutcome(
@@ -1177,8 +1185,6 @@ public final class ExecutableSnippetEngine {
         String className = classNameFor(key);
         StringBuilder src = new StringBuilder();
         appendImports(src, bindings, assertionCode, null);
-        src.append("import static org.junit.jupiter.api.Assertions.*;\n");
-        src.append("import static org.junit.jupiter.api.Assumptions.*;\n");
         src.append("public class ").append(className).append(" {\n");
         appendCompatibilityHelpers(src);
         src.append("  @SuppressWarnings(\"unchecked\")\n");
@@ -1337,105 +1343,60 @@ public final class ExecutableSnippetEngine {
             return;
         }
 
-        Set<String> boundNames = new LinkedHashSet<>();
-        if (bindings != null) {
-            boundNames.addAll(bindings.keySet());
-        }
-
-        Set<String> seen = new LinkedHashSet<>();
-        registerSnippetImports(combined, "\\b([A-Z][A-Za-z0-9_]*)\\s*\\.", boundNames, seen,
-                knownClasses, simpleNameToFqn, collidingSimpleNames);
-        registerSnippetImports(combined, "\\b([A-Z][A-Za-z0-9_]*)\\s*\\.class\\b", boundNames, seen,
-                knownClasses, simpleNameToFqn, collidingSimpleNames);
-        registerSnippetImports(combined, "\\(\\s*([A-Z][A-Za-z0-9_]*)\\s*\\)", boundNames, seen,
-                knownClasses, simpleNameToFqn, collidingSimpleNames);
-        registerSnippetImports(combined, "\\binstanceof\\s+([A-Z][A-Za-z0-9_]*)\\b", boundNames, seen,
-                knownClasses, simpleNameToFqn, collidingSimpleNames);
-        registerSnippetImports(combined,
-                "\\bnew\\s+([A-Z][A-Za-z0-9_]*)\\s*(?:<[^>]*>)?\\s*\\(",
-                boundNames, seen, knownClasses, simpleNameToFqn, collidingSimpleNames);
-        registerSnippetImports(combined,
-                "\\b(?:public|protected|private)\\s+"
-                        + "(?:static\\s+|final\\s+|abstract\\s+|synchronized\\s+)*"
-                        + "([A-Z][A-Za-z0-9_]*)\\s*(?:<[^\\n\\r{};=]*>)?\\s+"
-                        + "[A-Za-z_$][A-Za-z0-9_$]*\\s*\\(",
-                boundNames, seen, knownClasses, simpleNameToFqn, collidingSimpleNames);
-        registerSnippetImports(combined,
-                "\\b([A-Z][A-Za-z0-9_]*)\\s*(?:<[^;{}()=]*>)?\\s*(?:\\[\\s*\\])*\\s+"
-                        + "[A-Za-z_$][A-Za-z0-9_$]*\\s*(?==|;|,|\\))",
-                boundNames, seen, knownClasses, simpleNameToFqn, collidingSimpleNames);
-        registerGenericTypeArgumentImports(combined, boundNames, seen, knownClasses, simpleNameToFqn,
+        SnippetImportScope scope = new SnippetImportScope(bindings, knownClasses, simpleNameToFqn,
                 collidingSimpleNames);
-        registerThrownTypeImports(combined, boundNames, seen, knownClasses, simpleNameToFqn,
-                collidingSimpleNames);
+        for (Pattern pattern : SNIPPET_TYPE_REFERENCE_PATTERNS) {
+            scope.scan(combined, pattern);
+        }
+        scope.scanClauses(combined, GENERIC_CLAUSE_PATTERN);
+        scope.scanClauses(combined, THROWS_CLAUSE_PATTERN);
     }
 
-    private void registerSnippetImports(String text,
-                                        String regex,
-                                        Set<String> boundNames,
-                                        Set<String> seen,
-                                        Set<Class<?>> knownClasses,
-                                        Map<String, String> simpleNameToFqn,
-                                        Set<String> collidingSimpleNames) {
-        Matcher matcher = Pattern.compile(regex).matcher(text);
-        while (matcher.find()) {
-            registerSimpleNameImport(matcher.group(1), boundNames, seen, knownClasses, simpleNameToFqn,
-                    collidingSimpleNames);
-        }
-    }
+    /** Resolves the simple class names a snippet uses and records the imports they need. */
+    private final class SnippetImportScope {
+        private final Set<String> boundNames = new LinkedHashSet<>();
+        private final Set<String> seen = new LinkedHashSet<>();
+        private final Set<Class<?>> knownClasses;
+        private final Map<String, String> simpleNameToFqn;
+        private final Set<String> collidingSimpleNames;
 
-    private void registerThrownTypeImports(String text,
-                                           Set<String> boundNames,
-                                           Set<String> seen,
-                                           Set<Class<?>> knownClasses,
-                                           Map<String, String> simpleNameToFqn,
-                                           Set<String> collidingSimpleNames) {
-        Matcher throwsMatcher = THROWS_CLAUSE_PATTERN.matcher(text);
-        while (throwsMatcher.find()) {
-            registerClauseTypeImports(throwsMatcher.group(1), boundNames, seen, knownClasses, simpleNameToFqn,
-                    collidingSimpleNames);
+        private SnippetImportScope(Map<String, Binding> bindings,
+                                   Set<Class<?>> knownClasses,
+                                   Map<String, String> simpleNameToFqn,
+                                   Set<String> collidingSimpleNames) {
+            if (bindings != null) {
+                boundNames.addAll(bindings.keySet());
+            }
+            this.knownClasses = knownClasses;
+            this.simpleNameToFqn = simpleNameToFqn;
+            this.collidingSimpleNames = collidingSimpleNames;
         }
-    }
 
-    private void registerGenericTypeArgumentImports(String text,
-                                                    Set<String> boundNames,
-                                                    Set<String> seen,
-                                                    Set<Class<?>> knownClasses,
-                                                    Map<String, String> simpleNameToFqn,
-                                                    Set<String> collidingSimpleNames) {
-        Matcher matcher = GENERIC_CLAUSE_PATTERN.matcher(text);
-        while (matcher.find()) {
-            registerClauseTypeImports(matcher.group(1), boundNames, seen, knownClasses, simpleNameToFqn,
-                    collidingSimpleNames);
+        /** Registers the first group of every match of {@code pattern} in {@code text}. */
+        private void scan(String text, Pattern pattern) {
+            Matcher matcher = pattern.matcher(text);
+            while (matcher.find()) {
+                register(matcher.group(1));
+            }
         }
-    }
 
-    private void registerClauseTypeImports(String clause,
-                                           Set<String> boundNames,
-                                           Set<String> seen,
-                                           Set<Class<?>> knownClasses,
-                                           Map<String, String> simpleNameToFqn,
-                                           Set<String> collidingSimpleNames) {
-        Matcher typeMatcher = UNQUALIFIED_TYPE_NAME_PATTERN.matcher(clause);
-        while (typeMatcher.find()) {
-            registerSimpleNameImport(typeMatcher.group(1), boundNames, seen, knownClasses, simpleNameToFqn,
-                    collidingSimpleNames);
+        /** Registers the type names inside the first group of every match, a generic or throws clause. */
+        private void scanClauses(String text, Pattern clausePattern) {
+            Matcher matcher = clausePattern.matcher(text);
+            while (matcher.find()) {
+                scan(matcher.group(1), UNQUALIFIED_TYPE_NAME_PATTERN);
+            }
         }
-    }
 
-    private void registerSimpleNameImport(String simpleName,
-                                          Set<String> boundNames,
-                                          Set<String> seen,
-                                          Set<Class<?>> knownClasses,
-                                          Map<String, String> simpleNameToFqn,
-                                          Set<String> collidingSimpleNames) {
-        if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
-            return;
-        }
-        Class<?> resolved = resolveSimpleClassName(simpleName, knownClasses);
-        if (resolved != null) {
-            rememberKnownClass(resolved, knownClasses);
-            addClassImport(resolved, simpleNameToFqn, collidingSimpleNames);
+        private void register(String simpleName) {
+            if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
+                return;
+            }
+            Class<?> resolved = resolveSimpleClassName(simpleName, knownClasses);
+            if (resolved != null) {
+                rememberKnownClass(resolved, knownClasses);
+                addClassImport(resolved, simpleNameToFqn, collidingSimpleNames);
+            }
         }
     }
 
@@ -1811,10 +1772,6 @@ public final class ExecutableSnippetEngine {
         } catch (IOException ignored) {
             // Best effort temp cleanup.
         }
-    }
-
-    public Map<String, Object> emptyValues() {
-        return Collections.emptyMap();
     }
 
     private void increment(RuntimeVariable variable, AtomicInteger counter) {

@@ -318,13 +318,24 @@ class ExecutableSnippetEngineImportFilterTest {
         assertFalse((Boolean) forbidden.invoke(engine, "javax.xml.parsers"));
     }
 
+    /** Returns the repaired source, or null when the diagnostics need no repair. */
+    private static String sanitize(ExecutableSnippetEngine engine, String source, String diagnostics)
+            throws Exception {
+        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "sanitizeSourceForKnownCompileIssuesWithOutcome", String.class, String.class);
+        sanitize.setAccessible(true);
+        Object outcome = sanitize.invoke(engine, source, diagnostics);
+        if (outcome == null) {
+            return null;
+        }
+        java.lang.reflect.Field field = outcome.getClass().getDeclaredField("sanitizedSource");
+        field.setAccessible(true);
+        return (String) field.get(outcome);
+    }
+
     @Test
     void sanitizeSourceRemovesNotAStatementLines() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeSourceForKnownCompileIssues", String.class, String.class);
-        sanitize.setAccessible(true);
-
         String source = "class X {\n"
                 + "  void m() {\n"
                 + "    int x = 0;\n"
@@ -333,7 +344,7 @@ class ExecutableSnippetEngineImportFilterTest {
                 + "}\n";
         String diagnostics = "/tmp/X.java:4: error: not a statement";
 
-        String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
+        String sanitized = sanitize(engine, source, diagnostics);
         assertNotNull(sanitized);
         assertTrue(sanitized.contains("removed uncompilable llm statement"));
         assertFalse(sanitized.contains("x + 1;"));
@@ -394,24 +405,16 @@ class ExecutableSnippetEngineImportFilterTest {
     @Test
     void sanitizeSourceReturnsNullForUnrelatedDiagnostics() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeSourceForKnownCompileIssues", String.class, String.class);
-        sanitize.setAccessible(true);
-
         String source = "class X { void m() {} }";
         String diagnostics = "/tmp/X.java:1: error: method does not override or implement a method from a supertype";
 
-        String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
+        String sanitized = sanitize(engine, source, diagnostics);
         assertNull(sanitized);
     }
 
     @Test
     void sanitizeSourceRemovesCannotFindSymbolLines() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeSourceForKnownCompileIssues", String.class, String.class);
-        sanitize.setAccessible(true);
-
         String source = "class X {\n"
                 + "  void m() {\n"
                 + "    MissingType value = null;\n"
@@ -420,7 +423,7 @@ class ExecutableSnippetEngineImportFilterTest {
                 + "}\n";
         String diagnostics = "/tmp/X.java:3: error: cannot find symbol";
 
-        String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
+        String sanitized = sanitize(engine, source, diagnostics);
         assertNotNull(sanitized);
         assertTrue(sanitized.contains("removed uncompilable llm statement"));
         assertFalse(sanitized.contains("MissingType value = null;"));
@@ -429,10 +432,6 @@ class ExecutableSnippetEngineImportFilterTest {
     @Test
     void sanitizeSourceAddsFallbackReturnForMissingReturnDiagnostic() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeSourceForKnownCompileIssues", String.class, String.class);
-        sanitize.setAccessible(true);
-
         String source = "public class X {\n"
                 + "  public static Object run(java.util.Map<String,Object> __vars) throws Throwable {\n"
                 + "    int x = 1;\n"
@@ -440,7 +439,7 @@ class ExecutableSnippetEngineImportFilterTest {
                 + "}\n";
         String diagnostics = "/tmp/X.java:4: error: missing return statement";
 
-        String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
+        String sanitized = sanitize(engine, source, diagnostics);
         assertNotNull(sanitized);
         assertTrue(sanitized.contains("return null;"));
     }
@@ -448,10 +447,6 @@ class ExecutableSnippetEngineImportFilterTest {
     @Test
     void sanitizeSourceAddsFallbackReturnForNestedMethodMissingReturn() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeSourceForKnownCompileIssues", String.class, String.class);
-        sanitize.setAccessible(true);
-
         String source = "public class X {\n"
                 + "  public static Object run(java.util.Map<String,Object> __vars) throws Throwable {\n"
                 + "    Object o = new Object() {\n"
@@ -464,7 +459,7 @@ class ExecutableSnippetEngineImportFilterTest {
                 + "}\n";
         String diagnostics = "/tmp/X.java:6: error: missing return statement";
 
-        String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
+        String sanitized = sanitize(engine, source, diagnostics);
         assertNotNull(sanitized);
         assertTrue(sanitized.contains("return false;"));
         assertFalse(sanitized.contains("removed uncompilable llm statement"));
@@ -473,10 +468,6 @@ class ExecutableSnippetEngineImportFilterTest {
     @Test
     void sanitizeSourceRemovesAbstractInstantiationLine() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeSourceForKnownCompileIssues", String.class, String.class);
-        sanitize.setAccessible(true);
-
         String source = "class X {\n"
                 + "  void m() {\n"
                 + "    SessionInfoProvider p = new SessionInfoProvider();\n"
@@ -485,7 +476,7 @@ class ExecutableSnippetEngineImportFilterTest {
                 + "}\n";
         String diagnostics = "/tmp/X.java:3: error: SessionInfoProvider is abstract; cannot be instantiated";
 
-        String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
+        String sanitized = sanitize(engine, source, diagnostics);
         assertNotNull(sanitized);
         assertTrue(sanitized.contains("removed uncompilable llm statement"));
         assertFalse(sanitized.contains("new SessionInfoProvider()"));
@@ -495,10 +486,6 @@ class ExecutableSnippetEngineImportFilterTest {
     @Test
     void sanitizeSourceRemovesProtectedConstructorAccessLine() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeSourceForKnownCompileIssues", String.class, String.class);
-        sanitize.setAccessible(true);
-
         String source = "class X {\n"
                 + "  void m() {\n"
                 + "    RIFManager manager = new RIFManager(\"x\");\n"
@@ -507,7 +494,7 @@ class ExecutableSnippetEngineImportFilterTest {
                 + "}\n";
         String diagnostics = "/tmp/X.java:3: error: RIFManager(String) has protected access in RIFManager";
 
-        String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
+        String sanitized = sanitize(engine, source, diagnostics);
         assertNotNull(sanitized);
         assertTrue(sanitized.contains("removed uncompilable llm statement"));
         assertFalse(sanitized.contains("new RIFManager(\"x\")"));
@@ -517,10 +504,6 @@ class ExecutableSnippetEngineImportFilterTest {
     @Test
     void sanitizeSourceRemovesIncompatibleTypesLine() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeSourceForKnownCompileIssues", String.class, String.class);
-        sanitize.setAccessible(true);
-
         String source = "class X {\n"
                 + "  void m() {\n"
                 + "    String s = 1;\n"
@@ -529,7 +512,7 @@ class ExecutableSnippetEngineImportFilterTest {
                 + "}\n";
         String diagnostics = "/tmp/X.java:3: error: incompatible types: int cannot be converted to String";
 
-        String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
+        String sanitized = sanitize(engine, source, diagnostics);
         assertNotNull(sanitized);
         assertTrue(sanitized.contains("removed uncompilable llm statement"));
         assertFalse(sanitized.contains("String s = 1;"));
@@ -539,10 +522,6 @@ class ExecutableSnippetEngineImportFilterTest {
     @Test
     void sanitizeSourceRemovesStatementsOutsideMethodsLines() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeSourceForKnownCompileIssues", String.class, String.class);
-        sanitize.setAccessible(true);
-
         String source = "public class X {\n"
                 + "  public static Object run(java.util.Map<String,Object> __vars) throws Throwable {\n"
                 + "    return null;\n"
@@ -552,7 +531,7 @@ class ExecutableSnippetEngineImportFilterTest {
         String diagnostics =
                 "/tmp/X.java:5: error: statements not expected outside of methods and initializers";
 
-        String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
+        String sanitized = sanitize(engine, source, diagnostics);
         assertNotNull(sanitized);
         assertTrue(sanitized.contains("removed uncompilable llm statement"));
         assertFalse(sanitized.contains("int y = 1;"));
