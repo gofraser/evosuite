@@ -33,6 +33,7 @@ import java.io.StringWriter;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class MockThrowableTest {
 
@@ -194,5 +195,95 @@ public class MockThrowableTest {
             }
         }
         assertEquals(AppException.class.getName() + ": msg", new AppException("msg").toString());
+    }
+
+    @Test
+    public void localizedMessageFollowsAnOverriddenGetMessage() {
+        MockFramework.enable();
+        Throwable t = new MockIllegalStateException("msg") {
+            @Override
+            public String getMessage() {
+                return "overridden";
+            }
+        };
+        assertEquals("overridden", t.getLocalizedMessage());
+    }
+
+    @Test
+    public void secondInitCauseFailsWithTheMockedException() {
+        MockFramework.enable();
+        Throwable t = new MockIOException("msg");
+        t.initCause(new RuntimeException("first"));
+        try {
+            t.initCause(new RuntimeException("second"));
+            fail("expected an exception");
+        } catch (MockIllegalStateException expected) {
+            assertTrue(expected.getMessage().startsWith("Can't overwrite cause"));
+        }
+        try {
+            new MockIOException("msg").initCause(null).initCause(null);
+            fail("expected an exception");
+        } catch (MockIllegalStateException expected) {
+            // a cause set to null counts as set
+        }
+    }
+
+    @Test
+    public void selfCausationFailsWithTheMockedException() {
+        MockFramework.enable();
+        Throwable t = new MockRuntimeException("msg");
+        try {
+            t.initCause(t);
+            fail("expected an exception");
+        } catch (MockIllegalArgumentException expected) {
+            assertEquals("Self-causation not permitted", expected.getMessage());
+        }
+    }
+
+    @Test
+    public void stackTraceWithoutRecordedFramesKeepsTheFixedTrace() {
+        MockFramework.enable();
+        Throwable t = new MockRuntimeException("msg") {
+            @Override
+            public synchronized Throwable fillInStackTrace() {
+                return this;
+            }
+        };
+        assertEquals(3, t.getStackTrace().length);
+        assertEquals("<evosuite>", t.getStackTrace()[0].getClassName());
+    }
+
+    @Test
+    public void stackTraceStartsAtTheCreationSite() {
+        MockFramework.enable();
+        StackTraceElement[] trace = new MockIOException("msg").getStackTrace();
+        assertEquals(3, trace.length);
+        assertEquals(MockThrowableTest.class.getName(), trace[0].getClassName());
+        assertEquals("<evosuite>", trace[1].getClassName());
+    }
+
+    @Test
+    public void setStackTraceRejectsNullElements() {
+        MockFramework.enable();
+        Throwable t = new MockError("msg");
+        try {
+            t.setStackTrace(new StackTraceElement[]{null});
+            fail("expected an exception");
+        } catch (MockNullPointerException expected) {
+            assertEquals("stackTrace[0]", expected.getMessage());
+        }
+        StackTraceElement element = new StackTraceElement("A", "b", "A.java", 1);
+        t.setStackTrace(new StackTraceElement[]{element});
+        assertEquals(element, t.getStackTrace()[0]);
+    }
+
+    @Test
+    public void printStackTraceWritesTheMockedTrace() {
+        MockFramework.enable();
+        Throwable t = new MockIOException("msg");
+        java.io.StringWriter writer = new java.io.StringWriter();
+        t.printStackTrace(new java.io.PrintWriter(writer));
+        assertEquals(ThrowableText.render(t.getStackTrace()), writer.toString());
+        assertEquals(3, writer.toString().split("\n").length);
     }
 }

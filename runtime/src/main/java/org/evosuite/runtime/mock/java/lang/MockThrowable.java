@@ -32,9 +32,7 @@ public class MockThrowable extends Throwable implements OverrideMock {
 
     private static final long serialVersionUID = 4078375023919805371L;
 
-    private StackTraceElement[] stackTraceElements;
-
-    private Class<?> originClass;
+    private volatile StackTraceElement[] mockTrace;
 
     // ------ constructors -------------
 
@@ -43,7 +41,6 @@ public class MockThrowable extends Throwable implements OverrideMock {
      */
     public MockThrowable() {
         super();
-        init();
     }
 
     /**
@@ -53,7 +50,6 @@ public class MockThrowable extends Throwable implements OverrideMock {
      */
     public MockThrowable(String message) {
         super(message);
-        init();
     }
 
     /**
@@ -63,7 +59,6 @@ public class MockThrowable extends Throwable implements OverrideMock {
      */
     public MockThrowable(Throwable cause) {
         super(cause);
-        init();
     }
 
     /**
@@ -74,29 +69,12 @@ public class MockThrowable extends Throwable implements OverrideMock {
      */
     public MockThrowable(String message, Throwable cause) {
         super(message, cause);
-        init();
     }
 
     protected MockThrowable(String message, Throwable cause,
             boolean enableSuppression,
             boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
-        init();
-    }
-
-    // ----- just for mock --------
-
-    private void init() {
-        stackTraceElements = getDefaultStackTrace();
-
-        StackTraceElement[] original = super.getStackTrace();
-        if (original.length > 0) {
-            stackTraceElements[0] = original[0]; //only copy over the first element, which points to the source
-        }
-    }
-
-    public void setOriginForDelegate(StackTraceElement origin) throws IllegalArgumentException {
-        stackTraceElements[0] = origin;
     }
 
     /*
@@ -143,10 +121,7 @@ public class MockThrowable extends Throwable implements OverrideMock {
             source.printStackTrace(p);
             return;
         }
-        for (StackTraceElement elem : getDefaultStackTrace()) {
-            p.append(elem.toString());
-            p.append("\n");
-        }
+        p.append(ThrowableText.render(getDefaultStackTrace()));
     }
 
     /**
@@ -160,124 +135,63 @@ public class MockThrowable extends Throwable implements OverrideMock {
             source.printStackTrace(p);
             return;
         }
-        for (StackTraceElement elem : getDefaultStackTrace()) {
-            p.append(elem.toString());
-            p.append("\n");
-        }
-    }
-
-    // ----- unmodified public methods ----------
-
-    @Override
-    public String getMessage() {
-        return super.getMessage();
-    }
-
-    @Override
-    public String getLocalizedMessage() {
-        return super.getLocalizedMessage();
-    }
-
-    @Override
-    public synchronized Throwable getCause() {
-        return super.getCause();
-    }
-
-    @Override
-    public String toString() {
-        return super.toString();
-    }
-
-    @Override
-    public void printStackTrace() {
-        super.printStackTrace();
+        p.append(ThrowableText.render(getDefaultStackTrace()));
     }
 
     // ------  mocked public methods --------
 
     @Override
     public synchronized Throwable initCause(Throwable cause) {
-
         if (!MockFramework.isEnabled()) {
             return super.initCause(cause);
         }
-
         try {
             return super.initCause(cause);
-        } catch (IllegalStateException e) {
-            throw new MockIllegalStateException(e.getMessage());
-        } catch (IllegalArgumentException e) {
-            throw new MockIllegalArgumentException(e.getMessage()); //FIXME
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw ThrowableText.initCauseFailure(e);
         }
     }
 
     @Override
     public void printStackTrace(PrintStream p) {
-
         if (!MockFramework.isEnabled()) {
             super.printStackTrace(p);
             return;
         }
-
-        for (StackTraceElement elem : getStackTrace()) {
-            p.append(elem.toString());
-            p.append("\n");
-        }
+        p.append(ThrowableText.render(getStackTrace()));
     }
 
     @Override
     public void printStackTrace(PrintWriter p) {
-
         if (!MockFramework.isEnabled()) {
             super.printStackTrace(p);
             return;
         }
-
-        for (StackTraceElement elem : getStackTrace()) {
-            p.append(elem.toString());
-            p.append("\n");
-        }
+        p.append(ThrowableText.render(getStackTrace()));
     }
-
-    /*
-    @Override
-    public synchronized Throwable fillInStackTrace() {
-        if (!MockFramework.isEnabled()) {
-            return super.fillInStackTrace();
-        }
-
-        return this;
-    }
-    */
 
     @Override
     public StackTraceElement[] getStackTrace() {
-
         if (!MockFramework.isEnabled()) {
             return super.getStackTrace();
         }
-
-        return stackTraceElements;
+        // Taken on first use, as the trace the JVM recorded is only complete once the
+        // constructors have run.
+        StackTraceElement[] trace = mockTrace;
+        if (trace == null) {
+            trace = ThrowableText.mockTrace(super.getStackTrace());
+            mockTrace = trace;
+        }
+        return trace;
     }
 
     @Override
     public void setStackTrace(StackTraceElement[] stackTrace) {
-
         if (!MockFramework.isEnabled()) {
             super.setStackTrace(stackTrace);
             return;
         }
-
-        StackTraceElement[] defensiveCopy = stackTrace.clone();
-        for (int i = 0; i < defensiveCopy.length; i++) {
-            if (defensiveCopy[i] == null) {
-                throw new MockNullPointerException("stackTrace[" + i + "]"); //FIXME
-            }
-        }
-
-        synchronized (this) {
-            this.stackTraceElements = defensiveCopy;
-        }
+        mockTrace = ThrowableText.checkedCopy(stackTrace);
     }
 
     /*

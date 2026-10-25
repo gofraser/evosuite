@@ -30,50 +30,22 @@ import java.io.PrintWriter;
 public class MockNullPointerException extends NullPointerException implements OverrideMock {
 
     /*
-     * "Exception" class only defines constructors, like all (?) its subclasses.
-     * So, just need to override constructors, and delegate methods.
-     *
-     *  All subclasses will have same code, albeit with different class names.
-     *  Unfortunately, we end up with copy&amp;paste, which cannot be avoided, as
-     *  we cannot have multi-inheritance.
-     *
-     *  WARN: any change would likely end up in having to redo the copy&amp;paste :(
+     * Only the constructors differ between the mock exceptions; the stack trace handling is
+     * the same in each of them, with the text and trace helpers in ThrowableText, because
+     * they cannot share a superclass.
      */
 
     private static final long serialVersionUID = 8001149552489118355L;
 
-    /**
-     * Instead of copy&amp;paste functionalities from MockThrowable, use a delegate.
-     */
-    private volatile MockThrowable delegate;
+    private volatile StackTraceElement[] mockTrace;
 
-    /*
-     * This is needed for when super constructors call overridden methods,
-     * and proper delegate method (right inputs) is not instantiated yet
-     */
-    private MockThrowable getDelegate() {
-        if (delegate == null) {
-            delegate = new MockThrowable(); //placeholder
-            if (super.getStackTrace().length > 0) {
-                // stack trace may be empty
-                delegate.setOriginForDelegate(super.getStackTrace()[0]);
-            }
-        }
-        return delegate;
-    }
-
-    // ----- constructor --------
+    // ----- constructors --------
 
     /**
      * Constructs a new exception with {@code null} as its detail message.
      */
     public MockNullPointerException() {
         super();
-        delegate = new MockThrowable();
-        if (super.getStackTrace().length > 0) {
-            // stack trace may be empty
-            delegate.setOriginForDelegate(super.getStackTrace()[0]);
-        }
     }
 
     /**
@@ -83,38 +55,9 @@ public class MockNullPointerException extends NullPointerException implements Ov
      */
     public MockNullPointerException(String message) {
         super(message);
-        delegate = new MockThrowable(message);
-        if (super.getStackTrace().length > 0) {
-            // stack trace may be empty
-            delegate.setOriginForDelegate(super.getStackTrace()[0]);
-        }
     }
 
-    // ----- delegation methods -------
-
-    @Override
-    public String getMessage() {
-        if (!MockFramework.isEnabled()) {
-            return super.getMessage();
-        }
-        return getDelegate().getMessage();
-    }
-
-    @Override
-    public String getLocalizedMessage() {
-        if (!MockFramework.isEnabled()) {
-            return super.getLocalizedMessage();
-        }
-        return getDelegate().getLocalizedMessage();
-    }
-
-    @Override
-    public synchronized Throwable getCause() {
-        if (!MockFramework.isEnabled()) {
-            return super.getCause();
-        }
-        return getDelegate().getCause();
-    }
+    // ----- mocked methods -------
 
     @Override
     public String toString() {
@@ -125,29 +68,15 @@ public class MockNullPointerException extends NullPointerException implements Ov
     }
 
     @Override
-    public void printStackTrace() {
-        if (!MockFramework.isEnabled()) {
-            super.printStackTrace();
-            return;
-        }
-        getDelegate().printStackTrace();
-    }
-
-    @Override
     public synchronized Throwable initCause(Throwable cause) {
         if (!MockFramework.isEnabled()) {
             return super.initCause(cause);
         }
-        getDelegate().initCause(cause);
-        // The delegate answers while mocking is on, but the cause the exception itself keeps is
-        // what getCause() reports once mocking is off, for instance to the JUnit rule that looks
-        // for a wrapped resource limit after the test, so set it there too.
         try {
-            super.initCause(cause);
-        } catch (IllegalStateException | IllegalArgumentException alreadyInitialised) {
-            // The delegate has accepted the cause, so this only says that it is set already.
+            return super.initCause(cause);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw ThrowableText.initCauseFailure(e);
         }
-        return this;
     }
 
     @Override
@@ -156,36 +85,31 @@ public class MockNullPointerException extends NullPointerException implements Ov
             super.printStackTrace(p);
             return;
         }
-        getDelegate().printStackTrace(p);
+        p.append(ThrowableText.render(getStackTrace()));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void printStackTrace(PrintWriter p) {
         if (!MockFramework.isEnabled()) {
             super.printStackTrace(p);
             return;
         }
-        getDelegate().printStackTrace(p);
+        p.append(ThrowableText.render(getStackTrace()));
     }
 
-    /*
-    @Override
-    public synchronized Throwable fillInStackTrace() {
-        if (!MockFramework.isEnabled()) {
-            return super.fillInStackTrace();
-        }
-        return getDelegate().fillInStackTrace();
-    }
-*/
     @Override
     public StackTraceElement[] getStackTrace() {
         if (!MockFramework.isEnabled()) {
             return super.getStackTrace();
         }
-        return getDelegate().getStackTrace();
+        // Taken on first use, as the trace the JVM recorded is only complete once the
+        // constructors have run.
+        StackTraceElement[] trace = mockTrace;
+        if (trace == null) {
+            trace = ThrowableText.mockTrace(super.getStackTrace());
+            mockTrace = trace;
+        }
+        return trace;
     }
 
     @Override
@@ -194,6 +118,6 @@ public class MockNullPointerException extends NullPointerException implements Ov
             super.setStackTrace(stackTrace);
             return;
         }
-        getDelegate().setStackTrace(stackTrace);
+        mockTrace = ThrowableText.checkedCopy(stackTrace);
     }
 }
