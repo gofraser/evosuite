@@ -1,0 +1,172 @@
+java/lang/Math.IEEEremainder(DD)D symbolic=-1 -> 0.75 [concrete]
+java/lang/Math.IEEEremainder(DD)D symbolic=0 -> (v0(0.75) IEEEremainder -2.5)
+java/lang/Math.IEEEremainder(DD)D symbolic=1 -> (0.75 IEEEremainder v1(-2.5))
+java/lang/Math.abs(D)D symbolic=-1 -> 0.75 [concrete]
+java/lang/Math.abs(D)D symbolic=0 ->  abs (v0(0.75))
+java/lang/Math.abs(F)F symbolic=-1 -> 0.75 [concrete]
+java/lang/Math.abs(F)F symbolic=0 ->  abs (v0(0.75))
+java/lang/Math.abs(I)I symbolic=-1 -> 7 [concrete]
+java/lang/Math.abs(I)I symbolic=0 -> ( abs (v0(-7)))
+java/lang/Math.abs(J)J symbolic=-1 -> 70 [concrete]
+java/lang/Math.abs(J)J symbolic=0 -> ( abs (v0(-70)))
+java/lang/Math.acos(D)D symbolic=-1 -> 0.7227342478134157 [concrete]
+java/lang/Math.acos(D)D symbolic=0 ->  acos (v0(0.75))
+java/lang/Math.asin(D)D symbolic=-1 -> 0.848062078981481 [concrete]
+java/lang/Math.asin(D)D symbolic=0 ->  asin (v0(0.75))
+java/lang/Math.atan(D)D symbolic=-1 -> 0.6435011087932844 [concrete]
+java/lang/Math.atan(D)D symbolic=0 ->  atan (v0(0.75))
+java/lang/Math.atan2(DD)D symbolic=-1 -> 2.8501358591119264 [concrete]
+java/lang/Math.atan2(DD)D symbolic=0 -> (v0(0.75) atan2 -2.5)
+java/lang/Math.atan2(DD)D symbolic=1 -> (0.75 atan2 v1(-2.5))
+java/lang/Math.cbrt(D)D symbolic=-1 -> 0.9085602964160698 [concrete]
+java/lang/Math.cbrt(D)D symbolic=0 ->  cbrt (v0(0.75))
+java/lang/Math.ceil(D)D symbolic=-1 -> 1.0 [concrete]
+java/lang/Math.ceil(D)D symbolic=0 ->  ceil (v0(0.75))
+java/lang/Math.copySign(DD)D symbolic=-1 -> -0.75 [concrete]
+java/lang/Math.copySign(DD)D symbolic=0 -> (v0(0.75) copySign -2.5)
+java/lang/Math.copySign(DD)D symbolic=1 -> (0.75 copySign v1(-2.5))
+java/lang/Math.copySign(FF)F symbolic=-1 -> -0.75 [concrete]
+java/lang/Math.copySign(FF)F symbolic=0 -> (v0(0.75) copySign -2.5)
+java/lang/Math.copySign(FF)F symbolic=1 -> (0.75 copySign v1(-2.5))
+java/lang/Math.cos(D)D symbolic=-1 -> 0.7316888688738209 [concrete]
+java/lang/Math.cos(D)D symbolic=0 ->  cos (v0(0.75))
+java/lang/Math.cosh(D)D symbolic=-1 -> 1.2946832846768448 [concrete]
+java/lang/Math.cosh(D)D symbolic=0 ->  cosh (v0(0.75))
+java/lang/Math.exp(D)D symbolic=-1 -> 2.117000016612675 [concrete]
+java/lang/Math.exp(D)D symbolic=0 ->  exp (v0(0.75))
+java/lang/Math.expm1(D)D symbolic=-1 -> 1.1170000166126748 [concrete]
+java/lang/Math.expm1(D)D symbolic=0 ->  expm1 (v0(0.75))
+java/lang/Math.floor(D)D symbolic=-1 -> 0.0 [concrete]
+java/lang/Math.floor(D)D symbolic=0 ->  floor (v0(0.75))
+java/lang/Math.getExponent(D)I symbolic=-1 -> -1 [concrete]
+java/lang/Math.getExponent(D)I symbolic=0 ->  getExponent (v0(0.75))
+java/lang/Math.getExponent(F)I symbolic=-1 -> -1 [concrete]
+java/lang/Math.getExponent(F)I symbolic=0 ->  getExponent (v0(0.75))
+java/lang/Math.hypot(DD)D symbolic=-1 -> 2.6100766272276377 [concrete]
+java/lang/Math.hypot(DD)D symbolic=0 -> (v0(0.75) hypot -2.5)
+java/lang/Math.hypot(DD)D symbolic=1 -> (0.75 hypot v1(-2.5))
+java/lang/Math.log(D)D symbolic=-1 -> -0.2876820724517809 [concrete]
+java/lang/Math.log(D)D symbolic=0 ->  log (v0(0.75))
+java/lang/Math.log10(D)D symbolic=-1 -> -0.12493873660829993 [concrete]
+java/lang/Math.log10(D)D symbolic=0 ->  log10 (v0(0.75))
+java/lang/Math.log1p(D)D symbolic=-1 -> 0.5596157879354227 [concrete]
+java/lang/Math.log1p(D)D symbolic=0 ->  log1p (v0(0.75))
+java/lang/Math.max(DD)D symbolic=-1 -> 0.75 [concrete]
+java/lang/Math.max(DD)D symbolic=0 -> (v0(0.75) max -2.5)
+java/lang/Math.max(DD)D symbolic=1 -> (0.75 max v1(-2.5))
+java/lang/Math.max(FF)F symbolic=-1 -> 0.75 [concrete]
+java/lang/Math.max(FF)F symbolic=0 -> (v0(0.75) max -2.5)
+java/lang/Math.max(FF)F symbolic=1 -> (0.75 max v1(-2.5))
+java/lang/Math.max(II)I symbolic=-1 -> 3 [concrete]
+java/lang/Math.max(II)I symbolic=0 -> (v0(-7) max 3)
+java/lang/Math.max(II)I symbolic=1 -> (-7 max v1(3))
+java/lang/Math.max(JJ)J symbolic=-1 -> 30 [concrete]
+java/lang/Math.max(JJ)J symbolic=0 -> (v0(-70) max 30)
+java/lang/Math.max(JJ)J symbolic=1 -> (-70 max v1(30))
+java/lang/Math.min(DD)D symbolic=-1 -> -2.5 [concrete]
+java/lang/Math.min(DD)D symbolic=0 -> (v0(0.75) min -2.5)
+java/lang/Math.min(DD)D symbolic=1 -> (0.75 min v1(-2.5))
+java/lang/Math.min(FF)F symbolic=-1 -> -2.5 [concrete]
+java/lang/Math.min(FF)F symbolic=0 -> (v0(0.75) min -2.5)
+java/lang/Math.min(FF)F symbolic=1 -> (0.75 min v1(-2.5))
+java/lang/Math.min(II)I symbolic=-1 -> -7 [concrete]
+java/lang/Math.min(II)I symbolic=0 -> (v0(-7) min 3)
+java/lang/Math.min(II)I symbolic=1 -> (-7 min v1(3))
+java/lang/Math.min(JJ)J symbolic=-1 -> -70 [concrete]
+java/lang/Math.min(JJ)J symbolic=0 -> (v0(-70) min 30)
+java/lang/Math.min(JJ)J symbolic=1 -> (-70 min v1(30))
+java/lang/Math.nextAfter(DD)D symbolic=-1 -> 0.7499999999999999 [concrete]
+java/lang/Math.nextAfter(DD)D symbolic=0 -> (v0(0.75) nextAfter -2.5)
+java/lang/Math.nextAfter(DD)D symbolic=1 -> (0.75 nextAfter v1(-2.5))
+java/lang/Math.nextAfter(FD)F symbolic=-1 -> 0.7499999403953552 [concrete]
+java/lang/Math.nextAfter(FD)F symbolic=0 -> (v0(0.75) nextAfter -2.5)
+java/lang/Math.nextAfter(FD)F symbolic=1 -> (0.75 nextAfter v1(-2.5))
+java/lang/Math.nextUp(D)D symbolic=-1 -> 0.7500000000000001 [concrete]
+java/lang/Math.nextUp(D)D symbolic=0 ->  nextUp (v0(0.75))
+java/lang/Math.nextUp(F)F symbolic=-1 -> 0.7500000596046448 [concrete]
+java/lang/Math.nextUp(F)F symbolic=0 ->  nextUp (v0(0.75))
+java/lang/Math.pow(DD)D symbolic=-1 -> 2.052800957118669 [concrete]
+java/lang/Math.pow(DD)D symbolic=0 -> (v0(0.75) pow -2.5)
+java/lang/Math.pow(DD)D symbolic=1 -> (0.75 pow v1(-2.5))
+java/lang/Math.rint(D)D symbolic=-1 -> 1.0 [concrete]
+java/lang/Math.rint(D)D symbolic=0 ->  rint (v0(0.75))
+java/lang/Math.round(D)J symbolic=-1 -> 1 [concrete]
+java/lang/Math.round(D)J symbolic=0 ->  round (v0(0.75))
+java/lang/Math.round(F)I symbolic=-1 -> 1 [concrete]
+java/lang/Math.round(F)I symbolic=0 ->  round (v0(0.75))
+java/lang/Math.scalb(DI)D symbolic=-1 -> 6.0 [concrete]
+java/lang/Math.scalb(DI)D symbolic=0 -> (v0(0.75) scalb 3)
+java/lang/Math.scalb(DI)D symbolic=1 -> (0.75 scalb v1(3))
+java/lang/Math.scalb(FI)F symbolic=-1 -> 6.0 [concrete]
+java/lang/Math.scalb(FI)F symbolic=0 -> (v0(0.75) scalb 3)
+java/lang/Math.scalb(FI)F symbolic=1 -> (0.75 scalb v1(3))
+java/lang/Math.signum(D)D symbolic=-1 -> 1.0 [concrete]
+java/lang/Math.signum(D)D symbolic=0 ->  signum (v0(0.75))
+java/lang/Math.signum(F)F symbolic=-1 -> 1.0 [concrete]
+java/lang/Math.signum(F)F symbolic=0 ->  signum (v0(0.75))
+java/lang/Math.sin(D)D symbolic=-1 -> 0.6816387600233341 [concrete]
+java/lang/Math.sin(D)D symbolic=0 ->  sin (v0(0.75))
+java/lang/Math.sinh(D)D symbolic=-1 -> 0.82231673193583 [concrete]
+java/lang/Math.sinh(D)D symbolic=0 ->  sinh (v0(0.75))
+java/lang/Math.sqrt(D)D symbolic=-1 -> 0.8660254037844386 [concrete]
+java/lang/Math.sqrt(D)D symbolic=0 ->  sqrt (v0(0.75))
+java/lang/Math.tan(D)D symbolic=-1 -> 0.9315964599440725 [concrete]
+java/lang/Math.tan(D)D symbolic=0 ->  tan (v0(0.75))
+java/lang/Math.tanh(D)D symbolic=-1 -> 0.6351489523872873 [concrete]
+java/lang/Math.tanh(D)D symbolic=0 ->  tanh (v0(0.75))
+java/lang/Math.toDegrees(D)D symbolic=-1 -> 42.97183463481174 [concrete]
+java/lang/Math.toDegrees(D)D symbolic=0 ->  toDegrees (v0(0.75))
+java/lang/Math.toRadians(D)D symbolic=-1 -> 0.013089969389957472 [concrete]
+java/lang/Math.toRadians(D)D symbolic=0 ->  toRadians (v0(0.75))
+java/lang/Math.ulp(D)D symbolic=-1 -> 1.1102230246251565E-16 [concrete]
+java/lang/Math.ulp(D)D symbolic=0 ->  ulp (v0(0.75))
+java/lang/Math.ulp(F)F symbolic=-1 -> 5.9604644775390625E-8 [concrete]
+java/lang/Math.ulp(F)F symbolic=0 ->  ulp (v0(0.75))
+java/lang/Integer.<init>(I)V -> null
+java/lang/Integer.intValue()I after init -> w(41)
+java/lang/Integer.intValue()I after init, other value -> 9
+java/lang/Integer.valueOf(I)Ljava/lang/Integer; -> true
+java/lang/Integer.intValue()I after valueOf -> w(41)
+java/lang/Integer.intValue()I untouched -> 41
+java/lang/Long.<init>(J)V -> null
+java/lang/Long.longValue()J after init -> w(42)
+java/lang/Long.longValue()J after init, other value -> 9
+java/lang/Long.valueOf(J)Ljava/lang/Long; -> true
+java/lang/Long.longValue()J after valueOf -> w(42)
+java/lang/Long.longValue()J untouched -> 42
+java/lang/Float.<init>(F)V -> null
+java/lang/Float.floatValue()F after init -> w(1.5)
+java/lang/Float.floatValue()F after init, other value -> 9.5
+java/lang/Float.valueOf(F)Ljava/lang/Float; -> true
+java/lang/Float.floatValue()F after valueOf -> w(1.5)
+java/lang/Float.floatValue()F untouched -> 1.5
+java/lang/Double.<init>(D)V -> null
+java/lang/Double.doubleValue()D after init -> w(2.5)
+java/lang/Double.doubleValue()D after init, other value -> 9.5
+java/lang/Double.valueOf(D)Ljava/lang/Double; -> true
+java/lang/Double.doubleValue()D after valueOf -> w(2.5)
+java/lang/Double.doubleValue()D untouched -> 2.5
+java/lang/Short.<init>(S)V -> null
+java/lang/Short.shortValue()S after init -> w(43)
+java/lang/Short.shortValue()S after init, other value -> 9
+java/lang/Short.valueOf(S)Ljava/lang/Short; -> true
+java/lang/Short.shortValue()S after valueOf -> w(43)
+java/lang/Short.shortValue()S untouched -> 43
+java/lang/Byte.<init>(B)V -> null
+java/lang/Byte.byteValue()B after init -> w(44)
+java/lang/Byte.byteValue()B after init, other value -> 9
+java/lang/Byte.valueOf(B)Ljava/lang/Byte; -> true
+java/lang/Byte.byteValue()B after valueOf -> w(44)
+java/lang/Byte.byteValue()B untouched -> 44
+java/lang/Character.<init>(C)V -> null
+java/lang/Character.charValue()C after init -> w(120)
+java/lang/Character.charValue()C after init, other value -> 121
+java/lang/Character.valueOf(C)Ljava/lang/Character; -> true
+java/lang/Character.charValue()C after valueOf -> w(120)
+java/lang/Character.charValue()C untouched -> 120
+java/lang/Boolean.<init>(Z)V -> null
+java/lang/Boolean.booleanValue()Z after init -> w(1)
+java/lang/Boolean.booleanValue()Z after init, other value -> 0
+java/lang/Boolean.valueOf(Z)Ljava/lang/Boolean; -> true
+java/lang/Boolean.booleanValue()Z after valueOf -> w(1)
+java/lang/Boolean.booleanValue()Z untouched -> 1
