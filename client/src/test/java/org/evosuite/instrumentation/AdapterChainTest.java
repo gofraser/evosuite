@@ -55,6 +55,22 @@ public class AdapterChainTest {
     }
 
     @Test
+    public void testTestabilityTransformedHandlerKeepsItsFrames() throws IOException {
+        // A project class other than the target: the purity analysis copies its
+        // methods, and the copy once took over the label nodes of the transformed
+        // tree, so the writer met a jump target without a frame.
+        String className = "com/examples/with/different/packagename/DefaultOrConvert";
+        Properties.TARGET_CLASS = "com.examples.with.different.packagename.SimpleInteger";
+        InputStream is = getClass().getResourceAsStream("/" + className + ".class");
+        Assertions.assertNotNull(is);
+
+        byte[] transformed = new BytecodeInstrumentation()
+                .transformBytes(getClass().getClassLoader(), className, new ClassReader(is));
+
+        CheckClassAdapter.verify(new ClassReader(transformed), false, new java.io.PrintWriter(System.err));
+    }
+
+    @Test
     public void testTransformationWithStaticReset() throws IOException {
         Properties.RESET_STATIC_FIELDS = true;
         InstrumentationConfig config = InstrumentationConfig.fromProperties();

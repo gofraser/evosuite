@@ -78,7 +78,7 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
         MethodVisitor mv = super.visitMethod(methodAccess, name, descriptor,
                 signature, exceptions);
         return new PurityAnalysisMethodVisitor(
-                className, name, descriptor, mv, purityAnalyzer);
+                className, methodAccess, name, descriptor, mv, purityAnalyzer);
     }
 
     private boolean visitingInterface = false;

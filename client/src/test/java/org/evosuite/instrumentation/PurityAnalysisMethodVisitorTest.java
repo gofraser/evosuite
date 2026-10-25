@@ -48,6 +48,7 @@ public class PurityAnalysisMethodVisitorTest {
             public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
                 PurityAnalysisMethodVisitor purityVisitor = new PurityAnalysisMethodVisitor(
                         "sample/ArrayPurity",
+                        access,
                         name,
                         descriptor,
                         null,
@@ -64,16 +65,17 @@ public class PurityAnalysisMethodVisitorTest {
 
         reader.accept(cv, ClassReader.EXPAND_FRAMES);
 
-        // Pure: no field loads, so the array store does not trigger impurity.
+        // Pure: the array is allocated in the method, and the only field read is an
+        // injected guard on an EvoSuite class, so the array store does not trigger impurity.
         assertFalse(methodMutatesSharedState.get("freshLocal()I"));
         // Impure: classic GETFIELD + IASTORE pattern that the heuristic targets.
         assertTrue(methodMutatesSharedState.get("fieldArray()I"));
-        // Known limitations of the streaming heuristic: parameter mutation and
-        // arrays obtained from method calls are not flagged because the method
-        // body itself contains no GETFIELD/GETSTATIC. A precise flow-based
-        // check would catch these but would require buffering the full method.
-        assertFalse(methodMutatesSharedState.get("parameterArray([I)I"));
-        assertFalse(methodMutatesSharedState.get("arrayFromCall()I"));
+        // Impure: allocating an array does not make a store into a parameter or a field pure.
+        assertTrue(methodMutatesSharedState.get("mixedParameter([I)I"));
+        assertTrue(methodMutatesSharedState.get("mixedReassignedParameter([I)I"));
+        // Impure: the stored-into array is not allocated in the method.
+        assertTrue(methodMutatesSharedState.get("parameterArray([I)I"));
+        assertTrue(methodMutatesSharedState.get("arrayFromCall()I"));
     }
 
     private static byte[] createArrayStorePurityClass() {
@@ -97,6 +99,8 @@ public class PurityAnalysisMethodVisitorTest {
 
         MethodVisitor freshLocal = writer.visitMethod(Opcodes.ACC_PUBLIC, "freshLocal", "()I", null, null);
         freshLocal.visitCode();
+        freshLocal.visitFieldInsn(Opcodes.GETSTATIC, "org/evosuite/Properties", "ARRAY_LIMIT", "I");
+        freshLocal.visitInsn(Opcodes.POP);
         freshLocal.visitInsn(Opcodes.ICONST_1);
         freshLocal.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);
         freshLocal.visitVarInsn(Opcodes.ASTORE, 1);
@@ -110,6 +114,50 @@ public class PurityAnalysisMethodVisitorTest {
         freshLocal.visitInsn(Opcodes.IRETURN);
         freshLocal.visitMaxs(0, 0);
         freshLocal.visitEnd();
+
+        // int[] local = new int[1]; local[0] = 1; input[0] = 2; return local[0];
+        MethodVisitor mixed = writer.visitMethod(Opcodes.ACC_PUBLIC, "mixedParameter", "([I)I", null, null);
+        mixed.visitCode();
+        mixed.visitInsn(Opcodes.ICONST_1);
+        mixed.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);
+        mixed.visitVarInsn(Opcodes.ASTORE, 2);
+        mixed.visitVarInsn(Opcodes.ALOAD, 2);
+        mixed.visitInsn(Opcodes.ICONST_0);
+        mixed.visitInsn(Opcodes.ICONST_1);
+        mixed.visitInsn(Opcodes.IASTORE);
+        mixed.visitVarInsn(Opcodes.ALOAD, 1);
+        mixed.visitInsn(Opcodes.ICONST_0);
+        mixed.visitInsn(Opcodes.ICONST_2);
+        mixed.visitInsn(Opcodes.IASTORE);
+        mixed.visitVarInsn(Opcodes.ALOAD, 2);
+        mixed.visitInsn(Opcodes.ICONST_0);
+        mixed.visitInsn(Opcodes.IALOAD);
+        mixed.visitInsn(Opcodes.IRETURN);
+        mixed.visitMaxs(0, 0);
+        mixed.visitEnd();
+
+        // int[] a = new int[1]; if (input != null) { a = input; } a[0] = 1; return a[0];
+        MethodVisitor reassigned = writer.visitMethod(Opcodes.ACC_PUBLIC, "mixedReassignedParameter", "([I)I", null, null);
+        reassigned.visitCode();
+        reassigned.visitInsn(Opcodes.ICONST_1);
+        reassigned.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);
+        reassigned.visitVarInsn(Opcodes.ASTORE, 2);
+        reassigned.visitVarInsn(Opcodes.ALOAD, 1);
+        org.objectweb.asm.Label skip = new org.objectweb.asm.Label();
+        reassigned.visitJumpInsn(Opcodes.IFNULL, skip);
+        reassigned.visitVarInsn(Opcodes.ALOAD, 1);
+        reassigned.visitVarInsn(Opcodes.ASTORE, 2);
+        reassigned.visitLabel(skip);
+        reassigned.visitVarInsn(Opcodes.ALOAD, 2);
+        reassigned.visitInsn(Opcodes.ICONST_0);
+        reassigned.visitInsn(Opcodes.ICONST_1);
+        reassigned.visitInsn(Opcodes.IASTORE);
+        reassigned.visitVarInsn(Opcodes.ALOAD, 2);
+        reassigned.visitInsn(Opcodes.ICONST_0);
+        reassigned.visitInsn(Opcodes.IALOAD);
+        reassigned.visitInsn(Opcodes.IRETURN);
+        reassigned.visitMaxs(0, 0);
+        reassigned.visitEnd();
 
         MethodVisitor fieldArray = writer.visitMethod(Opcodes.ACC_PUBLIC, "fieldArray", "()I", null, null);
         fieldArray.visitCode();
