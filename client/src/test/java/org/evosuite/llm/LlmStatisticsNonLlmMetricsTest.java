@@ -82,6 +82,7 @@ public class LlmStatisticsNonLlmMetricsTest {
     @AfterEach
     public void resetCounters() {
         ObjectPoolManager.getInstance().reset();
+        ObjectPoolManager.resetSequenceUsageCount();
         ExecutableSnippetEngine.INSTANCE.resetMetricsForTesting();
     }
 
@@ -90,7 +91,8 @@ public class LlmStatisticsNonLlmMetricsTest {
         // During the run: one object-pool sequence used (as VariableResolver records it) and one
         // snippet that failed to compile (ExecutableSnippetEngine's own counter).
         ObjectPoolManager.getInstance().reset();
-        int used = ObjectPoolManager.getInstance().incrementSequenceUsageCount();
+        ObjectPoolManager.resetSequenceUsageCount();
+        int used = ObjectPoolManager.incrementSequenceUsageCount();
         ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, used);
         ExecutableSnippetEngine.INSTANCE.resetMetricsForTesting();
         Field compileFailures = ExecutableSnippetEngine.class.getDeclaredField("compileFailures");
@@ -112,6 +114,7 @@ public class LlmStatisticsNonLlmMetricsTest {
     @Test
     public void endOfRunDefaultsReportZeroForMetricsNeverTracked() {
         ObjectPoolManager.getInstance().reset();
+        ObjectPoolManager.resetSequenceUsageCount();
         ExecutableSnippetEngine.INSTANCE.resetMetricsForTesting();
 
         LlmStatistics.initializeRuntimeVariables();
@@ -146,5 +149,18 @@ public class LlmStatisticsNonLlmMetricsTest {
         } finally {
             Properties.OBJECT_POOLS = previousPools;
         }
+    }
+
+    @Test
+    public void usageCountSurvivesAContextReset() {
+        ObjectPoolManager.resetSequenceUsageCount();
+        ObjectPoolManager.incrementSequenceUsageCount();
+
+        // The assertion phase resets the context, which resets the pool.
+        ObjectPoolManager.getInstance().reset();
+        LlmStatistics.publishRunTotals();
+
+        assertEquals(1, recorder.lastValues.get(RuntimeVariable.Object_Pool_Sequence_Used),
+                "the context reset zeroed the count published at the end of the run");
     }
 }

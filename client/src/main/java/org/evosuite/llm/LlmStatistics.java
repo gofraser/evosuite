@@ -871,7 +871,7 @@ public class LlmStatistics {
      */
     public static void publishRunTotals() {
         ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used,
-                ObjectPoolManager.peekSequenceUsageCount());
+                ObjectPoolManager.getSequenceUsageCount());
         ExecutableSnippetEngine snippets = ExecutableSnippetEngine.INSTANCE;
         ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, snippets.getCompileFailures());
         ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, snippets.getRuntimeFailures());

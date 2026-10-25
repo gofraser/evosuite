@@ -388,7 +388,7 @@ public class VariableResolver {
                         for (int i = 0; i < sequence.size(); i++) {
                             test.addStatement(sequence.getStatement(i).copy(test, position), position + i);
                         }
-                        int usageCount = objectPool.incrementSequenceUsageCount();
+                        int usageCount = ObjectPoolManager.incrementSequenceUsageCount();
                         ClientServices.track(RuntimeVariable.Object_Pool_Sequence_Used, usageCount);
                         return test.getStatement(returnPos).getReturnValue();
                     } catch (Exception e) {

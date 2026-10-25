@@ -175,6 +175,8 @@ public class TestSuiteGenerator {
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.INITIALIZATION);
 
+        ObjectPoolManager.resetSequenceUsageCount();
+
         // Publish the zero defaults of the LLM, speciation and disruption columns before anything
         // else tracks them, so a feature the run never exercises reads 0 rather than blank in
         // every mode. The master keeps the last value, so what the run tracks replaces them.

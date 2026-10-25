@@ -35,8 +35,12 @@ public class ObjectPoolManager extends ObjectPool {
 
     private static volatile ObjectPoolManager instance = null;
 
-    /** Counts successful pool sequence usages during test generation. */
-    private final AtomicInteger sequenceUsageCount = new AtomicInteger(0);
+    /**
+     * Counts successful pool sequence usages during a test generation run. Resetting the context
+     * (as the assertion phase does) discards the pool but must not discard this count, which is
+     * published at the end of the run.
+     */
+    private static final AtomicInteger sequenceUsageCount = new AtomicInteger(0);
 
     private ObjectPoolManager() {
         initialisePool();
@@ -121,7 +125,6 @@ public class ObjectPoolManager extends ObjectPool {
      */
     public void reset() {
         pool.clear();
-        sequenceUsageCount.set(0);
         synchronized (ObjectPoolManager.class) {
             ObjectPoolManager.instance = null;
         }
@@ -130,25 +133,22 @@ public class ObjectPoolManager extends ObjectPool {
     /**
      * Increments and returns the running count of successful pool sequence usages.
      */
-    public int incrementSequenceUsageCount() {
+    public static int incrementSequenceUsageCount() {
         return sequenceUsageCount.incrementAndGet();
     }
 
     /**
-     * Returns the usage count of the current pool, or zero if none exists yet. Unlike
-     * {@link #getInstance()}, this does not create the pool, so it can be read at points where
-     * loading the pool (and carving the selected JUnit tests) would be premature.
+     * Returns the total number of times a pool sequence was successfully used in this run.
      */
-    public static int peekSequenceUsageCount() {
-        ObjectPoolManager current = instance;
-        return current == null ? 0 : current.getSequenceUsageCount();
+    public static int getSequenceUsageCount() {
+        return sequenceUsageCount.get();
     }
 
     /**
-     * Returns the total number of times a pool sequence was successfully used.
+     * Starts counting pool sequence usages anew, at the start of a run.
      */
-    public int getSequenceUsageCount() {
-        return sequenceUsageCount.get();
+    public static void resetSequenceUsageCount() {
+        sequenceUsageCount.set(0);
     }
 
 }
