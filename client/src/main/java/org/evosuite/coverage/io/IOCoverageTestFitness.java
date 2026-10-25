@@ -197,8 +197,11 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
             case Type.FLOAT:
             case Type.LONG:
             case Type.DOUBLE:
-                assert (argValue != null);
-                assert (argValue instanceof Number);
+                if (argValue == null) {
+                    // Only a null observation has no value (a null argument is recorded when the
+                    // primitive argument could not be constructed): it matches no numeric goal
+                    return 1.0;
+                }
                 double doubleValue = argValue.doubleValue();
                 if (Double.isNaN(doubleValue)) { // EvoSuite generates Double.NaN
                     return Double.MAX_VALUE;
@@ -235,6 +238,9 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
 
                 break;
             case Type.CHAR:
+                if (argValue == null) {
+                    return 1.0;
+                }
                 char charValue = (char) argValue.intValue();
 
                 double distanceToAlpha = 0.0;

@@ -68,4 +68,28 @@ public class InputCoverageTestFitnessTest {
         Assertions.assertNotEquals(1.0, val, 0.001, "Fitness should reflect distance, not just covered/uncovered status");
         Assertions.assertTrue(val > 100.0, "Fitness should be > 1.0 for large distance");
     }
+
+    @Test
+    public void testNullObservationForPrimitiveGoalDoesNotCrash() {
+        Properties.TEST_ARCHIVE = false;
+        for (Type type : new Type[]{Type.INT_TYPE, Type.CHAR_TYPE}) {
+            String descriptor = type == Type.CHAR_TYPE ? CHAR_ALPHA : NUM_POSITIVE;
+            InputCoverageTestFitness fitness = new InputCoverageTestFitness(
+                    new InputCoverageGoal("Foo", "bar", 0, type, descriptor));
+
+            // A null argument is recorded when the argument could not be constructed
+            InputCoverageGoal observed = new InputCoverageGoal("Foo", "bar", 0, type, REF_NULL);
+            Set<InputCoverageGoal> goals = new LinkedHashSet<>();
+            goals.add(observed);
+            Map<Integer, Set<InputCoverageGoal>> map = new LinkedHashMap<>();
+            map.put(0, goals);
+
+            ExecutionResult result = new ExecutionResult(new DefaultTestCase(), null);
+            result.setInputGoals(map);
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(result.test);
+
+            Assertions.assertEquals(1.0, fitness.getFitness(chromosome, result), 0.0001);
+        }
+    }
 }
