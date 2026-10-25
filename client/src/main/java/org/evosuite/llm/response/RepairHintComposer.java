@@ -360,29 +360,30 @@ final class RepairHintComposer {
                         + "different (those are listed separately and require different fixes).");
         repairMessage.append("\n- The failing test violates required non-null preconditions.");
         appendKeepExecutableTests(repairMessage);
+        boolean typedReceiver = dereferenceInfo != null
+                && dereferenceInfo.receiverType != null && !dereferenceInfo.receiverType.isEmpty();
         if (nullVariable != null && !nullVariable.isEmpty() && !syntheticLocal && directTestVariable) {
-            repairMessage.append("\n- For failing tests only, ensure the object named '")
-                    .append(nullVariable)
-                    .append("' is initialized before invoking the SUT.");
+            if (!typedReceiver) {
+                repairMessage.append("\n- For failing tests only, ensure the object named '")
+                        .append(nullVariable)
+                        .append("' is initialized before invoking the SUT.");
+            }
         } else if (nullVariable != null && !nullVariable.isEmpty() && !syntheticLocal) {
             repairMessage.append("\n- The JVM-reported null receiver name '")
                     .append(nullVariable)
                     .append("' comes from inside the failing SUT call path and is not necessarily a direct test "
                             + "variable; ")
                     .append("it is likely a parameter or local variable inside the SUT.");
-            repairMessage.append("\n- Repair the upstream collaborator setup so the SUT receives a non-null value "
-                    + "there before dereferencing it.");
+            if (!typedReceiver) {
+                repairMessage.append("\n- Repair the upstream collaborator setup so the SUT receives a non-null "
+                        + "value there before dereferencing it.");
+            }
         } else {
             repairMessage.append("\n- For failing tests only, initialize required provider/session objects "
                     + "before invoking the SUT.");
         }
         if (dereferenceInfo != null) {
-            repairMessage.append("\n- Detected null dereference: '")
-                    .append(dereferenceInfo.nullVariable)
-                    .append("' was used in call '")
-                    .append(dereferenceInfo.memberSignature)
-                    .append("'.");
-            if (dereferenceInfo.receiverType != null && !dereferenceInfo.receiverType.isEmpty()) {
+            if (typedReceiver) {
                 if (directTestVariable) {
                     repairMessage.append("\n- Initialize '")
                             .append(dereferenceInfo.nullVariable)
@@ -390,12 +391,6 @@ final class RepairHintComposer {
                             .append(dereferenceInfo.receiverType)
                             .append(" before invoking the SUT.");
                 } else {
-                    repairMessage.append("\n- Here, '")
-                            .append(dereferenceInfo.nullVariable)
-                            .append("' is the null receiver inside the SUT call '")
-                            .append(dereferenceInfo.memberSignature)
-                            .append("', likely as a parameter or local variable there, not necessarily a same-named "
-                                    + "test variable.");
                     repairMessage.append("\n- Stub or initialize the upstream collaborator/return value so that "
                             + "receiver is a non-null ")
                             .append(dereferenceInfo.receiverType)

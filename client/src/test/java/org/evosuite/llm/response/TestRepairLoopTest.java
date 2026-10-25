@@ -2904,7 +2904,7 @@ class TestRepairLoopTest {
         @SuppressWarnings("unchecked")
         List<LlmMessage> sentConversation = conversationCaptor.getValue().getMessages();
         String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
-        assertTrue(userRepairMessage.contains("Detected null dereference"));
+        assertFalse(userRepairMessage.contains("Detected null dereference"));
         assertTrue(userRepairMessage.contains("org.w3c.dom.Element.getAttribute(String)"));
         assertTrue(userRepairMessage.contains("model"));
         assertTrue(userRepairMessage.contains("DocumentBuilderFactory"));
@@ -2962,8 +2962,7 @@ class TestRepairLoopTest {
         assertTrue(userRepairMessage.contains("The JVM-reported null receiver name 'destSession' comes from inside the failing SUT call path"));
         assertTrue(userRepairMessage.contains("not necessarily a direct test variable"));
         assertTrue(userRepairMessage.contains("likely a parameter or local variable inside the SUT"));
-        assertTrue(userRepairMessage.contains("Here, 'destSession' is the null receiver inside the SUT call"));
-        assertTrue(userRepairMessage.contains("likely as a parameter or local variable there"));
+        assertFalse(userRepairMessage.contains("Here, 'destSession' is the null receiver inside the SUT call"));
         assertTrue(userRepairMessage.contains("Stub or initialize the upstream collaborator/return value"));
         assertFalse(userRepairMessage.contains("ensure the object named 'destSession' is initialized before invoking the SUT"));
     }

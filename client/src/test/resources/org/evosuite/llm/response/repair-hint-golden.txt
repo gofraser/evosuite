@@ -216,8 +216,6 @@ sut.read(elem);
 NPE precondition hint:
 - The failing test violates required non-null preconditions.
 - Keep all already executable tests unchanged.
-- For failing tests only, ensure the object named 'elem' is initialized before invoking the SUT.
-- Detected null dereference: 'elem' was used in call 'org.w3c.dom.Element.getAttribute(String)'.
 - Initialize 'elem' with a non-null value compatible with org.w3c.dom.Element before invoking the SUT.
 - For DOM collaborators, build a minimal in-memory element (DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument().createElement("element")) instead of null.
 - If this collaborator is required by the constructor, pass a concrete non-null argument during object construction (do not rely on later null-state assertions).
@@ -254,9 +252,6 @@ NPE precondition hint:
 - The failing test violates required non-null preconditions.
 - Keep all already executable tests unchanged.
 - The JVM-reported null receiver name 'shape' comes from inside the failing SUT call path and is not necessarily a direct test variable; it is likely a parameter or local variable inside the SUT.
-- Repair the upstream collaborator setup so the SUT receives a non-null value there before dereferencing it.
-- Detected null dereference: 'shape' was used in call 'com.example.Shape.area()'.
-- Here, 'shape' is the null receiver inside the SUT call 'com.example.Shape.area()', likely as a parameter or local variable there, not necessarily a same-named test variable.
 - Stub or initialize the upstream collaborator/return value so that receiver is a non-null com.example.Shape before the SUT reaches that call.
 - If this collaborator is required by the constructor, pass a concrete non-null argument during object construction (do not rely on later null-state assertions).
 - Prefer minimal straight-line setup with concrete objects over anonymous classes.
@@ -1392,9 +1387,6 @@ NPE precondition hint:
 - The failing test violates required non-null preconditions.
 - Keep all already executable tests unchanged.
 - The JVM-reported null receiver name 'shape' comes from inside the failing SUT call path and is not necessarily a direct test variable; it is likely a parameter or local variable inside the SUT.
-- Repair the upstream collaborator setup so the SUT receives a non-null value there before dereferencing it.
-- Detected null dereference: 'shape' was used in call 'com.example.Shape.area()'.
-- Here, 'shape' is the null receiver inside the SUT call 'com.example.Shape.area()', likely as a parameter or local variable there, not necessarily a same-named test variable.
 - Stub or initialize the upstream collaborator/return value so that receiver is a non-null com.example.Shape before the SUT reaches that call.
 - If this collaborator is required by the constructor, pass a concrete non-null argument during object construction (do not rely on later null-state assertions).
 - Prefer minimal straight-line setup with concrete objects over anonymous classes.
