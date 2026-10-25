@@ -639,29 +639,12 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
-            return;
-        }
-
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
         int bv32 = Array.getInt(concArray, concIndex);
-        IntegerValue c = env.heap.arrayLoad(symbArrayReference, symbIndex, new IntegerConstant(bv32));
+        IntegerValue c = env.heap.arrayLoad(arrayRef, symbIndex, new IntegerConstant(bv32));
         env.topFrame().operandStack.pushBv32(c);
     }
 
@@ -674,29 +657,12 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
-            return;
-        }
-
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
         long bv64 = Array.getLong(concArray, concIndex);
-        IntegerValue c = env.heap.arrayLoad(symbArrayReference, symbIndex,
+        IntegerValue c = env.heap.arrayLoad(arrayRef, symbIndex,
                 new IntegerConstant(bv64));
         env.topFrame().operandStack.pushBv64(c);
 
@@ -711,30 +677,13 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
-            return;
-        }
-
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
         float fp32 = Array.getFloat(concArray, concIndex);
         RealValue c = env.heap
-                .arrayLoad(symbArrayReference, symbIndex, new RealConstant(fp32));
+                .arrayLoad(arrayRef, symbIndex, new RealConstant(fp32));
         env.topFrame().operandStack.pushFp32(c);
 
     }
@@ -760,29 +709,13 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
-            return;
-        }
-
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
         double fp64 = Array.getDouble(concArray, concIndex);
         RealValue c = env.heap
-                .arrayLoad(symbArrayReference, symbIndex, new RealConstant(fp64));
+                .arrayLoad(arrayRef, symbIndex, new RealConstant(fp64));
         env.topFrame().operandStack.pushFp64(c);
     }
 
@@ -795,32 +728,39 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
-            return;
-        }
-
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
         Object value = Array.get(concArray, concIndex);
 
-        ReferenceExpression c = env.heap.arrayLoad(symbArrayReference,
+        ReferenceExpression c = env.heap.arrayLoad(arrayRef,
                 symbIndex, env.heap.getReference(value));
         env.topFrame().operandStack.pushRef(c);
+    }
+
+    /**
+     * Checks null reference, negative index and index too big for an array access, in this order,
+     * recording the corresponding path conditions.
+     *
+     * @return true if the access throws, i.e., the caller must not perform the load or store
+     */
+    private boolean arrayAccessViolation(Object concArray, ReferenceExpression arrayRef, int concIndex,
+                                         IntegerValue symbIndex, String className, String methodName) {
+        if (nullReferenceViolation(arrayRef, concArray)) {
+            return true;
+        }
+
+        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
+            return true;
+        }
+
+        int concArrayLength = Array.getLength(concArray);
+        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
+                concArray, arrayRef, concArrayLength);
+
+        return indexTooBigViolation(concIndex, symbIndex, concArrayLength,
+                symbArrayLength, className, methodName);
     }
 
     private boolean indexTooBigViolation(int concIndex,
@@ -920,24 +860,7 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
-            return;
-        }
-
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
@@ -951,7 +874,7 @@ public final class HeapVM extends AbstractVM {
             intValue = ((Byte) object).shortValue();
         }
 
-        IntegerValue c = env.heap.arrayLoad(symbArrayReference, symbIndex,
+        IntegerValue c = env.heap.arrayLoad(arrayRef, symbIndex,
                 new IntegerConstant(intValue));
 
         env.topFrame().operandStack.pushBv32(c);
@@ -967,29 +890,12 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
-            return;
-        }
-
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
         char bv32 = Array.getChar(concArray, concIndex);
-        IntegerValue c = env.heap.arrayLoad(symbArrayReference, symbIndex,
+        IntegerValue c = env.heap.arrayLoad(arrayRef, symbIndex,
                 new IntegerConstant(bv32));
         env.topFrame().operandStack.pushBv32(c);
 
@@ -1004,29 +910,12 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
-            return;
-        }
-
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
         short concValue = Array.getShort(concArray, concIndex);
-        IntegerValue e = env.heap.arrayLoad(symbArrayReference, symbIndex,
+        IntegerValue e = env.heap.arrayLoad(arrayRef, symbIndex,
                 new IntegerConstant(concValue));
         env.topFrame().operandStack.pushBv32(e);
 
@@ -1047,28 +936,11 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
-            return;
-        }
-
-        env.heap.arrayStore(concArray, symbArrayReference, symbIndex, symbValue);
+        env.heap.arrayStore(concArray, arrayRef, symbIndex, symbValue);
     }
 
     @Override
@@ -1081,28 +953,11 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
-            return;
-        }
-
-        env.heap.arrayStore(concArray, symbArrayReference, symbIndex, symbValue);
+        env.heap.arrayStore(concArray, arrayRef, symbIndex, symbValue);
     }
 
     @Override
@@ -1115,28 +970,11 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
-            return;
-        }
-
-        env.heap.arrayStore(concArray, symbArrayReference, symbIndex, symbValue);
+        env.heap.arrayStore(concArray, arrayRef, symbIndex, symbValue);
     }
 
     @Override
@@ -1149,28 +987,11 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
-            return;
-        }
-
-        env.heap.arrayStore(concArray, symbArrayReference, symbIndex, symbValue);
+        env.heap.arrayStore(concArray, arrayRef, symbIndex, symbValue);
     }
 
     /**
@@ -1189,27 +1010,10 @@ public final class HeapVM extends AbstractVM {
         env.heap.initializeReference(concArray, arrayRef);
         env.heap.initializeReference(concValue, symbValue);
 
-        /* array null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
-            return;
-        }
-
         // TODO: check cases for value
         //       When not typing???
 
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
@@ -1222,7 +1026,7 @@ public final class HeapVM extends AbstractVM {
                     env.heap.getReference(concValue),
                     (String) concValue
             );
-            env.heap.arrayStore(concArray, symbArrayReference, symbIndex, stringValue);
+            env.heap.arrayStore(concArray, arrayRef, symbIndex, stringValue);
         } else {
             //TODO: implement general objects
         }
@@ -1240,28 +1044,11 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
-            return;
-        }
-
-        env.heap.arrayStore(concArray, symbArrayReference, symbIndex, symbValue);
+        env.heap.arrayStore(concArray, arrayRef, symbIndex, symbValue);
     }
 
     @Override
@@ -1274,28 +1061,11 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
-            return;
-        }
-
-        env.heap.arrayStore(concArray, symbArrayReference, symbIndex, symbValue);
+        env.heap.arrayStore(concArray, arrayRef, symbIndex, symbValue);
     }
 
     @Override
@@ -1308,28 +1078,11 @@ public final class HeapVM extends AbstractVM {
         /* check reference initialization */
         env.heap.initializeReference(concArray, arrayRef);
 
-        /* null-check */
-        if (nullReferenceViolation(arrayRef, concArray)) {
+        if (arrayAccessViolation(concArray, arrayRef, concIndex, symbIndex, className, methodName)) {
             return;
         }
 
-        /* negative index */
-        if (negativeIndexViolation(concIndex, symbIndex, className, methodName)) {
-            return;
-        }
-
-        /* out of bound index */
-        ReferenceExpression symbArrayReference = arrayRef;
-        int concArrayLength = Array.getLength(concArray);
-        IntegerValue symbArrayLength = env.heap.getField("", ARRAY_LENGTH,
-                concArray, symbArrayReference, concArrayLength);
-
-        if (indexTooBigViolation(concIndex, symbIndex, concArrayLength,
-                symbArrayLength, className, methodName)) {
-            return;
-        }
-
-        env.heap.arrayStore(concArray, symbArrayReference, symbIndex, symbValue);
+        env.heap.arrayStore(concArray, arrayRef, symbIndex, symbValue);
     }
 
     /**
