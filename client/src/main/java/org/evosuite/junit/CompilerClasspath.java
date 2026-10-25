@@ -81,38 +81,7 @@ public final class CompilerClasspath {
      * that is not a valid URI. A jar that cannot be read is reported as well formed.
      */
     public static boolean hasMalformedManifestClassPath(File jarFile) {
-        try (JarFile jar = new JarFile(jarFile)) {
-            java.util.jar.Manifest manifest = jar.getManifest();
-            if (manifest == null) {
-                return false;
-            }
-            Attributes mainAttributes = manifest.getMainAttributes();
-            if (mainAttributes == null) {
-                return false;
-            }
-            String classPath = mainAttributes.getValue(Attributes.Name.CLASS_PATH);
-            if (classPath == null || classPath.trim().isEmpty()) {
-                return false;
-            }
-
-            for (String manifestEntry : classPath.trim().split("\\s+")) {
-                if (manifestEntry.isEmpty()) {
-                    continue;
-                }
-                if (manifestEntry.indexOf('\\') >= 0) {
-                    return true;
-                }
-                try {
-                    new URI(manifestEntry);
-                } catch (URISyntaxException e) {
-                    return true;
-                }
-            }
-        } catch (IOException e) {
-            logger.debug("Could not inspect jar manifest {} for compiler sanitization: {}",
-                    jarFile, e.getMessage());
-        }
-        return false;
+        return JarInfo.of(jarFile).malformedClassPath;
     }
 
     /**
@@ -120,17 +89,7 @@ public final class CompilerClasspath {
      * is reported as free of them.
      */
     public static boolean hasDotSegmentEntry(File jarFile) {
-        try (JarFile jar = new JarFile(jarFile)) {
-            Enumeration<JarEntry> entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                if (hasDotSegment(entries.nextElement().getName())) {
-                    return true;
-                }
-            }
-        } catch (IOException e) {
-            logger.debug("Could not inspect jar {} for compiler sanitization: {}", jarFile, e.getMessage());
-        }
-        return false;
+        return JarInfo.of(jarFile).hasDotSegmentEntry();
     }
 
     /**
@@ -424,7 +383,7 @@ public final class CompilerClasspath {
 
     private static List<String> expandManifestOnlyClasspathJar(File jarFile) {
         if (jarFile == null
-                || !isManifestOnlyClasspathJar(jarFile)
+                || !JarInfo.of(jarFile).isManifestOnly()
                 || CompilerClasspath.hasMalformedManifestClassPath(jarFile)) {
             return Collections.emptyList();
         }
@@ -444,71 +403,16 @@ public final class CompilerClasspath {
         return jarFile.isFile() ? jarFile : null;
     }
 
-    private static boolean isManifestOnlyClasspathJar(File jarFile) {
-        try (JarFile jar = new JarFile(jarFile)) {
-            java.util.jar.Manifest manifest = jar.getManifest();
-            if (manifest == null) {
-                return false;
-            }
-            Attributes attributes = manifest.getMainAttributes();
-            if (attributes == null) {
-                return false;
-            }
-            String classPath = attributes.getValue(Attributes.Name.CLASS_PATH);
-            if (classPath == null || classPath.trim().isEmpty()) {
-                return false;
-            }
-
-            java.util.Enumeration<JarEntry> entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                JarEntry entry = entries.nextElement();
-                if (entry.isDirectory()) {
-                    continue;
-                }
-                if (!"META-INF/MANIFEST.MF".equalsIgnoreCase(entry.getName())) {
-                    return false;
-                }
-            }
-            return true;
-        } catch (IOException e) {
-            logger.debug("Could not inspect jar {} for manifest-only classpath expansion: {}",
-                    jarFile,
-                    e.getMessage());
-        }
-        return false;
-    }
-
     private static List<String> readManifestClassPathEntries(File jarFile) {
-        try (JarFile jar = new JarFile(jarFile)) {
-            java.util.jar.Manifest manifest = jar.getManifest();
-            if (manifest == null) {
-                return Collections.emptyList();
+        List<String> expandedEntries = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (String manifestEntry : JarInfo.of(jarFile).classPathEntries) {
+            String resolved = resolveManifestClassPathEntry(jarFile, manifestEntry);
+            if (resolved != null && !resolved.isEmpty() && seen.add(resolved)) {
+                expandedEntries.add(resolved);
             }
-            Attributes attributes = manifest.getMainAttributes();
-            if (attributes == null) {
-                return Collections.emptyList();
-            }
-            String classPath = attributes.getValue(Attributes.Name.CLASS_PATH);
-            if (classPath == null || classPath.trim().isEmpty()) {
-                return Collections.emptyList();
-            }
-
-            List<String> expandedEntries = new ArrayList<>();
-            LinkedHashSet<String> seen = new LinkedHashSet<>();
-            String[] manifestEntries = classPath.trim().split("\\s+");
-            for (String manifestEntry : manifestEntries) {
-                String resolved = resolveManifestClassPathEntry(jarFile, manifestEntry);
-                if (resolved != null && !resolved.isEmpty() && seen.add(resolved)) {
-                    expandedEntries.add(resolved);
-                }
-            }
-            return expandedEntries;
-        } catch (IOException e) {
-            logger.debug("Could not read manifest classpath entries from {}: {}",
-                    jarFile,
-                    e.getMessage());
         }
-        return Collections.emptyList();
+        return expandedEntries;
     }
 
     private static String resolveManifestClassPathEntry(File jarFile, String manifestEntry) {
@@ -539,31 +443,11 @@ public final class CompilerClasspath {
         if (jarFile == null || badBasenames == null || badBasenames.isEmpty()) {
             return false;
         }
-        try (JarFile jar = new JarFile(jarFile)) {
-            java.util.jar.Manifest manifest = jar.getManifest();
-            if (manifest == null) {
-                return false;
+        for (String manifestEntry : JarInfo.of(jarFile).classPathEntries) {
+            String baseName = manifestEntryBaseName(manifestEntry);
+            if (!baseName.isEmpty() && badBasenames.contains(baseName)) {
+                return true;
             }
-            Attributes attributes = manifest.getMainAttributes();
-            if (attributes == null) {
-                return false;
-            }
-            String classPath = attributes.getValue(Attributes.Name.CLASS_PATH);
-            if (classPath == null || classPath.trim().isEmpty()) {
-                return false;
-            }
-
-            String[] entries = classPath.trim().split("\\s+");
-            for (String manifestEntry : entries) {
-                String baseName = manifestEntryBaseName(manifestEntry);
-                if (!baseName.isEmpty() && badBasenames.contains(baseName)) {
-                    return true;
-                }
-            }
-        } catch (IOException e) {
-            logger.debug("Could not inspect jar manifest {} for snippet compiler dependency sanitization: {}",
-                    jarFile,
-                    e.getMessage());
         }
         return false;
     }
@@ -656,6 +540,107 @@ public final class CompilerClasspath {
                 }
             }
             current = current.getParent();
+        }
+    }
+
+    /**
+     * What the compiler classpath repair needs to know about a jar, read once per jar and file
+     * version: the manifest Class-Path entries, whether they are malformed, and, on first use, what
+     * the entries of the jar are.
+     */
+    private static final class JarInfo {
+        private static final Map<String, JarInfo> CACHE = new ConcurrentHashMap<>();
+
+        private final long length;
+        private final long lastModified;
+        private final List<String> classPathEntries;
+        private final boolean malformedClassPath;
+        private boolean scanned;
+        private boolean manifestOnly;
+        private boolean dotSegmentEntry;
+        private final File file;
+
+        private JarInfo(File jarFile) {
+            this.file = jarFile;
+            this.length = jarFile.length();
+            this.lastModified = jarFile.lastModified();
+            List<String> entries = Collections.emptyList();
+            boolean malformed = false;
+            try (JarFile jar = new JarFile(jarFile)) {
+                java.util.jar.Manifest manifest = jar.getManifest();
+                Attributes attributes = manifest == null ? null : manifest.getMainAttributes();
+                String classPath = attributes == null ? null : attributes.getValue(Attributes.Name.CLASS_PATH);
+                if (classPath != null && !classPath.trim().isEmpty()) {
+                    entries = Arrays.asList(classPath.trim().split("\\s+"));
+                    malformed = isMalformed(entries);
+                }
+            } catch (IOException e) {
+                logger.debug("Could not inspect jar {} for compiler sanitization: {}", jarFile, e.getMessage());
+            }
+            this.classPathEntries = entries;
+            this.malformedClassPath = malformed;
+        }
+
+        static JarInfo of(File jarFile) {
+            String key = jarFile.getAbsolutePath();
+            JarInfo info = CACHE.get(key);
+            if (info == null || info.length != jarFile.length() || info.lastModified != jarFile.lastModified()) {
+                info = new JarInfo(jarFile);
+                CACHE.put(key, info);
+            }
+            return info;
+        }
+
+        private static boolean isMalformed(List<String> manifestEntries) {
+            for (String manifestEntry : manifestEntries) {
+                if (manifestEntry.isEmpty()) {
+                    continue;
+                }
+                if (manifestEntry.indexOf('\\') >= 0) {
+                    return true;
+                }
+                try {
+                    new URI(manifestEntry);
+                } catch (URISyntaxException e) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /** True if the jar has a manifest Class-Path and nothing but its manifest. */
+        synchronized boolean isManifestOnly() {
+            scan();
+            return manifestOnly;
+        }
+
+        synchronized boolean hasDotSegmentEntry() {
+            scan();
+            return dotSegmentEntry;
+        }
+
+        private void scan() {
+            if (scanned) {
+                return;
+            }
+            scanned = true;
+            boolean onlyManifest = !classPathEntries.isEmpty();
+            try (JarFile jar = new JarFile(file)) {
+                Enumeration<JarEntry> entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    if (hasDotSegment(entry.getName())) {
+                        dotSegmentEntry = true;
+                    }
+                    if (!entry.isDirectory() && !"META-INF/MANIFEST.MF".equalsIgnoreCase(entry.getName())) {
+                        onlyManifest = false;
+                    }
+                }
+            } catch (IOException e) {
+                logger.debug("Could not inspect jar {} for compiler sanitization: {}", file, e.getMessage());
+                onlyManifest = false;
+            }
+            manifestOnly = onlyManifest;
         }
     }
 }
