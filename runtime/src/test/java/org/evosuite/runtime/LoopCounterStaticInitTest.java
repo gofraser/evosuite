@@ -270,6 +270,57 @@ public class LoopCounterStaticInitTest {
     }
 
     /**
+     * An abandoned initializer that keeps reporting class-load progress is slow, not stuck,
+     * and must not be thrown into: that would mark its class erroneous.
+     */
+    @Test
+    @Timeout(value = 15, unit = TimeUnit.SECONDS)
+    public void testAbandonedStaticInitWithClassLoadProgressIsNotTerminated() throws InterruptedException {
+        probeIndex = LoopCounter.getInstance().getNewIndex();
+        progressProbeThrew = false;
+        progressProbeFinished = false;
+        Thread worker = new Thread(() -> {
+            try {
+                Class.forName(ProgressClinitProbe.class.getName());
+            } catch (Throwable ignored) {
+                // Only reached if the initializer was (wrongly) terminated.
+            }
+        }, "abandoned-clinit-progress");
+        worker.setDaemon(true);
+        LoopCounter.getInstance().abandonStaticInitializer(worker);
+        LoopCounter.getInstance().setActive(false);
+        worker.start();
+        worker.join(10_000);
+
+        assertTrue(progressProbeFinished, "the initializer should have run to completion");
+        assertFalse(progressProbeThrew, "an initializer still loading classes must not be terminated");
+    }
+
+    private static volatile boolean progressProbeThrew;
+
+    private static volatile boolean progressProbeFinished;
+
+    private static class ProgressClinitProbe {
+
+        static {
+            long end = java.lang.System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(3_000);
+            long nextClass = java.lang.System.nanoTime();
+            try {
+                while (java.lang.System.nanoTime() < end) {
+                    LoopCounter.getInstance().checkLoop(probeIndex);
+                    if (java.lang.System.nanoTime() >= nextClass) {
+                        LoopCounter.getInstance().noteClassLoadProgress();
+                        nextClass = java.lang.System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(300);
+                    }
+                }
+                progressProbeFinished = true;
+            } catch (TooManyResourcesException e) {
+                progressProbeThrew = true;
+            }
+        }
+    }
+
+    /**
      * Loop back-edges run on deep SUT stacks, so with nothing abandoned the probe
      * must be one volatile read and must not look the current thread up in the
      * deadline map.

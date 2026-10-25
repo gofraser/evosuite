@@ -94,6 +94,13 @@ public class LoopCounter {
      */
     private volatile boolean abandonedStaticInitArmed = false;
 
+    /**
+     * Latest time (nanoTime) up to which {@link #noteClassLoadProgress()} may keep
+     * postponing the deadline of an abandoned worker, so that an initializer which
+     * keeps defining classes forever is still stopped eventually.
+     */
+    private final Map<Thread, Long> abandonedStaticInitHardLimits = new ConcurrentHashMap<>();
+
     private final Object abandonedStaticInitLock = new Object();
 
     /**
@@ -103,6 +110,13 @@ public class LoopCounter {
      * abandoned loop cannot retain the class-initialization lock forever.
      */
     private static final long ABANDONED_STATIC_INIT_GRACE_MILLIS = 1000L;
+
+    /**
+     * An abandoned initializer that keeps loading classes gets a fresh grace window
+     * with every class (see {@link #noteClassLoadProgress()}), but never runs longer
+     * than this after it was abandoned.
+     */
+    private static final long ABANDONED_STATIC_INIT_MAX_MILLIS = 120_000L;
 
     /**
      * How many interrupted back-edges we let pass between two stack walks, once we have
@@ -157,6 +171,7 @@ public class LoopCounter {
         protectedCounters.keySet().removeIf(t -> !t.isAlive());
         synchronized (abandonedStaticInitLock) {
             abandonedStaticInitDeadlines.keySet().removeIf(t -> !t.isAlive());
+            abandonedStaticInitHardLimits.keySet().removeIf(t -> !t.isAlive());
             abandonedStaticInitArmed = !abandonedStaticInitDeadlines.isEmpty();
         }
         List<Long> snapshot;
@@ -186,12 +201,47 @@ public class LoopCounter {
             return;
         }
         protectFromReset(thread);
-        long deadline = java.lang.System.nanoTime()
-                + TimeUnit.MILLISECONDS.toNanos(ABANDONED_STATIC_INIT_GRACE_MILLIS);
+        long now = java.lang.System.nanoTime();
+        long deadline = now + TimeUnit.MILLISECONDS.toNanos(ABANDONED_STATIC_INIT_GRACE_MILLIS);
         synchronized (abandonedStaticInitLock) {
+            abandonedStaticInitHardLimits.put(thread,
+                    now + TimeUnit.MILLISECONDS.toNanos(ABANDONED_STATIC_INIT_MAX_MILLIS));
             abandonedStaticInitDeadlines.put(thread, deadline);
             abandonedStaticInitArmed = true;
         }
+    }
+
+    /**
+     * Reports that the calling thread has just defined or resolved a class.  An
+     * abandoned static initializer that is still loading classes is slow, not stuck
+     * (typically a large framework being instrumented over a slow file system), and
+     * throwing into it would mark its class erroneous for the rest of the run.  Each
+     * such class therefore restarts the grace window, up to a hard limit after the
+     * abandonment; an initializer that stops loading classes is stopped as before.
+     * With nothing abandoned this is a single volatile read.
+     */
+    public void noteClassLoadProgress() {
+        if (delegate != null) {
+            invokeDelegate("noteClassLoadProgress");
+            return;
+        }
+        if (!abandonedStaticInitArmed) {
+            return;
+        }
+        Thread current = Thread.currentThread();
+        Long hardLimit = abandonedStaticInitHardLimits.get(current);
+        if (hardLimit == null) {
+            return;
+        }
+        long extended = java.lang.System.nanoTime()
+                + TimeUnit.MILLISECONDS.toNanos(ABANDONED_STATIC_INIT_GRACE_MILLIS);
+        if (hardLimit - extended < 0) {
+            extended = hardLimit;
+        }
+        final long newDeadline = extended;
+        // Never move an existing deadline backwards (and do nothing once it was removed).
+        abandonedStaticInitDeadlines.computeIfPresent(current,
+                (t, old) -> newDeadline - old > 0 ? newDeadline : old);
     }
 
     /**
@@ -578,6 +628,7 @@ public class LoopCounter {
         if (!isInStaticInit()) {
             synchronized (abandonedStaticInitLock) {
                 abandonedStaticInitDeadlines.remove(current, deadline);
+                abandonedStaticInitHardLimits.remove(current);
                 abandonedStaticInitArmed = !abandonedStaticInitDeadlines.isEmpty();
             }
             return false;

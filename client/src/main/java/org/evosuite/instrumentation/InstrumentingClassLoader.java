@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ResourceList;
+import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.utils.MasterClassLoaderBridge;
@@ -218,10 +219,11 @@ public class InstrumentingClassLoader extends ClassLoader {
         try {
             // Parent was passed as InstrumentingClassLoader.class.getClassLoader()
             ClassLoader parent = getParent();
-            if (parent != null) {
-                return parent.loadClass(name);
-            }
-            return ClassLoader.getSystemClassLoader().loadClass(name);
+            Class<?> loaded = parent != null
+                    ? parent.loadClass(name)
+                    : ClassLoader.getSystemClassLoader().loadClass(name);
+            LoopCounter.getInstance().noteClassLoadProgress();
+            return loaded;
         } catch (ClassNotFoundException e) {
             // During (de-)serialization and assertion generation, project
             // dependencies may only be visible from the current thread context
@@ -580,6 +582,7 @@ public class InstrumentingClassLoader extends ClassLoader {
                 ? defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length)
                 : defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length, protectionDomain);
         classes.put(fullyQualifiedTargetClass, result);
+        LoopCounter.getInstance().noteClassLoadProgress();
         return result;
     }
 

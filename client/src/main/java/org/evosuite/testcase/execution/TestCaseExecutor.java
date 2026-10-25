@@ -1040,6 +1040,8 @@ public class TestCaseExecutor implements ThreadFactory {
             // in the initializer is still bounded: the per-thread abandonment deadline
             // is checked by both LoopCounter and ExecutionTracer, even though ordinary
             // loop counting and the kill switch are disabled during this grace path.
+            // The deadline moves forward while the initializer keeps loading classes
+            // (LoopCounter.noteClassLoadProgress): a slow initializer is not a stuck one.
             if (alreadyAbandonedThisClass) {
                 logger.debug("Static initializer of {} was already abandoned once; "
                                 + "abandoning again without re-waiting the grace period.",
