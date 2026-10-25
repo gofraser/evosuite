@@ -73,7 +73,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 
 import static org.evosuite.llm.response.ExecutionFailureFormatter.EXPLICIT_REPAIR_ACTION_MARKER;
 import static org.evosuite.llm.response.ExecutionFailureFormatter.MAX_TEST_CODE_EXCERPT_CHARS;
@@ -106,18 +105,6 @@ public class TestRepairLoop {
             "AccessControlException",
             "java.security.AccessControlException"
     ));
-    private static final Set<String> DEPENDENCY_MISSING_MARKERS = new HashSet<>(Arrays.asList(
-            "NoClassDefFoundError",
-            "ClassNotFoundException",
-            "Could not initialize class"
-    ));
-    /**
-     * A javac "cannot find symbol" error names a missing class only when its symbol line says so;
-     * an invented method or variable is an ordinary source error that the model can fix.
-     */
-    private static final Pattern MISSING_CLASS_SYMBOL_PATTERN = Pattern.compile(
-            "cannot find symbol[^\\n]*\\n(?:[^\\n]*\\n){0,3}?\\s*symbol:\\s+class\\b");
-
     private final LlmService llmService;
     private final TestParser testParser;
     private final LlmResponseParser responseParser;
@@ -1165,7 +1152,7 @@ public class TestRepairLoop {
         if (error == null) {
             return false;
         }
-        if (isDependencyMissingError(error)) {
+        if (RepairFailureKinds.of(error).isDependencyMissing()) {
             return false;
         }
         if (isSnippetCompilerInfrastructureError(error)) {
@@ -1187,18 +1174,6 @@ public class TestRepairLoop {
         return lower.contains("snippet compilation failed")
                 && lower.contains("error reading")
                 && lower.contains("urisyntaxexception");
-    }
-
-    static boolean isDependencyMissingError(String error) {
-        if (error == null || error.isEmpty()) {
-            return false;
-        }
-        for (String marker : DEPENDENCY_MISSING_MARKERS) {
-            if (error.contains(marker)) {
-                return true;
-            }
-        }
-        return MISSING_CLASS_SYMBOL_PATTERN.matcher(error).find();
     }
 
     /**

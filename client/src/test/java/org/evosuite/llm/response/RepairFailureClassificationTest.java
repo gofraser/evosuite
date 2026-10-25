@@ -21,7 +21,6 @@ package org.evosuite.llm.response;
 
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -77,35 +76,26 @@ class RepairFailureClassificationTest {
     }
 
     private static String families(String error) {
+        RepairFailureKinds kinds = RepairFailureKinds.of(error);
         List<String> found = new ArrayList<>();
-        if (TestRepairLoop.isDependencyMissingError(error)) {
+        if (kinds.isDependencyMissing()) {
             found.add("dependency");
         }
-        if (RepairHintComposer.isInitializationFailureError(error)) {
+        if (kinds.isInitializationFailure()) {
             found.add("initialization");
         }
-        if (RepairHintComposer.containsHeadlessGuiSignal(error)) {
+        if (kinds.isHeadlessGui()) {
             found.add("headless");
         }
-        if (RepairHintComposer.isInstantiationFailureError(error)) {
+        if (kinds.isInstantiationFailure()) {
             found.add("instantiation");
         }
-        if (RepairHintComposer.isMockingMisuseError(error)) {
+        if (kinds.isMockingMisuse()) {
             found.add("mocking");
         }
-        if (isIndexedFixtureShapeError(error)) {
+        if (kinds.isIndexedFixtureShape()) {
             found.add("indexed");
         }
         return String.join(",", found);
-    }
-
-    private static boolean isIndexedFixtureShapeError(String error) {
-        try {
-            Method method = RepairHintComposer.class.getDeclaredMethod("isIndexedFixtureShapeError", String.class);
-            method.setAccessible(true);
-            return (Boolean) method.invoke(new RepairHintComposer(() -> "", null), error);
-        } catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
     }
 }

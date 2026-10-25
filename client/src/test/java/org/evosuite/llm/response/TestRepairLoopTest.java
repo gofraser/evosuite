@@ -3341,8 +3341,8 @@ class TestRepairLoopTest {
                 + "  symbol:   class Missing\n"
                 + "  location: class X";
 
-        assertFalse(TestRepairLoop.isDependencyMissingError(missingMethod));
-        assertTrue(TestRepairLoop.isDependencyMissingError(missingClass));
+        assertFalse(RepairFailureKinds.of(missingMethod).isDependencyMissing());
+        assertTrue(RepairFailureKinds.of(missingClass).isDependencyMissing());
         assertTrue(TestRepairLoop.isUnfixableError(missingMethod
                 + "\njava.lang.UnsatisfiedLinkError - native"));
     }
@@ -3436,18 +3436,6 @@ class TestRepairLoopTest {
                 "repair prompt should extract compiler diagnostics from the wrapper message");
         assertTrue(repairPrompt.contains("cannot find symbol"),
                 "repair prompt should surface the actual compiler error text");
-    }
-
-    @Test
-    void initializationFailureClassifierDetectsInitializerErrors() {
-        assertTrue(RepairHintComposer.isInitializationFailureError(
-                "Execution error: java.lang.ExceptionInInitializerError - null"));
-        assertTrue(RepairHintComposer.isInitializationFailureError(
-                "Execution error: java.lang.NoClassDefFoundError - Could not initialize class a.b.C"));
-        assertTrue(RepairHintComposer.isInitializationFailureError(
-                "Execution error: java.awt.AWTError - Local GraphicsEnvironment must not be null"));
-        assertFalse(RepairHintComposer.isInitializationFailureError(
-                "Execution error: java.lang.NullPointerException - x is null"));
     }
 
     @Test
@@ -3611,26 +3599,6 @@ class TestRepairLoopTest {
         assertTrue(result.getDiagnostics().stream()
                         .anyMatch(d -> d.contains("identical error repeated")),
                 "After escalation, a subsequent identical headless error must hit the normal skip path");
-    }
-
-    @Test
-    void instantiationFailureClassifierDetectsInstantiationErrors() {
-        assertTrue(RepairHintComposer.isInstantiationFailureError(
-                "Execution error: java.lang.InstantiationException - null"));
-        assertTrue(RepairHintComposer.isInstantiationFailureError(
-                "compile error: X is abstract; cannot be instantiated"));
-        assertFalse(RepairHintComposer.isInstantiationFailureError(
-                "Execution error: java.lang.NullPointerException - x is null"));
-    }
-
-    @Test
-    void mockingMisuseClassifierDetectsMockitoMisuseErrors() {
-        assertTrue(RepairHintComposer.isMockingMisuseError(
-                "Execution error: org.mockito.exceptions.misusing.NotAMockException - ..."));
-        assertTrue(RepairHintComposer.isMockingMisuseError(
-                "Execution error: org.mockito.exceptions.misusing.UnfinishedStubbingException - ..."));
-        assertFalse(RepairHintComposer.isMockingMisuseError(
-                "Execution error: java.lang.NullPointerException - x is null"));
     }
 
     @Test

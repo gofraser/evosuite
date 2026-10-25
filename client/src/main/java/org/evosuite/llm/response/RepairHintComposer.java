@@ -25,9 +25,7 @@ import org.evosuite.testparser.ParseResult;
 
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -95,38 +93,10 @@ final class RepairHintComposer {
     private static final Pattern MALFORMED_IMPORT_LINE_PATTERN = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?[^;]*([/\\\\]|\\s+as\\s+)[^;]*;\\s*$");
 
-    private static final Set<String> INITIALIZATION_FAILURE_MARKERS = new HashSet<>(Arrays.asList(
-            "ExceptionInInitializerError",
-            "NoClassDefFoundError",
-            "Could not initialize class",
-            "ClassNotFoundException",
-            "UnsatisfiedLinkError",
-            "LinkageError",
-            "java.awt.AWTError",
-            "HeadlessException",
-            "Local GraphicsEnvironment must not be null"
-    ));
-    private static final Set<String> INSTANTIATION_FAILURE_MARKERS = new HashSet<>(Arrays.asList(
-            "InstantiationException",
-            "is abstract; cannot be instantiated",
-            "cannot instantiate"
-    ));
-    private static final Set<String> MOCKITO_MISUSE_MARKERS = new HashSet<>(Arrays.asList(
-            "NotAMockException",
-            "UnfinishedStubbingException",
-            "MissingMethodInvocationException",
-            "org.mockito.exceptions.misusing"
-    ));
     private static final Pattern FALSE_POSITIVE_MOCK_CALL_PATTERN = Pattern.compile(
             "Mock call to\\s+([A-Za-z_$][A-Za-z0-9_$]*)\\s+which was not presented when the test was generated");
     private static final Pattern FALSE_POSITIVE_MOCK_SIGNATURE_PATTERN = Pattern.compile(
             "(?:\\[Dependency Stack\\]\\s+)?([A-Za-z_$][A-Za-z0-9_.$]*)\\.([A-Za-z_$][A-Za-z0-9_$]*)\\(");
-    private static final Set<String> INDEXED_FIXTURE_FAILURE_MARKERS = new HashSet<>(Arrays.asList(
-            "ArrayIndexOutOfBoundsException",
-            "IndexOutOfBoundsException",
-            "NegativeArraySizeException"
-    ));
-
     /** Helpful NullPointerException message: group 1 is the member, group 2 the null receiver. */
     private static final java.util.regex.Pattern NPE_CANNOT_INVOKE_PATTERN = java.util.regex.Pattern.compile(
             "Cannot invoke\\s+\"([^\"]+)\"\\s+because\\s+\"([^\"]+)\"\\s+is null");
@@ -151,22 +121,23 @@ final class RepairHintComposer {
                             Map<ParseResult, ExecutionFailureContext> executionFailures,
                             StringBuilder repairMessage) {
         FailureScopes scopes = classifyExecutionFailures(executionFailures);
-        appendDependencyMissingRepairInstructions(error, repairMessage);
-        appendInitializationFailureRepairInstructions(error, repairMessage);
-        appendHeadlessEscalationRepairInstructions(state, error, repairMessage);
-        appendInstantiationFailureRepairInstructions(error, repairMessage);
+        RepairFailureKinds kinds = RepairFailureKinds.of(error);
+        appendDependencyMissingRepairInstructions(kinds, repairMessage);
+        appendInitializationFailureRepairInstructions(error, kinds, repairMessage);
+        appendHeadlessEscalationRepairInstructions(state, kinds, repairMessage);
+        appendInstantiationFailureRepairInstructions(kinds, repairMessage);
         appendExpectationMismatchRepairInstructions(scopes, repairMessage);
         appendNpePreconditionRepairInstructions(error, scopes, repairMessage);
-        appendMockingRepairInstructions(error, repairMessage);
+        appendMockingRepairInstructions(kinds, repairMessage);
         appendStreamPreconditionRepairInstructions(error, repairMessage);
         appendArgumentPreconditionRepairInstructions(error, repairMessage);
-        appendIndexedFixtureShapeRepairInstructions(error, repairMessage);
+        appendIndexedFixtureShapeRepairInstructions(kinds, repairMessage);
         appendReflectiveInvocationRepairInstructions(error, repairMessage);
         appendReflectiveAssertThrowsFallbackRepairInstructions(error, repairMessage);
         appendMissingMethodOnVariableRepairInstructions(error, repairMessage);
         appendMemberAccessRepairInstructions(state, error, repairMessage);
         appendFalsePositiveMockRepairInstructions(error, repairMessage);
-        appendSpyUnsupportedRepairInstructions(error, repairMessage);
+        appendSpyUnsupportedRepairInstructions(error, kinds, repairMessage);
         appendCollaboratorFallbackRepairInstructions(error, repairMessage);
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
         appendContextSpecificRepairFacts(error, previousResponse, repairMessage);
@@ -186,8 +157,8 @@ final class RepairHintComposer {
      * Guidance for a class that does not resolve at compile time. A missing class at run time is
      * covered by the initialization/dependency failure hint, which repeats this guidance.
      */
-    private void appendDependencyMissingRepairInstructions(String error, StringBuilder repairMessage) {
-        if (!TestRepairLoop.isDependencyMissingError(error) || isInitializationFailureError(error)) {
+    private void appendDependencyMissingRepairInstructions(RepairFailureKinds kinds, StringBuilder repairMessage) {
+        if (!kinds.isDependencyMissing() || kinds.isInitializationFailure()) {
             return;
         }
         repairMessage.append("\n\nDependency-missing repair instructions:")
@@ -243,7 +214,7 @@ final class RepairHintComposer {
                 continue;
             }
 
-            if (isIndexedFixtureShapeError(executionError)) {
+            if (RepairFailureKinds.of(executionError).isIndexedFixtureShape()) {
                 String key = "shape:indexed-fixture";
                 counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
                 hints.putIfAbsent(key, buildSharedIndexedFixtureFailureHint());
@@ -561,8 +532,8 @@ final class RepairHintComposer {
         }
     }
 
-    private void appendMockingRepairInstructions(String error, StringBuilder repairMessage) {
-        if (!isMockingMisuseError(error)) {
+    private void appendMockingRepairInstructions(RepairFailureKinds kinds, StringBuilder repairMessage) {
+        if (!kinds.isMockingMisuse()) {
             return;
         }
         repairMessage.append("\n\nMockito usage hint:");
@@ -577,9 +548,10 @@ final class RepairHintComposer {
         repairMessage.append("\n- Complete each stubbing expression fully (avoid unfinished stubbing chains).");
     }
 
-    private void appendSpyUnsupportedRepairInstructions(String error, StringBuilder repairMessage) {
+    private void appendSpyUnsupportedRepairInstructions(String error, RepairFailureKinds kinds,
+                                                        StringBuilder repairMessage) {
         // The Mockito usage hint already bans spies and spy-based stubbing and names the replacements.
-        if (!isSpyUnsupportedPattern(error) || isMockingMisuseError(error)) {
+        if (!isSpyUnsupportedPattern(error) || kinds.isMockingMisuse()) {
             return;
         }
         repairMessage.append("\n\nSpy-unsupported repair instructions:");
@@ -660,8 +632,8 @@ final class RepairHintComposer {
         }
     }
 
-    private void appendIndexedFixtureShapeRepairInstructions(String error, StringBuilder repairMessage) {
-        if (!isIndexedFixtureShapeError(error)) {
+    private void appendIndexedFixtureShapeRepairInstructions(RepairFailureKinds kinds, StringBuilder repairMessage) {
+        if (!kinds.isIndexedFixtureShape()) {
             return;
         }
         repairMessage.append("\n\nIndexed fixture/bounds hint:");
@@ -1025,18 +997,6 @@ final class RepairHintComposer {
                 || lower.contains("at least");
     }
 
-    private boolean isIndexedFixtureShapeError(String error) {
-        if (error == null || error.isEmpty()) {
-            return false;
-        }
-        for (String marker : INDEXED_FIXTURE_FAILURE_MARKERS) {
-            if (error.contains(marker)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private boolean isReflectiveInvocationWrapperError(String error) {
         if (error == null || error.isEmpty()) {
             return false;
@@ -1293,8 +1253,9 @@ final class RepairHintComposer {
         return throwables;
     }
 
-    private void appendInitializationFailureRepairInstructions(String error, StringBuilder repairMessage) {
-        if (!isInitializationFailureError(error)) {
+    private void appendInitializationFailureRepairInstructions(String error, RepairFailureKinds kinds,
+                                                               StringBuilder repairMessage) {
+        if (!kinds.isInitializationFailure()) {
             return;
         }
         String failingClass = extractInitializationFailureClassName(error);
@@ -1309,7 +1270,7 @@ final class RepairHintComposer {
         repairMessage.append("\n- Replace failing tests with alternatives that only use available SUT/JDK types.");
         repairMessage.append("\n- Prefer pure constructors/methods and precondition checks that do not require "
                 + "GUI/native/plugin containers.");
-        if (containsHeadlessGuiSignal(error)) {
+        if (kinds.isHeadlessGui()) {
             repairMessage.append("\n- AWT/Swing initialization failed in headless execution: avoid UI construction "
                     + "paths that require a real display toolkit.");
             repairMessage.append("\n- Prefer non-visual SUT logic and model-level methods; only create GUI objects "
@@ -1323,9 +1284,9 @@ final class RepairHintComposer {
      * gentler guidance has already failed; the LLM is stuck on a SUT it cannot
      * construct in this JVM. Tell it explicitly to drop the constructor.
      */
-    private void appendHeadlessEscalationRepairInstructions(RepairConversation state, String error,
+    private void appendHeadlessEscalationRepairInstructions(RepairConversation state, RepairFailureKinds kinds,
                                                             StringBuilder repairMessage) {
-        if (!state.isHeadlessRepairEscalated() || !containsHeadlessGuiSignal(error)) {
+        if (!state.isHeadlessRepairEscalated() || !kinds.isHeadlessGui()) {
             return;
         }
         String sut = Properties.TARGET_CLASS;
@@ -1349,17 +1310,6 @@ final class RepairHintComposer {
                         + "zero executable tests.");
     }
 
-    static boolean containsHeadlessGuiSignal(String error) {
-        if (error == null || error.isEmpty()) {
-            return false;
-        }
-        String lower = error.toLowerCase();
-        return lower.contains("awterror")
-                || lower.contains("headlessexception")
-                || lower.contains("graphicsenvironment")
-                || lower.contains("local graphicsenvironment must not be null");
-    }
-
     private String extractInitializationFailureClassName(String error) {
         if (error == null) {
             return null;
@@ -1374,20 +1324,8 @@ final class RepairHintComposer {
         return null;
     }
 
-    static boolean isInitializationFailureError(String error) {
-        if (error == null || error.isEmpty()) {
-            return false;
-        }
-        for (String marker : INITIALIZATION_FAILURE_MARKERS) {
-            if (error.contains(marker)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void appendInstantiationFailureRepairInstructions(String error, StringBuilder repairMessage) {
-        if (!isInstantiationFailureError(error)) {
+    private void appendInstantiationFailureRepairInstructions(RepairFailureKinds kinds, StringBuilder repairMessage) {
+        if (!kinds.isInstantiationFailure()) {
             return;
         }
         repairMessage.append("\n\nInstantiation failure hint:");
@@ -1398,30 +1336,6 @@ final class RepairHintComposer {
         repairMessage.append("\n- If only an abstract/interface type is available at the call site, use a known "
                 + "concrete subtype or a mock.");
         repairMessage.append("\n- Avoid reflective instantiation or helper patterns that hide non-instantiable types.");
-    }
-
-    static boolean isInstantiationFailureError(String error) {
-        if (error == null || error.isEmpty()) {
-            return false;
-        }
-        for (String marker : INSTANTIATION_FAILURE_MARKERS) {
-            if (error.contains(marker)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    static boolean isMockingMisuseError(String error) {
-        if (error == null || error.isEmpty()) {
-            return false;
-        }
-        for (String marker : MOCKITO_MISUSE_MARKERS) {
-            if (error.contains(marker)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     static boolean isSpyUnsupportedPattern(String error) {

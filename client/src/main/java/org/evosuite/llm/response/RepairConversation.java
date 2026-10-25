@@ -180,7 +180,8 @@ final class RepairConversation {
             return true;
         }
         if (previousError != null && normalizeError(previousError).equals(normalizeError(error))) {
-            if (TestRepairLoop.isDependencyMissingError(error)) {
+            RepairFailureKinds kinds = RepairFailureKinds.of(error);
+            if (kinds.isDependencyMissing()) {
                 logger.info("Aborting repair: dependency-missing error persisted after targeted guidance: {}", error);
                 diagnostics.add("Skipped repair: dependency-missing error persisted");
                 return true;
@@ -191,7 +192,7 @@ final class RepairConversation {
             // a typed null), not the original headless error. Give the LLM one more
             // turn with an explicit "use Mockito.mock(SUT.class)" instruction
             // before bailing out.
-            if (!headlessRepairEscalated && RepairHintComposer.containsHeadlessGuiSignal(error)) {
+            if (!headlessRepairEscalated && kinds.isHeadlessGui()) {
                 headlessRepairEscalated = true;
                 logger.info("Continuing repair with headless escalation hint after identical-error retry: {}", error);
                 diagnostics.add("Continuing repair: headless escalation hint injected for identical-error retry");
