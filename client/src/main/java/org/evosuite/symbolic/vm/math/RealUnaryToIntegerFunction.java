@@ -20,31 +20,32 @@
 package org.evosuite.symbolic.vm.math;
 
 import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.fp.RealUnaryExpression;
+import org.evosuite.symbolic.expr.bv.RealUnaryToIntegerExpression;
 import org.evosuite.symbolic.expr.fp.RealValue;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 
-public final class TANH extends SymbolicFunction {
+/**
+ * Symbolic function for a {@code java.lang.Math} method that maps a float or
+ * double to an int or long, such as {@code round} or {@code getExponent}.
+ */
+public final class RealUnaryToIntegerFunction extends SymbolicFunction {
 
-    private static final String TANH = "tanh";
+    private final Operator op;
 
-    public TANH(SymbolicEnvironment env) {
-        super(env, Types.JAVA_LANG_MATH, TANH, Types.D2D_DESCRIPTOR);
+    public RealUnaryToIntegerFunction(SymbolicEnvironment env, String name, String desc, Operator op) {
+        super(env, Types.JAVA_LANG_MATH, name, desc);
+        this.op = op;
     }
 
     @Override
     public Object executeFunction() {
-        double res = this.getConcDoubleRetVal();
-        RealValue realExpression = this.getSymbRealArgument(0);
-        RealValue tanhExpr;
-        if (realExpression.containsSymbolicVariable()) {
-            Operator op = Operator.TANH;
-            tanhExpr = new RealUnaryExpression(realExpression, op, res);
-        } else {
-            tanhExpr = this.getSymbRealRetVal();
+        RealValue arg = this.getSymbRealArgument(0);
+        if (arg.containsSymbolicVariable()) {
+            long res = ((Number) this.getConcRetVal()).longValue();
+            return new RealUnaryToIntegerExpression(arg, op, res);
         }
-        return tanhExpr;
+        return this.getSymbIntegerRetVal();
     }
 
 }

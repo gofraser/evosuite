@@ -19,31 +19,35 @@
  */
 package org.evosuite.symbolic.vm.wrappers;
 
-import org.evosuite.symbolic.expr.fp.RealValue;
 import org.evosuite.symbolic.expr.ref.ReferenceConstant;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
-import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
 /**
- * Symbolic function for Double constructor.
- *
- * @author galeotti
+ * Symbolic function for the accessor of a boxing wrapper, such as
+ * {@code intValue}: reads the symbolic value back from the heap field of the
+ * receiver.
  */
-public final class D_Init extends SymbolicFunction {
+final class BoxedValue extends SymbolicFunction {
 
-    public D_Init(SymbolicEnvironment env) {
-        super(env, Types.JAVA_LANG_DOUBLE, Types.INIT, Types.D_TO_VOID);
+    private final BoxedType type;
+
+    BoxedValue(SymbolicEnvironment env, BoxedType type) {
+        super(env, type.owner, type.accessorName, type.accessorDescriptor());
+        this.type = type;
     }
 
     @Override
     public Object executeFunction() {
-        RealValue fp64 = this.getSymbRealArgument(0);
-        ReferenceConstant symbDouble = this.getSymbReceiver();
-        env.heap.putField(Types.JAVA_LANG_DOUBLE, SymbolicHeap.$DOUBLE_VALUE,
-                null/* concDouble */, symbDouble, fp64);
-        // return voids
-        return null;
+        ReferenceConstant receiver = this.getSymbReceiver();
+        Object concReceiver = this.getConcReceiver();
+        Object concValue = this.getConcRetVal();
+        if (type.isReal()) {
+            return env.heap.getField(type.owner, type.heapField, concReceiver, receiver,
+                    ((Number) concValue).doubleValue());
+        }
+        return env.heap.getField(type.owner, type.heapField, concReceiver, receiver,
+                type.integerValue(concValue));
     }
 
 }

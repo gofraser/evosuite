@@ -20,31 +20,33 @@
 package org.evosuite.symbolic.vm.math;
 
 import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.fp.RealUnaryExpression;
-import org.evosuite.symbolic.expr.fp.RealValue;
+import org.evosuite.symbolic.expr.bv.IntegerBinaryExpression;
+import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 
+/**
+ * Symbolic function for a {@code java.lang.Math} method that maps two ints or
+ * two longs to the same type, such as {@code max}.
+ */
+public final class IntegerBinaryFunction extends SymbolicFunction {
 
-public final class COSH extends SymbolicFunction {
+    private final Operator op;
 
-    private static final String COSH = "cosh";
-
-    public COSH(SymbolicEnvironment env) {
-        super(env, Types.JAVA_LANG_MATH, COSH, Types.D2D_DESCRIPTOR);
+    public IntegerBinaryFunction(SymbolicEnvironment env, String name, String desc, Operator op) {
+        super(env, Types.JAVA_LANG_MATH, name, desc);
+        this.op = op;
     }
 
     @Override
     public Object executeFunction() {
-        double res = this.getConcDoubleRetVal();
-        RealValue realExpression = this.getSymbRealArgument(0);
-        RealValue coshExpr;
-        if (realExpression.containsSymbolicVariable()) {
-            Operator op = Operator.COSH;
-            coshExpr = new RealUnaryExpression(realExpression, op, res);
-        } else {
-            coshExpr = this.getSymbRealRetVal();
+        IntegerValue left = this.getSymbIntegerArgument(0);
+        IntegerValue right = this.getSymbIntegerArgument(1);
+        if (left.containsSymbolicVariable() || right.containsSymbolicVariable()) {
+            long res = ((Number) this.getConcRetVal()).longValue();
+            return new IntegerBinaryExpression(left, op, right, res);
         }
-        return coshExpr;
+        return this.getSymbIntegerRetVal();
     }
+
 }

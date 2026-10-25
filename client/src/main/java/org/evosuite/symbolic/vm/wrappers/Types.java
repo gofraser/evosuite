@@ -25,16 +25,6 @@ import static org.objectweb.asm.Type.*;
 
 public interface Types {
 
-    // primitive types
-    Type INTEGER = Type.getType(Integer.class);
-    Type LONG = Type.getType(Long.class);
-    Type FLOAT = Type.getType(Float.class);
-    Type DOUBLE = Type.getType(Double.class);
-    Type SHORT = Type.getType(Short.class);
-    Type CHARACTER = Type.getType(Character.class);
-    Type BYTE = Type.getType(Byte.class);
-    Type BOOLEAN = Type.getType(Boolean.class);
-
     // wrapper types
     String JAVA_LANG_LONG = Long.class.getName()
             .replace('.', '/');
@@ -59,58 +49,7 @@ public interface Types {
     String STR_TO_INT_DESCRIPTOR = Type.getMethodDescriptor(
             INT_TYPE, STRING_TYPE);
 
-    // valueOf Descriptos
-    String I_TO_INTEGER = Type.getMethodDescriptor(INTEGER,
-            INT_TYPE);
-    String J_TO_LONG = Type.getMethodDescriptor(LONG, LONG_TYPE);
-    String F_TO_FLOAT = Type.getMethodDescriptor(FLOAT,
-            FLOAT_TYPE);
-    String D_TO_DOUBLE = Type.getMethodDescriptor(DOUBLE,
-            DOUBLE_TYPE);
-    String S_TO_SHORT = Type.getMethodDescriptor(SHORT,
-            SHORT_TYPE);
-    String B_TO_BYTE = Type.getMethodDescriptor(BYTE, BYTE_TYPE);
-    String C_TO_CHARACTER = Type.getMethodDescriptor(CHARACTER,
-            CHAR_TYPE);
-    String Z_TO_BOOLEAN = Type.getMethodDescriptor(BOOLEAN,
-            BOOLEAN_TYPE);
-
-    // intValue/shortValue,etc. descriptors
-    String TO_INT = Type.getMethodDescriptor(INT_TYPE);
-
-    String TO_LONG = Type.getMethodDescriptor(LONG_TYPE);
-
-    String TO_FLOAT = Type.getMethodDescriptor(FLOAT_TYPE);
-
-    String TO_DOUBLE = Type.getMethodDescriptor(DOUBLE_TYPE);
-
-    String TO_SHORT = Type.getMethodDescriptor(SHORT_TYPE);
-
-    String TO_BYTE = Type.getMethodDescriptor(BYTE_TYPE);
-
-    String TO_CHAR = Type.getMethodDescriptor(CHAR_TYPE);
-
-    String TO_BOOLEAN = Type.getMethodDescriptor(BOOLEAN_TYPE);
-
-    String I_TO_VOID = Type.getMethodDescriptor(VOID_TYPE,
-            INT_TYPE);
-
     String INIT = "<init>";
-
-    String B_TO_VOID = Type.getMethodDescriptor(VOID_TYPE,
-            BYTE_TYPE);
-    String C_TO_VOID = Type.getMethodDescriptor(VOID_TYPE,
-            CHAR_TYPE);
-    String S_TO_VOID = Type.getMethodDescriptor(VOID_TYPE,
-            SHORT_TYPE);
-    String Z_TO_VOID = Type.getMethodDescriptor(VOID_TYPE,
-            BOOLEAN_TYPE);
-    String J_TO_VOID = Type.getMethodDescriptor(VOID_TYPE,
-            LONG_TYPE);
-    String F_TO_VOID = Type.getMethodDescriptor(VOID_TYPE,
-            FLOAT_TYPE);
-    String D_TO_VOID = Type.getMethodDescriptor(VOID_TYPE,
-            DOUBLE_TYPE);
 
     String C_TO_I = Type.getMethodDescriptor(INT_TYPE, CHAR_TYPE);
 

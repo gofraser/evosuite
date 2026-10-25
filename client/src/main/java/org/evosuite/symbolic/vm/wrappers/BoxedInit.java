@@ -19,37 +19,32 @@
  */
 package org.evosuite.symbolic.vm.wrappers;
 
-import org.evosuite.symbolic.expr.bv.IntegerValue;
+import org.evosuite.symbolic.expr.Expression;
 import org.evosuite.symbolic.expr.ref.ReferenceConstant;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
-import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
 /**
- * Symbolic function for Byte.byteValue.
- *
- * @author galeotti
+ * Symbolic function for the constructor of a boxing wrapper: stores the
+ * symbolic argument in the heap field of the receiver.
  */
-public final class B_ByteValue extends SymbolicFunction {
+final class BoxedInit extends SymbolicFunction {
 
-    private static final String BYTE_VALUE = "byteValue";
+    private final BoxedType type;
 
-    public B_ByteValue(SymbolicEnvironment env) {
-        super(env, Types.JAVA_LANG_BYTE, BYTE_VALUE, Types.TO_BYTE);
+    BoxedInit(SymbolicEnvironment env, BoxedType type) {
+        super(env, type.owner, Types.INIT, type.initDescriptor());
+        this.type = type;
     }
 
     @Override
     public Object executeFunction() {
-        ReferenceConstant symbByte = this.getSymbReceiver();
-        Byte concByte = (Byte) this.getConcReceiver();
+        Expression<?> value = type.isReal() ? this.getSymbRealArgument(0) : this.getSymbIntegerArgument(0);
+        ReferenceConstant receiver = this.getSymbReceiver();
+        env.heap.putField(type.owner, type.heapField, null, receiver, value);
 
-        int concByteValue = this.getConcByteRetVal();
-
-        IntegerValue symbByteValue = env.heap
-                .getField(Types.JAVA_LANG_BYTE, SymbolicHeap.$BYTE_VALUE,
-                        concByte, symbByte, concByteValue);
-
-        return symbByteValue;
+        // return void
+        return null;
     }
 
 }

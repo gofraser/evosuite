@@ -107,17 +107,10 @@ public final class SymbolicFunctionVM extends AbstractVM {
      * Fills the symbolic functions table.
      */
     private void fillFunctionsTable() {
-        fillLong();
-        fillByte();
         fillMath();
-        fillFloat();
-        fillShort();
-        fillDouble();
+        fillBoxingWrappers();
         fillString();
         fillReader();
-        fillInteger();
-        fillBoolean();
-        fillCharacter();
         fillTextRegex();
         fillBigInteger();
         fillStringReader();
@@ -631,118 +624,15 @@ public final class SymbolicFunctionVM extends AbstractVM {
 
     private void fillMath() {
         // java.lang.Math
-        addFunctionToTable(new ABS.ABS_I(env));
-        addFunctionToTable(new ABS.ABS_L(env));
-        addFunctionToTable(new ABS.ABS_F(env));
-        addFunctionToTable(new ABS.ABS_D(env));
-        addFunctionToTable(new ACOS(env));
-        addFunctionToTable(new ASIN(env));
-        addFunctionToTable(new ATAN(env));
-        addFunctionToTable(new ATAN2(env));
-        addFunctionToTable(new CBRT(env));
-        addFunctionToTable(new CEIL(env));
-        addFunctionToTable(new CopySign.CopySign_F(env));
-        addFunctionToTable(new CopySign.CopySign_D(env));
-        addFunctionToTable(new COS(env));
-        addFunctionToTable(new COSH(env));
-        addFunctionToTable(new EXP(env));
-        addFunctionToTable(new EXPM1(env));
-        addFunctionToTable(new FLOOR(env));
-        addFunctionToTable(new GetExponent.GetExponent_F(env));
-        addFunctionToTable(new GetExponent.GetExponent_D(env));
-        addFunctionToTable(new HYPOT(env));
-        addFunctionToTable(new IEEEremainder(env));
-        addFunctionToTable(new LOG(env));
-        addFunctionToTable(new LOG10(env));
-        addFunctionToTable(new LOG1P(env));
-        addFunctionToTable(new MIN.MIN_I(env));
-        addFunctionToTable(new MIN.MIN_L(env));
-        addFunctionToTable(new MIN.MIN_F(env));
-        addFunctionToTable(new MIN.MIN_D(env));
-        addFunctionToTable(new MAX.MAX_I(env));
-        addFunctionToTable(new MAX.MAX_L(env));
-        addFunctionToTable(new MAX.MAX_F(env));
-        addFunctionToTable(new MAX.MAX_D(env));
-        addFunctionToTable(new NextAfter.NextAfter_F(env));
-        addFunctionToTable(new NextAfter.NextAfter_D(env));
-        addFunctionToTable(new NextUp.NextUp_F(env));
-        addFunctionToTable(new NextUp.NextUp_D(env));
-        addFunctionToTable(new POW(env));
-        addFunctionToTable(new RINT(env));
-        addFunctionToTable(new Round.Round_F(env));
-        addFunctionToTable(new Round.Round_D(env));
-        addFunctionToTable(new SCALB.SCALB_F(env));
-        addFunctionToTable(new SCALB.SCALB_D(env));
-        addFunctionToTable(new SIGNUM.SIGNUM_F(env));
-        addFunctionToTable(new SIGNUM.SIGNUM_D(env));
-        addFunctionToTable(new SIN(env));
-        addFunctionToTable(new SINH(env));
-        addFunctionToTable(new SQRT(env));
-        addFunctionToTable(new TAN(env));
-        addFunctionToTable(new TANH(env));
-        addFunctionToTable(new ToDegrees(env));
-        addFunctionToTable(new ToRadians(env));
-        addFunctionToTable(new ULP.ULP_F(env));
-        addFunctionToTable(new ULP.ULP_D(env));
+        MathFunctions.create(env).forEach(this::addFunctionToTable);
     }
 
-    private void fillBoolean() {
-        // java.lang.Boolean
-        addFunctionToTable(new Z_Init(env));
-        addFunctionToTable(new Z_ValueOf(env));
-        addFunctionToTable(new Z_BooleanValue(env));
-    }
-
-    private void fillCharacter() {
-        // java.lang.Character
-        addFunctionToTable(new C_Init(env));
-        addFunctionToTable(new C_ValueOf(env));
-        addFunctionToTable(new C_CharValue(env));
+    private void fillBoxingWrappers() {
+        // java.lang.Integer, Long, Float, Double, Short, Byte, Character and Boolean
+        BoxedType.models(env).forEach(this::addFunctionToTable);
         addFunctionToTable(new Character_getNumericValue(env));
         addFunctionToTable(new Character_isDigit(env));
         addFunctionToTable(new Character_isLetter(env));
-    }
-
-    private void fillByte() {
-        // java.lang.Byte
-        addFunctionToTable(new B_Init(env));
-        addFunctionToTable(new B_ValueOf(env));
-        addFunctionToTable(new B_ByteValue(env));
-    }
-
-    private void fillShort() {
-        // java.lang.Short
-        addFunctionToTable(new S_Init(env));
-        addFunctionToTable(new S_ValueOf(env));
-        addFunctionToTable(new S_ShortValue(env));
-    }
-
-    private void fillDouble() {
-        // java.lang.Double
-        addFunctionToTable(new D_Init(env));
-        addFunctionToTable(new D_ValueOf(env));
-        addFunctionToTable(new D_DoubleValue(env));
-    }
-
-    private void fillFloat() {
-        // java.lang.Float
-        addFunctionToTable(new F_Init(env));
-        addFunctionToTable(new F_ValueOf(env));
-        addFunctionToTable(new F_FloatValue(env));
-    }
-
-    private void fillLong() {
-        // java.lang.Long
-        addFunctionToTable(new J_Init(env));
-        addFunctionToTable(new J_ValueOf(env));
-        addFunctionToTable(new J_LongValue(env));
-    }
-
-    private void fillInteger() {
-        // java.lang.Integer
-        addFunctionToTable(new I_Init(env));
-        addFunctionToTable(new I_ValueOf(env));
-        addFunctionToTable(new I_IntValue(env));
         addFunctionToTable(new I_ParseInt(env));
     }
 

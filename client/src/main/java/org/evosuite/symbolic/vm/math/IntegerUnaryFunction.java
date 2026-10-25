@@ -20,31 +20,32 @@
 package org.evosuite.symbolic.vm.math;
 
 import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.fp.RealUnaryExpression;
-import org.evosuite.symbolic.expr.fp.RealValue;
+import org.evosuite.symbolic.expr.bv.IntegerUnaryExpression;
+import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 
-public final class ToDegrees extends SymbolicFunction {
+/**
+ * Symbolic function for a {@code java.lang.Math} method that maps an int or
+ * long to the same type, such as {@code abs}.
+ */
+public final class IntegerUnaryFunction extends SymbolicFunction {
 
-    private static final String TO_DEGREES = "toDegrees";
+    private final Operator op;
 
-    public ToDegrees(SymbolicEnvironment env) {
-        super(env, Types.JAVA_LANG_MATH, TO_DEGREES, Types.D2D_DESCRIPTOR);
+    public IntegerUnaryFunction(SymbolicEnvironment env, String name, String desc, Operator op) {
+        super(env, Types.JAVA_LANG_MATH, name, desc);
+        this.op = op;
     }
 
     @Override
     public Object executeFunction() {
-        double res = this.getConcDoubleRetVal();
-        RealValue realExpression = this.getSymbRealArgument(0);
-        RealValue toDegreesExpr;
-        if (realExpression.containsSymbolicVariable()) {
-            Operator op = Operator.TODEGREES;
-            toDegreesExpr = new RealUnaryExpression(realExpression, op, res);
-        } else {
-            toDegreesExpr = this.getSymbRealRetVal();
+        IntegerValue arg = this.getSymbIntegerArgument(0);
+        if (arg.containsSymbolicVariable()) {
+            long res = ((Number) this.getConcRetVal()).longValue();
+            return new IntegerUnaryExpression(arg, op, res);
         }
-        return toDegreesExpr;
+        return this.getSymbIntegerRetVal();
     }
 
 }

@@ -19,33 +19,39 @@
  */
 package org.evosuite.symbolic.vm.math;
 
+import org.evosuite.symbolic.expr.Expression;
 import org.evosuite.symbolic.expr.Operator;
 import org.evosuite.symbolic.expr.fp.RealBinaryExpression;
 import org.evosuite.symbolic.expr.fp.RealValue;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
+import org.objectweb.asm.Type;
 
-public final class HYPOT extends SymbolicFunction {
+/**
+ * Symbolic function for a {@code java.lang.Math} method that maps a float or
+ * double and a second float, double or int to a float or double, such as
+ * {@code pow} or {@code scalb}.
+ */
+public final class RealBinaryFunction extends SymbolicFunction {
 
-    private static final String HYPOT = "hypot";
+    private final Operator op;
+    private final boolean integerRight;
 
-    public HYPOT(SymbolicEnvironment env) {
-        super(env, Types.JAVA_LANG_MATH, HYPOT, Types.DD2D_DESCRIPTOR);
+    public RealBinaryFunction(SymbolicEnvironment env, String name, String desc, Operator op) {
+        super(env, Types.JAVA_LANG_MATH, name, desc);
+        this.op = op;
+        this.integerRight = Type.getArgumentTypes(desc)[1].getSort() == Type.INT;
     }
 
     @Override
     public Object executeFunction() {
-        double res = this.getConcDoubleRetVal();
         RealValue left = this.getSymbRealArgument(0);
-        RealValue right = this.getSymbRealArgument(1);
-        RealValue hypotExpr;
+        Expression<?> right = integerRight ? this.getSymbIntegerArgument(1) : this.getSymbRealArgument(1);
         if (left.containsSymbolicVariable() || right.containsSymbolicVariable()) {
-            Operator op = Operator.HYPOT;
-            hypotExpr = new RealBinaryExpression(left, op, right, res);
-        } else {
-            hypotExpr = this.getSymbRealRetVal();
+            double res = ((Number) this.getConcRetVal()).doubleValue();
+            return new RealBinaryExpression(left, op, right, res);
         }
-        return hypotExpr;
+        return this.getSymbRealRetVal();
     }
 
 }

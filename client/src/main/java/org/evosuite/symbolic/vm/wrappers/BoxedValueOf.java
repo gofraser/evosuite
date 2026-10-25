@@ -17,34 +17,34 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.symbolic.vm.math;
+package org.evosuite.symbolic.vm.wrappers;
 
-import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.fp.RealUnaryExpression;
-import org.evosuite.symbolic.expr.fp.RealValue;
+import org.evosuite.symbolic.expr.Expression;
+import org.evosuite.symbolic.expr.ref.ReferenceConstant;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 
-public final class ASIN extends SymbolicFunction {
+/**
+ * Symbolic function for {@code valueOf} of a boxing wrapper: stores the
+ * symbolic argument in the heap field of the returned wrapper.
+ */
+final class BoxedValueOf extends SymbolicFunction {
 
-    private static final String ASIN = "asin";
+    private static final String VALUE_OF = "valueOf";
 
-    public ASIN(SymbolicEnvironment env) {
-        super(env, Types.JAVA_LANG_MATH, ASIN, Types.D2D_DESCRIPTOR);
+    private final BoxedType type;
+
+    BoxedValueOf(SymbolicEnvironment env, BoxedType type) {
+        super(env, type.owner, VALUE_OF, type.valueOfDescriptor());
+        this.type = type;
     }
 
     @Override
     public Object executeFunction() {
-        double res = this.getConcDoubleRetVal();
-        RealValue realExpression = this.getSymbRealArgument(0);
-        RealValue asinExpr;
-        if (realExpression.containsSymbolicVariable()) {
-            Operator op = Operator.ASIN;
-            asinExpr = new RealUnaryExpression(realExpression, op, res);
-        } else {
-            asinExpr = this.getSymbRealRetVal();
-        }
-        return asinExpr;
+        Expression<?> value = type.isReal() ? this.getSymbRealArgument(0) : this.getSymbIntegerArgument(0);
+        ReferenceConstant boxed = (ReferenceConstant) this.getSymbRetVal();
+        env.heap.putField(type.owner, type.heapField, this.getConcRetVal(), boxed, value);
+        return boxed;
     }
 
 }

@@ -25,25 +25,27 @@ import org.evosuite.symbolic.expr.fp.RealValue;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicFunction;
 
-public final class EXP extends SymbolicFunction {
+/**
+ * Symbolic function for a {@code java.lang.Math} method that maps a float or
+ * double to a float or double, such as {@code sin} or {@code ulp}.
+ */
+public final class RealUnaryFunction extends SymbolicFunction {
 
-    private static final String EXP = "exp";
+    private final Operator op;
 
-    public EXP(SymbolicEnvironment env) {
-        super(env, Types.JAVA_LANG_MATH, EXP, Types.D2D_DESCRIPTOR);
+    public RealUnaryFunction(SymbolicEnvironment env, String name, String desc, Operator op) {
+        super(env, Types.JAVA_LANG_MATH, name, desc);
+        this.op = op;
     }
 
     @Override
     public Object executeFunction() {
-        double res = this.getConcDoubleRetVal();
-        RealValue realExpression = this.getSymbRealArgument(0);
-        RealValue expExpr;
-        if (realExpression.containsSymbolicVariable()) {
-            Operator op = Operator.EXP;
-            expExpr = new RealUnaryExpression(realExpression, op, res);
-        } else {
-            expExpr = this.getSymbRealRetVal();
+        RealValue arg = this.getSymbRealArgument(0);
+        if (arg.containsSymbolicVariable()) {
+            double res = ((Number) this.getConcRetVal()).doubleValue();
+            return new RealUnaryExpression(arg, op, res);
         }
-        return expExpr;
+        return this.getSymbRealRetVal();
     }
+
 }
