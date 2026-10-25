@@ -1781,12 +1781,38 @@ final class RepairHintComposer {
         }
     }
 
-    String enrichParseErrorWithRepairHints(List<ParseResult> parseResults, String parseErrorText) {
-        if (parseResults == null || parseResults.isEmpty()) {
+    /**
+     * Appends hints for the diagnostics of the dropped tests. The diagnostics of tests dropped at
+     * parse time are printed with their action text, so only the ones of tests dropped at
+     * execution contribute that action; a hand-written hint is added only where no action exists.
+     */
+    String enrichParseErrorWithRepairHints(List<ParseResult> droppedAtParse,
+                                           List<ParseResult> droppedAtExecution,
+                                           String parseErrorText) {
+        LinkedHashSet<String> hints = new LinkedHashSet<>();
+        collectDiagnosticHints(droppedAtParse, true, hints);
+        collectDiagnosticHints(droppedAtExecution, false, hints);
+
+        if (hints.isEmpty()) {
             return parseErrorText;
         }
 
-        LinkedHashSet<String> hints = new LinkedHashSet<>();
+        StringBuilder enriched = new StringBuilder(parseErrorText == null ? "" : parseErrorText);
+        if (enriched.length() > 0) {
+            enriched.append(System.lineSeparator());
+        }
+        enriched.append("Repair hints:");
+        for (String hint : hints) {
+            enriched.append(System.lineSeparator()).append("- ").append(hint);
+        }
+        return enriched.toString();
+    }
+
+    private void collectDiagnosticHints(List<ParseResult> parseResults, boolean printedWithAction,
+                                        LinkedHashSet<String> hints) {
+        if (parseResults == null) {
+            return;
+        }
         for (ParseResult parseResult : parseResults) {
             if (parseResult == null) {
                 continue;
@@ -1800,17 +1826,19 @@ final class RepairHintComposer {
                 if (explicitActionIdx >= 0) {
                     String explicit = message.substring(
                             explicitActionIdx + EXPLICIT_REPAIR_ACTION_MARKER.length()).trim();
-                    if (!explicit.isEmpty()) {
+                    if (!explicit.isEmpty() && !printedWithAction) {
                         hints.add(explicit);
                     }
                 }
 
+                // The action text of the diagnostic's kind replaces the generic hint for that kind.
+                String generic = null;
                 String lower = message.toLowerCase();
                 if (lower.contains("cannot resolve method scope")) {
-                    hints.add("Declare the receiver variable earlier, or use a real static call "
-                            + "in ClassName.method(...) form.");
+                    generic = "Declare the receiver variable earlier, or use a real static call "
+                            + "in ClassName.method(...) form.";
                 } else if (lower.contains("cannot resolve unscoped method call")) {
-                    hints.add("Avoid bare helper calls; inline helper logic or call an existing SUT/JDK method.");
+                    generic = "Avoid bare helper calls; inline helper logic or call an existing SUT/JDK method.";
                 } else if (lower.contains("no method named") || lower.contains("no matching method")) {
                     String missingMethodName = extractMissingMethodName(message);
                     if (missingMethodName != null && !missingMethodName.isEmpty()) {
@@ -1830,27 +1858,16 @@ final class RepairHintComposer {
                                 + "offending line visible in the repair prompt.");
                     }
                 } else if (lower.contains("unknown array variable")) {
-                    hints.add("Declare the array before indexing it, including full rank/dimensions.");
+                    generic = "Declare the array before indexing it, including full rank/dimensions.";
                 } else if (lower.contains("unresolved variable")) {
-                    hints.add("Declare the variable earlier and keep names consistent across statements.");
+                    generic = "Declare the variable earlier and keep names consistent across statements.";
                 } else if (isUnresolvedTypeDiagnostic(diagnostic)) {
-                    hints.add("Replace invented/unknown types with existing SUT or JDK types.");
+                    generic = "Replace invented/unknown types with existing SUT or JDK types.";
+                }
+                if (generic != null && explicitActionIdx < 0) {
+                    hints.add(generic);
                 }
             }
         }
-
-        if (hints.isEmpty()) {
-            return parseErrorText;
-        }
-
-        StringBuilder enriched = new StringBuilder(parseErrorText == null ? "" : parseErrorText);
-        if (enriched.length() > 0) {
-            enriched.append(System.lineSeparator());
-        }
-        enriched.append("Repair hints:");
-        for (String hint : hints) {
-            enriched.append(System.lineSeparator()).append("- ").append(hint);
-        }
-        return enriched.toString();
     }
 }

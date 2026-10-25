@@ -843,14 +843,8 @@ public class TestRepairLoop {
             }
         }
 
-        List<ParseResult> failingForHints = new ArrayList<>();
-        if (droppedAtParse != null) {
-            failingForHints.addAll(droppedAtParse);
-        }
-        if (droppedAtExecution != null) {
-            failingForHints.addAll(droppedAtExecution);
-        }
-        String enriched = hintComposer.enrichParseErrorWithRepairHints(failingForHints, sb.toString());
+        String enriched = hintComposer.enrichParseErrorWithRepairHints(
+                droppedAtParse, droppedAtExecution, sb.toString());
 
         StringBuilder out = new StringBuilder(enriched);
         if (out.length() > 0) {

@@ -1233,7 +1233,6 @@ Repair hints:
 - Declare the array before indexing it, including full rank/dimensions.
 - Declare the variable earlier and keep names consistent across statements.
 - Replace invented/unknown types with existing SUT or JDK types.
-- assign the variable
 
 Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
 === combined: shared anonymous snippet ===
@@ -1327,16 +1326,6 @@ The following tests parsed but failed at execution; please repair them:
 * testWarnedAtExecution:
   - java.lang.IllegalStateException: closed
 Repair hints:
-- declare the receiver variable before this call, or use an existing static call in ClassName.method(...) form.
-- Declare the receiver variable earlier, or use a real static call in ClassName.method(...) form.
-- avoid bare helper calls; either inline the helper logic or call through a declared instance/class method that exists in SUT/JDK.
-- Avoid bare helper calls; inline helper logic or call an existing SUT/JDK method.
-- declare the array variable before indexing it (including dimensions), e.g. double[][] data = new double[1][1];
-- Declare the array before indexing it, including full rank/dimensions.
-- declare the variable earlier in the test and ensure the name matches exactly.
-- Declare the variable earlier and keep names consistent across statements.
-- do not invent local/helper types (e.g., Target, Input, Helper) in test code; instantiate only real SUT/JDK/dependency types from context, or pass null/Object when the API accepts it.
-- Replace invented/unknown types with existing SUT or JDK types.
 - remove [] indexing for this variable or change its declaration to an array type.
 
 Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.

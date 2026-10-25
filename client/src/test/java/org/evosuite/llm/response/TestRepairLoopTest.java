@@ -1644,8 +1644,9 @@ class TestRepairLoopTest {
         @SuppressWarnings("unchecked")
         List<LlmMessage> sentConversation = conversationCaptor.getValue().getMessages();
         String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
-        assertTrue(userRepairMessage.contains("Repair hints:"));
-        assertTrue(userRepairMessage.contains("declare the variable earlier"));
+        // The action is printed with the diagnostic, so it is not repeated as a hint.
+        assertFalse(userRepairMessage.contains("Repair hints:"));
+        assertEquals(1, userRepairMessage.split("declare the variable earlier", -1).length - 1);
     }
 
     @Test
@@ -2702,8 +2703,6 @@ class TestRepairLoopTest {
                 "Expected explicit parser repair action: " + userRepairMessage);
         assertTrue(userRepairMessage.contains("new BufferedCustomInputStream(new InputStreamThatThrowsOnRead())"),
                 "Expected original source expression in repair note: " + userRepairMessage);
-        assertTrue(userRepairMessage.contains("Replace invented/unknown types with existing SUT or JDK types."),
-                "Expected concrete replacement guidance: " + userRepairMessage);
     }
 
     @Test
