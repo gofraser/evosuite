@@ -19,17 +19,7 @@
  */
 package org.evosuite.coverage.io.output;
 
-import org.evosuite.Properties;
-import org.evosuite.ga.archive.Archive;
-import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
-import org.evosuite.testcase.execution.ExecutionObserver;
-import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.execution.TestCaseExecutor;
-import org.evosuite.testsuite.TestSuiteChromosome;
-import org.evosuite.testsuite.TestSuiteFitnessFunction;
-
-import java.util.*;
+import org.evosuite.coverage.io.IOCoverageSuiteFitness;
 
 /**
  * Fitness function for evaluating test suite coverage of method return values.
@@ -37,200 +27,15 @@ import java.util.*;
  *
  * @author Jose Miguel Rojas
  */
-public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
+public class OutputCoverageSuiteFitness extends IOCoverageSuiteFitness<OutputCoverageTestFitness> {
 
     private static final long serialVersionUID = -8345906214972153096L;
-
-    //public final int numBranchlessMethods;
-    public final int totalGoals;
-    private final Set<OutputCoverageTestFitness> outputCoverageGoals = new LinkedHashSet<>();
-
-    private final Set<OutputCoverageTestFitness> toRemoveGoals = new LinkedHashSet<>();
-    private final Set<OutputCoverageTestFitness> removedGoals = new LinkedHashSet<>();
-
-    // Some stuff for debug output
-    public int maxCoveredGoals = 0;
-    public double bestFitness = Double.MAX_VALUE;
 
     /**
      * Initializes a new OutputCoverageSuiteFitness, adding the OutputObserver to the executor.
      */
     public OutputCoverageSuiteFitness() {
-        // Add observer
-        TestCaseExecutor executor = TestCaseExecutor.getInstance();
-        boolean hasObserver = false;
-        for (ExecutionObserver ob : executor.getExecutionObservers()) {
-            if (ob instanceof OutputObserver) {
-                hasObserver = true;
-                break;
-            }
-        }
-        if (!hasObserver) {
-            OutputObserver observer = new OutputObserver();
-            executor.addObserver(observer);
-        }
-
-        determineCoverageGoals();
-
-        totalGoals = outputCoverageGoals.size();
+        super("Output", OutputObserver.class, OutputObserver::new, new OutputCoverageFactory());
     }
 
-    /**
-     * Initialize the set of known coverage goals.
-     */
-    private void determineCoverageGoals() {
-        List<OutputCoverageTestFitness> goals = new OutputCoverageFactory().getCoverageGoals();
-        for (OutputCoverageTestFitness goal : goals) {
-            outputCoverageGoals.add(goal);
-            if (Properties.TEST_ARCHIVE) {
-                Archive.getArchiveInstance().addTarget(goal);
-            }
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     * <p/>
-     * Execute all tests and count covered output goals.
-     */
-    @Override
-    public double getFitness(TestSuiteChromosome suite) {
-        logger.trace("Calculating test suite fitness");
-        double fitness = 0.0;
-
-        List<ExecutionResult> results = runTestSuite(suite);
-
-        boolean hasTimeoutOrTestException = false;
-        for (ExecutionResult result : results) {
-            if (result.hasTimeout() || result.hasTestException()) {
-                hasTimeoutOrTestException = true;
-                break;
-            }
-        }
-
-        Set<TestFitnessFunction> setOfCoveredGoals = new LinkedHashSet<>();
-        if (hasTimeoutOrTestException) {
-            logger.info("Test suite has timed out, setting fitness to max value " + totalGoals);
-            fitness = totalGoals;
-        } else {
-            fitness = computeDistance(results, setOfCoveredGoals);
-        }
-
-        int coveredGoals = setOfCoveredGoals.size() + removedGoals.size();
-
-        if (totalGoals > 0) {
-            suite.setCoverage(this, (double) coveredGoals / (double) totalGoals);
-        } else {
-            suite.setCoverage(this, 1.0);
-        }
-
-        suite.setNumOfCoveredGoals(this, coveredGoals);
-
-        printStatusMessages(suite, coveredGoals, fitness);
-        updateIndividual(suite, fitness);
-
-        assert (coveredGoals <= totalGoals) : "Covered " + coveredGoals + " vs total goals " + totalGoals;
-        assert (fitness >= 0.0);
-        assert (fitness != 0.0 || coveredGoals == totalGoals) : "Fitness: " + fitness + ", "
-                + "coverage: " + coveredGoals + "/" + totalGoals;
-        assert (suite.getCoverage(this) <= 1.0) && (suite.getCoverage(this) >= 0.0) : "Wrong coverage value "
-                + suite.getCoverage(this);
-
-        return fitness;
-    }
-
-    @Override
-    public boolean updateCoveredGoals() {
-        if (!Properties.TEST_ARCHIVE) {
-            return false;
-        }
-
-        for (OutputCoverageTestFitness goal : this.toRemoveGoals) {
-            if (this.outputCoverageGoals.remove(goal)) {
-                this.removedGoals.add(goal);
-            } else {
-                throw new IllegalStateException("goal to remove not found");
-            }
-        }
-
-        this.toRemoveGoals.clear();
-        logger.info("Current state of archive: " + Archive.getArchiveInstance().toString());
-
-        return true;
-    }
-
-    /**
-     * Computes the distance for the given results and goals.
-     *
-     * @param results the list of execution results.
-     * @param setOfCoveredGoals the set to collect covered goals.
-     * @return the total distance.
-     */
-    public double computeDistance(List<ExecutionResult> results, Set<TestFitnessFunction> setOfCoveredGoals) {
-
-        Map<OutputCoverageTestFitness, Double> mapDistances = new LinkedHashMap<>();
-        for (OutputCoverageTestFitness testFitness : this.outputCoverageGoals) {
-            mapDistances.put(testFitness, Double.MAX_VALUE);
-        }
-
-        for (ExecutionResult result : results) {
-            if (result.hasTimeout() || result.hasTestException()) {
-                continue;
-            }
-
-            TestChromosome test = new TestChromosome();
-            test.setTestCase(result.test);
-            test.setLastExecutionResult(result);
-            test.setChanged(false);
-
-            for (final OutputCoverageTestFitness testFitness : this.outputCoverageGoals) {
-                if (!mapDistances.containsKey(testFitness)) {
-                    continue;
-                }
-
-                // archive is updated by the TestFitnessFunction class
-                double distance = testFitness.getFitness(test, result);
-
-                mapDistances.put(testFitness, Math.min(distance, mapDistances.get(testFitness)));
-
-                if (distance == 0.0) {
-                    mapDistances.remove(testFitness);
-                    setOfCoveredGoals.add(testFitness); // helper to count the number of covered goals
-                    // goal to not be considered by next EA iteration
-                    this.toRemoveGoals.add(testFitness);
-                }
-            }
-        }
-
-        return mapDistances.values().stream()
-                .mapToDouble(TestFitnessFunction::normalize)
-                .sum();
-    }
-
-    /**
-     * Prints useful debug information about coverage status.
-     *
-     * @param suite        the test suite being evaluated
-     * @param coveredGoals the number of covered goals
-     * @param fitness      the current fitness value
-     */
-    private void printStatusMessages(TestSuiteChromosome suite,
-                                     int coveredGoals, double fitness) {
-        if (coveredGoals > maxCoveredGoals) {
-            logger.info("(Output Goals) Best individual covers " + coveredGoals + "/"
-                    + totalGoals + " output goals");
-            maxCoveredGoals = coveredGoals;
-            logger.info("Fitness: " + fitness + ", size: " + suite.size() + ", length: "
-                    + suite.totalLengthOfTestCases());
-
-        }
-        if (fitness < bestFitness) {
-            logger.info("(Fitness) Best individual covers " + coveredGoals + "/"
-                    + totalGoals + " output goals");
-            bestFitness = fitness;
-            logger.info("Fitness: " + fitness + ", size: " + suite.size() + ", length: "
-                    + suite.totalLengthOfTestCases());
-
-        }
-    }
 }
