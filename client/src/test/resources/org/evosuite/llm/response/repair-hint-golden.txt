@@ -394,15 +394,7 @@ Mockito usage hint:
 - Complete each stubbing expression fully (avoid unfinished stubbing chains).
 
 Spy-unsupported repair instructions:
-- Do NOT use Mockito.spy(...) in EvoSuite-generated parsed tests.
-- Do NOT use spy-based stubbing such as doReturn(...).when(spy)... or when(spy.method(...)).thenReturn(...).
-- Replace spy-based setup with one of: (1) direct calls on real SUT instances without spy stubbing, or (2) Mockito.mock(...) collaborators that are stubbed minimally.
 - Never alias or stub through parser-generated '__llm_fallback...' variables.
-
-Not-a-mock repair instructions:
-- The failing test attempted to use Mockito.when() or Mockito.doReturn() on a real object.
-- Only use Mockito.when() or Mockito.doReturn() on objects created via Mockito.mock().
-- If the object was created using a 'new' constructor, it is a real instance. Remove the Mockito stubbing for this object.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]

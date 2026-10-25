@@ -170,7 +170,6 @@ final class RepairHintComposer {
         appendSpyUnsupportedRepairInstructions(error, repairMessage);
         appendCollaboratorFallbackRepairInstructions(error, repairMessage);
         appendSyntheticFallbackUsageRepairInstructions(error, repairMessage);
-        appendNotAMockRepairInstructions(error, repairMessage);
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
         appendContextSpecificRepairFacts(error, previousResponse, repairMessage);
         appendDependencyCodeContext(state, executionFailures, repairMessage);
@@ -582,11 +581,14 @@ final class RepairHintComposer {
             return;
         }
         repairMessage.append("\n\nSpy-unsupported repair instructions:");
-        repairMessage.append("\n- Do NOT use Mockito.spy(...) in EvoSuite-generated parsed tests.");
-        repairMessage.append("\n- Do NOT use spy-based stubbing such as doReturn(...).when(spy)... or "
-                + "when(spy.method(...)).thenReturn(...).");
-        repairMessage.append("\n- Replace spy-based setup with one of: (1) direct calls on real SUT instances without "
-                + "spy stubbing, or (2) Mockito.mock(...) collaborators that are stubbed minimally.");
+        // The Mockito usage hint already bans spies and spy-based stubbing and names the replacements.
+        if (!isMockingMisuseError(error)) {
+            repairMessage.append("\n- Do NOT use Mockito.spy(...) in EvoSuite-generated parsed tests.");
+            repairMessage.append("\n- Do NOT use spy-based stubbing such as doReturn(...).when(spy)... or "
+                    + "when(spy.method(...)).thenReturn(...).");
+            repairMessage.append("\n- Replace spy-based setup with one of: (1) direct calls on real SUT instances "
+                    + "without spy stubbing, or (2) Mockito.mock(...) collaborators that are stubbed minimally.");
+        }
         repairMessage.append("\n- Never alias or stub through parser-generated '__llm_fallback...' variables.");
     }
 
@@ -876,18 +878,6 @@ final class RepairHintComposer {
                         + "actually uses.");
         repairMessage.append("\n- If that collaborator cannot be constructed or mocked with available SUT/JDK types, "
                 + "rewrite the failing test to avoid that path instead of keeping the synthetic fallback.");
-    }
-
-    private void appendNotAMockRepairInstructions(String error, StringBuilder repairMessage) {
-        if (error.contains("NotAMockException")) {
-            repairMessage.append("\n\nNot-a-mock repair instructions:");
-            repairMessage.append("\n- The failing test attempted to use Mockito.when() or Mockito.doReturn() on a real "
-                    + "object.");
-            repairMessage.append("\n- Only use Mockito.when() or Mockito.doReturn() on objects created via "
-                    + "Mockito.mock().");
-            repairMessage.append("\n- If the object was created using a 'new' constructor, it is a real instance. "
-                    + "Remove the Mockito stubbing for this object.");
-        }
     }
 
     private void appendSyntheticFallbackUsageRepairInstructions(String error, StringBuilder repairMessage) {
