@@ -19,13 +19,15 @@
  */
 package org.evosuite.junit;
 
+import org.evosuite.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.jar.Attributes;
@@ -35,6 +37,7 @@ import java.util.jar.Manifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -141,9 +144,8 @@ public class CompilerClasspathTest {
         String input = String.join(File.pathSeparator, good1.getPath(), broken.getPath(), dir.getPath(),
                 missing.getPath(), good2.getPath());
 
-        Method sanitize = GeneratedTestCompiler.class.getDeclaredMethod("sanitizeClasspathForCompiler", String.class);
-        sanitize.setAccessible(true);
-        String[] out = ((String) sanitize.invoke(null, input)).split(File.pathSeparator);
+        String[] out = CompilerClasspath.sanitize(input, CompilerClasspath.Policy.GENERATED_TESTS)
+                .split(File.pathSeparator);
 
         assertEquals(5, out.length);
         assertEquals(good1.getAbsolutePath(), out[0]);
@@ -152,5 +154,81 @@ public class CompilerClasspathTest {
         assertEquals(dir.getPath(), out[2]);
         assertEquals(missing.getPath(), out[3]);
         assertEquals(good2.getAbsolutePath(), out[4]);
+    }
+
+    private String snippetClasspath(File... loaderJars) throws Exception {
+        URL[] urls = new URL[loaderJars.length];
+        for (int i = 0; i < loaderJars.length; i++) {
+            urls[i] = loaderJars[i].toURI().toURL();
+        }
+        String previousCp = Properties.CP;
+        try (URLClassLoader loader = new URLClassLoader(urls, null)) {
+            Properties.CP = "";
+            return CompilerClasspath.forClassLoader(loader);
+        } finally {
+            Properties.CP = previousCp;
+        }
+    }
+
+    @Test
+    public void unreadableJarNamedInDiagnosticsIsReplaced() throws Exception {
+        File safeJar = jar("a.jar", null);
+        File malformedJar = jar("batik-squiggle.jar", "\\");
+        String cp = safeJar.getAbsolutePath() + File.pathSeparator + malformedJar.getAbsolutePath();
+        String diagnostics = "error: error reading " + malformedJar.getAbsolutePath() + "; "
+                + "java.net.URISyntaxException: Illegal character in path at index 29: file:/sut/lib/\\";
+
+        String repaired = CompilerClasspath.repairUnreadableEntries(cp, diagnostics);
+
+        assertNotNull(repaired);
+        assertFalse(repaired.contains(malformedJar.getAbsolutePath()));
+        assertTrue(repaired.contains(safeJar.getAbsolutePath()));
+        assertTrue(repaired.contains("evosuite-snippet-compiler-cp-"));
+    }
+
+    @Test
+    public void snippetClasspathReplacesJarWithMalformedManifest() throws Exception {
+        File malformedJar = jar("malformed-loader.jar", "lib/\\ batik-squiggle.jar");
+
+        String classpath = snippetClasspath(malformedJar);
+
+        assertFalse(classpath.contains(malformedJar.getAbsolutePath()));
+        assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"));
+    }
+
+    @Test
+    public void snippetClasspathReplacesJarsReferencingAMalformedJar() throws Exception {
+        File malformedJar = jar("batik-squiggle.jar", "\\");
+        File referencingJar = jar("batik-script.jar", malformedJar.getName());
+
+        String classpath = snippetClasspath(referencingJar, malformedJar);
+
+        assertFalse(classpath.contains(referencingJar.getAbsolutePath()));
+        assertFalse(classpath.contains(malformedJar.getAbsolutePath()));
+        assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"));
+    }
+
+    @Test
+    public void snippetClasspathExpandsManifestOnlyJarAndKeepsSafeEntries() throws Exception {
+        File safeJar = jar("junit-jupiter-api.jar", null);
+        File malformedJar = jar("batik-squiggle.jar", "\\");
+        File pathingJar = jar("EvoSuite_pathingJar123.jar", safeJar.getName() + " " + malformedJar.getName());
+
+        String classpath = snippetClasspath(pathingJar);
+
+        assertFalse(classpath.contains(pathingJar.getAbsolutePath()));
+        assertTrue(classpath.contains(safeJar.getAbsolutePath()));
+        assertFalse(classpath.contains(malformedJar.getAbsolutePath()));
+        assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"));
+    }
+
+    @Test
+    public void normalizingAnEntryDropsTrailingBackslashAndFilePrefix() {
+        String normalized = CompilerClasspath.normalizeClasspathEntry("file:/tmp/lib/\\");
+
+        assertNotNull(normalized);
+        assertFalse(normalized.endsWith("\\"));
+        assertFalse(normalized.startsWith("file:"));
+        assertTrue(normalized.contains("/tmp/lib"));
     }
 }

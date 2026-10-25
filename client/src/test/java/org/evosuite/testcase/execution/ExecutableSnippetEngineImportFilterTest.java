@@ -28,7 +28,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -42,9 +41,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.jar.Attributes;
-import java.util.jar.JarOutputStream;
-import java.util.jar.Manifest;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -408,165 +404,6 @@ class ExecutableSnippetEngineImportFilterTest {
 
         String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
         assertNull(sanitized);
-    }
-
-    @Test
-    void normalizeClasspathEntryStripsTrailingBackslashAndFilePrefix() throws Exception {
-        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method normalize = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "normalizeClasspathEntry", String.class);
-        normalize.setAccessible(true);
-
-        String normalized = (String) normalize.invoke(engine, "file:/tmp/lib/\\");
-
-        assertNotNull(normalized);
-        assertFalse(normalized.endsWith("\\"));
-        assertFalse(normalized.startsWith("file:"));
-        assertTrue(normalized.contains("/tmp/lib"));
-    }
-
-    @Test
-    void sanitizeClasspathSanitizesUnreadableJarFromDiagnostics() throws Exception {
-        File tempDir = Files.createTempDirectory("evosuite-snippet-diagnostics-").toFile();
-        tempDir.deleteOnExit();
-        File safeJar = new File(tempDir, "a.jar");
-        File malformedJar = new File(tempDir, "batik-squiggle.jar");
-        createJarWithManifestClassPath(safeJar, null);
-        createJarWithManifestClassPath(malformedJar, "\\");
-
-        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitizeClasspath = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeClasspathForKnownCompileIssues", String.class, String.class);
-        sanitizeClasspath.setAccessible(true);
-
-        String cp = safeJar.getAbsolutePath() + File.pathSeparator + malformedJar.getAbsolutePath();
-        String diagnostics = "error: error reading " + malformedJar.getAbsolutePath() + "; "
-                + "java.net.URISyntaxException: Illegal character in path at index 29: file:/sut/lib/\\";
-
-        String sanitized = (String) sanitizeClasspath.invoke(engine, cp, diagnostics);
-
-        assertNotNull(sanitized);
-        assertFalse(sanitized.contains(malformedJar.getAbsolutePath()));
-        assertTrue(sanitized.contains(safeJar.getAbsolutePath()));
-        assertTrue(sanitized.contains("evosuite-snippet-compiler-cp-"));
-    }
-
-    @Test
-    void sanitizeClasspathEntryReplacesJarWithMalformedManifestClasspath() throws Exception {
-        File malformedJar = File.createTempFile("evosuite-malformed-manifest-", ".jar");
-        malformedJar.deleteOnExit();
-        createJarWithManifestClassPath(malformedJar, "lib/\\ batik-squiggle.jar");
-
-        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method sanitizeEntry = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "sanitizeClasspathEntryForCompiler", String.class);
-        sanitizeEntry.setAccessible(true);
-
-        String sanitized = (String) sanitizeEntry.invoke(engine, malformedJar.getAbsolutePath());
-
-        assertNotNull(sanitized);
-        assertFalse(sanitized.endsWith(".jar"),
-                "Malformed manifest jar should be replaced with extracted directory");
-        assertTrue(new File(sanitized).isDirectory(),
-                "Sanitized snippet classpath entry should be an existing directory");
-    }
-
-    @Test
-    void buildCompilationClasspathSanitizesMalformedJarFromUrlClassLoader() throws Exception {
-        File malformedJar = File.createTempFile("evosuite-malformed-loader-", ".jar");
-        malformedJar.deleteOnExit();
-        createJarWithManifestClassPath(malformedJar, "lib/\\ batik-squiggle.jar");
-
-        String previousCp = Properties.CP;
-        try (URLClassLoader loader = new URLClassLoader(
-                new java.net.URL[]{malformedJar.toURI().toURL()}, null)) {
-            Properties.CP = "";
-
-            ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-            Method buildClasspath = ExecutableSnippetEngine.class.getDeclaredMethod(
-                    "buildCompilationClasspath", ClassLoader.class);
-            buildClasspath.setAccessible(true);
-
-            String classpath = (String) buildClasspath.invoke(engine, loader);
-
-            assertNotNull(classpath);
-            assertFalse(classpath.contains(malformedJar.getAbsolutePath()),
-                    "Malformed jar from URLClassLoader should be replaced before reaching javac");
-            assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"),
-                    "Expected sanitized extracted directory in snippet compiler classpath");
-        } finally {
-            Properties.CP = previousCp;
-        }
-    }
-
-    @Test
-    void buildCompilationClasspathSanitizesJarsReferencingMalformedManifestJar() throws Exception {
-        File tempDir = Files.createTempDirectory("evosuite-malformed-loader-ref-").toFile();
-        tempDir.deleteOnExit();
-        File malformedJar = new File(tempDir, "batik-squiggle.jar");
-        File referencingJar = new File(tempDir, "batik-script.jar");
-        createJarWithManifestClassPath(malformedJar, "\\");
-        createJarWithManifestClassPath(referencingJar, malformedJar.getName());
-
-        String previousCp = Properties.CP;
-        try (URLClassLoader loader = new URLClassLoader(
-                new java.net.URL[]{referencingJar.toURI().toURL(), malformedJar.toURI().toURL()}, null)) {
-            Properties.CP = "";
-
-            ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-            Method buildClasspath = ExecutableSnippetEngine.class.getDeclaredMethod(
-                    "buildCompilationClasspath", ClassLoader.class);
-            buildClasspath.setAccessible(true);
-
-            String classpath = (String) buildClasspath.invoke(engine, loader);
-
-            assertNotNull(classpath);
-            assertFalse(classpath.contains(referencingJar.getAbsolutePath()),
-                    "Jar that still points at a malformed dependency must also be sanitized");
-            assertFalse(classpath.contains(malformedJar.getAbsolutePath()),
-                    "Malformed manifest jar should be replaced before reaching javac");
-            assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"),
-                    "Expected sanitized extracted directories in snippet compiler classpath");
-        } finally {
-            Properties.CP = previousCp;
-        }
-    }
-
-    @Test
-    void buildCompilationClasspathExpandsManifestOnlyPathingJarAndPreservesSafeEntries() throws Exception {
-        File tempDir = Files.createTempDirectory("evosuite-pathing-jar-").toFile();
-        tempDir.deleteOnExit();
-        File safeJar = new File(tempDir, "junit-jupiter-api.jar");
-        File malformedJar = new File(tempDir, "batik-squiggle.jar");
-        File pathingJar = new File(tempDir, "EvoSuite_pathingJar123.jar");
-        createJarWithManifestClassPath(safeJar, null);
-        createJarWithManifestClassPath(malformedJar, "\\");
-        createJarWithManifestClassPath(pathingJar, safeJar.getName() + " " + malformedJar.getName());
-
-        String previousCp = Properties.CP;
-        try (URLClassLoader loader = new URLClassLoader(
-                new java.net.URL[]{pathingJar.toURI().toURL()}, null)) {
-            Properties.CP = "";
-
-            ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-            Method buildClasspath = ExecutableSnippetEngine.class.getDeclaredMethod(
-                    "buildCompilationClasspath", ClassLoader.class);
-            buildClasspath.setAccessible(true);
-
-            String classpath = (String) buildClasspath.invoke(engine, loader);
-
-            assertNotNull(classpath);
-            assertFalse(classpath.contains(pathingJar.getAbsolutePath()),
-                    "Manifest-only pathing jars should be expanded instead of passed to javac");
-            assertTrue(classpath.contains(safeJar.getAbsolutePath()),
-                    "Safe manifest entries from the pathing jar must be preserved");
-            assertFalse(classpath.contains(malformedJar.getAbsolutePath()),
-                    "Malformed manifest dependency should still be sanitized after expansion");
-            assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"),
-                    "Expanded malformed dependency should still be replaced with a sanitized directory");
-        } finally {
-            Properties.CP = previousCp;
-        }
     }
 
     @Test
@@ -1019,18 +856,6 @@ class ExecutableSnippetEngineImportFilterTest {
         assertNotNull(keyB);
         assertFalse(keyA.equals(keyB), "Different classloader instances must have distinct keys");
         assertTrue("null".equals(keyANull));
-    }
-
-    private static void createJarWithManifestClassPath(File jarFile, String classPath) throws Exception {
-        Manifest manifest = new Manifest();
-        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
-        if (classPath != null) {
-            manifest.getMainAttributes().put(Attributes.Name.CLASS_PATH, classPath);
-        }
-        try (JarOutputStream out = new JarOutputStream(new FileOutputStream(jarFile), manifest)) {
-            // Empty jar is enough; snippet classpath sanitization only inspects metadata.
-        }
-        jarFile.deleteOnExit();
     }
 
     private static final class TimeoutExecutor extends AbstractExecutorService {

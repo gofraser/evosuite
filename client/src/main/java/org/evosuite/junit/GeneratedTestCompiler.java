@@ -21,8 +21,6 @@ package org.evosuite.junit;
 
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.runtime.util.JarPathing;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
@@ -37,10 +35,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
@@ -57,9 +53,6 @@ public final class GeneratedTestCompiler {
     public static final String JAVAC_STACK_OVERFLOW_MARKER = "java.lang.StackOverflowError";
     public static final String JAVAC_OUT_OF_MEMORY_MARKER = "java.lang.OutOfMemoryError";
 
-    private static final Logger logger = LoggerFactory.getLogger(GeneratedTestCompiler.class);
-
-    private static final Map<String, String> SANITIZED_COMPILER_CLASSPATH_ENTRIES = new HashMap<>();
     private static String cachedCompilerClasspath = null;
     private static String cachedCompilerClasspathEvoSuiteInput = null;
     private static String cachedCompilerClasspathTargetInput = null;
@@ -89,8 +82,9 @@ public final class GeneratedTestCompiler {
         if (JarPathing.containsAPathingJar(expandedTargetProjectCP)) {
             expandedTargetProjectCP = JarPathing.expandPathingJars(expandedTargetProjectCP);
         }
-        String classpath = sanitizeClasspathForCompiler(
-                expandedTargetProjectCP + File.pathSeparator + expandedEvoSuiteCP);
+        String classpath = CompilerClasspath.sanitize(
+                expandedTargetProjectCP + File.pathSeparator + expandedEvoSuiteCP,
+                CompilerClasspath.Policy.GENERATED_TESTS);
         cachedCompilerClasspathEvoSuiteInput = evosuiteCP;
         cachedCompilerClasspathTargetInput = targetProjectCP;
         cachedCompilerClasspath = classpath;
@@ -191,62 +185,6 @@ public final class GeneratedTestCompiler {
         // java.lang.OutOfMemoryError is not listed: the caller handles reportsOutOfMemory first.
         return compilerOutput.contains(JAVAC_INTERNAL_ERROR_MARKER)
                 || compilerOutput.contains(JAVAC_STACK_OVERFLOW_MARKER);
-    }
-
-    static String sanitizeClasspathForCompiler(String classpath) {
-        if (classpath == null || classpath.trim().isEmpty()) {
-            return classpath;
-        }
-
-        String[] entries = classpath.split(File.pathSeparator);
-        List<String> sanitizedEntries = new ArrayList<>(entries.length);
-        for (String entry : entries) {
-            sanitizedEntries.add(sanitizeClasspathEntryForCompiler(entry));
-        }
-        return String.join(File.pathSeparator, sanitizedEntries);
-    }
-
-    private static String sanitizeClasspathEntryForCompiler(String entry) {
-        if (entry == null || entry.isEmpty()) {
-            return entry;
-        }
-
-        if (!entry.endsWith(".jar")) {
-            return entry;
-        }
-
-        File jarFile = new File(entry);
-        if (!jarFile.isFile()) {
-            return entry;
-        }
-
-        synchronized (SANITIZED_COMPILER_CLASSPATH_ENTRIES) {
-            String cached = SANITIZED_COMPILER_CLASSPATH_ENTRIES.get(jarFile.getAbsolutePath());
-            if (cached != null) {
-                return cached;
-            }
-        }
-
-        boolean hasDotSegmentEntries = CompilerClasspath.hasDotSegmentEntry(jarFile);
-        boolean hasMalformedManifestClassPath = CompilerClasspath.hasMalformedManifestClassPath(jarFile);
-        if (!hasDotSegmentEntries && !hasMalformedManifestClassPath) {
-            synchronized (SANITIZED_COMPILER_CLASSPATH_ENTRIES) {
-                SANITIZED_COMPILER_CLASSPATH_ENTRIES.put(jarFile.getAbsolutePath(), jarFile.getAbsolutePath());
-            }
-            return jarFile.getAbsolutePath();
-        }
-
-        // Dot-segment names are dropped because javac cannot open such entries.
-        String sanitized = CompilerClasspath.extractJar(jarFile, "evosuite-compiler-cp-",
-                CompilerClasspath::hasDotSegment);
-        synchronized (SANITIZED_COMPILER_CLASSPATH_ENTRIES) {
-            SANITIZED_COMPILER_CLASSPATH_ENTRIES.put(jarFile.getAbsolutePath(), sanitized);
-        }
-        if (!jarFile.getAbsolutePath().equals(sanitized)) {
-            logger.warn("Using sanitized compiler classpath entry for malformed jar {} -> {}",
-                    jarFile.getAbsolutePath(), sanitized);
-        }
-        return sanitized;
     }
 
     static boolean isJavacInfrastructureFailure(Throwable throwable) {

@@ -22,6 +22,7 @@ package org.evosuite.llm.response;
 import org.apache.commons.io.FileUtils;
 import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
+import org.evosuite.junit.CompilerClasspath;
 import org.evosuite.junit.GeneratedTestCompiler;
 import org.evosuite.junit.UnitTestAdapter;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
@@ -1393,8 +1394,7 @@ public class TestRepairLoop {
                 }
 
                 boolean repaired = false;
-                String repairedClasspath = org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
-                        .sanitizeClasspathForKnownCompileIssues(classPath, diagnostics);
+                String repairedClasspath = CompilerClasspath.repairUnreadableEntries(classPath, diagnostics);
                 if (repairedClasspath != null && !repairedClasspath.equals(classPath)) {
                     classPath = repairedClasspath;
                     repaired = true;

@@ -526,16 +526,14 @@ public class JUnitAnalyzerTest {
             out.closeEntry();
         }
 
-        Method sanitizeEntry = GeneratedTestCompiler.class.getDeclaredMethod(
-                "sanitizeClasspathEntryForCompiler", String.class);
-        sanitizeEntry.setAccessible(true);
-        Logger compilerLogger = (Logger) LoggerFactory.getLogger(GeneratedTestCompiler.class);
+        Logger compilerLogger = (Logger) LoggerFactory.getLogger(CompilerClasspath.class);
         ListAppender<ILoggingEvent> compilerLogAppender = new ListAppender<>();
         compilerLogAppender.start();
         compilerLogger.addAppender(compilerLogAppender);
         String sanitized;
         try {
-            sanitized = (String) sanitizeEntry.invoke(null, malformedJar.getAbsolutePath());
+            sanitized = CompilerClasspath.sanitize(malformedJar.getAbsolutePath(),
+                    CompilerClasspath.Policy.GENERATED_TESTS);
         } finally {
             compilerLogger.detachAppender(compilerLogAppender);
             compilerLogAppender.stop();
