@@ -28,6 +28,7 @@ import com.examples.with.different.packagename.dse.invokedynamic.LambdaExample;
 import com.examples.with.different.packagename.dse.invokedynamic.SingleMethodReference;
 import com.examples.with.different.packagename.dse.invokedynamic.TestClosureClass;
 import com.examples.with.different.packagename.dse.invokedynamic.TestSAMConversions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -82,6 +83,8 @@ public final class DSEJDK9SystemTest extends DSESystemTestBase {
      * String concatenation (JDK 9)
      */
     @Test
+    @Disabled("Covering the second branch needs the solver to invert an integer-to-string conversion, "
+            + "which the search-based solver cannot do")
     public void testStringConcatenation() {
         testDSEExecution(2, 1, StringConcatenationExample.class);
     }

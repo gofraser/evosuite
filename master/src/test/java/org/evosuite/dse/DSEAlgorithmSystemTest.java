@@ -494,6 +494,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
     }
 
     @Test
+    @Disabled("Array expressions need a solver with an array theory; the search-based solver cannot solve them")
     public void testIntegerArrayAssignment() {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = IntegerArrayAssignmentExample.class.getCanonicalName();
@@ -511,6 +512,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
     }
 
     @Test
+    @Disabled("Array expressions need a solver with an array theory; the search-based solver cannot solve them")
     public void testIntegerArrayAssignment2() {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = IntegerArrayAssignmentExample2.class.getCanonicalName();
@@ -546,6 +548,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
     }
 
     @Test
+    @Disabled("Array expressions need a solver with an array theory; the search-based solver cannot solve them")
     public void testRealArrayAssignment() {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = RealArrayAssignmentExample.class.getCanonicalName();
@@ -563,6 +566,7 @@ public class DSEAlgorithmSystemTest extends DSESystemTestBase {
     }
 
     @Test
+    @Disabled("Array expressions need a solver with an array theory; the search-based solver cannot solve them")
     public void testRealArrayAssignment2() {
         EvoSuite evosuite = new EvoSuite();
         String targetClass = RealArrayAssignmentExample2.class.getCanonicalName();

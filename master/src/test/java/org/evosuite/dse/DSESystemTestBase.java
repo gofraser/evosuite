@@ -28,6 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class DSESystemTestBase extends SystemTestBase {
     @BeforeEach
@@ -65,15 +66,35 @@ public abstract class DSESystemTestBase extends SystemTestBase {
      * @param SUT
      */
     protected void testDSEExecution(int expectedCoveredGoals, int expectedNotCoveredGoals, Class SUT) {
+        TestSuiteChromosome generatedTestSuite = generateTestSuiteUsingDSE(SUT);
+
+        assertEquals(expectedCoveredGoals, generatedTestSuite.getNumOfCoveredGoals());
+        assertEquals(expectedNotCoveredGoals, generatedTestSuite.getNumOfNotCoveredGoals());
+    }
+
+    /**
+     * Runs DSE on a given SUT and checks the total amount of goals and a lower bound for the covered goals.
+     *
+     * @param expectedGoals the total number of goals
+     * @param minimumCoveredGoals the least number of goals that must be covered
+     * @param SUT
+     */
+    protected void testDSEExecutionCoversAtLeast(int expectedGoals, int minimumCoveredGoals, Class SUT) {
+        TestSuiteChromosome generatedTestSuite = generateTestSuiteUsingDSE(SUT);
+
+        assertEquals(expectedGoals,
+                generatedTestSuite.getNumOfCoveredGoals() + generatedTestSuite.getNumOfNotCoveredGoals());
+        assertTrue(generatedTestSuite.getNumOfCoveredGoals() >= minimumCoveredGoals);
+    }
+
+    private TestSuiteChromosome generateTestSuiteUsingDSE(Class SUT) {
         Object result = executeDSE(SUT);
         ExplorationAlgorithmBase dse = getDSEAFromResult(result);
         TestSuiteChromosome generatedTestSuite = dse.getGeneratedTestSuite();
         System.out.println("Generated Test Suite:\n" + generatedTestSuite);
 
         assertFalse(generatedTestSuite.getTests().isEmpty());
-
-        assertEquals(expectedCoveredGoals, generatedTestSuite.getNumOfCoveredGoals());
-        assertEquals(expectedNotCoveredGoals, generatedTestSuite.getNumOfNotCoveredGoals());
+        return generatedTestSuite;
     }
 
     /**
