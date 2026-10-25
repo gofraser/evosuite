@@ -73,6 +73,12 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
     private final Class<?> testClass;
     private final ThreadStopper threadStopper;
     private final String[] classesToInitialize;
+    /**
+     * Alternating names and values of the system properties the tests read, or null if the
+     * suite does not touch system properties.
+     */
+    private final String[] systemProperties;
+    private java.util.Properties defaultProperties;
     private final NonFunctionalRequirementExtension nonFunctionalRequirements = new NonFunctionalRequirementExtension();
 
     /**
@@ -91,7 +97,22 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
      * @param explicitClassesToInitialize classes to explicitly initialize.
      */
     public EvoSuiteExtension(Class<?> testClass, String... explicitClassesToInitialize) {
+        this(testClass, explicitClassesToInitialize, null);
+    }
+
+    /**
+     * Create a new EvoSuite extension for the given test class, which makes the system
+     * properties the tests read have the values they had during test generation and puts
+     * all properties back to their original values after each test and after the class.
+     *
+     * @param testClass the test class.
+     * @param explicitClassesToInitialize classes to explicitly initialize.
+     * @param systemProperties alternating names and values of the system properties to set,
+     *                         or null to leave system properties alone.
+     */
+    public EvoSuiteExtension(Class<?> testClass, String[] explicitClassesToInitialize, String[] systemProperties) {
         this.testClass = testClass;
+        this.systemProperties = systemProperties == null ? null : systemProperties.clone();
         EvoRunnerParameters parameters = configureRuntimeSettings(testClass);
         Set<String> threadsToIgnore = new LinkedHashSet<>(Arrays.asList(parameters.ignoreThreads()));
         // Common test runner threads to ignore
@@ -124,6 +145,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         // Before the classes are initialised: a static initialiser may wrap the streams too.
         saveStandardStreams(context);
         configureRuntimeSettings(testClass);
+        saveDefaultProperties();
         maybeInitializeGui();
         if (needsAgentLifecycle()) {
             try {
@@ -162,6 +184,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
     @Override
     public void beforeEach(ExtensionContext context) {
         saveStandardStreams(context);
+        setSystemProperties();
         threadStopper.storeCurrentThreads();
         threadStopper.startRecordingTime();
         if (RuntimeSettings.mockJVMNonDeterminism) {
@@ -267,6 +290,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
     }
 
     private void afterAllCleanup() {
+        restoreDefaultProperties();
         if (needsAgentLifecycle()) {
             try {
                 InstrumentingAgent.deactivate();
@@ -357,6 +381,34 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
 
     private boolean needsAgentLifecycle() {
         return RuntimeSettings.isUsingAnyMocking() || RuntimeSettings.resetStaticState;
+    }
+
+    private void saveDefaultProperties() {
+        if (systemProperties != null) {
+            defaultProperties = (java.util.Properties) java.lang.System.getProperties().clone();
+            setSystemProperties();
+        }
+    }
+
+    private void restoreDefaultProperties() {
+        if (defaultProperties != null) {
+            java.lang.System.setProperties((java.util.Properties) defaultProperties.clone());
+            defaultProperties = null;
+        }
+    }
+
+    /**
+     * Puts all properties back to their original values, which discards what a previous test
+     * wrote, and then sets the ones the tests read.
+     */
+    private void setSystemProperties() {
+        if (defaultProperties == null) {
+            return;
+        }
+        java.lang.System.setProperties((java.util.Properties) defaultProperties.clone());
+        for (int i = 0; i + 1 < systemProperties.length; i += 2) {
+            java.lang.System.setProperty(systemProperties[i], systemProperties[i + 1]);
+        }
     }
 
     private static RuntimeException recordFailureOrSuppress(RuntimeException failure, Runnable action) {

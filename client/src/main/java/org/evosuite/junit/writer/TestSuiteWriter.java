@@ -19,6 +19,7 @@
  */
 package org.evosuite.junit.writer;
 
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.evosuite.PhaseMemoryGuard;
 import org.evosuite.Properties;
 import org.evosuite.Properties.OutputGranularity;
@@ -701,6 +702,7 @@ public class TestSuiteWriter implements Opcodes {
         builder.append(NEWLINE);
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
                 && requirements.needsAgent()) {
+            boolean setsProperties = requirements.isNewExtensionMode() && requirements.shouldResetProperties();
             if (requirements.isNewExtensionMode() && !extensionInitializationOrder.isEmpty()) {
                 builder.append(METHOD_SPACE).append("private static final String[] EVO_INIT_ORDER = {");
                 for (int i = 0; i < extensionInitializationOrder.size(); i++) {
@@ -711,12 +713,34 @@ public class TestSuiteWriter implements Opcodes {
                 }
                 builder.append("};").append(NEWLINE);
             }
+            if (setsProperties) {
+                builder.append(METHOD_SPACE).append("private static final String[] EVO_PROPERTIES = {");
+                boolean first = true;
+                for (String property : TestSuiteWriterUtils.mergeProperties(results)) {
+                    String value = java.lang.System.getProperty(property);
+                    if (value == null) {
+                        continue;
+                    }
+                    if (!first) {
+                        builder.append(", ");
+                    }
+                    first = false;
+                    builder.append("\"").append(StringEscapeUtils.escapeJava(property)).append("\", \"")
+                            .append(StringEscapeUtils.escapeJava(value)).append("\"");
+                }
+                builder.append("};").append(NEWLINE);
+            }
             builder.append(METHOD_SPACE).append("@RegisterExtension").append(NEWLINE);
             if (requirements.isNewExtensionMode()) {
                 builder.append(METHOD_SPACE).append("static EvoSuiteExtension runner = new EvoSuiteExtension(")
                         .append(testName).append(".class");
                 if (!extensionInitializationOrder.isEmpty()) {
                     builder.append(", EVO_INIT_ORDER");
+                } else if (setsProperties) {
+                    builder.append(", new String[0]");
+                }
+                if (setsProperties) {
+                    builder.append(", EVO_PROPERTIES");
                 }
                 builder.append(");").append(NEWLINE);
             } else {

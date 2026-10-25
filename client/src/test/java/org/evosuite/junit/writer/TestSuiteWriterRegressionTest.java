@@ -170,6 +170,34 @@ public class TestSuiteWriterRegressionTest {
     }
 
     @Test
+    public void testExtensionModeSetsTheSystemPropertiesTheTestsRead() {
+        configureDefaults();
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+        Properties.TEST_EXTENSION_MODE = true;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.REPLACE_CALLS = true;
+        Properties.USE_SEPARATE_CLASSLOADER = false;
+
+        String property = "evosuite.regression.property";
+        java.lang.System.setProperty(property, "a \"quoted\" value");
+        try {
+            ExecutionResult result = new ExecutionResult(new DefaultTestCase(), null);
+            result.setReadProperties(new HashSet<>(Arrays.asList(property, "evosuite.regression.unset")));
+            List<ExecutionResult> results = Collections.singletonList(result);
+
+            String header = new TestSuiteWriter().getHeader("PropertiesTest", "PropertiesTest", results,
+                    RuntimeRequirements.fromResults(results));
+
+            Assertions.assertTrue(header.contains("private static final String[] EVO_PROPERTIES = {\""
+                    + property + "\", \"a \\\"quoted\\\" value\"};"), header);
+            Assertions.assertTrue(header.contains(
+                    "new EvoSuiteExtension(PropertiesTest.class, new String[0], EVO_PROPERTIES);"), header);
+        } finally {
+            java.lang.System.clearProperty(property);
+        }
+    }
+
+    @Test
     public void testExtensionModeCanEmitExplicitInitializationOrder() throws Exception {
         Path tempDir = Files.createTempDirectory("evosuite-bug10-");
         configureDefaults();
