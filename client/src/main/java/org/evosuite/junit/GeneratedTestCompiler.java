@@ -83,8 +83,7 @@ public final class GeneratedTestCompiler {
             expandedTargetProjectCP = JarPathing.expandPathingJars(expandedTargetProjectCP);
         }
         String classpath = CompilerClasspath.sanitize(
-                expandedTargetProjectCP + File.pathSeparator + expandedEvoSuiteCP,
-                CompilerClasspath.Policy.GENERATED_TESTS);
+                expandedTargetProjectCP + File.pathSeparator + expandedEvoSuiteCP);
         cachedCompilerClasspathEvoSuiteInput = evosuiteCP;
         cachedCompilerClasspathTargetInput = targetProjectCP;
         cachedCompilerClasspath = classpath;

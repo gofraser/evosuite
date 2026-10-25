@@ -62,16 +62,7 @@ public final class CompilerClasspath {
             Pattern.compile("error:\\s+error\\s+reading\\s+([^;\\r\\n]+);\\s+java\\.net\\.URISyntaxException",
                     Pattern.CASE_INSENSITIVE);
 
-    private static final Map<String, String> SANITIZED_SNIPPET_ENTRIES = new ConcurrentHashMap<>();
-    private static final Map<String, String> SANITIZED_GENERATED_TEST_ENTRIES = new ConcurrentHashMap<>();
-
-    /** Which jars are repaired, and how, before the classpath reaches javac. */
-    public enum Policy {
-        /** Expands manifest-only jars and replaces jars with a malformed manifest Class-Path. */
-        SNIPPET,
-        /** Replaces jars with a malformed manifest Class-Path or entries with dot segments. */
-        GENERATED_TESTS
-    }
+    private static final Map<String, String> SANITIZED_ENTRIES = new ConcurrentHashMap<>();
 
     private CompilerClasspath() {
     }
@@ -220,51 +211,18 @@ public final class CompilerClasspath {
     }
 
     /**
-     * Repairs the entries of a classpath under the policy, keeping their order.
+     * Repairs the entries of a classpath, keeping their order: manifest-only jars are expanded,
+     * and jars with a malformed manifest Class-Path, with dot-segment entries, or that name such a
+     * jar in their manifest are replaced by a directory holding their content.
      */
-    public static String sanitize(String classpath, Policy policy) {
+    public static String sanitize(String classpath) {
         if (classpath == null || classpath.trim().isEmpty()) {
             return classpath;
         }
-        String[] entries = classpath.split(File.pathSeparator);
-        if (policy == Policy.SNIPPET) {
-            return String.join(File.pathSeparator,
-                    sanitizeClasspathEntriesForCompiler(new ArrayList<>(Arrays.asList(entries)),
-                            Collections.emptySet()));
-        }
-        List<String> sanitizedEntries = new ArrayList<>(entries.length);
-        for (String entry : entries) {
-            sanitizedEntries.add(sanitizeGeneratedTestEntry(entry));
-        }
-        return String.join(File.pathSeparator, sanitizedEntries);
-    }
-
-    private static String sanitizeGeneratedTestEntry(String entry) {
-        if (entry == null || entry.isEmpty()) {
-            return entry;
-        }
-        File jarFile = asExistingJarFile(entry);
-        if (jarFile == null) {
-            return entry;
-        }
-        String absolutePath = jarFile.getAbsolutePath();
-        String cached = SANITIZED_GENERATED_TEST_ENTRIES.get(absolutePath);
-        if (cached != null) {
-            return cached;
-        }
-        if (!hasDotSegmentEntry(jarFile) && !hasMalformedManifestClassPath(jarFile)) {
-            SANITIZED_GENERATED_TEST_ENTRIES.put(absolutePath, absolutePath);
-            return absolutePath;
-        }
-
-        // Dot-segment names are dropped because javac cannot open such entries.
-        String sanitized = extractJar(jarFile, "evosuite-compiler-cp-", CompilerClasspath::hasDotSegment);
-        SANITIZED_GENERATED_TEST_ENTRIES.put(absolutePath, sanitized);
-        if (!absolutePath.equals(sanitized)) {
-            logger.warn("Using sanitized compiler classpath entry for malformed jar {} -> {}",
-                    absolutePath, sanitized);
-        }
-        return sanitized;
+        return String.join(File.pathSeparator,
+                sanitizeClasspathEntriesForCompiler(
+                        new ArrayList<>(Arrays.asList(classpath.split(Pattern.quote(File.pathSeparator)))),
+                        Collections.emptySet()));
     }
 
     /**
@@ -293,7 +251,7 @@ public final class CompilerClasspath {
 
         String repaired = String.join(File.pathSeparator,
                 sanitizeClasspathEntriesForCompiler(
-                        new ArrayList<>(java.util.Arrays.asList(classpath.split(Pattern.quote(File.pathSeparator)))),
+                        new ArrayList<>(Arrays.asList(classpath.split(Pattern.quote(File.pathSeparator)))),
                         badBasenames));
         if (repaired.equals(classpath)) {
             return null;
@@ -338,7 +296,7 @@ public final class CompilerClasspath {
 
             String baseName = jarFile.getName();
             boolean seedMatch = !baseName.isEmpty() && problematicBasenames.contains(baseName);
-            if (seedMatch || CompilerClasspath.hasMalformedManifestClassPath(jarFile)) {
+            if (seedMatch || needsRepair(jarFile)) {
                 forcedSanitizationEntries.add(jarFile.getAbsolutePath());
                 if (!baseName.isEmpty()) {
                     problematicBasenames.add(baseName);
@@ -384,7 +342,7 @@ public final class CompilerClasspath {
     private static List<String> expandManifestOnlyClasspathJar(File jarFile) {
         if (jarFile == null
                 || !JarInfo.of(jarFile).isManifestOnly()
-                || CompilerClasspath.hasMalformedManifestClassPath(jarFile)) {
+                || hasMalformedManifestClassPath(jarFile)) {
             return Collections.emptyList();
         }
 
@@ -500,25 +458,29 @@ public final class CompilerClasspath {
         }
 
         String absolutePath = jarFile.getAbsolutePath();
-        String cached = SANITIZED_SNIPPET_ENTRIES.get(absolutePath);
+        String cached = SANITIZED_ENTRIES.get(absolutePath);
         if (cached != null && (!forceSanitization || !absolutePath.equals(cached))) {
             return cached;
         }
 
-        if (!forceSanitization && !CompilerClasspath.hasMalformedManifestClassPath(jarFile)) {
-            SANITIZED_SNIPPET_ENTRIES.put(absolutePath, absolutePath);
+        if (!forceSanitization && !needsRepair(jarFile)) {
+            SANITIZED_ENTRIES.put(absolutePath, absolutePath);
             return absolutePath;
         }
 
-        // The manifest is dropped so javac does not follow its malformed Class-Path.
-        String sanitized = CompilerClasspath.extractJar(jarFile, "evosuite-snippet-compiler-cp-",
-                "META-INF/MANIFEST.MF"::equalsIgnoreCase);
-        SANITIZED_SNIPPET_ENTRIES.put(absolutePath, sanitized);
+        // The manifest is dropped so javac does not follow its Class-Path, and dot-segment names
+        // because javac cannot open such entries.
+        String sanitized = extractJar(jarFile, "evosuite-compiler-cp-",
+                name -> "META-INF/MANIFEST.MF".equalsIgnoreCase(name) || hasDotSegment(name));
+        SANITIZED_ENTRIES.put(absolutePath, sanitized);
         if (!absolutePath.equals(sanitized)) {
-            logger.warn("Using sanitized snippet compiler classpath entry {} -> {}",
-                    absolutePath, sanitized);
+            logger.warn("Using sanitized compiler classpath entry {} -> {}", absolutePath, sanitized);
         }
         return sanitized;
+    }
+
+    private static boolean needsRepair(File jarFile) {
+        return hasMalformedManifestClassPath(jarFile) || hasDotSegmentEntry(jarFile);
     }
 
     private static void appendClassLoaderEntries(ClassLoader loader, Set<String> entries) {

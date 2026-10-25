@@ -532,8 +532,7 @@ public class JUnitAnalyzerTest {
         compilerLogger.addAppender(compilerLogAppender);
         String sanitized;
         try {
-            sanitized = CompilerClasspath.sanitize(malformedJar.getAbsolutePath(),
-                    CompilerClasspath.Policy.GENERATED_TESTS);
+            sanitized = CompilerClasspath.sanitize(malformedJar.getAbsolutePath());
         } finally {
             compilerLogger.detachAppender(compilerLogAppender);
             compilerLogAppender.stop();
@@ -546,7 +545,7 @@ public class JUnitAnalyzerTest {
         Assertions.assertTrue(sanitizedEntry.isDirectory());
 
         List<ILoggingEvent> sanitizationWarnings = eventsContaining(compilerLogAppender,
-                Level.WARN, "Using sanitized compiler classpath entry for malformed jar");
+                Level.WARN, "Using sanitized compiler classpath entry");
         Assertions.assertEquals(1, sanitizationWarnings.size());
         Assertions.assertNull(sanitizationWarnings.get(0).getThrowableProxy());
     }

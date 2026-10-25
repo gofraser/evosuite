@@ -144,8 +144,7 @@ public class CompilerClasspathTest {
         String input = String.join(File.pathSeparator, good1.getPath(), broken.getPath(), dir.getPath(),
                 missing.getPath(), good2.getPath());
 
-        String[] out = CompilerClasspath.sanitize(input, CompilerClasspath.Policy.GENERATED_TESTS)
-                .split(File.pathSeparator);
+        String[] out = CompilerClasspath.sanitize(input).split(File.pathSeparator);
 
         assertEquals(5, out.length);
         assertEquals(good1.getAbsolutePath(), out[0]);
@@ -183,7 +182,7 @@ public class CompilerClasspathTest {
         assertNotNull(repaired);
         assertFalse(repaired.contains(malformedJar.getAbsolutePath()));
         assertTrue(repaired.contains(safeJar.getAbsolutePath()));
-        assertTrue(repaired.contains("evosuite-snippet-compiler-cp-"));
+        assertTrue(repaired.contains("evosuite-compiler-cp-"));
     }
 
     @Test
@@ -193,7 +192,7 @@ public class CompilerClasspathTest {
         String classpath = snippetClasspath(malformedJar);
 
         assertFalse(classpath.contains(malformedJar.getAbsolutePath()));
-        assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"));
+        assertTrue(classpath.contains("evosuite-compiler-cp-"));
     }
 
     @Test
@@ -205,7 +204,7 @@ public class CompilerClasspathTest {
 
         assertFalse(classpath.contains(referencingJar.getAbsolutePath()));
         assertFalse(classpath.contains(malformedJar.getAbsolutePath()));
-        assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"));
+        assertTrue(classpath.contains("evosuite-compiler-cp-"));
     }
 
     @Test
@@ -219,7 +218,7 @@ public class CompilerClasspathTest {
         assertFalse(classpath.contains(pathingJar.getAbsolutePath()));
         assertTrue(classpath.contains(safeJar.getAbsolutePath()));
         assertFalse(classpath.contains(malformedJar.getAbsolutePath()));
-        assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"));
+        assertTrue(classpath.contains("evosuite-compiler-cp-"));
     }
 
     @Test
@@ -230,5 +229,58 @@ public class CompilerClasspathTest {
         assertFalse(normalized.endsWith("\\"));
         assertFalse(normalized.startsWith("file:"));
         assertTrue(normalized.contains("/tmp/lib"));
+    }
+
+    @Test
+    public void snippetClasspathReplacesJarWithDotSegmentEntries() throws Exception {
+        File dotted = jar("dotted-loader.jar", null, "A.class", "x/../B.class");
+
+        String classpath = snippetClasspath(dotted);
+
+        assertFalse(classpath.contains(dotted.getAbsolutePath()));
+        assertTrue(classpath.contains("evosuite-compiler-cp-"));
+        File extracted = null;
+        for (String entry : classpath.split(File.pathSeparator)) {
+            if (new File(entry, "A.class").isFile()) {
+                extracted = new File(entry);
+            }
+        }
+        assertNotNull(extracted);
+        assertFalse(new File(extracted, "x/../B.class").exists());
+        assertFalse(new File(extracted, "B.class").exists());
+    }
+
+    @Test
+    public void generatedTestClasspathExpandsManifestOnlyJar() throws Exception {
+        File safeJar = jar("safe.jar", null, "A.class");
+        File pathingJar = jar("pathing.jar", safeJar.getName());
+
+        String classpath = CompilerClasspath.sanitize(pathingJar.getAbsolutePath());
+
+        assertEquals(safeJar.getAbsolutePath(), classpath);
+    }
+
+    @Test
+    public void generatedTestClasspathReplacesJarsReferencingAMalformedJar() throws Exception {
+        File malformedJar = jar("batik-squiggle.jar", "\\");
+        File referencingJar = jar("batik-script.jar", malformedJar.getName(), "S.class");
+        File safeJar = jar("safe.jar", null, "A.class");
+        String input = String.join(File.pathSeparator, referencingJar.getPath(), malformedJar.getPath(),
+                safeJar.getPath());
+
+        String[] out = CompilerClasspath.sanitize(input).split(File.pathSeparator);
+
+        assertEquals(3, out.length);
+        assertTrue(new File(out[0]).isDirectory());
+        assertTrue(new File(out[1]).isDirectory());
+        assertEquals(safeJar.getAbsolutePath(), out[2]);
+    }
+
+    @Test
+    public void generatedTestClasspathNormalizesAndDeduplicatesEntries() throws Exception {
+        File safeJar = jar("safe.jar", null, "A.class");
+        String input = "\"" + safeJar.getPath() + "\"" + File.pathSeparator + safeJar.getPath();
+
+        assertEquals(safeJar.getAbsolutePath(), CompilerClasspath.sanitize(input));
     }
 }
