@@ -392,7 +392,7 @@ public final class ExecutableSnippetEngine {
             if (snippet == null) {
                 CompiledSnippet compiled = compileSnippet(cacheKey,
                         buildStatementClassSource(cacheKey, sourceCode, bindings, returnExpression),
-                        parentLoader);
+                        parentLoader, 0, true);
                 CompiledSnippet existing = cache.putIfAbsent(cacheKey, compiled);
                 snippet = existing == null ? compiled : existing;
             }
@@ -438,7 +438,8 @@ public final class ExecutableSnippetEngine {
                 CompiledSnippet compiled = compileSnippet(cacheKey,
                         buildAssertionClassSource(cacheKey, assertionCode, bindings),
                         parentLoader,
-                        compileTimeoutMs);
+                        compileTimeoutMs,
+                        false);
                 CompiledSnippet existing = cache.putIfAbsent(cacheKey, compiled);
                 snippet = existing == null ? compiled : existing;
             }
@@ -540,13 +541,9 @@ public final class ExecutableSnippetEngine {
      * Compiles a snippet, delegating the filesystem I/O to the privileged
      * compilation executor so that the sandbox does not block it.
      */
-    private CompiledSnippet compileSnippet(String key, String source, ClassLoader parentLoader) {
-        return compileSnippet(key, source, parentLoader, 0);
-    }
-
     private CompiledSnippet compileSnippet(String key, String source, ClassLoader parentLoader,
-                                           long timeoutMs) {
-        Callable<CompiledSnippet> task = () -> doCompileSnippet(key, source, parentLoader);
+                                           long timeoutMs, boolean repairSource) {
+        Callable<CompiledSnippet> task = () -> doCompileSnippet(key, source, parentLoader, repairSource);
         long effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : DEFAULT_COMPILE_TIMEOUT_MS;
         try {
             return compilationWorker.call(task, effectiveTimeoutMs, TimeUnit.MILLISECONDS);
@@ -568,8 +565,14 @@ public final class ExecutableSnippetEngine {
         }
     }
 
-    /** Performs the actual compilation — always runs on the privileged compilation thread. */
-    private CompiledSnippet doCompileSnippet(String key, String source, ClassLoader parentLoader) {
+    /**
+     * Performs the actual compilation — always runs on the privileged compilation thread.
+     * Source repair comments out the statements javac rejects. That is acceptable for a
+     * statement, which then has less effect, but an assertion without its failing line
+     * holds vacuously, so assertions are compiled as written.
+     */
+    private CompiledSnippet doCompileSnippet(String key, String source, ClassLoader parentLoader,
+                                             boolean repairSource) {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
@@ -599,8 +602,9 @@ public final class ExecutableSnippetEngine {
                     classpath = repairedClasspath;
                     repaired = true;
                 }
-                SourceSanitizationOutcome repairedSource =
-                        sanitizeSourceForKnownCompileIssuesWithOutcome(workingSource, diagnostics);
+                SourceSanitizationOutcome repairedSource = repairSource
+                        ? sanitizeSourceForKnownCompileIssuesWithOutcome(workingSource, diagnostics)
+                        : null;
                 if (repairedSource != null && repairedSource.sanitizedSource != null
                         && !repairedSource.sanitizedSource.equals(workingSource)) {
                     workingSource = repairedSource.sanitizedSource;

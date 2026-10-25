@@ -39,7 +39,7 @@ class ExecutableSnippetEngineCacheTest {
         try {
             ExecutableSnippetEngine engine = new ExecutableSnippetEngine(executor, 2);
             for (int i = 0; i < 4; i++) {
-                assertTrue(engine.evaluateAssertion("1 + " + i + " > 0",
+                assertTrue(engine.evaluateAssertion("assertTrue(1 + " + i + " > 0);",
                         Collections.<String, Type>emptyMap(),
                         Collections.<String, Object>emptyMap()));
             }

@@ -55,12 +55,12 @@ class ExecutableSnippetEngineWedgedCompilerTest {
             ExecutableSnippetEngine engine = new ExecutableSnippetEngine(wedged);
 
             assertThrows(ExecutableSnippetEngine.AssertionCompilationTimeoutException.class,
-                    () -> engine.evaluateAssertion("1 > 0",
+                    () -> engine.evaluateAssertion("assertTrue(1 > 0);",
                             Collections.<String, Type>emptyMap(),
                             Collections.<String, Object>emptyMap(),
                             300, 0));
 
-            assertTrue(engine.evaluateAssertion("2 > 1",
+            assertTrue(engine.evaluateAssertion("assertTrue(2 > 1);",
                     Collections.<String, Type>emptyMap(),
                     Collections.<String, Object>emptyMap(),
                     30_000, 0));

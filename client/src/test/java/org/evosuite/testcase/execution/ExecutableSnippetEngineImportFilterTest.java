@@ -68,13 +68,13 @@ class ExecutableSnippetEngineImportFilterTest {
         TimeoutExecutor executor = new TimeoutExecutor();
         ExecutableSnippetEngine engine = new ExecutableSnippetEngine(executor);
         Method compileSnippet = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "compileSnippet", String.class, String.class, ClassLoader.class, long.class);
+                "compileSnippet", String.class, String.class, ClassLoader.class, long.class, boolean.class);
         compileSnippet.setAccessible(true);
 
         java.lang.reflect.InvocationTargetException thrown = assertThrows(
                 java.lang.reflect.InvocationTargetException.class,
                 () -> compileSnippet.invoke(engine, "key", "return true;",
-                        Thread.currentThread().getContextClassLoader(), 1L));
+                        Thread.currentThread().getContextClassLoader(), 1L, false));
 
         assertTrue(thrown.getCause() instanceof ExecutableSnippetEngine.AssertionCompilationTimeoutException);
         assertTrue(executor.future.cancelled);
