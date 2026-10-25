@@ -130,8 +130,15 @@ public class ReadWriteSystemPropertiesSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
         double cov = best.getCoverage();
-        //without replace calls, we shouldn't be able to achieve full coverage
-        Assertions.assertTrue(cov < 1d);
+        /*
+         * Without replace calls only the properties that cannot be restored are
+         * refused, and neither user.dir nor the other property is one of them.
+         */
+        Assertions.assertEquals(1d, cov, 0.001, "Non-optimal coverage: ");
+
+        //the writes made by the SUT must not outlive the test case
+        Assertions.assertEquals(userDir, System.getProperty(ReadWriteSystemProperties.USER_DIR));
+        Assertions.assertEquals(aProperty, System.getProperty(ReadWriteSystemProperties.A_PROPERTY));
     }
 
     @Test

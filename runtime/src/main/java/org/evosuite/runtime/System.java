@@ -142,7 +142,9 @@ public class System {
             if (!RuntimeSettings.mockJVMNonDeterminism) {
                 // We cannot restore these properties to ensure cross-OS compatibility,
                 // so they can't be written to
-                return !isSystemProperty(perm.getName());
+                if (isSystemProperty(perm.getName())) {
+                    return false;
+                }
             } else {
                 // As we do not restore these properties to ensure cross-OS compatibility
                 // they should not be written to
