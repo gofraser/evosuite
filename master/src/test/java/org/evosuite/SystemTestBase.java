@@ -65,6 +65,13 @@ public class SystemTestBase {
 
     private static java.util.Properties currentProperties;
 
+    /*
+     * The runtime mocks reset the default time zone and locale, and a system test runs the
+     * client in this JVM, so they have to be handed back after each test.
+     */
+    private static TimeZone currentTimeZone;
+    private static Locale currentLocale;
+
     protected static Criterion[] standardCriteria = Properties.CRITERION;
 
     static {
@@ -108,6 +115,8 @@ public class SystemTestBase {
         TestGenerationContext.getInstance().resetContext();
         ClassReInitializer.resetSingleton();
         System.setProperties(currentProperties);
+        TimeZone.setDefault(currentTimeZone);
+        Locale.setDefault(currentLocale);
         Properties.getInstance().resetToDefaults();
         TimeController.resetSingleton();
         ExceptionCoverageFactory.getGoals().clear();
@@ -167,6 +176,8 @@ public class SystemTestBase {
         Randomness.setSeed(seed);
 
         currentProperties = (java.util.Properties) System.getProperties().clone();
+        currentTimeZone = TimeZone.getDefault();
+        currentLocale = Locale.getDefault();
 
         MockFramework.enable();
     }
