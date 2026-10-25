@@ -19,16 +19,21 @@
  */
 package org.evosuite.llm;
 
+import org.evosuite.Properties;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
+import org.evosuite.seeding.ObjectPool;
 import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
+import org.evosuite.utils.generic.GenericClassFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -116,5 +121,30 @@ public class LlmStatisticsNonLlmMetricsTest {
                 () -> assertEquals(0, recorder.lastValues.get(RuntimeVariable.Object_Pool_Sequence_Used)),
                 () -> assertEquals(0,
                         recorder.lastValues.get(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures)));
+    }
+
+    @Test
+    public void publishingRunTotalsDoesNotLoadTheObjectPool() throws Exception {
+        ObjectPool filePool = new ObjectPool();
+        filePool.addSequence(GenericClassFactory.get(String.class), new DefaultTestCase());
+        File poolFile = File.createTempFile("objectpool", ".ser");
+        poolFile.deleteOnExit();
+        filePool.writePool(poolFile.getAbsolutePath());
+
+        String previousPools = Properties.OBJECT_POOLS;
+        try {
+            ObjectPoolManager.getInstance().reset();
+            Properties.OBJECT_POOLS = "";
+
+            // The totals are published before the target class is set up. Creating the pool
+            // there would load it too early and leave it without the files configured later.
+            LlmStatistics.publishRunTotals();
+
+            Properties.OBJECT_POOLS = poolFile.getAbsolutePath();
+            assertEquals(1, ObjectPoolManager.getInstance().getNumberOfSequences(),
+                    "publishing the run totals created the object pool");
+        } finally {
+            Properties.OBJECT_POOLS = previousPools;
+        }
     }
 }

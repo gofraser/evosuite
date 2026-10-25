@@ -135,6 +135,16 @@ public class ObjectPoolManager extends ObjectPool {
     }
 
     /**
+     * Returns the usage count of the current pool, or zero if none exists yet. Unlike
+     * {@link #getInstance()}, this does not create the pool, so it can be read at points where
+     * loading the pool (and carving the selected JUnit tests) would be premature.
+     */
+    public static int peekSequenceUsageCount() {
+        ObjectPoolManager current = instance;
+        return current == null ? 0 : current.getSequenceUsageCount();
+    }
+
+    /**
      * Returns the total number of times a pool sequence was successfully used.
      */
     public int getSequenceUsageCount() {
