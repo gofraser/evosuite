@@ -33,11 +33,9 @@ import org.evosuite.symbolic.vm.regex.Matcher_Matches;
 import org.evosuite.symbolic.vm.regex.Pattern_Matcher;
 import org.evosuite.symbolic.vm.regex.Pattern_Matches;
 import org.evosuite.symbolic.vm.string.*;
-import org.evosuite.symbolic.vm.string.buffer.StringBuffer_Append.*;
 import org.evosuite.symbolic.vm.string.buffer.StringBuffer_Init.StringBufferInit_S;
 import org.evosuite.symbolic.vm.string.buffer.StringBuffer_SetLength;
 import org.evosuite.symbolic.vm.string.buffer.StringBuffer_ToString;
-import org.evosuite.symbolic.vm.string.builder.StringBuilder_Append;
 import org.evosuite.symbolic.vm.string.builder.StringBuilder_Init;
 import org.evosuite.symbolic.vm.string.builder.StringBuilder_ToString;
 import org.evosuite.symbolic.vm.string.reader.Reader_Read;
@@ -592,14 +590,7 @@ public final class SymbolicFunctionVM extends AbstractVM {
     private void fillStringBuilder() {
         // java.lang.StringBuilder
         addFunctionToTable(new StringBuilder_Init(env));
-        addFunctionToTable(new StringBuilder_Append.Append_B(env));
-        addFunctionToTable(new StringBuilder_Append.Append_C(env));
-        addFunctionToTable(new StringBuilder_Append.Append_D(env));
-        addFunctionToTable(new StringBuilder_Append.Append_F(env));
-        addFunctionToTable(new StringBuilder_Append.Append_I(env));
-        addFunctionToTable(new StringBuilder_Append.Append_L(env));
-        addFunctionToTable(new StringBuilder_Append.Append_O(env));
-        addFunctionToTable(new StringBuilder_Append.Append_S(env));
+        Append.stringBuilderFunctions(env).forEach(this::addFunctionToTable);
         addFunctionToTable(new StringBuilder_ToString(env));
     }
 
@@ -613,14 +604,8 @@ public final class SymbolicFunctionVM extends AbstractVM {
         addFunctionToTable(new EndsWith(env));
         addFunctionToTable(new Equals(env));
         addFunctionToTable(new EqualsIgnoreCase(env));
-        addFunctionToTable(new IndexOf.IndexOf_C(env));
-        addFunctionToTable(new IndexOf.IndexOf_S(env));
-        addFunctionToTable(new IndexOf.IndexOf_CI(env));
-        addFunctionToTable(new IndexOf.IndexOf_SI(env));
-        addFunctionToTable(new LastIndexOf.LastIndexOf_C(env));
-        addFunctionToTable(new LastIndexOf.LastIndexOf_S(env));
-        addFunctionToTable(new LastIndexOf.LastIndexOf_CI(env));
-        addFunctionToTable(new LastIndexOf.LastIndexOf_SI(env));
+        IndexOf.indexOfFunctions(env).forEach(this::addFunctionToTable);
+        IndexOf.lastIndexOfFunctions(env).forEach(this::addFunctionToTable);
         addFunctionToTable(new Length(env));
         addFunctionToTable(new Matches(env));
         addFunctionToTable(new RegionMatches(env));
@@ -765,13 +750,7 @@ public final class SymbolicFunctionVM extends AbstractVM {
         // java.lang.StringBuffer
         addFunctionToTable(new StringBufferInit_S(env));
         addFunctionToTable(new StringBuffer_ToString(env));
-        addFunctionToTable(new StringBufferAppend_B(env));
-        addFunctionToTable(new StringBufferAppend_C(env));
-        addFunctionToTable(new StringBufferAppend_I(env));
-        addFunctionToTable(new StringBufferAppend_L(env));
-        addFunctionToTable(new StringBufferAppend_F(env));
-        addFunctionToTable(new StringBufferAppend_D(env));
-        addFunctionToTable(new StringBufferAppend_STR(env));
+        Append.stringBufferFunctions(env).forEach(this::addFunctionToTable);
         addFunctionToTable(new StringBuffer_SetLength(env));
     }
 }

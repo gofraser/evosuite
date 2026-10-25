@@ -31,10 +31,13 @@ import org.evosuite.symbolic.vm.SymbolicFunction;
 import org.evosuite.symbolic.vm.heap.SymbolicHeap;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 /**
- * Symbolic function implementation for String.indexOf.
+ * Symbolic function implementation for String.indexOf and
+ * String.lastIndexOf, which differ only in the method name and operators.
  *
  * @author galeotti
  */
@@ -42,28 +45,75 @@ public abstract class IndexOf extends SymbolicFunction {
 
     private static final String INDEX_OF = "indexOf";
 
+    private static final String LAST_INDEX_OF = "lastIndexOf";
+
     /**
      * Constructs an IndexOf.
      *
      * @param env  the symbolic environment
+     * @param name the method name
      * @param desc the method descriptor
      */
-    public IndexOf(SymbolicEnvironment env, String desc) {
-        super(env, Types.JAVA_LANG_STRING, INDEX_OF, desc);
+    private IndexOf(SymbolicEnvironment env, String name, String desc) {
+        super(env, Types.JAVA_LANG_STRING, name, desc);
+    }
+
+    /**
+     * Returns the symbolic functions for the indexOf methods of String.
+     *
+     * @param env the symbolic environment
+     * @return the functions for int, String, (int, int) and (String, int)
+     * arguments
+     */
+    public static List<SymbolicFunction> indexOfFunctions(
+            SymbolicEnvironment env) {
+        return functions(env, INDEX_OF, Operator.INDEXOFC,
+                Operator.INDEXOFCI, Operator.INDEXOFS, Operator.INDEXOFSI);
+    }
+
+    /**
+     * Returns the symbolic functions for the lastIndexOf methods of String.
+     *
+     * @param env the symbolic environment
+     * @return the functions for int, String, (int, int) and (String, int)
+     * arguments
+     */
+    public static List<SymbolicFunction> lastIndexOfFunctions(
+            SymbolicEnvironment env) {
+        return functions(env, LAST_INDEX_OF, Operator.LASTINDEXOFC,
+                Operator.LASTINDEXOFCI, Operator.LASTINDEXOFS,
+                Operator.LASTINDEXOFSI);
+    }
+
+    private static List<SymbolicFunction> functions(SymbolicEnvironment env,
+                                                    String name, Operator opC,
+                                                    Operator opCI,
+                                                    Operator opS,
+                                                    Operator opSI) {
+        return Arrays.asList(new IndexOf_C(env, name, opC),
+                new IndexOf_S(env, name, opS),
+                new IndexOf_CI(env, name, opCI),
+                new IndexOf_SI(env, name, opSI));
     }
 
     /**
      * Symbolic function implementation for String.indexOf(int).
      */
-    public static final class IndexOf_C extends IndexOf {
+    private static final class IndexOf_C extends IndexOf {
+
+        private final Operator op;
 
         /**
          * Constructs an IndexOf_C.
          *
-         * @param env the symbolic environment
+         * @param env  the symbolic environment
+         * @param name the method name
+         * @param op   the operator of the resulting expression
          */
-        public IndexOf_C(SymbolicEnvironment env) {
-            super(env, Types.INT_TO_INT_DESCRIPTOR);
+        private IndexOf_C(SymbolicEnvironment env, String name,
+                          Operator op) {
+            super(env, name, Types.INT_TO_INT_DESCRIPTOR);
+            this.op = op;
         }
 
         /**
@@ -85,7 +135,7 @@ public abstract class IndexOf extends SymbolicFunction {
             if (leftExpr.containsSymbolicVariable()
                     || rightExpr.containsSymbolicVariable()) {
                 StringBinaryToIntegerExpression strBExpr = new StringBinaryToIntegerExpression(
-                        leftExpr, Operator.INDEXOFC, rightExpr, (long) res);
+                        leftExpr, op, rightExpr, (long) res);
 
                 return strBExpr;
             }
@@ -97,15 +147,21 @@ public abstract class IndexOf extends SymbolicFunction {
     /**
      * Symbolic function implementation for String.indexOf(int, int).
      */
-    public static final class IndexOf_CI extends IndexOf {
+    private static final class IndexOf_CI extends IndexOf {
+
+        private final Operator op;
 
         /**
          * Constructs an IndexOf_CI.
          *
-         * @param env the symbolic environment
+         * @param env  the symbolic environment
+         * @param name the method name
+         * @param op   the operator of the resulting expression
          */
-        public IndexOf_CI(SymbolicEnvironment env) {
-            super(env, Types.INT_INT_TO_INT_DESCRIPTOR);
+        private IndexOf_CI(SymbolicEnvironment env, String name,
+                         Operator op) {
+            super(env, name, Types.INT_INT_TO_INT_DESCRIPTOR);
+            this.op = op;
         }
 
         /**
@@ -130,7 +186,7 @@ public abstract class IndexOf extends SymbolicFunction {
                     || rightExpr.containsSymbolicVariable()
                     || fromIndexExpr.containsSymbolicVariable()) {
                 StringMultipleToIntegerExpression strBExpr = new StringMultipleToIntegerExpression(
-                        leftExpr, Operator.INDEXOFCI, rightExpr,
+                        leftExpr, op, rightExpr,
                         new ArrayList<>(Collections
                                 .singletonList(fromIndexExpr)),
                         (long) res);
@@ -145,15 +201,21 @@ public abstract class IndexOf extends SymbolicFunction {
     /**
      * Symbolic function implementation for String.indexOf(String).
      */
-    public static final class IndexOf_S extends IndexOf {
+    private static final class IndexOf_S extends IndexOf {
+
+        private final Operator op;
 
         /**
          * Constructs an IndexOf_S.
          *
-         * @param env the symbolic environment
+         * @param env  the symbolic environment
+         * @param name the method name
+         * @param op   the operator of the resulting expression
          */
-        public IndexOf_S(SymbolicEnvironment env) {
-            super(env, Types.STR_TO_INT_DESCRIPTOR);
+        private IndexOf_S(SymbolicEnvironment env, String name,
+                         Operator op) {
+            super(env, name, Types.STR_TO_INT_DESCRIPTOR);
+            this.op = op;
         }
 
         /**
@@ -182,7 +244,7 @@ public abstract class IndexOf extends SymbolicFunction {
             if (leftExpr.containsSymbolicVariable()
                     || rightExpr.containsSymbolicVariable()) {
                 StringBinaryToIntegerExpression strBExpr = new StringBinaryToIntegerExpression(
-                        leftExpr, Operator.INDEXOFS, rightExpr, (long) res);
+                        leftExpr, op, rightExpr, (long) res);
 
                 return strBExpr;
             }
@@ -195,15 +257,21 @@ public abstract class IndexOf extends SymbolicFunction {
     /**
      * Symbolic function implementation for String.indexOf(String, int).
      */
-    public static final class IndexOf_SI extends IndexOf {
+    private static final class IndexOf_SI extends IndexOf {
+
+        private final Operator op;
 
         /**
          * Constructs an IndexOf_SI.
          *
-         * @param env the symbolic environment
+         * @param env  the symbolic environment
+         * @param name the method name
+         * @param op   the operator of the resulting expression
          */
-        public IndexOf_SI(SymbolicEnvironment env) {
-            super(env, Types.STR_INT_TO_INT_DESCRIPTOR);
+        private IndexOf_SI(SymbolicEnvironment env, String name,
+                         Operator op) {
+            super(env, name, Types.STR_INT_TO_INT_DESCRIPTOR);
+            this.op = op;
         }
 
         /**
@@ -237,7 +305,7 @@ public abstract class IndexOf extends SymbolicFunction {
                         || fromIndexExpr.containsSymbolicVariable()) {
 
                     StringMultipleToIntegerExpression strBExpr = new StringMultipleToIntegerExpression(
-                            leftExpr, Operator.INDEXOFSI, rightExpr,
+                            leftExpr, op, rightExpr,
                             new ArrayList<>(Collections
                                     .singletonList(fromIndexExpr)),
                             (long) res);
