@@ -22,6 +22,7 @@ package org.evosuite.testcase.execution;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUse;
@@ -625,8 +626,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             methodId++;
             // TODO: Skip this?
             if (traceCalls) {
-                if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
-                        || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)) {
+                if (FitnessFunctions.usesDefUse(Properties.CRITERION)) {
                     call.branchTrace.add(-1);
                     call.trueDistanceTrace.add(1.0);
                     call.falseDistanceTrace.add(0.0);
@@ -1557,8 +1557,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             stack.peek().falseDistanceTrace.add(falseDistance);
             assert ((trueDistance == 0.0) || (falseDistance == 0.0));
             // TODO line_trace ?
-            if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
-                    || (ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS))) {
+            if (FitnessFunctions.usesDefUse(Properties.CRITERION)) {
                 stack.peek().defuseCounterTrace.add(duCounter);
             }
         }

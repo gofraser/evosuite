@@ -25,7 +25,6 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TestSuiteGenerator;
-import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.annotations.EvoSuiteTest;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ResourceList;
@@ -694,13 +693,13 @@ public class CoverageAnalysis {
         }
         logger.info("* CoverageBitString " + str);
 
-        RuntimeVariable bitStringVariable = CoverageCriteriaAnalyzer.getBitStringVariable(criterion);
-        String criterionName = TestSuiteGeneratorHelper.getCriterionDisplayName(criterion);
+        RuntimeVariable bitStringVariable = FitnessFunctions.bitStringVariable(criterion);
+        String criterionName = FitnessFunctions.displayName(criterion);
         if (goals.isEmpty()) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "  - " + criterionName + ": 100% (0/0 goals)");
             ClientServices.getInstance().getClientNode().trackOutputVariable(
-                    CoverageCriteriaAnalyzer.getCoverageVariable(criterion), 1.0);
+                    FitnessFunctions.coverageVariable(criterion), 1.0);
             if (bitStringVariable != null) {
                 ClientServices.getInstance().getClientNode().trackOutputVariable(bitStringVariable, "1");
             }
@@ -711,7 +710,7 @@ public class CoverageAnalysis {
                     + " (" + covered.cardinality() + "/" + goals.size() + " goals)");
 
             ClientServices.getInstance().getClientNode().trackOutputVariable(
-                    CoverageCriteriaAnalyzer.getCoverageVariable(criterion), coverage);
+                    FitnessFunctions.coverageVariable(criterion), coverage);
             if (bitStringVariable != null) {
                 ClientServices.getInstance().getClientNode().trackOutputVariable(bitStringVariable, str.toString());
             }

@@ -21,7 +21,7 @@ package org.evosuite.strategy;
 
 import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
-import org.evosuite.Properties.Criterion;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.TestSuiteFitnessFunctionMock;
@@ -34,7 +34,6 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testsuite.TestSuiteChromosome;
-import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
@@ -113,10 +112,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
             return new TestSuiteChromosome();
         }
 
-        if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH)) {
+        if (FitnessFunctions.requiresTraceCallsForManyObjectives(Properties.CRITERION)) {
             ExecutionTracer.enableTraceCalls();
         }
 

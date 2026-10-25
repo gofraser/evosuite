@@ -20,6 +20,7 @@
 package org.evosuite.strategy;
 
 import org.evosuite.Properties;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.metaheuristics.mapelites.MAPElites;
@@ -33,7 +34,6 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
-import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
@@ -73,9 +73,7 @@ public class MAPElitesStrategy extends TestGenerationStrategy {
             throw new RuntimeException("Tracking population diversity is not supported by MAPElites");
         }
 
-        if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.ALLDEFS)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.STATEMENT)) {
+        if (FitnessFunctions.requiresTraceCalls(Properties.CRITERION)) {
             ExecutionTracer.enableTraceCalls();
         }
 

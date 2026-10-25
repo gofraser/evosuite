@@ -26,6 +26,7 @@ import org.evosuite.assertion.CompleteAssertionGenerator;
 import org.evosuite.assertion.SimpleMutationAssertionGenerator;
 import org.evosuite.assertion.UnitAssertionGenerator;
 import org.evosuite.contracts.ContractChecker;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.strategy.*;
 import org.evosuite.symbolic.dse.DSEStrategy;
@@ -39,60 +40,8 @@ import java.util.Arrays;
  */
 public class TestSuiteGeneratorHelper {
 
-    /**
-     * <p>getCriterionDisplayName.</p>
-     *
-     * @param criterion a {@link org.evosuite.Properties.Criterion} object.
-     * @return a {@link java.lang.String} object.
-     */
-    public static String getCriterionDisplayName(Criterion criterion) {
-        switch (criterion) {
-            case WEAKMUTATION:
-                return "Mutation testing (weak)";
-            case ONLYMUTATION:
-                return "Only Mutation testing (weak)";
-            case STRONGMUTATION:
-            case MUTATION:
-                return "Mutation testing (strong)";
-            case DEFUSE:
-                return "All DU Pairs";
-            case STATEMENT:
-                return "Statement Coverage";
-            case ALLDEFS:
-                return "All Definitions";
-            case EXCEPTION:
-                return "Exception";
-            case ONLYBRANCH:
-                return "Only-Branch Coverage";
-            case METHODTRACE:
-                return "Method Coverage";
-            case METHOD:
-                return "Top-Level Method Coverage";
-            case METHODNOEXCEPTION:
-                return "No-Exception Top-Level Method Coverage";
-            case LINE:
-                return "Line Coverage";
-            case ONLYLINE:
-                return "Only-Line Coverage";
-            case OUTPUT:
-                return "Method-Output Coverage";
-            case INPUT:
-                return "Method-Input Coverage";
-            case BRANCH:
-                return "Branch Coverage";
-            case CBRANCH:
-                return "Context Branch Coverage";
-            case IBRANCH:
-                return "Interprocedural Context Branch Coverage";
-            case TRYCATCH:
-                return "Try-Catch Branch Coverage";
-            default:
-                throw new IllegalArgumentException("Unrecognized criterion: " + criterion);
-        }
-    }
-
     static void printTestCriterion(Criterion criterion) {
-        LoggingUtils.getEvoLogger().info("  - {}", getCriterionDisplayName(criterion));
+        LoggingUtils.getEvoLogger().info("  - {}", FitnessFunctions.displayName(criterion));
     }
 
     static void printTestCriterion() {

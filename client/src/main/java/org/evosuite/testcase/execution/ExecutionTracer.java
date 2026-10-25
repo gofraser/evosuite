@@ -26,7 +26,6 @@ import org.evosuite.coverage.dataflow.Use;
 import org.evosuite.instrumentation.testability.BooleanHelper;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.seeding.ConstantPoolManager;
-import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -219,20 +218,6 @@ public class ExecutionTracer {
      */
     public static void enableTraceCalls() {
         ExecutionTraceImpl.enableTraceCalls();
-    }
-
-    /**
-     * Whether a retained execution result must keep its per-invocation
-     * {@link MethodCall} records. Only the def-use criteria read them from a stored
-     * result ({@code DefUseExecutionTraceAnalyzer}); every other criterion decides
-     * coverage from the aggregated maps and needs the per-call records only while
-     * approach levels for uncovered goals are computed on a fresh result.
-     *
-     * @return true if the configured criteria consume stored per-call traces
-     */
-    public static boolean coverageRequiresMethodCallTraces() {
-        return ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.ALLDEFS);
     }
 
     public static boolean isTraceCallsEnabled() {

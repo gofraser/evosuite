@@ -21,6 +21,7 @@ package org.evosuite.instrumentation;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.instrumentation.coverage.BranchInstrumentation;
 import org.evosuite.instrumentation.coverage.DefUseInstrumentation;
 import org.evosuite.instrumentation.coverage.MethodInstrumentation;
@@ -48,7 +49,7 @@ public class InstrumentationSelector {
         List<MethodInstrumentation> instrumentations = new ArrayList<>();
 
         if (DependencyAnalysis.shouldInstrument(className, methodName)) {
-            if (isDefUse()) {
+            if (FitnessFunctions.usesDefUse(Properties.CRITERION)) {
                 instrumentations.add(new BranchInstrumentation());
                 instrumentations.add(new DefUseInstrumentation());
             } else if (isMutationCriterion()) {
@@ -79,13 +80,5 @@ public class InstrumentationSelector {
     public static boolean isMutationCriterion() {
         return isMutation()
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.ONLYMUTATION);
-    }
-
-    /**
-     * Checks if any Def-Use-related criterion is active.
-     */
-    public static boolean isDefUse() {
-        return ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS);
     }
 }

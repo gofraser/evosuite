@@ -23,7 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.continuous.persistency.StorageManager;
-import org.evosuite.coverage.CoverageCriteriaAnalyzer;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.executionmode.ExecutionModeUtils;
 import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.runtime.util.JavaExecCmdUtil;
@@ -519,9 +519,9 @@ public class JobHandler extends Thread {
 
             for (Properties.Criterion criterion : Properties.CRITERION) {
                 // coverage/score
-                cmd.append("," + CoverageCriteriaAnalyzer.getCoverageVariable(criterion));
+                cmd.append("," + FitnessFunctions.coverageVariable(criterion));
                 // coverage bit string
-                cmd.append("," + CoverageCriteriaAnalyzer.getBitStringVariable(criterion));
+                cmd.append("," + FitnessFunctions.bitStringVariable(criterion));
 
                 //special cases
                 if (criterion.equals(Properties.Criterion.EXCEPTION)) {

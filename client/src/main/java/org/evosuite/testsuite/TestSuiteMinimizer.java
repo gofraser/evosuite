@@ -24,6 +24,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.SecondaryObjective;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.ga.ConstructionFailedException;
@@ -460,7 +461,7 @@ public class TestSuiteMinimizer {
         // trace answers; per-call records are needed by the def-use criteria alone.
         // Every test in the suite is re-executed and its result cached, so on
         // call-heavy targets recording them exhausts the heap before the first goal.
-        if (ExecutionTracer.coverageRequiresMethodCallTraces()) {
+        if (FitnessFunctions.usesDefUse(Properties.CRITERION)) {
             ExecutionTracer.enableTraceCalls();
         } else {
             ExecutionTracer.disableTraceCalls();

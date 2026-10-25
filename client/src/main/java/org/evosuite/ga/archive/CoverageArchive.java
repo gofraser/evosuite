@@ -20,6 +20,7 @@
 package org.evosuite.ga.archive;
 
 import org.evosuite.Properties;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.coverage.exception.TryCatchCoverageTestFitness;
 import org.evosuite.ga.FitnessFunction;
@@ -29,7 +30,6 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
@@ -164,7 +164,7 @@ public class CoverageArchive extends Archive {
                             + "). Solution code:\n" + code);
             return;
         }
-        if (!ExecutionTracer.coverageRequiresMethodCallTraces()) {
+        if (!FitnessFunctions.usesDefUse(Properties.CRITERION)) {
             // The archive keeps a result only for the goals it covers, which the
             // aggregated maps answer. The per-call records exist to compute approach
             // levels for goals the population has *not* reached, and on call-heavy

@@ -20,7 +20,7 @@
 package org.evosuite.strategy;
 
 import org.evosuite.Properties;
-import org.evosuite.TestSuiteGeneratorHelper;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.archive.Archive;
@@ -86,9 +86,7 @@ public class NoveltyStrategy extends TestGenerationStrategy {
         }
         // ===========================================================================================
 
-        if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.ALLDEFS)
-                || ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.STATEMENT)) {
+        if (FitnessFunctions.requiresTraceCalls(Properties.CRITERION)) {
             ExecutionTracer.enableTraceCalls();
         }
 
@@ -179,7 +177,7 @@ public class NoveltyStrategy extends TestGenerationStrategy {
 
                 if (verbose) {
                     LoggingUtils.getEvoLogger().info("  - {} {}",
-                            TestSuiteGeneratorHelper.getCriterionDisplayName(Properties.CRITERION[i]),
+                            FitnessFunctions.displayName(Properties.CRITERION[i]),
                             goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
                         for (TestFitnessFunction goal : goalFactory.getCoverageGoals()) {

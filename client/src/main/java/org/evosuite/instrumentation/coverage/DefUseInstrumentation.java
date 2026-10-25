@@ -21,13 +21,12 @@ package org.evosuite.instrumentation.coverage;
 
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
-import org.evosuite.Properties.Criterion;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
 import org.evosuite.testcase.execution.ExecutionTracer;
-import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -67,8 +66,7 @@ public class DefUseInstrumentation implements MethodInstrumentation {
             instructionMap.put(v.getASMNode(), v);
         }
 
-        boolean shouldInstrument = ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS);
+        boolean shouldInstrument = FitnessFunctions.usesDefUse(Properties.CRITERION);
 
         Iterator<AbstractInsnNode> j = mn.instructions.iterator();
         while (j.hasNext()) {

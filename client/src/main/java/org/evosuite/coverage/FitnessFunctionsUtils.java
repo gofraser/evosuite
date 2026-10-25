@@ -20,7 +20,6 @@
 package org.evosuite.coverage;
 
 import org.evosuite.Properties;
-import org.evosuite.TestSuiteGeneratorHelper;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.LoggingUtils;
@@ -104,7 +103,7 @@ public class FitnessFunctionsUtils {
                 if (verbose) {
                     LoggingUtils.getEvoLogger()
                             .info("  - {} {}",
-                                    TestSuiteGeneratorHelper.getCriterionDisplayName(criterion[i]),
+                                    FitnessFunctions.displayName(criterion[i]),
                                     goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
                         for (TestFitnessFunction goal : goalFactory.getCoverageGoals()) {

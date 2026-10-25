@@ -21,7 +21,7 @@ package org.evosuite.strategy;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.TestSuiteGeneratorHelper;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
@@ -77,9 +77,7 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
             algorithm.addListener(new DiversityObserver());
         }
 
-        if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.STATEMENT)) {
+        if (FitnessFunctions.requiresTraceCalls(Properties.CRITERION)) {
             ExecutionTracer.enableTraceCalls();
         }
 
@@ -163,7 +161,7 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
 
                 if (verbose) {
                     LoggingUtils.getEvoLogger().info("  - {} {}",
-                            TestSuiteGeneratorHelper.getCriterionDisplayName(Properties.CRITERION[i]),
+                            FitnessFunctions.displayName(Properties.CRITERION[i]),
                             goalFactory.getCoverageGoals().size());
                     if (Properties.PRINT_GOALS) {
                         for (TestFitnessFunction goal : goalFactory.getCoverageGoals()) {

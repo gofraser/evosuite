@@ -20,7 +20,7 @@
 package org.evosuite.strategy;
 
 import org.evosuite.Properties;
-import org.evosuite.TestSuiteGeneratorHelper;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
@@ -75,7 +75,7 @@ public class RandomTestStrategy extends TestGenerationStrategy {
             TestFitnessFactory<? extends TestFitnessFunction> goalFactory = goalFactories.get(i);
             goals.addAll(goalFactory.getCoverageGoals());
             LoggingUtils.getEvoLogger().info("  - {} {}",
-                    TestSuiteGeneratorHelper.getCriterionDisplayName(Properties.CRITERION[i]),
+                    FitnessFunctions.displayName(Properties.CRITERION[i]),
                     goalFactory.getCoverageGoals().size());
         }
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals,

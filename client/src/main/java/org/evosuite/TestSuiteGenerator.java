@@ -433,7 +433,7 @@ public class TestSuiteGenerator {
 
         String omittedCriteria = Arrays.stream(oldCriteria)
                 .filter(c -> TestSuiteGeneratorHelper.isLineDebugInfoDependentCriterion(c))
-                .map(TestSuiteGeneratorHelper::getCriterionDisplayName)
+                .map(FitnessFunctions::displayName)
                 .collect(java.util.stream.Collectors.joining(", "));
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                 + "Missing line debug information in target class {}; omitting criterion during test generation: {}",
@@ -478,7 +478,7 @@ public class TestSuiteGenerator {
 
         String omittedCriteria = Arrays.stream(Properties.CRITERION)
                 .filter(TestSuiteGenerator::isCallGraphDependentCriterion)
-                .map(TestSuiteGeneratorHelper::getCriterionDisplayName)
+                .map(FitnessFunctions::displayName)
                 .collect(java.util.stream.Collectors.joining(", "));
         LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
                 + "Dependency analysis did not produce a call graph for {}; omitting criterion during test "
