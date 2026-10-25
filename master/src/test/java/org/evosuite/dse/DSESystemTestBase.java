@@ -50,7 +50,6 @@ public abstract class DSESystemTestBase extends SystemTestBase {
         // Properties.TIMEOUT = Integer.MAX_VALUE;
 
         Properties.STRATEGY = Properties.Strategy.DSE;
-        Properties.SELECTED_DseArraysMemoryModelVersion = Properties.DseArraysMemoryModelVersion.SELECT_STORE_EXPRESSIONS;
 
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH};
 

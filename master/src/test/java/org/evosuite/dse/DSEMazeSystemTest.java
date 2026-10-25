@@ -106,7 +106,7 @@ public class DSEMazeSystemTest extends SystemTestBase {
     }
 
     @Test
-    @Disabled("Array expressions need a solver with an array theory; the search-based solver cannot solve them")
+    @Disabled("The select/store model needs a solver with an array theory, which the search-based solver is not; the lazy-variables test above covers the same class")
     public void testMazeClientInputForArraysSupportUsingArrayExpressions() {
 
         EvoSuite evosuite = new EvoSuite();

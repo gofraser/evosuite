@@ -145,8 +145,10 @@ public class TestConstraintSolver {
         DefaultTestCase tc = buildTestCase2();
         // build patch condition
         List<BranchCondition> branchConditions = executeTest(tc);
-        assertEquals(85, branchConditions.size());
-        assertEquals(58, getBranchConditions(branchConditions).size());
+        // The lazy array model reads the element that was never written as a constant, so
+        // the loop exit test records one branch condition fewer than the select/store model did.
+        assertEquals(84, branchConditions.size());
+        assertEquals(57, getBranchConditions(branchConditions).size());
 
         // keep only 2 top-most branch conditions
         List<BranchCondition> sublist = new ArrayList<>();

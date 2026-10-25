@@ -39,7 +39,6 @@ public class DSEAlgorithmDFSSystemTest extends DSESystemTestBase {
         super.init();
 
         Properties.DSE_EXPLORATION_ALGORITHM_TYPE = DSEAlgorithms.DFS;
-        Properties.SELECTED_DseArraysMemoryModelVersion = Properties.DseArraysMemoryModelVersion.LAZY_VARIABLES;
     }
 
     @Test

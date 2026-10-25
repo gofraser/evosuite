@@ -673,9 +673,10 @@ public class Properties {
     public static boolean IS_DSE_ARRAYS_SUPPORT_ENABLED = true;
 
     @Parameter(key = "selected_dse_module_arrays_support_version", group = "DSE",
-            description = "Which implementation of arrays is used on the concolic engine.")
+            description = "Which implementation of arrays is used on the concolic engine. SELECT_STORE_EXPRESSIONS "
+                    + "needs a solver with an array theory, which the built-in search-based solver is not.")
     public static DseArraysMemoryModelVersion SELECTED_DseArraysMemoryModelVersion =
-            DseArraysMemoryModelVersion.SELECT_STORE_EXPRESSIONS;
+            DseArraysMemoryModelVersion.LAZY_VARIABLES;
 
     @Parameter(key = "dse_probability", group = "DSE",
             description = "Probability used to specify when to use DSE instead of regular LS when LS is applied")
