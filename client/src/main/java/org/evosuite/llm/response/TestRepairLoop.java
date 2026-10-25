@@ -846,13 +846,7 @@ public class TestRepairLoop {
         String enriched = hintComposer.enrichParseErrorWithRepairHints(
                 droppedAtParse, droppedAtExecution, sb.toString());
 
-        StringBuilder out = new StringBuilder(enriched);
-        if (out.length() > 0) {
-            out.append(System.lineSeparator()).append(System.lineSeparator());
-        }
-        out.append("Return the complete corrected test class. "
-                + "Keep the executable tests verbatim and fix or regenerate only the failing ones.");
-        return out.toString();
+        return enriched;
     }
 
     private void appendAttritionSummary(StringBuilder sb,
@@ -879,8 +873,6 @@ public class TestRepairLoop {
                 .append(" execution-time).");
         sb.append(System.lineSeparator()).append("- Do not solve this by returning only the surviving test(s) or by "
                 + "silently deleting most failing scenarios.");
-        sb.append(System.lineSeparator()).append("- Return a complete corrected class that preserves the kept tests "
-                + "and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.");
 
         String sharedExecutionHint = hintComposer.buildSharedExecutionFailureHint(executionErrorByTest);
         if (sharedExecutionHint != null && !sharedExecutionHint.isEmpty()) {

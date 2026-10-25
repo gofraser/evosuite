@@ -1202,7 +1202,6 @@ Batch attrition summary:
 - Started from 4 parsed candidate test(s); only 1 currently parse and execute cleanly.
 - Dropped 3 test(s) so far (1 parse-time, 2 execution-time).
 - Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
-- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
 - Multiple dropped tests share the same execution root cause: null receiver 'shape' inside SUT call 'com.example.Shape.area()'. Repair the shared object/collaborator setup that should initialize this Shape instance before that call, instead of deleting those tests one-by-one. (2 tests)
 
 The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
@@ -1233,14 +1232,11 @@ Repair hints:
 - Declare the array before indexing it, including full rank/dimensions.
 - Declare the variable earlier and keep names consistent across statements.
 - Replace invented/unknown types with existing SUT or JDK types.
-
-Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
 === combined: shared anonymous snippet ===
 Batch attrition summary:
 - Started from 2 parsed candidate test(s); only 0 currently parse and execute cleanly.
 - Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
 - Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
-- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
 - Multiple dropped tests share the same anonymous-class snippet failure around 'Runnable'. This is not a parser/import issue. Do not keep writing `new Runnable() { ... }`; replace it with Mockito.mock(java.lang.Runnable.class, new ViolatedAssumptionAnswer()) or a real concrete collaborator setup. (2 tests)
 
 The following tests parsed but failed at execution; please repair them:
@@ -1248,14 +1244,11 @@ The following tests parsed but failed at execution; please repair them:
   - Snippet compilation failed: illegal start of type near new java.lang.Runnable() {
 * testAnonB:
   - Snippet compilation failed: illegal start of type near new java.lang.Runnable() {
-
-Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
 === combined: shared initialization failure ===
 Batch attrition summary:
 - Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly.
 - Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
 - Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
-- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
 - Multiple dropped tests share the same initialization failure in 'com.dep.Poisoned'. Repair the shared environment/setup once or avoid that path instead of deleting those tests individually. (2 tests)
 
 The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
@@ -1266,14 +1259,11 @@ The following tests parsed but failed at execution; please repair them:
   - java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
 * testInitB:
   - java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
-
-Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
 === combined: shared indexed fixture ===
 Batch attrition summary:
 - Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly.
 - Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
 - Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
-- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
 - Multiple dropped tests share the same bounds/shape failure while constructing or populating indexed fixtures. Repair the shared setup pattern once: make constructor size/count arguments consistent with every later indexed get/set call, do not assume every helper/container stores all slots exactly 1:1 with its constructor arguments, and regenerate those fixtures instead of deleting the tests one-by-one. (2 tests)
 
 The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
@@ -1284,14 +1274,11 @@ The following tests parsed but failed at execution; please repair them:
   - java.lang.IndexOutOfBoundsException: Index 3 out of bounds for length 2
 * testBoundsB:
   - java.lang.IndexOutOfBoundsException: Index 3 out of bounds for length 2
-
-Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
 === combined: shared false positive mock ===
 Batch attrition summary:
 - Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly.
 - Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
 - Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
-- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
 - Multiple dropped tests fail because the SUT reaches an unstubbed mock call to `findName(...)` on a ViolatedAssumptionAnswer collaborator. Repair the shared mock setup once by stubbing that collaborator method (and any returned nested collaborator) instead of deleting those tests one-by-one. (2 tests)
 
 The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
@@ -1302,14 +1289,11 @@ The following tests parsed but failed at execution; please repair them:
   - org.evosuite.runtime.FalsePositiveException: Mock call to findName which was not presented when the test was generated
 * testMockB:
   - org.evosuite.runtime.FalsePositiveException: Mock call to findName which was not presented when the test was generated
-
-Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
 === combined: parse diagnostics with actions ===
 Batch attrition summary:
 - Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly.
 - Dropped 2 test(s) so far (1 parse-time, 1 execution-time).
 - Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
-- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
 
 The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
 - testKept
@@ -1327,15 +1311,12 @@ The following tests parsed but failed at execution; please repair them:
   - java.lang.IllegalStateException: closed
 Repair hints:
 - remove [] indexing for this variable or change its declaration to an array type.
-
-Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
 === combined sent: shared npe with parse hints ===
 The following issue was found in the generated tests:
 Batch attrition summary:
 - Started from 4 parsed candidate test(s); only 1 currently parse and execute cleanly.
 - Dropped 3 test(s) so far (1 parse-time, 2 execution-time).
 - Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
-- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
 - Multiple dropped tests share the same execution root cause: null receiver 'shape' inside SUT call 'com.example.Shape.area()'. Repair the shared object/collaborator setup that should initialize this Shape instance before that call, instead of deleting those tests one-by-one. (2 tests)
 
 The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
@@ -1366,8 +1347,6 @@ Repair hints:
 - Declare the array before indexing it, including full rank/dimensions.
 - Declare the variable earlier and keep names consistent across statements.
 - Replace invented/unknown types with existing SUT or JDK types.
-
-Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
 
 NPE precondition hint:
 - The failing test violates required non-null preconditions.
@@ -1417,7 +1396,6 @@ Batch attrition summary:
 - Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly.
 - Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
 - Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
-- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
 - Multiple dropped tests share the same initialization failure in 'com.dep.Poisoned'. Repair the shared environment/setup once or avoid that path instead of deleting those tests individually. (2 tests)
 
 The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
@@ -1428,8 +1406,6 @@ The following tests parsed but failed at execution; please repair them:
   - java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
 * testInitB:
   - java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
-
-Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
 
 Initialization/dependency failure hint:
 - Detected failing initialization class: com.dep.Poisoned

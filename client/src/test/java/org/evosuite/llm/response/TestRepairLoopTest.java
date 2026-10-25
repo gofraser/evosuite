@@ -4174,7 +4174,7 @@ class TestRepairLoopTest {
                 "repair prompt should mention the execution-failed test name");
         assertTrue(repairPrompt.contains("IllegalStateException"),
                 "repair prompt should include the execution exception class");
-        assertTrue(repairPrompt.contains("Keep the executable tests verbatim"),
+        assertTrue(repairPrompt.contains("keep them unchanged in the corrected class"),
                 "repair prompt should instruct the LLM to preserve executable tests");
     }
 
