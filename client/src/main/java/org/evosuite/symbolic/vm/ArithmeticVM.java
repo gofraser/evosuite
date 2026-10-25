@@ -19,7 +19,7 @@
  */
 package org.evosuite.symbolic.vm;
 
-import org.evosuite.dse.AbstractVM;
+import org.evosuite.dse.IVM;
 import org.evosuite.symbolic.expr.Operator;
 import org.evosuite.symbolic.expr.bv.IntegerBinaryExpression;
 import org.evosuite.symbolic.expr.bv.IntegerComparison;
@@ -41,7 +41,7 @@ import org.evosuite.symbolic.expr.fp.RealValue;
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
-public final class ArithmeticVM extends AbstractVM {
+public final class ArithmeticVM implements IVM {
 
     private final SymbolicEnvironment env;
 

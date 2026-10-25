@@ -19,7 +19,8 @@
  */
 package org.evosuite.symbolic.vm;
 
-import org.evosuite.dse.AbstractVM;
+import org.evosuite.dse.IVM;
+import org.evosuite.dse.MainConfig;
 import org.evosuite.symbolic.LambdaUtils;
 import org.evosuite.symbolic.expr.Expression;
 import org.evosuite.symbolic.expr.Operator;
@@ -60,7 +61,7 @@ import java.util.Stack;
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
-public final class CallVM extends AbstractVM {
+public final class CallVM implements IVM {
 
     public static final String STRING_CONCATENATION_INDY_PARAMETER_IDENTIFIER = "\u0001";
     /**
@@ -72,6 +73,8 @@ public final class CallVM extends AbstractVM {
      * Instrumentation.
      */
     private final ConcolicInstrumentingClassLoader classLoader;
+
+    private final MainConfig conf = MainConfig.get();
 
     private int stackParamCount = 0;
     private final HashMap<Member, MemberInfo> memberInfos = new HashMap<>();

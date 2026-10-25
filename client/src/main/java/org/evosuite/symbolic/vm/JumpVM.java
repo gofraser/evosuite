@@ -19,7 +19,7 @@
  */
 package org.evosuite.symbolic.vm;
 
-import org.evosuite.dse.AbstractVM;
+import org.evosuite.dse.IVM;
 import org.evosuite.symbolic.expr.bv.IntegerConstant;
 import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.expr.constraint.IntegerConstraint;
@@ -36,7 +36,7 @@ import java.util.Vector;
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
-public final class JumpVM extends AbstractVM {
+public final class JumpVM implements IVM {
     private final SymbolicEnvironment env;
 
     private final PathConditionCollector pc;

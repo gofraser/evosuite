@@ -19,7 +19,7 @@
  */
 package org.evosuite.symbolic.vm;
 
-import org.evosuite.dse.AbstractVM;
+import org.evosuite.dse.IVM;
 import org.evosuite.symbolic.expr.bv.IntegerConstant;
 import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.expr.fp.RealConstant;
@@ -32,7 +32,7 @@ import org.evosuite.symbolic.expr.ref.ReferenceExpression;
  *
  * @author galeotti
  */
-public final class LocalsVM extends AbstractVM {
+public final class LocalsVM implements IVM {
 
     private final SymbolicEnvironment env;
 

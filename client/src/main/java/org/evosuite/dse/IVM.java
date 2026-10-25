@@ -20,7 +20,10 @@
 package org.evosuite.dse;
 
 /**
- * This class is taken and adapted from the DSC tool developed by Christoph Csallner.
+ * VM ByteCode instruction listener. Every callback has an empty default implementation, so a
+ * listener only overrides the instructions it observes.
+ *
+ * <p>This class is taken and adapted from the DSC tool developed by Christoph Csallner.
  *
  * <p>Link at : http://ranger.uta.edu/~csallner/dsc/index.html
  *
@@ -47,30 +50,40 @@ public interface IVM {
      *                          types.
      * @param value             the parameter value.
      */
-    void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, int value);
+    default void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, int value) {
+    }
 
-    void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, boolean value);
+    default void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, boolean value) {
+    }
 
-    void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, short value);
+    default void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, short value) {
+    }
 
-    void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, byte value);
+    default void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, byte value) {
+    }
 
-    void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, char value);
+    default void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, char value) {
+    }
 
-    void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, long value);
+    default void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, long value) {
+    }
 
-    void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, float value);
+    default void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, float value) {
+    }
 
-    void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, double value);
+    default void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, double value) {
+    }
 
-    void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, Object value);
+    default void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, Object value) {
+    }
 
     /**
      * Line number in the Java source code.
      *
      * @param lineNr the line number.
      */
-    void SRC_LINE_NUMBER(int lineNr);
+    default void SRC_LINE_NUMBER(int lineNr) {
+    }
 
     /**
      * Start of a new method.
@@ -80,8 +93,9 @@ public interface IVM {
      * @param methName  the name of the method.
      * @param methDesc  the descriptor of the method.
      */
-    void METHOD_BEGIN(int access, String className, String methName,
-                      String methDesc);
+    default void METHOD_BEGIN(int access, String className, String methName,
+                      String methDesc) {
+    }
 
     /**
      * Max values of a method.
@@ -92,8 +106,9 @@ public interface IVM {
      * @param maxStack  the maximum stack size.
      * @param maxLocals the maximum number of local variables.
      */
-    void METHOD_MAXS(String className, String methName, String methDesc,
-                     int maxStack, int maxLocals);
+    default void METHOD_MAXS(String className, String methName, String methDesc,
+                     int maxStack, int maxLocals) {
+    }
 
     /**
      * Pass index-th concrete parameter of the just called method. There will be
@@ -110,23 +125,32 @@ public interface IVM {
      *                          types.
      * @param value             the parameter value.
      */
-    void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, int value);
+    default void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, int value) {
+    }
 
-    void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, boolean value);
+    default void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, boolean value) {
+    }
 
-    void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, short value);
+    default void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, short value) {
+    }
 
-    void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, byte value);
+    default void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, byte value) {
+    }
 
-    void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, char value);
+    default void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, char value) {
+    }
 
-    void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, long value);
+    default void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, long value) {
+    }
 
-    void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, float value);
+    default void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, float value) {
+    }
 
-    void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, double value);
+    default void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, double value) {
+    }
 
-    void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, Object value);
+    default void METHOD_BEGIN_PARAM(int nr, int calleeLocalsIndex, Object value) {
+    }
 
     /**
      * METHOD_BEGIN_PARAM for the receiver instance ("this"), if this method is
@@ -134,7 +158,8 @@ public interface IVM {
      *
      * @param value the receiver instance.
      */
-    void METHOD_BEGIN_RECEIVER(Object value);
+    default void METHOD_BEGIN_RECEIVER(Object value) {
+    }
 
     /**
      * Value returned by the just completed method call.
@@ -143,24 +168,32 @@ public interface IVM {
      * @param name  the name of the method.
      * @param desc  the descriptor of the method.
      */
-    void CALL_RESULT(String owner, String name, String desc);
+    default void CALL_RESULT(String owner, String name, String desc) {
+    }
 
-    void CALL_RESULT(boolean res, String owner, String name, String desc);
+    default void CALL_RESULT(boolean res, String owner, String name, String desc) {
+    }
 
-    void CALL_RESULT(int res, String owner, String name, String desc);
+    default void CALL_RESULT(int res, String owner, String name, String desc) {
+    }
 
-    void CALL_RESULT(long res, String owner, String name, String desc);
+    default void CALL_RESULT(long res, String owner, String name, String desc) {
+    }
 
-    void CALL_RESULT(double res, String owner, String name, String desc);
+    default void CALL_RESULT(double res, String owner, String name, String desc) {
+    }
 
-    void CALL_RESULT(float res, String owner, String name, String desc);
+    default void CALL_RESULT(float res, String owner, String name, String desc) {
+    }
 
-    void CALL_RESULT(Object res, String owner, String name, String desc);
+    default void CALL_RESULT(Object res, String owner, String name, String desc) {
+    }
 
     /**
      * Start of a new basic block.
      */
-    void BB_BEGIN();
+    default void BB_BEGIN() {
+    }
 
     /**
      * Start of a handler.
@@ -170,48 +203,67 @@ public interface IVM {
      * @param methName  the name of the method.
      * @param methDesc  the descriptor of the method.
      */
-    void HANDLER_BEGIN(int access, String className, String methName,
-                       String methDesc);
+    default void HANDLER_BEGIN(int access, String className, String methName,
+                       String methDesc) {
+    }
 
     /*
      * Some 200 JVM ByteCode instructions
      */
 
-    void NOP();
+    default void NOP() {
+    }
 
-    void ACONST_NULL();
+    default void ACONST_NULL() {
+    }
 
-    void ICONST_M1();
+    default void ICONST_M1() {
+    }
 
-    void ICONST_0();
+    default void ICONST_0() {
+    }
 
-    void ICONST_1();
+    default void ICONST_1() {
+    }
 
-    void ICONST_2();
+    default void ICONST_2() {
+    }
 
-    void ICONST_3();
+    default void ICONST_3() {
+    }
 
-    void ICONST_4();
+    default void ICONST_4() {
+    }
 
-    void ICONST_5();
+    default void ICONST_5() {
+    }
 
-    void LCONST_0();
+    default void LCONST_0() {
+    }
 
-    void LCONST_1();
+    default void LCONST_1() {
+    }
 
-    void FCONST_0();
+    default void FCONST_0() {
+    }
 
-    void FCONST_1();
+    default void FCONST_1() {
+    }
 
-    void FCONST_2();
+    default void FCONST_2() {
+    }
 
-    void DCONST_0();
+    default void DCONST_0() {
+    }
 
-    void DCONST_1();
+    default void DCONST_1() {
+    }
 
-    void BIPUSH(int value);
+    default void BIPUSH(int value) {
+    }
 
-    void SIPUSH(int value);
+    default void SIPUSH(int value) {
+    }
 
     /**
      * LDC instruction.
@@ -220,17 +272,23 @@ public interface IVM {
      *
      * @param x the constant value.
      */
-    void LDC(String x);
+    default void LDC(String x) {
+    }
 
-    void LDC(Class<?> x);
+    default void LDC(Class<?> x) {
+    }
 
-    void LDC(int x);
+    default void LDC(int x) {
+    }
 
-    void LDC(float x);
+    default void LDC(float x) {
+    }
 
-    void LDC2_W(long x);
+    default void LDC2_W(long x) {
+    }
 
-    void LDC2_W(double x);
+    default void LDC2_W(double x) {
+    }
 
     /**
      * ILOAD instruction.
@@ -239,15 +297,20 @@ public interface IVM {
      *
      * @param i the local variable index.
      */
-    void ILOAD(int i);
+    default void ILOAD(int i) {
+    }
 
-    void LLOAD(int i);
+    default void LLOAD(int i) {
+    }
 
-    void FLOAD(int i);
+    default void FLOAD(int i) {
+    }
 
-    void DLOAD(int i);
+    default void DLOAD(int i) {
+    }
 
-    void ALOAD(int i);
+    default void ALOAD(int i) {
+    }
 
     /**
      * IALOAD instruction.
@@ -259,21 +322,29 @@ public interface IVM {
      * @param className  the name of the class.
      * @param methodName the name of the method.
      */
-    void IALOAD(Object receiver, int index, String className, String methodName);
+    default void IALOAD(Object receiver, int index, String className, String methodName) {
+    }
 
-    void LALOAD(Object receiver, int index, String className, String methodName);
+    default void LALOAD(Object receiver, int index, String className, String methodName) {
+    }
 
-    void FALOAD(Object receiver, int index, String className, String methodName);
+    default void FALOAD(Object receiver, int index, String className, String methodName) {
+    }
 
-    void DALOAD(Object receiver, int index, String className, String methodName);
+    default void DALOAD(Object receiver, int index, String className, String methodName) {
+    }
 
-    void AALOAD(Object receiver, int index, String className, String methodName);
+    default void AALOAD(Object receiver, int index, String className, String methodName) {
+    }
 
-    void BALOAD(Object receiver, int index, String className, String methodName);
+    default void BALOAD(Object receiver, int index, String className, String methodName) {
+    }
 
-    void CALOAD(Object receiver, int index, String className, String methodName);
+    default void CALOAD(Object receiver, int index, String className, String methodName) {
+    }
 
-    void SALOAD(Object receiver, int index, String className, String methodName);
+    default void SALOAD(Object receiver, int index, String className, String methodName) {
+    }
 
     /**
      * ISTORE instruction.
@@ -282,288 +353,417 @@ public interface IVM {
      *
      * @param i the local variable index.
      */
-    void ISTORE(int i);
+    default void ISTORE(int i) {
+    }
 
-    void LSTORE(int i);
+    default void LSTORE(int i) {
+    }
 
-    void FSTORE(int i);
+    default void FSTORE(int i) {
+    }
 
-    void DSTORE(int i);
+    default void DSTORE(int i) {
+    }
 
-    void ASTORE(int i);
+    default void ASTORE(int i) {
+    }
 
-    void IASTORE(Object receiver, int index, String className, String methodName);
+    default void IASTORE(Object receiver, int index, String className, String methodName) {
+    }
 
-    void LASTORE(Object receiver, int index, String className, String methodName);
+    default void LASTORE(Object receiver, int index, String className, String methodName) {
+    }
 
-    void FASTORE(Object receiver, int index, String className, String methodName);
+    default void FASTORE(Object receiver, int index, String className, String methodName) {
+    }
 
-    void DASTORE(Object receiver, int index, String className, String methodName);
+    default void DASTORE(Object receiver, int index, String className, String methodName) {
+    }
 
-    void BASTORE(Object receiver, int index, String className, String methodName);
+    default void BASTORE(Object receiver, int index, String className, String methodName) {
+    }
 
-    void CASTORE(Object receiver, int index, String className, String methodName);
+    default void CASTORE(Object receiver, int index, String className, String methodName) {
+    }
 
-    void SASTORE(Object receiver, int index, String className, String methodName);
+    default void SASTORE(Object receiver, int index, String className, String methodName) {
+    }
 
-    void AASTORE(Object receiver, int index, Object value, String className, String methodName);
+    default void AASTORE(Object receiver, int index, Object value, String className, String methodName) {
+    }
 
-    void POP();
+    default void POP() {
+    }
 
-    void POP2();
+    default void POP2() {
+    }
 
-    void DUP();
+    default void DUP() {
+    }
 
-    void DUP_X1();
+    default void DUP_X1() {
+    }
 
-    void DUP_X2();
+    default void DUP_X2() {
+    }
 
-    void DUP2();
+    default void DUP2() {
+    }
 
-    void DUP2_X1();
+    default void DUP2_X1() {
+    }
 
-    void DUP2_X2();
+    default void DUP2_X2() {
+    }
 
-    void SWAP();
+    default void SWAP() {
+    }
 
     /**
      * IADD instruction.
      *
      * <p>See http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc6.html#iadd
      */
-    void IADD();
+    default void IADD() {
+    }
 
-    void LADD();
+    default void LADD() {
+    }
 
-    void FADD();
+    default void FADD() {
+    }
 
-    void DADD();
+    default void DADD() {
+    }
 
-    void ISUB();
+    default void ISUB() {
+    }
 
-    void LSUB();
+    default void LSUB() {
+    }
 
-    void FSUB();
+    default void FSUB() {
+    }
 
-    void DSUB();
+    default void DSUB() {
+    }
 
-    void IMUL();
+    default void IMUL() {
+    }
 
-    void LMUL();
+    default void LMUL() {
+    }
 
-    void FMUL();
+    default void FMUL() {
+    }
 
-    void DMUL();
+    default void DMUL() {
+    }
 
-    void IDIV(int rhs);
+    default void IDIV(int rhs) {
+    }
 
-    void LDIV(long rhs);
+    default void LDIV(long rhs) {
+    }
 
-    void FDIV(float rhs);
+    default void FDIV(float rhs) {
+    }
 
-    void DDIV(double rhs);
+    default void DDIV(double rhs) {
+    }
 
-    void IREM(int rhs);
+    default void IREM(int rhs) {
+    }
 
-    void LREM(long rhs);
+    default void LREM(long rhs) {
+    }
 
-    void FREM(float rhs);
+    default void FREM(float rhs) {
+    }
 
-    void DREM(double rhs);
+    default void DREM(double rhs) {
+    }
 
-    void INEG();
+    default void INEG() {
+    }
 
-    void LNEG();
+    default void LNEG() {
+    }
 
-    void FNEG();
+    default void FNEG() {
+    }
 
-    void DNEG();
+    default void DNEG() {
+    }
 
-    void ISHL();
+    default void ISHL() {
+    }
 
-    void LSHL();
+    default void LSHL() {
+    }
 
-    void ISHR();
+    default void ISHR() {
+    }
 
-    void LSHR();
+    default void LSHR() {
+    }
 
-    void IUSHR();
+    default void IUSHR() {
+    }
 
-    void LUSHR();
+    default void LUSHR() {
+    }
 
-    void IAND();
+    default void IAND() {
+    }
 
-    void LAND();
+    default void LAND() {
+    }
 
-    void IOR();
+    default void IOR() {
+    }
 
-    void LOR();
+    default void LOR() {
+    }
 
-    void IXOR();
+    default void IXOR() {
+    }
 
-    void LXOR();
+    default void LXOR() {
+    }
 
-    void IINC(int i, int value);
+    default void IINC(int i, int value) {
+    }
 
-    void I2L();
+    default void I2L() {
+    }
 
-    void I2F();
+    default void I2F() {
+    }
 
-    void I2D();
+    default void I2D() {
+    }
 
-    void L2I();
+    default void L2I() {
+    }
 
-    void L2F();
+    default void L2F() {
+    }
 
-    void L2D();
+    default void L2D() {
+    }
 
-    void F2I();
+    default void F2I() {
+    }
 
-    void F2L();
+    default void F2L() {
+    }
 
-    void F2D();
+    default void F2D() {
+    }
 
-    void D2I();
+    default void D2I() {
+    }
 
-    void D2L();
+    default void D2L() {
+    }
 
-    void D2F();
+    default void D2F() {
+    }
 
-    void I2B();
+    default void I2B() {
+    }
 
-    void I2C();
+    default void I2C() {
+    }
 
-    void I2S();
+    default void I2S() {
+    }
 
-    void LCMP();
+    default void LCMP() {
+    }
 
-    void FCMPL();
+    default void FCMPL() {
+    }
 
-    void FCMPG();
+    default void FCMPG() {
+    }
 
-    void DCMPL();
+    default void DCMPL() {
+    }
 
-    void DCMPG();
+    default void DCMPG() {
+    }
 
-    void IFEQ(String className, String methNane, int branchIndex,
-              int param);
+    default void IFEQ(String className, String methNane, int branchIndex,
+              int param) {
+    }
 
-    void IFNE(String className, String methNane, int branchIndex,
-              int param);
+    default void IFNE(String className, String methNane, int branchIndex,
+              int param) {
+    }
 
-    void IFLT(String className, String methNane, int branchIndex,
-              int param);
+    default void IFLT(String className, String methNane, int branchIndex,
+              int param) {
+    }
 
-    void IFGE(String className, String methNane, int branchIndex,
-              int param);
+    default void IFGE(String className, String methNane, int branchIndex,
+              int param) {
+    }
 
-    void IFGT(String className, String methNane, int branchIndex,
-              int param);
+    default void IFGT(String className, String methNane, int branchIndex,
+              int param) {
+    }
 
-    void IFLE(String className, String methNane, int branchIndex,
-              int param);
+    default void IFLE(String className, String methNane, int branchIndex,
+              int param) {
+    }
 
-    void IF_ICMPEQ(String className, String methNane, int branchIndex,
-                   int left, int right);
+    default void IF_ICMPEQ(String className, String methNane, int branchIndex,
+                   int left, int right) {
+    }
 
-    void IF_ICMPNE(String className, String methNane, int branchIndex,
-                   int left, int right);
+    default void IF_ICMPNE(String className, String methNane, int branchIndex,
+                   int left, int right) {
+    }
 
-    void IF_ICMPLT(String className, String methNane, int branchIndex,
-                   int left, int right);
+    default void IF_ICMPLT(String className, String methNane, int branchIndex,
+                   int left, int right) {
+    }
 
-    void IF_ICMPGE(String className, String methNane, int branchIndex,
-                   int left, int right);
+    default void IF_ICMPGE(String className, String methNane, int branchIndex,
+                   int left, int right) {
+    }
 
-    void IF_ICMPGT(String className, String methNane, int branchIndex,
-                   int left, int right);
+    default void IF_ICMPGT(String className, String methNane, int branchIndex,
+                   int left, int right) {
+    }
 
-    void IF_ICMPLE(String className, String methNane, int branchIndex,
-                   int left, int right);
+    default void IF_ICMPLE(String className, String methNane, int branchIndex,
+                   int left, int right) {
+    }
 
-    void IF_ACMPEQ(String className, String methNane, int branchIndex,
-                   Object left, Object right);
+    default void IF_ACMPEQ(String className, String methNane, int branchIndex,
+                   Object left, Object right) {
+    }
 
-    void IF_ACMPNE(String className, String methNane, int branchIndex,
-                   Object left, Object right);
+    default void IF_ACMPNE(String className, String methNane, int branchIndex,
+                   Object left, Object right) {
+    }
 
-    void GOTO();
+    default void GOTO() {
+    }
 
-    void JSR();
+    default void JSR() {
+    }
 
-    void RET();
+    default void RET() {
+    }
 
-    void TABLESWITCH(String className, String methName, int branchIndex,
-                     int target, int min, int max);
+    default void TABLESWITCH(String className, String methName, int branchIndex,
+                     int target, int min, int max) {
+    }
 
-    void LOOKUPSWITCH(String className, String methName,
-                      int branchIndex, int target, int[] goals);
+    default void LOOKUPSWITCH(String className, String methName,
+                      int branchIndex, int target, int[] goals) {
+    }
 
-    void IRETURN();
+    default void IRETURN() {
+    }
 
-    void LRETURN();
+    default void LRETURN() {
+    }
 
-    void FRETURN();
+    default void FRETURN() {
+    }
 
-    void DRETURN();
+    default void DRETURN() {
+    }
 
-    void ARETURN();
+    default void ARETURN() {
+    }
 
-    void RETURN();
+    default void RETURN() {
+    }
 
-    void GETSTATIC(String owner, String name, String desc);
+    default void GETSTATIC(String owner, String name, String desc) {
+    }
 
-    void PUTSTATIC(String owner, String name, String desc);
+    default void PUTSTATIC(String owner, String name, String desc) {
+    }
 
-    void GETFIELD(Object receiver, String owner, String name, String desc);
+    default void GETFIELD(Object receiver, String owner, String name, String desc) {
+    }
 
-    void PUTFIELD(Object receiver, String owner, String name, String desc);
+    default void PUTFIELD(Object receiver, String owner, String name, String desc) {
+    }
 
-    void INVOKESTATIC(String owner, String name, String desc);
+    default void INVOKESTATIC(String owner, String name, String desc) {
+    }
 
-    void INVOKESPECIAL(String owner, String name, String desc);
+    default void INVOKESPECIAL(String owner, String name, String desc) {
+    }
 
-    void INVOKESPECIAL(Object receiver, String owner, String name,
-                       String desc);
+    default void INVOKESPECIAL(Object receiver, String owner, String name,
+                       String desc) {
+    }
 
-    void INVOKEVIRTUAL(Object receiver, String owner, String name,
-                       String desc);
+    default void INVOKEVIRTUAL(Object receiver, String owner, String name,
+                       String desc) {
+    }
 
-    void INVOKEINTERFACE(Object receiver, String owner, String name,
-                         String desc);
+    default void INVOKEINTERFACE(Object receiver, String owner, String name,
+                         String desc) {
+    }
 
-    void INVOKEDYNAMIC(Object clazz, String owner);
+    default void INVOKEDYNAMIC(Object clazz, String owner) {
+    }
 
-    void INVOKEDYNAMIC(String concatenationResult, String stringOwnerClass, String stringRecipe);
+    default void INVOKEDYNAMIC(String concatenationResult, String stringOwnerClass, String stringRecipe) {
+    }
 
-    void UNUSED();
+    default void UNUSED() {
+    }
 
-    void NEW(String typeName);
+    default void NEW(String typeName) {
+    }
 
-    void NEWARRAY(int length, Class<?> componentType, String className, String methodName);
+    default void NEWARRAY(int length, Class<?> componentType, String className, String methodName) {
+    }
 
-    void ANEWARRAY(int length, String componentTypeName, String className, String typeName);
+    default void ANEWARRAY(int length, String componentTypeName, String className, String typeName) {
+    }
 
-    void ARRAYLENGTH(Object reference);
+    default void ARRAYLENGTH(Object reference) {
+    }
 
-    void ATHROW(Throwable object);
+    default void ATHROW(Throwable object) {
+    }
 
-    void CHECKCAST(Object reference, String typeName);
+    default void CHECKCAST(Object reference, String typeName) {
+    }
 
-    void INSTANCEOF(Object reference, String typeName);
+    default void INSTANCEOF(Object reference, String typeName) {
+    }
 
-    void MONITORENTER();
+    default void MONITORENTER() {
+    }
 
-    void MONITOREXIT();
+    default void MONITOREXIT() {
+    }
 
-    void MULTIANEWARRAY(String arrayTypeDesc, int nrDimensions, String className, String methodName);
+    default void MULTIANEWARRAY(String arrayTypeDesc, int nrDimensions, String className, String methodName) {
+    }
 
-    void IFNULL(String className, String methNane, int branchIndex,
-                Object param);
+    default void IFNULL(String className, String methNane, int branchIndex,
+                Object param) {
+    }
 
-    void IFNONNULL(String className, String methNane, int branchIndex,
-                   Object param);
+    default void IFNONNULL(String className, String methNane, int branchIndex,
+                   Object param) {
+    }
 
-    void cleanUp();
+    default void cleanUp() {
+    }
 }
         

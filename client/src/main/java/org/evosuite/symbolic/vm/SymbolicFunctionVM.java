@@ -19,7 +19,7 @@
  */
 package org.evosuite.symbolic.vm;
 
-import org.evosuite.dse.AbstractVM;
+import org.evosuite.dse.IVM;
 import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.expr.constraint.IntegerConstraint;
 import org.evosuite.symbolic.expr.fp.RealValue;
@@ -56,7 +56,7 @@ import java.util.Map;
  *
  * @author galeotti
  */
-public final class SymbolicFunctionVM extends AbstractVM {
+public final class SymbolicFunctionVM implements IVM {
 
     private static class FunctionKey {
         public FunctionKey(String owner, String name, String desc) {

@@ -19,14 +19,14 @@
  */
 package org.evosuite.symbolic.vm;
 
-import org.evosuite.dse.AbstractVM;
+import org.evosuite.dse.IVM;
 
 /**
  * Symbolic virtual machine for other instructions.
  *
  * @author galeotti
  */
-public final class OtherVM extends AbstractVM {
+public final class OtherVM implements IVM {
 
     private final SymbolicEnvironment env;
 

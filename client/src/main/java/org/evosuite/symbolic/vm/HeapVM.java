@@ -19,7 +19,7 @@
  */
 package org.evosuite.symbolic.vm;
 
-import org.evosuite.dse.AbstractVM;
+import org.evosuite.dse.IVM;
 import org.evosuite.symbolic.expr.Expression;
 import org.evosuite.symbolic.expr.bv.IntegerConstant;
 import org.evosuite.symbolic.expr.bv.IntegerValue;
@@ -49,7 +49,7 @@ import static org.evosuite.dse.util.Assertions.notNull;
  *
  * @author csallner@uta.edu (Christoph Csallner)
  */
-public final class HeapVM extends AbstractVM {
+public final class HeapVM implements IVM {
 
     private static final Logger logger = LoggerFactory.getLogger(HeapVM.class);
 
