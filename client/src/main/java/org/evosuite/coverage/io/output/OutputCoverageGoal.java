@@ -20,6 +20,7 @@
 package org.evosuite.coverage.io.output;
 
 
+import org.evosuite.coverage.io.IOGoal;
 import org.evosuite.coverage.io.IOValueDescriptors;
 import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.Type;
@@ -35,7 +36,7 @@ import java.util.Set;
  *
  * @author Gordon Fraser, Andre Mis, Jose Miguel Rojas
  */
-public class OutputCoverageGoal implements Serializable, Comparable<OutputCoverageGoal> {
+public class OutputCoverageGoal implements Serializable, IOGoal<OutputCoverageGoal> {
 
     private static final long serialVersionUID = 3539419075883329059L;
 

@@ -19,6 +19,7 @@
  */
 package org.evosuite.coverage.io.input;
 
+import org.evosuite.coverage.io.IOGoal;
 import org.evosuite.coverage.io.IOValueDescriptors;
 import org.objectweb.asm.Type;
 
@@ -31,7 +32,7 @@ import java.util.*;
  *
  * @author Gordon Fraser, Andre Mis, Jose Miguel Rojas
  */
-public class InputCoverageGoal implements Serializable, Comparable<InputCoverageGoal> {
+public class InputCoverageGoal implements Serializable, IOGoal<InputCoverageGoal> {
 
     private static final long serialVersionUID = -2917009638438833179L;
 

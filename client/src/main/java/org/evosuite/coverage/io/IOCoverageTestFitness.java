@@ -1,0 +1,354 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.coverage.io;
+
+import org.evosuite.Properties;
+import org.evosuite.ga.archive.Archive;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.ExecutionObserver;
+import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.objectweb.asm.Type;
+
+import java.util.Collection;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Supplier;
+
+import static org.evosuite.coverage.io.IOCoverageConstants.*;
+
+/**
+ * Fitness function for evaluating individual test coverage of the values of a method, either its
+ * arguments or its return value. Calculates a distance-based fitness value for each goal.
+ *
+ * @param <G> the type of the goal
+ * @author Jose Miguel Rojas
+ */
+public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFitnessFunction {
+
+    private static final long serialVersionUID = 5236640771548310493L;
+
+    /**
+     * Target goal.
+     */
+    private final G goal;
+
+    /**
+     * Constructor - fitness is specific to a method.
+     *
+     * @param goal            the coverage goal
+     * @param observerClass   the observer that records the values the goals are computed from
+     * @param observerFactory creates the observer if the executor does not have one yet
+     */
+    protected IOCoverageTestFitness(G goal, Class<? extends ExecutionObserver> observerClass,
+                                    Supplier<? extends ExecutionObserver> observerFactory) {
+        this.goal = Objects.requireNonNull(goal, "goal cannot be null");
+        ensureObserver(observerClass, observerFactory);
+    }
+
+    /**
+     * Adds the observer to the TestCaseExecutor if it is not included yet.
+     */
+    static void ensureObserver(Class<? extends ExecutionObserver> observerClass,
+                               Supplier<? extends ExecutionObserver> observerFactory) {
+        TestCaseExecutor executor = TestCaseExecutor.getInstance();
+        for (ExecutionObserver ob : executor.getExecutionObservers()) {
+            if (observerClass.isInstance(ob)) {
+                return;
+            }
+        }
+        executor.addObserver(observerFactory.get());
+        logger.info("Added observer " + observerClass.getSimpleName());
+    }
+
+    /**
+     * Gets the name of the criterion, such as {@code Input}.
+     *
+     * @return the name used in the string representation
+     */
+    protected abstract String getCriterionName();
+
+    /**
+     * Gets the goals that the given execution covered, per statement.
+     *
+     * @param result the execution result
+     * @return the covered goals of each statement
+     */
+    protected abstract Collection<Set<G>> getCoveredGoals(ExecutionResult result);
+
+    /**
+     * <p>
+     * getClassName.
+     * </p>
+     *
+     * @return a {@link String} object.
+     */
+    public String getClassName() {
+        return goal.getClassName();
+    }
+
+    /**
+     * <p>
+     * getMethod.
+     * </p>
+     *
+     * @return a {@link String} object.
+     */
+    public String getMethod() {
+        return goal.getMethodName();
+    }
+
+    /**
+     * <p>
+     * getType.
+     * </p>
+     *
+     * @return a {@link org.objectweb.asm.Type} object.
+     */
+    public Type getType() {
+        return goal.getType();
+    }
+
+    /**
+     * <p>
+     * getValueDescriptor.
+     * </p>
+     *
+     * @return a {@link String} object.
+     */
+    public String getValueDescriptor() {
+        return goal.getValueDescriptor();
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p/>
+     * Calculate fitness.
+     *
+     * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
+     * @param result     a {@link ExecutionResult} object.
+     * @return a double.
+     */
+    @Override
+    public double getFitness(TestChromosome individual, ExecutionResult result) {
+        double fitness = Double.MAX_VALUE;
+        boolean found = false;
+
+        for (Set<G> coveredGoals : getCoveredGoals(result)) {
+            for (G coveredGoal : coveredGoals) {
+                if (this.goal.isSameArgument(coveredGoal)) {
+                    found = true;
+                    double distance = this.calculateDistance(coveredGoal);
+                    if (distance < fitness) {
+                        fitness = distance;
+                    }
+                    if (fitness == 0.0) {
+                        break;
+                    }
+                }
+            }
+            if (fitness == 0.0) {
+                break;
+            }
+        }
+
+        if (!found) {
+            fitness = Double.MAX_VALUE;
+        }
+
+        assert fitness >= 0.0;
+        updateIndividual(individual, fitness);
+
+        if (fitness == 0.0) {
+            individual.getTestCase().addCoveredGoal(this);
+        }
+
+        if (Properties.TEST_ARCHIVE) {
+            Archive.getArchiveInstance().updateArchive(this, individual, fitness);
+        }
+
+        return fitness;
+    }
+
+    private double calculateDistance(G coveredGoal) {
+        Number argValue = coveredGoal.getNumericValue();
+        switch (goal.getType().getSort()) {
+            case Type.BYTE:
+            case Type.SHORT:
+            case Type.INT:
+            case Type.FLOAT:
+            case Type.LONG:
+            case Type.DOUBLE:
+                assert (argValue != null);
+                assert (argValue instanceof Number);
+                double doubleValue = argValue.doubleValue();
+                if (Double.isNaN(doubleValue)) { // EvoSuite generates Double.NaN
+                    return Double.MAX_VALUE;
+                }
+
+                double distanceToNegative;
+                double distanceToZero;
+                double distanceToPositive;
+
+                if (doubleValue < 0) {
+                    distanceToNegative = 0;
+                    distanceToZero = Math.abs(doubleValue);
+                    distanceToPositive = Math.abs(doubleValue) + 1;
+                } else if (doubleValue == 0) {
+                    distanceToNegative = 1;
+                    distanceToZero = 0;
+                    distanceToPositive = 1;
+                } else {
+                    distanceToNegative = doubleValue + 1;
+                    distanceToZero = doubleValue;
+                    distanceToPositive = 0;
+                }
+
+                switch (goal.getValueDescriptor()) {
+                    case NUM_NEGATIVE:
+                        return distanceToNegative;
+                    case NUM_ZERO:
+                        return distanceToZero;
+                    case NUM_POSITIVE:
+                        return distanceToPositive;
+                    default:
+                        break;
+                }
+
+                break;
+            case Type.CHAR:
+                char charValue = (char) argValue.intValue();
+
+                double distanceToAlpha = 0.0;
+                if (charValue < 'A') {
+                    distanceToAlpha = 'A' - charValue;
+                } else if (charValue > 'z') {
+                    distanceToAlpha = charValue - 'z';
+                } else if (charValue < 'a' && charValue > 'Z') {
+                    distanceToAlpha = Math.min('a' - charValue, charValue - 'Z');
+                }
+
+                double distanceToDigit = 0.0;
+                if (charValue < '0') {
+                    distanceToDigit = '0' - charValue;
+                } else if (charValue > '9') {
+                    distanceToDigit = charValue - '9';
+                }
+
+                double distanceToOther = 0.0;
+                if (Character.isAlphabetic(charValue)) {
+                    if (charValue >= 'A' && charValue <= 'Z') {
+                        distanceToOther = Math.min(charValue - ('A' - 1), ('Z' + 1) - charValue);
+                    } else if (charValue >= 'a' && charValue <= 'z') {
+                        distanceToOther = Math.min(charValue - ('a' - 1), ('z' + 1) - charValue);
+                    }
+                } else if (Character.isDigit(charValue)) {
+                    distanceToOther = Math.min(charValue - ('0' - 1), ('9' + 1) - charValue);
+                }
+
+                switch (goal.getValueDescriptor()) {
+                    case CHAR_ALPHA:
+                        return distanceToAlpha;
+                    case CHAR_DIGIT:
+                        return distanceToDigit;
+                    case CHAR_OTHER:
+                        return distanceToOther;
+                    default:
+                        break;
+                }
+
+                break;
+            default:
+                // For other types like Boolean, String, Array, Object, we check if descriptors match
+                if (Objects.equals(goal.getValueDescriptor(), coveredGoal.getValueDescriptor())) {
+                    return 0.0;
+                } else {
+                    return 1.0;
+                }
+        }
+
+        return 1.0;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
+        return "[" + getCriterionName() + "]: " + goal.toString();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int hashCode() {
+        int hashConst = 13;
+        return 51 * hashConst + goal.hashCode();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        IOCoverageTestFitness<?> other = (IOCoverageTestFitness<?>) obj;
+        return this.goal.equals(other.goal);
+    }
+
+    /* (non-Javadoc)
+     * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public int compareTo(TestFitnessFunction other) {
+        if (getClass().isInstance(other)) {
+            return goal.compareTo(((IOCoverageTestFitness<G>) other).goal);
+        }
+        return compareClassName(other);
+    }
+
+    /* (non-Javadoc)
+     * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
+     */
+    @Override
+    public String getTargetClass() {
+        return getClassName();
+    }
+
+    /* (non-Javadoc)
+     * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
+     */
+    @Override
+    public String getTargetMethod() {
+        return getMethod();
+    }
+
+}
