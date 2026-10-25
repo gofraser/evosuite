@@ -33,6 +33,7 @@ import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -152,6 +153,11 @@ public class BaseDeterminismSystemTest {
         return filter(byteStream.toString());
     }
 
+    /**
+     * The master process logs with a wall-clock time in front of each message.
+     */
+    private static final Pattern MASTER_TIMESTAMP = Pattern.compile("^(\\[MASTER\\]) \\d{2}:\\d{2}:\\d{2}\\.\\d{3} ");
+
     private static String filter(String s) {
 
         List<String> skip = Arrays.asList(
@@ -166,7 +172,7 @@ public class BaseDeterminismSystemTest {
             if (skip.stream().anyMatch(k -> line.contains(k))) {
                 continue;
             }
-            buffer.append(line);
+            buffer.append(MASTER_TIMESTAMP.matcher(line).replaceFirst("$1 <time> "));
             buffer.append("\n");
         }
 
