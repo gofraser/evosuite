@@ -152,14 +152,33 @@ public class SimpleFM_SystemTest extends SystemTestBase {
         do100percentLineTest(SimpleFM_nonFinal.class);
     }
 
+    /*
+     * Final classes and methods can only be stubbed where the generated test's JVM strips the
+     * final modifiers as well, which is the case with a separate class loader. Without it the
+     * Mockito mock maker in the test JVM cannot intercept them, so they are neither mocked nor
+     * stubbed (see MethodDescriptor.wasOriginallyFinal) and the branch that needs a stubbed
+     * result stays uncovered.
+     */
     @Test
     public void testSimpleFinalClass() {
+        Properties.USE_SEPARATE_CLASSLOADER = true;
         do100percentLineTest(SimpleFM_finalClass.class);
     }
 
     @Test
     public void testSimpleFinalMethod() {
+        Properties.USE_SEPARATE_CLASSLOADER = true;
         do100percentLineTest(SimpleFM_finalMethod.class);
+    }
+
+    @Test
+    public void testSimpleFinalClassIsNotMockedWithoutSeparateClassLoader() {
+        doNonOptimalLineTest(SimpleFM_finalClass.class);
+    }
+
+    @Test
+    public void testSimpleFinalMethodIsNotStubbedWithoutSeparateClassLoader() {
+        doNonOptimalLineTest(SimpleFM_finalMethod.class);
     }
 
     @Test
