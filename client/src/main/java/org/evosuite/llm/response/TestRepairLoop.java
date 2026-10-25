@@ -109,9 +109,7 @@ public class TestRepairLoop {
     private static final Set<String> DEPENDENCY_MISSING_MARKERS = new HashSet<>(Arrays.asList(
             "NoClassDefFoundError",
             "ClassNotFoundException",
-            "ClassNotFoundError",
-            "Could not initialize class",
-            "NoClassDefFoundError:"
+            "Could not initialize class"
     ));
     /**
      * A javac "cannot find symbol" error names a missing class only when its symbol line says so;

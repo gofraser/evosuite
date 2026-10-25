@@ -177,8 +177,12 @@ final class RepairHintComposer {
         appendClassCastRepairHint(error, executionFailures, repairMessage);
     }
 
+    /**
+     * Guidance for a class that does not resolve at compile time. A missing class at run time is
+     * covered by the initialization/dependency failure hint, which repeats this guidance.
+     */
     private void appendDependencyMissingRepairInstructions(String error, StringBuilder repairMessage) {
-        if (!TestRepairLoop.isDependencyMissingError(error)) {
+        if (!TestRepairLoop.isDependencyMissingError(error) || isInitializationFailureError(error)) {
             return;
         }
         repairMessage.append("\n\nDependency-missing repair instructions:")

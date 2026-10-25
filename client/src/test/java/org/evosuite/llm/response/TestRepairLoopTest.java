@@ -1685,8 +1685,7 @@ class TestRepairLoopTest {
         @SuppressWarnings("unchecked")
         List<LlmMessage> sentConversation = conversationCaptor.getValue().getMessages();
         String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
-        assertTrue(userRepairMessage.contains("Dependency-missing repair instructions"));
-        assertTrue(userRepairMessage.contains("Do NOT reference or instantiate missing external/framework classes"));
+        assertFalse(userRepairMessage.contains("Dependency-missing repair instructions"));
         assertTrue(userRepairMessage.contains("Initialization/dependency failure hint"));
         assertTrue(userRepairMessage.contains("com/example/MissingFramework"));
     }

@@ -2,12 +2,6 @@
 The following issue was found in the generated tests:
 java.lang.NoClassDefFoundError: org/apache/commons/Missing
 
-Dependency-missing repair instructions:
-- Do NOT reference or instantiate missing external/framework classes.
-- Avoid code paths that trigger static initialization of missing dependencies.
-- Replace such tests with alternatives that only use available SUT/JDK types.
-- Focus on pure constructors/methods that do not require GUI/network/plugin containers.
-
 Initialization/dependency failure hint:
 - Keep all already executable tests unchanged.
 - For failing tests only, avoid code paths that load or initialize unavailable framework/native classes.
@@ -59,12 +53,6 @@ Please provide the corrected complete test class with all test methods.
 === repair: initialization aftershock ===
 The following issue was found in the generated tests:
 java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
-
-Dependency-missing repair instructions:
-- Do NOT reference or instantiate missing external/framework classes.
-- Avoid code paths that trigger static initialization of missing dependencies.
-- Replace such tests with alternatives that only use available SUT/JDK types.
-- Focus on pure constructors/methods that do not require GUI/network/plugin containers.
 
 Initialization/dependency failure hint:
 - Detected failing initialization class: com.dep.Poisoned
