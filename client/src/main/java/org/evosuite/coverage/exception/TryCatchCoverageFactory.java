@@ -24,6 +24,7 @@ import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchPool;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +56,9 @@ public class TryCatchCoverageFactory extends AbstractFitnessFactory<TryCatchCove
         // logger.info("Getting branches");
         for (String className : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .knownClasses()) {
+            if (!TargetClasses.isCutOrUnset(className)) {
+                continue;
+            }
             final MethodNameMatcher matcher = new MethodNameMatcher();
 
             // Branches

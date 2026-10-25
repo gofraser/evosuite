@@ -20,10 +20,10 @@
 package org.evosuite.coverage.io.output;
 
 import org.evosuite.runtime.Reflection;
-import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.io.IOValueDescriptors;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testsuite.AbstractFitnessFactory;
@@ -59,11 +59,9 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
     public List<OutputCoverageTestFitness> getCoverageGoals() {
         List<OutputCoverageTestFitness> goals = new ArrayList<>();
 
-        String targetClass = Properties.TARGET_CLASS;
-
         for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance()
                 .getClassLoaderForSUT()).knownClasses()) {
-            if (!(targetClass.equals("") || className.endsWith(targetClass))) {
+            if (!TargetClasses.isCutOrUnset(className)) {
                 continue;
             }
 

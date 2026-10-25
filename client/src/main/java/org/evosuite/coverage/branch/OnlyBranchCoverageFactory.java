@@ -19,10 +19,10 @@
  */
 package org.evosuite.coverage.branch;
 
-import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.graphs.cfg.ControlDependency;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +59,7 @@ public class OnlyBranchCoverageFactory extends
         // logger.info("Getting branches");
         for (String className : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .knownClasses()) {
-            if (!Properties.TARGET_CLASS.equals("") && !className.equals(Properties.TARGET_CLASS)) {
+            if (!TargetClasses.isCutOrUnset(className)) {
                 continue;
             }
             final MethodNameMatcher matcher = new MethodNameMatcher();

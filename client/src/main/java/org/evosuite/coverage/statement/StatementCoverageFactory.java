@@ -19,11 +19,11 @@
  */
 package org.evosuite.coverage.statement;
 
-import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 
 import java.util.ArrayList;
@@ -42,8 +42,6 @@ public class StatementCoverageFactory extends
      */
     @Override
     public List<StatementCoverageTestFitness> getCoverageGoals() {
-        String targetClass = Properties.TARGET_CLASS;
-
         List<StatementCoverageTestFitness> goals = new ArrayList<>();
 
         final MethodNameMatcher matcher = new MethodNameMatcher();
@@ -52,7 +50,7 @@ public class StatementCoverageFactory extends
 
         for (String className : pool.knownClasses()) {
 
-            if (!(targetClass.equals("") || className.endsWith(targetClass))) {
+            if (!TargetClasses.isCutOrUnset(className)) {
                 continue;
             }
 
