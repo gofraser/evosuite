@@ -225,21 +225,22 @@ public class PromptBuilder {
         BudgetDecision budgetDecision = resolveDependencySummaryBudget();
         TestClusterSummarizer.DependencySummaryResult result =
                 testClusterSummarizer.summarizeDependencies(cluster, targetClassName, budgetDecision.budgetChars);
+        TestClusterSummarizer.DependencySummaryStats stats = result.getStats();
         PromptResult.DependencySummaryMetadata metadata = new PromptResult.DependencySummaryMetadata(
-                result.getBudgetCharsUsed(),
+                budgetDecision.budgetChars,
                 result.getPerClassSoftCapUsed(),
                 result.isPerClassSoftCapAuto(),
-                result.isCompactSignaturesUsed(),
+                Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES,
                 budgetDecision.mode,
                 result.getCandidateClasses(),
-                result.getEmittedClasses(),
-                result.getEmittedTier1Classes(),
-                result.getEmittedTier2Classes(),
-                result.getEmittedTier3Classes(),
-                result.getEmittedInstantiators(),
-                result.getEmittedModifiers(),
-                result.getDroppedByPerClassCap(),
-                result.getDroppedByGlobalBudget());
+                stats.getEmittedClasses(),
+                stats.getEmittedTier1Classes(),
+                stats.getEmittedTier2Classes(),
+                stats.getEmittedTier3Classes(),
+                stats.getEmittedInstantiators(),
+                stats.getEmittedModifiers(),
+                stats.getDroppedByPerClassCap(),
+                stats.getDroppedByGlobalBudget());
         String summary = result.getText();
         String sectionText = (summary != null && !summary.trim().isEmpty())
                 ? StaticPromptContext.DEPENDENCY_SECTION_HEADER + "\n" + summary

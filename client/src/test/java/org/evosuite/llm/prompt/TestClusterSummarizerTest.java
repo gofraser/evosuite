@@ -576,7 +576,7 @@ class TestClusterSummarizerTest {
         }
         assertTrue(emittedSetters < 4,
                 "Soft cap should limit number of methods emitted for one class: " + text);
-        assertTrue(result.getDroppedByPerClassCap() > 0,
+        assertTrue(result.getStats().getDroppedByPerClassCap() > 0,
                 "Soft cap should report dropped members: " + text);
     }
 
@@ -632,7 +632,7 @@ class TestClusterSummarizerTest {
         String text = result.getText();
         assertFalse(text.contains("// HeaderOnlyDep"),
                 "Header should not be emitted without at least one member line: " + text);
-        assertTrue(result.getDroppedByPerClassCap() > 0, "Expected cap-driven drops");
+        assertTrue(result.getStats().getDroppedByPerClassCap() > 0, "Expected cap-driven drops");
     }
 
     @Test

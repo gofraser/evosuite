@@ -77,140 +77,26 @@ public class TestClusterSummarizer {
         private final String text;
         private final boolean truncated;
         private final int totalCharsBeforeTruncation;
-        private final int budgetCharsUsed;
         private final int perClassSoftCapUsed;
         private final boolean perClassSoftCapAuto;
-        private final boolean compactSignaturesUsed;
         private final int candidateClasses;
-        private final int emittedClasses;
-        private final int emittedTier1Classes;
-        private final int emittedTier2Classes;
-        private final int emittedTier3Classes;
-        private final int emittedInstantiators;
-        private final int emittedModifiers;
-        private final int droppedByPerClassCap;
-        private final int droppedByGlobalBudget;
+        private final DependencySummaryStats stats;
 
-        public static final class Builder {
-            private String text = "";
-            private boolean truncated;
-            private int totalCharsBeforeTruncation;
-            private int budgetCharsUsed;
-            private int perClassSoftCapUsed;
-            private boolean perClassSoftCapAuto;
-            private boolean compactSignaturesUsed;
-            private int candidateClasses;
-            private int emittedClasses;
-            private int emittedTier1Classes;
-            private int emittedTier2Classes;
-            private int emittedTier3Classes;
-            private int emittedInstantiators;
-            private int emittedModifiers;
-            private int droppedByPerClassCap;
-            private int droppedByGlobalBudget;
-
-            public Builder text(String text) {
-                this.text = text;
-                return this;
-            }
-
-            public Builder truncated(boolean truncated) {
-                this.truncated = truncated;
-                return this;
-            }
-
-            public Builder totalCharsBeforeTruncation(int totalCharsBeforeTruncation) {
-                this.totalCharsBeforeTruncation = totalCharsBeforeTruncation;
-                return this;
-            }
-
-            public Builder budgetCharsUsed(int budgetCharsUsed) {
-                this.budgetCharsUsed = budgetCharsUsed;
-                return this;
-            }
-
-            public Builder perClassSoftCapUsed(int perClassSoftCapUsed) {
-                this.perClassSoftCapUsed = perClassSoftCapUsed;
-                return this;
-            }
-
-            public Builder perClassSoftCapAuto(boolean perClassSoftCapAuto) {
-                this.perClassSoftCapAuto = perClassSoftCapAuto;
-                return this;
-            }
-
-            public Builder compactSignaturesUsed(boolean compactSignaturesUsed) {
-                this.compactSignaturesUsed = compactSignaturesUsed;
-                return this;
-            }
-
-            public Builder candidateClasses(int candidateClasses) {
-                this.candidateClasses = candidateClasses;
-                return this;
-            }
-
-            public Builder emittedClasses(int emittedClasses) {
-                this.emittedClasses = emittedClasses;
-                return this;
-            }
-
-            public Builder emittedTier1Classes(int emittedTier1Classes) {
-                this.emittedTier1Classes = emittedTier1Classes;
-                return this;
-            }
-
-            public Builder emittedTier2Classes(int emittedTier2Classes) {
-                this.emittedTier2Classes = emittedTier2Classes;
-                return this;
-            }
-
-            public Builder emittedTier3Classes(int emittedTier3Classes) {
-                this.emittedTier3Classes = emittedTier3Classes;
-                return this;
-            }
-
-            public Builder emittedInstantiators(int emittedInstantiators) {
-                this.emittedInstantiators = emittedInstantiators;
-                return this;
-            }
-
-            public Builder emittedModifiers(int emittedModifiers) {
-                this.emittedModifiers = emittedModifiers;
-                return this;
-            }
-
-            public Builder droppedByPerClassCap(int droppedByPerClassCap) {
-                this.droppedByPerClassCap = droppedByPerClassCap;
-                return this;
-            }
-
-            public Builder droppedByGlobalBudget(int droppedByGlobalBudget) {
-                this.droppedByGlobalBudget = droppedByGlobalBudget;
-                return this;
-            }
-
-            public DependencySummaryResult build() {
-                return new DependencySummaryResult(this);
-            }
+        DependencySummaryResult(String text, boolean truncated, int totalCharsBeforeTruncation,
+                                int perClassSoftCapUsed, boolean perClassSoftCapAuto, int candidateClasses,
+                                DependencySummaryStats stats) {
+            this.text = text;
+            this.truncated = truncated;
+            this.totalCharsBeforeTruncation = totalCharsBeforeTruncation;
+            this.perClassSoftCapUsed = perClassSoftCapUsed;
+            this.perClassSoftCapAuto = perClassSoftCapAuto;
+            this.candidateClasses = candidateClasses;
+            this.stats = stats;
         }
 
-        private DependencySummaryResult(Builder builder) {
-            this.text = builder.text;
-            this.truncated = builder.truncated;
-            this.totalCharsBeforeTruncation = builder.totalCharsBeforeTruncation;
-            this.budgetCharsUsed = builder.budgetCharsUsed;
-            this.perClassSoftCapUsed = builder.perClassSoftCapUsed;
-            this.perClassSoftCapAuto = builder.perClassSoftCapAuto;
-            this.compactSignaturesUsed = builder.compactSignaturesUsed;
-            this.candidateClasses = builder.candidateClasses;
-            this.emittedClasses = builder.emittedClasses;
-            this.emittedTier1Classes = builder.emittedTier1Classes;
-            this.emittedTier2Classes = builder.emittedTier2Classes;
-            this.emittedTier3Classes = builder.emittedTier3Classes;
-            this.emittedInstantiators = builder.emittedInstantiators;
-            this.emittedModifiers = builder.emittedModifiers;
-            this.droppedByPerClassCap = builder.droppedByPerClassCap;
-            this.droppedByGlobalBudget = builder.droppedByGlobalBudget;
+        /** Creates the result of a summary with no text, no truncation and no emitted classes. */
+        public static DependencySummaryResult empty() {
+            return new DependencySummaryResult("", false, 0, 0, false, 0, new DependencySummaryStats());
         }
 
         public String getText() {
@@ -225,10 +111,6 @@ public class TestClusterSummarizer {
             return totalCharsBeforeTruncation;
         }
 
-        public int getBudgetCharsUsed() {
-            return budgetCharsUsed;
-        }
-
         public int getPerClassSoftCapUsed() {
             return perClassSoftCapUsed;
         }
@@ -237,44 +119,12 @@ public class TestClusterSummarizer {
             return perClassSoftCapAuto;
         }
 
-        public boolean isCompactSignaturesUsed() {
-            return compactSignaturesUsed;
-        }
-
         public int getCandidateClasses() {
             return candidateClasses;
         }
 
-        public int getEmittedClasses() {
-            return emittedClasses;
-        }
-
-        public int getEmittedTier1Classes() {
-            return emittedTier1Classes;
-        }
-
-        public int getEmittedTier2Classes() {
-            return emittedTier2Classes;
-        }
-
-        public int getEmittedTier3Classes() {
-            return emittedTier3Classes;
-        }
-
-        public int getEmittedInstantiators() {
-            return emittedInstantiators;
-        }
-
-        public int getEmittedModifiers() {
-            return emittedModifiers;
-        }
-
-        public int getDroppedByPerClassCap() {
-            return droppedByPerClassCap;
-        }
-
-        public int getDroppedByGlobalBudget() {
-            return droppedByGlobalBudget;
+        public DependencySummaryStats getStats() {
+            return stats;
         }
     }
 
@@ -306,11 +156,7 @@ public class TestClusterSummarizer {
     public DependencySummaryResult summarizeDependencies(TestCluster cluster, String targetClassName, int maxChars,
                                                          Set<String> onlyClassNames) {
         if (cluster == null) {
-            return new DependencySummaryResult.Builder()
-                    .text("")
-                    .truncated(false)
-                    .totalCharsBeforeTruncation(0)
-                    .build();
+            return DependencySummaryResult.empty();
         }
         boolean compactSignatures = Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES;
 
@@ -441,24 +287,8 @@ public class TestClusterSummarizer {
             sb.append("  ... (truncated)\n");
         }
 
-        return new DependencySummaryResult.Builder()
-                .text(sb.toString().trim())
-                .truncated(budgetExceeded)
-                .totalCharsBeforeTruncation(totalChars)
-                .budgetCharsUsed(maxChars)
-                .perClassSoftCapUsed(perClassSoftCap)
-                .perClassSoftCapAuto(perClassSoftCapAuto)
-                .compactSignaturesUsed(compactSignatures)
-                .candidateClasses(allDeps.size())
-                .emittedClasses(stats.emittedClasses)
-                .emittedTier1Classes(stats.emittedTier1Classes)
-                .emittedTier2Classes(stats.emittedTier2Classes)
-                .emittedTier3Classes(stats.emittedTier3Classes)
-                .emittedInstantiators(stats.emittedInstantiators)
-                .emittedModifiers(stats.emittedModifiers)
-                .droppedByPerClassCap(stats.droppedByPerClassCap)
-                .droppedByGlobalBudget(stats.droppedByGlobalBudget)
-                .build();
+        return new DependencySummaryResult(sb.toString().trim(), budgetExceeded, totalChars,
+                perClassSoftCap, perClassSoftCapAuto, allDeps.size(), stats);
     }
 
     /**
@@ -1444,7 +1274,6 @@ public class TestClusterSummarizer {
             return;
         }
         ts.classEmitted = true;
-        stats.emittedClasses++;
         if (ts.tier == 1) {
             stats.emittedTier1Classes++;
         } else if (ts.tier == 2) {
@@ -1504,8 +1333,8 @@ public class TestClusterSummarizer {
         }
     }
 
-    private static class DependencySummaryStats {
-        int emittedClasses;
+    /** Counts of what a dependency summary emitted and dropped. */
+    public static class DependencySummaryStats {
         int emittedTier1Classes;
         int emittedTier2Classes;
         int emittedTier3Classes;
@@ -1513,6 +1342,38 @@ public class TestClusterSummarizer {
         int emittedModifiers;
         int droppedByPerClassCap;
         int droppedByGlobalBudget;
+
+        public int getEmittedClasses() {
+            return emittedTier1Classes + emittedTier2Classes + emittedTier3Classes;
+        }
+
+        public int getEmittedTier1Classes() {
+            return emittedTier1Classes;
+        }
+
+        public int getEmittedTier2Classes() {
+            return emittedTier2Classes;
+        }
+
+        public int getEmittedTier3Classes() {
+            return emittedTier3Classes;
+        }
+
+        public int getEmittedInstantiators() {
+            return emittedInstantiators;
+        }
+
+        public int getEmittedModifiers() {
+            return emittedModifiers;
+        }
+
+        public int getDroppedByPerClassCap() {
+            return droppedByPerClassCap;
+        }
+
+        public int getDroppedByGlobalBudget() {
+            return droppedByGlobalBudget;
+        }
     }
 
     private enum AppendOutcome {

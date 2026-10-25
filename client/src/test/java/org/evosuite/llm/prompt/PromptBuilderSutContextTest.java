@@ -459,11 +459,7 @@ class PromptBuilderSutContextTest {
         @Override
         public DependencySummaryResult summarizeDependencies(TestCluster cluster, String targetClassName, int maxChars) {
             this.lastMaxChars = maxChars;
-            return new DependencySummaryResult.Builder()
-                    .text("")
-                    .truncated(false)
-                    .totalCharsBeforeTruncation(0)
-                    .build();
+            return DependencySummaryResult.empty();
         }
     }
 }
