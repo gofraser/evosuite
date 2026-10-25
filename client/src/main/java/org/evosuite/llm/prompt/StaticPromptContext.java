@@ -19,13 +19,10 @@
  */
 package org.evosuite.llm.prompt;
 
-import org.evosuite.Properties;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.generic.GenericClass;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -34,17 +31,17 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
 /**
- * Per-run memo of the rendered static prompt sections — the SUT context and
- * the test-cluster dependency summary — so {@link PromptBuilder} can render
- * each of them once per run and reuse the result across every prompt built
- * in that run, instead of recomputing (and re-shipping into every user
- * message) the same expensive text.
+ * Per-run memo of the rendered test-cluster dependency summary, so
+ * {@link PromptBuilder} can render it once per run and reuse the result across
+ * every prompt built in that run, instead of recomputing (and re-shipping into
+ * every user message) the same expensive text. The SUT context needs no memo
+ * here: {@link SutContextProviderFactory} already caches it for the run.
  *
  * <p>This class does not own any prompt text: {@link PromptBuilder} still
- * builds the literal section strings and drives the expensive calls
- * ({@code SutContextProviderFactory}, {@code TestClusterSummarizer}). It only
- * caches what {@code PromptBuilder} already rendered, keyed per entry kind,
- * so every string that reaches the model still lives in exactly one place.
+ * builds the literal section strings and drives the expensive call
+ * ({@code TestClusterSummarizer}). It only caches what {@code PromptBuilder}
+ * already rendered, so every string that reaches the model still lives in
+ * exactly one place.
  */
 public final class StaticPromptContext {
 
@@ -52,33 +49,9 @@ public final class StaticPromptContext {
     public static final String DEPENDENCY_SECTION_HEADER =
             "Available dependency types (standard Java library classes may also be used freely):";
 
-    private static final ConcurrentMap<String, SutEntry> SUT_ENTRIES = new ConcurrentHashMap<>();
     private static final ConcurrentMap<String, DependencyEntry> DEPENDENCY_ENTRIES = new ConcurrentHashMap<>();
 
     private StaticPromptContext() {
-    }
-
-    /**
-     * Returns the memoised SUT-context entry for {@code (className, includeReminders)},
-     * rendering it via {@code supplier} on first use. Only a {@link SutEntry#isStable() stable}
-     * render is memoised: a fallback (e.g. the decompiler timed out on a cold JVM) or a
-     * cluster-dependent {@code SIGNATURE_ONLY} render is returned for this prompt but rendered
-     * again for the next one, mirroring what {@code SutContextProviderFactory} itself caches.
-     */
-    public static SutEntry sutEntry(String className, boolean includeReminders, Supplier<SutEntry> supplier) {
-        String key = (className == null ? "" : className) + "|" + includeReminders;
-        SutEntry entry = SUT_ENTRIES.get(key);
-        if (entry != null) {
-            return entry;
-        }
-        entry = supplier.get();
-        if (entry.isStable()) {
-            SutEntry raced = SUT_ENTRIES.putIfAbsent(key, entry);
-            if (raced != null) {
-                return raced;
-            }
-        }
-        return entry;
     }
 
     /**
@@ -90,9 +63,8 @@ public final class StaticPromptContext {
         return DEPENDENCY_ENTRIES.computeIfAbsent(key, k -> supplier.get());
     }
 
-    /** Clears both memos after an EvoSuite run completes, so the next run re-renders. */
+    /** Clears the memo after an EvoSuite run completes, so the next run re-renders. */
     public static void resetForRunCompletion() {
-        SUT_ENTRIES.clear();
         DEPENDENCY_ENTRIES.clear();
     }
 
@@ -122,80 +94,6 @@ public final class StaticPromptContext {
         return names;
     }
 
-    /** Memoised SUT-context section: the rendered text plus the metadata {@link PromptResult} reports. */
-    public static final class SutEntry {
-        private final String sectionText;
-        private final List<String> reminderTexts;
-        private final Properties.LlmSutContextMode modeUsed;
-        private final boolean unavailable;
-        private final boolean truncated;
-        private final boolean commentsStripped;
-        private final boolean selectivelyTruncated;
-        private final boolean stable;
-
-        public SutEntry(String sectionText, List<String> reminderTexts,
-                        Properties.LlmSutContextMode modeUsed, boolean unavailable,
-                        boolean truncated, boolean commentsStripped, boolean selectivelyTruncated) {
-            this(sectionText, reminderTexts, modeUsed, unavailable, truncated, commentsStripped,
-                    selectivelyTruncated, true);
-        }
-
-        public SutEntry(String sectionText, List<String> reminderTexts,
-                        Properties.LlmSutContextMode modeUsed, boolean unavailable,
-                        boolean truncated, boolean commentsStripped, boolean selectivelyTruncated,
-                        boolean stable) {
-            this.sectionText = sectionText;
-            // Defensive copy: reminderTexts is caller-supplied and this entry is
-            // memoised and shared across every prompt (and thread) in the run.
-            this.reminderTexts = reminderTexts == null ? Collections.<String>emptyList()
-                    : Collections.unmodifiableList(new ArrayList<>(reminderTexts));
-            this.modeUsed = modeUsed;
-            this.unavailable = unavailable;
-            this.truncated = truncated;
-            this.commentsStripped = commentsStripped;
-            this.selectivelyTruncated = selectivelyTruncated;
-            this.stable = stable;
-        }
-
-        /**
-         * True if this render is class-intrinsic and may be reused for the rest of the run;
-         * false for a fallback or cluster-dependent render that should be redone per prompt.
-         */
-        public boolean isStable() {
-            return stable;
-        }
-
-        /** The rendered "CLASS UNDER TEST (SUT): ..." block, or {@code null} if no context was available. */
-        public String getSectionText() {
-            return sectionText;
-        }
-
-        /** Reminder strings rendered alongside the SUT block (empty if reminders were not requested). */
-        public List<String> getReminderTexts() {
-            return reminderTexts;
-        }
-
-        public Properties.LlmSutContextMode getModeUsed() {
-            return modeUsed;
-        }
-
-        public boolean isUnavailable() {
-            return unavailable;
-        }
-
-        public boolean isTruncated() {
-            return truncated;
-        }
-
-        public boolean isCommentsStripped() {
-            return commentsStripped;
-        }
-
-        public boolean isSelectivelyTruncated() {
-            return selectivelyTruncated;
-        }
-    }
-
     /**
      * Memoised dependency-summary section: the rendered text, its telemetry,
      * and the cluster class-name snapshot it was rendered against (used to
@@ -205,17 +103,15 @@ public final class StaticPromptContext {
         private final String sectionText;
         private final boolean truncated;
         private final int totalCharsBeforeTruncation;
-        private final String budgetMode;
         private final PromptResult.DependencySummaryMetadata metadata;
         private final Set<String> clusterClassNamesAtRender;
 
         public DependencyEntry(String sectionText, boolean truncated, int totalCharsBeforeTruncation,
-                               String budgetMode, PromptResult.DependencySummaryMetadata metadata,
+                               PromptResult.DependencySummaryMetadata metadata,
                                Set<String> clusterClassNamesAtRender) {
             this.sectionText = sectionText;
             this.truncated = truncated;
             this.totalCharsBeforeTruncation = totalCharsBeforeTruncation;
-            this.budgetMode = budgetMode;
             this.metadata = metadata == null ? PromptResult.DependencySummaryMetadata.empty() : metadata;
             // Defensive copy: this snapshot is memoised and read back later (from
             // other prompts/threads) to detect cluster growth against it.
@@ -235,10 +131,6 @@ public final class StaticPromptContext {
 
         public int getTotalCharsBeforeTruncation() {
             return totalCharsBeforeTruncation;
-        }
-
-        public String getBudgetMode() {
-            return budgetMode;
         }
 
         public PromptResult.DependencySummaryMetadata getMetadata() {

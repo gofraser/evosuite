@@ -19,11 +19,8 @@
  */
 package org.evosuite.llm.prompt;
 
-import org.evosuite.Properties;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -40,34 +37,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class StaticPromptContextTest {
 
     @Test
-    void sutEntryReminderTextsIsUnaffectedByLaterMutationOfInputList() {
-        List<String> reminders = new ArrayList<>();
-        reminders.add("first reminder");
-        StaticPromptContext.SutEntry entry = new StaticPromptContext.SutEntry(
-                "section", reminders, Properties.LlmSutContextMode.SIGNATURE_ONLY,
-                false, false, false, false);
-
-        reminders.add("mutated after construction");
-
-        assertEquals(1, entry.getReminderTexts().size());
-        assertEquals("first reminder", entry.getReminderTexts().get(0));
-    }
-
-    @Test
-    void sutEntryReminderTextsGetterIsUnmodifiable() {
-        StaticPromptContext.SutEntry entry = new StaticPromptContext.SutEntry(
-                "section", new ArrayList<>(), Properties.LlmSutContextMode.SIGNATURE_ONLY,
-                false, false, false, false);
-
-        assertThrows(UnsupportedOperationException.class, () -> entry.getReminderTexts().add("x"));
-    }
-
-    @Test
     void dependencyEntryClusterClassNamesAtRenderIsUnaffectedByLaterMutationOfInputSet() {
         Set<String> names = new TreeSet<>();
         names.add("com.example.Foo");
         StaticPromptContext.DependencyEntry entry = new StaticPromptContext.DependencyEntry(
-                "section", false, 0, "none", null, names);
+                "section", false, 0, null, names);
 
         names.add("com.example.MutatedAfterConstruction");
 
@@ -78,7 +52,7 @@ class StaticPromptContextTest {
     @Test
     void dependencyEntryClusterClassNamesAtRenderGetterIsUnmodifiable() {
         StaticPromptContext.DependencyEntry entry = new StaticPromptContext.DependencyEntry(
-                "section", false, 0, "none", null, new TreeSet<>());
+                "section", false, 0, null, new TreeSet<>());
 
         assertThrows(UnsupportedOperationException.class,
                 () -> entry.getClusterClassNamesAtRender().add("com.example.Foo"));

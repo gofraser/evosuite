@@ -26,9 +26,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFitnessFunction;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -151,21 +149,22 @@ public class PromptBuilder {
     public PromptBuilder withSutContext(String className, TestCluster cluster,
                                         boolean includeTestGenerationReminders,
                                         boolean includeDependencyContext) {
-        boolean cached = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
-        StaticPromptContext.SutEntry entry = cached
-                ? StaticPromptContext.sutEntry(className, includeTestGenerationReminders,
-                        () -> renderSutEntry(className, cluster, includeTestGenerationReminders))
-                : renderSutEntry(className, cluster, includeTestGenerationReminders);
-        this.sutContextModeUsed = entry.getModeUsed();
-        this.sutContextUnavailable = entry.isUnavailable();
-        this.sutContextTruncated = entry.isTruncated();
-        this.sutContextCommentsStripped = entry.isCommentsStripped();
-        this.sutContextSelectivelyTruncated = entry.isSelectivelyTruncated();
-        if (entry.getSectionText() != null) {
+        SutContextProviderFactory.ContextResult result = sutContextProviderFactory.getContext(className, cluster);
+        this.sutContextModeUsed = result.getModeUsed();
+        this.sutContextUnavailable = result.isContextUnavailable();
+        this.sutContextTruncated = result.isContextTruncated();
+        this.sutContextCommentsStripped = result.isCommentsStripped();
+        this.sutContextSelectivelyTruncated = result.isSelectivelyTruncated();
+        String text = result.getText();
+        if (text != null && !text.trim().isEmpty()) {
             List<String> parts = new ArrayList<>();
-            parts.add(entry.getSectionText());
-            parts.addAll(entry.getReminderTexts());
-            if (cached) {
+            parts.add("CLASS UNDER TEST (SUT): " + className + "\n\n"
+                    + result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
+            if (includeTestGenerationReminders) {
+                parts.add(REMINDER_GENERIC_TYPES);
+                parts.add(REMINDER_VISIBILITY);
+            }
+            if (Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT) {
                 this.staticSutSectionText = String.join("\n\n", parts);
             } else {
                 userSections.addAll(parts);
@@ -175,34 +174,6 @@ public class PromptBuilder {
             addDependencyContext(className, cluster);
         }
         return this;
-    }
-
-    /**
-     * Renders the SUT-context section (via {@link #sutContextProviderFactory}). With prompt
-     * caching on, {@link StaticPromptContext} calls this at most once per
-     * {@code (className, includeReminders)} pair per run.
-     */
-    private StaticPromptContext.SutEntry renderSutEntry(String className, TestCluster cluster,
-                                                         boolean includeReminders) {
-        SutContextProviderFactory.ContextResult result = sutContextProviderFactory.getContext(className, cluster);
-        String text = result.getText();
-        String sectionText = null;
-        List<String> reminders = Collections.emptyList();
-        if (text != null && !text.trim().isEmpty()) {
-            sectionText = "CLASS UNDER TEST (SUT): " + className + "\n\n"
-                    + result.getModeUsed().name() + " context:\n```\n" + text + "\n```";
-            if (includeReminders) {
-                reminders = Arrays.asList(REMINDER_GENERIC_TYPES, REMINDER_VISIBILITY);
-            }
-        }
-        // Same rule SutContextProviderFactory applies to its own cache: SIGNATURE_ONLY depends on
-        // the (expandable) test cluster, and a fallback means the primary mode should be retried.
-        Properties.LlmSutContextMode mode = Properties.LLM_SUT_CONTEXT_MODE;
-        boolean stable = mode != Properties.LlmSutContextMode.SIGNATURE_ONLY
-                && result.getModeUsed() == mode;
-        return new StaticPromptContext.SutEntry(sectionText, reminders, result.getModeUsed(),
-                result.isContextUnavailable(), result.isContextTruncated(), result.isCommentsStripped(),
-                result.isSelectivelyTruncated(), stable);
     }
 
     private void addDependencyContext(String className, TestCluster cluster) {
@@ -288,7 +259,7 @@ public class PromptBuilder {
                 ? StaticPromptContext.DEPENDENCY_SECTION_HEADER + "\n" + summary
                 : null;
         return new StaticPromptContext.DependencyEntry(sectionText, result.isTruncated(),
-                result.getTotalCharsBeforeTruncation(), budgetDecision.mode, metadata,
+                result.getTotalCharsBeforeTruncation(), metadata,
                 StaticPromptContext.clusterClassNames(cluster));
     }
 
