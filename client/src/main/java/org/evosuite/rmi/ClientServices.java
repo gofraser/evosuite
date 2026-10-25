@@ -69,10 +69,13 @@ public class ClientServices<T extends Chromosome<T>> {
         try {
             int port = Properties.PROCESS_COMMUNICATION_PORT;
             Registry registry = LocateRegistry.getRegistry("127.0.0.1", port);
-            clientNode = new ClientNodeImpl<>(registry, identifier);
-            Remote stub = UtilsRMI.exportObject(clientNode);
-            registry.rebind(clientNode.getClientRmiIdentifier(), stub);
-            return clientNode.init();
+            ClientNodeImpl<T> node = new ClientNodeImpl<>(registry, identifier);
+            synchronized (this) {
+                clientNode = node;
+            }
+            Remote stub = UtilsRMI.exportObject(node);
+            registry.rebind(node.getClientRmiIdentifier(), stub);
+            return node.init();
         } catch (Exception e) {
             logger.error("Failed to register client services", e);
             return false;
@@ -87,8 +90,11 @@ public class ClientServices<T extends Chromosome<T>> {
      * Stops the client services and unexports the RMI object.
      */
     public void stopServices() {
-        if (clientNode != null) {
-            clientNode.stop();
+        // Stop the node that is registered now: another client may register while this one is
+        // winding down, and it must keep its node.
+        ClientNodeImpl<T> node = clientNode;
+        if (node != null) {
+            node.stop();
             int i = 0;
             final int tries = 10;
             boolean done = false;
@@ -98,7 +104,7 @@ public class ClientServices<T extends Chromosome<T>> {
                      * A call from Master could still be active on this node. so we cannot
                      * forcely stop the client, we need to wait
                      */
-                    done = UnicastRemoteObject.unexportObject(clientNode, false);
+                    done = UnicastRemoteObject.unexportObject(node, false);
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
@@ -114,7 +120,11 @@ public class ClientServices<T extends Chromosome<T>> {
                 //this could happen if Master has removed the registry
                 logger.debug("Failed to delete ClientNode RMI instance", e);
             }
-            clientNode = new DummyClientNodeImpl<>();
+            synchronized (this) {
+                if (clientNode == node) {
+                    clientNode = new DummyClientNodeImpl<>();
+                }
+            }
         }
     }
 
