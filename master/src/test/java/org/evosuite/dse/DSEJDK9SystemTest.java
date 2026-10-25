@@ -92,8 +92,8 @@ public final class DSEJDK9SystemTest extends DSESystemTestBase {
     // TODO: complete eventually, for now we won't support it as we don't support the reflection API either
     @Test
     public void testInvokeExact() {
-        // As we don't support the Method handles API, there should be an exception throughout execution and the result should be empty.
-        testDSEExecutionEmptyResult(InvokeExactExample.class);
+        // As we don't support the Method handles API, the DSE instrumentation fails during execution and the generation reports an error.
+        testDSEExecutionFailure(InvokeExactExample.class);
     }
 
     /**************** Milling Project Coin ****************/

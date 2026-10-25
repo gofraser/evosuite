@@ -399,9 +399,16 @@ public class SystemTestBase {
         return results.get(0).get(0).getDSEAlgorithm();
     }
 
-    protected void checkDSEResultIsEmpty(Object result) {
-        assert (result instanceof List);
+    /**
+     * Checks that DSE produced a single result for the class under test and that it reports an error,
+     * i.e. no exploration algorithm and no tests.
+     */
+    protected void checkDSEGenerationFailed(Object result) {
+        Assertions.assertTrue(result instanceof List);
         List<List<TestGenerationResult<?>>> results = (List<List<TestGenerationResult<?>>>) result;
-        assert (results.size() == 0);
+        Assertions.assertEquals(1, results.size());
+        TestGenerationResult<?> generation = results.get(0).get(0);
+        Assertions.assertEquals(TestGenerationResult.Status.ERROR, generation.getTestGenerationStatus());
+        Assertions.assertNull(generation.getDSEAlgorithm());
     }
 }

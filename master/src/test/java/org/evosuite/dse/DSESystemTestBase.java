@@ -77,13 +77,13 @@ public abstract class DSESystemTestBase extends SystemTestBase {
     }
 
     /**
-     * Runs DSE on a given SUT and checks that no result is returned
+     * Runs DSE on a given SUT and checks that the generation fails
      *
      * @param SUT
      */
-    protected void testDSEExecutionEmptyResult(Class SUT) {
+    protected void testDSEExecutionFailure(Class SUT) {
         Object result = executeDSE(SUT);
-        checkDSEResultIsEmpty(result);
+        checkDSEGenerationFailed(result);
     }
 
     /**
