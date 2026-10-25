@@ -433,8 +433,10 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         String methodDesc = (String) ois.readObject();
 
         ClassLoader[] candidateLoaders = new ClassLoader[]{
-                GenericClassImpl.getMasterSideClassLoaderIfInitialized(),
+                // The owner class is resolved through the SUT class loader; the member has to be
+                // looked up in that same class.
                 TestGenerationContext.getInstance().getClassLoaderForSUT(),
+                GenericClassImpl.getMasterSideClassLoaderIfInitialized(),
                 Thread.currentThread().getContextClassLoader(),
                 GenericMethod.class.getClassLoader(),
                 ClassLoader.getSystemClassLoader()

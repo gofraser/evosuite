@@ -44,6 +44,10 @@ public final class MasterClassLoader {
         masterProcess = true;
     }
 
+    public static void setForTest(URLClassLoader loader) {
+        instance = loader;
+    }
+
     public static void clearForTest() {
         masterProcess = false;
         instance = null;
