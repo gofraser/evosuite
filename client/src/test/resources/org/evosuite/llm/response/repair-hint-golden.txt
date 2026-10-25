@@ -589,10 +589,6 @@ Missing-method repair instructions:
 - Do not call subtype-only methods on a supertype reference. If the runtime object is a subtype, add an `instanceof` guard and cast before calling subtype APIs (for example `Component` -> `JLabel` before `getText()`).
 - No method named `perimeter` exists in `com.example.Circle`. Replace the invented call with a real API from context, or remove the call entirely.
 
-Context-specific repair facts:
-- Method call 'radius.radius(...)' is invalid: method name equals receiver variable name. Replace/remove this self-call typo and invoke a real method on 'com.example.Circle'.
-- Cannot resolve method 'area2(...)' on variable 'c' of type 'com.example.Circle'. Use an existing method from the provided context.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square

@@ -1761,22 +1761,7 @@ final class RepairHintComposer {
                     + "Use the declaring type qualifier from context (for example OuterType."
                     + missingPackage + ".BAR) or an already declared variable.");
         }
-        java.util.regex.Matcher missingMethodMatcher = MISSING_SYMBOL_METHOD_WITH_LOCATION_PATTERN.matcher(error);
-        boolean hasMissingMethodWithLocation = false;
-        while (missingMethodMatcher.find()) {
-            hasMissingMethodWithLocation = true;
-            String methodName = missingMethodMatcher.group(1);
-            String receiverVar = missingMethodMatcher.group(2);
-            String receiverType = missingMethodMatcher.group(3);
-            if (methodName != null && methodName.equals(receiverVar)) {
-                facts.add("Method call '" + receiverVar + "." + methodName
-                        + "(...)' is invalid: method name equals receiver variable name. "
-                        + "Replace/remove this self-call typo and invoke a real method on '" + receiverType + "'.");
-            } else {
-                facts.add("Cannot resolve method '" + methodName + "(...)' on variable '" + receiverVar
-                        + "' of type '" + receiverType + "'. Use an existing method from the provided context.");
-            }
-        }
+        boolean hasMissingMethodWithLocation = MISSING_SYMBOL_METHOD_WITH_LOCATION_PATTERN.matcher(error).find();
         java.util.regex.Matcher missingVariableMatcher = MISSING_SYMBOL_VARIABLE_WITH_LOCATION_PATTERN.matcher(error);
         boolean hasMissingVariableWithLocation = false;
         while (missingVariableMatcher.find()) {
