@@ -67,7 +67,13 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
                 continue;
             }
 
-            for (Method method : Reflection.inStableOrder(TestClusterUtils.getClass(className).getDeclaredMethods())) {
+            Class<?> clazz = TestClusterUtils.getClass(className);
+            if (clazz == null) {
+                logger.debug("Class {} cannot be loaded, no goals added", className);
+                continue;
+            }
+
+            for (Method method : Reflection.inStableOrder(clazz.getDeclaredMethods())) {
                 String methodName = method.getName() + Type.getMethodDescriptor(method);
                 if (!TestUsageChecker.canUse(method) || methodName.equals("hashCode()I")) {
                     continue;
