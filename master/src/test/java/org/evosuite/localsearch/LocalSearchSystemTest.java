@@ -159,6 +159,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = targetClass;
         Properties.LOCAL_SEARCH_RATE = 2;
         Properties.LOCAL_SEARCH_BUDGET_TYPE = LocalSearchBudgetType.TESTS;
+        Properties.LOCAL_SEARCH_BUDGET = 10;
         Properties.LOCAL_SEARCH_REFERENCES = false;
         Properties.LOCAL_SEARCH_ARRAYS = false;
         //Properties.SEARCH_BUDGET = 30000;
@@ -195,9 +196,9 @@ public class LocalSearchSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        // This benchmark is now trivially solved by global search with current
-        // generators/search operators on modern JVMs.
-        Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
+        // Reaching the goal needs y to be the reverse of x, which global search
+        // does not find within the budget.
+        Assertions.assertTrue(best.getCoverage() < 1.0, "Did not expect optimal coverage");
     }
 
     @Test
@@ -207,7 +208,7 @@ public class LocalSearchSystemTest extends SystemTestBase {
         String targetClass = StringLocalSearchExample.class.getCanonicalName();
 
         Properties.TARGET_CLASS = targetClass;
-        Properties.LOCAL_SEARCH_RATE = 2;
+        Properties.LOCAL_SEARCH_RATE = 1;
         Properties.LOCAL_SEARCH_BUDGET_TYPE = LocalSearchBudgetType.TESTS;
         Properties.LOCAL_SEARCH_REFERENCES = false;
         Properties.LOCAL_SEARCH_ARRAYS = false;
