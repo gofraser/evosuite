@@ -151,12 +151,12 @@ class PromptBuilderSutContextTest {
                 .withInstruction("Generate tests.")
                 .buildWithMetadata();
 
-        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, first.getSutContextMode());
+        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, first.getContextInfo().getSutContextMode());
         assertTrue(first.getMessages().get(0).getContent().contains("signature content"));
-        assertEquals(LlmSutContextMode.DECOMPILED_SOURCE, second.getSutContextMode(),
+        assertEquals(LlmSutContextMode.DECOMPILED_SOURCE, second.getContextInfo().getSutContextMode(),
                 "the fallback render must not be served from the memo on the next prompt");
         assertTrue(second.getMessages().get(0).getContent().contains("decompiled content"));
-        assertEquals(LlmSutContextMode.DECOMPILED_SOURCE, third.getSutContextMode());
+        assertEquals(LlmSutContextMode.DECOMPILED_SOURCE, third.getContextInfo().getSutContextMode());
         assertEquals(2, decompiler.calls, "the successful decompile is memoised for later prompts");
     }
 
@@ -219,8 +219,8 @@ class PromptBuilderSutContextTest {
 
         PromptResult result = builder.withSutContext("com.example.Foo", null).buildWithMetadata();
 
-        assertEquals(LlmSutContextMode.SOURCE_CODE, result.getSutContextMode());
-        assertTrue(result.isContextUnavailable());
+        assertEquals(LlmSutContextMode.SOURCE_CODE, result.getContextInfo().getSutContextMode());
+        assertTrue(result.getContextInfo().isContextUnavailable());
     }
 
     @Test
@@ -242,8 +242,8 @@ class PromptBuilderSutContextTest {
 
         PromptResult result = builder.withSutContext("com.example.Foo", null).buildWithMetadata();
 
-        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getSutContextMode());
-        assertFalse(result.isContextUnavailable());
+        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getContextInfo().getSutContextMode());
+        assertFalse(result.getContextInfo().isContextUnavailable());
     }
 
     @Test

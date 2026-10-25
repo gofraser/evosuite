@@ -54,15 +54,7 @@ public class PromptBuilder {
 
     private String systemPrompt;
     private final List<String> userSections = new ArrayList<>();
-    private Properties.LlmSutContextMode sutContextModeUsed;
-    private boolean sutContextUnavailable;
-    private boolean sutContextTruncated;
-    private boolean sutContextCommentsStripped;
-    private boolean sutContextSelectivelyTruncated;
-    private boolean clusterSummaryTruncated;
-    private int clusterSummaryChars;
-    private PromptResult.DependencySummaryMetadata dependencySummaryMetadata =
-            PromptResult.DependencySummaryMetadata.empty();
+    private PromptContextInfo contextInfo = PromptContextInfo.empty();
     private boolean dependencyContextAdded;
     /** True once the dependency catalogue itself (not just a growth delta) is part of the prompt. */
     private boolean dependencyCatalogueIncluded;
@@ -150,16 +142,12 @@ public class PromptBuilder {
                                         boolean includeTestGenerationReminders,
                                         boolean includeDependencyContext) {
         SutContextProviderFactory.ContextResult result = sutContextProviderFactory.getContext(className, cluster);
-        this.sutContextModeUsed = result.getModeUsed();
-        this.sutContextUnavailable = result.isContextUnavailable();
-        this.sutContextTruncated = result.isContextTruncated();
-        this.sutContextCommentsStripped = result.isCommentsStripped();
-        this.sutContextSelectivelyTruncated = result.isSelectivelyTruncated();
+        this.contextInfo = contextInfo.withSutContextOf(result.getInfo());
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
             List<String> parts = new ArrayList<>();
             parts.add("CLASS UNDER TEST (SUT): " + className + "\n\n"
-                    + result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
+                    + result.getInfo().getSutContextMode().name() + " context:\n```\n" + text + "\n```");
             if (includeTestGenerationReminders) {
                 parts.add(REMINDER_GENERIC_TYPES);
                 parts.add(REMINDER_VISIBILITY);
@@ -190,9 +178,7 @@ public class PromptBuilder {
                 ? StaticPromptContext.dependencyEntry(targetClassName,
                         () -> renderDependencyEntry(targetClassName, cluster))
                 : renderDependencyEntry(targetClassName, cluster);
-        this.clusterSummaryTruncated = entry.isTruncated();
-        this.clusterSummaryChars = entry.getTotalCharsBeforeTruncation();
-        this.dependencySummaryMetadata = entry.getMetadata();
+        this.contextInfo = contextInfo.withDependencySummaryOf(entry.getInfo());
 
         // The dependency entry may have been served from an earlier prompt's
         // render; if cluster expansion has since added classes the cached
@@ -258,8 +244,9 @@ public class PromptBuilder {
         String sectionText = (summary != null && !summary.trim().isEmpty())
                 ? StaticPromptContext.DEPENDENCY_SECTION_HEADER + "\n" + summary
                 : null;
-        return new StaticPromptContext.DependencyEntry(sectionText, result.isTruncated(),
-                result.getTotalCharsBeforeTruncation(), metadata,
+        return new StaticPromptContext.DependencyEntry(sectionText,
+                PromptContextInfo.ofDependencySummary(result.isTruncated(),
+                        result.getTotalCharsBeforeTruncation(), metadata),
                 StaticPromptContext.clusterClassNames(cluster));
     }
 
@@ -490,14 +477,7 @@ public class PromptBuilder {
         messages.add(LlmMessage.user(userPrompt));
         return new PromptResult.Builder()
                 .messages(messages)
-                .sutContextMode(sutContextModeUsed)
-                .contextUnavailable(sutContextUnavailable)
-                .contextTruncated(sutContextTruncated)
-                .contextCommentsStripped(sutContextCommentsStripped)
-                .contextSelectivelyTruncated(sutContextSelectivelyTruncated)
-                .clusterSummaryTruncated(clusterSummaryTruncated)
-                .clusterSummaryChars(clusterSummaryChars)
-                .dependencySummaryMetadata(dependencySummaryMetadata)
+                .contextInfo(contextInfo)
                 .dependencyContextIncluded(dependencyCatalogueIncluded)
                 .build();
     }

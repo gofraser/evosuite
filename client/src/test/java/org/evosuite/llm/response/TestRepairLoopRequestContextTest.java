@@ -24,6 +24,7 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.PromptContextInfo;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -70,9 +71,9 @@ class TestRepairLoopRequestContextTest {
                 1, "system", "", TestRepairLoop.RepairOptions.defaults());
         PromptResult prompt = new PromptResult.Builder()
                 .messages(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("seed")))
-                .sutContextMode(Properties.LlmSutContextMode.SOURCE_CODE)
-                .contextTruncated(true)
-                .clusterSummaryChars(1234)
+                .contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.SOURCE_CODE,
+                                false, true, false, false)
+                        .withDependencySummaryOf(PromptContextInfo.ofDependencySummary(false, 1234, null)))
                 .build();
 
         loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```", prompt,

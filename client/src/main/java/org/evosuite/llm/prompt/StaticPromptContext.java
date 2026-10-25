@@ -101,18 +101,13 @@ public final class StaticPromptContext {
      */
     public static final class DependencyEntry {
         private final String sectionText;
-        private final boolean truncated;
-        private final int totalCharsBeforeTruncation;
-        private final PromptResult.DependencySummaryMetadata metadata;
+        private final PromptContextInfo info;
         private final Set<String> clusterClassNamesAtRender;
 
-        public DependencyEntry(String sectionText, boolean truncated, int totalCharsBeforeTruncation,
-                               PromptResult.DependencySummaryMetadata metadata,
+        public DependencyEntry(String sectionText, PromptContextInfo info,
                                Set<String> clusterClassNamesAtRender) {
             this.sectionText = sectionText;
-            this.truncated = truncated;
-            this.totalCharsBeforeTruncation = totalCharsBeforeTruncation;
-            this.metadata = metadata == null ? PromptResult.DependencySummaryMetadata.empty() : metadata;
+            this.info = info;
             // Defensive copy: this snapshot is memoised and read back later (from
             // other prompts/threads) to detect cluster growth against it.
             this.clusterClassNamesAtRender = clusterClassNamesAtRender == null
@@ -125,16 +120,9 @@ public final class StaticPromptContext {
             return sectionText;
         }
 
-        public boolean isTruncated() {
-            return truncated;
-        }
-
-        public int getTotalCharsBeforeTruncation() {
-            return totalCharsBeforeTruncation;
-        }
-
-        public PromptResult.DependencySummaryMetadata getMetadata() {
-            return metadata;
+        /** The dependency summary telemetry of this render. */
+        public PromptContextInfo getInfo() {
+            return info;
         }
 
         /** Class names the cluster had generators for at render time. */

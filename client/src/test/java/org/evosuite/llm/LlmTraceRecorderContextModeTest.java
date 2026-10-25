@@ -20,6 +20,7 @@
 package org.evosuite.llm;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.prompt.PromptContextInfo;
 import org.evosuite.llm.prompt.PromptResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -57,8 +58,8 @@ class LlmTraceRecorderContextModeTest {
                 .expansionAttempted(false)
                 .expandedClasses(Collections.<String>emptyList())
                 .errorType("")
-                .sutContextMode(Properties.LlmSutContextMode.BYTECODE_DISASSEMBLED)
-                .contextUnavailable(false)
+                .contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.BYTECODE_DISASSEMBLED,
+                        false, false, false, false))
                 .build());
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
@@ -86,8 +87,8 @@ class LlmTraceRecorderContextModeTest {
                 .expansionAttempted(false)
                 .expandedClasses(Collections.<String>emptyList())
                 .errorType("")
-                .sutContextMode(Properties.LlmSutContextMode.SOURCE_CODE)
-                .contextUnavailable(true)
+                .contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.SOURCE_CODE,
+                        true, false, false, false))
                 .build());
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
@@ -148,14 +149,9 @@ class LlmTraceRecorderContextModeTest {
                 .expansionAttempted(false)
                 .expandedClasses(Collections.<String>emptyList())
                 .errorType("")
-                .sutContextMode(Properties.LlmSutContextMode.SIGNATURE_ONLY)
-                .contextUnavailable(false)
-                .contextTruncated(false)
-                .contextCommentsStripped(false)
-                .contextSelectivelyTruncated(false)
-                .clusterSummaryTruncated(false)
-                .clusterSummaryChars(9999)
-                .dependencySummaryMetadata(metadata)
+                .contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.SIGNATURE_ONLY,
+                                false, false, false, false)
+                        .withDependencySummaryOf(PromptContextInfo.ofDependencySummary(false, 9999, metadata)))
                 .build());
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);

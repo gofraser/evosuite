@@ -130,7 +130,7 @@ public class SutContextProviderFactory {
         ContextResult result = computeContext(className, cluster, mode);
         // Only cache if the primary mode succeeded. Fallback results depend on
         // TestCluster state which may change after cluster expansion.
-        if (result.getModeUsed() == mode) {
+        if (result.getInfo().getSutContextMode() == mode) {
             cache.putIfAbsent(cacheKey, result);
         }
         return result;
@@ -262,11 +262,7 @@ public class SutContextProviderFactory {
      */
     public static class ContextResult {
         private final String text;
-        private final LlmSutContextMode modeUsed;
-        private final boolean contextUnavailable;
-        private final boolean contextTruncated;
-        private final boolean commentsStripped;
-        private final boolean selectivelyTruncated;
+        private final PromptContextInfo info;
 
         public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable) {
             this(text, modeUsed, contextUnavailable, false, false, false);
@@ -276,35 +272,17 @@ public class SutContextProviderFactory {
         public ContextResult(String text, LlmSutContextMode modeUsed, boolean contextUnavailable,
                              boolean contextTruncated, boolean commentsStripped, boolean selectivelyTruncated) {
             this.text = text;
-            this.modeUsed = modeUsed;
-            this.contextUnavailable = contextUnavailable;
-            this.contextTruncated = contextTruncated;
-            this.commentsStripped = commentsStripped;
-            this.selectivelyTruncated = selectivelyTruncated;
+            this.info = PromptContextInfo.ofSutContext(modeUsed, contextUnavailable, contextTruncated,
+                    commentsStripped, selectivelyTruncated);
         }
 
         public String getText() {
             return text;
         }
 
-        public LlmSutContextMode getModeUsed() {
-            return modeUsed;
-        }
-
-        public boolean isContextUnavailable() {
-            return contextUnavailable;
-        }
-
-        public boolean isContextTruncated() {
-            return contextTruncated;
-        }
-
-        public boolean isCommentsStripped() {
-            return commentsStripped;
-        }
-
-        public boolean isSelectivelyTruncated() {
-            return selectivelyTruncated;
+        /** The mode used and the truncation flags of this context. */
+        public PromptContextInfo getInfo() {
+            return info;
         }
     }
 }

@@ -23,6 +23,7 @@ import com.google.gson.Gson;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.PromptBuilder;
+import org.evosuite.llm.prompt.PromptContextInfo;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.SutContextProviderFactory;
 import org.evosuite.llm.prompt.SystemPromptProvider;
@@ -77,14 +78,9 @@ class LlmTraceContextMetadataTest {
                 18, 24, 7, 1);
         PromptResult prompt = new PromptResult.Builder()
                 .messages(Arrays.asList(LlmMessage.system("sys"), LlmMessage.user("usr")))
-                .sutContextMode(Properties.LlmSutContextMode.DECOMPILED_SOURCE)
-                .contextUnavailable(true)
-                .contextTruncated(true)
-                .contextCommentsStripped(true)
-                .contextSelectivelyTruncated(true)
-                .clusterSummaryTruncated(true)
-                .clusterSummaryChars(4321)
-                .dependencySummaryMetadata(metadata)
+                .contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.DECOMPILED_SOURCE,
+                                true, true, true, true)
+                        .withDependencySummaryOf(PromptContextInfo.ofDependencySummary(true, 4321, metadata)))
                 .build();
 
         Map<String, Object> record = traceOf(prompt);

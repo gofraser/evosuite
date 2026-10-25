@@ -102,8 +102,8 @@ class Phase2cReviewFixTest {
                 failing, failing, failing, failing);
 
         SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
-        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getModeUsed());
-        assertTrue(result.isContextUnavailable(),
+        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getInfo().getSutContextMode());
+        assertTrue(result.getInfo().isContextUnavailable(),
                 "When primary and fallback both fail, context should be marked unavailable");
         assertEquals("", result.getText());
     }
@@ -119,8 +119,8 @@ class Phase2cReviewFixTest {
                 sig, failing, failing, failing);
 
         SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
-        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getModeUsed());
-        assertFalse(result.isContextUnavailable());
+        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getInfo().getSutContextMode());
+        assertFalse(result.getInfo().isContextUnavailable());
         assertEquals("sig output", result.getText());
     }
 
@@ -174,8 +174,8 @@ class Phase2cReviewFixTest {
 
         assertNotNull(result.getMessages());
         assertEquals(2, result.getMessages().size());
-        assertEquals(LlmSutContextMode.BYTECODE_DISASSEMBLED, result.getSutContextMode());
-        assertFalse(result.isContextUnavailable());
+        assertEquals(LlmSutContextMode.BYTECODE_DISASSEMBLED, result.getContextInfo().getSutContextMode());
+        assertFalse(result.getContextInfo().isContextUnavailable());
     }
 
     @Test
@@ -293,7 +293,7 @@ class Phase2cReviewFixTest {
                 sigProvider, failingBytecode, failingBytecode, failingBytecode);
 
         SutContextProviderFactory.ContextResult r1 = factory.getContext("com.example.Foo", null);
-        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, r1.getModeUsed());
+        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, r1.getInfo().getSutContextMode());
 
         SutContextProviderFactory.ContextResult r2 = factory.getContext("com.example.Foo", null);
         assertEquals(2, sigProvider.callCount,

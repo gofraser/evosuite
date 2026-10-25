@@ -540,14 +540,7 @@ public class LlmService implements AutoCloseable {
                     .errorType(errorType);
             PromptResult context = request.getContext();
             if (context != null) {
-                record.sutContextMode(context.getSutContextMode())
-                        .contextUnavailable(context.isContextUnavailable())
-                        .contextTruncated(context.isContextTruncated())
-                        .contextCommentsStripped(context.isContextCommentsStripped())
-                        .contextSelectivelyTruncated(context.isContextSelectivelyTruncated())
-                        .clusterSummaryTruncated(context.isClusterSummaryTruncated())
-                        .clusterSummaryChars(context.getClusterSummaryChars())
-                        .dependencySummaryMetadata(context.getDependencySummaryMetadata());
+                record.contextInfo(context.getContextInfo());
             }
             traceRecorder.recordCall(record.build());
         } catch (Throwable traceFailure) {

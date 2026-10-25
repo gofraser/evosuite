@@ -23,6 +23,7 @@ import com.google.gson.Gson;
 import org.evosuite.Properties;
 import org.evosuite.llm.postprocess.LlmPostProcessingProtocol;
 import org.evosuite.llm.prompt.PrefixHash;
+import org.evosuite.llm.prompt.PromptContextInfo;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.slf4j.Logger;
@@ -76,14 +77,7 @@ public class LlmTraceRecorder {
         private final boolean expansionAttempted;
         private final List<String> expandedClasses;
         private final String errorType;
-        private final org.evosuite.Properties.LlmSutContextMode sutContextMode;
-        private final boolean contextUnavailable;
-        private final boolean contextTruncated;
-        private final boolean contextCommentsStripped;
-        private final boolean contextSelectivelyTruncated;
-        private final boolean clusterSummaryTruncated;
-        private final int clusterSummaryChars;
-        private final PromptResult.DependencySummaryMetadata dependencySummaryMetadata;
+        private final PromptContextInfo contextInfo;
 
         public static final class Builder {
             private LlmFeature feature;
@@ -98,15 +92,7 @@ public class LlmTraceRecorder {
             private boolean expansionAttempted;
             private List<String> expandedClasses = Collections.emptyList();
             private String errorType = "";
-            private org.evosuite.Properties.LlmSutContextMode sutContextMode;
-            private boolean contextUnavailable;
-            private boolean contextTruncated;
-            private boolean contextCommentsStripped;
-            private boolean contextSelectivelyTruncated;
-            private boolean clusterSummaryTruncated;
-            private int clusterSummaryChars;
-            private PromptResult.DependencySummaryMetadata dependencySummaryMetadata =
-                    PromptResult.DependencySummaryMetadata.empty();
+            private PromptContextInfo contextInfo = PromptContextInfo.empty();
 
             public Builder feature(LlmFeature feature) {
                 this.feature = feature;
@@ -168,43 +154,8 @@ public class LlmTraceRecorder {
                 return this;
             }
 
-            public Builder sutContextMode(org.evosuite.Properties.LlmSutContextMode sutContextMode) {
-                this.sutContextMode = sutContextMode;
-                return this;
-            }
-
-            public Builder contextUnavailable(boolean contextUnavailable) {
-                this.contextUnavailable = contextUnavailable;
-                return this;
-            }
-
-            public Builder contextTruncated(boolean contextTruncated) {
-                this.contextTruncated = contextTruncated;
-                return this;
-            }
-
-            public Builder contextCommentsStripped(boolean contextCommentsStripped) {
-                this.contextCommentsStripped = contextCommentsStripped;
-                return this;
-            }
-
-            public Builder contextSelectivelyTruncated(boolean contextSelectivelyTruncated) {
-                this.contextSelectivelyTruncated = contextSelectivelyTruncated;
-                return this;
-            }
-
-            public Builder clusterSummaryTruncated(boolean clusterSummaryTruncated) {
-                this.clusterSummaryTruncated = clusterSummaryTruncated;
-                return this;
-            }
-
-            public Builder clusterSummaryChars(int clusterSummaryChars) {
-                this.clusterSummaryChars = clusterSummaryChars;
-                return this;
-            }
-
-            public Builder dependencySummaryMetadata(PromptResult.DependencySummaryMetadata dependencySummaryMetadata) {
-                this.dependencySummaryMetadata = dependencySummaryMetadata;
+            public Builder contextInfo(PromptContextInfo contextInfo) {
+                this.contextInfo = contextInfo;
                 return this;
             }
 
@@ -227,15 +178,7 @@ public class LlmTraceRecorder {
             this.expandedClasses = builder.expandedClasses == null
                     ? Collections.<String>emptyList() : builder.expandedClasses;
             this.errorType = builder.errorType == null ? "" : builder.errorType;
-            this.sutContextMode = builder.sutContextMode;
-            this.contextUnavailable = builder.contextUnavailable;
-            this.contextTruncated = builder.contextTruncated;
-            this.contextCommentsStripped = builder.contextCommentsStripped;
-            this.contextSelectivelyTruncated = builder.contextSelectivelyTruncated;
-            this.clusterSummaryTruncated = builder.clusterSummaryTruncated;
-            this.clusterSummaryChars = builder.clusterSummaryChars;
-            this.dependencySummaryMetadata = builder.dependencySummaryMetadata == null
-                    ? PromptResult.DependencySummaryMetadata.empty() : builder.dependencySummaryMetadata;
+            this.contextInfo = builder.contextInfo == null ? PromptContextInfo.empty() : builder.contextInfo;
         }
     }
 
@@ -521,14 +464,16 @@ public class LlmTraceRecorder {
         traceRecord.put("output_tokens", record.outputTokens);
         traceRecord.put("latency_ms", record.latencyMs);
         traceRecord.put("error_type", record.errorType);
-        traceRecord.put("sut_context_mode", record.sutContextMode == null ? "" : record.sutContextMode.name());
-        traceRecord.put("context_unavailable", record.contextUnavailable);
-        traceRecord.put("context_truncated", record.contextTruncated);
-        traceRecord.put("context_comments_stripped", record.contextCommentsStripped);
-        traceRecord.put("context_selectively_truncated", record.contextSelectivelyTruncated);
-        traceRecord.put("cluster_summary_truncated", record.clusterSummaryTruncated);
-        traceRecord.put("cluster_summary_chars", record.clusterSummaryChars);
-        PromptResult.DependencySummaryMetadata dep = record.dependencySummaryMetadata;
+        PromptContextInfo context = record.contextInfo;
+        traceRecord.put("sut_context_mode",
+                context.getSutContextMode() == null ? "" : context.getSutContextMode().name());
+        traceRecord.put("context_unavailable", context.isContextUnavailable());
+        traceRecord.put("context_truncated", context.isContextTruncated());
+        traceRecord.put("context_comments_stripped", context.isContextCommentsStripped());
+        traceRecord.put("context_selectively_truncated", context.isContextSelectivelyTruncated());
+        traceRecord.put("cluster_summary_truncated", context.isClusterSummaryTruncated());
+        traceRecord.put("cluster_summary_chars", context.getClusterSummaryChars());
+        PromptResult.DependencySummaryMetadata dep = context.getDependencySummaryMetadata();
         traceRecord.put("cluster_summary_budget_chars", dep.getBudgetChars());
         traceRecord.put("cluster_summary_per_class_cap_chars", dep.getPerClassSoftCapChars());
         traceRecord.put("cluster_summary_per_class_cap_auto", dep.isPerClassSoftCapAuto());

@@ -41,7 +41,7 @@ class StaticPromptContextTest {
         Set<String> names = new TreeSet<>();
         names.add("com.example.Foo");
         StaticPromptContext.DependencyEntry entry = new StaticPromptContext.DependencyEntry(
-                "section", false, 0, null, names);
+                "section", PromptContextInfo.empty(), names);
 
         names.add("com.example.MutatedAfterConstruction");
 
@@ -52,7 +52,7 @@ class StaticPromptContextTest {
     @Test
     void dependencyEntryClusterClassNamesAtRenderGetterIsUnmodifiable() {
         StaticPromptContext.DependencyEntry entry = new StaticPromptContext.DependencyEntry(
-                "section", false, 0, null, new TreeSet<>());
+                "section", PromptContextInfo.empty(), new TreeSet<>());
 
         assertThrows(UnsupportedOperationException.class,
                 () -> entry.getClusterClassNamesAtRender().add("com.example.Foo"));

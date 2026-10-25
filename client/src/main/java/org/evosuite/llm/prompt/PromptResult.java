@@ -19,7 +19,6 @@
  */
 package org.evosuite.llm.prompt;
 
-import org.evosuite.Properties;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
@@ -158,14 +157,7 @@ public final class PromptResult {
     }
 
     private final List<LlmMessage> messages;
-    private final Properties.LlmSutContextMode sutContextMode;
-    private final boolean contextUnavailable;
-    private final boolean contextTruncated;
-    private final boolean contextCommentsStripped;
-    private final boolean contextSelectivelyTruncated;
-    private final boolean clusterSummaryTruncated;
-    private final int clusterSummaryChars;
-    private final DependencySummaryMetadata dependencySummaryMetadata;
+    private final PromptContextInfo contextInfo;
     private final boolean dependencyContextIncluded;
     private final List<ProblemCardType> diagnosticCardTypes;
     private final List<ProblemCard> diagnosticCards;
@@ -173,14 +165,7 @@ public final class PromptResult {
 
     public static final class Builder {
         private List<LlmMessage> messages = Collections.emptyList();
-        private Properties.LlmSutContextMode sutContextMode;
-        private boolean contextUnavailable;
-        private boolean contextTruncated;
-        private boolean contextCommentsStripped;
-        private boolean contextSelectivelyTruncated;
-        private boolean clusterSummaryTruncated;
-        private int clusterSummaryChars;
-        private DependencySummaryMetadata dependencySummaryMetadata = DependencySummaryMetadata.empty();
+        private PromptContextInfo contextInfo = PromptContextInfo.empty();
         private boolean dependencyContextIncluded;
         private List<ProblemCardType> diagnosticCardTypes = Collections.emptyList();
         private List<ProblemCard> diagnosticCards = Collections.emptyList();
@@ -191,43 +176,8 @@ public final class PromptResult {
             return this;
         }
 
-        public Builder sutContextMode(Properties.LlmSutContextMode sutContextMode) {
-            this.sutContextMode = sutContextMode;
-            return this;
-        }
-
-        public Builder contextUnavailable(boolean contextUnavailable) {
-            this.contextUnavailable = contextUnavailable;
-            return this;
-        }
-
-        public Builder contextTruncated(boolean contextTruncated) {
-            this.contextTruncated = contextTruncated;
-            return this;
-        }
-
-        public Builder contextCommentsStripped(boolean contextCommentsStripped) {
-            this.contextCommentsStripped = contextCommentsStripped;
-            return this;
-        }
-
-        public Builder contextSelectivelyTruncated(boolean contextSelectivelyTruncated) {
-            this.contextSelectivelyTruncated = contextSelectivelyTruncated;
-            return this;
-        }
-
-        public Builder clusterSummaryTruncated(boolean clusterSummaryTruncated) {
-            this.clusterSummaryTruncated = clusterSummaryTruncated;
-            return this;
-        }
-
-        public Builder clusterSummaryChars(int clusterSummaryChars) {
-            this.clusterSummaryChars = clusterSummaryChars;
-            return this;
-        }
-
-        public Builder dependencySummaryMetadata(DependencySummaryMetadata dependencySummaryMetadata) {
-            this.dependencySummaryMetadata = dependencySummaryMetadata;
+        public Builder contextInfo(PromptContextInfo contextInfo) {
+            this.contextInfo = contextInfo;
             return this;
         }
 
@@ -260,15 +210,7 @@ public final class PromptResult {
         this.messages = builder.messages == null
                 ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(builder.messages));
-        this.sutContextMode = builder.sutContextMode;
-        this.contextUnavailable = builder.contextUnavailable;
-        this.contextTruncated = builder.contextTruncated;
-        this.contextCommentsStripped = builder.contextCommentsStripped;
-        this.contextSelectivelyTruncated = builder.contextSelectivelyTruncated;
-        this.clusterSummaryTruncated = builder.clusterSummaryTruncated;
-        this.clusterSummaryChars = builder.clusterSummaryChars;
-        this.dependencySummaryMetadata = builder.dependencySummaryMetadata == null
-                ? DependencySummaryMetadata.empty() : builder.dependencySummaryMetadata;
+        this.contextInfo = builder.contextInfo == null ? PromptContextInfo.empty() : builder.contextInfo;
         this.dependencyContextIncluded = builder.dependencyContextIncluded;
         this.diagnosticCardTypes = builder.diagnosticCardTypes == null
                 ? Collections.emptyList()
@@ -293,48 +235,9 @@ public final class PromptResult {
         return messages;
     }
 
-    /**
-     * Context mode actually used (may differ from configured mode after fallback),
-     * or null if withSutContext was not called.
-     */
-    public Properties.LlmSutContextMode getSutContextMode() {
-        return sutContextMode;
-    }
-
-    /** True if context extraction failed and no fallback was available. */
-    public boolean isContextUnavailable() {
-        return contextUnavailable;
-    }
-
-    /**
-     * True if the SUT context was truncated to fit within {@code LLM_CONTEXT_MAX_CHARS}.
-     */
-    public boolean isContextTruncated() {
-        return contextTruncated;
-    }
-
-    /** True if comments were stripped from the SUT context to fit within the char budget. */
-    public boolean isContextCommentsStripped() {
-        return contextCommentsStripped;
-    }
-
-    /** True if selective method truncation was applied to the SUT context. */
-    public boolean isContextSelectivelyTruncated() {
-        return contextSelectivelyTruncated;
-    }
-
-    /** True if the cluster dependency summary was truncated to fit within the char budget. */
-    public boolean isClusterSummaryTruncated() {
-        return clusterSummaryTruncated;
-    }
-
-    /** Total characters of the cluster summary before truncation (0 if not computed). */
-    public int getClusterSummaryChars() {
-        return clusterSummaryChars;
-    }
-
-    public DependencySummaryMetadata getDependencySummaryMetadata() {
-        return dependencySummaryMetadata;
+    /** The SUT context and dependency summary this prompt was built with, for trace recording. */
+    public PromptContextInfo getContextInfo() {
+        return contextInfo;
     }
 
     /**
@@ -365,14 +268,7 @@ public final class PromptResult {
     public Builder toBuilder() {
         return new Builder()
                 .messages(messages)
-                .sutContextMode(sutContextMode)
-                .contextUnavailable(contextUnavailable)
-                .contextTruncated(contextTruncated)
-                .contextCommentsStripped(contextCommentsStripped)
-                .contextSelectivelyTruncated(contextSelectivelyTruncated)
-                .clusterSummaryTruncated(clusterSummaryTruncated)
-                .clusterSummaryChars(clusterSummaryChars)
-                .dependencySummaryMetadata(dependencySummaryMetadata)
+                .contextInfo(contextInfo)
                 .dependencyContextIncluded(dependencyContextIncluded)
                 .diagnosticCardTypes(diagnosticCardTypes)
                 .diagnosticCards(diagnosticCards)
