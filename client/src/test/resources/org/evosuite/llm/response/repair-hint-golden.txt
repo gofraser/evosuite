@@ -422,7 +422,6 @@ Stream precondition hint:
 
 Argument precondition hint:
 - The failing test violates method preconditions for input arguments.
-- Keep all already executable tests unchanged.
 - For failing tests only, replace invalid empty/default inputs with minimally valid non-empty values before invoking the SUT.
 - Typical fixes: provide at least one required line/entry/token/element instead of empty structures or empty strings.
 - If testing validation behavior, use assertThrows(...) for the invalid-input case and add a separate valid-input smoke test.

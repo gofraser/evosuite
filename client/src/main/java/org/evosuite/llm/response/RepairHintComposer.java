@@ -175,6 +175,14 @@ final class RepairHintComposer {
         appendClassCastRepairHint(error, executionFailures, repairMessage);
     }
 
+    /** Adds the instruction to keep executable tests, unless an earlier hint block of the message has it. */
+    private static void appendKeepExecutableTests(StringBuilder repairMessage) {
+        String bullet = "\n- Keep all already executable tests unchanged.";
+        if (repairMessage.indexOf(bullet) < 0) {
+            repairMessage.append(bullet);
+        }
+    }
+
     /**
      * Guidance for a class that does not resolve at compile time. A missing class at run time is
      * covered by the initialization/dependency failure hint, which repeats this guidance.
@@ -352,7 +360,7 @@ final class RepairHintComposer {
                         + "apply them to sibling failing tests whose actual exception is "
                         + "different (those are listed separately and require different fixes).");
         repairMessage.append("\n- The failing test violates required non-null preconditions.");
-        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        appendKeepExecutableTests(repairMessage);
         if (nullVariable != null && !nullVariable.isEmpty() && !syntheticLocal && directTestVariable) {
             repairMessage.append("\n- For failing tests only, ensure the object named '")
                     .append(nullVariable)
@@ -564,7 +572,7 @@ final class RepairHintComposer {
             return;
         }
         repairMessage.append("\n\nMockito usage hint:");
-        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        appendKeepExecutableTests(repairMessage);
         repairMessage.append("\n- For failing tests only, ensure objects passed to Mockito.when(...), "
                 + "doThrow(...).when(...), and verify(...) are actual mocks/spies.");
         repairMessage.append("\n- Do NOT stub or verify real objects created with constructors.");
@@ -616,7 +624,7 @@ final class RepairHintComposer {
         }
         repairMessage.append("\n\nStream precondition hint:");
         repairMessage.append("\n- The failing test violates stream preconditions or stream lifecycle constraints.");
-        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        appendKeepExecutableTests(repairMessage);
         repairMessage.append("\n- For failing tests only, avoid null InputStream/OutputStream/Reader/Writer arguments "
                 + "unless the method contract explicitly expects null.");
         repairMessage.append("\n- Prefer in-memory data sources over filesystem/network I/O in tests:");
@@ -640,7 +648,7 @@ final class RepairHintComposer {
                 && (lower.contains("eventobject") || lower.contains("actionevent"));
         repairMessage.append("\n\nArgument precondition hint:");
         repairMessage.append("\n- The failing test violates method preconditions for input arguments.");
-        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        appendKeepExecutableTests(repairMessage);
         repairMessage.append("\n- For failing tests only, replace invalid empty/default inputs with minimally valid "
                 + "non-empty values before invoking the SUT.");
         repairMessage.append("\n- Typical fixes: provide at least one required line/entry/token/element instead of "
@@ -665,7 +673,7 @@ final class RepairHintComposer {
         repairMessage.append("\n\nIndexed fixture/bounds hint:");
         repairMessage.append("\n- The failing test uses inconsistent dimensions, counts, or indices while building an "
                 + "indexed fixture or invoking an indexed API.");
-        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        appendKeepExecutableTests(repairMessage);
         repairMessage.append("\n- For failing tests only, re-check each constructor size/count argument against every "
                 + "later indexed read/write in that test.");
         repairMessage.append("\n- Do not assume constructor counts map 1:1 to all later accessible "
@@ -683,7 +691,7 @@ final class RepairHintComposer {
             return;
         }
         repairMessage.append("\n\nReflection wrapper hint:");
-        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        appendKeepExecutableTests(repairMessage);
         repairMessage.append("\n- Prefer direct invocation of accessible SUT methods over reflection.");
         repairMessage.append("\n- If using Method.invoke(...), expect InvocationTargetException from assertThrows.");
         repairMessage.append("\n- Then assert the wrapped cause type/message (e.getCause()) matches the expected SUT "
@@ -784,7 +792,7 @@ final class RepairHintComposer {
         repairMessage.append("\n\nMember-access repair hint:");
         repairMessage.append("\n- The failing test directly accesses private or protected members (which are not "
                 + "allowed). Note: Package-private members ARE allowed as tests are in the same package.");
-        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        appendKeepExecutableTests(repairMessage);
 
         // Emit specific inaccessible member names so the LLM knows exactly what to avoid
         if (!violations.isEmpty()) {
@@ -1347,7 +1355,7 @@ final class RepairHintComposer {
         if (failingClass != null && !failingClass.isEmpty()) {
             repairMessage.append("\n- Detected failing initialization class: ").append(failingClass);
         }
-        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        appendKeepExecutableTests(repairMessage);
         repairMessage.append("\n- For failing tests only, avoid code paths that load or initialize unavailable "
                 + "framework/native classes.");
         repairMessage.append("\n- Avoid static initialization triggers of missing dependencies.");
@@ -1436,7 +1444,7 @@ final class RepairHintComposer {
             return;
         }
         repairMessage.append("\n\nInstantiation failure hint:");
-        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        appendKeepExecutableTests(repairMessage);
         repairMessage.append("\n- For failing tests only, do NOT instantiate abstract classes or interfaces.");
         repairMessage.append("\n- Prefer concrete implementations listed in the dependency summary (use concrete "
                 + "subtype constructors).");
