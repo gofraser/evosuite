@@ -415,16 +415,7 @@ public class GoalDescriptionMapper {
     private String describeInput(InputCoverageTestFitness goal) {
         String method = cleanMethodName(goal.getMethod());
         String desc = humanizeValueDescriptor(goal.getValueDescriptor());
-        // InputCoverageTestFitness doesn't expose getGoal(); use toString() to extract arg index
-        String raw = goal.toString();
-        // Format: [Input]: className.method[argIndex]:descriptor
-        int bracketOpen = raw.indexOf('[', raw.indexOf(']') + 1);
-        int bracketClose = raw.indexOf(']', bracketOpen + 1);
-        String argIdx = "?";
-        if (bracketOpen >= 0 && bracketClose > bracketOpen) {
-            argIdx = raw.substring(bracketOpen + 1, bracketClose);
-        }
-        return "Input " + method + " arg[" + argIdx + "]: " + desc;
+        return "Input " + method + " arg[" + goal.getArgIndex() + "]: " + desc;
     }
 
     private String describeOutput(OutputCoverageTestFitness goal) {

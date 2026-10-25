@@ -44,6 +44,15 @@ public class InputCoverageTestFitness extends IOCoverageTestFitness<InputCoverag
         super(goal, InputObserver.class, InputObserver::new);
     }
 
+    /**
+     * Gets the index of the argument that the goal covers.
+     *
+     * @return the argument index.
+     */
+    public int getArgIndex() {
+        return goal.getArgIndex();
+    }
+
     @Override
     protected String getCriterionName() {
         return "Input";

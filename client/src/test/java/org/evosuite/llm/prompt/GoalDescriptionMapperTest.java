@@ -22,6 +22,8 @@ package org.evosuite.llm.prompt;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
+import org.evosuite.coverage.io.input.InputCoverageGoal;
+import org.evosuite.coverage.io.input.InputCoverageTestFitness;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.coverage.method.MethodCoverageTestFitness;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
@@ -40,6 +42,15 @@ import static org.mockito.Mockito.*;
 class GoalDescriptionMapperTest {
 
     private final GoalDescriptionMapper mapper = new GoalDescriptionMapper();
+
+    // ---- input and output goals ----
+
+    @Test
+    void describe_inputGoalNamesTheArgumentIndex() {
+        InputCoverageTestFitness goal = new InputCoverageTestFitness(
+                new InputCoverageGoal("Foo", "bar(I[I)V", 1, Type.getType("[I"), "EmptyArray"));
+        assertTrue(mapper.describe(goal).startsWith("Input bar(int, int[]) arg[1]: "), mapper.describe(goal));
+    }
 
     // ---- cleanMethodName ----
 

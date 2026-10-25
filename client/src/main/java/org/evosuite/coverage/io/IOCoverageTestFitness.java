@@ -49,7 +49,7 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
     /**
      * Target goal.
      */
-    private final G goal;
+    protected final G goal;
 
     /**
      * Constructor - fitness is specific to a method.
