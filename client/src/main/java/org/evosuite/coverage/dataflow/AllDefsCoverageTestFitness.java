@@ -25,6 +25,9 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.Map;
 
 /**
@@ -38,9 +41,12 @@ import java.util.Map;
 public class AllDefsCoverageTestFitness extends TestFitnessFunction {
 
     private static final long serialVersionUID = 1L;
-    private final Definition targetDef;
+    // The definition and the use goals refer to the class loader of the client, which cannot be sent
+    // to the master: only the definition id is serialized and the rest is looked up again, if the
+    // pool is available on the receiving side.
+    private transient Definition targetDef;
     private final TestFitnessFunction goalDefinitionFitness;
-    private final Map<Use, DefUseCoverageTestFitness> uses;
+    private transient Map<Use, DefUseCoverageTestFitness> uses;
 
     /**
      * Constructor for AllDefsCoverageTestFitness.
@@ -166,6 +172,23 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     @Override
     public String getTargetMethod() {
         return targetDef.getMethodName();
+    }
+
+    private void writeObject(ObjectOutputStream oos) throws IOException {
+        oos.defaultWriteObject();
+        oos.writeInt(targetDef.defId);
+    }
+
+    private void readObject(ObjectInputStream ois) throws ClassNotFoundException, IOException {
+        ois.defaultReadObject();
+        int defId = ois.readInt();
+
+        // The pool is empty on the master side of the RMI connection, where the definition and the
+        // use goals stay null (see DefUseCoverageTestFitness).
+        targetDef = DefUsePool.getDefinitionByDefId(defId);
+        if (targetDef != null) {
+            uses = DefUseCoverageFactory.getRegisteredGoalsForDefinition(targetDef);
+        }
     }
 
 }
