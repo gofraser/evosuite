@@ -263,6 +263,17 @@ class RepairHintTextGoldenTest {
         }
     }
 
+    /** The error the repair loop reports when the extracted class has no test methods. */
+    private static String noTestMethodsError(String extractedClass) {
+        try {
+            Method build = TestRepairLoop.class.getDeclaredMethod("buildNoTestMethodsParseError", String.class);
+            build.setAccessible(true);
+            return (String) build.invoke(newLoop(), extractedClass);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
     private static List<Case> repairCases() {
         List<Case> cases = new ArrayList<>();
         Map<ParseResult, ExecutionFailureContext> none = Collections.emptyMap();
@@ -326,6 +337,10 @@ class RepairHintTextGoldenTest {
                         parseResult("testOther"), "org.evosuite.runtime.mock.java.lang.MockThrowable: x",
                         new RuntimeException("x")),
                 2, 1, false));
+        String npeField = "java.lang.NullPointerException: Cannot read field \"size\" because \"box\" is null"
+                + "\nParsed test code excerpt:\n```java\nBox box = null;\nsut.fill(box);\n```";
+        cases.add(new Case("npe field read on test variable",
+                npeField, "Box box = null;", none, 2, 1, false));
         cases.add(new Case("npe synthetic local",
                 "java.lang.NullPointerException: because \"<local1>\" is null",
                 null, none, 2, 1, false));
@@ -391,21 +406,17 @@ class RepairHintTextGoldenTest {
         cases.add(new Case("false positive mock without name",
                 "org.evosuite.runtime.FalsePositiveException: Mock call to something odd",
                 null, none, 2, 1, false));
-        cases.add(new Case("no test methods with path import",
-                "Parser produced no test methods.",
-                "import com/example/Shape;\nclass FooTest {}", none, 2, 1, false));
-        cases.add(new Case("no test methods with alias import",
-                "Parser produced no test methods.",
-                "import com.example.Shape as S;\nclass FooTest {}", none, 2, 1, false));
-        cases.add(new Case("no test methods empty response",
-                "Parser produced no test methods.\nThe LLM response was empty or contained no Java code.",
-                null, none, 2, 1, false));
-        cases.add(new Case("no test methods with test annotation",
-                "Parser produced no test methods.",
-                "class FooTest { @Test void t( }", none, 2, 1, false));
-        cases.add(new Case("no test methods prose",
-                "Parser produced no test methods.",
-                "Here is an explanation.", none, 2, 1, false));
+        String[][] noTestMethods = {
+                {"no test methods with path import", "import com/example/Shape;\nclass FooTest {}"},
+                {"no test methods with alias import", "import com.example.Shape as S;\nclass FooTest {}"},
+                {"no test methods empty response", ""},
+                {"no test methods bytecode", "// access flags 0x21\npublic class Shape.java {}"},
+                {"no test methods with test annotation", "class FooTest { @Test void t( }"},
+                {"no test methods prose", "Here is an explanation."},
+        };
+        for (String[] c : noTestMethods) {
+            cases.add(new Case(c[0], noTestMethodsError(c[1]), c[1], none, 2, 1, false));
+        }
         cases.add(new Case("collaborator fallback",
                 "Snippet failure near: com.example.Shape __llm_fallback2 = null;",
                 null, none, 2, 1, false));

@@ -282,6 +282,42 @@ For reference, here are the available constructors and methods:
 
 
 Please provide the corrected complete test class with all test methods.
+=== repair: npe field read on test variable ===
+The following issue was found in the generated tests:
+java.lang.NullPointerException: Cannot read field "size" because "box" is null
+Parsed test code excerpt:
+```java
+Box box = null;
+sut.fill(box);
+```
+
+NPE precondition hint:
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- For failing tests only, ensure the object named 'box' is initialized before invoking the SUT.
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Context-specific repair facts:
+- Null variable 'box' is explicitly assigned null. Repair by initializing required precondition objects at construction site first.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
 === repair: npe synthetic local ===
 The following issue was found in the generated tests:
 java.lang.NullPointerException: because "<local1>" is null
@@ -772,6 +808,9 @@ Please provide the corrected complete test class with all test methods.
 === repair: no test methods with path import ===
 The following issue was found in the generated tests:
 Parser produced no test methods.
+Detected malformed import statement(s):
+- import com/example/Shape;
+Repair action: Java import declarations must use package dots, not file-path slashes, and do NOT support 'as' aliases. Example: import com.example.query.Query; (not 'import ... as ...'). To resolve naming conflicts, use fully qualified names at the call site.
 
 No-test-method parsing hint:
 - Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
@@ -795,6 +834,9 @@ Please provide the corrected complete test class with all test methods.
 === repair: no test methods with alias import ===
 The following issue was found in the generated tests:
 Parser produced no test methods.
+Detected malformed import statement(s):
+- import com.example.Shape as S;
+Repair action: Java import declarations must use package dots, not file-path slashes, and do NOT support 'as' aliases. Example: import com.example.query.Query; (not 'import ... as ...'). To resolve naming conflicts, use fully qualified names at the call site.
 
 No-test-method parsing hint:
 - Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
@@ -818,7 +860,36 @@ Please provide the corrected complete test class with all test methods.
 === repair: no test methods empty response ===
 The following issue was found in the generated tests:
 Parser produced no test methods.
-The LLM response was empty or contained no Java code.
+The LLM response was empty or contained no Java code. This can happen when:
+- The LLM hit a token limit and returned only context/documentation
+- The response was formatted as prose or explanation instead of code
+- The LLM failed silently or returned only context restatement
+Repair action: Return a complete valid Java test class with @Test methods.
+
+No-test-method parsing hint:
+- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
+- Do not return only context, documentation, or bytecode disassembly.
+- Generate actual test code with concrete @Test methods that instantiate and interact with the target class.
+- If your previous response was cut off or hit a token limit, generate fewer test cases but include actual test code.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
+=== repair: no test methods bytecode ===
+The following issue was found in the generated tests:
+Parser produced no test methods.
+The LLM response contained only bytecode disassembly or context, not test code.
+Repair action: Generate actual Java test code with @Test methods, not context documentation.
 
 No-test-method parsing hint:
 - Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
@@ -842,6 +913,7 @@ Please provide the corrected complete test class with all test methods.
 === repair: no test methods with test annotation ===
 The following issue was found in the generated tests:
 Parser produced no test methods.
+The extracted source appears to contain @Test annotations, so malformed Java syntax earlier in the class likely prevented method extraction.
 
 No-test-method parsing hint:
 - Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
@@ -863,6 +935,7 @@ Please provide the corrected complete test class with all test methods.
 === repair: no test methods prose ===
 The following issue was found in the generated tests:
 Parser produced no test methods.
+The extracted source did not contain any detectable @Test methods.
 
 No-test-method parsing hint:
 - Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
