@@ -1096,9 +1096,7 @@ class TestRepairLoopTest {
         assertTrue(userRepairMessage.contains("Detected malformed import statement(s):"));
         assertTrue(userRepairMessage.contains("import br/com/jnfe/base/service.SimpleSecurityHandlerBean;"));
         assertTrue(userRepairMessage.contains("Java import declarations must use package dots, not file-path slashes"));
-        assertTrue(userRepairMessage.contains("No-test-method parsing hint:"));
-        assertTrue(userRepairMessage.contains("invalid Java import syntax with file-path separators instead of package dots"));
-        assertTrue(userRepairMessage.contains("import com.example.service.ExampleBean;"));
+        assertTrue(userRepairMessage.contains("Example: import com.example.query.Query;"));
     }
 
     @Test
@@ -1107,7 +1105,7 @@ class TestRepairLoopTest {
         // references before any parser sees the source, so the alias never
         // reaches TestRepairLoop and no repair call is needed. This test pins
         // that behavior end-to-end; the alias-import diagnostic in
-        // appendNoTestMethodsRepairInstructions is a defensive remnant for
+        // buildNoTestMethodsParseError is a defensive remnant for
         // edge cases where the sanitizer is bypassed (see LlmResponseParserTest
         // for the unit-level coverage).
         LlmService llmService = mock(LlmService.class);

@@ -812,12 +812,6 @@ Detected malformed import statement(s):
 - import com/example/Shape;
 Repair action: Java import declarations must use package dots, not file-path slashes, and do NOT support 'as' aliases. Example: import com.example.query.Query; (not 'import ... as ...'). To resolve naming conflicts, use fully qualified names at the call site.
 
-No-test-method parsing hint:
-- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
-- The previous response used invalid Java import syntax with file-path separators instead of package dots.
-- Invalid import from previous response: import com/example/Shape;
-- Java imports must use dotted package names, for example `import com.example.service.ExampleBean;`.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -837,12 +831,6 @@ Parser produced no test methods.
 Detected malformed import statement(s):
 - import com.example.Shape as S;
 Repair action: Java import declarations must use package dots, not file-path slashes, and do NOT support 'as' aliases. Example: import com.example.query.Query; (not 'import ... as ...'). To resolve naming conflicts, use fully qualified names at the call site.
-
-No-test-method parsing hint:
-- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
-- The previous response used invalid 'import ... as ...' alias syntax, which Java does not support.
-- To resolve naming conflicts (e.g., between two classes named 'Query'), use the fully qualified name at the call site instead of aliasing the import.
-- Example: `com.example.query.Query exampleQuery = new com.example.query.Query();`.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -866,12 +854,6 @@ The LLM response was empty or contained no Java code. This can happen when:
 - The LLM failed silently or returned only context restatement
 Repair action: Return a complete valid Java test class with @Test methods.
 
-No-test-method parsing hint:
-- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
-- Do not return only context, documentation, or bytecode disassembly.
-- Generate actual test code with concrete @Test methods that instantiate and interact with the target class.
-- If your previous response was cut off or hit a token limit, generate fewer test cases but include actual test code.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -891,12 +873,6 @@ Parser produced no test methods.
 The LLM response contained only bytecode disassembly or context, not test code.
 Repair action: Generate actual Java test code with @Test methods, not context documentation.
 
-No-test-method parsing hint:
-- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
-- Do not return only context, documentation, or bytecode disassembly.
-- Generate actual test code with concrete @Test methods that instantiate and interact with the target class.
-- If your previous response was cut off or hit a token limit, generate fewer test cases but include actual test code.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -915,10 +891,6 @@ The following issue was found in the generated tests:
 Parser produced no test methods.
 The extracted source appears to contain @Test annotations, so malformed Java syntax earlier in the class likely prevented method extraction.
 
-No-test-method parsing hint:
-- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
-- The previous response already looked like a test class, so malformed Java syntax likely prevented method extraction. Recheck imports, class declaration, braces, and method headers.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -936,10 +908,6 @@ Please provide the corrected complete test class with all test methods.
 The following issue was found in the generated tests:
 Parser produced no test methods.
 The extracted source did not contain any detectable @Test methods.
-
-No-test-method parsing hint:
-- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.
-- Do not return prose or helper snippets only; include actual @Test methods in the final class.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]

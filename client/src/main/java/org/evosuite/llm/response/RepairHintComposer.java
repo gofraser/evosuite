@@ -166,7 +166,6 @@ final class RepairHintComposer {
         appendMissingMethodOnVariableRepairInstructions(error, repairMessage);
         appendMemberAccessRepairInstructions(state, error, repairMessage);
         appendFalsePositiveMockRepairInstructions(error, repairMessage);
-        appendNoTestMethodsRepairInstructions(error, previousResponse, repairMessage);
         appendSpyUnsupportedRepairInstructions(error, repairMessage);
         appendCollaboratorFallbackRepairInstructions(error, repairMessage);
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
@@ -950,53 +949,6 @@ final class RepairHintComposer {
         repairMessage.append("\n- If the intended assertion is that a callback method must not be "
                 + "reached, keep the collaborator as a mock and verify the method is never invoked instead of calling "
                 + "fail(...) inside an anonymous override.");
-    }
-
-    private void appendNoTestMethodsRepairInstructions(String error,
-                                                       String previousResponse,
-                                                       StringBuilder repairMessage) {
-        if (error == null || !error.contains("Parser produced no test methods")) {
-            return;
-        }
-        repairMessage.append("\n\nNo-test-method parsing hint:");
-        repairMessage.append("\n- Return a complete compilable Java test class that contains one or more concrete "
-                + "methods annotated with @Test inside the class body.");
-        
-        List<String> malformedImports =
-                extractMalformedImportLines(error + "\n" + (previousResponse == null ? "" : previousResponse));
-        if (!malformedImports.isEmpty()) {
-            boolean hasAlias = malformedImports.stream().anyMatch(l -> l.toLowerCase().contains(" as "));
-            if (hasAlias) {
-                repairMessage.append("\n- The previous response used invalid 'import ... as ...' alias syntax, which "
-                        + "Java does not support.");
-                repairMessage.append("\n- To resolve naming conflicts (e.g., between two classes named 'Query'), use "
-                        + "the fully qualified name at the call site instead of aliasing the import.");
-                repairMessage.append("\n- Example: `com.example.query.Query exampleQuery = new "
-                        + "com.example.query.Query();`.");
-            } else {
-                repairMessage.append("\n- The previous response used invalid Java import syntax with file-path "
-                        + "separators instead of package dots.");
-                for (String importLine : malformedImports.subList(0, Math.min(2, malformedImports.size()))) {
-                    repairMessage.append("\n- Invalid import from previous response: ").append(importLine);
-                }
-                repairMessage.append("\n- Java imports must use dotted package names, for example `import "
-                        + "com.example.service.ExampleBean;`.");
-            }
-        } else if (error.contains("LLM response was empty") || error.contains("hit a token limit")
-                || error.contains("contained only bytecode")) {
-            repairMessage.append("\n- Do not return only context, documentation, or bytecode disassembly.");
-            repairMessage.append("\n- Generate actual test code with concrete @Test methods that instantiate and "
-                    + "interact with the target class.");
-            repairMessage.append("\n- If your previous response was cut off or hit a token limit, generate fewer test "
-                    + "cases but include actual test code.");
-        } else if (previousResponse != null && previousResponse.contains("@Test")) {
-            repairMessage.append("\n- The previous response already looked like a test class, so malformed Java syntax "
-                    + "likely prevented method extraction. Recheck imports, class declaration, braces, and method "
-                    + "headers.");
-        } else {
-            repairMessage.append("\n- Do not return prose or helper snippets only; include actual @Test methods in the "
-                    + "final class.");
-        }
     }
 
     static List<String> extractMalformedImportLines(String sourceText) {
