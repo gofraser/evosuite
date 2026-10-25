@@ -21,17 +21,10 @@ package org.evosuite.llm.prompt;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
-import org.evosuite.testparser.ParseResult;
-import org.evosuite.testparser.TestParser;
+import org.evosuite.testparser.ParsedJUnitSources;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -129,44 +122,27 @@ public final class ParsedFewShotExampleSource {
                 currentPropertyKey());
     }
 
-    // ---- loading logic (mirrors JUnitTestParsedChromosomeFactory) ----
-
     private static List<TestCase> loadParsedTests() {
         if (Properties.SELECTED_JUNIT == null || Properties.SELECTED_JUNIT.isEmpty()) {
             logger.debug("No SELECTED_JUNIT configured; parsed FEW_SHOT source empty");
             return Collections.emptyList();
         }
 
-        List<TestCase> result = new ArrayList<>();
-        String[] classNames = Properties.SELECTED_JUNIT.split(":");
-        TestParser parser;
+        ParsedJUnitSources.Loaded loaded;
         try {
-            parser = TestParser.forSUT();
+            loaded = ParsedJUnitSources.load(Properties.SELECTED_JUNIT);
         } catch (Exception e) {
             logger.debug("TestParser.forSUT() unavailable for FEW_SHOT parsed source", e);
             return Collections.emptyList();
         }
-
-        for (String className : classNames) {
-            String relativePath = className.replace('.', File.separatorChar) + ".java";
-            String sourceCode = locateAndReadSource(relativePath);
-            if (sourceCode == null) {
-                logger.debug("Could not find source for FEW_SHOT parsed class {}", className);
-                continue;
-            }
-            try {
-                List<ParseResult> parseResults = parser.parseTestClass(sourceCode);
-                for (ParseResult pr : parseResults) {
-                    TestCase tc = pr.getTestCase();
-                    if (tc != null && tc.size() > 0) {
-                        result.add(tc);
-                    }
-                }
-            } catch (Exception e) {
-                logger.debug("Error parsing {} for FEW_SHOT: {}", className, e.getMessage());
-            }
+        for (String className : loaded.getMissingSources()) {
+            logger.debug("Could not find source for FEW_SHOT parsed class {}", className);
+        }
+        for (String error : loaded.getParseErrors()) {
+            logger.debug("{} (FEW_SHOT)", error);
         }
 
+        List<TestCase> result = new ArrayList<>(loaded.getTests());
         logger.info("ParsedFewShotExampleSource: loaded {} parsed tests from SELECTED_JUNIT",
                 result.size());
 
@@ -174,46 +150,11 @@ public final class ParsedFewShotExampleSource {
         String targetClass = Properties.TARGET_CLASS;
         if (targetClass != null && !targetClass.isEmpty()) {
             int beforeFilter = result.size();
-            retainTestsReferencingTarget(result, targetClass);
+            ParsedJUnitSources.retainReferencingTarget(result, targetClass);
             logger.debug("ParsedFewShotExampleSource: filtered {} → {} tests for TARGET_CLASS={}",
                     beforeFilter, result.size(), targetClass);
         }
 
         return result;
-    }
-
-    /** Drops the tests that neither construct the target class nor call one of its methods. */
-    static void retainTestsReferencingTarget(List<TestCase> tests, String targetClass) {
-        tests.removeIf(tc -> {
-            try {
-                return !JUnitTestParsedChromosomeFactory.referencesTargetClass(tc, targetClass);
-            } catch (Exception e) {
-                logger.debug("Error checking target class reference, skipping test: {}",
-                        e.getMessage());
-                return true; // skip problematic tests safely
-            }
-        });
-    }
-
-    private static String locateAndReadSource(String relativePath) {
-        List<String> searchDirs = new ArrayList<>();
-        if (Properties.SEED_TEST_SOURCE_DIR != null) {
-            searchDirs.add(Properties.SEED_TEST_SOURCE_DIR);
-        }
-        searchDirs.add("src/test/java");
-        searchDirs.add("src/test");
-        searchDirs.add("test");
-
-        for (String dir : searchDirs) {
-            Path path = Paths.get(dir, relativePath);
-            if (Files.isRegularFile(path)) {
-                try {
-                    return new String(Files.readAllBytes(path));
-                } catch (IOException e) {
-                    logger.debug("Could not read {}: {}", path, e.getMessage());
-                }
-            }
-        }
-        return null;
     }
 }

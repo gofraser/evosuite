@@ -23,21 +23,12 @@ import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.statements.ConstructorStatement;
-import org.evosuite.testcase.statements.MethodStatement;
-import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testparser.ParseResult;
-import org.evosuite.testparser.TestParser;
+import org.evosuite.testparser.ParsedJUnitSources;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -91,46 +82,18 @@ public class JUnitTestParsedChromosomeFactory implements
             return;
         }
 
-        String[] classNames = Properties.SELECTED_JUNIT.split(":");
-        TestParser parser = TestParser.forSUT();
-        int emptyTests = 0;
-
-        for (String className : classNames) {
-            String sourcePath = className.replace('.', File.separatorChar) + ".java";
-            String sourceCode = locateAndReadSource(sourcePath);
-
-            if (sourceCode == null) {
-                LoggingUtils.getEvoLogger().warn("* Could not find source for {}", className);
-                continue;
-            }
-
-            try {
-                List<ParseResult> results = parser.parseTestClass(sourceCode);
-                for (ParseResult result : results) {
-                    TestCase tc = result.getTestCase();
-                    if (tc != null && tc.size() > 0) {
-                        parsedTests.add(tc);
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("Parsed test method '{}': {} statements",
-                                    result.getOriginalMethodName(), tc.size());
-                        }
-                    } else {
-                        emptyTests++;
-                        logger.info("Skipping empty parsed test '{}' from {}",
-                                result.getOriginalMethodName(), className);
-                    }
-                    if (!result.getDiagnostics().isEmpty()) {
-                        logger.info("Parse diagnostics for {}.{}: {}",
-                                className, result.getOriginalMethodName(),
-                                result.getDiagnostics());
-                    }
-                }
-            } catch (Exception e) {
-                LoggingUtils.getEvoLogger().warn("* Error parsing test class {}: {}",
-                        className, e.getMessage());
-                logger.debug("Parse error details", e);
-            }
+        ParsedJUnitSources.Loaded loaded = ParsedJUnitSources.load(Properties.SELECTED_JUNIT);
+        for (String className : loaded.getMissingSources()) {
+            LoggingUtils.getEvoLogger().warn("* Could not find source for {}", className);
         }
+        for (String error : loaded.getParseErrors()) {
+            LoggingUtils.getEvoLogger().warn("* {}", error);
+        }
+        for (String note : loaded.getNotes()) {
+            logger.info(note);
+        }
+        parsedTests.addAll(loaded.getTests());
+        int emptyTests = loaded.getEmptyTests();
 
         if (parsedTests.isEmpty()) {
             LoggingUtils.getEvoLogger().warn("* No test cases could be parsed from {} ({} empty test(s) skipped);"
@@ -162,7 +125,7 @@ public class JUnitTestParsedChromosomeFactory implements
             return;
         }
         int beforeFilter = parsedTests.size();
-        parsedTests.removeIf(tc -> !referencesTargetClass(tc, targetClass));
+        ParsedJUnitSources.retainReferencingTarget(parsedTests, targetClass);
         int dropped = beforeFilter - parsedTests.size();
         if (parsedTests.isEmpty()) {
             LoggingUtils.getEvoLogger().warn("* None of the {} parsed tests reference the target class {};"
@@ -171,36 +134,6 @@ public class JUnitTestParsedChromosomeFactory implements
             LoggingUtils.getEvoLogger().info("* Dropped {} of {} parsed tests that do not reference {}",
                     dropped, beforeFilter, targetClass);
         }
-    }
-
-    /**
-     * Locate and read the source file for the given relative path.
-     * Searches SEED_TEST_SOURCE_DIR first, then common source directories.
-     */
-    private String locateAndReadSource(String relativePath) {
-        List<String> searchDirs = new ArrayList<>();
-
-        if (Properties.SEED_TEST_SOURCE_DIR != null) {
-            searchDirs.add(Properties.SEED_TEST_SOURCE_DIR);
-        }
-
-        // Common Maven/Gradle test source locations
-        searchDirs.add("src/test/java");
-        searchDirs.add("src/test");
-        searchDirs.add("test");
-
-        for (String dir : searchDirs) {
-            Path path = Paths.get(dir, relativePath);
-            if (Files.isRegularFile(path)) {
-                try {
-                    return new String(Files.readAllBytes(path));
-                } catch (IOException e) {
-                    logger.warn("Could not read source file {}: {}", path, e.getMessage());
-                }
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -222,37 +155,6 @@ public class JUnitTestParsedChromosomeFactory implements
      */
     public List<TestCase> getParsedTestCases() {
         return parsedTests;
-    }
-
-    /**
-     * Check if a parsed test case references the target class via any
-     * constructor or method call.
-     */
-    public static boolean referencesTargetClass(TestCase tc, String targetClassName) {
-        for (int i = 0; i < tc.size(); i++) {
-            Statement stmt = tc.getStatement(i);
-            if (stmt instanceof ConstructorStatement) {
-                Class<?> declClass = ((ConstructorStatement) stmt).getConstructor().getDeclaringClass();
-                if (isTargetClass(declClass, targetClassName)) {
-                    return true;
-                }
-            } else if (stmt instanceof MethodStatement) {
-                Class<?> declClass = ((MethodStatement) stmt).getMethod().getDeclaringClass();
-                if (isTargetClass(declClass, targetClassName)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * TARGET_CLASS is a binary name ({@code a.Outer$Inner}), so a nested class under test only
-     * matches by {@link Class#getName()}; the canonical name is still accepted as before.
-     */
-    private static boolean isTargetClass(Class<?> declClass, String targetClassName) {
-        return targetClassName.equals(declClass.getName())
-                || targetClassName.equals(declClass.getCanonicalName());
     }
 
     @Override

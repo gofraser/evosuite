@@ -25,6 +25,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testparser.ParsedJUnitSources;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -265,7 +266,7 @@ class ParsedFewShotExampleSourceTest {
         List<TestCase> tests = new ArrayList<>();
         tests.add(constructNestedCut());
 
-        ParsedFewShotExampleSource.retainTestsReferencingTarget(tests, NestedCut.class.getName());
+        ParsedJUnitSources.retainReferencingTarget(tests, NestedCut.class.getName());
 
         assertEquals(1, tests.size());
     }
@@ -275,7 +276,7 @@ class ParsedFewShotExampleSourceTest {
         List<TestCase> tests = new ArrayList<>();
         tests.add(constructNestedCut());
 
-        ParsedFewShotExampleSource.retainTestsReferencingTarget(tests, "com.example.Unrelated");
+        ParsedJUnitSources.retainReferencingTarget(tests, "com.example.Unrelated");
 
         assertTrue(tests.isEmpty());
     }
