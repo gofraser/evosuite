@@ -393,9 +393,6 @@ Mockito usage hint:
 - Do NOT use Mockito.spy(...) or doReturn(...).when(spy)...; regenerate failing tests using real instances or Mockito.mock(...) collaborators.
 - Complete each stubbing expression fully (avoid unfinished stubbing chains).
 
-Spy-unsupported repair instructions:
-- Never alias or stub through parser-generated '__llm_fallback...' variables.
-
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
   concrete subtypes: com.example.Circle, com.example.Square
@@ -525,7 +522,6 @@ Snippet compilation failed: InvocationTargetException __llm_fallback3 = null;
 
 Reflective assertThrows fallback hint:
 - The shown InvocationTargetException/__llm_fallback line is a parser-generated fallback, not valid intended test logic.
-- Replace the entire failing reflective assertion fragment instead of keeping the synthetic fallback variable or aliasing it.
 - Prefer direct invocation of accessible SUT methods over reflection.
 - If reflection is unavoidable, capture InvocationTargetException with Assertions.assertThrows(...), then cast/check invocationTargetException.getCause() as the expected SUT exception type.
 - Do not assign assertThrows(...) results to synthetic null/fallback placeholders.
@@ -649,9 +645,7 @@ Dependency-missing repair instructions:
 Collaborator fallback hint:
 - The shown 'Node __llm_fallback... = null;' line is a parser-generated placeholder, not a usable collaborator setup.
 - Do not alias that synthetic fallback, call methods on it, stub through it, or keep passing null instead of a real Node value.
-- Replace it with a real collaborator before invoking the SUT.
 - If Node is interface/abstract-like in context, prefer Mockito.mock(Node.class, new ViolatedAssumptionAnswer()) and stub only the minimal methods the SUT call actually uses.
-- If that collaborator cannot be constructed or mocked with available SUT/JDK types, rewrite the failing test to avoid that path instead of keeping the synthetic fallback.
 
 Context-specific repair facts:
 - Unresolved class 'Node' appears in a __llm_fallback declaration. Do not introduce short unresolved type aliases (e.g., 'Node __llm_fallback...'); use a resolvable fully-qualified type or Object.
@@ -895,9 +889,7 @@ Snippet failure near: com.example.Shape __llm_fallback2 = null;
 Collaborator fallback hint:
 - The shown 'com.example.Shape __llm_fallback... = null;' line is a parser-generated placeholder, not a usable collaborator setup.
 - Do not alias that synthetic fallback, call methods on it, stub through it, or keep passing null instead of a real Shape value.
-- Replace it with a real collaborator before invoking the SUT.
 - If Shape is interface/abstract-like in context, prefer Mockito.mock(Shape.class, new ViolatedAssumptionAnswer()) and stub only the minimal methods the SUT call actually uses.
-- If that collaborator cannot be constructed or mocked with available SUT/JDK types, rewrite the failing test to avoid that path instead of keeping the synthetic fallback.
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]
@@ -936,11 +928,6 @@ NPE precondition hint:
 - If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
 - Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
 - If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
-
-Synthetic fallback usage error:
-- You are attempting to call a method on a variable named '__llm_fallback...' which is 'null'.
-- This variable is a placeholder and should NEVER be used as a valid object instance.
-- You MUST fix the constructor call that led to this fallback by providing valid data (e.g., a well-formed byte array for a class that parses binary input).
 
 For reference, here are the available constructors and methods:
 // com.example.Shape [interface]

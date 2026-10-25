@@ -2429,7 +2429,6 @@ class TestRepairLoopTest {
         String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
         assertTrue(userRepairMessage.contains("Reflective assertThrows fallback hint:"));
         assertTrue(userRepairMessage.contains("parser-generated fallback"));
-        assertTrue(userRepairMessage.contains("Replace the entire failing reflective assertion fragment"));
         assertTrue(userRepairMessage.contains("capture InvocationTargetException with Assertions.assertThrows(...)"));
         assertTrue(userRepairMessage.contains("invocationTargetException.getCause()"));
     }

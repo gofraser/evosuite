@@ -169,7 +169,6 @@ final class RepairHintComposer {
         appendNoTestMethodsRepairInstructions(error, previousResponse, repairMessage);
         appendSpyUnsupportedRepairInstructions(error, repairMessage);
         appendCollaboratorFallbackRepairInstructions(error, repairMessage);
-        appendSyntheticFallbackUsageRepairInstructions(error, repairMessage);
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
         appendContextSpecificRepairFacts(error, previousResponse, repairMessage);
         appendDependencyCodeContext(state, executionFailures, repairMessage);
@@ -577,19 +576,16 @@ final class RepairHintComposer {
     }
 
     private void appendSpyUnsupportedRepairInstructions(String error, StringBuilder repairMessage) {
-        if (!isSpyUnsupportedPattern(error)) {
+        // The Mockito usage hint already bans spies and spy-based stubbing and names the replacements.
+        if (!isSpyUnsupportedPattern(error) || isMockingMisuseError(error)) {
             return;
         }
         repairMessage.append("\n\nSpy-unsupported repair instructions:");
-        // The Mockito usage hint already bans spies and spy-based stubbing and names the replacements.
-        if (!isMockingMisuseError(error)) {
-            repairMessage.append("\n- Do NOT use Mockito.spy(...) in EvoSuite-generated parsed tests.");
-            repairMessage.append("\n- Do NOT use spy-based stubbing such as doReturn(...).when(spy)... or "
-                    + "when(spy.method(...)).thenReturn(...).");
-            repairMessage.append("\n- Replace spy-based setup with one of: (1) direct calls on real SUT instances "
-                    + "without spy stubbing, or (2) Mockito.mock(...) collaborators that are stubbed minimally.");
-        }
-        repairMessage.append("\n- Never alias or stub through parser-generated '__llm_fallback...' variables.");
+        repairMessage.append("\n- Do NOT use Mockito.spy(...) in EvoSuite-generated parsed tests.");
+        repairMessage.append("\n- Do NOT use spy-based stubbing such as doReturn(...).when(spy)... or "
+                + "when(spy.method(...)).thenReturn(...).");
+        repairMessage.append("\n- Replace spy-based setup with one of: (1) direct calls on real SUT instances without "
+                + "spy stubbing, or (2) Mockito.mock(...) collaborators that are stubbed minimally.");
     }
 
     private void appendFalsePositiveMockRepairInstructions(String error, StringBuilder repairMessage) {
@@ -703,8 +699,6 @@ final class RepairHintComposer {
         repairMessage.append("\n\nReflective assertThrows fallback hint:");
         repairMessage.append("\n- The shown InvocationTargetException/__llm_fallback line is a parser-generated "
                 + "fallback, not valid intended test logic.");
-        repairMessage.append("\n- Replace the entire failing reflective assertion fragment instead of keeping the "
-                + "synthetic fallback variable or aliasing it.");
         repairMessage.append("\n- Prefer direct invocation of accessible SUT methods over reflection.");
         repairMessage.append("\n- If reflection is unavoidable, capture InvocationTargetException with "
                 + "Assertions.assertThrows(...), then cast/check invocationTargetException.getCause() as the expected "
@@ -869,27 +863,12 @@ final class RepairHintComposer {
                 + "passing null instead of a real ")
                 .append(simpleType)
                 .append(" value.");
-        repairMessage.append("\n- Replace it with a real collaborator before invoking the SUT.");
         repairMessage.append("\n- If ")
                 .append(simpleType)
                 .append(" is interface/abstract-like in context, prefer Mockito.mock(")
                 .append(simpleType)
                 .append(".class, new ViolatedAssumptionAnswer()) and stub only the minimal methods the SUT call "
                         + "actually uses.");
-        repairMessage.append("\n- If that collaborator cannot be constructed or mocked with available SUT/JDK types, "
-                + "rewrite the failing test to avoid that path instead of keeping the synthetic fallback.");
-    }
-
-    private void appendSyntheticFallbackUsageRepairInstructions(String error, StringBuilder repairMessage) {
-        if (error.contains("NullPointerException") && error.contains("__llm_fallback")) {
-            repairMessage.append("\n\nSynthetic fallback usage error:");
-            repairMessage.append("\n- You are attempting to call a method on a variable named '__llm_fallback...' "
-                    + "which is 'null'.");
-            repairMessage.append("\n- This variable is a placeholder and should NEVER be used as a valid object "
-                    + "instance.");
-            repairMessage.append("\n- You MUST fix the constructor call that led to this fallback by providing valid "
-                    + "data (e.g., a well-formed byte array for a class that parses binary input).");
-        }
     }
 
     private void appendAnonymousImplementationRepairInstructions(String error,
