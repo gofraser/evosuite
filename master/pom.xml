@@ -133,6 +133,17 @@
                 </dependencies>
             </plugin>
 
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <!-- Test the unshaded classes, as surefire does. The shaded jar relocates string
+                         constants such as the package prefixes in ExcludedClasses, which changes what
+                         the tests observe. -->
+                    <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                </configuration>
+            </plugin>
+
             <!-- be sure classes get shaded -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
