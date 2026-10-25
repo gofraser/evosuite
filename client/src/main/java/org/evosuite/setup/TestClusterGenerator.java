@@ -103,6 +103,7 @@ public class TestClusterGenerator {
 
         if (Properties.INSTRUMENT_CONTEXT
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.IBRANCH)) {
             for (String callTreeClass : callGraph.getClasses()) {
                 try {

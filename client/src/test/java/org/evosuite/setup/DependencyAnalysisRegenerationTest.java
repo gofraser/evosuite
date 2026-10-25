@@ -120,4 +120,27 @@ public class DependencyAnalysisRegenerationTest {
         Assertions.assertNotNull(DependencyAnalysis.getInheritanceTree());
         Assertions.assertFalse(DependencyAnalysis.getInheritanceTree().hasMissingClasses());
     }
+
+    public static class CallingClass {
+        public int read() {
+            return new org.apache.commons.lang3.mutable.MutableInt(1).intValue();
+        }
+    }
+
+    @Test
+    public void definitionUseCriteriaAnalyzeCalledClasses() {
+        initAnalysisState();
+        Properties.TARGET_CLASS = CallingClass.class.getName();
+        DependencyAnalysis.initCallGraph(Properties.TARGET_CLASS);
+        String called = org.apache.commons.lang3.mutable.MutableInt.class.getName();
+        Assertions.assertTrue(DependencyAnalysis.getCallGraph().isCalledClass(called));
+
+        Properties.CRITERION = new Criterion[]{Criterion.CBRANCH};
+        Assertions.assertFalse(DependencyAnalysis.shouldAnalyze(called));
+
+        for (Criterion criterion : new Criterion[]{Criterion.DEFUSE, Criterion.ALLDEFS}) {
+            Properties.CRITERION = new Criterion[]{criterion};
+            Assertions.assertTrue(DependencyAnalysis.shouldAnalyze(called), criterion.name());
+        }
+    }
 }

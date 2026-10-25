@@ -399,6 +399,7 @@ public class DependencyAnalysis {
         // context
         if (Properties.INSTRUMENT_CONTEXT
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.IBRANCH)) {
             CallGraph callGraph = callGraphs.get(Properties.TARGET_CLASS);
             return callGraph != null && callGraph.isCalledClass(className);
