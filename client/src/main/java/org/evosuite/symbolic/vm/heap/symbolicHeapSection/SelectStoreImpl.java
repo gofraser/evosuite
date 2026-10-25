@@ -59,18 +59,18 @@ public class SelectStoreImpl implements ArraysSection {
     }
 
     /**
-     * TODO: Implement me!.
+     * Reference arrays are not modelled with select/store expressions, so the loaded element is
+     * the symbolic reference of the concrete value.
      *
      * @param symbolicArray the symbolic array
      * @param symbolicIndex the symbolic index
-     * @param symbolicValue the symbolic value
+     * @param symbolicValue the symbolic reference of the concrete element
      * @return the loaded value
      */
     @Override
     public ReferenceExpression arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
                                          ReferenceExpression symbolicValue) {
-        // ArrayValue.ReferenceArrayValue arrayExpression = referenceArrays.get(symbolicArray);
-        return null;
+        return symbolicValue;
     }
 
     @Override
