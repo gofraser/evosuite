@@ -20,7 +20,6 @@
 package org.evosuite.instrumentation;
 
 import org.evosuite.PackageInfo;
-import org.evosuite.Properties;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.graphs.cfg.CFGClassAdapter;
@@ -35,7 +34,6 @@ import org.evosuite.runtime.util.ComputeClassWriter;
 import org.evosuite.seeding.PrimitiveClassAdapter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TargetClasses;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.testcarver.instrument.Instrumenter;
 import org.evosuite.testcarver.instrument.TransformerUtil;
 import org.objectweb.asm.ClassReader;
@@ -160,14 +158,6 @@ public class BytecodeInstrumentation {
         }
         logger.info("Preventing transformation of " + className);
         return false;
-    }
-
-    private boolean isTargetClassName(String className) {
-        if (TargetClasses.isTargetScope(className)) {
-            return true;
-        }
-        return Properties.INSTRUMENT_PARENT
-                && TestCluster.getInheritanceTree().getSubclasses(Properties.TARGET_CLASS).contains(className);
     }
 
     /**
@@ -904,13 +894,13 @@ public class BytecodeInstrumentation {
 
         if (config.stringReplacement()) {
             StringTransformation st = new StringTransformation(cn);
-            if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots)) {
+            if (TargetClasses.isTargetScope(classNameWithDots) || shouldTransform(classNameWithDots)) {
                 cn = st.transform();
             }
         }
 
         ComparisonTransformation cmp = new ComparisonTransformation(cn);
-        if (isTargetClassName(classNameWithDots) || shouldTransform(classNameWithDots)) {
+        if (TargetClasses.isTargetScope(classNameWithDots) || shouldTransform(classNameWithDots)) {
             cn = cmp.transform();
             ContainerTransformation ct = new ContainerTransformation(cn);
             cn = ct.transform();
