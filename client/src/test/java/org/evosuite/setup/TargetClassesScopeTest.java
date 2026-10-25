@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * With a target class prefix, deciding whether a class is a target must not run its static
  * initialiser: that would execute SUT code outside the instrumenting class loader.
  */
-public class DependencyAnalysisTargetClassNameTest {
+public class TargetClassesScopeTest {
 
     static boolean probeInitialised;
 
@@ -46,7 +46,7 @@ public class DependencyAnalysisTargetClassNameTest {
         String name = Probe.class.getName();
         Properties.TARGET_CLASS_PREFIX = name;
 
-        assertTrue(DependencyAnalysis.isTargetClassName(name));
+        assertTrue(TargetClasses.isTargetScope(name));
         assertFalse(probeInitialised);
     }
 }

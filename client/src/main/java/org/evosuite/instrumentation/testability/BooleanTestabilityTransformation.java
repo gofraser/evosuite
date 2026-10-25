@@ -19,7 +19,6 @@
  */
 package org.evosuite.instrumentation.testability;
 
-import org.evosuite.Properties;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.graphs.GraphPool;
@@ -30,6 +29,7 @@ import org.evosuite.instrumentation.BooleanArrayInterpreter;
 import org.evosuite.instrumentation.BooleanValueInterpreter;
 import org.evosuite.instrumentation.TransformationStatistics;
 import org.evosuite.instrumentation.testability.transformer.*;
+import org.evosuite.setup.TargetClasses;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -106,8 +106,7 @@ public class BooleanTestabilityTransformation {
         processFields();
         processMethods();
         clearIntermediateResults();
-        if (className.equals(Properties.TARGET_CLASS)
-                || className.startsWith(Properties.TARGET_CLASS + "$")) {
+        if (TargetClasses.isCut(className)) {
             TransformationStatistics.writeStatistics(className);
         }
 

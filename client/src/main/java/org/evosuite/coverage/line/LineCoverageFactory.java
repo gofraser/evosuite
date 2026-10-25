@@ -25,6 +25,7 @@ import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.instrumentation.LinePool;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +83,7 @@ public class LineCoverageFactory extends
 
         for (String className : LinePool.getKnownClasses()) {
             // Only lines in CUT
-            if (!isCUT(className)) {
+            if (!TargetClasses.isCutOrUnset(className)) {
                 continue;
             }
 

@@ -228,8 +228,7 @@ public class TestClusterUtils {
             return false;
         }
 
-        if (className.equals(Properties.TARGET_CLASS)
-                || className.startsWith(Properties.TARGET_CLASS + "$")) {
+        if (TargetClasses.isCut(className)) {
             return true;
         }
 

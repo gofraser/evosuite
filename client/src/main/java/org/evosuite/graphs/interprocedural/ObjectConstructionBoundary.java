@@ -7,6 +7,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.setup.ClassOrigin;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.TargetClasses;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +34,7 @@ public final class ObjectConstructionBoundary {
         if (sameArtifact != null) {
             return !sameArtifact;
         }
-        return className != null && !DependencyAnalysis.isTargetClassName(className)
+        return className != null && !TargetClasses.isTargetScope(className)
                 && !DependencyAnalysis.isTargetProject(className);
     }
 

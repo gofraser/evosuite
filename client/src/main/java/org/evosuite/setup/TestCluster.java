@@ -26,7 +26,6 @@ import org.evosuite.TimeController;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.operators.selection.RankSelection;
-import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.runtime.util.Inputs;
@@ -350,36 +349,6 @@ public class TestCluster {
      */
     protected static void setInheritanceTree(InheritanceTree inheritancetree) {
         inheritanceTree = inheritancetree;
-    }
-
-    /**
-     * Check if the given class name is a target class.
-     *
-     * @param className the name of the class to check
-     * @return true if the class is a target class
-     */
-    public static boolean isTargetClassName(String className) {
-        if (!Properties.TARGET_CLASS_PREFIX.isEmpty()
-                && className.startsWith(Properties.TARGET_CLASS_PREFIX)) {
-            // exclude existing tests from the target project
-            try {
-                Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
-                return !CoverageAnalysis.isTest(clazz);
-            } catch (ClassNotFoundException e) {
-                logger.info("Could not load class: {}", className);
-            }
-        }
-        if (className.equals(Properties.TARGET_CLASS)
-                || className.startsWith(Properties.TARGET_CLASS + "$")) {
-            return true;
-        }
-
-        if (Properties.INSTRUMENT_PARENT) {
-            return inheritanceTree.getSubclasses(Properties.TARGET_CLASS).contains(className);
-        }
-
-        return false;
-
     }
 
     private static boolean isNotCallableFromSource(GenericAccessibleObject<?> call) {

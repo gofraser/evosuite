@@ -19,7 +19,7 @@
  */
 package org.evosuite.seeding;
 
-import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.TargetClasses;
 import org.objectweb.asm.*;
 
 /**
@@ -82,7 +82,7 @@ public class PrimitiveClassAdapter extends ClassVisitor {
 
         // We don't use serial numbers because they can be very long and are not used in any branches
         if (!"serialVersionUID".equals(name)) {
-            if (DependencyAnalysis.isTargetClassName(className)) {
+            if (TargetClasses.isTargetScope(className)) {
                 poolManager.addSUTConstant(value);
                 poolManager.addSUTConstant(Type.getType(desc));
             } else {
@@ -92,7 +92,7 @@ public class PrimitiveClassAdapter extends ClassVisitor {
                 // static final values in enums are likely enum values
                 if ((access & Opcodes.ACC_FINAL) == Opcodes.ACC_FINAL
                         && (access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC) {
-                    if (DependencyAnalysis.isTargetClassName(className)) {
+                    if (TargetClasses.isTargetScope(className)) {
                         poolManager.addSUTConstant(name);
                     } else {
                         poolManager.addNonSUTConstant(name);
@@ -128,7 +128,7 @@ public class PrimitiveClassAdapter extends ClassVisitor {
             mv = new StringReplacementMethodAdapter(methodAccess, descriptor, mv);
         }
         */
-        if (DependencyAnalysis.isTargetClassName(className)) {
+        if (TargetClasses.isTargetScope(className)) {
             for (Type argumentType : Type.getArgumentTypes(descriptor)) {
                 poolManager.addSUTConstant(argumentType);
             }
@@ -145,7 +145,7 @@ public class PrimitiveClassAdapter extends ClassVisitor {
     public void visitInnerClass(String name, String outerName, String innerName,
                                 int access) {
         if ((access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC) {
-            if (DependencyAnalysis.isTargetClassName(className)) {
+            if (TargetClasses.isTargetScope(className)) {
                 Type type = Type.getObjectType(name);
                 poolManager.addSUTConstant(type);
             }

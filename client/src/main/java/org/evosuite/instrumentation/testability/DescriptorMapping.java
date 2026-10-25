@@ -22,6 +22,7 @@ package org.evosuite.instrumentation.testability;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
+import org.evosuite.setup.TargetClasses;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
@@ -83,8 +84,7 @@ public class DescriptorMapping {
             case ALL:
                 return true;
             case TARGET:
-                if (className.equals(Properties.TARGET_CLASS)
-                        || className.startsWith(Properties.TARGET_CLASS + "$")) {
+                if (TargetClasses.isCut(className)) {
                     return true;
                 }
                 break;
@@ -241,8 +241,7 @@ public class DescriptorMapping {
                 }
                 // fall through
             case TARGET:
-                if (classNameWithDots.equals(Properties.TARGET_CLASS)
-                        || classNameWithDots.startsWith(Properties.TARGET_CLASS + "$")) {
+                if (TargetClasses.isCut(classNameWithDots)) {
                     return true;
                 }
                 break;

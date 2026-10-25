@@ -30,7 +30,6 @@ import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
 import org.evosuite.instrumentation.LinePool;
-import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.setup.callgraph.CallGraph;
 import org.evosuite.setup.callgraph.CallGraphGenerator;
@@ -62,8 +61,6 @@ public class DependencyAnalysis {
     private static String inheritanceTreeClasspathSignature = null;
     private static List<String> inheritanceTreeClasspath = null;
 
-    private static Set<String> targetClasses = null;
-
     /**
      * Clear all static state.
      */
@@ -80,7 +77,7 @@ public class DependencyAnalysis {
     public static void clear(boolean keepInheritanceTree) {
         classCache.clear();
         callGraphs.clear();
-        targetClasses = null;
+        TargetClasses.setAnalyzedTargets(null);
         if (!keepInheritanceTree) {
             dropInheritanceTree();
         }
@@ -272,8 +269,9 @@ public class DependencyAnalysis {
 
         initInheritanceTree(classPath);
 
-        targetClasses = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+        Set<String> targetClasses = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getAllClasses(target, false);
+        TargetClasses.setAnalyzedTargets(targetClasses);
         boolean regenerated = false;
         for (String className : targetClasses) {
             Properties.TARGET_CLASS = className;
@@ -351,30 +349,6 @@ public class DependencyAnalysis {
     }
 
     /**
-     * Determine if the given class is the target class.
-     *
-     * @param className the class name
-     * @return true if it is the target class
-     */
-    public static boolean isTargetClassName(String className) {
-        if (!Properties.TARGET_CLASS_PREFIX.isEmpty()
-                && className.startsWith(Properties.TARGET_CLASS_PREFIX)) {
-            // exclude existing tests from the target project
-            try {
-                Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
-                return !CoverageAnalysis.isTest(clazz);
-            } catch (ClassNotFoundException e) {
-                logger.info("Could not find class " + className);
-            }
-        }
-        if (className.equals(Properties.TARGET_CLASS)
-                || className.startsWith(Properties.TARGET_CLASS + "$")) {
-            return true;
-        }
-        return targetClasses != null && targetClasses.contains(className);
-    }
-
-    /**
      * Determine if the given class belongs to the target project.
      *
      * @param className the class name to check
@@ -407,7 +381,7 @@ public class DependencyAnalysis {
      */
     public static boolean shouldAnalyze(String className) {
         // Always analyze if it is a target class
-        if (isTargetClassName(className)) {
+        if (TargetClasses.isTargetScope(className)) {
             return true;
         }
 
@@ -442,7 +416,7 @@ public class DependencyAnalysis {
      */
     public static boolean shouldInstrument(String className, String methodName) {
         // Always analyze if it is a target class
-        if (isTargetClassName(className)) {
+        if (TargetClasses.isTargetScope(className)) {
             return true;
         }
 

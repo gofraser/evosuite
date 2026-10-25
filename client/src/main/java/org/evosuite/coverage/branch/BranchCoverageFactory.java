@@ -25,6 +25,7 @@ import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.ControlDependency;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +62,7 @@ public class BranchCoverageFactory extends
         // logger.info("Getting branches");
         for (String className : branchPool.knownClasses()) {
             //when limitToCUT== true, if not the class under test of a inner/anonymous class, continue
-            if (limitToCUT && !isCUT(className)) {
+            if (limitToCUT && !TargetClasses.isCutOrUnset(className)) {
                 continue;
             }
             //when limitToCUT==false, consider all classes, but excludes libraries ones

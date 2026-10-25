@@ -22,7 +22,7 @@ package org.evosuite.coverage.io.output;
 
 import org.evosuite.coverage.io.IOGoal;
 import org.evosuite.coverage.io.IOValueDescriptors;
-import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.TargetClasses;
 import org.objectweb.asm.Type;
 
 import java.io.Serializable;
@@ -254,7 +254,7 @@ public class OutputCoverageGoal implements Serializable, IOGoal<OutputCoverageGo
 
         Set<OutputCoverageGoal> goals = new LinkedHashSet<>();
 
-        if (!DependencyAnalysis.isTargetClassName(className)) {
+        if (!TargetClasses.isTargetScope(className)) {
             return goals;
         }
         if (methodName.equals("hashCode")) {

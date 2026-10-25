@@ -19,6 +19,8 @@
  */
 package org.evosuite.llm.response;
 
+import org.evosuite.setup.TargetClasses;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -293,10 +295,8 @@ public final class DependencyFailureAnalysis {
         if (className == null) {
             return false;
         }
-        if (targetClass != null && !targetClass.isEmpty()) {
-            if (className.equals(targetClass) || className.startsWith(targetClass + "$")) {
-                return true;
-            }
+        if (TargetClasses.isCut(className, targetClass)) {
+            return true;
         }
         return targetPackage != null
                 && !targetPackage.isEmpty()

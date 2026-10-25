@@ -19,7 +19,7 @@
  */
 package org.evosuite.seeding;
 
-import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.TargetClasses;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -56,7 +56,7 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
         for (int key : keys) {
-            if (DependencyAnalysis.isTargetClassName(className)) {
+            if (TargetClasses.isTargetScope(className)) {
                 poolManager.addSUTConstant(key);
             } else {
                 poolManager.addNonSUTConstant(key);
@@ -71,7 +71,7 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
     @Override
     public void visitIntInsn(int opcode, int operand) {
         if (opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH) {
-            if (DependencyAnalysis.isTargetClassName(className)) {
+            if (TargetClasses.isTargetScope(className)) {
                 poolManager.addSUTConstant(operand);
             } else {
                 poolManager.addNonSUTConstant(operand);
@@ -85,7 +85,7 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
      */
     @Override
     public void visitLdcInsn(Object cst) {
-        if (DependencyAnalysis.isTargetClassName(className)) {
+        if (TargetClasses.isTargetScope(className)) {
             poolManager.addSUTConstant(cst);
         } else {
             poolManager.addNonSUTConstant(cst);
@@ -143,7 +143,7 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
                 break;
         }
         if (constant != null) {
-            if (DependencyAnalysis.isTargetClassName(className)) {
+            if (TargetClasses.isTargetScope(className)) {
                 poolManager.addSUTConstant(constant);
             } else {
                 poolManager.addNonSUTConstant(constant);

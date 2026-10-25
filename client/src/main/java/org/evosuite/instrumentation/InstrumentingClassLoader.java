@@ -26,6 +26,7 @@ import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.util.AtMostOnceLogger;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.utils.MasterClassLoaderBridge;
 import org.objectweb.asm.ClassReader;
 import org.slf4j.Logger;
@@ -356,7 +357,7 @@ public class InstrumentingClassLoader extends ClassLoader {
 
         String targetClass = Properties.TARGET_CLASS;
         if (targetClass != null && !targetClass.isEmpty()) {
-            if (normalized.equals(targetClass) || normalized.startsWith(targetClass + "$")) {
+            if (TargetClasses.isCut(normalized, targetClass)) {
                 return true;
             }
 

@@ -20,6 +20,7 @@
 package org.evosuite.instrumentation;
 
 import org.evosuite.PackageInfo;
+import org.evosuite.Properties;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.graphs.cfg.CFGClassAdapter;
@@ -33,6 +34,7 @@ import org.evosuite.runtime.instrumentation.*;
 import org.evosuite.runtime.util.ComputeClassWriter;
 import org.evosuite.seeding.PrimitiveClassAdapter;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcarver.instrument.Instrumenter;
 import org.evosuite.testcarver.instrument.TransformerUtil;
@@ -143,7 +145,7 @@ public class BytecodeInstrumentation {
                 logger.info("Allowing transformation of " + className);
                 return true;
             case TARGET:
-                if (className.equals(config.targetClass()) || className.startsWith(config.targetClass() + "$")) {
+                if (TargetClasses.isCut(className, config.targetClass())) {
                     return true;
                 }
                 break;
@@ -161,36 +163,33 @@ public class BytecodeInstrumentation {
     }
 
     private boolean isTargetClassName(String className) {
-        // TODO: Need to replace this in the long term
-        return TestCluster.isTargetClassName(className);
+        if (TargetClasses.isTargetScope(className)) {
+            return true;
+        }
+        return Properties.INSTRUMENT_PARENT
+                && TestCluster.getInheritanceTree().getSubclasses(Properties.TARGET_CLASS).contains(className);
     }
 
     /**
      * Check whether the given class is the class under test (CUT).
      *
      * <p>This uses the narrow CUT definition that the coverage goal factories use (see
-     * {@code AbstractFitnessFactory.isCUT} and {@code InstrumentingClassLoader.shouldWarnForMissingClass}):
+     * {@link TargetClasses#isCut(String, String)}):
      * the target class itself plus its nested classes ({@code Foo$Bar}).  Nested classes
      * count as CUT because their branches and lines are part of the target's coverage
      * goals, so losing their probes degrades the reported coverage just as silently as
      * losing the probes of the outer class.
      *
-     * <p>The broader {@link org.evosuite.setup.TestCluster#isTargetClassName(String)} is
+     * <p>The broader {@link TargetClasses#isTargetScope(String)} is
      * deliberately NOT used here: it also matches every class below
-     * {@code TARGET_CLASS_PREFIX} and, with {@code INSTRUMENT_PARENT}, subclasses of the
-     * target.  Those are exactly the dependency classes that the instrumentation fallback
-     * ladder exists to rescue, and their behaviour must not change.
+     * {@code TARGET_CLASS_PREFIX}.  Those are exactly the dependency classes that the
+     * instrumentation fallback ladder exists to rescue, and their behaviour must not change.
      *
      * @param classNameWithDots the class name in binary (dotted) form.
      * @return true if the class is the class under test or one of its nested classes.
      */
     private boolean isClassUnderTest(String classNameWithDots) {
-        String targetClass = config.targetClass();
-        if (targetClass == null || targetClass.isEmpty()) {
-            return false;
-        }
-        return classNameWithDots.equals(targetClass)
-                || classNameWithDots.startsWith(targetClass + "$");
+        return TargetClasses.isCut(classNameWithDots, config.targetClass());
     }
 
     /**

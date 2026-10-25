@@ -28,6 +28,7 @@ import org.evosuite.assertion.UnitAssertionGenerator;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.instrumentation.LinePool;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.strategy.*;
 import org.evosuite.symbolic.dse.DSEStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -61,7 +62,7 @@ public class TestSuiteGeneratorHelper {
 
     static boolean hasUsableLineNumbersForTargetClass() {
         for (String className : LinePool.getKnownClasses()) {
-            if (!isCUT(className)) {
+            if (!TargetClasses.isCutOrUnset(className)) {
                 continue;
             }
             for (Integer line : LinePool.getLines(className)) {
@@ -91,12 +92,6 @@ public class TestSuiteGeneratorHelper {
         return Arrays.stream(criteria)
                 .filter(c -> !isLineDebugInfoDependentCriterion(c))
                 .toArray(Criterion[]::new);
-    }
-
-    private static boolean isCUT(String className) {
-        return Properties.TARGET_CLASS.isEmpty()
-                || className.equals(Properties.TARGET_CLASS)
-                || className.startsWith(Properties.TARGET_CLASS + "$");
     }
 
     static TestGenerationStrategy getTestGenerationStrategy() {

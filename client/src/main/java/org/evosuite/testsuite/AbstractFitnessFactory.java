@@ -19,7 +19,6 @@
  */
 package org.evosuite.testsuite;
 
-import org.evosuite.Properties;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -34,12 +33,6 @@ import org.evosuite.testcase.execution.ExecutionTracer;
  */
 public abstract class AbstractFitnessFactory<T extends TestFitnessFunction> implements
         TestFitnessFactory<T> {
-
-    protected boolean isCUT(String className) {
-        return Properties.TARGET_CLASS.isEmpty()
-                || (className.equals(Properties.TARGET_CLASS)
-                || className.startsWith(Properties.TARGET_CLASS + "$"));
-    }
 
     /**
      * {@inheritDoc}

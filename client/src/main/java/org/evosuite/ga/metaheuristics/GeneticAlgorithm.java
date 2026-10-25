@@ -54,6 +54,7 @@ import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.StagnationDetector;
 import org.evosuite.llm.search.StagnationLlmHelper;
+import org.evosuite.setup.TargetClasses;
 import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.testcase.TestReferenceValidator;
 import org.evosuite.testcase.TestChromosome;
@@ -790,9 +791,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
                 org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getAllBranches()) {
             String branchClass = branch.getInstruction().getClassName();
-            if (branchClass != null
-                    && (Properties.TARGET_CLASS.equals(branchClass)
-                            || branchClass.startsWith(Properties.TARGET_CLASS + "$"))) {
+            if (branchClass != null && TargetClasses.isCut(branchClass)) {
                 targetBranches.add(branch);
             }
         }

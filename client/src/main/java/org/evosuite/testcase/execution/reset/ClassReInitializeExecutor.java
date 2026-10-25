@@ -27,6 +27,7 @@ import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.sandbox.Sandbox;
+import org.evosuite.setup.TargetClasses;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -359,11 +360,8 @@ class ClassReInitializeExecutor {
             return false;
         }
 
-        String targetClass = Properties.TARGET_CLASS;
-        if (targetClass != null && !targetClass.isEmpty()) {
-            if (className.equals(targetClass) || className.startsWith(targetClass + "$")) {
-                return true;
-            }
+        if (TargetClasses.isCut(className)) {
+            return true;
         }
 
         String targetPrefix = Properties.TARGET_CLASS_PREFIX;
