@@ -1,0 +1,189 @@
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency round 0 historical=false
+Direct invocations are exception-dominated in context: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object) [arg0 (Object)=nonnull]
+  Method-wide direct invocations: 7.
+  Method-wide non-exception completions: 4.
+  Method-wide exception outcomes: 3.
+  Blocked invocation context: arg0 (Object)=nonnull.
+  Context-local direct invocations: 3.
+  Context-local non-exception completions: 0.
+  Context-local exception outcomes: 3.
+  Context-local exception dominance: 3/3.
+  Dominant exception: IllegalStateException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object).
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=1.0 confidence=0.984375 impact=0.2 priority=0.19843750000000002
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency|attempts=7|exceptions=3|successes=4|dominance=3/7|context=arg0=nonnull|contextDominance=3/3|dominant=IllegalStateException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency round 1 historical=true
+Direct invocations are exception-dominated in context: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object) [arg0 (Object)=nonnull]
+  Method-wide direct invocations: 14.
+  Method-wide non-exception completions: 8.
+  Method-wide exception outcomes: 6.
+  Blocked invocation context: arg0 (Object)=nonnull.
+  Context-local direct invocations: 6.
+  Context-local non-exception completions: 0.
+  Context-local exception outcomes: 6.
+  Context-local exception dominance: 6/6.
+  Includes persistent direct-invocation evidence from recent stagnation windows.
+  Dominant exception: NullPointerException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object).
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=1.0 confidence=0.9998779296875 impact=0.2 priority=0.19998779296875002
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency|attempts=14|exceptions=6|successes=8|dominance=6/14|context=arg0=nonnull|contextDominance=6/6|dominant=NullPointerException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency round 2 historical=true
+Direct invocations are exception-dominated in context: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object) [arg0 (Object)=nonnull]
+  Method-wide direct invocations: 19.
+  Method-wide non-exception completions: 13.
+  Method-wide exception outcomes: 6.
+  Blocked invocation context: arg0 (Object)=nonnull.
+  Context-local direct invocations: 7.
+  Context-local non-exception completions: 1.
+  Context-local exception outcomes: 6.
+  Context-local exception dominance: 6/7.
+  Includes persistent direct-invocation evidence from recent stagnation windows.
+  Dominant exception: NullPointerException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object).
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=0.8571428571428571 confidence=0.9999961853027344 impact=0.2 priority=0.18285679408482142
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency|attempts=19|exceptions=6|successes=13|dominance=6/19|context=arg0=nonnull|contextDominance=6/7|dominant=NullPointerException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency round 3 historical=true
+Direct invocations are exception-dominated in context: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object) [arg0 (Object)=nonnull]
+  Method-wide direct invocations: 25.
+  Method-wide non-exception completions: 17.
+  Method-wide exception outcomes: 8.
+  Blocked invocation context: arg0 (Object)=nonnull.
+  Context-local direct invocations: 9.
+  Context-local non-exception completions: 1.
+  Context-local exception outcomes: 8.
+  Context-local exception dominance: 8/9.
+  Includes persistent direct-invocation evidence from recent stagnation windows.
+  Dominant exception: IllegalStateException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object).
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=0.8888888888888888 confidence=0.9999999403953552 impact=0.2 priority=0.1866666611035665
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency|attempts=25|exceptions=8|successes=17|dominance=8/25|context=arg0=nonnull|contextDominance=8/9|dominant=IllegalStateException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency round 4 historical=true
+Direct invocations are exception-dominated in context: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object) [arg0 (Object)=nonnull]
+  Method-wide direct invocations: 22.
+  Method-wide non-exception completions: 15.
+  Method-wide exception outcomes: 7.
+  Blocked invocation context: arg0 (Object)=nonnull.
+  Context-local direct invocations: 8.
+  Context-local non-exception completions: 1.
+  Context-local exception outcomes: 7.
+  Context-local exception dominance: 7/8.
+  Includes persistent direct-invocation evidence from recent stagnation windows.
+  Dominant exception: IllegalStateException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency(Object).
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=0.875 confidence=0.9999995231628418 impact=0.2 priority=0.18499995589256288
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withDependency|attempts=22|exceptions=7|successes=15|dominance=7/22|context=arg0=nonnull|contextDominance=7/8|dominant=IllegalStateException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork round 0 historical=false
+Upstream invocation is exception-dominated before target call: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork()
+  Observed direct target invocations: 1.
+  Direct non-exception completions: 1.
+  Direct exception outcomes: 0.
+  Repeated upstream invocation blocked the target before it was reached: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper().
+  Upstream invocations before the target call: 2.
+  Upstream non-exception completions before the target call: 0.
+  Upstream exception outcomes before the target call: 2.
+  Upstream exception dominance: 2/2.
+  Covered in failing tests (not all directly attributable): 2.
+  Dominant exception: IllegalStateException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper().
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=1.0 confidence=0.5 impact=0.2 priority=0.15000000000000002
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork|attempts=2|exceptions=2|successes=0|dominance=2/2|upstream=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper|dominant=IllegalStateException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork round 1 historical=true
+Upstream invocation is exception-dominated before target call: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork()
+  Observed direct target invocations: 3.
+  Direct non-exception completions: 3.
+  Direct exception outcomes: 0.
+  Repeated upstream invocation blocked the target before it was reached: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper().
+  Upstream invocations before the target call: 3.
+  Upstream non-exception completions before the target call: 0.
+  Upstream exception outcomes before the target call: 3.
+  Upstream exception dominance: 3/3.
+  Covered in failing tests (not all directly attributable): 3.
+  Includes persistent upstream-blocker evidence from recent stagnation windows.
+  Dominant exception: NullPointerException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper().
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=1.0 confidence=0.75 impact=0.2 priority=0.17500000000000002
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork|attempts=3|exceptions=3|successes=0|dominance=3/3|upstream=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper|dominant=NullPointerException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork round 2 historical=true
+Upstream invocation is exception-dominated before target call: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork()
+  Observed direct target invocations: 3.
+  Direct non-exception completions: 3.
+  Direct exception outcomes: 0.
+  Repeated upstream invocation blocked the target before it was reached: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper().
+  Upstream invocations before the target call: 5.
+  Upstream non-exception completions before the target call: 0.
+  Upstream exception outcomes before the target call: 5.
+  Upstream exception dominance: 5/5.
+  Covered in failing tests (not all directly attributable): 5.
+  Includes persistent upstream-blocker evidence from recent stagnation windows.
+  Dominant exception: IllegalStateException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper().
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=1.0 confidence=0.9375 impact=0.2 priority=0.19375
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork|attempts=5|exceptions=5|successes=0|dominance=5/5|upstream=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper|dominant=IllegalStateException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork round 3 historical=true
+Upstream invocation is exception-dominated before target call: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork()
+  Observed direct target invocations: 7.
+  Direct non-exception completions: 6.
+  Direct exception outcomes: 1.
+  Repeated upstream invocation blocked the target before it was reached: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper().
+  Upstream invocations before the target call: 5.
+  Upstream non-exception completions before the target call: 0.
+  Upstream exception outcomes before the target call: 5.
+  Upstream exception dominance: 5/5.
+  Covered in failing tests (not all directly attributable): 5.
+  Includes persistent upstream-blocker evidence from recent stagnation windows.
+  Dominant exception: IllegalStateException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper().
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=1.0 confidence=0.9375 impact=0.2 priority=0.19375
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.doWork|attempts=5|exceptions=5|successes=0|dominance=5/5|upstream=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.helper|dominant=IllegalStateException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput round 0 historical=false
+Overload is exception-dominated: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput(String)
+  Method-wide direct invocations: 8.
+  Method-wide non-exception completions: 5.
+  Method-wide exception outcomes: 3.
+  Blocked overload: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput(String).
+  Overload-local direct invocations: 3.
+  Overload-local non-exception completions: 0.
+  Overload-local exception outcomes: 3.
+  Overload-local exception dominance: 3/3.
+  Dominant exception: NullPointerException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput(String).
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=1.0 confidence=0.75 impact=0.2 priority=0.17500000000000002
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput|attempts=3|exceptions=3|successes=0|dominance=3/3|signature=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput(Ljava/lang/String;)V|signatureDominance=3/3|dominant=NullPointerException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput round 1 historical=true
+Overload is exception-dominated: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput(String)
+  Method-wide direct invocations: 12.
+  Method-wide non-exception completions: 7.
+  Method-wide exception outcomes: 5.
+  Blocked overload: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput(String).
+  Overload-local direct invocations: 2.
+  Overload-local non-exception completions: 0.
+  Overload-local exception outcomes: 2.
+  Overload-local exception dominance: 2/2.
+  Includes persistent direct-invocation evidence from recent stagnation windows.
+  Dominant exception: IllegalStateException.
+  Dominant failing invocation: org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput(String).
+  Direct throws occurred without earlier successful statements in the same failing tests.
+  blockage=1.0 confidence=0.5 impact=0.2 priority=0.15000000000000002
+  root=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput scope=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput
+  fingerprint=exception:org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput|attempts=2|exceptions=2|successes=0|dominance=2/2|signature=org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput(Ljava/lang/String;)V|signatureDominance=2/2|dominant=IllegalStateException
+== org.evosuite.llm.search.ExceptionBarrierTrackerTest$ExampleExceptionTarget.withInput round 2 historical=true

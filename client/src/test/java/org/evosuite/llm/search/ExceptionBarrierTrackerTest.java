@@ -21,6 +21,7 @@ package org.evosuite.llm.search;
 
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.statements.MethodStatement;
@@ -31,6 +32,8 @@ import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -189,6 +192,109 @@ class ExceptionBarrierTrackerTest {
         assertEquals(0, upstream.getSuccesses());
     }
 
+    @Test
+    void barrierCardsAreStableAcrossHistoryWindows() throws Exception {
+        String dependency = ExampleExceptionTarget.class.getName() + ".withDependency";
+        Statement nonNullCall = methodStatementFor(declaredMethod(ExampleExceptionTarget.class,
+                "withDependency", Object.class), Collections.singletonList(nonNullParameter(0, Object.class)));
+        Statement nullCall = methodStatementFor(declaredMethod(ExampleExceptionTarget.class,
+                "withDependency", Object.class), Collections.singletonList(nullParameter(Object.class)));
+        TestChromosome nonNullIse = throwingChromosome(dependency, nonNullCall, new IllegalStateException("a"));
+        TestChromosome nonNullNpe = throwingChromosome(dependency, nonNullCall, new NullPointerException("b"));
+        TestChromosome nonNullOk = successChromosome(dependency, nonNullCall);
+        TestChromosome nullOk = successChromosome(dependency, nullCall);
+
+        List<List<TestChromosome>> contextRounds = Arrays.asList(
+                Arrays.asList(nonNullIse, nonNullIse, nonNullNpe, nullOk, nullOk, nullOk, nullOk),
+                Arrays.asList(nonNullNpe, nonNullNpe, nonNullNpe, nullOk, nullOk, nullOk, nullOk),
+                Arrays.asList(nonNullOk, nullOk, nullOk, nullOk, nullOk),
+                Arrays.asList(nonNullIse, nonNullNpe, nullOk, nullOk, nullOk, nullOk),
+                Arrays.asList(nonNullIse, nonNullIse, nullOk, nullOk));
+
+        String doWork = ExampleExceptionTarget.class.getName() + ".doWork";
+        Statement helperCall = methodStatementFor(declaredMethod(ExampleExceptionTarget.class, "helper"));
+        Statement targetCall = methodStatementFor(declaredMethod(ExampleExceptionTarget.class, "doWork"));
+        TestChromosome helperIse = chromosomeWithStatements(Arrays.asList(helperCall, targetCall), 0,
+                new IllegalStateException("h"), Collections.singleton(doWork));
+        TestChromosome helperNpe = chromosomeWithStatements(Arrays.asList(helperCall, targetCall), 0,
+                new NullPointerException("h"), Collections.singleton(doWork));
+        TestChromosome targetOk = successChromosome(doWork);
+        TestChromosome targetIse = throwingChromosome(doWork, new IllegalStateException("t"));
+        List<List<TestChromosome>> upstreamRounds = Arrays.asList(
+                Arrays.asList(helperIse, helperIse, targetOk),
+                Arrays.asList(helperNpe, targetOk, targetOk),
+                Arrays.asList(helperNpe, helperIse),
+                Arrays.asList(targetIse, targetOk, targetOk, targetOk));
+
+        String withInput = ExampleExceptionTarget.class.getName() + ".withInput";
+        Statement stringCall = methodStatementFor(declaredMethod(ExampleExceptionTarget.class,
+                "withInput", String.class));
+        Statement intCall = methodStatementFor(declaredMethod(ExampleExceptionTarget.class,
+                "withInput", int.class));
+        TestChromosome stringNpe = throwingChromosome(withInput, stringCall, new NullPointerException("s"));
+        TestChromosome stringIse = throwingChromosome(withInput, stringCall, new IllegalStateException("s"));
+        TestChromosome intOk = successChromosome(withInput, intCall);
+        List<List<TestChromosome>> signatureRounds = Arrays.asList(
+                Arrays.asList(stringNpe, stringNpe, stringIse, intOk, intOk, intOk, intOk, intOk),
+                Arrays.asList(stringNpe, stringIse, intOk, intOk),
+                Arrays.asList(stringNpe, intOk, intOk, intOk));
+
+        String rendered = renderBarrierCards(contextRounds, "withDependency(Ljava/lang/Object;)V", dependency)
+                + renderBarrierCards(upstreamRounds, "doWork()V", doWork)
+                + renderBarrierCards(signatureRounds, "withInput(Ljava/lang/String;)V", withInput);
+        assertEquals(expectedBarrierCards(), rendered);
+    }
+
+    private static String renderBarrierCards(List<List<TestChromosome>> rounds, String goalMethod, String methodKey) {
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.getTargetClass()).thenReturn(ExampleExceptionTarget.class.getName());
+        when(goal.getTargetMethod()).thenReturn(goalMethod);
+        when(goal.toString()).thenReturn(ExampleExceptionTarget.class.getName() + "." + goalMethod);
+        ExceptionBarrierTracker tracker = new ExceptionBarrierTracker(3, 64);
+        ProblemCardExtractor extractor = new ProblemCardExtractor();
+        StringBuilder out = new StringBuilder();
+        int round = 0;
+        for (List<TestChromosome> population : rounds) {
+            Map<String, ExceptionBarrierTracker.AggregatedStats> historical =
+                    tracker.snapshot(Collections.singleton(methodKey));
+            out.append("== ").append(methodKey).append(" round ").append(round++)
+                    .append(" historical=").append(historical.containsKey(methodKey)).append('\n');
+            List<ProblemCard> cards = new ArrayList<>(extractor.extract(Collections.singleton(goal),
+                    population, Integer.MAX_VALUE, historical));
+            for (ProblemCard card : cards) {
+                if (card.getType() != ProblemCardType.EXCEPTION_BARRIER) {
+                    continue;
+                }
+                out.append(card.getTitle()).append('\n');
+                for (String line : card.getEvidence()) {
+                    out.append("  ").append(line).append('\n');
+                }
+                out.append("  blockage=").append(card.getBlockage())
+                        .append(" confidence=").append(card.getConfidence())
+                        .append(" impact=").append(card.getImpact())
+                        .append(" priority=").append(card.getPriority()).append('\n')
+                        .append("  root=").append(card.getRootCauseKey())
+                        .append(" scope=").append(card.getScopeKey()).append('\n')
+                        .append("  fingerprint=").append(card.getSelectionFingerprint()).append('\n');
+            }
+            tracker.observe(population, Collections.singleton(methodKey));
+        }
+        return out.toString();
+    }
+
+    private static String expectedBarrierCards() throws Exception {
+        try (java.io.InputStream in = ExceptionBarrierTrackerTest.class
+                .getResourceAsStream("exception-barrier-cards.txt")) {
+            assertNotNull(in, "missing exception-barrier-cards.txt");
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            for (int read = in.read(buffer); read >= 0; read = in.read(buffer)) {
+                bytes.write(buffer, 0, read);
+            }
+            return new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+    }
+
     private static TestChromosome throwingChromosome(String method, Throwable throwable) {
         Statement targetCall = methodStatementFor(declaredMethod(ExampleExceptionTarget.class, "doWork"));
         return chromosomeWithStatements(Collections.singletonList(targetCall), 0, throwable,
@@ -328,6 +434,15 @@ class ExceptionBarrierTrackerTest {
 
         void withDependency(Object dependency) {
             // no-op
+        }
+
+        void withInput(String input) {
+            // no-op
+        }
+
+        @SuppressWarnings("unused")
+        void withInput(int input) {
+            // overload used by the signature bucketing case
         }
 
         void helper() {
