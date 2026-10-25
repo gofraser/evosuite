@@ -464,7 +464,7 @@ public abstract class ExplorationAlgorithm extends ExplorationAlgorithmBase {
      * @param smtQueryResult the result of the query
      * @return the solution map
      */
-    private Map<String, Object> getQuerySolution(Set<Constraint<?>> query, SolverResult smtQueryResult) {
+    Map<String, Object> getQuerySolution(Set<Constraint<?>> query, SolverResult smtQueryResult) {
         Map<String, Object> solution = null;
 
         if (smtQueryResult == null) {
@@ -473,23 +473,31 @@ public abstract class ExplorationAlgorithm extends ExplorationAlgorithmBase {
             // This doesn't necessarily is a timeout, but we model it this way
             statisticsLogger.reportSolverError();
         } else {
-            queryCache.put(query, smtQueryResult);
-            statisticsLogger.reportNewQueryCachedValue();
-
             if (smtQueryResult.isSAT()) {
+                cacheQueryResult(query, smtQueryResult);
                 logger.debug(SOLVER_OUTCOME_IS_SAT_DEBUG_MESSAGE);
                 statisticsLogger.reportNewSAT();
 
                 solution = smtQueryResult.getModel();
                 logger.debug(SOLVER_SOLUTION_DEBUG_MESSAGE, solution.toString());
-            } else {
-                assert (smtQueryResult.isUNSAT());
+            } else if (smtQueryResult.isUNSAT()) {
+                cacheQueryResult(query, smtQueryResult);
                 statisticsLogger.reportNewUNSAT();
                 logger.debug(SOLVER_OUTCOME_IS_UNSAT_DEBUG_MESSAGE);
+            } else {
+                // The search-based solver gave up without proving anything: do not cache the
+                // query, as a cached non-SAT result would be taken for UNSAT.
+                logger.debug(SOLVER_OUTCOME_NULL_DEBUG_MESSAGE);
+                statisticsLogger.reportSolverError();
             }
         }
 
         return solution;
+    }
+
+    private void cacheQueryResult(Set<Constraint<?>> query, SolverResult smtQueryResult) {
+        queryCache.put(query, smtQueryResult);
+        statisticsLogger.reportNewQueryCachedValue();
     }
 
     /**
