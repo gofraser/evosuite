@@ -49,6 +49,7 @@ public class SelectStoreImpl implements ArraysSection {
     private final Map<ReferenceExpression, ArrayValue.StringArrayValue> stringArrays = new HashMap<>();
     private final Map<ReferenceExpression, ArrayValue.IntegerArrayValue> integerArrays = new HashMap<>();
     private final Map<ReferenceExpression, ArrayValue.ReferenceArrayValue> referenceArrays = new HashMap<>();
+    private final Map<ReferenceExpression, Map<Integer, ReferenceExpression>> referenceElements = new HashMap<>();
 
 
     @Override
@@ -60,7 +61,8 @@ public class SelectStoreImpl implements ArraysSection {
 
     /**
      * Reference arrays are not modelled with select/store expressions, so the loaded element is
-     * the symbolic reference of the concrete value.
+     * the reference stored at this index if it is still the concrete element, and otherwise the
+     * symbolic reference of the concrete value.
      *
      * @param symbolicArray the symbolic array
      * @param symbolicIndex the symbolic index
@@ -70,6 +72,16 @@ public class SelectStoreImpl implements ArraysSection {
     @Override
     public ReferenceExpression arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
                                          ReferenceExpression symbolicValue) {
+        Map<Integer, ReferenceExpression> elements = referenceElements.get(symbolicArray);
+        if (elements == null) {
+            return symbolicValue;
+        }
+        ReferenceExpression stored = elements.get(Math.toIntExact(symbolicIndex.getConcreteValue()));
+        // The element may have been overwritten by code that is not instrumented
+        if (stored != null && stored.isInitialized() && symbolicValue.isInitialized()
+                && stored.getConcIdentityHashCode() == symbolicValue.getConcIdentityHashCode()) {
+            return stored;
+        }
         return symbolicValue;
     }
 
@@ -117,7 +129,8 @@ public class SelectStoreImpl implements ArraysSection {
     }
 
     /**
-     * TODO: Implement me!.
+     * Reference arrays are not modelled with select/store expressions. The stored reference is
+     * remembered per index so that a later load returns it.
      *
      * @param concreteArray the concrete array
      * @param symbolicArray the symbolic array
@@ -127,19 +140,9 @@ public class SelectStoreImpl implements ArraysSection {
     @Override
     public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,
                            ReferenceExpression symbolicValue) {
-        /*
-         * ArrayValue.ReferenceArrayValue symbolicArrayInstance = referenceArrays.get(symbolicArray);
-         * ArrayValue.ReferenceArrayValue newSymbolicArrayInstance = ExpressionFactory.buildArrayStoreExpression(
-         *     symbolicArrayInstance,
-         *     symbolicIndex,
-         *     symbolicValue,
-         *     concreteArray
-         * );
-         *
-         * referenceArrays.put(symbolicArray, newSymbolicArrayInstance);
-         */
+        int concreteIndex = Math.toIntExact(symbolicIndex.getConcreteValue());
+        referenceElements.computeIfAbsent(symbolicArray, k -> new HashMap<>()).put(concreteIndex, symbolicValue);
     }
-
 
     @Override
     public void arrayStore(Object concreteArray, ReferenceExpression symbolicArray, IntegerValue symbolicIndex,

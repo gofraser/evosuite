@@ -21,10 +21,12 @@ package org.evosuite.symbolic.vm;
 
 import org.evosuite.Properties;
 import org.evosuite.symbolic.expr.bv.IntegerConstant;
+import org.evosuite.symbolic.expr.ref.ClassReferenceVariable;
 import org.evosuite.symbolic.expr.ref.ReferenceExpression;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.Type;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -72,5 +74,28 @@ public class HeapVMArrayOfArraysTest {
         env.topFrame().operandStack.pushBv32(new IntegerConstant(1));
         env.topFrame().operandStack.pushBv32(new IntegerConstant('X'));
         assertDoesNotThrow(() -> vm.CASTORE(row, 1, "C", "m"));
+    }
+
+    @Test
+    public void loadReturnsReferenceStoredAtIndex() {
+        SymbolicEnvironment env = new SymbolicEnvironment(null);
+        Object element = new Object();
+        Object[] array = new Object[]{element};
+        array[0] = element;
+
+        ReferenceExpression arrayRef = env.heap.getReference(array);
+        ClassReferenceVariable variable = new ClassReferenceVariable(
+                Type.getType(Object.class), 7, "element", element);
+
+        env.heap.arrayStore(array, arrayRef, new IntegerConstant(0), variable);
+        ReferenceExpression loaded = env.heap.arrayLoad(arrayRef, new IntegerConstant(0),
+                env.heap.getReference(element));
+        assertSame(variable, loaded);
+
+        // An element replaced behind the engine's back is not shadowed by the stale reference
+        Object other = new Object();
+        array[0] = other;
+        ReferenceExpression otherRef = env.heap.getReference(other);
+        assertSame(otherRef, env.heap.arrayLoad(arrayRef, new IntegerConstant(0), otherRef));
     }
 }
