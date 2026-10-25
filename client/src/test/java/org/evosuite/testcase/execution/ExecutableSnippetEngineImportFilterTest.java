@@ -29,7 +29,6 @@ import java.io.FileOutputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -404,22 +403,6 @@ class ExecutableSnippetEngineImportFilterTest {
 
         String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
         assertNull(sanitized);
-    }
-
-    @Test
-    void buildCompilerArgumentsDisablesAnnotationProcessing() throws Exception {
-        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
-        Method buildCompilerArguments = ExecutableSnippetEngine.class.getDeclaredMethod(
-                "buildCompilerArguments", String.class, Path.class);
-        buildCompilerArguments.setAccessible(true);
-
-        @SuppressWarnings("unchecked")
-        List<String> args = (List<String>) buildCompilerArguments.invoke(
-                engine, "/tmp/a.jar", new File("/tmp/Snippet.java").toPath());
-
-        assertNotNull(args);
-        assertTrue(args.contains("-proc:none"),
-                "Snippet compiler arguments should disable annotation processing");
     }
 
     @Test

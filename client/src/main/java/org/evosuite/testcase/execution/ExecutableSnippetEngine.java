@@ -22,6 +22,7 @@ package org.evosuite.testcase.execution;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.junit.CompilerClasspath;
+import org.evosuite.junit.GeneratedTestCompiler;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.RuntimeSettings;
@@ -35,11 +36,8 @@ import org.slf4j.LoggerFactory;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.InvocationTargetException;
@@ -143,23 +141,6 @@ public final class ExecutableSnippetEngine {
                     + "FileOutputStream|FileReader|FileWriter|PrintStream|PrintWriter))\\s*\\(");
     private static final Pattern VFS_IO_STATIC_CALL_OWNER_PATTERN =
             Pattern.compile("\\b((?:java\\.io\\.)?File|(?:java\\.nio\\.file\\.)?(?:Files|Paths|FileSystems))\\s*\\.");
-
-    /** An output stream that silently discards all bytes written to it. */
-    private static final OutputStream DISCARD = new OutputStream() {
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void write(int b) {
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void write(byte[] b, int off, int len) {
-        }
-    };
 
     private static final class Binding {
         private final Type type;
@@ -644,35 +625,14 @@ public final class ExecutableSnippetEngine {
     }
 
     private String compileSource(JavaCompiler compiler, String classpath, Path sourceFile) throws IOException {
-        ByteArrayOutputStream errStream = new ByteArrayOutputStream();
-        List<String> compilerArgs = buildCompilerArguments(classpath, sourceFile);
-        int compilationResult = compiler.run(
-                null,
-                DISCARD,
-                errStream,
-                compilerArgs.toArray(new String[0])
-        );
-        if (compilationResult == 0) {
-            return null;
+        // The class file lands next to the source, in the compilation directory.
+        GeneratedTestCompiler.CompilerAttemptResult attempt = GeneratedTestCompiler.compileWithPrintedDiagnostics(
+                compiler, Collections.singletonList(sourceFile.toFile()), classpath);
+        if (attempt.hasInfrastructureFailure()) {
+            increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
+            throw new SnippetCompilationException("Snippet compilation failed", attempt.getInfrastructureFailure());
         }
-        return errStream.toString(StandardCharsets.UTF_8.name()).trim();
-    }
-
-    private List<String> buildCompilerArguments(String classpath, Path sourceFile) {
-        List<String> args = new ArrayList<>();
-        // Snippet execution does not rely on annotation processing. Disable processors
-        // to avoid classpath-dependent processor crashes (eg lombok on JDK 9+ modules)
-        // and reduce compile latency for fallback snippets.
-        args.add("-proc:none");
-        // The sources are written as UTF-8; javac would otherwise read them in the platform charset.
-        args.add("-encoding");
-        args.add(StandardCharsets.UTF_8.name());
-        args.add("-classpath");
-        args.add(classpath);
-        args.add("-d");
-        args.add(compilationDir.toString());
-        args.add(sourceFile.toString());
-        return args;
+        return attempt.isCompiled() ? null : attempt.getCompilerOutput().trim();
     }
 
     private String sanitizeSourceForKnownCompileIssues(String source, String diagnostics) {
