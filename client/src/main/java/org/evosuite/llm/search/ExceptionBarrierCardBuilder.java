@@ -22,6 +22,7 @@ package org.evosuite.llm.search;
 import org.evosuite.testcase.TestFitnessFunction;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,53 +42,40 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
         if (context == null || context.methodStats == null || context.methodStats.isEmpty()) {
             return;
         }
-        Map<String, ExceptionBarrierTracker.AggregatedStats> persistent =
+        Map<String, AttemptStats> persistent =
                 context.historicalExceptionStats == null
-                        ? Collections.<String, ExceptionBarrierTracker.AggregatedStats>emptyMap()
+                        ? Collections.<String, AttemptStats>emptyMap()
                         : context.historicalExceptionStats;
         for (Map.Entry<String, AttemptStats> entry : context.methodStats.entrySet()) {
             String method = entry.getKey();
             AttemptStats stats = entry.getValue();
-            ExceptionBarrierTracker.AggregatedStats historical = persistent.get(method);
+            AttemptStats historical = persistent.get(method);
             int totalAttempts = stats == null ? 0 : stats.attempts;
             int totalSuccesses = stats == null ? 0 : stats.successes;
             int totalExceptions = stats == null ? 0 : stats.exceptions;
             int coveredInFailingTests = stats == null ? 0 : stats.coveredInFailingTests;
             if (historical != null) {
-                totalAttempts += historical.getAttempts();
-                totalSuccesses += historical.getSuccesses();
-                totalExceptions += historical.getExceptions();
-                coveredInFailingTests += historical.getCoveredInFailingTests();
+                totalAttempts += historical.attempts;
+                totalSuccesses += historical.successes;
+                totalExceptions += historical.exceptions;
+                coveredInFailingTests += historical.coveredInFailingTests;
             }
             double blockage = totalAttempts == 0 ? 0.0 : ((double) totalExceptions / (double) totalAttempts);
-            recordExceptionBarrierMethodTelemetry(totalAttempts, totalExceptions, blockage, context);
-            recordExceptionBarrierContextTelemetry(stats, historical, context);
-            recordExceptionBarrierUpstreamTelemetry(stats, historical, context);
-            boolean methodLevelBarrier = totalAttempts >= context.thresholds.minAttemptsForExceptionBarrier()
-                    && totalExceptions >= context.thresholds.minAttemptsForExceptionBarrier()
-                    && blockage >= context.thresholds.minFailureRateForExceptionBarrier();
-            ExceptionBarrierContextEvidence contextEvidence = selectExceptionBarrierContext(stats, historical, context);
+            recordCandidateTelemetry(totalAttempts, totalExceptions, blockage,
+                    ExtractorCandidateMetric.EXCEPTION_BARRIER_METHOD_CANDIDATES, context);
+            boolean methodLevelBarrier = meetsThresholds(totalAttempts, totalExceptions, blockage, context);
+            BarrierCounts contextEvidence = selectExceptionBarrierContext(stats, historical, context);
             boolean contextBarrier = contextEvidence != null
-                    && !contextEvidence.isMethodLevel()
-                    && !InvocationContextClassifier.DEFAULT_CONTEXT.getKey().equals(contextEvidence.getContextKey())
-                    && contextEvidence.getAttempts() >= context.thresholds.minAttemptsForExceptionBarrier()
-                    && contextEvidence.getExceptions() >= context.thresholds.minAttemptsForExceptionBarrier()
-                    && contextEvidence.getBlockage() >= context.thresholds.minFailureRateForExceptionBarrier();
-            ExceptionBarrierSignatureEvidence signatureEvidence =
+                    && !isMethodLevel(contextEvidence)
+                    && meetsThresholds(contextEvidence, context);
+            BarrierCounts signatureEvidence =
                     stats != null && stats.signatureStats.size() >= 2
                             ? selectExceptionBarrierSignature(stats, context)
                             : null;
-            boolean signatureBarrier = signatureEvidence != null
-                    && signatureEvidence.getAttempts() >= context.thresholds.minAttemptsForExceptionBarrier()
-                    && signatureEvidence.getExceptions() >= context.thresholds.minAttemptsForExceptionBarrier()
-                    && signatureEvidence.getBlockage() >= context.thresholds.minFailureRateForExceptionBarrier();
-            UpstreamExceptionBarrierEvidence upstreamEvidence = selectUpstreamExceptionBarrier(stats, historical,
-                    context);
+            boolean signatureBarrier = signatureEvidence != null && meetsThresholds(signatureEvidence, context);
+            BarrierCounts upstreamEvidence = selectUpstreamExceptionBarrier(stats, historical, context);
             boolean upstreamBarrier = !methodLevelBarrier && !contextBarrier && !signatureBarrier
-                    && upstreamEvidence != null
-                    && upstreamEvidence.getAttempts() >= context.thresholds.minAttemptsForExceptionBarrier()
-                    && upstreamEvidence.getExceptions() >= context.thresholds.minAttemptsForExceptionBarrier()
-                    && upstreamEvidence.getBlockage() >= context.thresholds.minFailureRateForExceptionBarrier();
+                    && upstreamEvidence != null && meetsThresholds(upstreamEvidence, context);
             if (!methodLevelBarrier && !contextBarrier && !signatureBarrier && !upstreamBarrier) {
                 continue;
             }
@@ -98,16 +86,16 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
                     && !(upstreamBarrier && upstreamEvidence != null);
             boolean useContextAxis = !useSignatureAxis
                     && !(upstreamBarrier && upstreamEvidence != null)
-                    && contextEvidence != null && !contextEvidence.isMethodLevel();
+                    && contextEvidence != null && !isMethodLevel(contextEvidence);
             int evidenceAttempts = upstreamBarrier && upstreamEvidence != null
-                    ? upstreamEvidence.getAttempts()
-                    : useSignatureAxis ? signatureEvidence.getAttempts() : totalAttempts;
+                    ? upstreamEvidence.attempts
+                    : useSignatureAxis ? signatureEvidence.attempts : totalAttempts;
             int evidenceExceptions = upstreamBarrier && upstreamEvidence != null
-                    ? upstreamEvidence.getExceptions()
-                    : useSignatureAxis ? signatureEvidence.getExceptions() : totalExceptions;
+                    ? upstreamEvidence.exceptions
+                    : useSignatureAxis ? signatureEvidence.exceptions : totalExceptions;
             int evidenceSuccesses = upstreamBarrier && upstreamEvidence != null
-                    ? upstreamEvidence.getSuccesses()
-                    : useSignatureAxis ? signatureEvidence.getSuccesses() : totalSuccesses;
+                    ? upstreamEvidence.successes
+                    : useSignatureAxis ? signatureEvidence.successes : totalSuccesses;
             double confidence = CardBuildSupport.barrierConfidence(evidenceAttempts);
             List<String> evidence = new ArrayList<>();
             MethodPromptContext methodContext = CardBuildSupport.describeMethodContext(method, relatedGoals);
@@ -116,34 +104,34 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
                 evidence.add("Direct non-exception completions: " + totalSuccesses + ".");
                 evidence.add("Direct exception outcomes: " + totalExceptions + ".");
                 evidence.add("Repeated upstream invocation blocked the target before it was reached: "
-                        + upstreamEvidence.getBlockerDisplayLabel() + ".");
-                evidence.add("Upstream invocations before the target call: " + upstreamEvidence.getAttempts() + ".");
+                        + upstreamEvidence.label + ".");
+                evidence.add("Upstream invocations before the target call: " + upstreamEvidence.attempts + ".");
                 evidence.add("Upstream non-exception completions before the target call: "
-                        + upstreamEvidence.getSuccesses() + ".");
+                        + upstreamEvidence.successes + ".");
                 evidence.add("Upstream exception outcomes before the target call: "
-                        + upstreamEvidence.getExceptions() + ".");
+                        + upstreamEvidence.exceptions + ".");
                 evidence.add("Upstream exception dominance: "
-                        + upstreamEvidence.getExceptions() + "/" + upstreamEvidence.getAttempts() + ".");
+                        + upstreamEvidence.exceptions + "/" + upstreamEvidence.attempts + ".");
             } else if (useSignatureAxis) {
                 evidence.add("Method-wide direct invocations: " + totalAttempts + ".");
                 evidence.add("Method-wide non-exception completions: " + totalSuccesses + ".");
                 evidence.add("Method-wide exception outcomes: " + totalExceptions + ".");
-                evidence.add("Blocked overload: " + signatureEvidence.getDisplayLabel() + ".");
-                evidence.add("Overload-local direct invocations: " + signatureEvidence.getAttempts() + ".");
-                evidence.add("Overload-local non-exception completions: " + signatureEvidence.getSuccesses() + ".");
-                evidence.add("Overload-local exception outcomes: " + signatureEvidence.getExceptions() + ".");
+                evidence.add("Blocked overload: " + signatureEvidence.label + ".");
+                evidence.add("Overload-local direct invocations: " + signatureEvidence.attempts + ".");
+                evidence.add("Overload-local non-exception completions: " + signatureEvidence.successes + ".");
+                evidence.add("Overload-local exception outcomes: " + signatureEvidence.exceptions + ".");
                 evidence.add("Overload-local exception dominance: "
-                        + signatureEvidence.getExceptions() + "/" + signatureEvidence.getAttempts() + ".");
+                        + signatureEvidence.exceptions + "/" + signatureEvidence.attempts + ".");
             } else if (useContextAxis) {
                 evidence.add("Method-wide direct invocations: " + totalAttempts + ".");
                 evidence.add("Method-wide non-exception completions: " + totalSuccesses + ".");
                 evidence.add("Method-wide exception outcomes: " + totalExceptions + ".");
-                evidence.add("Blocked invocation context: " + contextEvidence.getContextLabel() + ".");
-                evidence.add("Context-local direct invocations: " + contextEvidence.getAttempts() + ".");
-                evidence.add("Context-local non-exception completions: " + contextEvidence.getSuccesses() + ".");
-                evidence.add("Context-local exception outcomes: " + contextEvidence.getExceptions() + ".");
+                evidence.add("Blocked invocation context: " + contextEvidence.label + ".");
+                evidence.add("Context-local direct invocations: " + contextEvidence.attempts + ".");
+                evidence.add("Context-local non-exception completions: " + contextEvidence.successes + ".");
+                evidence.add("Context-local exception outcomes: " + contextEvidence.exceptions + ".");
                 evidence.add("Context-local exception dominance: "
-                        + contextEvidence.getExceptions() + "/" + contextEvidence.getAttempts() + ".");
+                        + contextEvidence.exceptions + "/" + contextEvidence.attempts + ".");
             } else {
                 evidence.add("Observed direct invocations: " + totalAttempts + ".");
                 evidence.add("Direct non-exception completions: " + totalSuccesses + ".");
@@ -160,36 +148,36 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
                         : "Includes persistent direct-invocation evidence from recent stagnation windows.");
             }
             String dominant = upstreamBarrier && upstreamEvidence != null
-                    ? upstreamEvidence.getDominantException()
+                    ? upstreamEvidence.dominantException()
                     : useSignatureAxis
-                    ? signatureEvidence.getDominantException()
+                    ? signatureEvidence.dominantException()
                     : contextEvidence != null
-                    ? contextEvidence.getDominantException()
+                    ? contextEvidence.dominantException()
                     : (stats == null ? "" : CardBuildSupport.dominantException(stats.exceptionTypeCounts));
             if (dominant.isEmpty() && historical != null) {
-                dominant = historical.getDominantException();
+                dominant = historical.dominantException();
             }
             if (!dominant.isEmpty()) {
                 evidence.add("Dominant exception: " + dominant + ".");
             }
             String dominantInvocation = upstreamBarrier && upstreamEvidence != null
-                    ? upstreamEvidence.getDominantInvocationLabel()
+                    ? upstreamEvidence.dominantFailingInvocationLabel()
                     : useSignatureAxis
-                    ? signatureEvidence.getDominantInvocationLabel()
+                    ? signatureEvidence.dominantFailingInvocationLabel()
                     : contextEvidence != null
-                    ? contextEvidence.getDominantInvocationLabel()
+                    ? contextEvidence.dominantFailingInvocationLabel()
                     : (stats == null ? "" : stats.dominantFailingInvocationLabel());
             if (!dominantInvocation.isEmpty()) {
                 evidence.add("Dominant failing invocation: " + dominantInvocation + ".");
             }
-            int failingInvocations = upstreamBarrier && upstreamEvidence != null ? upstreamEvidence.getExceptions()
-                    : useSignatureAxis ? signatureEvidence.getExceptions()
-                    : contextEvidence != null ? contextEvidence.getExceptions()
+            int failingInvocations = upstreamBarrier && upstreamEvidence != null ? upstreamEvidence.exceptions
+                    : useSignatureAxis ? signatureEvidence.exceptions
+                    : contextEvidence != null ? contextEvidence.exceptions
                     : (stats == null ? 0 : stats.exceptions);
             int failingPrefixes = upstreamBarrier && upstreamEvidence != null
-                    ? upstreamEvidence.getFailingInvocationsWithSuccessfulPrefix()
-                    : useSignatureAxis ? signatureEvidence.getFailingInvocationsWithSuccessfulPrefix()
-                    : contextEvidence != null ? contextEvidence.getFailingInvocationsWithSuccessfulPrefix()
+                    ? upstreamEvidence.failingInvocationsWithSuccessfulPrefix
+                    : useSignatureAxis ? signatureEvidence.failingInvocationsWithSuccessfulPrefix
+                    : contextEvidence != null ? contextEvidence.failingInvocationsWithSuccessfulPrefix
                     : (stats == null ? 0 : stats.failingInvocationsWithSuccessfulPrefix);
             if (failingInvocations > 0) {
                 if (failingPrefixes > 0) {
@@ -207,21 +195,21 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
                             ? "Upstream invocation is exception-dominated before target call: "
                             + methodContext.displayLabel
                             : useSignatureAxis
-                            ? "Overload is exception-dominated: " + signatureEvidence.getDisplayLabel()
+                            ? "Overload is exception-dominated: " + signatureEvidence.label
                             : useContextAxis
                             ? "Direct invocations are exception-dominated in context: "
-                            + methodContext.displayLabel + " [" + contextEvidence.getContextLabel() + "]"
+                            + methodContext.displayLabel + " [" + contextEvidence.label + "]"
                             : "Direct invocations are exception-dominated: " + methodContext.displayLabel)
                     .evidence(evidence)
                     .relatedGoals(relatedGoals)
                     .impact(impact)
-                    .blockage(upstreamBarrier && upstreamEvidence != null ? upstreamEvidence.getBlockage()
-                            : useSignatureAxis ? signatureEvidence.getBlockage()
-                            : contextEvidence != null ? contextEvidence.getBlockage() : blockage)
+                    .blockage(upstreamBarrier && upstreamEvidence != null ? upstreamEvidence.blockage()
+                            : useSignatureAxis ? signatureEvidence.blockage()
+                            : contextEvidence != null ? contextEvidence.blockage() : blockage)
                     .confidence(confidence)
                     .family(ProblemCardFamily.EXECUTION)
                     .rootCauseKey(upstreamBarrier && upstreamEvidence != null
-                            ? upstreamEvidence.getBlockerExecutionKey() : method)
+                            ? upstreamEvidence.key : method)
                     .scopeKey(method)
                     .selectionFingerprint("exception:" + method
                             + "|attempts=" + evidenceAttempts
@@ -229,32 +217,33 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
                             + "|successes=" + evidenceSuccesses
                             + "|dominance=" + evidenceExceptions + "/" + evidenceAttempts
                             + (upstreamBarrier && upstreamEvidence != null
-                            ? "|upstream=" + upstreamEvidence.getBlockerExecutionKey()
+                            ? "|upstream=" + upstreamEvidence.key
                             : "")
                             + (useSignatureAxis
-                            ? "|signature=" + signatureEvidence.getSignatureKey()
-                            + "|signatureDominance=" + signatureEvidence.getExceptions()
-                            + "/" + signatureEvidence.getAttempts()
+                            ? "|signature=" + signatureEvidence.key
+                            + "|signatureDominance=" + signatureEvidence.exceptions
+                            + "/" + signatureEvidence.attempts
                             : "")
                             + (useContextAxis
-                            ? "|context=" + contextEvidence.getContextKey()
-                            + "|contextDominance=" + contextEvidence.getExceptions()
-                            + "/" + contextEvidence.getAttempts()
+                            ? "|context=" + contextEvidence.key
+                            + "|contextDominance=" + contextEvidence.exceptions
+                            + "/" + contextEvidence.attempts
                             : "")
                             + "|dominant=" + dominant)
                     .build());
         }
     }
 
-    private void recordExceptionBarrierMethodTelemetry(int totalAttempts,
-                                                       int totalExceptions,
-                                                       double blockage,
-                                                       CardBuildContext context) {
-        if (context.telemetry == null || totalAttempts <= 0 || totalExceptions <= 0) {
+    private void recordCandidateTelemetry(int attempts,
+                                          int exceptions,
+                                          double blockage,
+                                          ExtractorCandidateMetric candidateMetric,
+                                          CardBuildContext context) {
+        if (context.telemetry == null || attempts <= 0 || exceptions <= 0) {
             return;
         }
-        boolean belowAttempts = totalAttempts < context.thresholds.minAttemptsForExceptionBarrier()
-                || totalExceptions < context.thresholds.minAttemptsForExceptionBarrier();
+        boolean belowAttempts = attempts < context.thresholds.minAttemptsForExceptionBarrier()
+                || exceptions < context.thresholds.minAttemptsForExceptionBarrier();
         boolean belowFailureRate = blockage < context.thresholds.minFailureRateForExceptionBarrier();
         if (belowAttempts) {
             context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS);
@@ -263,282 +252,102 @@ final class ExceptionBarrierCardBuilder implements CardBuilder {
             context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE);
         }
         if (!belowAttempts && !belowFailureRate) {
-            context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_METHOD_CANDIDATES);
+            context.telemetry.increment(candidateMetric);
         }
     }
 
-    private void recordExceptionBarrierContextTelemetry(AttemptStats current,
-                                                        ExceptionBarrierTracker.AggregatedStats historical,
-                                                        CardBuildContext context) {
-        if (context.telemetry == null) {
-            return;
-        }
-        for (ExceptionBarrierContextEvidence candidate : mergedExceptionBarrierContexts(current, historical).values()) {
-            if (candidate == null
-                    || candidate.isMethodLevel()
-                    || InvocationContextClassifier.DEFAULT_CONTEXT.getKey().equals(candidate.getContextKey())
-                    || candidate.getAttempts() <= 0
-                    || candidate.getExceptions() <= 0) {
-                continue;
-            }
-            boolean belowAttempts = candidate.getAttempts() < context.thresholds.minAttemptsForExceptionBarrier()
-                    || candidate.getExceptions() < context.thresholds.minAttemptsForExceptionBarrier();
-            boolean belowFailureRate =
-                    candidate.getBlockage() < context.thresholds.minFailureRateForExceptionBarrier();
-            if (belowAttempts) {
-                context.telemetry.increment(
-                        ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS);
-            }
-            if (belowFailureRate) {
-                context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE);
-            }
-            if (!belowAttempts && !belowFailureRate) {
-                context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_CONTEXT_CANDIDATES);
-            }
-        }
+    private static boolean meetsThresholds(int attempts, int exceptions, double blockage, CardBuildContext context) {
+        return attempts >= context.thresholds.minAttemptsForExceptionBarrier()
+                && exceptions >= context.thresholds.minAttemptsForExceptionBarrier()
+                && blockage >= context.thresholds.minFailureRateForExceptionBarrier();
     }
 
-    private void recordExceptionBarrierUpstreamTelemetry(AttemptStats current,
-                                                         ExceptionBarrierTracker.AggregatedStats historical,
-                                                         CardBuildContext context) {
-        if (context.telemetry == null) {
-            return;
-        }
-        for (UpstreamExceptionBarrierEvidence candidate : mergedUpstreamExceptionBarriers(current,
-                historical).values()) {
-            if (candidate == null || candidate.getAttempts() <= 0 || candidate.getExceptions() <= 0) {
-                continue;
-            }
-            boolean belowAttempts = candidate.getAttempts() < context.thresholds.minAttemptsForExceptionBarrier()
-                    || candidate.getExceptions() < context.thresholds.minAttemptsForExceptionBarrier();
-            boolean belowFailureRate =
-                    candidate.getBlockage() < context.thresholds.minFailureRateForExceptionBarrier();
-            if (belowAttempts) {
-                context.telemetry.increment(
-                        ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS);
-            }
-            if (belowFailureRate) {
-                context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE);
-            }
-            if (!belowAttempts && !belowFailureRate) {
-                context.telemetry.increment(ExtractorCandidateMetric.EXCEPTION_BARRIER_UPSTREAM_CANDIDATES);
-            }
-        }
+    private static boolean meetsThresholds(BarrierCounts counts, CardBuildContext context) {
+        return meetsThresholds(counts.attempts, counts.exceptions, counts.blockage(), context);
     }
 
-    private Map<String, ExceptionBarrierContextEvidence> mergedExceptionBarrierContexts(
-            AttemptStats current,
-            ExceptionBarrierTracker.AggregatedStats historical) {
-        Map<String, ExceptionBarrierContextEvidence> mergedContexts = new LinkedHashMap<>();
-        if (current != null) {
-            for (ContextAttemptStats contextStats : current.contextStats.values()) {
-                mergeExceptionBarrierContext(mergedContexts, contextStats);
-            }
-        }
-        if (historical != null) {
-            for (ExceptionBarrierTracker.ContextStats contextStats : historical.getContextStats().values()) {
-                mergeExceptionBarrierContext(mergedContexts, contextStats);
-            }
-        }
-        return mergedContexts;
+    private static boolean isMethodLevel(BarrierCounts contextCounts) {
+        return InvocationContextClassifier.DEFAULT_CONTEXT.getKey().equals(contextCounts.key);
     }
 
-    private ExceptionBarrierContextEvidence selectExceptionBarrierContext(
-            AttemptStats current,
-            ExceptionBarrierTracker.AggregatedStats historical,
-            CardBuildContext context) {
-        Map<String, ExceptionBarrierContextEvidence> mergedContexts = mergedExceptionBarrierContexts(current,
-                historical);
-
-        ExceptionBarrierContextEvidence best = null;
-        for (ExceptionBarrierContextEvidence candidate : mergedContexts.values()) {
-            if (candidate == null
-                    || candidate.isMethodLevel()
-                    || InvocationContextClassifier.DEFAULT_CONTEXT.getKey().equals(candidate.getContextKey())) {
-                continue;
-            }
-            if (candidate.getAttempts() < context.thresholds.minAttemptsForExceptionBarrier()
-                    || candidate.getExceptions() < context.thresholds.minAttemptsForExceptionBarrier()) {
-                continue;
-            }
-            if (candidate.getBlockage() < context.thresholds.minFailureRateForExceptionBarrier()) {
-                continue;
-            }
-            if (best == null || candidate.isStrongerThan(best)) {
-                best = candidate;
-            }
-        }
-        if (best != null) {
-            return best;
-        }
-
-        if (current == null && historical == null) {
-            return null;
-        }
-        int attempts = current == null ? 0 : current.attempts;
-        int successes = current == null ? 0 : current.successes;
-        int exceptions = current == null ? 0 : current.exceptions;
-        String dominantException = current == null ? ""
-                : CardBuildSupport.dominantException(current.exceptionTypeCounts);
-        String dominantInvocation = current == null ? "" : current.dominantFailingInvocationLabel();
-        int failingPrefixes = current == null ? 0 : current.failingInvocationsWithSuccessfulPrefix;
-        if (historical != null) {
-            attempts += historical.getAttempts();
-            successes += historical.getSuccesses();
-            exceptions += historical.getExceptions();
-            if (dominantException.isEmpty()) {
-                dominantException = historical.getDominantException();
-            }
-            if (dominantInvocation.isEmpty()) {
-                dominantInvocation = historical.getDominantFailingInvocationLabel();
-            }
-            failingPrefixes += historical.getFailingInvocationsWithSuccessfulPrefix();
-        }
-        return new ExceptionBarrierContextEvidence(
-                InvocationContextClassifier.DEFAULT_CONTEXT.getKey(),
-                InvocationContextClassifier.DEFAULT_CONTEXT.getLabel(),
-                attempts,
-                successes,
-                exceptions,
-                dominantException,
-                dominantInvocation,
-                failingPrefixes,
-                true);
-    }
-
-    private ExceptionBarrierSignatureEvidence selectExceptionBarrierSignature(
-            AttemptStats current,
-            CardBuildContext context) {
-        if (current == null || current.signatureStats.isEmpty()) {
-            return null;
-        }
-        ExceptionBarrierSignatureEvidence best = null;
-        for (SignatureAttemptStats signatureStats : current.signatureStats.values()) {
-            if (signatureStats == null || signatureStats.attempts <= 0 || signatureStats.exceptions <= 0) {
-                continue;
-            }
-            double blockage = signatureStats.attempts <= 0
-                    ? 0.0
-                    : ((double) signatureStats.exceptions) / (double) signatureStats.attempts;
-            if (signatureStats.attempts < context.thresholds.minAttemptsForExceptionBarrier()
-                    || signatureStats.exceptions < context.thresholds.minAttemptsForExceptionBarrier()
-                    || blockage < context.thresholds.minFailureRateForExceptionBarrier()) {
-                continue;
-            }
-            ExceptionBarrierSignatureEvidence candidate = new ExceptionBarrierSignatureEvidence(
-                    signatureStats.signatureKey,
-                    signatureStats.displayLabel,
-                    signatureStats.attempts,
-                    signatureStats.successes,
-                    signatureStats.exceptions,
-                    CardBuildSupport.dominantException(signatureStats.exceptionTypeCounts),
-                    signatureStats.dominantFailingInvocationLabel(),
-                    signatureStats.failingInvocationsWithSuccessfulPrefix);
-            if (best == null || candidate.isStrongerThan(best)) {
-                best = candidate;
-            }
-        }
-        return best;
-    }
-
-    private UpstreamExceptionBarrierEvidence selectUpstreamExceptionBarrier(
-            AttemptStats current,
-            ExceptionBarrierTracker.AggregatedStats historical,
-            CardBuildContext context) {
-        Map<String, UpstreamExceptionBarrierEvidence> merged = mergedUpstreamExceptionBarriers(current, historical);
-        UpstreamExceptionBarrierEvidence best = null;
-        for (UpstreamExceptionBarrierEvidence candidate : merged.values()) {
-            if (candidate == null) {
-                continue;
-            }
-            if (candidate.getAttempts() < context.thresholds.minAttemptsForExceptionBarrier()
-                    || candidate.getExceptions() < context.thresholds.minAttemptsForExceptionBarrier()
-                    || candidate.getBlockage() < context.thresholds.minFailureRateForExceptionBarrier()) {
-                continue;
-            }
-            if (best == null || candidate.isStrongerThan(best)) {
-                best = candidate;
-            }
-        }
-        return best;
-    }
-
-    private Map<String, UpstreamExceptionBarrierEvidence> mergedUpstreamExceptionBarriers(
-            AttemptStats current,
-            ExceptionBarrierTracker.AggregatedStats historical) {
-        Map<String, UpstreamExceptionBarrierEvidence> merged = new LinkedHashMap<>();
-        if (current != null) {
-            for (UpstreamAttemptStats upstream : current.upstreamStats.values()) {
-                mergeUpstreamExceptionEvidence(merged, upstream);
-            }
-        }
-        if (historical != null) {
-            for (ExceptionBarrierTracker.UpstreamStats upstream : historical.getUpstreamStats().values()) {
-                mergeUpstreamExceptionEvidence(merged, upstream);
+    /**
+     * Merges the buckets of the current population with the historical ones. The
+     * dominant exception and invocation label come from the current population
+     * unless it has none.
+     */
+    private static Map<String, BarrierCounts> mergedBuckets(Map<String, BarrierCounts> current,
+                                                            Map<String, BarrierCounts> historical) {
+        Map<String, BarrierCounts> merged = new LinkedHashMap<>();
+        for (Map<String, BarrierCounts> source : Arrays.asList(current, historical)) {
+            for (BarrierCounts bucket : source.values()) {
+                merged.computeIfAbsent(bucket.key, ignored -> new BarrierCounts(bucket.key, bucket.label))
+                        .combine(bucket);
             }
         }
         return merged;
     }
 
-    private void mergeUpstreamExceptionEvidence(Map<String, UpstreamExceptionBarrierEvidence> merged,
-                                                UpstreamAttemptStats source) {
-        if (merged == null || source == null || source.blockerExecutionKey == null
-                || source.blockerExecutionKey.isEmpty()) {
-            return;
+    /**
+     * Counts the candidates in the telemetry and returns the strongest one that
+     * meets the thresholds.
+     */
+    private BarrierCounts strongestCandidate(Iterable<BarrierCounts> candidates,
+                                             ExtractorCandidateMetric candidateMetric,
+                                             CardBuildContext context) {
+        BarrierCounts best = null;
+        for (BarrierCounts candidate : candidates) {
+            recordCandidateTelemetry(candidate.attempts, candidate.exceptions, candidate.blockage(),
+                    candidateMetric, context);
+            if (meetsThresholds(candidate, context) && candidate.isStrongerThan(best)) {
+                best = candidate;
+            }
         }
-        UpstreamExceptionBarrierEvidence current = merged.computeIfAbsent(source.blockerExecutionKey,
-                ignored -> new UpstreamExceptionBarrierEvidence(source.blockerExecutionKey,
-                        source.blockerDisplayLabel, 0, 0, 0, "", "", 0));
-        current.add(source.attempts, source.successes, source.exceptions,
-                CardBuildSupport.dominantException(source.exceptionTypeCounts),
-                source.dominantFailingInvocationLabel(),
-                source.failingInvocationsWithSuccessfulPrefix,
-                source.blockerDisplayLabel);
+        return best;
     }
 
-    private void mergeUpstreamExceptionEvidence(Map<String, UpstreamExceptionBarrierEvidence> merged,
-                                                ExceptionBarrierTracker.UpstreamStats source) {
-        if (merged == null || source == null || source.getBlockerExecutionKey() == null
-                || source.getBlockerExecutionKey().isEmpty()) {
-            return;
+    private BarrierCounts selectExceptionBarrierContext(
+            AttemptStats current,
+            AttemptStats historical,
+            CardBuildContext context) {
+        Map<String, BarrierCounts> merged = mergedBuckets(
+                current == null ? Collections.emptyMap() : current.contextStats,
+                historical == null ? Collections.emptyMap() : historical.contextStats);
+        merged.remove(InvocationContextClassifier.DEFAULT_CONTEXT.getKey());
+        BarrierCounts best = strongestCandidate(merged.values(),
+                ExtractorCandidateMetric.EXCEPTION_BARRIER_CONTEXT_CANDIDATES, context);
+        if (best != null || (current == null && historical == null)) {
+            return best;
         }
-        UpstreamExceptionBarrierEvidence current = merged.computeIfAbsent(source.getBlockerExecutionKey(),
-                ignored -> new UpstreamExceptionBarrierEvidence(source.getBlockerExecutionKey(),
-                        source.getBlockerDisplayLabel(), 0, 0, 0, "", "", 0));
-        current.add(source.getAttempts(), source.getSuccesses(), source.getExceptions(),
-                source.getDominantException(),
-                source.getDominantFailingInvocationLabel(),
-                source.getFailingInvocationsWithSuccessfulPrefix(),
-                source.getBlockerDisplayLabel());
+        BarrierCounts methodLevel = new BarrierCounts(InvocationContextClassifier.DEFAULT_CONTEXT.getKey(),
+                InvocationContextClassifier.DEFAULT_CONTEXT.getLabel());
+        if (current != null) {
+            methodLevel.combine(current);
+        }
+        if (historical != null) {
+            methodLevel.combine(historical);
+        }
+        return methodLevel;
     }
 
-    private void mergeExceptionBarrierContext(
-            Map<String, ExceptionBarrierContextEvidence> merged,
-            ContextAttemptStats source) {
-        if (merged == null || source == null) {
-            return;
+    private BarrierCounts selectExceptionBarrierSignature(AttemptStats current, CardBuildContext context) {
+        BarrierCounts best = null;
+        for (BarrierCounts candidate : current.signatureStats.values()) {
+            if (candidate.attempts > 0 && candidate.exceptions > 0
+                    && meetsThresholds(candidate, context) && candidate.isStrongerThan(best)) {
+                best = candidate;
+            }
         }
-        ExceptionBarrierContextEvidence current = merged.computeIfAbsent(source.contextKey,
-                ignored -> new ExceptionBarrierContextEvidence(source.contextKey,
-                        source.contextLabel, 0, 0, 0, "", "", 0, false));
-        current.add(source.attempts, source.successes, source.exceptions,
-                CardBuildSupport.dominantException(source.exceptionTypeCounts),
-                source.dominantFailingInvocationLabel(),
-                source.failingInvocationsWithSuccessfulPrefix);
+        return best;
     }
 
-    private void mergeExceptionBarrierContext(
-            Map<String, ExceptionBarrierContextEvidence> merged,
-            ExceptionBarrierTracker.ContextStats source) {
-        if (merged == null || source == null) {
-            return;
-        }
-        ExceptionBarrierContextEvidence current = merged.computeIfAbsent(source.getContextKey(),
-                ignored -> new ExceptionBarrierContextEvidence(source.getContextKey(),
-                        source.getContextLabel(), 0, 0, 0, "", "", 0, false));
-        current.add(source.getAttempts(), source.getSuccesses(), source.getExceptions(),
-                source.getDominantException(),
-                source.getDominantFailingInvocationLabel(),
-                source.getFailingInvocationsWithSuccessfulPrefix());
+    private BarrierCounts selectUpstreamExceptionBarrier(
+            AttemptStats current,
+            AttemptStats historical,
+            CardBuildContext context) {
+        Map<String, BarrierCounts> merged = mergedBuckets(
+                current == null ? Collections.emptyMap() : current.upstreamStats,
+                historical == null ? Collections.emptyMap() : historical.upstreamStats);
+        return strongestCandidate(merged.values(),
+                ExtractorCandidateMetric.EXCEPTION_BARRIER_UPSTREAM_CANDIDATES, context);
     }
 }

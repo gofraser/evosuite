@@ -19,60 +19,59 @@
  */
 package org.evosuite.llm.search;
 
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
  * Per-goal-method attempt accumulator. The extractor walks each chromosome's
- * statements and increments the relevant counters here, plus per-context,
- * per-signature, and per-upstream sub-buckets for sharper barrier evidence.
+ * statements and records the outcomes here, plus in per-context, per-signature,
+ * and per-upstream sub-buckets for sharper barrier evidence.
  */
-final class AttemptStats {
-    int attempts;
-    int successes;
-    int exceptions;
+final class AttemptStats extends BarrierCounts {
     int coveredInFailingTests;
-    final Map<String, Integer> exceptionTypeCounts = new HashMap<>();
-    final Map<String, Integer> failingInvocationLabelCounts = new LinkedHashMap<>();
-    final Map<String, ContextAttemptStats> contextStats = new LinkedHashMap<>();
-    final Map<String, SignatureAttemptStats> signatureStats = new LinkedHashMap<>();
-    final Map<String, UpstreamAttemptStats> upstreamStats = new LinkedHashMap<>();
-    int failingInvocationsWithSuccessfulPrefix;
+    final Map<String, BarrierCounts> contextStats = new LinkedHashMap<>();
+    final Map<String, BarrierCounts> signatureStats = new LinkedHashMap<>();
+    final Map<String, BarrierCounts> upstreamStats = new LinkedHashMap<>();
 
-    void recordFailingInvocation(String label, boolean hadSuccessfulPrefix) {
-        if (label != null && !label.isEmpty()) {
-            failingInvocationLabelCounts.put(label,
-                    failingInvocationLabelCounts.getOrDefault(label, 0) + 1);
-        }
-        if (hadSuccessfulPrefix) {
-            failingInvocationsWithSuccessfulPrefix++;
-        }
+    AttemptStats() {
+        super("", "");
     }
 
-    String dominantFailingInvocationLabel() {
-        return ProblemCardLabels.dominantLabel(failingInvocationLabelCounts);
-    }
-
-    ContextAttemptStats contextStats(InvocationContextClassifier.InvocationContext context) {
+    BarrierCounts contextStats(InvocationContextClassifier.InvocationContext context) {
         InvocationContextClassifier.InvocationContext effective = context == null
                 ? InvocationContextClassifier.DEFAULT_CONTEXT
                 : context;
         return contextStats.computeIfAbsent(effective.getKey(),
-                ignored -> new ContextAttemptStats(effective.getKey(), effective.getLabel()));
+                ignored -> new BarrierCounts(effective.getKey(), effective.getLabel()));
     }
 
-    SignatureAttemptStats signatureStats(String signatureKey, String displayLabel) {
+    BarrierCounts signatureStats(String signatureKey, String displayLabel) {
         String key = signatureKey == null || signatureKey.isEmpty() ? "" : signatureKey;
-        return signatureStats.computeIfAbsent(key,
-                ignored -> new SignatureAttemptStats(key, displayLabel));
+        return signatureStats.computeIfAbsent(key, ignored -> new BarrierCounts(key, displayLabel));
     }
 
-    UpstreamAttemptStats upstreamStats(String blockerExecutionKey, String blockerDisplayLabel) {
+    BarrierCounts upstreamStats(String blockerExecutionKey, String blockerDisplayLabel) {
         if (blockerExecutionKey == null || blockerExecutionKey.isEmpty()) {
-            return new UpstreamAttemptStats("", blockerDisplayLabel);
+            return new BarrierCounts("", blockerDisplayLabel);
         }
         return upstreamStats.computeIfAbsent(blockerExecutionKey,
-                ignored -> new UpstreamAttemptStats(blockerExecutionKey, blockerDisplayLabel));
+                ignored -> new BarrierCounts(blockerExecutionKey, blockerDisplayLabel));
+    }
+
+    /**
+     * Adds another observation window, including its sub-buckets.
+     */
+    void addAll(AttemptStats other) {
+        add(other);
+        coveredInFailingTests += other.coveredInFailingTests;
+        addBuckets(contextStats, other.contextStats);
+        addBuckets(signatureStats, other.signatureStats);
+        addBuckets(upstreamStats, other.upstreamStats);
+    }
+
+    private static void addBuckets(Map<String, BarrierCounts> target, Map<String, BarrierCounts> source) {
+        for (BarrierCounts bucket : source.values()) {
+            target.computeIfAbsent(bucket.key, ignored -> new BarrierCounts(bucket.key, bucket.label)).add(bucket);
+        }
     }
 }

@@ -378,11 +378,10 @@ public class StagnationDetector {
         Set<String> goalMethods = collectGoalMethodKeys(uncoveredGoals);
         // The extractor counts the current population itself, so the historical stats must
         // be taken before this population enters the tracker's window.
-        Map<String, ExceptionBarrierTracker.AggregatedStats> historicalStats =
-                exceptionBarrierTracker.snapshot(goalMethods);
-        exceptionBarrierTracker.observe(currentPopulation, goalMethods);
+        Map<String, AttemptStats> historicalStats = exceptionBarrierTracker.snapshot(goalMethods);
         ProblemCardExtractor.ExtractionResult extraction = problemCardExtractor.extractWithTelemetry(
                 uncoveredGoals, currentPopulation, Integer.MAX_VALUE, historicalStats);
+        exceptionBarrierTracker.record(extraction.getMethodStats());
         List<ProblemCard> extractedCards = extraction.getCards();
         LlmStatistics.recordDiagnosticExtractorCandidates(extraction.getCandidateCounts());
         LlmStatistics.recordDiagnosticExtractorRejects(extraction.getRejectCounts());

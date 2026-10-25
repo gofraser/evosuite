@@ -91,10 +91,10 @@ public class ProblemCardExtractor {
      * @param persistentExceptionStats optional method-level historical exception stats
      * @return ranked cards (highest priority first)
      */
-    public List<ProblemCard> extract(Collection<TestFitnessFunction> uncoveredGoals,
-                                     List<TestChromosome> population,
-                                     int maxCards,
-                                     Map<String, ExceptionBarrierTracker.AggregatedStats> persistentExceptionStats) {
+    List<ProblemCard> extract(Collection<TestFitnessFunction> uncoveredGoals,
+                              List<TestChromosome> population,
+                              int maxCards,
+                              Map<String, AttemptStats> persistentExceptionStats) {
         return extractWithTelemetry(uncoveredGoals, population, maxCards, persistentExceptionStats).getCards();
     }
 
@@ -112,11 +112,11 @@ public class ProblemCardExtractor {
      * @param persistentExceptionStats exception statistics accumulated over earlier extractions
      * @return the selected cards together with extraction telemetry
      */
-    public ExtractionResult extractWithTelemetry(
+    ExtractionResult extractWithTelemetry(
             Collection<TestFitnessFunction> uncoveredGoals,
             List<TestChromosome> population,
             int maxCards,
-            Map<String, ExceptionBarrierTracker.AggregatedStats> persistentExceptionStats) {
+            Map<String, AttemptStats> persistentExceptionStats) {
         if (uncoveredGoals == null || uncoveredGoals.isEmpty() || maxCards <= 0) {
             return ExtractionResult.empty();
         }
@@ -183,11 +183,11 @@ public class ProblemCardExtractor {
                 typeBarrierSignals, outerTypeSignals, cards, telemetry);
         if (cards.size() <= maxCards) {
             return new ExtractionResult(cards, telemetry.snapshotRejectCounts(),
-                    telemetry.snapshotCandidateCounts(thresholds.minAttemptsForExceptionBarrier()));
+                    telemetry.snapshotCandidateCounts(thresholds.minAttemptsForExceptionBarrier()), methodStats);
         }
         return new ExtractionResult(new ArrayList<>(cards.subList(0, maxCards)),
                 telemetry.snapshotRejectCounts(),
-                telemetry.snapshotCandidateCounts(thresholds.minAttemptsForExceptionBarrier()));
+                telemetry.snapshotCandidateCounts(thresholds.minAttemptsForExceptionBarrier()), methodStats);
     }
 
     private Map<String, List<TestFitnessFunction>> groupGoalsByMethod(
@@ -325,15 +325,19 @@ public class ProblemCardExtractor {
         private static final ExtractionResult EMPTY =
                 new ExtractionResult(Collections.<ProblemCard>emptyList(),
                         Collections.<ExtractorRejectReason, Integer>emptyMap(),
-                        Collections.<ExtractorCandidateMetric, Integer>emptyMap());
+                        Collections.<ExtractorCandidateMetric, Integer>emptyMap(),
+                        Collections.<String, AttemptStats>emptyMap());
 
         private final List<ProblemCard> cards;
         private final Map<ExtractorRejectReason, Integer> rejectCounts;
         private final Map<ExtractorCandidateMetric, Integer> candidateCounts;
+        private final Map<String, AttemptStats> methodStats;
 
         ExtractionResult(List<ProblemCard> cards,
                          Map<ExtractorRejectReason, Integer> rejectCounts,
-                         Map<ExtractorCandidateMetric, Integer> candidateCounts) {
+                         Map<ExtractorCandidateMetric, Integer> candidateCounts,
+                         Map<String, AttemptStats> methodStats) {
+            this.methodStats = methodStats;
             this.cards = cards == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(cards));
             this.rejectCounts = rejectCounts == null || rejectCounts.isEmpty()
                     ? Collections.emptyMap()
@@ -355,16 +359,19 @@ public class ProblemCardExtractor {
             return candidateCounts;
         }
 
+        /** The per-goal-method outcome counts of the population the cards were extracted from. */
+        Map<String, AttemptStats> getMethodStats() {
+            return methodStats;
+        }
+
         static ExtractionResult empty() {
             return EMPTY;
         }
     }
 
     // Stats / Signal / Evidence classes moved to sibling files in the same package
-    // (AttemptStats, SignatureAttemptStats, ContextAttemptStats, UpstreamAttemptStats,
-    //  ExceptionBarrier{Context,Signature}Evidence, UpstreamExceptionBarrierEvidence,
-    //  OuterTypeAttemptSignal, TypeInvocationSignal, BranchGoalSignal, CdgDependencySignal,
-    //  StateDiversificationContextEvidence, TypeBarrierSignal, MethodPromptContext).
+    // (AttemptStats, BarrierCounts, OuterTypeAttemptSignal, TypeInvocationSignal, BranchGoalSignal,
+    //  CdgDependencySignal, StateDiversificationContextEvidence, TypeBarrierSignal, MethodPromptContext).
 
 
 }

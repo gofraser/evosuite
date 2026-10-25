@@ -105,7 +105,7 @@ final class StateDiversificationCardBuilder implements CardBuilder {
             return null;
         }
         StateDiversificationContextEvidence best = null;
-        for (ContextAttemptStats contextStats : stats.contextStats.values()) {
+        for (BarrierCounts contextStats : stats.contextStats.values()) {
             if (contextStats == null || contextStats.successes <= 0) {
                 continue;
             }
@@ -117,7 +117,7 @@ final class StateDiversificationCardBuilder implements CardBuilder {
                 continue;
             }
             StateDiversificationContextEvidence candidate = new StateDiversificationContextEvidence(
-                    contextStats.contextKey, contextStats.contextLabel, contextStats.successes);
+                    contextStats.key, contextStats.label, contextStats.successes);
             if (best == null || candidate.isStrongerThan(best)) {
                 best = candidate;
             }
@@ -130,7 +130,7 @@ final class StateDiversificationCardBuilder implements CardBuilder {
             return 0;
         }
         int count = 0;
-        for (ContextAttemptStats contextStats : stats.contextStats.values()) {
+        for (BarrierCounts contextStats : stats.contextStats.values()) {
             if (contextStats != null && contextStats.successes > 0) {
                 count++;
             }

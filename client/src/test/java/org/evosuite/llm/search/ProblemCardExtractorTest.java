@@ -701,9 +701,13 @@ class ProblemCardExtractorTest {
                 Collections.singletonList(targetCall), 0, new NullPointerException("boom"),
                 Collections.singleton(methodKey));
 
-        Map<String, ExceptionBarrierTracker.AggregatedStats> persistent = new LinkedHashMap<>();
-        persistent.put(methodKey, new ExceptionBarrierTracker.AggregatedStats(
-                2, 0, 2, 2, "NullPointerException", "", 0, Collections.emptyMap(), Collections.emptyMap()));
+        AttemptStats history = new AttemptStats();
+        history.attempts = 2;
+        history.exceptions = 2;
+        history.coveredInFailingTests = 2;
+        history.exceptionTypeCounts.put("NullPointerException", 2);
+        Map<String, AttemptStats> persistent = new LinkedHashMap<>();
+        persistent.put(methodKey, history);
 
         List<ProblemCard> cards = extractor.extract(Collections.singleton(goal),
                 Collections.singletonList(oneThrowingAttempt), 3, persistent);

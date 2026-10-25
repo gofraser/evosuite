@@ -40,7 +40,7 @@ final class CardBuildContext {
     final Map<String, OuterTypeAttemptSignal> outerTypeSignals;
     final Map<String, MockDependencySignal> mockDependencySignals;
     final Map<String, EnvironmentBarrierSignal> environmentBarrierSignals;
-    final Map<String, ExceptionBarrierTracker.AggregatedStats> historicalExceptionStats;
+    final Map<String, AttemptStats> historicalExceptionStats;
     final ProblemCardThresholds thresholds;
     final ExtractorTraceSink traceSink;
     final ExtractorTelemetry telemetry;
@@ -58,7 +58,7 @@ final class CardBuildContext {
                      Map<String, OuterTypeAttemptSignal> outerTypeSignals,
                      Map<String, MockDependencySignal> mockDependencySignals,
                      Map<String, EnvironmentBarrierSignal> environmentBarrierSignals,
-                     Map<String, ExceptionBarrierTracker.AggregatedStats> historicalExceptionStats,
+                     Map<String, AttemptStats> historicalExceptionStats,
                      ProblemCardThresholds thresholds,
                      ExtractorTraceSink traceSink,
                      ExtractorTelemetry telemetry,

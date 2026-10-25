@@ -115,33 +115,16 @@ final class MethodAttemptObserver {
                             chromosomeIndex, i, invocation.getExecutionKey(), invocation.getSignatureKey(),
                             invocation.getDisplayLabel(),
                             exceptionOutcome, context.getKey(), result.hasTimeout());
-                    ContextAttemptStats contextStats = stats.contextStats(context);
-                    SignatureAttemptStats signatureStats = stats.signatureStats(
+                    BarrierCounts contextStats = stats.contextStats(context);
+                    BarrierCounts signatureStats = stats.signatureStats(
                             invocation.getSignatureKey(), invocation.getDisplayLabel());
-                    stats.attempts++;
-                    contextStats.attempts++;
-                    signatureStats.attempts++;
                     directlyInvokedGoalMethods.add(invocation.getExecutionKey());
-                    if (exceptionOutcome) {
-                        stats.exceptions++;
-                        contextStats.exceptions++;
-                        signatureStats.exceptions++;
-                        stats.recordFailingInvocation(invocation.getDisplayLabel(), i > 0);
-                        contextStats.recordFailingInvocation(invocation.getDisplayLabel(), i > 0);
-                        signatureStats.recordFailingInvocation(invocation.getDisplayLabel(), i > 0);
-                        if (!exceptionKey.isEmpty()) {
-                            stats.exceptionTypeCounts.put(exceptionKey,
-                                    stats.exceptionTypeCounts.getOrDefault(exceptionKey, 0) + 1);
-                            contextStats.exceptionTypeCounts.put(exceptionKey,
-                                    contextStats.exceptionTypeCounts.getOrDefault(exceptionKey, 0) + 1);
-                            signatureStats.exceptionTypeCounts.put(exceptionKey,
-                                    signatureStats.exceptionTypeCounts.getOrDefault(exceptionKey, 0) + 1);
-                        }
-                    } else if (!result.hasTimeout()) {
-                        stats.successes++;
-                        contextStats.successes++;
-                        signatureStats.successes++;
-                    }
+                    stats.record(exceptionOutcome, result.hasTimeout(), invocation.getDisplayLabel(),
+                            exceptionKey, i > 0);
+                    contextStats.record(exceptionOutcome, result.hasTimeout(), invocation.getDisplayLabel(),
+                            exceptionKey, i > 0);
+                    signatureStats.record(exceptionOutcome, result.hasTimeout(), invocation.getDisplayLabel(),
+                            exceptionKey, i > 0);
                     continue;
                 }
                 if (exceptionOutcome) {
@@ -205,19 +188,8 @@ final class MethodAttemptObserver {
         if (blockedStats == null) {
             return;
         }
-        UpstreamAttemptStats upstreamStats = blockedStats.upstreamStats(
-                invocation.getExecutionKey(), invocation.getDisplayLabel());
-        upstreamStats.attempts++;
-        if (exceptionOutcome) {
-            upstreamStats.exceptions++;
-            upstreamStats.recordFailingInvocation(invocation.getDisplayLabel(), hadSuccessfulPrefix);
-            if (!exceptionKey.isEmpty()) {
-                upstreamStats.exceptionTypeCounts.put(exceptionKey,
-                        upstreamStats.exceptionTypeCounts.getOrDefault(exceptionKey, 0) + 1);
-            }
-        } else if (!timeout) {
-            upstreamStats.successes++;
-        }
+        blockedStats.upstreamStats(invocation.getExecutionKey(), invocation.getDisplayLabel())
+                .record(exceptionOutcome, timeout, invocation.getDisplayLabel(), exceptionKey, hadSuccessfulPrefix);
     }
 
     private Set<String> downstreamGoalMethodsAfter(TestCase test, int statementIndex, Set<String> goalMethods) {

@@ -387,12 +387,11 @@ public class AsyncLlmTestProducer {
                 }
             }
             // The extractor counts the population itself, so take the historical stats first.
-            Map<String, ExceptionBarrierTracker.AggregatedStats> historicalStats =
-                    exceptionBarrierTracker.snapshot(goalMethods);
-            exceptionBarrierTracker.observe(population, goalMethods);
+            Map<String, AttemptStats> historicalStats = exceptionBarrierTracker.snapshot(goalMethods);
             ProblemCardExtractor.ExtractionResult extraction =
                     problemCardExtractor.extractWithTelemetry(goals, population,
                             Integer.MAX_VALUE, historicalStats);
+            exceptionBarrierTracker.record(extraction.getMethodStats());
             List<ProblemCard> extracted = extraction.getCards();
             if (extracted.isEmpty()) {
                 return Collections.emptyList();

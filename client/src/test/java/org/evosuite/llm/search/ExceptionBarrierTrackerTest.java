@@ -52,19 +52,19 @@ class ExceptionBarrierTrackerTest {
         ExceptionBarrierTracker tracker = new ExceptionBarrierTracker(4, 64);
         String method = ExampleExceptionTarget.class.getName() + ".doWork";
 
-        tracker.observe(Collections.singletonList(throwingChromosome(method,
+        observe(tracker, Collections.singletonList(throwingChromosome(method,
                 new NullPointerException("npe"))), Collections.singleton(method));
-        tracker.observe(Collections.singletonList(throwingChromosome(method,
+        observe(tracker, Collections.singletonList(throwingChromosome(method,
                 new IllegalStateException("ise"))), Collections.singleton(method));
 
-        Map<String, ExceptionBarrierTracker.AggregatedStats> snapshot =
+        Map<String, AttemptStats> snapshot =
                 tracker.snapshot(Collections.singleton(method));
-        ExceptionBarrierTracker.AggregatedStats stats = snapshot.get(method);
+        AttemptStats stats = snapshot.get(method);
 
         assertTrue(stats != null, "Expected aggregated stats for tracked method");
-        assertEquals(2, stats.getAttempts());
-        assertEquals(0, stats.getSuccesses());
-        assertEquals(2, stats.getExceptions());
+        assertEquals(2, stats.attempts);
+        assertEquals(0, stats.successes);
+        assertEquals(2, stats.exceptions);
     }
 
     @Test
@@ -72,17 +72,17 @@ class ExceptionBarrierTrackerTest {
         ExceptionBarrierTracker tracker = new ExceptionBarrierTracker(4, 64);
         String method = ExampleExceptionTarget.class.getName() + ".doWork";
 
-        tracker.observe(Collections.singletonList(successChromosome(method)),
+        observe(tracker, Collections.singletonList(successChromosome(method)),
                 Collections.singleton(method));
 
-        Map<String, ExceptionBarrierTracker.AggregatedStats> snapshot =
+        Map<String, AttemptStats> snapshot =
                 tracker.snapshot(Collections.singleton(method));
-        ExceptionBarrierTracker.AggregatedStats stats = snapshot.get(method);
+        AttemptStats stats = snapshot.get(method);
 
         assertTrue(stats != null, "Expected stats after one observation");
-        assertEquals(1, stats.getAttempts());
-        assertEquals(1, stats.getSuccesses());
-        assertEquals(0, stats.getExceptions());
+        assertEquals(1, stats.attempts);
+        assertEquals(1, stats.successes);
+        assertEquals(0, stats.exceptions);
     }
 
     @Test
@@ -90,19 +90,19 @@ class ExceptionBarrierTrackerTest {
         ExceptionBarrierTracker tracker = new ExceptionBarrierTracker(4, 64);
         String method = ExampleExceptionTarget.class.getName() + ".doWork";
 
-        tracker.observe(Collections.singletonList(throwingChromosomeWithCoveredMethodOnly(method,
+        observe(tracker, Collections.singletonList(throwingChromosomeWithCoveredMethodOnly(method,
                         new IllegalStateException("ise"))),
                 Collections.singleton(method));
 
-        Map<String, ExceptionBarrierTracker.AggregatedStats> snapshot =
+        Map<String, AttemptStats> snapshot =
                 tracker.snapshot(Collections.singleton(method));
-        ExceptionBarrierTracker.AggregatedStats stats = snapshot.get(method);
+        AttemptStats stats = snapshot.get(method);
 
         assertTrue(stats != null, "Expected stats after covered failing observation");
-        assertEquals(0, stats.getAttempts());
-        assertEquals(0, stats.getSuccesses());
-        assertEquals(0, stats.getExceptions());
-        assertEquals(1, stats.getCoveredInFailingTests());
+        assertEquals(0, stats.attempts);
+        assertEquals(0, stats.successes);
+        assertEquals(0, stats.exceptions);
+        assertEquals(1, stats.coveredInFailingTests);
     }
 
     @Test
@@ -119,15 +119,15 @@ class ExceptionBarrierTrackerTest {
                 new IllegalStateException("ise"),
                 Collections.singleton(method));
 
-        tracker.observe(Collections.singletonList(chromosome), Collections.singleton(method));
-        Map<String, ExceptionBarrierTracker.AggregatedStats> snapshot =
+        observe(tracker, Collections.singletonList(chromosome), Collections.singleton(method));
+        Map<String, AttemptStats> snapshot =
                 tracker.snapshot(Collections.singleton(method));
-        ExceptionBarrierTracker.AggregatedStats stats = snapshot.get(method);
+        AttemptStats stats = snapshot.get(method);
 
         assertTrue(stats != null, "Expected stats after one throwing observation");
-        assertEquals(1, stats.getAttempts());
-        assertEquals(0, stats.getSuccesses());
-        assertEquals(1, stats.getExceptions());
+        assertEquals(1, stats.attempts);
+        assertEquals(0, stats.successes);
+        assertEquals(1, stats.exceptions);
     }
 
     @Test
@@ -135,29 +135,29 @@ class ExceptionBarrierTrackerTest {
         ExceptionBarrierTracker tracker = new ExceptionBarrierTracker(4, 64);
         String method = ExampleExceptionTarget.class.getName() + ".withDependency";
 
-        tracker.observe(Collections.singletonList(throwingChromosome(method,
+        observe(tracker, Collections.singletonList(throwingChromosome(method,
                         methodStatementFor(declaredMethod(ExampleExceptionTarget.class, "withDependency", Object.class),
                                 Collections.singletonList(nonNullParameter(0, Object.class))),
                         new NullPointerException("npe"))),
                 Collections.singleton(method));
-        tracker.observe(Collections.singletonList(successChromosome(method,
+        observe(tracker, Collections.singletonList(successChromosome(method,
                         methodStatementFor(declaredMethod(ExampleExceptionTarget.class, "withDependency", Object.class),
                                 Collections.singletonList(nullParameter(Object.class))))),
                 Collections.singleton(method));
 
-        Map<String, ExceptionBarrierTracker.AggregatedStats> snapshot =
+        Map<String, AttemptStats> snapshot =
                 tracker.snapshot(Collections.singleton(method));
-        ExceptionBarrierTracker.AggregatedStats stats = snapshot.get(method);
+        AttemptStats stats = snapshot.get(method);
         assertNotNull(stats, "Expected aggregated stats for tracked method");
-        ExceptionBarrierTracker.ContextStats nonNullContext = stats.getContextStats().get("arg0=nonnull");
-        ExceptionBarrierTracker.ContextStats nullContext = stats.getContextStats().get("arg0=null");
+        BarrierCounts nonNullContext = stats.contextStats.get("arg0=nonnull");
+        BarrierCounts nullContext = stats.contextStats.get("arg0=null");
         assertNotNull(nonNullContext, "Expected non-null argument context to be tracked");
         assertNotNull(nullContext, "Expected null argument context to be tracked");
-        assertEquals(1, nonNullContext.getAttempts());
-        assertEquals(1, nonNullContext.getExceptions());
-        assertEquals(0, nullContext.getExceptions());
-        assertEquals(1, nullContext.getSuccesses());
-        assertEquals("arg0 (Object)=nonnull", nonNullContext.getContextLabel());
+        assertEquals(1, nonNullContext.attempts);
+        assertEquals(1, nonNullContext.exceptions);
+        assertEquals(0, nullContext.exceptions);
+        assertEquals(1, nullContext.successes);
+        assertEquals("arg0 (Object)=nonnull", nonNullContext.label);
     }
 
     @Test
@@ -167,29 +167,29 @@ class ExceptionBarrierTrackerTest {
 
         Statement helperCall = methodStatementFor(declaredMethod(ExampleExceptionTarget.class, "helper"));
         Statement targetCall = methodStatementFor(declaredMethod(ExampleExceptionTarget.class, "doWork"));
-        tracker.observe(Collections.singletonList(chromosomeWithStatements(
+        observe(tracker, Collections.singletonList(chromosomeWithStatements(
                         java.util.Arrays.asList(helperCall, targetCall),
                         0,
                         new IllegalStateException("helper fail"),
                         Collections.singleton(goalMethod))),
                 Collections.singleton(goalMethod));
-        tracker.observe(Collections.singletonList(chromosomeWithStatements(
+        observe(tracker, Collections.singletonList(chromosomeWithStatements(
                         java.util.Arrays.asList(helperCall, targetCall),
                         0,
                         new NullPointerException("helper fail"),
                         Collections.singleton(goalMethod))),
                 Collections.singleton(goalMethod));
 
-        Map<String, ExceptionBarrierTracker.AggregatedStats> snapshot =
+        Map<String, AttemptStats> snapshot =
                 tracker.snapshot(Collections.singleton(goalMethod));
-        ExceptionBarrierTracker.AggregatedStats stats = snapshot.get(goalMethod);
+        AttemptStats stats = snapshot.get(goalMethod);
         assertNotNull(stats, "Expected aggregated stats for tracked method");
-        ExceptionBarrierTracker.UpstreamStats upstream = stats.getUpstreamStats()
+        BarrierCounts upstream = stats.upstreamStats
                 .get(ExampleExceptionTarget.class.getName() + ".helper");
         assertNotNull(upstream, "Expected upstream helper failures to be tracked for the blocked target method");
-        assertEquals(2, upstream.getAttempts());
-        assertEquals(2, upstream.getExceptions());
-        assertEquals(0, upstream.getSuccesses());
+        assertEquals(2, upstream.attempts);
+        assertEquals(2, upstream.exceptions);
+        assertEquals(0, upstream.successes);
     }
 
     @Test
@@ -245,6 +245,13 @@ class ExceptionBarrierTrackerTest {
         assertEquals(expectedBarrierCards(), rendered);
     }
 
+    private static void observe(ExceptionBarrierTracker tracker,
+                                List<TestChromosome> population,
+                                java.util.Set<String> goalMethods) {
+        tracker.record(new MethodAttemptObserver(ExtractorTraceSink.NOOP)
+                .observe(population, goalMethods, new ExtractorTelemetry()));
+    }
+
     private static String renderBarrierCards(List<List<TestChromosome>> rounds, String goalMethod, String methodKey) {
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.getTargetClass()).thenReturn(ExampleExceptionTarget.class.getName());
@@ -255,7 +262,7 @@ class ExceptionBarrierTrackerTest {
         StringBuilder out = new StringBuilder();
         int round = 0;
         for (List<TestChromosome> population : rounds) {
-            Map<String, ExceptionBarrierTracker.AggregatedStats> historical =
+            Map<String, AttemptStats> historical =
                     tracker.snapshot(Collections.singleton(methodKey));
             out.append("== ").append(methodKey).append(" round ").append(round++)
                     .append(" historical=").append(historical.containsKey(methodKey)).append('\n');
@@ -277,7 +284,7 @@ class ExceptionBarrierTrackerTest {
                         .append(" scope=").append(card.getScopeKey()).append('\n')
                         .append("  fingerprint=").append(card.getSelectionFingerprint()).append('\n');
             }
-            tracker.observe(population, Collections.singleton(methodKey));
+            observe(tracker, population, Collections.singleton(methodKey));
         }
         return out.toString();
     }
