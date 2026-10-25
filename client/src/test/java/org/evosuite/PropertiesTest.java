@@ -267,4 +267,45 @@ public class PropertiesTest {
             Files.deleteIfExists(file);
         }
     }
+
+    @Test
+    public void arrayValueRoundTripsThroughItsStringForm() throws Exception {
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.LINE, Properties.Criterion.BRANCH};
+        String value = Properties.getStringValue("criterion");
+
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.EXCEPTION};
+        Properties.getInstance().setValue("criterion", value);
+
+        Assertions.assertArrayEquals(
+                new Properties.Criterion[]{Properties.Criterion.LINE, Properties.Criterion.BRANCH},
+                Properties.CRITERION);
+    }
+
+    @Test
+    public void statisticsCanJoinArrayValuesWithAnotherSeparator() throws Exception {
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.LINE, Properties.Criterion.BRANCH};
+
+        assertEquals("LINE;BRANCH", Properties.getStringValue("criterion", ";"));
+    }
+
+    @Test
+    public void writtenConfigurationCanBeLoadedAgain() throws Exception {
+        Properties.getInstance().setValue("secondary_objectives", "avg_length:size");
+        Properties.CP = "";
+        Path file = Files.createTempFile("evosuite-written", ".properties");
+        try {
+            Properties.getInstance().writeConfiguration(file.toString());
+            Properties.SECONDARY_OBJECTIVE = new Properties.SecondaryObjective[]{
+                    Properties.SecondaryObjective.EXCEPTIONS};
+
+            Properties.getInstance().loadProperties(file.toString(), true);
+
+            Assertions.assertArrayEquals(
+                    new Properties.SecondaryObjective[]{Properties.SecondaryObjective.AVG_LENGTH,
+                            Properties.SecondaryObjective.SIZE},
+                    Properties.SECONDARY_OBJECTIVE);
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
 }

@@ -39,13 +39,14 @@ public class PropertyOutputVariableFactory {
     }
 
     /**
-     * Retrieves the output variable for the property.
+     * Retrieves the output variable for the property. Array values are joined with ';', which keeps the
+     * statistics columns as they have always been written.
      *
      * @return the output variable
      */
     public OutputVariable<String> getVariable() {
         try {
-            return new OutputVariable<>(propertyName, Properties.getStringValue(propertyName));
+            return new OutputVariable<>(propertyName, Properties.getStringValue(propertyName, ";"));
         } catch (Exception e) {
             logger.error("Error retrieving property '" + propertyName + "': " + e.getMessage(), e);
             return new OutputVariable<>(propertyName, "");

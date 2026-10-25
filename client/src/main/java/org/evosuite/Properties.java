@@ -3554,7 +3554,8 @@ public class Properties {
     private static final Set<String> changedFields = new HashSet<>();
 
     /**
-     * Get parameter value as string (works for all types).
+     * Get parameter value as string (works for all types). Array values are joined with ':', the
+     * separator {@link #setValue(String, String)} splits on, so that the result can be set again.
      *
      * @param key a {@link java.lang.String} object.
      * @return a {@link java.lang.String} object.
@@ -3563,6 +3564,22 @@ public class Properties {
      * @throws java.lang.IllegalAccessException                 if any.
      */
     public static String getStringValue(String key)
+            throws NoSuchParameterException, IllegalArgumentException,
+            IllegalAccessException {
+        return getStringValue(key, ":");
+    }
+
+    /**
+     * Get parameter value as string, joining array values with the given separator.
+     *
+     * @param key       the parameter key
+     * @param separator what goes between the elements of an array value
+     * @return the value as a string
+     * @throws org.evosuite.Properties.NoSuchParameterException if there is no such parameter.
+     * @throws java.lang.IllegalArgumentException               if any.
+     * @throws java.lang.IllegalAccessException                 if any.
+     */
+    public static String getStringValue(String key, String separator)
             throws NoSuchParameterException, IllegalArgumentException,
             IllegalAccessException {
         if (!parameterMap.containsKey(key)) {
@@ -3575,7 +3592,7 @@ public class Properties {
             int len = Array.getLength(val);
             for (int i = 0; i < len; i++) {
                 if (i > 0) {
-                    sb.append(";");
+                    sb.append(separator);
                 }
 
                 sb.append(Array.get(val, i));
