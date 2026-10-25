@@ -155,6 +155,10 @@ public class JarPathing {
         StringBuffer escaped = new StringBuffer();
         while (!elements.isEmpty()) {
             String element = elements.remove(0);
+            if (element.isEmpty()) {
+                //e.g. a doubled or trailing path separator, not a missing entry
+                continue;
+            }
             try {
 
                 //be sure the classpath element is absolute

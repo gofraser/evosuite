@@ -19,10 +19,16 @@
  */
 package org.evosuite.runtime.util;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,6 +54,26 @@ public class JarPathingTest {
 
         assertTrue(back.contains(first));
         assertTrue(back.contains(second));
+    }
+
+    @Test
+    public void testEmptyEntriesAreSkippedWithoutWarning() {
+        String first = "target" + File.separator + "classes";
+        String second = "target" + File.separator + "test-classes";
+        String classpath = first + File.pathSeparator + File.pathSeparator + second;
+
+        Logger logger = (Logger) LoggerFactory.getLogger(JarPathing.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            String back = JarPathing.extractCPFromPathingJar(JarPathing.createJarPathing(classpath));
+
+            assertEquals(2, back.split(File.pathSeparator).length);
+            assertFalse(appender.list.stream().anyMatch(event -> event.getLevel().isGreaterOrEqual(Level.WARN)));
+        } finally {
+            logger.detachAppender(appender);
+        }
     }
 
     @Test
