@@ -110,6 +110,14 @@ class RepairHintTextGoldenTest {
             actual.append("=== combined: ").append(c.name).append(" ===\n");
             actual.append(c.render()).append("\n");
         }
+        // The combined message is sent as the error of an ordinary repair turn.
+        for (CombinedCase c : combinedCases()) {
+            if (c.name.equals("shared npe with parse hints") || c.name.equals("shared initialization failure")) {
+                Case sent = new Case(c.name, c.render(), null, c.failures, 2, 1, false);
+                actual.append("=== combined sent: ").append(c.name).append(" ===\n");
+                actual.append(sent.render()).append("\n");
+            }
+        }
 
         String rendered = actual.toString();
         if (Boolean.getBoolean(UPDATE_PROPERTY)) {

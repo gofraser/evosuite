@@ -1329,3 +1329,126 @@ Repair hints:
 - remove [] indexing for this variable or change its declaration to an array type.
 
 Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
+=== combined sent: shared npe with parse hints ===
+The following issue was found in the generated tests:
+Batch attrition summary:
+- Started from 4 parsed candidate test(s); only 1 currently parse and execute cleanly.
+- Dropped 3 test(s) so far (1 parse-time, 2 execution-time).
+- Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
+- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
+- Multiple dropped tests share the same execution root cause: null receiver 'shape' inside SUT call 'com.example.Shape.area()'. Repair the shared object/collaborator setup that should initialize this Shape instance before that call, instead of deleting those tests one-by-one. (2 tests)
+
+The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
+- testKept
+
+The following tests were dropped because they failed to parse; please rewrite them:
+* testParseDropped:
+  - ERROR (line 3): Cannot resolve method scope: helper [helper.run()]
+  - ERROR (line 4): Cannot resolve unscoped method call: build() [build()]
+  - ERROR (line 5): No method named perimeter in com.example.Circle [c.perimeter()]
+  - ERROR (line 6): No matching method for call [c.x()]
+  - ERROR (line 7): Unknown array variable: arr [arr[0] = 1]
+  - ERROR (line 8): Unresolved variable: v [v.go()]
+  - ERROR (line 9): Cannot resolve type: InventedType [InventedType t;]
+  - WARNING (line 10): Stranded LLM_REPAIR_ACTION_REQUIRED: assign the variable [Foo f;]
+
+The following tests parsed but failed at execution; please repair them:
+* testNpeA:
+  - java.lang.NullPointerException: Cannot invoke "com.example.Shape.area()" because "shape" is null
+* testNpeB:
+  - java.lang.NullPointerException: Cannot invoke "com.example.Shape.area()" because "shape" is null
+Repair hints:
+- Declare the receiver variable earlier, or use a real static call in ClassName.method(...) form.
+- Avoid bare helper calls; inline helper logic or call an existing SUT/JDK method.
+- The parser rejected invented method `perimeter`; keep the raw failing line visible in the prompt instead of collapsing it into generic `llm_feedback`.
+- Source expression: c.perimeter()
+- Replace invented method calls with real APIs from the supplied context; keep the offending line visible in the repair prompt.
+- Declare the array before indexing it, including full rank/dimensions.
+- Declare the variable earlier and keep names consistent across statements.
+- Replace invented/unknown types with existing SUT or JDK types.
+
+Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
+
+NPE precondition hint:
+- The failing test violates required non-null preconditions.
+- Keep all already executable tests unchanged.
+- The JVM-reported null receiver name 'shape' comes from inside the failing SUT call path and is not necessarily a direct test variable; it is likely a parameter or local variable inside the SUT.
+- Repair the upstream collaborator setup so the SUT receives a non-null value there before dereferencing it.
+- Detected null dereference: 'shape' was used in call 'com.example.Shape.area()'.
+- Here, 'shape' is the null receiver inside the SUT call 'com.example.Shape.area()', likely as a parameter or local variable there, not necessarily a same-named test variable.
+- Stub or initialize the upstream collaborator/return value so that receiver is a non-null com.example.Shape before the SUT reaches that call.
+- If this collaborator is required by the constructor, pass a concrete non-null argument during object construction (do not rely on later null-state assertions).
+- Prefer minimal straight-line setup with concrete objects over anonymous classes.
+- Do not call the target method with null for mandatory provider/session arguments.
+- If the test is intentionally checking null-input behavior, wrap the call in assertThrows(NullPointerException.class, ...) instead of making a plain invocation with a known-null collaborator.
+- If a required collaborator type is an interface/abstract type, do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).
+- Do not assume complex SUT methods succeed on minimally initialized objects: either construct the required internal state first, or assertThrows for the observed failure path.
+- If a branch requires null, assert that behavior only after satisfying earlier mandatory preconditions.
+
+Missing-method repair instructions:
+- No method named `perimeter` exists in `com.example.Circle`. Replace the invented call with a real API from context, or remove the call entirely.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Fallback-strategy repair instructions:
+- __llm_fallback variables are parser-generated placeholders inserted because the previous LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback. Do not trigger synthetic __llm_fallback variables by reusing unsupported helper patterns.
+- Do NOT call methods on these fallback variables; they are 'null' placeholders and will throw NullPointerException at runtime.
+- Instead of using a fallback, fix the object instantiation that made the parser fail by using a valid SUT/JDK type or a proper Mockito.mock().
+- Use only existing SUT/JDK types and exact type names; never derive package/type names from variable names.
+- Do not reference non-public dependency types from other packages (diagnostics like 'X is not public in package Y; cannot be accessed from outside package').
+- If a constructor/method path requires a non-public cross-package type, do not force it with fallbacks; use a public alternative setup/factory/path from context or rewrite the test to avoid that path.
+- Do not use helper wrappers like setField/setStaticField unless those methods are explicitly available in the test class.
+- Do not define anonymous classes; replace them with concrete existing types or null when acceptable.
+
+Please provide the corrected complete test class with all test methods.
+=== combined sent: shared initialization failure ===
+The following issue was found in the generated tests:
+Batch attrition summary:
+- Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly.
+- Dropped 2 test(s) so far (0 parse-time, 2 execution-time).
+- Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.
+- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.
+- Multiple dropped tests share the same initialization failure in 'com.dep.Poisoned'. Repair the shared environment/setup once or avoid that path instead of deleting those tests individually. (2 tests)
+
+The following generated tests already parse and execute cleanly; keep them unchanged in the corrected class:
+- testKept
+
+The following tests parsed but failed at execution; please repair them:
+* testInitA:
+  - java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
+* testInitB:
+  - java.lang.NoClassDefFoundError: Could not initialize class com.dep.Poisoned
+
+Return the complete corrected test class. Keep the executable tests verbatim and fix or regenerate only the failing ones.
+
+Initialization/dependency failure hint:
+- Detected failing initialization class: com.dep.Poisoned
+- Keep all already executable tests unchanged.
+- For failing tests only, avoid code paths that load or initialize unavailable framework/native classes.
+- Avoid static initialization triggers of missing dependencies.
+- Replace failing tests with alternatives that only use available SUT/JDK types.
+- Prefer pure constructors/methods and precondition checks that do not require GUI/native/plugin containers.
+
+For reference, here are the available constructors and methods:
+// com.example.Shape [interface]
+  concrete subtypes: com.example.Circle, com.example.Square
+  double area()
+// com.example.Circle [class]
+  Circle(double)
+  double area()
+  double radius()
+// com.example.Widget [abstract]
+  String describe()
+
+
+Please provide the corrected complete test class with all test methods.
