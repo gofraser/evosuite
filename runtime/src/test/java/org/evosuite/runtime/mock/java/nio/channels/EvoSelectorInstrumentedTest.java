@@ -19,7 +19,6 @@
  */
 package org.evosuite.runtime.mock.java.nio.channels;
 
-import org.evosuite.runtime.EvoRunner;
 import org.evosuite.runtime.EvoRunnerParameters;
 import org.evosuite.runtime.agent.InstrumentingAgent;
 import org.evosuite.runtime.vnet.VirtualNetwork;
@@ -35,7 +34,7 @@ import java.lang.reflect.InvocationTargetException;
  * probe is loaded by name only, so its ordinary JDK factory calls are
  * transformed and this test covers MockList registration.
  */
-@RunWith(EvoRunner.class)
+@RunWith(AgentInstallingEvoRunner.class)
 @EvoRunnerParameters(useVNET = true)
 public class EvoSelectorInstrumentedTest {
 
