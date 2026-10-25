@@ -505,6 +505,40 @@ class RepairHintTextGoldenTest {
                 Collections.singletonList(kept), Collections.<ParseResult>emptyList(),
                 java.util.Arrays.asList(mockA, mockB),
                 failures(mockA, mock, null, mockB, mock, null)));
+
+        // Parser diagnostics as the parser renders them, with the action text of their kind appended.
+        ParseResult actionDropped = parseResult("testActionDropped");
+        actionDropped.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                "Cannot resolve method scope: helper LLM_REPAIR_ACTION_REQUIRED: declare the receiver variable "
+                        + "before this call, or use an existing static call in ClassName.method(...) form.",
+                3, "helper.run()"));
+        actionDropped.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                "Cannot resolve unscoped method call: build() LLM_REPAIR_ACTION_REQUIRED: avoid bare helper "
+                        + "calls; either inline the helper logic or call through a declared instance/class method "
+                        + "that exists in SUT/JDK.",
+                4, "build()"));
+        actionDropped.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                "Unknown array variable: arr LLM_REPAIR_ACTION_REQUIRED: declare the array variable before "
+                        + "indexing it (including dimensions), e.g. double[][] data = new double[1][1];",
+                5, "arr[0] = 1"));
+        actionDropped.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                "Unresolved variable: v LLM_REPAIR_ACTION_REQUIRED: declare the variable earlier in the test "
+                        + "and ensure the name matches exactly.",
+                6, "v.go()"));
+        actionDropped.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                "Cannot resolve type: InventedType LLM_REPAIR_ACTION_REQUIRED: do not invent local/helper types "
+                        + "(e.g., Target, Input, Helper) in test code; instantiate only real SUT/JDK/dependency "
+                        + "types from context, or pass null/Object when the API accepts it.",
+                7, "InventedType t;"));
+        ParseResult warnedAtExecution = parseResult("testWarnedAtExecution");
+        warnedAtExecution.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.WARNING,
+                "Variable is not an array: w LLM_REPAIR_ACTION_REQUIRED: remove [] indexing for this variable "
+                        + "or change its declaration to an array type.",
+                8, "w[0]"));
+        cases.add(new CombinedCase("parse diagnostics with actions",
+                Collections.singletonList(kept), Collections.singletonList(actionDropped),
+                Collections.singletonList(warnedAtExecution),
+                failures(warnedAtExecution, "java.lang.IllegalStateException: closed", null)));
         return cases;
     }
 }
