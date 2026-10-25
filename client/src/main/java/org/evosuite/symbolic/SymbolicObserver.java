@@ -59,6 +59,7 @@ import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.environment.FileNamePrimitiveStatement;
@@ -88,6 +89,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 import static org.evosuite.symbolic.vm.HeapVM.ARRAY_LENGTH;
 import static org.evosuite.testcase.variable.ArrayLengthSymbolicUtil.UNIDIMENSIONAL_ARRAY_VALUE;
@@ -165,81 +167,19 @@ public class SymbolicObserver extends ExecutionObserver {
                 env.prepareStack(null);
             }
 
-            if (s instanceof NullStatement) {
-                before((NullStatement) s, scope);
-            } else if (s instanceof AssignmentStatement) {
-                before((AssignmentStatement) s, scope);
-
-            } else if (s instanceof EnumPrimitiveStatement<?>) {
-                before((EnumPrimitiveStatement<?>) s, scope);
-
-            } else if (s instanceof ArrayStatement) {
-                before((ArrayStatement) s, scope);
-
-            } else if (s instanceof FieldStatement) {
-                before((FieldStatement) s, scope);
-
-            } else if (s instanceof ConstructorStatement) {
+            if (s instanceof ConstructorStatement) {
                 before((ConstructorStatement) s, scope);
-
             } else if (s instanceof MethodStatement) {
                 before((MethodStatement) s, scope);
-
-            } else if (s instanceof FunctionalMockStatement) {
-                before((FunctionalMockStatement) s, scope);
-            } else if (s instanceof BooleanPrimitiveStatement) {
-                before((BooleanPrimitiveStatement) s, scope);
-
-            } else if (s instanceof BytePrimitiveStatement) {
-                before((BytePrimitiveStatement) s, scope);
-
-            } else if (s instanceof CharPrimitiveStatement) {
-                before((CharPrimitiveStatement) s, scope);
-
-            } else if (s instanceof DoublePrimitiveStatement) {
-                before((DoublePrimitiveStatement) s, scope);
-
-            } else if (s instanceof FloatPrimitiveStatement) {
-                before((FloatPrimitiveStatement) s, scope);
-
-            } else if (s instanceof IntPrimitiveStatement) {
-                before((IntPrimitiveStatement) s, scope);
-
-            } else if (s instanceof LongPrimitiveStatement) {
-                before((LongPrimitiveStatement) s, scope);
-
-            } else if (s instanceof ShortPrimitiveStatement) {
-                before((ShortPrimitiveStatement) s, scope);
-
-            } else if (s instanceof StringPrimitiveStatement) {
-                before((StringPrimitiveStatement) s, scope);
-
-            } else if (s instanceof ClassPrimitiveStatement) {
-                before((ClassPrimitiveStatement) s, scope);
-
-            } else if (s instanceof FileNamePrimitiveStatement) {
-                before((FileNamePrimitiveStatement) s, scope);
-
-            } else if (s instanceof LocalAddressPrimitiveStatement) {
-                before((LocalAddressPrimitiveStatement) s, scope);
-
-            } else if (s instanceof RemoteAddressPrimitiveStatement) {
-                before((RemoteAddressPrimitiveStatement) s, scope);
-
-            } else if (s instanceof UrlPrimitiveStatement) {
-                before((UrlPrimitiveStatement) s, scope);
-
-            } else {
+            } else if (!(s instanceof PrimitiveStatement<?> || s instanceof AssignmentStatement
+                    || s instanceof ArrayStatement || s instanceof FieldStatement
+                    || s instanceof FunctionalMockStatement)) {
                 throw new UnsupportedOperationException("Cannot handle statement of type " + s.getClass());
             }
         } catch (Throwable t) {
             throw new EvosuiteError(t);
         }
 
-    }
-
-    private void before(ClassPrimitiveStatement s, Scope scope) {
-        /* do nothing */
     }
 
     private static final int COMPONENT_TYPE_BOOLEAN = 4;
@@ -321,18 +261,6 @@ public class SymbolicObserver extends ExecutionObserver {
             throw new RuntimeException(e);
         }
 
-    }
-
-    private void before(EnumPrimitiveStatement<?> s, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(NullStatement s, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(FieldStatement s, Scope scope) {
-        /* do nothing */
     }
 
     private static class ReferenceExpressionPair {
@@ -638,10 +566,6 @@ public class SymbolicObserver extends ExecutionObserver {
         }
     }
 
-    private void before(AssignmentStatement s, Scope scope) {
-        /* do nothing */
-    }
-
     private void writeVariable(VariableReference lhs, ReferenceExpressionPair readResult) {
         String lhsName = lhs.getName();
         Expression<?> expr = readResult.getExpression();
@@ -740,34 +664,6 @@ public class SymbolicObserver extends ExecutionObserver {
         }
     }
 
-    private void before(ShortPrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(LongPrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(FloatPrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(CharPrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(BytePrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(BooleanPrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(DoublePrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
     private void before(MethodStatement statement, Scope scope) {
         Method method = statement.getMethod().getMethod();
 
@@ -833,29 +729,21 @@ public class SymbolicObserver extends ExecutionObserver {
                 Object paramObject = p.getObject(scope);
                 calleeLocalsIndex -= getSize(p.getType());
                 if (argType.equals(Type.INT_TYPE)) {
-                    int intValue = getIntValue(paramObject);
-                    VM.CALLER_STACK_PARAM(intValue, i, calleeLocalsIndex);
+                    VM.CALLER_STACK_PARAM(asNumber(paramObject).intValue(), i, calleeLocalsIndex);
                 } else if (argType.equals(Type.CHAR_TYPE)) {
-                    char charValue = getCharValue(paramObject);
-                    VM.CALLER_STACK_PARAM(charValue, i, calleeLocalsIndex);
+                    VM.CALLER_STACK_PARAM((char) asNumber(paramObject).intValue(), i, calleeLocalsIndex);
                 } else if (argType.equals(Type.BYTE_TYPE)) {
-                    byte byteValue = getByteValue(paramObject);
-                    VM.CALLER_STACK_PARAM(byteValue, i, calleeLocalsIndex);
+                    VM.CALLER_STACK_PARAM(asNumber(paramObject).byteValue(), i, calleeLocalsIndex);
                 } else if (argType.equals(Type.BOOLEAN_TYPE)) {
-                    boolean booleanValue = getBooleanValue(paramObject);
-                    VM.CALLER_STACK_PARAM(booleanValue, i, calleeLocalsIndex);
+                    VM.CALLER_STACK_PARAM(asNumber(paramObject).doubleValue() == 1, i, calleeLocalsIndex);
                 } else if (argType.equals(Type.SHORT_TYPE)) {
-                    short shortValue = getShortValue(paramObject);
-                    VM.CALLER_STACK_PARAM(shortValue, i, calleeLocalsIndex);
+                    VM.CALLER_STACK_PARAM(asNumber(paramObject).shortValue(), i, calleeLocalsIndex);
                 } else if (argType.equals(Type.LONG_TYPE)) {
-                    long longValue = getLongValue(paramObject);
-                    VM.CALLER_STACK_PARAM(longValue, i, calleeLocalsIndex);
+                    VM.CALLER_STACK_PARAM(asNumber(paramObject).longValue(), i, calleeLocalsIndex);
                 } else if (argType.equals(Type.FLOAT_TYPE)) {
-                    float floatValue = getFloatValue(paramObject);
-                    VM.CALLER_STACK_PARAM(floatValue, i, calleeLocalsIndex);
+                    VM.CALLER_STACK_PARAM(asNumber(paramObject).floatValue(), i, calleeLocalsIndex);
                 } else if (argType.equals(Type.DOUBLE_TYPE)) {
-                    double doubleValue = getDoubleValue(paramObject);
-                    VM.CALLER_STACK_PARAM(doubleValue, i, calleeLocalsIndex);
+                    VM.CALLER_STACK_PARAM(asNumber(paramObject).doubleValue(), i, calleeLocalsIndex);
                 } else {
                     VM.CALLER_STACK_PARAM(paramObject, i, calleeLocalsIndex);
                 }
@@ -865,201 +753,20 @@ public class SymbolicObserver extends ExecutionObserver {
         }
     }
 
-    private static double getDoubleValue(Object o) {
+    /**
+     * Converts a boxed primitive (or null) to a number; booleans become 0 or 1 and characters their code.
+     */
+    private static Number asNumber(Object o) {
         if (o == null) {
             return 0;
         }
         if (o instanceof Boolean) {
             return (Boolean) o ? 1 : 0;
-        } else if (o instanceof Short) {
-            return (Short) o;
-        } else if (o instanceof Byte) {
-            return (Byte) o;
         } else if (o instanceof Character) {
-            return (Character) o;
-        } else if (o instanceof Integer) {
-            return (Integer) o;
-        } else if (o instanceof Long) {
-            return (Long) o;
-        } else if (o instanceof Float) {
-            return (Float) o;
-        } else if (o instanceof Double) {
-            return (Double) o;
-        } else {
-            throw new EvosuiteError("Unreachable code!");
-        }
-    }
-
-    private static float getFloatValue(Object o) {
-        if (o == null) {
-            return 0;
-        }
-        if (o instanceof Boolean) {
-            return (Boolean) o ? 1 : 0;
-        } else if (o instanceof Short) {
-            return (Short) o;
-        } else if (o instanceof Byte) {
-            return (Byte) o;
-        } else if (o instanceof Character) {
-            return (Character) o;
-        } else if (o instanceof Integer) {
-            return (Integer) o;
-        } else if (o instanceof Long) {
-            return (Long) o;
-        } else if (o instanceof Float) {
-            return (Float) o;
-        } else if (o instanceof Double) {
-            return (float) ((Double) o).doubleValue();
-        } else {
-            throw new EvosuiteError("Unreachable code!");
-        }
-    }
-
-    private static long getLongValue(Object o) {
-        if (o == null) {
-            return 0;
-        }
-        if (o instanceof Boolean) {
-            return (Boolean) o ? 1 : 0;
-        } else if (o instanceof Short) {
-            return (Short) o;
-        } else if (o instanceof Byte) {
-            return (Byte) o;
-        } else if (o instanceof Character) {
-            return (Character) o;
-        } else if (o instanceof Integer) {
-            return (Integer) o;
-        } else if (o instanceof Long) {
-            return (Long) o;
-        } else if (o instanceof Float) {
-            return (long) ((Float) o).floatValue();
-        } else if (o instanceof Double) {
-            return (long) ((Double) o).doubleValue();
-        } else {
-            throw new EvosuiteError("Unreachable code!");
-        }
-    }
-
-    private static int getIntValue(Object o) {
-        if (o == null) {
-            return 0;
-        }
-        if (o instanceof Boolean) {
-            return (Boolean) o ? 1 : 0;
-        } else if (o instanceof Short) {
-            return (Short) o;
-        } else if (o instanceof Byte) {
-            return (Byte) o;
-        } else if (o instanceof Character) {
-            return (Character) o;
-        } else if (o instanceof Integer) {
-            return (Integer) o;
-        } else if (o instanceof Long) {
-            return (int) ((Long) o).longValue();
-        } else if (o instanceof Float) {
-            return (int) ((Float) o).floatValue();
-        } else if (o instanceof Double) {
-            return (int) ((Double) o).doubleValue();
-        } else {
-            throw new EvosuiteError("Unreachable code!");
-        }
-    }
-
-    private static short getShortValue(Object o) {
-        if (o == null) {
-            return 0;
-        }
-        if (o instanceof Boolean) {
-            return (short) ((Boolean) o ? 1 : 0);
-        } else if (o instanceof Short) {
-            return (Short) o;
-        } else if (o instanceof Byte) {
-            return (Byte) o;
-        } else if (o instanceof Character) {
-            return (short) ((Character) o).charValue();
-        } else if (o instanceof Integer) {
-            return (short) ((Integer) o).intValue();
-        } else if (o instanceof Long) {
-            return (short) ((Long) o).longValue();
-        } else if (o instanceof Float) {
-            return (short) ((Float) o).floatValue();
-        } else if (o instanceof Double) {
-            return (short) ((Double) o).doubleValue();
-        } else {
-            throw new EvosuiteError("Unreachable code!");
-        }
-    }
-
-    private static byte getByteValue(Object o) {
-        if (o == null) {
-            return 0;
-        }
-        if (o instanceof Boolean) {
-            return (byte) ((Boolean) o ? 1 : 0);
-        } else if (o instanceof Short) {
-            return (byte) ((Short) o).shortValue();
-        } else if (o instanceof Byte) {
-            return (Byte) o;
-        } else if (o instanceof Character) {
-            return (byte) ((Character) o).charValue();
-        } else if (o instanceof Integer) {
-            return (byte) ((Integer) o).intValue();
-        } else if (o instanceof Long) {
-            return (byte) ((Long) o).longValue();
-        } else if (o instanceof Float) {
-            return (byte) ((Float) o).floatValue();
-        } else if (o instanceof Double) {
-            return (byte) ((Double) o).doubleValue();
-        } else {
-            throw new EvosuiteError("Unreachable code!");
-        }
-    }
-
-    private static char getCharValue(Object o) {
-        if (o == null) {
-            return 0;
-        }
-        if (o instanceof Boolean) {
-            return (char) ((Boolean) o ? 1 : 0);
-        } else if (o instanceof Short) {
-            return (char) ((Short) o).shortValue();
-        } else if (o instanceof Byte) {
-            return (char) ((Byte) o).byteValue();
-        } else if (o instanceof Character) {
-            return (Character) o;
-        } else if (o instanceof Integer) {
-            return (char) ((Integer) o).intValue();
-        } else if (o instanceof Long) {
-            return (char) ((Long) o).longValue();
-        } else if (o instanceof Float) {
-            return (char) ((Float) o).floatValue();
-        } else if (o instanceof Double) {
-            return (char) ((Double) o).doubleValue();
-        } else {
-            throw new EvosuiteError("Unreachable code!");
-        }
-    }
-
-    private static boolean getBooleanValue(Object o) {
-        if (o == null) {
-            return false;
-        }
-        if (o instanceof Boolean) {
-            return (Boolean) o;
-        } else if (o instanceof Short) {
-            return (Short) o == 1;
-        } else if (o instanceof Byte) {
-            return (Byte) o == 1;
-        } else if (o instanceof Character) {
-            return (Character) o == 1;
-        } else if (o instanceof Integer) {
-            return (Integer) o == 1;
-        } else if (o instanceof Long) {
-            return (Long) o == 1;
-        } else if (o instanceof Float) {
-            return (Float) o == 1;
-        } else if (o instanceof Double) {
-            return (Double) o == 1;
+            return (int) (Character) o;
+        } else if (o instanceof Short || o instanceof Byte || o instanceof Integer || o instanceof Long
+                || o instanceof Float || o instanceof Double) {
+            return (Number) o;
         } else {
             throw new EvosuiteError("Unreachable code!");
         }
@@ -1243,26 +950,6 @@ public class SymbolicObserver extends ExecutionObserver {
 
     }
 
-    private void before(LocalAddressPrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(RemoteAddressPrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(UrlPrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(FunctionalMockStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
-    private void before(IntPrimitiveStatement statement, Scope scope) {
-        /* do nothing */
-    }
-
     /**
      * {@inheritDoc}
      */
@@ -1296,31 +983,39 @@ public class SymbolicObserver extends ExecutionObserver {
             } else if (s instanceof ConstructorStatement) {
                 after((ConstructorStatement) s, scope);
             } else if (s instanceof BooleanPrimitiveStatement) {
-                after((BooleanPrimitiveStatement) s, scope);
+                afterIntegral(s, scope, ((BooleanPrimitiveStatement) s).getValue() ? 1 : 0, 0, 1,
+                        this::newBooleanReference);
 
             } else if (s instanceof MethodStatement) {
                 after((MethodStatement) s, scope);
 
             } else if (s instanceof BytePrimitiveStatement) {
-                after((BytePrimitiveStatement) s, scope);
+                afterIntegral(s, scope, ((BytePrimitiveStatement) s).getValue(), Byte.MIN_VALUE, Byte.MAX_VALUE,
+                        this::newByteReference);
 
             } else if (s instanceof CharPrimitiveStatement) {
-                after((CharPrimitiveStatement) s, scope);
+                afterIntegral(s, scope, ((CharPrimitiveStatement) s).getValue(), Character.MIN_VALUE, Character.MAX_VALUE,
+                        this::newCharacterReference);
 
             } else if (s instanceof DoublePrimitiveStatement) {
-                after((DoublePrimitiveStatement) s, scope);
+                afterReal(s, scope, ((DoublePrimitiveStatement) s).getValue(), -Double.MAX_VALUE, Double.MAX_VALUE,
+                        this::newDoubleReference);
 
             } else if (s instanceof FloatPrimitiveStatement) {
-                after((FloatPrimitiveStatement) s, scope);
+                afterReal(s, scope, ((FloatPrimitiveStatement) s).getValue(), -Float.MAX_VALUE, Float.MAX_VALUE,
+                        this::newFloatReference);
 
             } else if (s instanceof IntPrimitiveStatement) {
-                after((IntPrimitiveStatement) s, scope);
+                afterIntegral(s, scope, ((IntPrimitiveStatement) s).getValue(), Integer.MIN_VALUE, Integer.MAX_VALUE,
+                        this::newIntegerReference);
 
             } else if (s instanceof LongPrimitiveStatement) {
-                after((LongPrimitiveStatement) s, scope);
+                afterIntegral(s, scope, ((LongPrimitiveStatement) s).getValue(), Long.MIN_VALUE, Long.MAX_VALUE,
+                        this::newLongReference);
 
             } else if (s instanceof ShortPrimitiveStatement) {
-                after((ShortPrimitiveStatement) s, scope);
+                afterIntegral(s, scope, ((ShortPrimitiveStatement) s).getValue(), Short.MIN_VALUE, Short.MAX_VALUE,
+                        this::newShortReference);
 
             } else if (s instanceof StringPrimitiveStatement) {
                 after((StringPrimitiveStatement) s, scope);
@@ -1426,10 +1121,6 @@ public class SymbolicObserver extends ExecutionObserver {
         symbReferences.put(varName, symbRef);
     }
 
-    private void before(ArrayStatement s, Scope scope) {
-        /* do nothing */
-    }
-
     private void after(EnumPrimitiveStatement<?> s, Scope scope) {
         VariableReference varRef = s.getReturnValue();
         String varName = varRef.getName();
@@ -1521,21 +1212,35 @@ public class SymbolicObserver extends ExecutionObserver {
         }
     }
 
-    private void after(ShortPrimitiveStatement statement, Scope scope) {
-        short valueOf = statement.getValue();
+    private <T> void afterIntegral(Statement statement, Scope scope, long value, long min, long max,
+                                   BiFunction<T, IntegerValue, ReferenceConstant> newReference) {
         VariableReference varRef = statement.getReturnValue();
         String varRefName = varRef.getName();
-        IntegerVariable integerVariable = buildIntegerVariable(varRefName, valueOf, Short.MIN_VALUE, Short.MAX_VALUE);
+        IntegerVariable integerVariable = buildIntegerVariable(varRefName, value, min, max);
         symbExpressions.put(varRefName, integerVariable);
 
-        Short shortInstance;
+        T instance = getBoxedInstance(varRef, scope);
+        symbReferences.put(varRefName, newReference.apply(instance, integerVariable));
+    }
+
+    private <T> void afterReal(Statement statement, Scope scope, double value, double min, double max,
+                               BiFunction<T, RealValue, ReferenceConstant> newReference) {
+        VariableReference varRef = statement.getReturnValue();
+        String varRefName = varRef.getName();
+        RealVariable realVariable = buildRealVariable(varRefName, value, min, max);
+        symbExpressions.put(varRefName, realVariable);
+
+        T instance = getBoxedInstance(varRef, scope);
+        symbReferences.put(varRefName, newReference.apply(instance, realVariable));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T getBoxedInstance(VariableReference varRef, Scope scope) {
         try {
-            shortInstance = (Short) varRef.getObject(scope);
+            return (T) varRef.getObject(scope);
         } catch (CodeUnderTestException e) {
             throw new EvosuiteError(e);
         }
-        ReferenceConstant shortRef = newShortReference(shortInstance, integerVariable);
-        symbReferences.put(varRefName, shortRef);
     }
 
     private ReferenceConstant newShortReference(Short concShort, IntegerValue symbValue) {
@@ -1544,44 +1249,10 @@ public class SymbolicObserver extends ExecutionObserver {
         return shortRef;
     }
 
-    private void after(LongPrimitiveStatement statement, Scope scope) {
-        long valueOf = statement.getValue();
-        VariableReference varRef = statement.getReturnValue();
-        String varRefName = varRef.getName();
-        IntegerVariable integerVariable = buildIntegerVariable(varRefName, valueOf, Long.MIN_VALUE, Long.MAX_VALUE);
-        symbExpressions.put(varRefName, integerVariable);
-
-        Long longInstance;
-        try {
-            longInstance = (Long) varRef.getObject(scope);
-        } catch (CodeUnderTestException e) {
-            throw new EvosuiteError(e);
-        }
-        ReferenceConstant longRef = newLongReference(longInstance, integerVariable);
-        symbReferences.put(varRefName, longRef);
-    }
-
     private ReferenceConstant newLongReference(Long concLong, IntegerValue symbValue) {
         ReferenceConstant longRef = (ReferenceConstant) env.heap.getReference(concLong);
         env.heap.putField(Types.JAVA_LANG_LONG, SymbolicHeap.$LONG_VALUE, concLong, longRef, symbValue);
         return longRef;
-    }
-
-    private void after(FloatPrimitiveStatement statement, Scope scope) {
-        float valueOf = statement.getValue();
-        VariableReference varRef = statement.getReturnValue();
-        String varRefName = varRef.getName();
-        RealVariable realVariable = buildRealVariable(varRefName, valueOf, -Float.MAX_VALUE, Float.MAX_VALUE);
-        symbExpressions.put(varRefName, realVariable);
-
-        Float floatInstance;
-        try {
-            floatInstance = (Float) varRef.getObject(scope);
-        } catch (CodeUnderTestException e) {
-            throw new EvosuiteError(e);
-        }
-        ReferenceConstant floatRef = newFloatReference(floatInstance, realVariable);
-        symbReferences.put(varRefName, floatRef);
     }
 
     private ReferenceConstant newFloatReference(Float concFloat, RealValue symbValue) {
@@ -1590,46 +1261,10 @@ public class SymbolicObserver extends ExecutionObserver {
         return floatRef;
     }
 
-    private void after(CharPrimitiveStatement statement, Scope scope) {
-        char valueOf = statement.getValue();
-        VariableReference varRef = statement.getReturnValue();
-        String varRefName = varRef.getName();
-        IntegerVariable integerVariable = buildIntegerVariable(varRefName, valueOf, Character.MIN_VALUE,
-                Character.MAX_VALUE);
-        symbExpressions.put(varRefName, integerVariable);
-
-        Character character0;
-        try {
-            character0 = (Character) varRef.getObject(scope);
-        } catch (CodeUnderTestException e) {
-            throw new EvosuiteError(e);
-        }
-        ReferenceConstant charRef = newCharacterReference(character0, integerVariable);
-        symbReferences.put(varRefName, charRef);
-    }
-
     private ReferenceConstant newCharacterReference(Character concChar, IntegerValue symbValue) {
         ReferenceConstant charRef = (ReferenceConstant) env.heap.getReference(concChar);
         env.heap.putField(Types.JAVA_LANG_CHARACTER, SymbolicHeap.$CHAR_VALUE, concChar, charRef, symbValue);
         return charRef;
-    }
-
-    private void after(BytePrimitiveStatement statement, Scope scope) {
-        byte valueOf = statement.getValue();
-        VariableReference varRef = statement.getReturnValue();
-        String varRefName = varRef.getName();
-        IntegerVariable integerVariable = buildIntegerVariable(varRefName, valueOf, Byte.MIN_VALUE, Byte.MAX_VALUE);
-        symbExpressions.put(varRefName, integerVariable);
-        Byte byteInstance;
-        try {
-            byteInstance = (Byte) varRef.getObject(scope);
-        } catch (CodeUnderTestException e) {
-            throw new EvosuiteError(e);
-        }
-
-        ReferenceConstant byteRef = newByteReference(byteInstance, integerVariable);
-
-        symbReferences.put(varRefName, byteRef);
     }
 
     private ReferenceConstant newByteReference(Byte concByte, IntegerValue symbValue) {
@@ -1638,44 +1273,10 @@ public class SymbolicObserver extends ExecutionObserver {
         return byteRef;
     }
 
-    private void after(BooleanPrimitiveStatement statement, Scope scope) {
-        boolean valueOf = statement.getValue();
-        VariableReference varRef = statement.getReturnValue();
-        String varRefName = varRef.getName();
-        IntegerVariable integerVariable = buildIntegerVariable(varRefName, valueOf ? 1 : 0, 0, 1);
-        Boolean booleanInstance;
-        try {
-            booleanInstance = (Boolean) varRef.getObject(scope);
-        } catch (CodeUnderTestException e) {
-            throw new EvosuiteError(e);
-        }
-
-        symbExpressions.put(varRefName, integerVariable);
-        ReferenceConstant booleanRef = newBooleanReference(booleanInstance, integerVariable);
-        symbReferences.put(varRefName, booleanRef);
-    }
-
     private ReferenceConstant newBooleanReference(Boolean concBoolean, IntegerValue symbValue) {
         ReferenceConstant booleanRef = (ReferenceConstant) env.heap.getReference(concBoolean);
         env.heap.putField(Types.JAVA_LANG_BOOLEAN, SymbolicHeap.$BOOLEAN_VALUE, concBoolean, booleanRef, symbValue);
         return booleanRef;
-    }
-
-    private void after(DoublePrimitiveStatement statement, Scope scope) {
-        double valueOf = statement.getValue();
-        VariableReference varRef = statement.getReturnValue();
-        String varRefName = varRef.getName();
-        RealVariable realVariable = buildRealVariable(varRefName, valueOf, -Double.MAX_VALUE, Double.MAX_VALUE);
-        symbExpressions.put(varRefName, realVariable);
-
-        Double doubleInstance;
-        try {
-            doubleInstance = (Double) varRef.getObject(scope);
-        } catch (CodeUnderTestException e) {
-            throw new EvosuiteError(e);
-        }
-        ReferenceConstant doubleRef = newDoubleReference(doubleInstance, realVariable);
-        symbReferences.put(varRefName, doubleRef);
     }
 
     private ReferenceConstant newDoubleReference(Double concDouble, RealValue symbValue) {
@@ -1892,24 +1493,6 @@ public class SymbolicObserver extends ExecutionObserver {
     private final Map<String, IntegerVariable> integerVariables = new HashMap<>();
     private final Map<String, RealVariable> realVariables = new HashMap<>();
     private final Map<String, StringVariable> stringVariables = new HashMap<>();
-
-    private void after(IntPrimitiveStatement statement, Scope scope) {
-        int valueOf = statement.getValue();
-        VariableReference varRef = statement.getReturnValue();
-        String varRefName = varRef.getName();
-        IntegerVariable integerVariable = buildIntegerVariable(varRefName, valueOf, Integer.MIN_VALUE,
-                Integer.MAX_VALUE);
-        symbExpressions.put(varRefName, integerVariable);
-
-        Integer integerInstance;
-        try {
-            integerInstance = (Integer) varRef.getObject(scope);
-        } catch (CodeUnderTestException e) {
-            throw new EvosuiteError(e);
-        }
-        ReferenceConstant integerRef = newIntegerReference(integerInstance, integerVariable);
-        symbReferences.put(varRefName, integerRef);
-    }
 
     private ReferenceConstant newIntegerReference(Integer concInteger, IntegerValue symbValue) {
         ReferenceConstant integerRef = (ReferenceConstant) env.heap.getReference(concInteger);
