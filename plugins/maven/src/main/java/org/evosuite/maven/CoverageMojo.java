@@ -25,12 +25,11 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.evosuite.maven.util.EvoSuiteRunner;
-import org.evosuite.maven.util.ProjectUtils;
+import org.evosuite.maven.util.ProjectClasspath;
 
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Execute the manually written test suites (usually located under src/test/java)
@@ -99,22 +98,8 @@ public class CoverageMojo extends AbstractEvoSuiteMojo {
         applyLegacyProperties();
         getLog().info("Going to measure the coverage of manually written test cases with EvoSuite");
 
-        Set<String> cp = new LinkedHashSet<>();
-
-        // Get compile elements (i.e., classes under /target/classes)
-        List<String> target = new ArrayList<>(ProjectUtils.getCompileClasspathElements(this.project));
-
-        // Get JUnit elements (i.e., classes under /target/test-classes) and compiled
-        // elements (i.e., classes under /target/classes)
-        cp.addAll(ProjectUtils.getTestClasspathElements(this.project));
-
-        // Get project's dependencies
-        cp.addAll(ProjectUtils.getDependencyPathElements(this.project));
-
-        // Get runtime elements
-        cp.addAll(ProjectUtils.getRuntimeClasspathElements(this.project));
-
-        if (target.isEmpty() || cp.isEmpty()) {
+        ProjectClasspath classpath = ProjectClasspath.of(this.project, getLog());
+        if (classpath.isEmpty()) {
             getLog().info("Nothing to measure coverage!");
             return;
         }
@@ -122,8 +107,12 @@ public class CoverageMojo extends AbstractEvoSuiteMojo {
         List<String> params = new ArrayList<>();
         params.add("-measureCoverage");
         params.add("-target");
-        params.add(ProjectUtils.toClasspathString(target));
-        params.add("-DCP=" + ProjectUtils.toClasspathString(cp));
+        params.add(classpath.getTarget());
+        try {
+            params.add("-DCP_file_path=" + classpath.writeClasspathToFile().getAbsolutePath());
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to write the classpath: " + e.getMessage(), e);
+        }
         if (this.junit != null) {
             params.add("-Djunit=" + this.junit);
         }

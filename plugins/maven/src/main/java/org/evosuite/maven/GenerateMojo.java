@@ -19,7 +19,6 @@
  */
 package org.evosuite.maven;
 
-import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
@@ -34,11 +33,10 @@ import org.evosuite.maven.util.FileUtils;
 import org.evosuite.maven.util.GeneratedTests;
 import org.evosuite.maven.util.GenerationSettings;
 import org.evosuite.maven.util.JobProperties;
+import org.evosuite.maven.util.ProjectClasspath;
 import org.evosuite.maven.util.SpawnProcessManagerLease;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -47,10 +45,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Generate JUnit tests.
@@ -229,74 +225,19 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
             getLog().info("Specified classes under test: " + cuts);
         }
 
-        String target = null;
-        String cp = null;
-
-        try {
-
-            //the targets we want to generate tests for, ie the CUTs
-            for (String element : project.getCompileClasspathElements()) {
-                if (element.endsWith(".jar")) {  // we only target what has been compiled to a folder
-                    continue;
-                }
-
-                File file = new File(element);
-                if (!file.exists()) {
-                    /*
-                     * don't add to target an element that does not exist
-                     */
-                    continue;
-                }
-
-                if (!file.getAbsolutePath().startsWith(
-                        project.getBuild().getOutputDirectory())) {
-                    /*
-                     * This can happen in multi-module projects when module A has dependency on
-                     * module B. Then, both A and B source folders will end up on compile classpath,
-                     * although we are interested only in A.
-                     */
-                    continue;
-                }
-
-                if (target == null) {
-                    target = element;
-                } else {
-                    target = target + File.pathSeparator + element;
-                }
-            }
-
-            //build the classpath
-            Set<String> alreadyAdded = new HashSet<>();
-            for (String element : project.getTestClasspathElements()) {
-                if (element.toLowerCase().contains("powermock")) {
-                    //PowerMock just leads to a lot of troubles, as it includes tools.jar code
-                    getLog().warn("Skipping PowerMock dependency at: " + element);
-                    continue;
-                }
-                if (element.toLowerCase().contains("jmockit")) {
-                    //JMockit has same issue
-                    getLog().warn("Skipping JMockit dependency at: " + element);
-                    continue;
-                }
-                getLog().debug("TEST ELEMENT: " + element);
-                cp = addPathIfExists(cp, element, alreadyAdded);
-            }
-
-        } catch (DependencyResolutionRequiredException e) {
-            throw new MojoExecutionException("Failed to resolve the project classpath: " + e.getMessage(), e);
-        }
+        ProjectClasspath classpath = ProjectClasspath.of(project, getLog());
 
         File basedir = project.getBasedir();
 
-        getLog().info("Target: " + target);
-        getLog().debug("Classpath: " + cp);
+        getLog().info("Target: " + classpath.getTarget());
+        getLog().debug("Classpath: " + classpath.getClasspath());
         getLog().info("Basedir: " + basedir.getAbsolutePath());
-        if (target == null || cp == null || basedir == null) {
+        if (classpath.isEmpty() || basedir == null) {
             getLog().info("Nothing to test");
             return;
         }
 
-        runEvoSuiteOnSeparatedProcess(target, cp, basedir.getAbsolutePath());
+        runEvoSuiteOnSeparatedProcess(classpath, basedir.getAbsolutePath());
 
     }
 
@@ -344,37 +285,14 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
         }
     }
 
-    private String addPathIfExists(String cp, String element, Set<String> alreadyExist) {
-        File file = new File(element);
-        if (!file.exists()) {
-            /*
-             * don't add to CP an element that does not exist
-             */
-            return cp;
-        }
-
-        if (alreadyExist.contains(element)) {
-            return cp;
-        }
-
-        alreadyExist.add(element);
-
-        if (cp == null) {
-            cp = element;
-        } else {
-            cp = cp + File.pathSeparator + element;
-        }
-        return cp;
-    }
-
-    private void runEvoSuiteOnSeparatedProcess(String target, String cp, String dir)
+    private void runEvoSuiteOnSeparatedProcess(ProjectClasspath classpath, String dir)
             throws MojoExecutionException, MojoFailureException {
 
         List<String> params = new ArrayList<>();
         params.add("-continuous");
         params.add("execute");
         params.add("-target");
-        params.add(target);
+        params.add(classpath.getTarget());
         params.add("-Dcriterion=" + criterion);
         params.add("-Dctg_schedule=" + schedule);
         params.add("-Dctg_memory=" + memoryInMB);
@@ -459,9 +377,11 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
             params.add("-Dctg_extra_args=\"" + args + "\"");
         }
 
-        String path = writeClasspathToFile(cp);
-        params.add("-DCP_file_path=" + path);
-        //params.add("-DCP=" + cp); //this did not work properly on Windows
+        try {
+            params.add("-DCP_file_path=" + classpath.writeClasspathToFile().getAbsolutePath());
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to write the classpath: " + e.getMessage(), e);
+        }
 
         EvoSuiteRunner runner = createRunner();
         boolean ok;
@@ -586,24 +506,5 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
         return patterns.stream()
                 .map(p -> p.endsWith("/**") || p.endsWith(".class") || p.endsWith("*") ? p : p + ".class")
                 .toArray(String[]::new);
-    }
-
-    private String writeClasspathToFile(String classpath) {
-
-        try {
-            File file = File.createTempFile("EvoSuite_classpathFile", ".txt");
-            file.deleteOnExit();
-
-            BufferedWriter out = new BufferedWriter(new FileWriter(file));
-            String line = classpath;
-            out.write(line);
-            out.newLine();
-            out.close();
-
-            return file.getAbsolutePath();
-
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to create tmp file for classpath specification: " + e.getMessage());
-        }
     }
 }

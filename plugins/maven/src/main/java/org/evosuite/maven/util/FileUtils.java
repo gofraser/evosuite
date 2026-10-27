@@ -31,22 +31,6 @@ import java.util.List;
 public class FileUtils {
 
     /**
-     * Scans a set of directories.
-     *
-     * @param roots    Directories to scan.
-     * @param includes Patterns to include.
-     * @param excludes Patterns to exclude.
-     * @return A list of files found.
-     */
-    public static List<File> scan(List<String> roots, String[] includes, String[] excludes) {
-        List<File> files = new ArrayList<>();
-        for (String root : roots) {
-            files.addAll(FileUtils.scan(new File(root), includes, excludes));
-        }
-        return files;
-    }
-
-    /**
      * Scans a single directory.
      *
      * @param root     Directory to scan.
