@@ -27,22 +27,6 @@
     <dependencies>
         <dependency>
             <groupId>org.evosuite</groupId>
-            <artifactId>evosuite-runtime</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.evosuite</groupId>
-            <artifactId>evosuite-client</artifactId>
-            <version>${project.version}</version>
-   <exclusions>
-    <exclusion>
-     <groupId>junit</groupId>
-     <artifactId>junit</artifactId>
-    </exclusion>
-   </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.evosuite</groupId>
             <artifactId>evosuite-master</artifactId>
             <version>${project.version}</version>
         </dependency>

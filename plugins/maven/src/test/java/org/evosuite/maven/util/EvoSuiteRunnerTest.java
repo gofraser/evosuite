@@ -61,18 +61,13 @@ public class EvoSuiteRunnerTest {
     }
 
     @Test
-    public void shadedMasterJarComesFirstAndReplacesTheJarsItContains() {
+    public void onlyTheShadedMasterJarIsOnTheClasspath() {
         List<Artifact> artifacts = Arrays.asList(
-                artifact("org.evosuite", "evosuite-runtime"),
-                artifact("org.evosuite", "evosuite-client"),
                 artifact("commons-io", "commons-io"),
                 artifact("org.evosuite", "evosuite-master"));
 
-        String[] cp = EvoSuiteRunner.getEvoSuiteClasspath(artifacts).split(File.pathSeparator);
-
-        assertEquals(2, cp.length);
-        assertTrue(cp[0].endsWith("evosuite-master.jar"), cp[0]);
-        assertTrue(cp[1].endsWith("commons-io.jar"), cp[1]);
+        assertEquals(new File("/repo/evosuite-master.jar").getAbsolutePath(),
+                EvoSuiteRunner.getEvoSuiteClasspath(artifacts));
     }
 
     @Test

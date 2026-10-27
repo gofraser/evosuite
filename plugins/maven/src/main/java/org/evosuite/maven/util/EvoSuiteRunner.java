@@ -33,7 +33,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -62,8 +61,6 @@ public class EvoSuiteRunner {
     private static final String EVOSUITE_GROUP_ID = "org.evosuite";
 
     private static final String MASTER = "evosuite-master";
-
-    private static final List<String> CONTAINED_IN_MASTER = Arrays.asList("evosuite-client", "evosuite-runtime");
 
     /**
      * The maven logger of the plugin.
@@ -146,35 +143,21 @@ public class EvoSuiteRunner {
     }
 
     /**
-     * The master jar is shaded: it contains the client and the runtime, with their dependencies such as
-     * ASM relocated. The plain client and runtime jars, which the plugin itself compiles against, must not
-     * come before it, or classes compiled against the relocated ASM meet the original one and fail to
-     * verify. So the master jar goes first, and the jars it already contains are left out.
+     * The master jar is shaded: it contains the client and the runtime, with all their dependencies, ASM
+     * among them relocated. It is the only jar EvoSuite needs, and no plain jar may come before it, or
+     * classes compiled against the relocated ASM meet the original one and fail to verify.
      *
      * @param artifacts the resolved dependencies of the plugin
      * @return the classpath to run EvoSuite with
      */
     static String getEvoSuiteClasspath(List<Artifact> artifacts) {
-        List<String> master = new ArrayList<>();
-        List<String> others = new ArrayList<>();
         for (Artifact artifact : artifacts) {
-            if (artifact.getFile() == null) {
-                continue;
-            }
-            String path = artifact.getFile().getAbsolutePath();
-            if (!EVOSUITE_GROUP_ID.equals(artifact.getGroupId())) {
-                others.add(path);
-            } else if (MASTER.equals(artifact.getArtifactId())) {
-                master.add(path);
-            } else if (!CONTAINED_IN_MASTER.contains(artifact.getArtifactId())) {
-                others.add(path);
+            if (EVOSUITE_GROUP_ID.equals(artifact.getGroupId()) && MASTER.equals(artifact.getArtifactId())
+                    && artifact.getFile() != null) {
+                return artifact.getFile().getAbsolutePath();
             }
         }
-        if (master.isEmpty()) {
-            throw new IllegalStateException("The plugin's dependencies do not include " + MASTER);
-        }
-        master.addAll(others);
-        return String.join(File.pathSeparator, master);
+        throw new IllegalStateException("The plugin's dependencies do not include " + MASTER);
     }
 
     private String getJavaExecutable() {
