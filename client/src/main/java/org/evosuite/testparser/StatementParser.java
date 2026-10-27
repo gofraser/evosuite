@@ -35,6 +35,7 @@ import com.github.javaparser.ast.stmt.TryStmt;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
 import org.evosuite.seeding.ConstantPoolManager;
+import org.evosuite.setup.GeneratedTestAccess;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
@@ -3484,18 +3485,8 @@ public class StatementParser {
             return true;
         }
 
-        if (!Modifier.isPublic(type.getModifiers()) && !isInTargetPackage(type)) {
-            return false;
-        }
-
-        Class<?> enclosing = type.getEnclosingClass();
-        while (enclosing != null) {
-            if (!Modifier.isPublic(enclosing.getModifiers()) && !isInTargetPackage(enclosing)) {
-                return false;
-            }
-            enclosing = enclosing.getEnclosingClass();
-        }
-        return true;
+        return GeneratedTestAccess.isTypeAccessibleFromGeneratedTest(
+                type, GeneratedTestAccess.getGeneratedTestPackageName());
     }
 
     private boolean isInTargetPackage(Class<?> type) {

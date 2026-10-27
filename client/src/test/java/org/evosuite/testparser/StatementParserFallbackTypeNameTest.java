@@ -6,7 +6,10 @@
  */
 package org.evosuite.testparser;
 
+import org.evosuite.Properties;
 import org.evosuite.testcase.TestCodeVisitor;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -15,6 +18,20 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StatementParserFallbackTypeNameTest {
+
+    private String savedClassPrefix;
+
+    @BeforeEach
+    void setUp() {
+        savedClassPrefix = Properties.CLASS_PREFIX;
+        // The fixture is nested in a package-private test class, so it is only nameable from its package.
+        Properties.CLASS_PREFIX = "org.evosuite.testparser";
+    }
+
+    @AfterEach
+    void tearDown() {
+        Properties.CLASS_PREFIX = savedClassPrefix;
+    }
 
     @Test
     void fallbackErasesIllegalTypeArgsForNonGenericRawClass() {
