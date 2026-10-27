@@ -100,6 +100,19 @@ public final class ExecutionModeUtils {
     }
 
     /**
+     * Forwards the log folder of the master to the client, if one is set (it is for example used in
+     * logback-ctg.xml).
+     *
+     * @param cmdLine The list of command line arguments to modify.
+     */
+    static void addLogFolderPropertyIfPresent(List<String> cmdLine) {
+        String logDir = System.getProperty("evosuite.log.folder");
+        if (logDir != null) {
+            cmdLine.add("-Devosuite.log.folder=" + logDir);
+        }
+    }
+
+    /**
      * Adds the client main class to the command line arguments.
      *
      * @param cmdLine The list of command line arguments to modify.

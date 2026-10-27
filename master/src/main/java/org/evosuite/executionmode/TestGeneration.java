@@ -412,11 +412,7 @@ public class TestGeneration {
         if (Properties.LOG_TARGET != null) {
             cmdLine.add("-Dlog.target=" + Properties.LOG_TARGET);
         }
-        String logDir = System.getProperty("evosuite.log.folder");
-        if (logDir != null) {
-            // this parameter is for example used in logback-ctg.xml
-            cmdLine.add(" -Devosuite.log.folder=" + logDir);
-        }
+        ExecutionModeUtils.addLogFolderPropertyIfPresent(cmdLine);
         //------------------------------------------------
 
         // cmdLine.add("-Dminimize_values=true");
