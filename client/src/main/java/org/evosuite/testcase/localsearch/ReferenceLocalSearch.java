@@ -262,29 +262,7 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             test.setChanged(true);
 
         } else {
-            VariableReference parameter = parameters.get(numParameter);
-            List<VariableReference> objects = test.getTestCase().getObjects(parameter.getType(),
-                    statement.getPosition());
-            objects.remove(parameter);
-            objects.remove(statement.getReturnValue());
-            objects.removeIf(ref -> !GenericClassUtils.isAssignable(parameter.getType(), ref.getType()));
-            NullStatement nullStatement = new NullStatement(test.getTestCase(),
-                    parameter.getType());
-            if (!parameter.isPrimitive()) {
-                objects.add(nullStatement.getReturnValue());
-            }
-
-            if (objects.isEmpty()) {
-                return false;
-            }
-
-            VariableReference replacement = Randomness.choice(objects);
-            if (replacement == nullStatement.getReturnValue()) {
-                test.getTestCase().addStatement(nullStatement, statement.getPosition());
-            }
-            statement.replaceParameterReference(replacement, numParameter);
-            test.setChanged(true);
-
+            replaceParameter(test, statement, numParameter);
         }
 
         return false;
@@ -304,8 +282,21 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             return false;
         }
 
-        int numParameter = Randomness.nextInt(parameters.size());
-        VariableReference parameter = parameters.get(numParameter);
+        replaceParameter(test, statement, Randomness.nextInt(parameters.size()));
+
+        return false;
+    }
+
+    /**
+     * Replace one parameter of a method or constructor call with another compatible object or null.
+     *
+     * @param test         the test case.
+     * @param statement    the call.
+     * @param numParameter the index of the parameter to replace.
+     */
+    private void replaceParameter(TestChromosome test, EntityWithParametersStatement statement,
+                                  int numParameter) {
+        VariableReference parameter = statement.getParameterReferences().get(numParameter);
 
         List<VariableReference> objects = test.getTestCase().getObjects(parameter.getType(),
                 statement.getPosition());
@@ -320,18 +311,15 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
         }
 
         if (objects.isEmpty()) {
-            return false;
+            return;
         }
 
         VariableReference replacement = Randomness.choice(objects);
         if (replacement == nullStatement.getReturnValue()) {
             test.getTestCase().addStatement(nullStatement, statement.getPosition());
         }
-
         statement.replaceParameterReference(replacement, numParameter);
         test.setChanged(true);
-
-        return false;
     }
 
     /**
