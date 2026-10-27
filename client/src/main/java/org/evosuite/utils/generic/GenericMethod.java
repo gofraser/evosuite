@@ -432,24 +432,12 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         String methodName = (String) ois.readObject();
         String methodDesc = (String) ois.readObject();
 
-        ClassLoader[] candidateLoaders = new ClassLoader[]{
-                // The owner class is resolved through the SUT class loader; the member has to be
-                // looked up in that same class.
-                TestGenerationContext.getInstance().getClassLoaderForSUT(),
-                GenericClassImpl.getMasterSideClassLoaderIfInitialized(),
-                Thread.currentThread().getContextClassLoader(),
-                GenericMethod.class.getClassLoader(),
-                ClassLoader.getSystemClassLoader()
-        };
-        ClassLoader previous = null;
+        // The owner class is resolved through the SUT class loader; the member has to be
+        // looked up in that same class.
         Throwable lastError = null;
 
-        for (ClassLoader loader : candidateLoaders) {
-            if (loader == null || loader == previous) {
-                continue;
-            }
-            previous = loader;
-
+        for (ClassLoader loader : GenericClassImpl.candidateLoaders(
+                TestGenerationContext.getInstance().getClassLoaderForSUT(), GenericMethod.class)) {
             try {
                 Class<?> methodClass = GenericClassImpl.getClass(className, loader);
                 this.method = findMethod(methodClass, methodName, methodDesc);
@@ -501,42 +489,54 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         return null;
     }
 
+    /**
+     * Finds the method of {@code newClass} that matches {@code old} by name, declaring class, return
+     * type and parameter types, comparing types by name so that the same class loaded by another
+     * loader matches.
+     *
+     * @return the matching method, or null if there is none
+     */
+    public static Method findEquivalentMethod(Method old, Class<?> newClass) {
+        for (Method newMethod : TestClusterUtils.getMethods(newClass)) {
+            if (!newMethod.getName().equals(old.getName())) {
+                continue;
+            }
+            Class<?>[] oldParameters = old.getParameterTypes();
+            Class<?>[] newParameters = newMethod.getParameterTypes();
+            if (oldParameters.length != newParameters.length) {
+                continue;
+            }
+            if (!newMethod.getDeclaringClass().getName().equals(old.getDeclaringClass().getName())) {
+                continue;
+            }
+            if (!newMethod.getReturnType().getName().equals(old.getReturnType().getName())) {
+                continue;
+            }
+            boolean equals = true;
+            for (int i = 0; i < newParameters.length; i++) {
+                if (!oldParameters[i].getName().equals(newParameters[i].getName())) {
+                    equals = false;
+                    break;
+                }
+            }
+            if (equals) {
+                return newMethod;
+            }
+        }
+        return null;
+    }
+
     @Override
     public void changeClassLoader(ClassLoader loader) {
         super.changeClassLoader(loader);
         try {
             Class<?> oldClass = method.getDeclaringClass();
             Class<?> newClass = loader.loadClass(oldClass.getName());
-            for (Method newMethod : TestClusterUtils.getMethods(newClass)) {
-                if (newMethod.getName().equals(this.method.getName())) {
-                    boolean equals = true;
-                    Class<?>[] oldParameters = this.method.getParameterTypes();
-                    Class<?>[] newParameters = newMethod.getParameterTypes();
-                    if (oldParameters.length != newParameters.length) {
-                        continue;
-                    }
-
-                    if (!newMethod.getDeclaringClass().getName().equals(method.getDeclaringClass().getName())) {
-                        continue;
-                    }
-
-                    if (!newMethod.getReturnType().getName().equals(method.getReturnType().getName())) {
-                        continue;
-                    }
-
-
-                    for (int i = 0; i < newParameters.length; i++) {
-                        if (!oldParameters[i].getName().equals(newParameters[i].getName())) {
-                            equals = false;
-                            break;
-                        }
-                    }
-                    if (equals) {
-                        this.method = newMethod;
-                        this.reflectionAccessible = makeMethodAccessible(this.method);
-                        return;
-                    }
-                }
+            Method newMethod = findEquivalentMethod(this.method, newClass);
+            if (newMethod != null) {
+                this.method = newMethod;
+                this.reflectionAccessible = makeMethodAccessible(this.method);
+                return;
             }
             LoggingUtils.getEvoLogger().info("Method not found - keeping old class loader ");
         } catch (ClassNotFoundException e) {

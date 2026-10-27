@@ -21,8 +21,8 @@ package org.evosuite.assertion;
 
 import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.sandbox.Sandbox;
-import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.utils.LoggingUtils;
+import org.evosuite.utils.generic.GenericMethod;
 import org.objectweb.asm.Type;
 
 import java.io.IOException;
@@ -264,35 +264,11 @@ public class Inspector implements Serializable {
         try {
             Class<?> oldClass = method.getDeclaringClass();
             Class<?> newClass = loader.loadClass(oldClass.getName());
-            for (Method newMethod : TestClusterUtils.getMethods(newClass)) {
-                if (newMethod.getName().equals(this.method.getName())) {
-                    boolean equals = true;
-                    Class<?>[] oldParameters = this.method.getParameterTypes();
-                    Class<?>[] newParameters = newMethod.getParameterTypes();
-                    if (oldParameters.length != newParameters.length) {
-                        continue;
-                    }
-
-                    if (!newMethod.getDeclaringClass().getName().equals(method.getDeclaringClass().getName())) {
-                        continue;
-                    }
-
-                    if (!newMethod.getReturnType().getName().equals(method.getReturnType().getName())) {
-                        continue;
-                    }
-
-                    for (int i = 0; i < newParameters.length; i++) {
-                        if (!oldParameters[i].getName().equals(newParameters[i].getName())) {
-                            equals = false;
-                            break;
-                        }
-                    }
-                    if (equals) {
-                        this.method = newMethod;
-                        trySetAccessible(this.method);
-                        return;
-                    }
-                }
+            Method newMethod = GenericMethod.findEquivalentMethod(this.method, newClass);
+            if (newMethod != null) {
+                this.method = newMethod;
+                trySetAccessible(this.method);
+                return;
             }
             LoggingUtils.getEvoLogger().info("Method not found - keeping old class loader ");
         } catch (ClassNotFoundException | SecurityException | LinkageError e) {

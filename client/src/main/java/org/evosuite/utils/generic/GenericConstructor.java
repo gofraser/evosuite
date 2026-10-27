@@ -325,24 +325,12 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         String className = (String) ois.readObject();
         String constructorDesc = (String) ois.readObject();
 
-        ClassLoader[] candidateLoaders = new ClassLoader[]{
-                // The owner class is resolved through the SUT class loader; the member has to be
-                // looked up in that same class.
-                TestGenerationContext.getInstance().getClassLoaderForSUT(),
-                GenericClassImpl.getMasterSideClassLoaderIfInitialized(),
-                Thread.currentThread().getContextClassLoader(),
-                GenericConstructor.class.getClassLoader(),
-                ClassLoader.getSystemClassLoader()
-        };
-        ClassLoader previous = null;
+        // The owner class is resolved through the SUT class loader; the member has to be
+        // looked up in that same class.
         Throwable lastError = null;
 
-        for (ClassLoader loader : candidateLoaders) {
-            if (loader == null || loader == previous) {
-                continue;
-            }
-            previous = loader;
-
+        for (ClassLoader loader : GenericClassImpl.candidateLoaders(
+                TestGenerationContext.getInstance().getClassLoaderForSUT(), GenericConstructor.class)) {
             try {
                 Class<?> constructorClass = GenericClassImpl.getClass(className, loader);
                 for (Constructor<?> constructor : constructorClass.getDeclaredConstructors()) {

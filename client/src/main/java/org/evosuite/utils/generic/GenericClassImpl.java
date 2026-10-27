@@ -150,21 +150,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         // (e.g. an InstrumentingClassLoader). Falling back to the
         // master-side classloader first would silently hand back a class
         // with a different identity, breaking later isAssignableTo checks.
-        ClassLoader[] loaders = new ClassLoader[]{
-                preferredLoader,
-                getMasterSideClassLoaderIfInitialized(),
-                Thread.currentThread().getContextClassLoader(),
-                GenericClassImpl.class.getClassLoader(),
-                ClassLoader.getSystemClassLoader()
-        };
-
-        ClassLoader previous = null;
-        for (ClassLoader loader : loaders) {
-            if (loader == null || loader == previous) {
-                continue;
-            }
-            previous = loader;
-
+        for (ClassLoader loader : candidateLoaders(preferredLoader, GenericClassImpl.class)) {
             try {
                 return loader.loadClass(name);
             } catch (ClassNotFoundException e) {
@@ -195,6 +181,31 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             wrapped.initCause(linkageError);
         }
         throw wrapped;
+    }
+
+    /**
+     * The class loaders to try, in order, when a class has to be found again: the preferred one, the
+     * master-side loader, the context loader, the loader of {@code anchor} and the system loader.
+     * Missing loaders and loaders repeated back to back are left out.
+     */
+    static List<ClassLoader> candidateLoaders(ClassLoader preferred, Class<?> anchor) {
+        ClassLoader[] all = new ClassLoader[]{
+                preferred,
+                getMasterSideClassLoaderIfInitialized(),
+                Thread.currentThread().getContextClassLoader(),
+                anchor.getClassLoader(),
+                ClassLoader.getSystemClassLoader()
+        };
+        List<ClassLoader> loaders = new ArrayList<>();
+        ClassLoader previous = null;
+        for (ClassLoader loader : all) {
+            if (loader == null || loader == previous) {
+                continue;
+            }
+            previous = loader;
+            loaders.add(loader);
+        }
+        return loaders;
     }
 
     static ClassLoader getMasterSideClassLoaderIfInitialized() {

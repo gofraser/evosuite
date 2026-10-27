@@ -280,24 +280,12 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         String className = (String) ois.readObject();
         String fieldName = (String) ois.readObject();
 
-        ClassLoader[] candidateLoaders = new ClassLoader[]{
-                // The owner class is resolved through the SUT class loader; the member has to be
-                // looked up in that same class.
-                TestGenerationContext.getInstance().getClassLoaderForSUT(),
-                GenericClassImpl.getMasterSideClassLoaderIfInitialized(),
-                Thread.currentThread().getContextClassLoader(),
-                GenericField.class.getClassLoader(),
-                ClassLoader.getSystemClassLoader()
-        };
-        ClassLoader previous = null;
+        // The owner class is resolved through the SUT class loader; the member has to be
+        // looked up in that same class.
         Throwable lastError = null;
 
-        for (ClassLoader loader : candidateLoaders) {
-            if (loader == null || loader == previous) {
-                continue;
-            }
-            previous = loader;
-
+        for (ClassLoader loader : GenericClassImpl.candidateLoaders(
+                TestGenerationContext.getInstance().getClassLoaderForSUT(), GenericField.class)) {
             try {
                 Class<?> fieldClass = GenericClassImpl.getClass(className, loader);
                 // Try the declaring class first, then walk up the hierarchy.
