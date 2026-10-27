@@ -21,6 +21,8 @@ package org.evosuite.statistics;
 
 import org.evosuite.testsuite.TestSuiteChromosome;
 
+import java.util.function.Function;
+
 /**
  * Factory to create an output variable when given a test suite chromosome.
  *
@@ -33,6 +35,24 @@ public abstract class ChromosomeOutputVariableFactory<T> {
 
     public ChromosomeOutputVariableFactory(RuntimeVariable variable) {
         this.variable = variable;
+    }
+
+    /**
+     * Creates a factory that reads the value from a test suite with the given function.
+     *
+     * @param variable the variable
+     * @param data     extracts the value from a test suite
+     * @param <T>      the type of the variable value
+     * @return the factory
+     */
+    public static <T> ChromosomeOutputVariableFactory<T> of(RuntimeVariable variable,
+                                                            Function<TestSuiteChromosome, T> data) {
+        return new ChromosomeOutputVariableFactory<T>(variable) {
+            @Override
+            protected T getData(TestSuiteChromosome individual) {
+                return data.apply(individual);
+            }
+        };
     }
 
     protected abstract T getData(TestSuiteChromosome individual);

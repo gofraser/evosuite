@@ -19,10 +19,31 @@
  */
 package org.evosuite.statistics;
 
+import org.evosuite.testsuite.TestSuiteChromosome;
+
+import java.util.function.Function;
+
 public abstract class IntegerSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Integer> {
 
     public IntegerSequenceOutputVariableFactory(RuntimeVariable variable) {
         super(variable);
+    }
+
+    /**
+     * Creates a factory that reads the value from a test suite with the given function.
+     *
+     * @param variable the timeline variable
+     * @param value    extracts the value from a test suite
+     * @return the factory
+     */
+    public static IntegerSequenceOutputVariableFactory of(RuntimeVariable variable,
+                                                          Function<TestSuiteChromosome, Integer> value) {
+        return new IntegerSequenceOutputVariableFactory(variable) {
+            @Override
+            protected Integer getValue(TestSuiteChromosome individual) {
+                return value.apply(individual);
+            }
+        };
     }
 
     @Override

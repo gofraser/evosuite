@@ -19,10 +19,31 @@
  */
 package org.evosuite.statistics;
 
+import org.evosuite.testsuite.TestSuiteChromosome;
+
+import java.util.function.Function;
+
 public abstract class DoubleSequenceOutputVariableFactory extends SequenceOutputVariableFactory<Double> {
 
     public DoubleSequenceOutputVariableFactory(RuntimeVariable variable) {
         super(variable);
+    }
+
+    /**
+     * Creates a factory that reads the value from a test suite with the given function.
+     *
+     * @param variable the timeline variable
+     * @param value    extracts the value from a test suite
+     * @return the factory
+     */
+    public static DoubleSequenceOutputVariableFactory of(RuntimeVariable variable,
+                                                         Function<TestSuiteChromosome, Double> value) {
+        return new DoubleSequenceOutputVariableFactory(variable) {
+            @Override
+            protected Double getValue(TestSuiteChromosome individual) {
+                return value.apply(individual);
+            }
+        };
     }
 
     @Override
