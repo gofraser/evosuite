@@ -24,7 +24,7 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.TheReplacementFunction;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessReplacementFunction;
-import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
+import org.evosuite.ga.ReplacementFunction;
 import org.evosuite.ga.metaheuristics.BreederGA;
 import org.evosuite.ga.metaheuristics.CellularGA;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
@@ -44,30 +44,16 @@ import org.evosuite.ga.metaheuristics.mulambda.MuLambdaEA;
 import org.evosuite.ga.metaheuristics.mulambda.MuPlusLambdaEA;
 import org.evosuite.ga.metaheuristics.mulambda.OnePlusLambdaLambdaGA;
 import org.evosuite.ga.metaheuristics.mulambda.OnePlusOneEA;
+import org.evosuite.ga.operators.crossover.CoverageCrossOver;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
-import org.evosuite.ga.operators.crossover.SinglePointCrossOver;
-import org.evosuite.ga.operators.crossover.SinglePointFixedCrossOver;
-import org.evosuite.ga.operators.crossover.SinglePointRelativeCrossOver;
-import org.evosuite.ga.operators.crossover.UniformCrossOver;
-import org.evosuite.ga.operators.ranking.FastNonDominatedSorting;
-import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
 import org.evosuite.ga.operators.ranking.RankingFunction;
-import org.evosuite.ga.operators.selection.BestKSelection;
-import org.evosuite.ga.operators.selection.BinaryTournamentSelectionCrowdedComparison;
-import org.evosuite.ga.operators.selection.FitnessProportionateSelection;
-import org.evosuite.ga.operators.selection.RandomKSelection;
-import org.evosuite.ga.operators.selection.RankSelection;
 import org.evosuite.ga.operators.selection.SelectionFunction;
-import org.evosuite.ga.operators.selection.TournamentSelection;
-import org.evosuite.ga.operators.selection.TournamentSelectionRankAndCrowdingDistanceComparator;
 import org.evosuite.ga.populationlimit.PopulationLimit;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.llm.factory.LlmFactoryWrappers;
 import org.evosuite.llm.search.TestSuiteChromosomeInjectionAdapter;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
-import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testcase.factories.SerializedSeedTestFactory;
@@ -93,39 +79,10 @@ public class PropertiesSuiteGAFactory
     protected ChromosomeFactory<TestSuiteChromosome> getChromosomeFactory() {
         switch (Properties.STRATEGY) {
             case EVOSUITE:
-                switch (Properties.TEST_FACTORY) {
-                    case ALLMETHODS:
-                        logger.info("Using all methods chromosome factory");
-                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(
-                                new AllMethodsTestChromosomeFactory()));
-                    case RANDOM:
-                        logger.info("Using random chromosome factory");
-                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(new RandomLengthTestFactory()));
-                    case ARCHIVE:
-                        logger.info("Using archive chromosome factory");
-                        return new TestSuiteChromosomeFactory(
-                                LlmFactoryWrappers.wrap(new ArchiveTestChromosomeFactory()));
-                    case JUNIT:
-                        logger.info("Using seeding chromosome factory");
-                        JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
-                                new RandomLengthTestFactory());
-                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(factory));
-                    case PARSED_JUNIT:
-                        logger.info("Using parsed JUnit seeding chromosome factory");
-                        JUnitTestParsedChromosomeFactory parsedFactory = new JUnitTestParsedChromosomeFactory(
-                                new RandomLengthTestFactory());
-                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(parsedFactory));
-                    case SERIALIZATION:
-                        logger.info("Using serialization seeding chromosome factory");
-                        return new SerializationSuiteChromosomeFactory(
-                                LlmFactoryWrappers.wrap(new RandomLengthTestFactory()));
-                    case LLM:
-                        logger.info("Using LLM chromosome factory with random fallback");
-                        return new TestSuiteChromosomeFactory(LlmFactoryWrappers.wrap(new RandomLengthTestFactory()));
-                    default:
-                        throw new RuntimeException("Unsupported test factory: "
-                                + Properties.TEST_FACTORY);
-                }
+                ChromosomeFactory<TestChromosome> testFactory = testChromosomeFactory();
+                return Properties.TEST_FACTORY == Properties.TestFactory.SERIALIZATION
+                        ? new SerializationSuiteChromosomeFactory(testFactory)
+                        : new TestSuiteChromosomeFactory(testFactory);
             case MOSUITE:
                 // Tests continuous test generation kept from an earlier run, if any, seed the search.
                 // Beyond that, the many-objective algorithms honour only parsed-source seeding:
@@ -167,38 +124,19 @@ public class PropertiesSuiteGAFactory
             case MONOTONIC_GA: {
                 logger.info("Chosen search algorithm: MonotonicGA");
                 MonotonicGA<TestSuiteChromosome> ga = new MonotonicGA<>(factory);
-                if (Properties.REPLACEMENT_FUNCTION
-                        == TheReplacementFunction.FITNESSREPLACEMENT) {
-                    // user has explicitly asked for this replacement function
-                    ga.setReplacementFunction(new FitnessReplacementFunction<>());
-                } else {
-                    // use default
-                    ga.setReplacementFunction(new TestSuiteReplacementFunction());
-                }
+                ga.setReplacementFunction(replacementFunction());
                 return ga;
             }
             case CELLULAR_GA: {
                 logger.info("Chosen search algorithm: CellularGA");
                 CellularGA<TestSuiteChromosome> ga = new CellularGA<>(Properties.MODEL, factory);
-                if (Properties.REPLACEMENT_FUNCTION == TheReplacementFunction.FITNESSREPLACEMENT) {
-                    // user has explicitly asked for this replacement function
-                    ga.setReplacementFunction(new FitnessReplacementFunction<>());
-                } else {
-                    // use default
-                    ga.setReplacementFunction(new TestSuiteReplacementFunction());
-                }
+                ga.setReplacementFunction(replacementFunction());
                 return ga;
             }
             case STEADY_STATE_GA: {
                 logger.info("Chosen search algorithm: Steady-StateGA");
                 SteadyStateGA<TestSuiteChromosome> ga = new SteadyStateGA<>(factory);
-                if (Properties.REPLACEMENT_FUNCTION == TheReplacementFunction.FITNESSREPLACEMENT) {
-                    // user has explicitly asked for this replacement function
-                    ga.setReplacementFunction(new FitnessReplacementFunction<>());
-                } else {
-                    // use default
-                    ga.setReplacementFunction(new TestSuiteReplacementFunction());
-                }
+                ga.setReplacementFunction(replacementFunction());
                 return ga;
             }
             case BREEDER_GA:
@@ -215,47 +153,21 @@ public class PropertiesSuiteGAFactory
                 return new SPEA2<>(factory);
             case MOSA:
                 logger.info("Chosen search algorithm: MOSA");
-                if (factory instanceof TestSuiteChromosomeFactory) {
-                    final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
-                    return new MOSATestSuiteAdapter(new MOSA(tscf.getTestChromosomeFactory()));
-                } else {
-                    logger.info("No specific factory for test cases given...");
-                    logger.info("Using a default factory that creates tests with variable length");
-                    return new MOSATestSuiteAdapter(new MOSA(new RandomLengthTestFactory()));
-                }
+                return new MOSATestSuiteAdapter(new MOSA(testFactoryOf(factory, true)));
             case DYNAMOSA:
                 if (!ArrayUtil.contains(Properties.CRITERION, Criterion.BRANCH)) {
                     logger.warn("DynaMOSA requires BRANCH in Properties.CRITERION for structural "
                             + "dependency tracking. Falling back to MOSA.");
-                    if (factory instanceof TestSuiteChromosomeFactory) {
-                        final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
-                        return new MOSATestSuiteAdapter(new MOSA(tscf.getTestChromosomeFactory()));
-                    } else {
-                        return new MOSATestSuiteAdapter(new MOSA(new RandomLengthTestFactory()));
-                    }
+                    return new MOSATestSuiteAdapter(new MOSA(testFactoryOf(factory, false)));
                 }
                 logger.info("Chosen search algorithm: DynaMOSA");
-                if (factory instanceof TestSuiteChromosomeFactory) {
-                    final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
-                    return new MOSATestSuiteAdapter(new DynaMOSA(tscf.getTestChromosomeFactory()));
-                } else {
-                    logger.info("No specific factory for test cases given...");
-                    logger.info("Using a default factory that creates tests with variable length");
-                    return new MOSATestSuiteAdapter(new DynaMOSA(new RandomLengthTestFactory()));
-                }
+                return new MOSATestSuiteAdapter(new DynaMOSA(testFactoryOf(factory, true)));
             case ONE_PLUS_LAMBDA_LAMBDA_GA:
                 logger.info("Chosen search algorithm: 1 + (lambda, lambda)GA");
                 return new OnePlusLambdaLambdaGA<>(factory, Properties.LAMBDA);
             case MIO:
                 logger.info("Chosen search algorithm: MIO");
-                if (factory instanceof TestSuiteChromosomeFactory) {
-                    final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;
-                    return new MIOTestSuiteAdapter(new MIO(tscf.getTestChromosomeFactory()));
-                } else {
-                    logger.info("No specific factory for test cases given...");
-                    logger.info("Using a default factory that creates tests with variable length");
-                    return new MIOTestSuiteAdapter(new MIO(new RandomLengthTestFactory()));
-                }
+                return new MIOTestSuiteAdapter(new MIO(testFactoryOf(factory, true)));
             case STANDARD_CHEMICAL_REACTION:
                 logger.info("Chosen search algorithm: Standard Chemical Reaction Optimization");
                 return new StandardChemicalReaction<>(factory);
@@ -268,54 +180,43 @@ public class PropertiesSuiteGAFactory
         }
     }
 
-    protected SelectionFunction<TestSuiteChromosome> getSelectionFunction() {
-        switch (Properties.SELECTION_FUNCTION) {
-            case ROULETTEWHEEL:
-                return new FitnessProportionateSelection<>();
-            case TOURNAMENT:
-                return new TournamentSelection<>();
-            case BINARY_TOURNAMENT:
-                return new BinaryTournamentSelectionCrowdedComparison<>();
-            case RANK_CROWD_DISTANCE_TOURNAMENT:
-                return new TournamentSelectionRankAndCrowdingDistanceComparator<>();
-            case BESTK:
-                return new BestKSelection<>();
-            case RANDOMK:
-                return new RandomKSelection<>();
-            default:
-                return new RankSelection<>();
+    /**
+     * The configured replacement function: fitness replacement if explicitly requested, the test
+     * suite replacement function otherwise.
+     */
+    private static ReplacementFunction<TestSuiteChromosome> replacementFunction() {
+        if (Properties.REPLACEMENT_FUNCTION == TheReplacementFunction.FITNESSREPLACEMENT) {
+            return new FitnessReplacementFunction<>();
         }
+        return new TestSuiteReplacementFunction();
+    }
+
+    /**
+     * The test case factory inside a suite factory, or a random-length factory if the suite
+     * factory does not wrap one.
+     *
+     * @param logFallback whether to log the use of the fallback
+     */
+    private static ChromosomeFactory<TestChromosome> testFactoryOf(
+            ChromosomeFactory<TestSuiteChromosome> factory, boolean logFallback) {
+        if (factory instanceof TestSuiteChromosomeFactory) {
+            return ((TestSuiteChromosomeFactory) factory).getTestChromosomeFactory();
+        }
+        if (logFallback) {
+            logger.info("No specific factory for test cases given...");
+            logger.info("Using a default factory that creates tests with variable length");
+        }
+        return new RandomLengthTestFactory();
     }
 
     protected CrossOverFunction<TestSuiteChromosome> getCrossoverFunction() {
-        switch (Properties.CROSSOVER_FUNCTION) {
-            case SINGLEPOINTFIXED:
-                return new SinglePointFixedCrossOver<>();
-            case SINGLEPOINTRELATIVE:
-                return new SinglePointRelativeCrossOver<>();
-            case SINGLEPOINT:
-                return new SinglePointCrossOver<>();
-            case COVERAGE:
-                if (Properties.STRATEGY != Properties.Strategy.EVOSUITE) {
-                    throw new RuntimeException("Coverage crossover function requires test suite mode");
-                }
-                return new org.evosuite.ga.operators.crossover.CoverageCrossOver();
-            case UNIFORM:
-                return new UniformCrossOver<>();
-            default:
-                throw new RuntimeException("Unknown crossover function: "
-                        + Properties.CROSSOVER_FUNCTION);
+        if (Properties.CROSSOVER_FUNCTION == Properties.CrossoverFunction.COVERAGE) {
+            if (Properties.STRATEGY != Properties.Strategy.EVOSUITE) {
+                throw new RuntimeException("Coverage crossover function requires test suite mode");
+            }
+            return new CoverageCrossOver();
         }
-    }
-
-    private RankingFunction<TestSuiteChromosome> getRankingFunction() {
-        switch (Properties.RANKING_TYPE) {
-            case FAST_NON_DOMINATED_SORTING:
-                return new FastNonDominatedSorting<>();
-            case PREFERENCE_SORTING:
-            default:
-                return new RankBasedPreferenceSorting<>();
-        }
+        return crossoverFunction(true);
     }
 
     @Override
@@ -329,11 +230,11 @@ public class PropertiesSuiteGAFactory
             ga.addListener(new StatisticsListener<>());
         }
 
-        SelectionFunction<TestSuiteChromosome> selectionFunction = getSelectionFunction();
+        SelectionFunction<TestSuiteChromosome> selectionFunction = selectionFunction(true);
         selectionFunction.setMaximize(false);
         ga.setSelectionFunction(selectionFunction);
 
-        RankingFunction<TestSuiteChromosome> rankingFunction = getRankingFunction();
+        RankingFunction<TestSuiteChromosome> rankingFunction = rankingFunction();
         ga.setRankingFunction(rankingFunction);
 
         StoppingCondition<TestSuiteChromosome> stoppingCondition = getStoppingCondition();

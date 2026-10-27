@@ -21,29 +21,13 @@ package org.evosuite.strategy;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
 import org.evosuite.ga.metaheuristics.NoveltySearch;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
-import org.evosuite.ga.operators.crossover.SinglePointCrossOver;
-import org.evosuite.ga.operators.crossover.SinglePointFixedCrossOver;
-import org.evosuite.ga.operators.crossover.SinglePointRelativeCrossOver;
-import org.evosuite.ga.operators.ranking.FastNonDominatedSorting;
-import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
 import org.evosuite.ga.operators.ranking.RankingFunction;
-import org.evosuite.ga.operators.selection.BinaryTournamentSelectionCrowdedComparison;
-import org.evosuite.ga.operators.selection.FitnessProportionateSelection;
-import org.evosuite.ga.operators.selection.RankSelection;
 import org.evosuite.ga.operators.selection.SelectionFunction;
-import org.evosuite.ga.operators.selection.TournamentSelection;
-import org.evosuite.ga.operators.selection.TournamentSelectionRankAndCrowdingDistanceComparator;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
-import org.evosuite.llm.factory.LlmFactoryWrappers;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
-import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
-import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
-import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testsuite.RelativeSuiteLengthBloatControl;
 import org.evosuite.utils.ResourceController;
@@ -57,90 +41,10 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
 
     private static final Logger logger = LoggerFactory.getLogger(PropertiesNoveltySearchFactory.class);
 
-    private ChromosomeFactory<TestChromosome> getChromosomeFactory() {
-        ChromosomeFactory<TestChromosome> factory;
-        switch (Properties.TEST_FACTORY) {
-            case ALLMETHODS:
-                logger.info("Using all methods chromosome factory");
-                factory = new AllMethodsTestChromosomeFactory();
-                break;
-            case RANDOM:
-                logger.info("Using random chromosome factory");
-                factory = new RandomLengthTestFactory();
-                break;
-            case ARCHIVE:
-                logger.info("Using archive chromosome factory");
-                factory = new ArchiveTestChromosomeFactory();
-                break;
-            case JUNIT:
-                logger.info("Using seeding chromosome factory");
-                factory = new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
-                break;
-            case PARSED_JUNIT:
-                logger.info("Using parsed JUnit seeding chromosome factory");
-                factory = new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory());
-                break;
-            case SERIALIZATION:
-                logger.info("Using serialization seeding chromosome factory");
-                factory = new RandomLengthTestFactory();
-                break;
-            case LLM:
-                logger.info("Using LLM chromosome factory with random fallback");
-                factory = new RandomLengthTestFactory();
-                break;
-            default:
-                throw new RuntimeException("Unsupported test factory: "
-                        + Properties.TEST_FACTORY);
-        }
-        return LlmFactoryWrappers.wrap(factory);
-    }
-
-    protected SelectionFunction<TestChromosome> getSelectionFunction() {
-        switch (Properties.SELECTION_FUNCTION) {
-            case ROULETTEWHEEL:
-                return new FitnessProportionateSelection<>();
-            case TOURNAMENT:
-                return new TournamentSelection<>();
-            case BINARY_TOURNAMENT:
-                return new BinaryTournamentSelectionCrowdedComparison<>();
-            case RANK_CROWD_DISTANCE_TOURNAMENT:
-                return new TournamentSelectionRankAndCrowdingDistanceComparator<>();
-            default:
-                return new RankSelection<>();
-        }
-    }
-
-    protected CrossOverFunction<TestChromosome> getCrossoverFunction() {
-        switch (Properties.CROSSOVER_FUNCTION) {
-            case SINGLEPOINTFIXED:
-                return new SinglePointFixedCrossOver<>();
-            case SINGLEPOINTRELATIVE:
-                return new SinglePointRelativeCrossOver<>();
-            case SINGLEPOINT:
-                return new SinglePointCrossOver<>();
-            case COVERAGE:
-                throw new RuntimeException(
-                        "Coverage crossover not supported in test case mode");
-            default:
-                throw new RuntimeException("Unknown crossover function: "
-                        + Properties.CROSSOVER_FUNCTION);
-        }
-    }
-
-    private RankingFunction<TestChromosome> getRankingFunction() {
-        switch (Properties.RANKING_TYPE) {
-            case FAST_NON_DOMINATED_SORTING:
-                return new FastNonDominatedSorting<>();
-            case PREFERENCE_SORTING:
-            default:
-                return new RankBasedPreferenceSorting<>();
-        }
-    }
-
     @Override
     //public GeneticAlgorithm<TestChromosome> getSearchAlgorithm() {
     public NoveltySearch getSearchAlgorithm() {
-        ChromosomeFactory<TestChromosome> factory = getChromosomeFactory();
+        ChromosomeFactory<TestChromosome> factory = testChromosomeFactory();
 
         NoveltySearch ga = new NoveltySearch(factory);
 
@@ -149,11 +53,11 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
         }
 
         // How to select candidates for reproduction
-        SelectionFunction<TestChromosome> selectionFunction = getSelectionFunction();
+        SelectionFunction<TestChromosome> selectionFunction = selectionFunction(false);
         selectionFunction.setMaximize(false);
         ga.setSelectionFunction(selectionFunction);
 
-        RankingFunction<TestChromosome> rankingFunction = getRankingFunction();
+        RankingFunction<TestChromosome> rankingFunction = rankingFunction();
         ga.setRankingFunction(rankingFunction);
 
         // When to stop the search
@@ -164,7 +68,7 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
         ga.setPopulationLimit(getPopulationLimit());
 
         // How to cross over
-        CrossOverFunction<TestChromosome> crossoverFunction = getCrossoverFunction();
+        CrossOverFunction<TestChromosome> crossoverFunction = crossoverFunction(false);
         ga.setCrossOverFunction(crossoverFunction);
 
         // What to do about bloat

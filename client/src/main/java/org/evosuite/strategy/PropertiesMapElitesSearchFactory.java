@@ -21,16 +21,10 @@ package org.evosuite.strategy;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.ga.archive.ArchiveTestChromosomeFactory;
 import org.evosuite.ga.metaheuristics.mapelites.MAPElites;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
-import org.evosuite.llm.factory.LlmFactoryWrappers;
 import org.evosuite.statistics.StatisticsListener;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.factories.AllMethodsTestChromosomeFactory;
-import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
-import org.evosuite.testcase.factories.JUnitTestParsedChromosomeFactory;
-import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testsuite.RelativeSuiteLengthBloatControl;
 import org.evosuite.utils.ResourceController;
@@ -41,46 +35,9 @@ import org.evosuite.utils.ResourceController;
 public class PropertiesMapElitesSearchFactory
         extends PropertiesSearchAlgorithmFactory<TestChromosome> {
 
-    private ChromosomeFactory<TestChromosome> getChromosomeFactory() {
-        ChromosomeFactory<TestChromosome> factory;
-        switch (Properties.TEST_FACTORY) {
-            case ALLMETHODS:
-                logger.info("Using all methods chromosome factory");
-                factory = new AllMethodsTestChromosomeFactory();
-                break;
-            case RANDOM:
-                logger.info("Using random chromosome factory");
-                factory = new RandomLengthTestFactory();
-                break;
-            case ARCHIVE:
-                logger.info("Using archive chromosome factory");
-                factory = new ArchiveTestChromosomeFactory();
-                break;
-            case JUNIT:
-                logger.info("Using seeding chromosome factory");
-                factory = new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
-                break;
-            case PARSED_JUNIT:
-                logger.info("Using parsed JUnit seeding chromosome factory");
-                factory = new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory());
-                break;
-            case SERIALIZATION:
-                logger.info("Using serialization seeding chromosome factory");
-                factory = new RandomLengthTestFactory();
-                break;
-            case LLM:
-                logger.info("Using LLM chromosome factory with random fallback");
-                factory = new RandomLengthTestFactory();
-                break;
-            default:
-                throw new RuntimeException("Unsupported test factory: " + Properties.TEST_FACTORY);
-        }
-        return LlmFactoryWrappers.wrap(factory);
-    }
-
     @Override
     public MAPElites getSearchAlgorithm() {
-        ChromosomeFactory<TestChromosome> factory = getChromosomeFactory();
+        ChromosomeFactory<TestChromosome> factory = testChromosomeFactory();
         MAPElites ga = new MAPElites(factory);
 
         if (Properties.NEW_STATISTICS) {
