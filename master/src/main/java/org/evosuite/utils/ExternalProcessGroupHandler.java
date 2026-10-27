@@ -22,7 +22,6 @@ package org.evosuite.utils;
 import org.evosuite.ClientProcess;
 import org.evosuite.ConsoleProgressBar;
 import org.evosuite.Properties;
-import org.evosuite.executionmode.ExecutionModeUtils;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
 import org.evosuite.rmi.service.ClientState;
@@ -285,7 +284,6 @@ public class ExternalProcessGroupHandler {
             ProcessBuilder builder = new ProcessBuilder(command);
             builder.directory(dir);
             builder.redirectErrorStream(false);
-            addCommonModuleOpensToSpawnedJvmEnv(builder);
 
             try {
                 processGroup[processIndex] = builder.start();
@@ -322,40 +320,6 @@ public class ExternalProcessGroupHandler {
         startSignalHandler(processIndex);
 
         return true;
-    }
-
-    /**
-     * Ensure spawned JVMs receive the same module-open arguments as the explicit command-line path.
-     * This provides a resilient fallback in case argument forwarding/order strips options.
-     */
-    private static void addCommonModuleOpensToSpawnedJvmEnv(ProcessBuilder builder) {
-        if (builder == null) {
-            return;
-        }
-
-        List<String> moduleArgs = new ArrayList<>();
-        ExecutionModeUtils.addCommonModuleOpens(moduleArgs);
-        if (moduleArgs.isEmpty()) {
-            return; // Java 8 path: no module flags.
-        }
-
-        String joined = String.join(" ", moduleArgs).trim();
-        if (joined.isEmpty()) {
-            return;
-        }
-
-        Map<String, String> env = builder.environment();
-        String existing = env.get("JDK_JAVA_OPTIONS");
-        if (existing == null || existing.trim().isEmpty()) {
-            env.put("JDK_JAVA_OPTIONS", joined);
-            return;
-        }
-
-        // Avoid repeated growth when restarting clients, but do not let a user's own
-        // --add-opens in JDK_JAVA_OPTIONS suppress EvoSuite's.
-        if (!existing.contains(joined)) {
-            env.put("JDK_JAVA_OPTIONS", existing + " " + joined);
-        }
     }
 
     /**
