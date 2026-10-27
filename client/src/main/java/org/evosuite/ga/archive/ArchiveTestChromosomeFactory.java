@@ -71,9 +71,11 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
             logger.debug("Creating test based on archive");
             test = new TestChromosome();
             test.setTestCase(Archive.getArchiveInstance().getRandomSolution().getTestCase());
-            int mutations = Randomness.nextInt(Properties.SEED_MUTATIONS);
-            for (int i = 0; i < mutations; i++) {
-                test.mutate();
+            if (Properties.SEED_MUTATIONS > 0) {
+                int mutations = Randomness.nextInt(Properties.SEED_MUTATIONS);
+                for (int i = 0; i < mutations; i++) {
+                    test.mutate();
+                }
             }
         } else {
             logger.debug("Creating random test");
