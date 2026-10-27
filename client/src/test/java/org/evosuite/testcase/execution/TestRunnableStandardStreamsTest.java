@@ -131,13 +131,6 @@ public class TestRunnableStandardStreamsTest {
         public void afterStatement(Statement statement, Scope scope, Throwable exception) {
         }
 
-        @Override
-        public void testExecutionFinished(ExecutionResult r, Scope s) {
-        }
-
-        @Override
-        public void clear() {
-        }
     }
 
     private static final class Worker {

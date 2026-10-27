@@ -47,15 +47,6 @@ public class InputObserver extends ExecutionObserver {
     private static final Logger logger = LoggerFactory.getLogger(InputObserver.class);
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope)
-     */
-    @Override
-    public void beforeStatement(Statement statement, Scope scope) {
-        // do nothing
-    }
-
-    /* (non-Javadoc)
      * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface,
      * org.evosuite.testcase.Scope, java.lang.Throwable)
      */

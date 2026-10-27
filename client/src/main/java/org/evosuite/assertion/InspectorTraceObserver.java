@@ -20,7 +20,6 @@
 package org.evosuite.assertion;
 
 import org.evosuite.runtime.mock.EvoSuiteMock;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.FieldStatement;
@@ -193,11 +192,6 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
             return ((ConstructorStatement) declaringStatement).getConstructor().getConstructor().getDeclaringClass();
         }
         return declaringStatement.getReturnClass();
-    }
-
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
     }
 
     @Override

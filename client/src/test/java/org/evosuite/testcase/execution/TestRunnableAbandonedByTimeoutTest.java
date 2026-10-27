@@ -63,13 +63,6 @@ public class TestRunnableAbandonedByTimeoutTest {
             afterCalled.set(true);
         }
 
-        @Override
-        public void testExecutionFinished(ExecutionResult r, Scope s) {
-        }
-
-        @Override
-        public void clear() {
-        }
     }
 
     @Test

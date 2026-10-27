@@ -25,6 +25,7 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionObserver;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
@@ -67,7 +68,7 @@ public abstract class IOCoverageSuiteFitness<F extends IOCoverageTestFitness<?>>
                                      Supplier<? extends ExecutionObserver> observerFactory,
                                      AbstractFitnessFactory<F> factory) {
         this.name = name;
-        IOCoverageTestFitness.ensureObserver(observerClass, observerFactory);
+        TestCaseExecutor.getInstance().addObserverIfAbsent(observerClass, observerFactory);
 
         determineCoverageGoals(factory);
 

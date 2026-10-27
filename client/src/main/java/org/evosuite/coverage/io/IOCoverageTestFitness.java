@@ -61,22 +61,7 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
     protected IOCoverageTestFitness(G goal, Class<? extends ExecutionObserver> observerClass,
                                     Supplier<? extends ExecutionObserver> observerFactory) {
         this.goal = Objects.requireNonNull(goal, "goal cannot be null");
-        ensureObserver(observerClass, observerFactory);
-    }
-
-    /**
-     * Adds the observer to the TestCaseExecutor if it is not included yet.
-     */
-    static void ensureObserver(Class<? extends ExecutionObserver> observerClass,
-                               Supplier<? extends ExecutionObserver> observerFactory) {
-        TestCaseExecutor executor = TestCaseExecutor.getInstance();
-        for (ExecutionObserver ob : executor.getExecutionObservers()) {
-            if (observerClass.isInstance(ob)) {
-                return;
-            }
-        }
-        executor.addObserver(observerFactory.get());
-        logger.info("Added observer " + observerClass.getSimpleName());
+        TestCaseExecutor.getInstance().addObserverIfAbsent(observerClass, observerFactory);
     }
 
     /**

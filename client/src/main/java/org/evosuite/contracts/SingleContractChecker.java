@@ -20,7 +20,6 @@
 package org.evosuite.contracts;
 
 import org.evosuite.testcase.execution.ExecutionObserver;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.Statement;
 import org.slf4j.Logger;
@@ -89,30 +88,4 @@ public class SingleContractChecker extends ExecutionObserver {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope)
-     */
-    @Override
-    public void beforeStatement(Statement statement, Scope scope) {
-        // Do nothing
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#clear()
-     */
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clear() {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
-    }
 }

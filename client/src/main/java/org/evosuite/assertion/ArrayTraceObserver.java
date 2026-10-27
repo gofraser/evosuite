@@ -21,7 +21,6 @@ package org.evosuite.assertion;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.execution.CodeUnderTestException;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
@@ -146,11 +145,6 @@ public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> 
         } catch (CodeUnderTestException e) {
             logger.debug("", e);
         }
-    }
-
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
     }
 
     @Override

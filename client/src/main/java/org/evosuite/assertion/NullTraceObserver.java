@@ -20,7 +20,6 @@
 package org.evosuite.assertion;
 
 import org.evosuite.testcase.execution.CodeUnderTestException;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
@@ -89,11 +88,6 @@ public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
             logger.debug("", e);
             //throw new UnsupportedOperationException();
         }
-    }
-
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
     }
 
     @Override

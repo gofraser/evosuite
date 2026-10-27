@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.function.Supplier;
 
 /**
  * <p>
@@ -505,10 +506,26 @@ public class TestCaseExecutor implements ThreadFactory {
      *                 object.
      */
     public void addObserver(ExecutionObserver observer) {
-        if (!observers.contains(observer)) {
+        if (observers.add(observer)) {
             logger.debug("Adding observer");
-            observers.add(observer);
         }
+    }
+
+    /**
+     * Adds a new observer unless an observer of the given class is registered already.
+     *
+     * @param observerClass the class of observer that must be registered afterwards
+     * @param factory       creates the observer if none of that class is registered
+     */
+    public void addObserverIfAbsent(Class<? extends ExecutionObserver> observerClass,
+                                    Supplier<? extends ExecutionObserver> factory) {
+        for (ExecutionObserver observer : observers) {
+            if (observerClass.isInstance(observer)) {
+                return;
+            }
+        }
+        addObserver(factory.get());
+        logger.info("Added observer " + observerClass.getSimpleName());
     }
 
     /**
@@ -520,9 +537,8 @@ public class TestCaseExecutor implements ThreadFactory {
      *                 object.
      */
     public void removeObserver(ExecutionObserver observer) {
-        if (observers.contains(observer)) {
+        if (observers.remove(observer)) {
             logger.debug("Removing observer");
-            observers.remove(observer);
         }
     }
 

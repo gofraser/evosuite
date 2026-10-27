@@ -75,12 +75,6 @@ public class TestResultObserver extends ExecutionObserver implements Serializabl
     }
 
     @Override
-    public void beforeStatement(Statement statement, Scope scope) {
-        // Do nothing
-
-    }
-
-    @Override
     public void afterStatement(Statement statement, Scope scope, Throwable exception) {
         // Do nothing
     }
@@ -93,8 +87,4 @@ public class TestResultObserver extends ExecutionObserver implements Serializabl
         }
     }
 
-    @Override
-    public void clear() {
-        //  Do nothing
-    }
 }

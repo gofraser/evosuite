@@ -21,7 +21,6 @@ package org.evosuite.assertion;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.execution.CodeUnderTestException;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.MethodStatement;
@@ -117,11 +116,6 @@ public class ComparisonTraceObserver extends AssertionTraceObserver<ComparisonTr
             logger.debug("", e);
         }
 
-    }
-
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
     }
 
     @Override

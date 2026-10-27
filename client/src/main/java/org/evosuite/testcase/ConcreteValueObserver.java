@@ -21,7 +21,6 @@ package org.evosuite.testcase;
 
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionObserver;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
@@ -40,16 +39,6 @@ public class ConcreteValueObserver extends ExecutionObserver {
 
     public Map<Integer, Object> getConcreteValues() {
         return concreteValues;
-    }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope)
-     */
-    @Override
-    public void beforeStatement(Statement statement, Scope scope) {
-        // TODO Auto-generated method stub
-
     }
 
     /* (non-Javadoc)
@@ -78,17 +67,4 @@ public class ConcreteValueObserver extends ExecutionObserver {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#clear()
-     */
-    @Override
-    public void clear() {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
-    }
 }

@@ -48,7 +48,6 @@ import org.evosuite.symbolic.vm.wrappers.Types;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.ExecutionObserver;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
@@ -1575,14 +1574,6 @@ public class SymbolicObserver extends ExecutionObserver {
             String varRefName = arrayRef.getName();
             symbReferences.put(varRefName, newSymArray);
         }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
     }
 
 }

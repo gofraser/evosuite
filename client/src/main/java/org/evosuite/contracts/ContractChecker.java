@@ -22,7 +22,6 @@ package org.evosuite.contracts;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.testcase.execution.ExecutionObserver;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.utils.generic.GenericMethod;
@@ -170,15 +169,6 @@ public class ContractChecker extends ExecutionObserver {
     }
 
     /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope)
-     */
-    @Override
-    public void beforeStatement(Statement statement, Scope scope) {
-        // Do nothing
-    }
-
-    /* (non-Javadoc)
      * @see org.evosuite.testcase.ExecutionObserver#clear()
      */
 
@@ -190,8 +180,4 @@ public class ContractChecker extends ExecutionObserver {
         ContractChecker.invalid.clear();
     }
 
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
-    }
 }

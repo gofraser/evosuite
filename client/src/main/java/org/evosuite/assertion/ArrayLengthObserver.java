@@ -20,7 +20,6 @@
 package org.evosuite.assertion;
 
 import org.evosuite.testcase.execution.CodeUnderTestException;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
@@ -120,11 +119,6 @@ public class ArrayLengthObserver extends AssertionTraceObserver<ArrayLengthTrace
         } catch (CodeUnderTestException e) {
             logger.debug("", e);
         }
-    }
-
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
     }
 
     @Override

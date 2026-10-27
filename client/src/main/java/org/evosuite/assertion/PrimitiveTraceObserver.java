@@ -22,7 +22,6 @@ package org.evosuite.assertion;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.execution.CodeUnderTestException;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
@@ -129,11 +128,6 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
         } catch (CodeUnderTestException e) {
             logger.debug("", e);
         }
-    }
-
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
     }
 
     @Override

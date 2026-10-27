@@ -57,12 +57,14 @@ public abstract class ExecutionObserver {
     }
 
     /**
-     * Called immediately before a statement is executed.
+     * Called immediately before a statement is executed. Does nothing by default.
      *
      * @param statement the statement.
      * @param scope the scope.
      */
-    public abstract void beforeStatement(Statement statement, Scope scope);
+    public void beforeStatement(Statement statement, Scope scope) {
+        // do nothing
+    }
 
     /**
      * After execution of a statement, the result is passed to the observer.
@@ -76,16 +78,21 @@ public abstract class ExecutionObserver {
 
     /**
      * Allow observers to update the execution result at the end the execution of a test.
+     * Does nothing by default.
      *
      * @param r the execution result.
      * @param s the scope of execution.
      */
-    public abstract void testExecutionFinished(ExecutionResult r, Scope s);
+    public void testExecutionFinished(ExecutionResult r, Scope s) {
+        // do nothing
+    }
 
     /**
-     * Need a way to clear previously produced results.
+     * Need a way to clear previously produced results. Does nothing by default.
      */
-    public abstract void clear();
+    public void clear() {
+        // do nothing
+    }
 
     /**
      * Determine the set of variables that somehow lead to this statement.
