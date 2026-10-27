@@ -22,7 +22,6 @@ package org.evosuite.executionmode;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
@@ -30,18 +29,13 @@ import org.evosuite.classpath.ResourceList;
 import org.evosuite.instrumentation.BytecodeInstrumentation;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
-import org.evosuite.rmi.service.MasterNodeLocal;
 import org.evosuite.statistics.SearchStatistics;
-import org.evosuite.utils.ExternalProcessGroupHandler;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.rmi.RemoteException;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * Measure coverage on existing test cases.
@@ -134,87 +128,19 @@ public class MeasureCoverage {
         String classPath = classpathInfo.combinedClasspath;
         String projectCP = classpathInfo.projectClasspath;
 
-        ExternalProcessGroupHandler handler = ExecutionModeUtils.createSingleClientHandler();
-        handler.setAllowDoneAsFinished(true);
-        int port = ExecutionModeUtils.openServer(handler);
-        List<String> cmdLine = ExecutionModeUtils.buildStandardClientCommand(classPath, projectCP.isEmpty() ? classPath : projectCP,
-                Properties.HEADLESS_MODE, args, targetClass, "-Djunit=" + Properties.JUNIT, port);
+        ExecutionModeUtils.runSingleClient(classPath, projectCP.isEmpty() ? classPath : projectCP,
+                Properties.HEADLESS_MODE, args, targetClass, "-Djunit=" + Properties.JUNIT,
+                ClientNodeRemote::doCoverageAnalysis,
+                TimeController.getInstance().calculateForHowLongClientWillRunInSeconds() * 1000, () -> {
+                    if (Properties.NEW_STATISTICS) {
+                        if (MasterServices.getInstance().getMasterNode() == null) {
+                            logger.error("Cannot write results as RMI master node is not running");
+                        } else {
+                            LoggingUtils.getEvoLogger().info("* Writing statistics");
 
-        LoggingUtils logUtils = ExecutionModeUtils.configureRemoteLoggingIfNeeded(cmdLine, logger);
-        if (!Properties.CLIENT_ON_THREAD && logUtils == null) {
-            return;
-        }
-
-        String[] newArgs = cmdLine.toArray(new String[cmdLine.size()]);
-        ExecutionModeUtils.addTargetProjectClasspathElementsToSystem();
-
-        handler.setBaseDir(EvoSuite.base_dir_path);
-        if (handler.startProcess(newArgs)) {
-            Set<ClientNodeRemote> clients = null;
-            try {
-                MasterNodeLocal master = MasterServices.getInstance().getMasterNode();
-                if (master == null) {
-                    logger.error("Master node is not available");
-                } else {
-                    Map<String, ClientNodeRemote> clientMap = master.getClientsOnceAllConnected(10000);
-                    if (clientMap == null) {
-                        logger.error("Not possible to access to clients");
-                    } else {
-                        clients = new CopyOnWriteArraySet<>(clientMap.values());
+                            SearchStatistics.getInstance().writeStatisticsForAnalysis();
+                        }
                     }
-                }
-            } catch (InterruptedException e) {
-                // ignored
-            }
-            if (clients == null) {
-                logger.error("Not possible to access to clients");
-            } else {
-                /*
-                 * The clients have started, and connected back to Master.
-                 * So now we just need to tell them to start a search
-                 */
-                for (ClientNodeRemote client : clients) {
-                    try {
-                        client.doCoverageAnalysis();
-                    } catch (RemoteException e) {
-                        logger.error("Error in starting clients", e);
-                    }
-                }
-                int time = TimeController.getInstance().calculateForHowLongClientWillRunInSeconds();
-                handler.waitForResult(time * 1000);
-            }
-            // timeout plus
-            // 100 seconds?
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                // ignored
-            }
-            if (Properties.NEW_STATISTICS) {
-                if (MasterServices.getInstance().getMasterNode() == null) {
-                    logger.error("Cannot write results as RMI master node is not running");
-                } else {
-                    LoggingUtils.getEvoLogger().info("* Writing statistics");
-
-                    SearchStatistics.getInstance().writeStatisticsForAnalysis();
-                }
-            }
-            handler.killProcess();
-
-        } else {
-            LoggingUtils.getEvoLogger().info("* Could not connect to client process");
-        }
-
-        handler.closeServer();
-
-        if (logUtils != null) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                // ignored
-            }
-            logUtils.closeLogServer();
-        }
-
+                });
     }
 }

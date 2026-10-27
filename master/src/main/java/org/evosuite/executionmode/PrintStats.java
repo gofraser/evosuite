@@ -22,23 +22,13 @@ package org.evosuite.executionmode;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
-import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
-import org.evosuite.utils.ExternalProcessGroupHandler;
 import org.evosuite.utils.LoggingUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.rmi.RemoteException;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 public class PrintStats {
-
-    private static final Logger logger = LoggerFactory.getLogger(PrintStats.class);
 
     public static final String NAME = "printStats";
 
@@ -69,74 +59,10 @@ public class PrintStats {
     private static void printStats(String targetClass, List<String> args) {
         ExecutionModeUtils.ensureInstrumentableTargetClass(targetClass);
         ExecutionModeUtils.ClasspathInfo classpathInfo = ExecutionModeUtils.getClasspathInfo();
-        String classPath = classpathInfo.combinedClasspath;
-        String cp = classpathInfo.projectClasspath;
-
-        ExternalProcessGroupHandler handler = ExecutionModeUtils.createSingleClientHandler();
-        handler.setAllowDoneAsFinished(true);
-        int port = ExecutionModeUtils.openServer(handler);
-        List<String> cmdLine = ExecutionModeUtils.buildStandardClientCommand(classPath, cp,
-                true, args, targetClass, null, port);
-
-        LoggingUtils logUtils = ExecutionModeUtils.configureRemoteLoggingIfNeeded(cmdLine, logger);
-        if (!Properties.CLIENT_ON_THREAD && logUtils == null) {
-            return;
-        }
-
-        String[] newArgs = cmdLine.toArray(new String[cmdLine.size()]);
-        ExecutionModeUtils.addTargetProjectClasspathElementsToSystem();
-
-        handler.setBaseDir(EvoSuite.base_dir_path);
-        if (handler.startProcess(newArgs)) {
-            Set<ClientNodeRemote> clients = null;
-            try {
-                clients = new CopyOnWriteArraySet<>(MasterServices.getInstance().getMasterNode()
-                        .getClientsOnceAllConnected(10000).values());
-            } catch (InterruptedException e) {
-                // ignored
-            }
-            if (clients == null) {
-                logger.error("Not possible to access to clients");
-            } else {
-                /*
-                 * The clients have started, and connected back to Master.
-                 * So now we just need to tell them to start a search
-                 */
-                for (ClientNodeRemote client : clients) {
-                    try {
-                        client.printClassStatistics();
-                    } catch (RemoteException e) {
-                        logger.error("Error in starting clients", e);
-                    }
-                }
-
-                handler.waitForResult((Properties.GLOBAL_TIMEOUT
-                        + Properties.MINIMIZATION_TIMEOUT + Properties.EXTRA_TIMEOUT) * 1000); // FIXXME: search
-            }
-            // timeout plus
-            // 100 seconds?
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                // ignored
-            }
-
-            handler.killProcess();
-        } else {
-            LoggingUtils.getEvoLogger().info("* Could not connect to client process");
-        }
-
-        handler.closeServer();
-
-        if (logUtils != null) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                // ignored
-            }
-            logUtils.closeLogServer();
-        }
-
+        ExecutionModeUtils.runSingleClient(classpathInfo.combinedClasspath, classpathInfo.projectClasspath, true,
+                args, targetClass, null, ClientNodeRemote::printClassStatistics,
+                (Properties.GLOBAL_TIMEOUT + Properties.MINIMIZATION_TIMEOUT + Properties.EXTRA_TIMEOUT) * 1000,
+                null);
     }
 
 }

@@ -21,22 +21,30 @@ package org.evosuite.executionmode;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.evosuite.ClientProcess;
+import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.rmi.MasterServices;
+import org.evosuite.rmi.service.ClientNodeRemote;
+import org.evosuite.rmi.service.MasterNodeLocal;
 import org.evosuite.runtime.ReflectionAccess;
 import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.utils.ExternalProcessGroupHandler;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * Utility class for handling execution modes and command-line arguments.
@@ -47,6 +55,8 @@ import java.util.Set;
  * </p>
  */
 public final class ExecutionModeUtils {
+
+    private static final Logger logger = LoggerFactory.getLogger(ExecutionModeUtils.class);
 
     /**
      * Private constructor to prevent instantiation of this utility class.
@@ -106,16 +116,6 @@ public final class ExecutionModeUtils {
     }
 
     /**
-     * Adds the classpath property to the command line arguments.
-     *
-     * @param cmdLine The list of command line arguments to modify.
-     * @param cp      The classpath string to add.
-     */
-    static void addCpProperty(List<String> cmdLine, String cp) {
-        cmdLine.add("-DCP=" + cp);
-    }
-
-    /**
      * Adds the target class property to the command line arguments.
      *
      * @param cmdLine     The list of command line arguments to modify.
@@ -137,50 +137,12 @@ public final class ExecutionModeUtils {
     }
 
     /**
-     * Adds the classloader property to the command line arguments.
-     *
-     * @param cmdLine The list of command line arguments to modify.
-     */
-    static void addClassloaderProperty(List<String> cmdLine) {
-        cmdLine.add("-Dclassloader=true");
-    }
-
-    /**
      * Adds the client main class to the command line arguments.
      *
      * @param cmdLine The list of command line arguments to modify.
      */
     static void addClientMainClass(List<String> cmdLine) {
         cmdLine.add(ClientProcess.class.getName());
-    }
-
-    /**
-     * Creates a handler for a single client process group.
-     *
-     * @return A new instance of {@link ExternalProcessGroupHandler}.
-     */
-    static ExternalProcessGroupHandler createSingleClientHandler() {
-        return new ExternalProcessGroupHandler();
-    }
-
-    /**
-     * Creates a handler for a parallel client process group with the specified number of clients.
-     *
-     * @param clients The number of client processes to handle.
-     * @return A new instance of {@link ExternalProcessGroupHandler}.
-     */
-    static ExternalProcessGroupHandler createParallelClientHandler(int clients) {
-        return new ExternalProcessGroupHandler(clients);
-    }
-
-    /**
-     * Opens a server using the provided process group handler.
-     *
-     * @param handler The {@link ExternalProcessGroupHandler} to use for opening the server.
-     * @return The port number on which the server was opened.
-     */
-    static int openServer(ExternalProcessGroupHandler handler) {
-        return handler.openServer();
     }
 
     /**
@@ -266,7 +228,7 @@ public final class ExecutionModeUtils {
         addLogbackConfiguration(cmdLine);
         addJavaLibraryPath(cmdLine);
         addCommonModuleOpens(cmdLine);
-        addCpProperty(cmdLine, cpProperty);
+        cmdLine.add("-DCP=" + cpProperty);
 
         addArgsExcludingCpProperty(cmdLine, args);
 
@@ -275,7 +237,7 @@ public final class ExecutionModeUtils {
             cmdLine.add(extraProperty);
         }
         addProjectPrefixPropertyIfPresent(cmdLine);
-        addClassloaderProperty(cmdLine);
+        cmdLine.add("-Dclassloader=true");
         addClientMainClass(cmdLine);
 
         /*
@@ -285,6 +247,102 @@ public final class ExecutionModeUtils {
          */
         applyClientProperties(targetClass, port);
         return cmdLine;
+    }
+
+    /**
+     * A call made to every connected client once it has started.
+     */
+    interface ClientCall {
+        void run(ClientNodeRemote client) throws RemoteException;
+    }
+
+    /**
+     * Runs a single-client launcher (dependency writing, statistics printing or coverage
+     * measurement): starts one client process, calls it, waits for it to finish and shuts the
+     * client, the RMI server and the log server down again.
+     *
+     * @param classPath     The class path of the client process.
+     * @param cpProperty    The value of the {@code CP} property handed to the client.
+     * @param headless      Whether to start the client in headless mode.
+     * @param args          The master's java options, forwarded except for the {@code CP} property.
+     * @param targetClass   The fully qualified name of the target class (or prefix).
+     * @param extraProperty An additional {@code -D} property placed after the target class, or {@code null}.
+     * @param call          The call made to every connected client.
+     * @param waitMillis    How long to wait for the clients to finish.
+     * @param afterWait     Run once the wait is over and before the client is killed, or {@code null}.
+     */
+    static void runSingleClient(String classPath, String cpProperty, boolean headless, List<String> args,
+                                String targetClass, String extraProperty, ClientCall call, int waitMillis,
+                                Runnable afterWait) {
+        ExternalProcessGroupHandler handler = new ExternalProcessGroupHandler();
+        handler.setAllowDoneAsFinished(true);
+        int port = handler.openServer();
+        List<String> cmdLine = buildStandardClientCommand(classPath, cpProperty, headless, args, targetClass,
+                extraProperty, port);
+
+        LoggingUtils logUtils = configureRemoteLoggingIfNeeded(cmdLine, logger);
+        if (!Properties.CLIENT_ON_THREAD && logUtils == null) {
+            return;
+        }
+
+        String[] newArgs = cmdLine.toArray(new String[0]);
+        addTargetProjectClasspathElementsToSystem();
+
+        handler.setBaseDir(EvoSuite.base_dir_path);
+        if (handler.startProcess(newArgs)) {
+            Set<ClientNodeRemote> clients = null;
+            try {
+                MasterNodeLocal master = MasterServices.getInstance().getMasterNode();
+                if (master == null) {
+                    logger.error("Master node is not available");
+                } else {
+                    Map<String, ClientNodeRemote> clientMap = master.getClientsOnceAllConnected(10000);
+                    if (clientMap != null) {
+                        clients = new CopyOnWriteArraySet<>(clientMap.values());
+                    }
+                }
+            } catch (InterruptedException e) {
+                // ignored
+            }
+            if (clients == null) {
+                logger.error("Not possible to access to clients");
+            } else {
+                /*
+                 * The clients have started, and connected back to Master.
+                 * So now we just need to tell them to start their work
+                 */
+                for (ClientNodeRemote client : clients) {
+                    try {
+                        call.run(client);
+                    } catch (RemoteException e) {
+                        logger.error("Error in starting clients", e);
+                    }
+                }
+                handler.waitForResult(waitMillis);
+            }
+            sleepBriefly();
+            if (afterWait != null) {
+                afterWait.run();
+            }
+            handler.killProcess();
+        } else {
+            LoggingUtils.getEvoLogger().info("* Could not connect to client process");
+        }
+
+        handler.closeServer();
+
+        if (logUtils != null) {
+            sleepBriefly();
+            logUtils.closeLogServer();
+        }
+    }
+
+    private static void sleepBriefly() {
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            // ignored
+        }
     }
 
     /**
