@@ -59,6 +59,15 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     private transient Use goalUse;
     private transient Definition goalDefinition;
 
+    // The use and the definition refer to the class loader of the client, so only their identity is
+    // serialized, which keeps the goal comparable and printable where the pool is empty (master).
+    private transient int useId;
+    private transient int defId;
+    private transient String targetClass;
+    private transient String targetMethod;
+    private transient String useDescription;
+    private transient String defDescription;
+
     private DefUsePairType type;
 
     private TestFitnessFunction goalDefinitionFitness;
@@ -123,6 +132,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
                 goalUse.getMethodName(), goalUse.getInstructionId());
 
         this.type = type;
+        rememberIdentity();
     }
 
     private void initParameterUse(Use use) {
@@ -134,6 +144,22 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
                 goalUse.getMethodName(), goalUse.getInstructionId());
 
         this.type = DefUsePairType.PARAMETER;
+        rememberIdentity();
+    }
+
+    private void rememberIdentity() {
+        useId = goalUse.useId;
+        targetClass = goalUse.getClassName();
+        targetMethod = goalUse.getMethodName();
+        useDescription = goalUse.toString();
+        if (goalDefinition == null) {
+            defId = 0;
+            defDescription = "Parameter-Definition " + goalUse.getLocalVariableSlot()
+                    + " for method " + goalUse.getMethodName();
+        } else {
+            defId = goalDefinition.defId;
+            defDescription = goalDefinition.toString();
+        }
     }
 
     /**
@@ -334,14 +360,9 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         r.append(type.toString());
         r.append("-Definition-Use-Pair");
         r.append("\n\t");
-        if (isParameterGoal()) {
-            r.append("Parameter-Definition ").append(goalUse.getLocalVariableSlot())
-                    .append(" for method ").append(goalUse.getMethodName());
-        } else {
-            r.append(goalDefinition.toString());
-        }
+        r.append(defDescription);
         r.append("\n\t");
-        r.append(goalUse.toString());
+        r.append(useDescription);
         return r.toString();
     }
 
@@ -352,6 +373,13 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
+        if (goalUse == null) {
+            result = prime * result + defId;
+            result = prime * result + useId;
+            result = prime * result + ((goalVariable == null) ? 0 : goalVariable.hashCode());
+            result = prime * result + ((type == null) ? 0 : type.hashCode());
+            return result;
+        }
         result = prime * result
                 + ((goalDefinition == null) ? 0 : goalDefinition.hashCode());
         result = prime * result + ((goalUse == null) ? 0 : goalUse.hashCode());
@@ -375,6 +403,11 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
             return false;
         }
         DefUseCoverageTestFitness other = (DefUseCoverageTestFitness) obj;
+        if (goalUse == null || other.goalUse == null) {
+            return type == other.type && useId == other.useId && defId == other.defId
+                    && targetClass.equals(other.targetClass) && targetMethod.equals(other.targetMethod)
+                    && Objects.equals(goalVariable, other.goalVariable);
+        }
         if (!Objects.equals(goalDefinition, other.goalDefinition)) {
             return false;
         }
@@ -396,6 +429,19 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof DefUseCoverageTestFitness) {
             DefUseCoverageTestFitness otherFitness = (DefUseCoverageTestFitness) other;
+            if (goalUse == null || otherFitness.goalUse == null) {
+                int result = targetClass.compareTo(otherFitness.targetClass);
+                if (result == 0) {
+                    result = targetMethod.compareTo(otherFitness.targetMethod);
+                }
+                if (result == 0) {
+                    result = Integer.compare(defId, otherFitness.defId);
+                }
+                if (result == 0) {
+                    result = Integer.compare(useId, otherFitness.useId);
+                }
+                return result;
+            }
             if (this.goalDefinition == null && otherFitness.goalDefinition != null) {
                 return -1;
             }
@@ -447,7 +493,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public String getTargetClass() {
-        return goalUse.getClassName();
+        return targetClass;
     }
 
     /**
@@ -457,20 +503,26 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public String getTargetMethod() {
-        return goalUse.getMethodName();
+        return targetMethod;
     }
 
     private void readObject(ObjectInputStream ois) throws ClassNotFoundException,
             IOException {
         DefUsePairType type = (DefUsePairType) ois.readObject();
-        Integer useId = (Integer) ois.readObject();
-        Integer defId = (Integer) ois.readObject();
+        useId = (Integer) ois.readObject();
+        defId = (Integer) ois.readObject();
+        goalVariable = (String) ois.readObject();
+        targetClass = (String) ois.readObject();
+        targetMethod = (String) ois.readObject();
+        useDescription = (String) ois.readObject();
+        defDescription = (String) ois.readObject();
+        this.type = type;
         Use use = DefUsePool.getUseByUseId(useId);
 
         // The pool may be empty on the master side during RMI deserialization.
         // In this case, we can't fully reconstruct the object, so we leave
-        // the transient fields (goalUse, goalDefinition) as null.
-        // This is a known limitation of the client-master architecture.
+        // the transient fields (goalUse, goalDefinition) as null and compare and print
+        // the goal by the identity read above.
         if (use == null) {
             return;
         }
@@ -494,11 +546,12 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
      */
     private void writeObject(ObjectOutputStream oos) throws IOException {
         oos.writeObject(type);
-        oos.writeObject(goalUse.useId);
-        if (goalDefinition != null) {
-            oos.writeObject(goalDefinition.defId);
-        } else {
-            oos.writeObject(0);
-        }
+        oos.writeObject(useId);
+        oos.writeObject(defId);
+        oos.writeObject(goalVariable);
+        oos.writeObject(targetClass);
+        oos.writeObject(targetMethod);
+        oos.writeObject(useDescription);
+        oos.writeObject(defDescription);
     }
 }
