@@ -19,15 +19,13 @@
  */
 package org.evosuite.junit;
 
-import org.evosuite.junit.writer.TestSuiteWriterUtils;
-import org.evosuite.runtime.vnet.NonFunctionalRequirementRule;
-
 /**
- * JUnit3TestAdapter class.
+ * JUnit3TestAdapter class. Differs from JUnit 4 only in the imports and the class and method
+ * definitions; the annotation classes and the non-functional requirement rule are shared.
  *
  * @author fraser
  */
-public class JUnit3TestAdapter implements UnitTestAdapter {
+public class JUnit3TestAdapter extends JUnit4TestAdapter {
 
     /**
      * {@inheritDoc}
@@ -51,40 +49,6 @@ public class JUnit3TestAdapter implements UnitTestAdapter {
     @Override
     public String getMethodDefinition(String testName) {
         return "public void " + testName + "() ";
-    }
-
-    @Override
-    public Class<?> testAnnotation() {
-        return org.junit.Test.class;
-    }
-
-    @Override
-    public Class<?> beforeAll() {
-        return org.junit.BeforeClass.class;
-    }
-
-    @Override
-    public Class<?> beforeEach() {
-        return org.junit.Before.class;
-    }
-
-    @Override
-    public Class<?> afterAll() {
-        return org.junit.AfterClass.class;
-    }
-
-    @Override
-    public Class<?> afterEach() {
-        return org.junit.After.class;
-    }
-
-    @Override
-    public void addNFR(StringBuilder builder) {
-        builder.append(TestSuiteWriterUtils.METHOD_SPACE);
-        builder.append("@").append(org.junit.Rule.class.getCanonicalName()).append("\n");
-        builder.append(TestSuiteWriterUtils.METHOD_SPACE);
-        builder.append("public ").append(NonFunctionalRequirementRule.class.getName())
-                .append(" nfr = new ").append(NonFunctionalRequirementRule.class.getName()).append("();\n\n");
     }
 
 }
