@@ -1852,6 +1852,71 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
+     * Runs the search: sets up the goals, starts the LLM assistance, creates and ranks the initial
+     * population and evolves it until the budget is consumed or every goal is covered. The
+     * variants differ in how they track the goals (see {@link #setUpGoals()}, {@link
+     * #rankingGoals()} and {@link #uncoveredGoalCount()}).
+     */
+    @Override
+    public void generateSolution() {
+        logger.debug("executing generateSolution function");
+
+        setUpGoals();
+        try {
+            // Start the LLM assistance before the initial population is created, so that the LLM
+            // test factory and its attempt bookkeeping are in place for it.
+            initializeLlmAssistance(this::getCurrentGoals);
+            registerExternalCandidateSources(this::coveredGoalCount, this::getCurrentGoals);
+
+            if (this.population.isEmpty()) {
+                // Initialize the population by creating solutions at random.
+                this.initializePopulation();
+            }
+            afterPopulationInitialised();
+
+            // Calculate dominance ranks and crowding distance. This is required to decide which
+            // individuals should be used for mutation and crossover in the first iteration of the
+            // main search loop.
+            this.rankingFunction.computeRankingAssignment(this.population, rankingGoals());
+            for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
+                this.distance.fastEpsilonDominanceAssignment(
+                        this.rankingFunction.getSubfront(i), rankingGoals());
+            }
+
+            evolveUntilCovered();
+        } finally {
+            finishSearch();
+        }
+        this.notifySearchFinished();
+    }
+
+    /**
+     * Registers the goals to cover with the archive. Runs first, before the LLM assistance starts.
+     */
+    protected void setUpGoals() {
+        this.fitnessFunctions.forEach(this::addUncoveredGoal);
+    }
+
+    /** Runs once the initial population is created and evaluated, before it is ranked. */
+    protected void afterPopulationInitialised() {
+    }
+
+    /**
+     * Evolves the population generation by generation until the search budget has been consumed
+     * or all goals have been covered.
+     */
+    protected void evolveUntilCovered() {
+        // TODO add here dynamic stopping condition
+        while (!this.isFinished() && this.uncoveredGoalCount() > 0) {
+            this.evolve();
+            this.notifyIteration();
+
+            // Apply local search at configured rate (gating is inside applyLocalSearch)
+            this.applyLocalSearch(this.generateSuite());
+        }
+    }
+
+    /**
      * Ends a search: emits the final statistics, flushes the sidecar recorders and shuts the LLM
      * assistance down. Called from the {@code finally} block of the variants' {@code
      * generateSolution()} so none of it is lost when the search exits abnormally.

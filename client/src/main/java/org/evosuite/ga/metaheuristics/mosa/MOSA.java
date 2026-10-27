@@ -91,79 +91,44 @@ public class MOSA extends AbstractMOSA {
     }
 
     /**
-     * {@inheritDoc}
+     * Evolves as usual and, for parallel runs, exchanges the solutions with the other clients
+     * around the loop.
      */
     @Override
-    public void generateSolution() {
-        logger.info("executing generateSolution function");
+    protected void evolveUntilCovered() {
+        final ClientNodeLocal<TestChromosome> clientNode =
+                ClientServices.<TestChromosome>getInstance().getClientNode();
 
-        // keep track of covered goals
-        this.fitnessFunctions.forEach(this::addUncoveredGoal);
-
-        try {
-            // Start the LLM assistance before the initial population is created, as DynaMOSA
-            // does, so that the LLM test factory and its attempt bookkeeping are in place for it.
-            initializeLlmAssistance(this::getCurrentGoals);
-            registerExternalCandidateSources(
-                    this::getNumberOfCoveredGoals, this::getCurrentGoals);
-
-            // initialize population
-            if (this.population.isEmpty()) {
-                this.initializePopulation();
-            }
-
-            // Calculate dominance ranks and crowding distance
-            this.rankingFunction.computeRankingAssignment(this.population, this.getUncoveredGoals());
-            for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
-                this.distance.fastEpsilonDominanceAssignment(
-                        this.rankingFunction.getSubfront(i), this.getUncoveredGoals());
-            }
-
-            final ClientNodeLocal<TestChromosome> clientNode =
-                    ClientServices.<TestChromosome>getInstance().getClientNode();
-
-            Listener<Set<TestChromosome>> listener = null;
-            if (Properties.NUM_PARALLEL_CLIENTS > 1) {
-                listener = event -> immigrants.add(new LinkedList<>(event));
-                clientNode.addListener(listener);
-            }
-
-            // TODO add here dynamic stopping condition
-            while (!this.isFinished() && this.getNumberOfUncoveredGoals() > 0) {
-                this.evolve();
-                this.notifyIteration();
-
-                // Apply local search at configured rate (gating is inside applyLocalSearch)
-                this.applyLocalSearch(this.generateSuite());
-            }
-
-            if (Properties.NUM_PARALLEL_CLIENTS > 1) {
-                clientNode.deleteListener(listener);
-
-                if (ClientProcess.DEFAULT_CLIENT_NAME.equals(ClientProcess.getIdentifier())) {
-                    //collect all end result test cases
-                    Set<Set<TestChromosome>> collectedSolutions = clientNode.getBestSolutions();
-
-                    logger.debug(ClientProcess.DEFAULT_CLIENT_NAME + ": Received " + collectedSolutions.size()
-                            + " solution sets");
-                    for (Set<TestChromosome> solution : collectedSolutions) {
-                        for (TestChromosome t : solution) {
-                            this.calculateFitness(t);
-                        }
-                    }
-                } else {
-                    //send end result test cases to Client-0
-                    Set<TestChromosome> solutionsSet = new HashSet<>(getSolutions());
-                    logger.debug(ClientProcess.getPrettyPrintIdentifier() + "Sending " + solutionsSet.size()
-                            + " solutions to " + ClientProcess.DEFAULT_CLIENT_NAME);
-                    clientNode.sendBestSolution(solutionsSet);
-                }
-            }
-
-        } finally {
-            finishSearch();
+        Listener<Set<TestChromosome>> listener = null;
+        if (Properties.NUM_PARALLEL_CLIENTS > 1) {
+            listener = event -> immigrants.add(new LinkedList<>(event));
+            clientNode.addListener(listener);
         }
-        this.notifySearchFinished();
+
+        super.evolveUntilCovered();
+
+        if (Properties.NUM_PARALLEL_CLIENTS > 1) {
+            clientNode.deleteListener(listener);
+
+            if (ClientProcess.DEFAULT_CLIENT_NAME.equals(ClientProcess.getIdentifier())) {
+                //collect all end result test cases
+                Set<Set<TestChromosome>> collectedSolutions = clientNode.getBestSolutions();
+
+                logger.debug(ClientProcess.DEFAULT_CLIENT_NAME + ": Received " + collectedSolutions.size()
+                        + " solution sets");
+                for (Set<TestChromosome> solution : collectedSolutions) {
+                    for (TestChromosome t : solution) {
+                        this.calculateFitness(t);
+                    }
+                }
+            } else {
+                //send end result test cases to Client-0
+                Set<TestChromosome> solutionsSet = new HashSet<>(getSolutions());
+                logger.debug(ClientProcess.getPrettyPrintIdentifier() + "Sending " + solutionsSet.size()
+                        + " solutions to " + ClientProcess.DEFAULT_CLIENT_NAME);
+                clientNode.sendBestSolution(solutionsSet);
+            }
+        }
     }
 
     /**
