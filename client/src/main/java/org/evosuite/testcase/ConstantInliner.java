@@ -33,9 +33,6 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Inline all primitive values and null references in the test case.
@@ -59,7 +56,7 @@ public class ConstantInliner extends ExecutionObserver {
         executor.addObserver(this);
         executor.execute(test);
         executor.removeObserver(this);
-        removeUnusedVariables(test);
+        TestCaseMinimizer.removeUnusedVariables(test, st -> st instanceof PrimitiveStatement);
         assert (test.isValid());
 
     }
@@ -106,36 +103,6 @@ public class ConstantInliner extends ExecutionObserver {
                 }
             }
         }
-    }
-
-    /**
-     * Remove all unreferenced variables.
-     *
-     * @param t The test case
-     * @return True if something was deleted
-     */
-    public boolean removeUnusedVariables(TestCase t) {
-        List<Integer> toDelete = new ArrayList<>();
-        boolean hasDeleted = false;
-
-        int num = 0;
-        for (Statement s : t) {
-            if (s instanceof PrimitiveStatement) {
-
-                VariableReference var = s.getReturnValue();
-                if (!t.hasReferences(var)) {
-                    toDelete.add(num);
-                    hasDeleted = true;
-                }
-            }
-            num++;
-        }
-        toDelete.sort(Collections.reverseOrder());
-        for (Integer position : toDelete) {
-            t.remove(position);
-        }
-
-        return hasDeleted;
     }
 
     /*

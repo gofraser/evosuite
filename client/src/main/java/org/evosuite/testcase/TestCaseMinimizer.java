@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Remove all statements from a test case that do not contribute to the fitness.
@@ -70,13 +71,23 @@ public class TestCaseMinimizer {
      * @return True if something was deleted
      */
     public static boolean removeUnusedVariables(TestCase t) {
+        return removeUnusedVariables(t, s -> true);
+    }
+
+    /**
+     * Remove all unreferenced variables whose defining statement satisfies the filter.
+     *
+     * @param t      The test case
+     * @param filter Selects the statements that may be removed
+     * @return True if something was deleted
+     */
+    public static boolean removeUnusedVariables(TestCase t, Predicate<Statement> filter) {
         List<Integer> toDelete = new ArrayList<>();
         boolean hasDeleted = false;
 
         int num = 0;
         for (Statement s : t) {
-            VariableReference var = s.getReturnValue();
-            if (!t.hasReferences(var)) {
+            if (filter.test(s) && !t.hasReferences(s.getReturnValue())) {
                 toDelete.add(num);
                 hasDeleted = true;
             }

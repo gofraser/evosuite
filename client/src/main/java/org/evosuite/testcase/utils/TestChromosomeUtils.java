@@ -21,19 +21,15 @@ package org.evosuite.testcase.utils;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCaseMinimizer;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testcase.variable.VariableReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 public class TestChromosomeUtils {
 
@@ -88,28 +84,9 @@ public class TestChromosomeUtils {
      */
     public static boolean removeUnusedVariables(TestChromosome chromosome) {
         int sizeBefore = chromosome.size();
-        TestCase t = chromosome.getTestCase();
-        List<Integer> toDelete = new ArrayList<>(chromosome.size());
-        boolean hasDeleted = false;
-
-        int num = 0;
-        for (Statement s : t) {
-            VariableReference var = s.getReturnValue();
-            boolean delete = false;
-            delete = delete || s instanceof PrimitiveStatement;
-            delete = delete || s instanceof ArrayStatement;
-            // StringPrimitiveStatement extends PrimitiveStatement so it is covered
-
-            if (!t.hasReferences(var) && delete) {
-                toDelete.add(num);
-                hasDeleted = true;
-            }
-            num++;
-        }
-        toDelete.sort(Collections.reverseOrder());
-        for (Integer position : toDelete) {
-            t.remove(position);
-        }
+        // StringPrimitiveStatement extends PrimitiveStatement so it is covered
+        boolean hasDeleted = TestCaseMinimizer.removeUnusedVariables(chromosome.getTestCase(),
+                s -> s instanceof PrimitiveStatement || s instanceof ArrayStatement);
         int sizeAfter = chromosome.size();
         if (hasDeleted) {
             logger.debug("Removed {} unused statements", (sizeBefore - sizeAfter));

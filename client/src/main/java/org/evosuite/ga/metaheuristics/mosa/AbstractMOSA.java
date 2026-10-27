@@ -81,7 +81,7 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
-import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testcase.utils.TestChromosomeUtils;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ArrayUtil;
@@ -616,8 +616,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         this.currentIteration, postCrossoverProbe1, crossoverProbe);
             }
 
-            this.removeUnusedVariables(offspring1);
-            this.removeUnusedVariables(offspring2);
+            TestChromosomeUtils.removeUnusedVariables(offspring1);
+            TestChromosomeUtils.removeUnusedVariables(offspring2);
 
             processOffspringMutation(offspring1, parent1, offspringPopulation, observer,
                     crossoverApplied, syncTargets, postCrossoverProbe1, crossoverResult);
@@ -1331,7 +1331,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
         @Override
         public void removeUnusedVariables(TestChromosome chromosome) {
-            AbstractMOSA.this.removeUnusedVariables(chromosome);
+            TestChromosomeUtils.removeUnusedVariables(chromosome);
         }
 
         @Override
@@ -2215,41 +2215,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         chromosome.clearCachedMutationResults();
         chromosome.clearCachedResults();
         chromosome.getFitnessValues().clear();
-    }
-
-    /**
-     * When a test case is changed via crossover and/or mutation, it can contains some primitive
-     * variables that are not used as input (or to store the output) of method calls. Thus, this
-     * method removes all these "trash" statements.
-     *
-     * @param chromosome a {@link org.evosuite.testcase.TestChromosome} object.
-     * @return true or false depending on whether "unused variables" are removed
-     */
-    private boolean removeUnusedVariables(TestChromosome chromosome) {
-        final int sizeBefore = chromosome.size();
-        final TestCase t = chromosome.getTestCase();
-        final List<Integer> toDelete = new ArrayList<>(chromosome.size());
-        boolean hasDeleted = false;
-
-        int num = 0;
-        for (Statement s : t) {
-            final VariableReference var = s.getReturnValue();
-            final boolean delete = s instanceof PrimitiveStatement || s instanceof ArrayStatement;
-            if (!t.hasReferences(var) && delete) {
-                toDelete.add(num);
-                hasDeleted = true;
-            }
-            num++;
-        }
-        toDelete.sort(Collections.reverseOrder());
-        for (int position : toDelete) {
-            t.remove(position);
-        }
-        final int sizeAfter = chromosome.size();
-        if (hasDeleted) {
-            logger.debug("Removed {} unused statements", (sizeBefore - sizeAfter));
-        }
-        return hasDeleted;
     }
 
     /**
