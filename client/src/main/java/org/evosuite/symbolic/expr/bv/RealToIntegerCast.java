@@ -19,85 +19,25 @@
  */
 package org.evosuite.symbolic.expr.bv;
 
-import org.evosuite.Properties;
-import org.evosuite.symbolic.ConstraintTooLongException;
-import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.symbolic.expr.*;
 
-import java.util.HashSet;
-import java.util.Set;
-
-public final class RealToIntegerCast extends AbstractExpression<Long> implements
+public final class RealToIntegerCast extends AbstractUnaryExpression<Long, Double> implements
         Cast<Double>, IntegerValue {
 
     private static final long serialVersionUID = 1L;
 
-    private final Expression<Double> expr;
-
-    /**
-     * <p>
-     * Constructor for RealToIntegerCast.
-     * </p>
-     *
-     * @param _expr      a {@link org.evosuite.symbolic.expr.Expression} object.
-     * @param _concValue a {@link java.lang.Long} object.
-     */
-    public RealToIntegerCast(Expression<Double> _expr, Long _concValue) {
-        super(_concValue, 1 + _expr.getSize(), _expr.containsSymbolicVariable());
-        this.expr = _expr;
-
-        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH) {
-            DSEStatistics.getInstance().reportConstraintTooLong(getSize());
-            throw new ConstraintTooLongException(getSize());
-        }
+    public RealToIntegerCast(Expression<Double> expr, Long concValue) {
+        super(concValue, expr);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression<Double> getArgument() {
-        return expr;
+        return getOperand();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
-        return "((INT)" + expr + ")";
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) {
-            return true;
-        }
-        if (obj instanceof RealToIntegerCast) {
-            RealToIntegerCast other = (RealToIntegerCast) obj;
-            return this.expr.equals(other.expr);
-        }
-
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return this.expr.hashCode();
-    }
-
-    @Override
-    public Set<Variable<?>> getVariables() {
-        Set<Variable<?>> variables = new HashSet<>(this.expr.getVariables());
-        return variables;
-    }
-
-    @Override
-    public Set<Object> getConstants() {
-        return expr.getConstants();
+        return "((INT)" + getOperand() + ")";
     }
 
     @Override

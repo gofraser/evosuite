@@ -19,92 +19,29 @@
  */
 package org.evosuite.symbolic.expr.str;
 
-import org.evosuite.Properties;
-import org.evosuite.symbolic.ConstraintTooLongException;
-import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.symbolic.expr.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.HashSet;
-import java.util.Set;
-
-public final class IntegerToStringCast extends AbstractExpression<String> implements
+public final class IntegerToStringCast extends AbstractUnaryExpression<String, Long> implements
         StringValue, Cast<Long> {
 
     private static final long serialVersionUID = 2414222998301630838L;
 
-    protected static Logger log = LoggerFactory.getLogger(IntegerToStringCast.class);
-
-    private final Expression<Long> expr;
-
-    /**
-     * Constructs an {@link IntegerToStringCast} with the given expression and concrete value.
-     *
-     * @param expr the integer expression to cast
-     * @param concV the concrete string value
-     */
-    public IntegerToStringCast(Expression<Long> expr, String concV) {
-        super(concV, 1 + expr.getSize(), expr.containsSymbolicVariable());
-        this.expr = expr;
-
-        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH) {
-            DSEStatistics.getInstance().reportConstraintTooLong(getSize());
-            throw new ConstraintTooLongException(getSize());
-        }
+    public IntegerToStringCast(Expression<Long> expr, String concValue) {
+        super(concValue, expr);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        return "((String)" + expr + ")";
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) {
-            return true;
-        }
-        if (obj instanceof IntegerToStringCast) {
-            IntegerToStringCast other = (IntegerToStringCast) obj;
-            return this.expr.equals(other.expr);
-        }
-
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return expr.hashCode();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression<Long> getArgument() {
-        return expr;
+        return getOperand();
     }
 
     @Override
-    public Set<Variable<?>> getVariables() {
-        Set<Variable<?>> variables = new HashSet<>(this.expr.getVariables());
-        return variables;
-    }
-
-    @Override
-    public Set<Object> getConstants() {
-        return this.expr.getConstants();
+    public String toString() {
+        return "((String)" + getOperand() + ")";
     }
 
     @Override
     public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
         return v.visit(this, arg);
     }
-
 }

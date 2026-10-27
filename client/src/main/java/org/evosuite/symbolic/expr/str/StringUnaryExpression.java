@@ -19,15 +19,7 @@
  */
 package org.evosuite.symbolic.expr.str;
 
-import org.evosuite.Properties;
-import org.evosuite.symbolic.ConstraintTooLongException;
-import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.symbolic.expr.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * <p>
@@ -36,98 +28,22 @@ import java.util.Set;
  *
  * @author krusev
  */
-public final class StringUnaryExpression extends AbstractExpression<String> implements
+public final class StringUnaryExpression extends AbstractOperatorUnaryExpression<String, String> implements
         StringValue, UnaryExpression<String> {
 
     private static final long serialVersionUID = -384874147850376188L;
 
-    protected static final Logger log = LoggerFactory.getLogger(StringUnaryExpression.class);
-
-    // protected int conretIntValue;
-
-    private final Operator op;
-
-    private final Expression<String> expr;
-
-    /**
-     * <p>
-     * Constructor for StringUnaryExpression.
-     * </p>
-     *
-     * @param param a {@link org.evosuite.symbolic.expr.Expression} object.
-     * @param op2   a {@link org.evosuite.symbolic.expr.Operator} object.
-     * @param con   a {@link java.lang.String} object.
-     */
     public StringUnaryExpression(Expression<String> param, Operator op2, String con) {
-        super(con, 1 + param.getSize(), param.containsSymbolicVariable());
-        this.expr = param;
-        this.op = op2;
-
-        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH) {
-            DSEStatistics.getInstance().reportConstraintTooLong(getSize());
-            throw new ConstraintTooLongException(getSize());
-        }
+        super(con, param, op2);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Operator getOperator() {
-        return op;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Expression<String> getOperand() {
-        return expr;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
-        return expr + "." + op.toString().trim() + "(" + ")";
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) {
-            return true;
-        }
-        if (obj instanceof StringUnaryExpression) {
-            StringUnaryExpression other = (StringUnaryExpression) obj;
-            return this.op.equals(other.op) && this.expr.equals(other.expr);
-        }
-
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return this.op.hashCode() + this.expr.hashCode();
-    }
-
-    @Override
-    public Set<Variable<?>> getVariables() {
-        Set<Variable<?>> variables = new HashSet<>(this.expr.getVariables());
-        return variables;
-    }
-
-    @Override
-    public Set<Object> getConstants() {
-        return this.expr.getConstants();
+        return getOperand() + "." + getOperator().toString().trim() + "(" + ")";
     }
 
     @Override
     public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
         return v.visit(this, arg);
     }
-
 }

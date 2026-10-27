@@ -19,93 +19,29 @@
  */
 package org.evosuite.symbolic.expr.str;
 
-import org.evosuite.Properties;
-import org.evosuite.symbolic.ConstraintTooLongException;
-import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.symbolic.expr.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.HashSet;
-import java.util.Set;
-
-public final class RealToStringCast extends AbstractExpression<String> implements
+public final class RealToStringCast extends AbstractUnaryExpression<String, Double> implements
         StringValue, Cast<Double> {
 
     private static final long serialVersionUID = -5322228289539145088L;
 
-    protected static Logger log = LoggerFactory.getLogger(RealToStringCast.class);
-
-    private final Expression<Double> expr;
-
-    /**
-     * Constructs a {@link RealToStringCast} with the given expression and concrete value.
-     *
-     * @param _expr the real expression to cast
-     * @param concVal the concrete string value
-     */
-    public RealToStringCast(Expression<Double> _expr, String concVal) {
-        super(concVal, 1 + _expr.getSize(), _expr.containsSymbolicVariable());
-        this.expr = _expr;
-
-        if (getSize() > Properties.DSE_CONSTRAINT_LENGTH) {
-            DSEStatistics.getInstance().reportConstraintTooLong(getSize());
-            throw new ConstraintTooLongException(getSize());
-        }
-
+    public RealToStringCast(Expression<Double> expr, String concValue) {
+        super(concValue, expr);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString() {
-        return "(String)" + expr.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) {
-            return true;
-        }
-        if (obj instanceof RealToStringCast) {
-            RealToStringCast other = (RealToStringCast) obj;
-            return this.expr.equals(other.expr);
-        }
-
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return this.expr.hashCode();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression<Double> getArgument() {
-        return expr;
+        return getOperand();
     }
 
     @Override
-    public Set<Variable<?>> getVariables() {
-        Set<Variable<?>> variables = new HashSet<>(this.expr.getVariables());
-        return variables;
-    }
-
-    @Override
-    public Set<Object> getConstants() {
-        return this.expr.getConstants();
+    public String toString() {
+        return "(String)" + getOperand();
     }
 
     @Override
     public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
         return v.visit(this, arg);
     }
-
 }

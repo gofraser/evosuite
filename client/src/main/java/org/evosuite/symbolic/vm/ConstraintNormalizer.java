@@ -19,6 +19,7 @@
  */
 package org.evosuite.symbolic.vm;
 
+import org.evosuite.symbolic.expr.AbstractBinaryExpression;
 import org.evosuite.symbolic.expr.Comparator;
 import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.expr.Expression;
@@ -94,6 +95,14 @@ public final class ConstraintNormalizer {
         }
     }
 
+    /**
+     * Both operands of a comparison have the same type.
+     */
+    @SuppressWarnings("unchecked")
+    private static <A> Expression<A> rightOperand(AbstractBinaryExpression<?, A> comparison) {
+        return (Expression<A>) comparison.getRightOperand();
+    }
+
     private static Constraint<?> createRealConstraint(IntegerConstraint c) {
 
         if (c.getLeftOperand() instanceof RealComparison) {
@@ -103,8 +112,8 @@ public final class ConstraintNormalizer {
                     .intValue();
             Comparator op = c.getComparator();
 
-            Expression<Double> cmpLeft = cmp.getLeftOperant();
-            Expression<Double> cmpRight = cmp.getRightOperant();
+            Expression<Double> cmpLeft = cmp.getLeftOperand();
+            Expression<Double> cmpRight = rightOperand(cmp);
             return createRealConstraint(cmpLeft, op, cmpRight, value);
 
         } else {
@@ -117,8 +126,8 @@ public final class ConstraintNormalizer {
             int value = ((Number) c.getLeftOperand().getConcreteValue())
                     .intValue();
             int swapValue = -value;
-            Expression<Double> cmpLeft = cmp.getLeftOperant();
-            Expression<Double> cmpRight = cmp.getRightOperant();
+            Expression<Double> cmpLeft = cmp.getLeftOperand();
+            Expression<Double> cmpRight = rightOperand(cmp);
 
             return createRealConstraint(cmpLeft, swapOp, cmpRight,
                     swapValue);
@@ -191,8 +200,8 @@ public final class ConstraintNormalizer {
             int value = ((Number) c.getRightOperand().getConcreteValue())
                     .intValue();
             Comparator op = c.getComparator();
-            Expression<Long> cmpLeft = cmp.getLeftOperant();
-            Expression<Long> cmpRight = cmp.getRightOperant();
+            Expression<Long> cmpLeft = cmp.getLeftOperand();
+            Expression<Long> cmpRight = rightOperand(cmp);
             return createIntegerConstraint(cmpLeft, op, cmpRight, value);
 
         } else {
@@ -202,8 +211,8 @@ public final class ConstraintNormalizer {
             int value = ((Number) c.getLeftOperand().getConcreteValue())
                     .intValue();
             Comparator op = c.getComparator();
-            Expression<Long> cmpLeft = cmp.getLeftOperant();
-            Expression<Long> cmpRight = cmp.getRightOperant();
+            Expression<Long> cmpLeft = cmp.getLeftOperand();
+            Expression<Long> cmpRight = rightOperand(cmp);
             Comparator swapOp = op.swap();
             int swapValue = -value;
             return createIntegerConstraint(cmpLeft, swapOp, cmpRight,
