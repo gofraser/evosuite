@@ -30,20 +30,16 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 /**
- * Created by gordon on 06/01/2017.
+ * Bag of constants drawn in proportion to how often each was added.
  */
-public class FrequencyBasedPool<T> {
+public class FrequencyBasedPool<T> implements ConstantBag<T> {
 
     private final Map<T, Integer> constants = new LinkedHashMap<>();
 
     private int numConstants = 0;
 
-    /**
-     * Adds a constant to the pool.
-     *
-     * @param value the constant to add
-     */
-    public synchronized void addConstant(T value) {
+    @Override
+    public synchronized void add(T value) {
         if (value == null) {
             return;
         }
@@ -72,20 +68,18 @@ public class FrequencyBasedPool<T> {
         return constants.containsKey(value);
     }
 
+    @Override
     public synchronized boolean isEmpty() {
         return numConstants == 0;
     }
 
-    /** Returns an unmodifiable snapshot of the distinct constants currently in the pool. */
+    @Override
     public synchronized List<T> snapshot() {
         return Collections.unmodifiableList(new ArrayList<>(constants.keySet()));
     }
 
-    /**
-     * Removes all constants matching a predicate.
-     * @param predicate selects the constants to remove
-     * @return the number of occurrences removed
-     */
+    /** Counts every occurrence of a removed constant. */
+    @Override
     public synchronized int removeIf(Predicate<? super T> predicate) {
         int removed = 0;
         Iterator<Map.Entry<T, Integer>> iterator = constants.entrySet().iterator();
@@ -101,12 +95,8 @@ public class FrequencyBasedPool<T> {
     }
 
 
-    /**
-     * Gets a random constant from the pool based on frequency.
-     *
-     * @return the selected constant
-     */
-    public synchronized T getRandomConstant() {
+    @Override
+    public synchronized T random() {
         //special case
         if (numConstants == 0) {
             throw new IllegalArgumentException("Cannot select from empty pool");
@@ -125,6 +115,11 @@ public class FrequencyBasedPool<T> {
 
         // Shouldn't happen
         return Randomness.choice(constants.keySet());
+    }
+
+    @Override
+    public synchronized String toString() {
+        return constants.keySet().toString();
     }
 
 }

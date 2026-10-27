@@ -30,8 +30,8 @@ public class TestVariableConstantPool {
 
     @Test
     public void testBasicProbabilities() {
-        StaticConstantVariableProbabilityPool pool1 = new StaticConstantVariableProbabilityPool();
-        StaticConstantVariableProbabilityPool pool2 = new StaticConstantVariableProbabilityPool();
+        ConstantPool pool1 = ConstantPoolManager.newStaticPool(true);
+        ConstantPool pool2 = ConstantPoolManager.newStaticPool(true);
         for (int i = 0; i < 99; i++) {
             pool1.add("Foo");
             pool2.add("Bar");
@@ -51,8 +51,8 @@ public class TestVariableConstantPool {
 
     @Test
     public void testBasicProbabilitiesDynamic() {
-        DynamicConstantVariableProbabilityPool pool1 = new DynamicConstantVariableProbabilityPool();
-        DynamicConstantVariableProbabilityPool pool2 = new DynamicConstantVariableProbabilityPool();
+        ConstantPool pool1 = ConstantPoolManager.newDynamicPool(true);
+        ConstantPool pool2 = ConstantPoolManager.newDynamicPool(true);
         for (int i = 0; i < 99; i++) {
             pool1.add("Foo");
             pool2.add("Bar");
@@ -73,7 +73,7 @@ public class TestVariableConstantPool {
 
     @Test
     public void testBasicProbabilitiesDynamicUpdate() {
-        DynamicConstantVariableProbabilityPool pool = new DynamicConstantVariableProbabilityPool();
+        ConstantPool pool = ConstantPoolManager.newDynamicPool(true);
         for (int i = 0; i < 99; i++) {
             pool.add("Foo");
         }

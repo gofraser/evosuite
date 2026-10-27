@@ -17,33 +17,35 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.utils;
+package org.evosuite.seeding;
 
 import org.evosuite.Properties;
+import org.evosuite.utils.Randomness;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * Default implementation of RandomAccessQueue.
+ * Bounded queue of distinct constants drawn uniformly. The oldest constant is evicted once the
+ * queue exceeds the dynamic pool size.
  *
  * @author Gordon Fraser
  */
-public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {
+public class DefaultRandomAccessQueue<T> implements ConstantBag<T> {
 
     private final Set<T> valueSet = new HashSet<>();
 
     private final Queue<T> queue = new ArrayDeque<>();
 
-    /* (non-Javadoc)
-     * @see org.evosuite.primitives.RandomAccessQueue#restrictedAdd(java.lang.Object)
-     */
     @Override
-    public synchronized void restrictedAdd(T value) {
+    public synchronized void add(T value) {
         if (value == null) {
             return;
         }
@@ -61,20 +63,12 @@ public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.primitives.RandomAccessQueue#getRandomValue()
-     */
     @Override
-    public synchronized T getRandomValue() {
+    public synchronized T random() {
         return Randomness.choice(valueSet);
     }
 
-    /**
-     * Removes all values that satisfy the predicate.
-     *
-     * @param predicate the condition under which a value is removed
-     * @return the number of removed values
-     */
+    @Override
     public synchronized int removeIf(Predicate<? super T> predicate) {
         int removed = 0;
         Iterator<T> iterator = queue.iterator();
@@ -89,8 +83,14 @@ public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {
         return removed;
     }
 
+    @Override
     public synchronized boolean isEmpty() {
         return queue.isEmpty();
+    }
+
+    @Override
+    public synchronized List<T> snapshot() {
+        return Collections.unmodifiableList(new ArrayList<>(queue));
     }
 
     @Override

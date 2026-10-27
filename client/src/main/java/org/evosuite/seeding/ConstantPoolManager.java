@@ -104,21 +104,32 @@ public class ConstantPoolManager {
         adaptiveSeededNumericLimit = 0L;
         adaptiveSeededNumericLimitUpdates = 0;
 
-        if (!Properties.VARIABLE_POOL) {
-            pools = new ConstantPool[]{
-                    new StaticConstantPool(),
-                    new StaticConstantPool(),
-                    new DynamicConstantPool()
-            };
-        } else {
-            pools = new ConstantPool[]{
-                    new StaticConstantVariableProbabilityPool(),
-                    new StaticConstantVariableProbabilityPool(),
-                    new DynamicConstantVariableProbabilityPool()
-            };
-        }
+        pools = new ConstantPool[]{
+                newStaticPool(Properties.VARIABLE_POOL),
+                newStaticPool(Properties.VARIABLE_POOL),
+                newDynamicPool(Properties.VARIABLE_POOL)
+        };
 
         initDefaultProbabilities();
+    }
+
+    /**
+     * A pool for constants read from bytecode: unbounded, seeded with 0, 1 and -1, and array
+     * types are added as their element type.
+     */
+    static ConstantPool newStaticPool(boolean variableProbability) {
+        return new TypedConstantPool("StaticConstantPool",
+                variableProbability ? FrequencyBasedPool::new : SortedSetBag::new, true, true);
+    }
+
+    /**
+     * A pool for constants observed at runtime: bounded to {@code dynamic_pool_size}, seeded with 0
+     * only, and array types are kept as they are.
+     */
+    static ConstantPool newDynamicPool(boolean variableProbability) {
+        return new TypedConstantPool("DynamicConstantPool",
+                variableProbability ? FrequencyBasedRandomAccessQueue::new : DefaultRandomAccessQueue::new,
+                false, false);
     }
 
     private void initDefaultProbabilities() {

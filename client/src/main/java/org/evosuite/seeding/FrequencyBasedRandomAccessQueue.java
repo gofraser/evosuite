@@ -20,31 +20,29 @@
 package org.evosuite.seeding;
 
 import org.evosuite.Properties;
-import org.evosuite.utils.RandomAccessQueue;
 
 import java.util.ArrayDeque;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Queue;
 import java.util.function.Predicate;
 
 /**
- * Created by gordon on 06/01/2017.
+ * Bounded queue of constants drawn in proportion to how often they were added. The oldest
+ * occurrence is evicted once the queue exceeds the dynamic pool size.
  */
-public class FrequencyBasedRandomAccessQueue<T> implements RandomAccessQueue<T> {
+public class FrequencyBasedRandomAccessQueue<T> implements ConstantBag<T> {
 
     private final FrequencyBasedPool<T> values = new FrequencyBasedPool<>();
 
     private final Queue<T> queue = new ArrayDeque<>();
 
-    /* (non-Javadoc)
-     * @see org.evosuite.primitives.RandomAccessQueue#restrictedAdd(java.lang.Object)
-     */
     @Override
-    public synchronized void restrictedAdd(T value) {
+    public synchronized void add(T value) {
         if (value == null) {
             return;
         }
-        values.addConstant(value);
+        values.add(value);
         queue.add(value);
         reduceSize();
     }
@@ -56,19 +54,12 @@ public class FrequencyBasedRandomAccessQueue<T> implements RandomAccessQueue<T> 
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.primitives.RandomAccessQueue#getRandomValue()
-     */
     @Override
-    public synchronized T getRandomValue() {
-        return values.getRandomConstant();
+    public synchronized T random() {
+        return values.random();
     }
 
-    /**
-     * Removes all queue entries matching a predicate.
-     * @param predicate selects the values to remove
-     * @return the number of removed entries
-     */
+    @Override
     public synchronized int removeIf(Predicate<? super T> predicate) {
         int removed = 0;
         Iterator<T> iterator = queue.iterator();
@@ -83,8 +74,14 @@ public class FrequencyBasedRandomAccessQueue<T> implements RandomAccessQueue<T> 
         return removed;
     }
 
+    @Override
     public synchronized boolean isEmpty() {
         return values.isEmpty();
+    }
+
+    @Override
+    public synchronized List<T> snapshot() {
+        return values.snapshot();
     }
 
     @Override

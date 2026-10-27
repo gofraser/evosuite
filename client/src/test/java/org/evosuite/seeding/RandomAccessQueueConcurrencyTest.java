@@ -19,8 +19,6 @@
  */
 package org.evosuite.seeding;
 
-import org.evosuite.utils.DefaultRandomAccessQueue;
-import org.evosuite.utils.RandomAccessQueue;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -47,8 +45,8 @@ public class RandomAccessQueueConcurrencyTest {
         assertNull(runConcurrentReadWrite(new FrequencyBasedRandomAccessQueue<>()));
     }
 
-    private Throwable runConcurrentReadWrite(RandomAccessQueue<Integer> queue) throws Exception {
-        queue.restrictedAdd(0); // keep queue non-empty for random reads
+    private Throwable runConcurrentReadWrite(ConstantBag<Integer> queue) throws Exception {
+        queue.add(0); // keep queue non-empty for random reads
 
         int writerThreads = 4;
         int readerThreads = 4;
@@ -65,7 +63,7 @@ public class RandomAccessQueueConcurrencyTest {
                 await(start);
                 for (int j = 0; j < operationsPerThread; j++) {
                     try {
-                        queue.restrictedAdd(base + j);
+                        queue.add(base + j);
                     } catch (Throwable t) {
                         firstFailure.compareAndSet(null, t);
                         return;
@@ -79,7 +77,7 @@ public class RandomAccessQueueConcurrencyTest {
                 await(start);
                 for (int j = 0; j < operationsPerThread; j++) {
                     try {
-                        assertNotNull(queue.getRandomValue());
+                        assertNotNull(queue.random());
                     } catch (Throwable t) {
                         firstFailure.compareAndSet(null, t);
                         return;

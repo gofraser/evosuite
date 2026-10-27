@@ -29,9 +29,9 @@ public class FrequencyBasedPoolTest {
     @Test
     public void testRemoveConstantDecrementsNumConstants() {
         FrequencyBasedPool<String> pool = new FrequencyBasedPool<>();
-        pool.addConstant("A");
-        pool.addConstant("A");
-        pool.addConstant("B");
+        pool.add("A");
+        pool.add("A");
+        pool.add("B");
 
         // Frequencies: A=2, B=1
         // Total constants = 3
@@ -46,7 +46,7 @@ public class FrequencyBasedPoolTest {
 
         int iterations = 10000;
         for (int i = 0; i < iterations; i++) {
-            String selected = pool.getRandomConstant();
+            String selected = pool.random();
             results.put(selected, results.get(selected) + 1);
         }
 
@@ -62,7 +62,7 @@ public class FrequencyBasedPoolTest {
     public void testEmptyPoolThrowsException() {
         FrequencyBasedPool<String> pool = new FrequencyBasedPool<>();
         try {
-            pool.getRandomConstant();
+            pool.random();
             fail("Expected exception not thrown");
         } catch (IllegalArgumentException e) {
             assertEquals("Cannot select from empty pool", e.getMessage());

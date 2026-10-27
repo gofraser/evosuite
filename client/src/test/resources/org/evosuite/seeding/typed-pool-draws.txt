@@ -1,0 +1,123 @@
+== static
+||||||||||||
+Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|
+0|1|0|-1|1|0|1|1|0|0|0|1|
+0|1|0|-1|-1|-1|-1|-1|-1|-1|-1|1|
+-1.0|-1.0|0.0|0.0|0.0|0.0|1.0|1.0|-1.0|-1.0|0.0|0.0|
+1.0|-1.0|1.0|0.0|-1.0|1.0|-1.0|0.0|1.0|0.0|-1.0|1.0|
+--
+beta|zeta|beta||gamma|gamma|beta|beta|beta|eps|gamma|gamma|
+Ljava/lang/String;|I|Lcom/example/Bar;|Lcom/example/Bar;|I|Lcom/example/Bar;|Lcom/example/Bar;|Lcom.example.Foo;|Ljava/lang/String;|Lcom/example/Bar;|Lcom.example.Foo;|Ljava/lang/String;|
+-3|42|99|5|5|1|99|99|1000|1|7|42|
+8|-1|1|123456789012|0|3|0|0|0|0|0|1|
+1.0|0.0|1.0|2.5|1.0E10|3.25|2.5|-0.5|8.0|2.5|1.0|1.0|
+0.0|-1.0|1.0|8.0|8.0|-1.0|0.0|2.5|-0.5|-0.5|-1.0|2.5|
+--
+removed 6
+alpha|delta|zeta||gamma|beta||zeta|zeta|eps|||
+I|I|I|Lcom.example.Foo;|Ljava/lang/String;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom/example/Bar;|Lcom/example/Bar;|I|Lcom/example/Bar;|I|
+-3|7|7|-1|0|0|7|0|5|7|5|5|
+-1|9|3|8|-4|0|-1|0|-1|8|9|9|
+2.5|2.5|-0.5|8.0|-1.0|2.5|-0.5|0.0|-0.5|-1.0|1.0|-0.5|
+2.5|2.5|2.5|2.5|2.5|8.0|8.0|2.5|-0.5|-1.0|8.0|-1.0|
+--
+removed 21
+zeta|gamma|zeta|eps||zeta|zeta|delta|zeta|zeta|alpha|zeta|
+I|I|Ljava/lang/String;|I|I|Lcom/example/Bar;|I|Ljava/lang/String;|Ljava/lang/String;|Lcom/example/Bar;|Lcom/example/Bar;|I|
+0|0|0|0|0|0|0|0|0|0|0|0|
+0|0|0|0|0|0|0|0|0|0|0|0|
+-0.5|0.0|-0.5|-0.5|0.0|0.0|-0.5|-0.5|-0.5|-0.5|0.0|0.0|
+-0.5|0.0|0.0|0.0|-0.5|-0.5|0.0|0.0|0.0|-0.5|-0.5|-0.5|
+
+== staticvp
+||||||||||||
+Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|
+1|-1|0|1|0|1|1|-1|-1|1|-1|0|
+0|0|1|1|-1|1|-1|1|0|1|-1|1|
+0.0|-1.0|0.0|-1.0|0.0|1.0|-1.0|1.0|1.0|1.0|0.0|0.0|
+1.0|1.0|-1.0|1.0|-1.0|1.0|0.0|1.0|-1.0|1.0|0.0|0.0|
+--
+beta|alpha|gamma||zeta|gamma|beta||zeta|alpha|alpha|gamma|
+Lcom/example/Bar;|Ljava/lang/String;|I|Lcom.example.Foo;|Lcom/example/Bar;|Lcom/example/Bar;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom/example/Bar;|Lcom/example/Bar;|Lcom/example/Bar;|Lcom/example/Bar;|
+0|-1|-1|-1|7|-3|0|1|5|-1|1|7|
+-4|1|-1|3|3|3|0|3|-1|0|3|123456789012|
+1.0E10|2.5|-1.0|3.25|2.5|1.0|-1.0|8.0|2.5|8.0|8.0|-1.0|
+2.5|1.0|3.25|-1.0|0.0|-0.5|-1.0|8.0|2.5|1.0E10|3.25|-1.0|
+--
+removed 6
+delta|delta|alpha|beta|delta|beta|eps|beta|gamma||eps||
+I|Lcom.example.Foo;|Lcom/example/Bar;|Lcom.example.Foo;|I|Lcom.example.Foo;|Lcom/example/Bar;|Lcom/example/Bar;|Lcom/example/Bar;|Ljava/lang/String;|Lcom/example/Bar;|Lcom/example/Bar;|
+-3|0|1|1|0|7|1|5|-3|5|5|7|
+0|8|-1|-4|3|9|8|0|-4|-4|-1|-4|
+0.0|8.0|0.0|-1.0|8.0|0.0|3.25|0.0|0.0|-0.5|8.0|-0.5|
+8.0|0.0|3.25|-1.0|-0.5|3.25|3.25|1.0|-0.5|3.25|1.0|2.5|
+--
+removed 30
+delta|gamma|delta|gamma|beta|beta|beta||alpha||beta|beta|
+Ljava/lang/String;|Lcom/example/Bar;|Ljava/lang/String;|Ljava/lang/String;|Lcom/example/Bar;|Lcom/example/Bar;|Ljava/lang/String;|Lcom.example.Foo;|Lcom/example/Bar;|I|Lcom.example.Foo;|Lcom.example.Foo;|
+0|0|0|0|0|0|0|0|0|0|0|0|
+0|0|0|0|0|0|0|0|0|0|0|0|
+-0.5|-0.5|0.0|0.0|-0.5|-0.5|-0.5|0.0|0.0|0.0|0.0|-0.5|
+-0.5|0.0|-0.5|0.0|0.0|0.0|0.0|-0.5|-0.5|0.0|-0.5|-0.5|
+
+== dynamic
+||||||||||||
+Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|
+0|0|0|0|0|0|0|0|0|0|0|0|
+0|0|0|0|0|0|0|0|0|0|0|0|
+0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|
+0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|
+--
+eps|delta|alpha|delta|zeta|alpha|delta|alpha|delta|zeta|zeta|eps|
+[[Ljava/lang/String;|I|Lcom/example/Bar;|Lcom/example/Bar;|I|Lcom/example/Bar;|Lcom/example/Bar;|Lcom.example.Foo;|[[Ljava/lang/String;|Lcom/example/Bar;|Lcom.example.Foo;|[[Ljava/lang/String;|
+1000|5|1000|1000|99|42|99|-3|42|99|5|5|
+9|-4|8|3|123456789012|123456789012|-4|3|-4|8|9|123456789012|
+1.0E10|2.5|2.5|-0.5|3.25|-0.5|8.0|2.5|8.0|3.25|8.0|2.5|
+3.25|2.5|2.5|-0.5|-0.5|2.5|3.25|8.0|1.0E10|1.0E10|1.0E10|8.0|
+--
+removed 6
+delta|zeta|delta|eps|alpha|gamma|alpha|alpha|eps|alpha|gamma|delta|
+I|I|I|Lcom.example.Foo;|[[Ljava/lang/String;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom/example/Bar;|Lcom/example/Bar;|I|Lcom/example/Bar;|I|
+-3|-3|5|-3|5|-3|-3|-3|5|5|-3|5|
+-4|8|-4|8|3|9|-4|-4|8|3|8|8|
+-0.5|2.5|-0.5|8.0|-0.5|8.0|-0.5|-0.5|2.5|-0.5|3.25|2.5|
+-0.5|3.25|-0.5|3.25|8.0|3.25|-0.5|-0.5|-0.5|-0.5|2.5|8.0|
+--
+removed 12
+alpha|eps|gamma|zeta|eps|delta|eps|zeta|alpha|alpha|alpha|eps|
+I|I|[[Ljava/lang/String;|I|I|Lcom/example/Bar;|I|[[Ljava/lang/String;|[[Ljava/lang/String;|Lcom/example/Bar;|Lcom/example/Bar;|I|
+0|0|0|0|0|0|0|0|0|0|0|0|
+0|0|0|0|0|0|0|0|0|0|0|0|
+-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|
+-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|-0.5|
+
+== dynamicvp
+||||||||||||
+Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom.example.Foo;|
+0|0|0|0|0|0|0|0|0|0|0|0|
+0|0|0|0|0|0|0|0|0|0|0|0|
+0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|
+0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|
+--
+alpha|delta|eps|beta|zeta|eps|beta|beta|zeta|delta|delta|eps|
+Lcom/example/Bar;|[[Ljava/lang/String;|I|Lcom.example.Foo;|Lcom/example/Bar;|Lcom/example/Bar;|Lcom.example.Foo;|Lcom.example.Foo;|Lcom/example/Bar;|Lcom/example/Bar;|Lcom/example/Bar;|Lcom/example/Bar;|
+7|7|1000|7|1000|5|7|7|99|7|7|5|
+3|9|123456789012|3|3|3|9|3|123456789012|9|3|3|
+3.25|3.25|1.0E10|8.0|3.25|2.5|1.0E10|8.0|1.0E10|8.0|8.0|1.0E10|
+1.0E10|2.5|8.0|1.0E10|2.5|3.25|1.0E10|8.0|3.25|3.25|3.25|1.0E10|
+--
+removed 5
+eps|eps|delta|alpha|eps|alpha|zeta|beta|eps|beta|zeta|beta|
+I|Lcom.example.Foo;|Lcom/example/Bar;|Lcom.example.Foo;|I|Lcom.example.Foo;|Lcom/example/Bar;|Lcom/example/Bar;|Lcom/example/Bar;|[[Ljava/lang/String;|Lcom/example/Bar;|Lcom/example/Bar;|
+5|7|7|7|7|5|7|5|5|5|5|5|
+9|8|3|3|3|3|8|9|3|3|3|3|
+2.5|8.0|2.5|3.25|8.0|2.5|8.0|2.5|2.5|3.25|8.0|3.25|
+8.0|2.5|8.0|3.25|3.25|3.25|8.0|2.5|3.25|8.0|2.5|3.25|
+--
+removed 15
+eps|eps|eps|eps|beta|beta|alpha|beta|delta|beta|alpha|alpha|
+[[Ljava/lang/String;|Lcom/example/Bar;|[[Ljava/lang/String;|[[Ljava/lang/String;|Lcom/example/Bar;|Lcom/example/Bar;|[[Ljava/lang/String;|Lcom.example.Foo;|Lcom/example/Bar;|I|Lcom.example.Foo;|Lcom.example.Foo;|
+0|0|0|0|0|0|0|0|0|0|0|0|
+0|0|0|0|0|0|0|0|0|0|0|0|
+0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|
+0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|0.0|

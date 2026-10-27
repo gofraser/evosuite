@@ -20,100 +20,60 @@
 package org.evosuite.seeding;
 
 import org.evosuite.Properties;
-import org.evosuite.utils.Randomness;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
- * Static constant pool.
+ * Constant pool with one {@link ConstantBag} per constant type. What differs between the static
+ * and the dynamic pools, and between the uniform and the frequency-based ones, is the bag that
+ * is plugged in (selection and eviction) and two flags for the seeding and the type handling.
  *
  * @author Gordon Fraser
  */
-public class StaticConstantPool implements ConstantPool {
+public class TypedConstantPool implements ConstantPool {
 
-    private static final Logger logger = LoggerFactory.getLogger(StaticConstantPool.class);
+    private static final Logger logger = LoggerFactory.getLogger(TypedConstantPool.class);
 
     private static final int MAX_STRING_LITERAL_LENGTH = 65535;
 
-    private static class FastPool<T> {
-        private final Set<T> set = new LinkedHashSet<>();
-        private final java.util.List<T> list = new java.util.ArrayList<>();
-        private boolean dirty = false;
+    private final String name;
 
-        public synchronized void add(T element) {
-            if (element == null) {
-                return;
-            }
-            if (set.add(element)) {
-                list.add(element);
-                dirty = true;
-            }
-        }
+    private final boolean flattenArrayTypes;
 
-        public synchronized T getRandom() {
-            if (list.isEmpty()) {
-                return null;
-            }
-            if (dirty) {
-                list.sort(Randomness::deterministicCompare);
-                dirty = false;
-            }
-            return Randomness.choice(list);
-        }
+    private final ConstantBag<String> stringPool;
 
-        public synchronized int removeIf(Predicate<? super T> predicate) {
-            int removed = 0;
-            for (T element : new java.util.ArrayList<>(list)) {
-                if (predicate.test(element)) {
-                    if (set.remove(element)) {
-                        removed++;
-                    }
-                }
-            }
-            if (removed > 0) {
-                list.removeIf(predicate);
-                dirty = true;
-            }
-            return removed;
-        }
+    private final ConstantBag<Type> typePool;
 
-        public synchronized int size() {
-            return list.size();
-        }
+    private final ConstantBag<Integer> intPool;
 
-        public synchronized List<T> snapshot() {
-            return Collections.unmodifiableList(new ArrayList<>(list));
-        }
-    }
+    private final ConstantBag<Double> doublePool;
 
-    private final FastPool<String> stringPool = new FastPool<>();
+    private final ConstantBag<Long> longPool;
 
-    private final FastPool<Type> typePool = new FastPool<>();
-
-    private final FastPool<Integer> intPool = new FastPool<>();
-
-    private final FastPool<Double> doublePool = new FastPool<>();
-
-    private final FastPool<Long> longPool = new FastPool<>();
-
-    private final FastPool<Float> floatPool = new FastPool<>();
+    private final ConstantBag<Float> floatPool;
 
     /**
-     * Initializes the static constant pool.
+     * Initializes the pool; all bags HAVE to be non-empty.
+     *
+     * @param name              the name shown by {@link #toString()}
+     * @param bags              creates the bag for one constant type
+     * @param seedPlusMinusOne  whether the numeric bags start with 1 and -1 besides 0
+     * @param flattenArrayTypes whether an array type is added as its element type
      */
-    public StaticConstantPool() {
-        /*
-         * all pools HAVE to be non-empty
-         */
+    TypedConstantPool(String name, Supplier<ConstantBag<?>> bags, boolean seedPlusMinusOne,
+                      boolean flattenArrayTypes) {
+        this.name = name;
+        this.flattenArrayTypes = flattenArrayTypes;
+        stringPool = newBag(bags);
+        typePool = newBag(bags);
+        intPool = newBag(bags);
+        doublePool = newBag(bags);
+        longPool = newBag(bags);
+        floatPool = newBag(bags);
 
         stringPool.add("");
 
@@ -124,87 +84,56 @@ public class StaticConstantPool implements ConstantPool {
         }
 
         intPool.add(0);
-        intPool.add(1);
-        intPool.add(-1);
-
         longPool.add(0L);
-        longPool.add(1L);
-        longPool.add(-1L);
-
         floatPool.add(0.0f);
-        floatPool.add(1.0f);
-        floatPool.add(-1.0f);
-
         doublePool.add(0.0);
-        doublePool.add(1.0);
-        doublePool.add(-1.0);
+        if (seedPlusMinusOne) {
+            intPool.add(1);
+            intPool.add(-1);
+            longPool.add(1L);
+            longPool.add(-1L);
+            floatPool.add(1.0f);
+            floatPool.add(-1.0f);
+            doublePool.add(1.0);
+            doublePool.add(-1.0);
+        }
     }
 
-    /**
-     * Returns a random string.
-     *
-     * @return a {@link java.lang.String} object.
-     */
+    @SuppressWarnings("unchecked")
+    private static <T> ConstantBag<T> newBag(Supplier<ConstantBag<?>> bags) {
+        return (ConstantBag<T>) bags.get();
+    }
+
     @Override
     public String getRandomString() {
-        return stringPool.getRandom();
+        return stringPool.random();
     }
 
-    /**
-     * Returns a random type.
-     *
-     * @return a {@link org.objectweb.asm.Type} object.
-     */
     @Override
     public Type getRandomType() {
-        return typePool.getRandom();
+        return typePool.random();
     }
 
-    /**
-     * Returns a random int.
-     *
-     * @return a int.
-     */
     @Override
     public int getRandomInt() {
-        return intPool.getRandom();
+        return intPool.random();
     }
 
-    /**
-     * Returns a random float.
-     *
-     * @return a float.
-     */
     @Override
     public float getRandomFloat() {
-        return floatPool.getRandom();
+        return floatPool.random();
     }
 
-    /**
-     * Returns a random double.
-     *
-     * @return a double.
-     */
     @Override
     public double getRandomDouble() {
-        return doublePool.getRandom();
+        return doublePool.random();
     }
 
-    /**
-     * Returns a random long.
-     *
-     * @return a long.
-     */
     @Override
     public long getRandomLong() {
-        return longPool.getRandom();
+        return longPool.random();
     }
 
-    /**
-     * Adds an object to the pool.
-     *
-     * @param object a {@link java.lang.Object} object.
-     */
     @Override
     public void add(Object object) {
         // We don't add null because this is explicitly handled in the TestFactory
@@ -224,10 +153,13 @@ public class StaticConstantPool implements ConstantPool {
             }
             stringPool.add(string);
         } else if (object instanceof Type) {
-            while (((Type) object).getSort() == Type.ARRAY) {
-                object = ((Type) object).getElementType();
+            Type type = (Type) object;
+            if (flattenArrayTypes) {
+                while (type.getSort() == Type.ARRAY) {
+                    type = type.getElementType();
+                }
             }
-            typePool.add((Type) object);
+            typePool.add(type);
         } else if (object instanceof Integer) {
             if (ConstantPoolManager.shouldKeepNumericConstant((Integer) object)) {
                 intPool.add((Integer) object);
@@ -245,7 +177,7 @@ public class StaticConstantPool implements ConstantPool {
                 doublePool.add((Double) object);
             }
         } else {
-            logger.info("Constant of unknown type: {}", object.getClass());
+            logger.debug("Constant of unknown type: {}", object.getClass());
         }
     }
 
@@ -260,16 +192,16 @@ public class StaticConstantPool implements ConstantPool {
         removed += floatPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
         removed += doublePool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
 
-        if (intPool.size() == 0) {
+        if (intPool.isEmpty()) {
             intPool.add(0);
         }
-        if (longPool.size() == 0) {
+        if (longPool.isEmpty()) {
             longPool.add(0L);
         }
-        if (floatPool.size() == 0) {
+        if (floatPool.isEmpty()) {
             floatPool.add(0.0f);
         }
-        if (doublePool.size() == 0) {
+        if (doublePool.isEmpty()) {
             doublePool.add(0.0);
         }
         return removed;
@@ -298,6 +230,12 @@ public class StaticConstantPool implements ConstantPool {
     @Override
     public Collection<Double> getDoubles() {
         return doublePool.snapshot();
+    }
+
+    @Override
+    public String toString() {
+        return name + ":{stringPool=" + stringPool + " ; typePool=" + typePool + " ; intPool=" + intPool
+                + " ; longPool=" + longPool + " ; floatPool=" + floatPool + " ; doublePool=" + doublePool + "}";
     }
 
 }
