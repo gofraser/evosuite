@@ -21,6 +21,7 @@ package org.evosuite.symbolic.expr;
 
 import org.evosuite.Properties;
 import org.evosuite.symbolic.ConstraintTooLongException;
+import org.evosuite.symbolic.expr.bv.IntegerBinaryExpression;
 import org.evosuite.symbolic.expr.bv.IntegerComparison;
 import org.evosuite.symbolic.expr.bv.IntegerConstant;
 import org.evosuite.symbolic.expr.bv.IntegerUnaryExpression;
@@ -141,6 +142,18 @@ public class CompositeExpressionTest {
         assertEquals(index, new StringBinaryToIntegerExpression(s, Operator.INDEXOFS, c, 7L));
         assertNotEquals(index,
                 new StringBinaryToIntegerExpression(s, Operator.LASTINDEXOFS, c, 1L));
+    }
+
+    @Test
+    public void integerBinaryExpressionKeepsItsOperands() {
+        IntegerVariable x = intVar("x");
+        IntegerConstant one = new IntegerConstant(1);
+        IntegerBinaryExpression sum = new IntegerBinaryExpression(x, Operator.PLUS, one, 4L);
+
+        assertEquals(x.hashCode() + Operator.PLUS.hashCode() + one.hashCode(), sum.hashCode());
+        assertEquals("(" + x + Operator.PLUS + one + ")", sum.toString());
+        assertEquals(sum, new IntegerBinaryExpression(x, Operator.PLUS, one, 0L));
+        assertNotEquals(sum, new IntegerBinaryExpression(one, Operator.PLUS, x, 4L));
     }
 
     @Test
