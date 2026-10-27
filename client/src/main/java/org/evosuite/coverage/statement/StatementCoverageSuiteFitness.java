@@ -106,10 +106,7 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 continue;
             }
 
-            TestChromosome test = new TestChromosome();
-            test.setTestCase(result.test);
-            test.setLastExecutionResult(result);
-            test.setChanged(false);
+            TestChromosome test = TestChromosome.fromResult(result);
 
             evaluateGoals(test, result, coveredStatements);
         }

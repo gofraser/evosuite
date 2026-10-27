@@ -142,6 +142,20 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
     }
 
     /**
+     * Wraps the test of an execution result in an unchanged chromosome that carries the result.
+     *
+     * @param result the execution result of the test
+     * @return a new chromosome for {@code result.test}
+     */
+    public static TestChromosome fromResult(ExecutionResult result) {
+        TestChromosome chromosome = new TestChromosome();
+        chromosome.setTestCase(result.test);
+        chromosome.setLastExecutionResult(result);
+        chromosome.setChanged(false);
+        return chromosome;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override

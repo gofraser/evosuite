@@ -333,10 +333,7 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 continue;
             }
 
-            TestChromosome test = new TestChromosome();
-            test.setTestCase(result.test);
-            test.setLastExecutionResult(result);
-            test.setChanged(false);
+            TestChromosome test = TestChromosome.fromResult(result);
 
             handleBranchlessMethods(test, result, callCount);
             handlePredicateCount(result, predicateCount);

@@ -152,10 +152,7 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
             assert (result.getTrace().getTrueDistancesContext().keySet().size() == result
                     .getTrace().getFalseDistancesContext().keySet().size());
 
-            TestChromosome test = new TestChromosome();
-            test.setTestCase(result.test);
-            test.setLastExecutionResult(result);
-            test.setChanged(false);
+            TestChromosome test = TestChromosome.fromResult(result);
 
             for (Integer branchId : result.getTrace().getTrueDistancesContext().keySet()) {
                 Map<CallContext, Double> trueMap = result.getTrace().getTrueDistancesContext()

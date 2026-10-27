@@ -140,10 +140,7 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 continue;
             }
 
-            TestChromosome test = new TestChromosome();
-            test.setTestCase(result.test);
-            test.setLastExecutionResult(result);
-            test.setChanged(false);
+            TestChromosome test = TestChromosome.fromResult(result);
 
             //iterate on the indexes of the statements that resulted in an exception
             for (Integer i : result.getPositionsWhereExceptionsWereThrown()) {

@@ -178,10 +178,7 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
 
             TestChromosome testChromosome = null;
             if (Properties.TEST_ARCHIVE || updateChromosome) {
-                testChromosome = new TestChromosome();
-                testChromosome.setTestCase(result.test);
-                testChromosome.setLastExecutionResult(result);
-                testChromosome.setChanged(false);
+                testChromosome = TestChromosome.fromResult(result);
             }
 
             updateBranchDistances(result.getTrace().getTrueDistancesContext(), true,

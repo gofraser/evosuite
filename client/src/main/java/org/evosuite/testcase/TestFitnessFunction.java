@@ -188,10 +188,7 @@ public abstract class TestFitnessFunction
      * @return .
      */
     public boolean isCovered(ExecutionResult result) {
-        TestChromosome chromosome = new TestChromosome();
-        chromosome.setTestCase(result.test);
-        chromosome.setLastExecutionResult(result);
-        chromosome.setChanged(false);
+        TestChromosome chromosome = TestChromosome.fromResult(result);
         return isCovered(chromosome, result);
     }
 

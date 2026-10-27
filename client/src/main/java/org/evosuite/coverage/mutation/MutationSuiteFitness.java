@@ -188,10 +188,7 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
                 continue;
             }
 
-            TestChromosome test = new TestChromosome();
-            test.setTestCase(result.test);
-            test.setLastExecutionResult(result);
-            test.setChanged(false);
+            TestChromosome test = TestChromosome.fromResult(result);
 
             for (final Entry<Integer, MutationTestFitness> entry : this.mutantMap.entrySet()) {
                 int mutantId = entry.getKey();
