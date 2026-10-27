@@ -39,7 +39,6 @@ import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
 import org.evosuite.runtime.util.JarPathing;
-import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.SearchStatistics;
 import org.evosuite.testsuite.OracleReplayConfiguration;
@@ -375,15 +374,10 @@ public class TestGeneration {
         final String disableAssertionsSut = "-da:" + Properties.PROJECT_PREFIX + "...";
         final String enableAssertionsSut = "-ea:" + Properties.PROJECT_PREFIX + "...";
 
-        List<String> cmdLine = new ArrayList<>();
-        cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);
         List<String[]> processArgs = new ArrayList<>();
 
-        handleClassPath(cmdLine);
-
-        if (Properties.SPAWN_PROCESS_MANAGER_PORT != null) {
-            cmdLine.add("-Dspawn_process_manager_port=" + Properties.SPAWN_PROCESS_MANAGER_PORT);
-        }
+        List<String> classPathOptions = new ArrayList<>();
+        String clientClassPath = handleClassPath(classPathOptions);
 
         if (Properties.NUM_PARALLEL_CLIENTS < 1) {
             Properties.NUM_PARALLEL_CLIENTS = 1;
@@ -398,12 +392,13 @@ public class TestGeneration {
         }
         handler.setBaseDir(EvoSuite.base_dir_path);
 
-        ExecutionModeUtils.addProcessCommunicationPort(cmdLine, port);
-        cmdLine.add("-Dinline=true");
-        if (Properties.HEADLESS_MODE) {
-            ExecutionModeUtils.addHeadlessMode(cmdLine);
+        List<String> cmdLine = ExecutionModeUtils.startClientCommand(clientClassPath, port,
+                Properties.HEADLESS_MODE);
+        cmdLine.addAll(classPathOptions);
+        if (Properties.SPAWN_PROCESS_MANAGER_PORT != null) {
+            cmdLine.add("-Dspawn_process_manager_port=" + Properties.SPAWN_PROCESS_MANAGER_PORT);
         }
-        ExecutionModeUtils.addLogbackConfiguration(cmdLine);
+        cmdLine.add("-Dinline=true");
         cmdLine.add("-Dlog4j.configuration=SUT.log4j.properties");
 
         /*
@@ -424,7 +419,6 @@ public class TestGeneration {
         }
         //------------------------------------------------
 
-        ExecutionModeUtils.addJavaLibraryPath(cmdLine);
         // cmdLine.add("-Dminimize_values=true");
 
         if (!Properties.PROFILE.isEmpty()) {
@@ -444,8 +438,6 @@ public class TestGeneration {
         // makes diagnosing instrumentation failures essentially impossible.
         cmdLine.add("-XX:-OmitStackTraceInFastThrow");
         cmdLine.add("-XX:+StartAttachListener");
-
-        ExecutionModeUtils.addCommonModuleOpens(cmdLine);
 
         ExecutionModeUtils.addArgsExcludingCpProperty(cmdLine, args);
 
@@ -761,22 +753,17 @@ public class TestGeneration {
         return hasFailed;
     }
 
-    private static void handleClassPath(List<String> cmdLine) {
-        String classPath = ClassPathHandler.getInstance().getEvoSuiteClassPath();
+    /**
+     * Writes the class path files of the client and returns the class path to start it with.
+     *
+     * @param cmdLine receives the option naming the file with the project class path
+     */
+    private static String handleClassPath(List<String> cmdLine) {
+        String evoSuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
         String projectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        String classPath = ExecutionModeUtils.buildClassPathForTargetProject(evoSuiteCP, projectCP);
 
-        if (!classPath.isEmpty() && !projectCP.isEmpty()) {
-            classPath += File.pathSeparator;
-        }
-
-        if (!projectCP.isEmpty()) {
-            classPath += projectCP;
-        }
-
-        cmdLine.add("-cp");
-        //cmdLine.add(classPath);
         String pathingJar = JarPathing.createJarPathing(classPath);
-        cmdLine.add(pathingJar);
 
         if (projectCP.isEmpty()) {
             projectCP = classPath;
@@ -784,6 +771,7 @@ public class TestGeneration {
 
         String projectCPFilePath = ClassPathHandler.writeClasspathToFile(projectCP);
         cmdLine.add("-DCP_file_path=" + projectCPFilePath);
+        return pathingJar;
     }
 
 

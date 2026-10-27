@@ -65,43 +65,6 @@ public final class ExecutionModeUtils {
     }
 
     /**
-     * Adds the process communication port property to the command line arguments.
-     *
-     * @param cmdLine The list of command line arguments to modify.
-     * @param port    The port number to be used for process communication.
-     */
-    static void addProcessCommunicationPort(List<String> cmdLine, int port) {
-        cmdLine.add("-Dprocess_communication_port=" + port);
-    }
-
-    /**
-     * Adds the headless mode property to the command line arguments.
-     *
-     * @param cmdLine The list of command line arguments to modify.
-     */
-    static void addHeadlessMode(List<String> cmdLine) {
-        cmdLine.add("-Djava.awt.headless=true");
-    }
-
-    /**
-     * Adds the Logback configuration file property to the command line arguments.
-     *
-     * @param cmdLine The list of command line arguments to modify.
-     */
-    static void addLogbackConfiguration(List<String> cmdLine) {
-        cmdLine.add("-Dlogback.configurationFile=" + LoggingUtils.getLogbackFileName());
-    }
-
-    /**
-     * Adds the Java library path property to the command line arguments.
-     *
-     * @param cmdLine The list of command line arguments to modify.
-     */
-    static void addJavaLibraryPath(List<String> cmdLine) {
-        cmdLine.add("-Djava.library.path=lib");
-    }
-
-    /**
      * Adds arguments from the source list to the command line, excluding the classpath property.
      *
      * @param cmdLine The list of command line arguments to modify.
@@ -202,6 +165,31 @@ public final class ExecutionModeUtils {
     }
 
     /**
+     * Starts the command line of a client JVM: the java binary, the class path and the options
+     * every client gets (communication port, headless mode, logging configuration, library path
+     * and the module access flags).
+     *
+     * @param classPath The class path of the client process.
+     * @param port      The port number for process communication.
+     * @param headless  Whether to start the client in headless mode.
+     * @return The command line, to be completed with the client's properties and main class.
+     */
+    static List<String> startClientCommand(String classPath, int port, boolean headless) {
+        List<String> cmdLine = new ArrayList<>();
+        cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);
+        cmdLine.add("-cp");
+        cmdLine.add(classPath);
+        cmdLine.add("-Dprocess_communication_port=" + port);
+        if (headless) {
+            cmdLine.add("-Djava.awt.headless=true");
+        }
+        cmdLine.add("-Dlogback.configurationFile=" + LoggingUtils.getLogbackFileName());
+        cmdLine.add("-Djava.library.path=lib");
+        addCommonModuleOpens(cmdLine);
+        return cmdLine;
+    }
+
+    /**
      * Builds the command line shared by the single-client launchers (dependency writing, statistics
      * printing and coverage measurement) and publishes the target class and port to this process.
      *
@@ -217,17 +205,7 @@ public final class ExecutionModeUtils {
     static List<String> buildStandardClientCommand(String classPath, String cpProperty, boolean headless,
                                                    List<String> args, String targetClass,
                                                    String extraProperty, int port) {
-        List<String> cmdLine = new ArrayList<>();
-        cmdLine.add(JavaExecCmdUtil.getJavaBinExecutablePath(true)/*EvoSuite.JAVA_CMD*/);
-        cmdLine.add("-cp");
-        cmdLine.add(classPath);
-        addProcessCommunicationPort(cmdLine, port);
-        if (headless) {
-            addHeadlessMode(cmdLine);
-        }
-        addLogbackConfiguration(cmdLine);
-        addJavaLibraryPath(cmdLine);
-        addCommonModuleOpens(cmdLine);
+        List<String> cmdLine = startClientCommand(classPath, port, headless);
         cmdLine.add("-DCP=" + cpProperty);
 
         addArgsExcludingCpProperty(cmdLine, args);
