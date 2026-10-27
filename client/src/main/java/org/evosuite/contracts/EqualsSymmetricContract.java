@@ -77,21 +77,19 @@ public class EqualsSymmetricContract extends Contract {
             } catch (NoSuchMethodException e1) {
                 continue;
             }
-            ExecutionTracer.disable();
-            if (object1.equals(object2)) {
-                if (!object2.equals(object1)) {
-                    ExecutionTracer.enable();
-                    return new ContractViolation(this, statement, exception,
-                            pair.object1, pair.object2);
-                }
-            } else {
-                if (object2.equals(object1)) {
-                    ExecutionTracer.enable();
-                    return new ContractViolation(this, statement, exception,
-                            pair.object1, pair.object2);
+            try (ExecutionTracer.Suspension suspended = ExecutionTracer.disableTemporarily()) {
+                if (object1.equals(object2)) {
+                    if (!object2.equals(object1)) {
+                        return new ContractViolation(this, statement, exception,
+                                pair.object1, pair.object2);
+                    }
+                } else {
+                    if (object2.equals(object1)) {
+                        return new ContractViolation(this, statement, exception,
+                                pair.object1, pair.object2);
+                    }
                 }
             }
-            ExecutionTracer.enable();
         }
         return null;
     }

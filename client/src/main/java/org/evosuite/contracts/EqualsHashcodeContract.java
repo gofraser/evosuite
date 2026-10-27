@@ -78,13 +78,11 @@ public class EqualsHashcodeContract extends Contract {
                 continue;
             }
 
-            ExecutionTracer.disable();
-            try {
+            try (ExecutionTracer.Suspension suspended = ExecutionTracer.disableTemporarily()) {
                 if (object1.equals(object2)) {
                     int h1 = object1.hashCode();
                     int h2 = object2.hashCode();
                     if (h1 != h2) {
-                        ExecutionTracer.enable();
                         return new ContractViolation(this, statement, exception,
                                 pair.object1, pair.object2);
                     }
@@ -92,7 +90,6 @@ public class EqualsHashcodeContract extends Contract {
             } catch (Throwable t) {
                 // ignore
             }
-            ExecutionTracer.enable();
         }
         return null;
     }
