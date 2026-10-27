@@ -49,6 +49,13 @@ class ExecutableSnippetEngineAssertionCompileTest {
     }
 
     @Test
+    void assertionReferencingJdkInternalsDoesNotHold() throws Throwable {
+        assertFalse(ExecutableSnippetEngine.INSTANCE.evaluateAssertion(
+                "org.junit.jupiter.api.Assertions.assertEquals(5, v0.length()"
+                        + " + (sun.misc.Unsafe.class == null ? 1 : 0));", TYPES, VALUES));
+    }
+
+    @Test
     void compilableAssertionStillEvaluates() throws Throwable {
         assertTrue(ExecutableSnippetEngine.INSTANCE.evaluateAssertion(
                 "org.junit.jupiter.api.Assertions.assertEquals(4, v0.length());", TYPES, VALUES));

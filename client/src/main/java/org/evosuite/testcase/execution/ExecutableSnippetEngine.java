@@ -427,6 +427,10 @@ public final class ExecutableSnippetEngine {
                                      Map<String, Object> variableValues,
                                      long compileTimeoutMs,
                                      long evaluationTimeoutMs) throws Throwable {
+        // Sanitizing would comment the assertion out and make it hold vacuously.
+        if (FORBIDDEN_FQN_IN_SOURCE_PATTERN.matcher(assertionCode).find()) {
+            return false;
+        }
         try {
             Map<String, Binding> bindings = toBindings(variableTypes, variableValues);
             ClassLoader parentLoader = resolveSnippetParentClassLoader();
