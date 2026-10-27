@@ -177,13 +177,26 @@ public class TestMethodParser {
     /**
      * Check if a method is a test method (has @Test annotation from JUnit 4 or 5).
      */
-    private boolean isTestMethod(MethodDeclaration method) {
+    public static boolean isTestMethod(MethodDeclaration method) {
+        if (method == null) {
+            return false;
+        }
         return method.getAnnotations().stream().anyMatch(a -> {
             String name = a.getNameAsString();
             return name.equals("Test")
                     || name.equals("org.junit.Test")
                     || name.equals("org.junit.jupiter.api.Test");
         });
+    }
+
+    /**
+     * Check whether source text mentions a JUnit 4 or 5 {@code @Test} annotation, without parsing it.
+     */
+    public static boolean mentionsTestAnnotation(String source) {
+        return source != null
+                && (source.contains("@Test")
+                || source.contains("@org.junit.Test")
+                || source.contains("@org.junit.jupiter.api.Test"));
     }
 
     /**

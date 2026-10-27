@@ -46,6 +46,7 @@ import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
+import org.evosuite.testparser.TestMethodParser;
 import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.ReplaceableWorker;
 import org.slf4j.Logger;
@@ -1003,13 +1004,9 @@ public class TestRepairLoop {
         if (raw.isEmpty() || extracted.isEmpty()) {
             return OutputContractStatus.HARD_REJECT;
         }
-        boolean mentionsTest = raw.contains("@Test")
-                || raw.contains("@org.junit.Test")
-                || raw.contains("@org.junit.jupiter.api.Test");
+        boolean mentionsTest = TestMethodParser.mentionsTestAnnotation(raw);
         boolean mentionsClass = raw.contains(" class ") || raw.startsWith("class ");
-        boolean extractedHasTests = extracted.contains("@Test")
-                || extracted.contains("@org.junit.Test")
-                || extracted.contains("@org.junit.jupiter.api.Test");
+        boolean extractedHasTests = TestMethodParser.mentionsTestAnnotation(extracted);
         if (!extractedHasTests && !mentionsTest && !mentionsClass) {
             return OutputContractStatus.HARD_REJECT;
         }

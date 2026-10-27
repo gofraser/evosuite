@@ -36,6 +36,7 @@ import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import org.evosuite.Properties;
+import org.evosuite.testparser.TestMethodParser;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -215,7 +216,7 @@ public class LlmResponseParser {
         }
 
         String bodyCode = body.toString().trim();
-        if (!containsAnyTestAnnotation(bodyCode)) {
+        if (!TestMethodParser.mentionsTestAnnotation(bodyCode)) {
             bodyCode = getTestAnnotation() + "\npublic void generatedTest() {\n" + bodyCode + "\n}";
         }
 
@@ -265,7 +266,7 @@ public class LlmResponseParser {
                 return null;
             }
             MethodDeclaration method = (MethodDeclaration) member;
-            if (!method.getBody().isPresent() || !isTestAnnotated(method)) {
+            if (!method.getBody().isPresent() || !TestMethodParser.isTestMethod(method)) {
                 return null;
             }
             testMethods.add(method);
@@ -404,24 +405,6 @@ public class LlmResponseParser {
             return "@org.junit.jupiter.api.Test";
         }
         return "@org.junit.Test";
-    }
-
-    private boolean containsAnyTestAnnotation(String bodyCode) {
-        return bodyCode.contains("@Test")
-                || bodyCode.contains("@org.junit.Test")
-                || bodyCode.contains("@org.junit.jupiter.api.Test");
-    }
-
-    private boolean isTestAnnotated(MethodDeclaration declaration) {
-        if (declaration == null || declaration.getAnnotations() == null) {
-            return false;
-        }
-        return declaration.getAnnotations().stream().anyMatch(annotation -> {
-            String name = annotation == null ? "" : annotation.getNameAsString();
-            return "Test".equals(name)
-                    || "org.junit.Test".equals(name)
-                    || "org.junit.jupiter.api.Test".equals(name);
-        });
     }
 
     private boolean looksLikeJava(String snippet) {
