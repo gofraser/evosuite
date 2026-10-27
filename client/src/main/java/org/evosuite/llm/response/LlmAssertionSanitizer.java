@@ -28,6 +28,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.NullLiteralExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
@@ -481,43 +482,8 @@ public final class LlmAssertionSanitizer {
     }
 
     private static boolean isAssignable(Class<?> formal, Class<?> actual) {
-        if (formal.isAssignableFrom(actual)) {
-            return true;
-        }
-        Class<?> boxedFormal = formal.isPrimitive() ? box(formal) : formal;
-        Class<?> boxedActual = actual.isPrimitive() ? box(actual) : actual;
-        return boxedFormal != null && boxedActual != null && boxedFormal.isAssignableFrom(boxedActual);
-    }
-
-    private static Class<?> box(Class<?> primitive) {
-        if (primitive == boolean.class) {
-            return Boolean.class;
-        }
-        if (primitive == byte.class) {
-            return Byte.class;
-        }
-        if (primitive == short.class) {
-            return Short.class;
-        }
-        if (primitive == char.class) {
-            return Character.class;
-        }
-        if (primitive == int.class) {
-            return Integer.class;
-        }
-        if (primitive == long.class) {
-            return Long.class;
-        }
-        if (primitive == float.class) {
-            return Float.class;
-        }
-        if (primitive == double.class) {
-            return Double.class;
-        }
-        if (primitive == void.class) {
-            return Void.class;
-        }
-        return primitive;
+        return formal.isAssignableFrom(actual)
+                || ClassUtils.primitiveToWrapper(formal).isAssignableFrom(ClassUtils.primitiveToWrapper(actual));
     }
 
     private static String tryExtractName(Expression expression) {

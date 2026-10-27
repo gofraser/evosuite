@@ -239,22 +239,37 @@ public class GenericClassUtils {
      * over-approximating assignability.
      */
     private static Class<?> getRawClass(Type type) {
-        if (type instanceof Class) {
-            return (Class<?>) type;
-        }
-        if (type instanceof ParameterizedType) {
-            Type rawType = ((ParameterizedType) type).getRawType();
-            if (rawType instanceof Class) {
-                return (Class<?>) rawType;
-            }
-        }
-        if (type instanceof GenericArrayType) {
+        Class<?> raw = GenericUtils.rawClassOrNull(type);
+        if (raw == null && type instanceof GenericArrayType) {
             Class<?> componentType = getRawClass(((GenericArrayType) type).getGenericComponentType());
             if (componentType != null) {
                 return Array.newInstance(componentType, 0).getClass();
             }
         }
-        return null;
+        return raw;
+    }
+
+    /**
+     * Tells whether {@code actual} is {@code expected} or one of its subtypes by comparing class
+     * names, which still works when the two classes were loaded by different classloaders and
+     * {@link Class#isAssignableFrom(Class)} fails.
+     */
+    public static boolean isSubtypeByName(Class<?> expected, Class<?> actual) {
+        String expectedName = expected.getName();
+        if (expectedName.equals(actual.getName())) {
+            return true;
+        }
+        for (Class<?> sup = actual.getSuperclass(); sup != null; sup = sup.getSuperclass()) {
+            if (expectedName.equals(sup.getName())) {
+                return true;
+            }
+        }
+        for (Class<?> iface : ClassUtils.getAllInterfaces(actual)) {
+            if (expectedName.equals(iface.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

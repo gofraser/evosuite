@@ -1680,42 +1680,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         if (actual == null || expected == null || expected.isPrimitive()) {
             return false;
         }
-        if (expected.isAssignableFrom(actual)) {
-            return true;
-        }
-        String expectedName = expected.getName();
-        if (expectedName.equals(actual.getName())) {
-            return true;
-        }
-        for (Class<?> sup = actual.getSuperclass(); sup != null; sup = sup.getSuperclass()) {
-            if (expectedName.equals(sup.getName())) {
-                return true;
-            }
-        }
-        ArrayDeque<Class<?>> queue = new ArrayDeque<>();
-        HashSet<String> seen = new HashSet<>();
-        queue.add(actual);
-        while (!queue.isEmpty()) {
-            Class<?> current = queue.removeFirst();
-            for (Class<?> iface : current.getInterfaces()) {
-                if (iface == null) {
-                    continue;
-                }
-                String ifaceName = iface.getName();
-                if (!seen.add(ifaceName)) {
-                    continue;
-                }
-                if (expectedName.equals(ifaceName)) {
-                    return true;
-                }
-                queue.addLast(iface);
-            }
-            Class<?> superClass = current.getSuperclass();
-            if (superClass != null) {
-                queue.addLast(superClass);
-            }
-        }
-        return false;
+        return expected.isAssignableFrom(actual) || GenericClassUtils.isSubtypeByName(expected, actual);
     }
 
     @Override

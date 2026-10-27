@@ -30,6 +30,7 @@ import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.ReplaceableWorker;
+import org.evosuite.utils.generic.GenericUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,10 +40,8 @@ import javax.tools.ToolProvider;
 import java.io.File;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
-import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -1205,7 +1204,7 @@ public final class ExecutableSnippetEngine {
         for (Map.Entry<String, Binding> entry : bindings.entrySet()) {
             String name = entry.getKey();
             Type type = entry.getValue().type;
-            Class<?> raw = rawTypeFor(type);
+            Class<?> raw = GenericUtils.rawClassOrObject(type);
             src.append("    ").append(typeName(raw)).append(" ").append(name).append(" = ");
             src.append(readExpression(raw, name)).append(";\n");
         }
@@ -1263,7 +1262,7 @@ public final class ExecutableSnippetEngine {
         // ambiguous simple-name resolution (Date/Element/Document). Import
         // binding raw types as single-type imports instead of package wildcards.
         for (Binding binding : bindings.values()) {
-            Class<?> raw = rawTypeFor(binding.type);
+            Class<?> raw = GenericUtils.rawClassOrObject(binding.type);
             if (raw.isArray()) {
                 raw = rawComponentType(raw);
             }
@@ -1722,23 +1721,6 @@ public final class ExecutableSnippetEngine {
             return "null";
         }
         return loader.getClass().getName() + "@" + System.identityHashCode(loader);
-    }
-
-    private Class<?> rawTypeFor(Type type) {
-        if (type instanceof Class<?>) {
-            return (Class<?>) type;
-        }
-        if (type instanceof ParameterizedType) {
-            Type rawType = ((ParameterizedType) type).getRawType();
-            if (rawType instanceof Class<?>) {
-                return (Class<?>) rawType;
-            }
-        }
-        if (type instanceof GenericArrayType) {
-            Class<?> component = rawTypeFor(((GenericArrayType) type).getGenericComponentType());
-            return java.lang.reflect.Array.newInstance(component, 0).getClass();
-        }
-        return Object.class;
     }
 
     private String signature(Map<String, Binding> bindings) {

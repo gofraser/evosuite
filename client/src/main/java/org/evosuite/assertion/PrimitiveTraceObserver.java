@@ -19,6 +19,7 @@
  */
 package org.evosuite.assertion;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -107,7 +108,7 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
             }
 
             if (object.getClass().isPrimitive() || object.getClass().isEnum()
-                    || isWrapperType(object.getClass()) || object instanceof String) {
+                    || ClassUtils.isPrimitiveWrapper(object.getClass()) || object instanceof String) {
                 if (object instanceof String) {
                     if (StringValueFilter.shouldFilter((String) object)
                             || StringValueFilter.isRelayedAwtDefaultName((String) object, scope)) {

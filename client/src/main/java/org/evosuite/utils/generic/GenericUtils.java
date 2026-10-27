@@ -628,4 +628,83 @@ public class GenericUtils {
         }
         return false;
     }
+
+    /**
+     * Returns the class of a plain or parameterized type, and {@code null} for every other kind
+     * of type (arrays, wildcards, type variables) rather than guessing an erasure.
+     */
+    public static Class<?> rawClassOrNull(Type type) {
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType) {
+            Type raw = ((ParameterizedType) type).getRawType();
+            if (raw instanceof Class<?>) {
+                return (Class<?>) raw;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Like {@link #rawClassOrNull(Type)}, but also erases generic arrays and answers
+     * {@code Object} for any type it cannot erase.
+     */
+    public static Class<?> rawClassOrObject(Type type) {
+        Class<?> raw = rawClassOrNull(type);
+        if (raw != null) {
+            return raw;
+        }
+        if (type instanceof GenericArrayType) {
+            Class<?> component = rawClassOrObject(((GenericArrayType) type).getGenericComponentType());
+            return java.lang.reflect.Array.newInstance(component, 0).getClass();
+        }
+        return Object.class;
+    }
+
+    /**
+     * Tells whether two type variables denote the same symbol. Equivalent generic declarations
+     * loaded by different classloaders are not equal as objects, so declarations are compared by
+     * a stable identity (class name, or owner and signature of the method or constructor).
+     */
+    public static boolean sameTypeVariable(TypeVariable<?> left, TypeVariable<?> right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        if (!left.getName().equals(right.getName())) {
+            return false;
+        }
+        GenericDeclaration leftDecl = left.getGenericDeclaration();
+        GenericDeclaration rightDecl = right.getGenericDeclaration();
+        if (leftDecl == rightDecl) {
+            return true;
+        }
+        if (leftDecl == null || rightDecl == null) {
+            return false;
+        }
+        if (leftDecl.equals(rightDecl)) {
+            return true;
+        }
+        return declarationIdentity(leftDecl).equals(declarationIdentity(rightDecl));
+    }
+
+    private static String declarationIdentity(GenericDeclaration declaration) {
+        if (declaration instanceof Class<?>) {
+            return ((Class<?>) declaration).getName();
+        }
+        if (declaration instanceof Method) {
+            Method method = (Method) declaration;
+            return method.getDeclaringClass().getName() + "#" + method.getName()
+                    + java.util.Arrays.toString(method.getGenericParameterTypes());
+        }
+        if (declaration instanceof Constructor<?>) {
+            Constructor<?> constructor = (Constructor<?>) declaration;
+            return constructor.getDeclaringClass().getName() + "#<init>"
+                    + java.util.Arrays.toString(constructor.getGenericParameterTypes());
+        }
+        return declaration.toString();
+    }
 }

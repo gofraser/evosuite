@@ -32,6 +32,7 @@ import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.TryStmt;
+import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestClusterUtils;
@@ -49,6 +50,7 @@ import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
+import org.evosuite.utils.generic.GenericUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -443,7 +445,7 @@ public class StatementParser {
                     }
                     continue;
                 }
-                Class<?> rawDeclared = getRawClass(declaredType);
+                Class<?> rawDeclared = GenericUtils.rawClassOrObject(declaredType);
                 if (rawDeclared != null && rawDeclared.isPrimitive()) {
                     if (bestEffort) {
                         addWarning(initializer, DiagnosticKind.PRIMITIVE_INIT_WITH_NULL,
@@ -547,7 +549,7 @@ public class StatementParser {
         if (!(initializer instanceof NameExpr) || declaredType == null || resolvedRef == null) {
             return resolvedRef;
         }
-        Class<?> formal = getRawClass(declaredType);
+        Class<?> formal = GenericUtils.rawClassOrObject(declaredType);
         Class<?> actual = resolvedRef.getVariableClass();
         if (formal == null || actual == null || OverloadResolver.isAssignableFrom(formal, actual)) {
             return resolvedRef;
@@ -555,9 +557,8 @@ public class StatementParser {
 
         String rhsName = ((NameExpr) initializer).getNameAsString();
         String lhsType = getFallbackTypeName(declaredType);
-        Class<?> boxedFormal = OverloadResolver.box(formal);
         String castType = formal.isPrimitive()
-                ? getFallbackTypeName(boxedFormal != null ? boxedFormal : formal)
+                ? getFallbackTypeName(ClassUtils.primitiveToWrapper(formal))
                 : lhsType;
         String castExpr = "(" + castType + ") " + rhsName;
         String code = lhsType + " " + varName + " = " + castExpr + ";";
@@ -931,7 +932,7 @@ public class StatementParser {
     }
 
     private VariableReference handleNullLiteral(Type declaredType) {
-        Class<?> rawClass = getRawClass(declaredType);
+        Class<?> rawClass = GenericUtils.rawClassOrObject(declaredType);
 
         // String null → StringPrimitiveStatement(null), not NullStatement
         if (rawClass == String.class) {
@@ -1062,7 +1063,7 @@ public class StatementParser {
             }
         }
 
-        Class<?> preservedRawClass = getRawClass(preservedType);
+        Class<?> preservedRawClass = GenericUtils.rawClassOrObject(preservedType);
         if (shouldFallbackAnonymousObjectCreation(preservedRawClass, expr)) {
             return fallbackAnonymousObjectCreationToTypedNull(expr, preservedType, targetVarName);
         }
@@ -1240,7 +1241,7 @@ public class StatementParser {
         if (type == null || targetClass == null || targetClass.isEmpty()) {
             return false;
         }
-        Class<?> raw = getRawClass(type);
+        Class<?> raw = GenericUtils.rawClassOrObject(type);
         return raw != null && targetClass.equals(raw.getName());
     }
 
@@ -1298,7 +1299,7 @@ public class StatementParser {
 
                 if (callee != null) {
                     // Instance method: callee.method(args)
-                    targetClass = getRawClass(callee.getType());
+                    targetClass = GenericUtils.rawClassOrObject(callee.getType());
                 } else {
                     // Static method: Class.method(args) — scopeExpr is a class name
                     staticCall = true;
@@ -1744,7 +1745,7 @@ public class StatementParser {
 
     // Internal API for helpers: synthesize a compilable fallback value of the requested type.
     VariableReference createTypedFallbackValue(Type expectedType) {
-        Class<?> raw = getRawClass(expectedType);
+        Class<?> raw = GenericUtils.rawClassOrObject(expectedType);
         if (raw == void.class || raw == Void.class) {
             return addStatement(createUninterpretedStatement(new NameExpr("fallback"), ";"));
         }
@@ -1809,7 +1810,7 @@ public class StatementParser {
             // Try as variable first (instance field)
             source = resolveCalleeOrClass(scopeExpr);
             if (source != null) {
-                targetClass = getRawClass(source.getType());
+                targetClass = GenericUtils.rawClassOrObject(source.getType());
             } else {
                 // Static field: Class.FIELD
                 targetClass = resolveClassFromExpression(scopeExpr);
@@ -2044,8 +2045,8 @@ public class StatementParser {
                 case XOR: {
                     Type left = inferTypeForUntypedArgument(bin.getLeft(), depth + 1, originalArg);
                     Type right = inferTypeForUntypedArgument(bin.getRight(), depth + 1, originalArg);
-                    Class<?> leftRaw = getRawClass(left);
-                    Class<?> rightRaw = getRawClass(right);
+                    Class<?> leftRaw = GenericUtils.rawClassOrObject(left);
+                    Class<?> rightRaw = GenericUtils.rawClassOrObject(right);
                     if ((leftRaw == boolean.class || leftRaw == Boolean.class)
                             && (rightRaw == boolean.class || rightRaw == Boolean.class)) {
                         return boolean.class;
@@ -2059,8 +2060,8 @@ public class StatementParser {
                 default:
                     Type left = inferTypeForUntypedArgument(bin.getLeft(), depth + 1, originalArg);
                     Type right = inferTypeForUntypedArgument(bin.getRight(), depth + 1, originalArg);
-                    Class<?> leftRaw = getRawClass(left);
-                    Class<?> rightRaw = getRawClass(right);
+                    Class<?> leftRaw = GenericUtils.rawClassOrObject(left);
+                    Class<?> rightRaw = GenericUtils.rawClassOrObject(right);
                     if (leftRaw == double.class || leftRaw == Double.class
                             || rightRaw == double.class || rightRaw == Double.class) {
                         return double.class;
@@ -2083,7 +2084,7 @@ public class StatementParser {
         if (type == null) {
             return false;
         }
-        Class<?> raw = getRawClass(type);
+        Class<?> raw = GenericUtils.rawClassOrObject(type);
         if (raw == null || !raw.isInterface()) {
             return false;
         }
@@ -2124,7 +2125,7 @@ public class StatementParser {
                     if (scopeVar == null) {
                         return Object.class;
                     }
-                    targetClass = getRawClass(scopeVar.getType());
+                    targetClass = GenericUtils.rawClassOrObject(scopeVar.getType());
                 } else {
                     targetClass = resolveClassFromExpression(scopeExpr);
                     if (targetClass == null) {
@@ -2141,7 +2142,7 @@ public class StatementParser {
 
             Class<?>[] argTypes = new Class<?>[expr.getArguments().size()];
             for (int i = 0; i < expr.getArguments().size(); i++) {
-                argTypes[i] = getRawClass(inferTypeForUntypedArgument(expr.getArgument(i)));
+                argTypes[i] = GenericUtils.rawClassOrObject(inferTypeForUntypedArgument(expr.getArgument(i)));
             }
 
             try {
@@ -2322,8 +2323,8 @@ public class StatementParser {
         }
 
         for (int j = 0; j < argTypeArgs.length; j++) {
-            Class<?> argTArg = getRawClass(argTypeArgs[j]);
-            Class<?> paramTArg = getRawClass(paramTypeArgs[j]);
+            Class<?> argTArg = GenericUtils.rawClassOrObject(argTypeArgs[j]);
+            Class<?> paramTArg = GenericUtils.rawClassOrObject(paramTypeArgs[j]);
             // Skip if param type arg is a TypeVariable (unresolved generic)
             if (paramTypeArgs[j] instanceof java.lang.reflect.TypeVariable) {
                 continue;
@@ -2385,7 +2386,7 @@ public class StatementParser {
                 Type arrayType = componentType;
                 for (int i = 0; i < expr.getLevels().size(); i++) {
                     arrayType = java.lang.reflect.Array.newInstance(
-                            getRawClass(arrayType), 0).getClass();
+                            GenericUtils.rawClassOrObject(arrayType), 0).getClass();
                 }
                 // The component type of the outermost array (e.g. double[] for double[][])
                 Type outerComponentType = ((Class<?>) arrayType).getComponentType();
@@ -2412,7 +2413,7 @@ public class StatementParser {
             // Build the array type
             Type arrayType = componentType;
             for (int i = 0; i < levels.size(); i++) {
-                arrayType = java.lang.reflect.Array.newInstance(getRawClass(arrayType), 0).getClass();
+                arrayType = java.lang.reflect.Array.newInstance(GenericUtils.rawClassOrObject(arrayType), 0).getClass();
             }
 
             ArrayStatement stmt = new ArrayStatement(testCase, arrayType, lengths);
@@ -2681,7 +2682,7 @@ public class StatementParser {
      * This is needed so ArrayStatement allocates the correct runtime array rank.
      */
     private int[] inferArrayLengthsFromInitializer(ArrayInitializerExpr init, Type arrayType) {
-        Class<?> rawArray = getRawClass(arrayType);
+        Class<?> rawArray = GenericUtils.rawClassOrObject(arrayType);
         int dimensions = getArrayDimensions(rawArray);
         if (dimensions <= 1) {
             return new int[]{init.getValues().size()};
@@ -2801,7 +2802,7 @@ public class StatementParser {
         if (expr instanceof CastExpr) {
             try {
                 Type castType = typeResolver.resolveType(((CastExpr) expr).getType());
-                if (getRawClass(castType) == String.class) {
+                if (GenericUtils.rawClassOrObject(castType) == String.class) {
                     return true;
                 }
             } catch (Exception ignored) {
@@ -2811,10 +2812,10 @@ public class StatementParser {
         }
         if (expr instanceof NameExpr) {
             VariableReference ref = scope.resolve(((NameExpr) expr).getNameAsString());
-            return ref != null && getRawClass(ref.getType()) == String.class;
+            return ref != null && GenericUtils.rawClassOrObject(ref.getType()) == String.class;
         }
         if (expr instanceof MethodCallExpr) {
-            return getRawClass(inferMethodCallReturnType((MethodCallExpr) expr)) == String.class;
+            return GenericUtils.rawClassOrObject(inferMethodCallReturnType((MethodCallExpr) expr)) == String.class;
         }
         if (expr instanceof FieldAccessExpr) {
             FieldAccessExpr fieldAccessExpr = (FieldAccessExpr) expr;
@@ -3346,7 +3347,7 @@ public class StatementParser {
                                                             DiagnosticMessage diagnostic,
                                                             Type expectedType) {
         addWarning(expr, diagnostic.withAppendedText(" — using typed fallback value"));
-        Class<?> raw = getRawClass(expectedType);
+        Class<?> raw = GenericUtils.rawClassOrObject(expectedType);
         if (raw == void.class || raw == Void.class) {
             return addStatement(createUninterpretedStatement(expr, ";"));
         }
@@ -3369,7 +3370,7 @@ public class StatementParser {
                                                               DiagnosticMessage diagnostic) {
         Type fallbackType = expectedType == null ? Object.class : expectedType;
         addWarning(expr, diagnostic.withAppendedText(" — replaced with compilable fallback"));
-        Class<?> raw = getRawClass(fallbackType);
+        Class<?> raw = GenericUtils.rawClassOrObject(fallbackType);
         if (raw == void.class || raw == Void.TYPE) {
             // Do not preserve unresolved void expressions as raw source (eg. helper calls
             // with invented types), because that can produce uncompilable output.
@@ -3522,7 +3523,7 @@ public class StatementParser {
         if (type == null) {
             return Object.class;
         }
-        Class<?> raw = getRawClass(type);
+        Class<?> raw = GenericUtils.rawClassOrObject(type);
         if (raw == null) {
             return type;
         }
@@ -3535,7 +3536,7 @@ public class StatementParser {
     }
 
     private Statement defaultPrimitiveStatement(TestCase testCase, Type type) {
-        Class<?> raw = getRawClass(type);
+        Class<?> raw = GenericUtils.rawClassOrObject(type);
         if (raw == boolean.class || raw == Boolean.class) {
             return new BooleanPrimitiveStatement(testCase, false);
         }
@@ -3567,7 +3568,7 @@ public class StatementParser {
     }
 
     private String defaultPrimitiveLiteral(Type type) {
-        Class<?> raw = getRawClass(type);
+        Class<?> raw = GenericUtils.rawClassOrObject(type);
         if (raw == boolean.class || raw == Boolean.class) {
             return "false";
         }
@@ -3716,22 +3717,6 @@ public class StatementParser {
             types[i] = argRefs.get(i).getVariableClass();
         }
         return types;
-    }
-
-    // Internal API for helpers: erase reflective/generic Type values to a raw Class when possible.
-    static Class<?> getRawClass(Type type) {
-        if (type instanceof Class<?>) {
-            return (Class<?>) type;
-        }
-        if (type instanceof java.lang.reflect.ParameterizedType) {
-            return (Class<?>) ((java.lang.reflect.ParameterizedType) type).getRawType();
-        }
-        if (type instanceof java.lang.reflect.GenericArrayType) {
-            Class<?> component = getRawClass(
-                    ((java.lang.reflect.GenericArrayType) type).getGenericComponentType());
-            return java.lang.reflect.Array.newInstance(component, 0).getClass();
-        }
-        return Object.class;
     }
 
     /**

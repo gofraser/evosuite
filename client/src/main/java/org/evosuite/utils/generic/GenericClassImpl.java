@@ -51,14 +51,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     private static final long serialVersionUID = -3307107227790458308L;
     private static final int MAX_CONSTRAINED_INSTANTIATION_ATTEMPTS = 32;
 
-    /**
-     * Set of wrapper classes.
-     */
-    private static final Set<Class<?>> WRAPPER_TYPES = new LinkedHashSet<>(
-            Arrays.asList(Boolean.class, Character.class, Byte.class, Short.class,
-                    Integer.class, Long.class, Float.class, Double.class,
-                    Void.class));
-
     protected static Type addTypeParameters(Class<?> clazz) {
         if (clazz == null) {
             return Object.class;
@@ -491,30 +483,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return the boxed type
      */
     public Class<?> getBoxedType() {
-        if (isPrimitive()) {
-            if (rawClass.equals(int.class)) {
-                return Integer.class;
-            } else if (rawClass.equals(byte.class)) {
-                return Byte.class;
-            } else if (rawClass.equals(short.class)) {
-                return Short.class;
-            } else if (rawClass.equals(long.class)) {
-                return Long.class;
-            } else if (rawClass.equals(float.class)) {
-                return Float.class;
-            } else if (rawClass.equals(double.class)) {
-                return Double.class;
-            } else if (rawClass.equals(char.class)) {
-                return Character.class;
-            } else if (rawClass.equals(boolean.class)) {
-                return Boolean.class;
-            } else if (rawClass.equals(void.class)) {
-                return Void.class;
-            } else {
-                throw new RuntimeException("Unknown unboxed type: " + rawClass);
-            }
-        }
-        return rawClass;
+        return rawClass == void.class ? Void.class : ClassUtils.primitiveToWrapper(rawClass);
     }
 
     /**
@@ -1272,30 +1241,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return the unboxed type
      */
     public Class<?> getUnboxedType() {
-        if (isWrapperType()) {
-            if (rawClass.equals(Integer.class)) {
-                return int.class;
-            } else if (rawClass.equals(Byte.class)) {
-                return byte.class;
-            } else if (rawClass.equals(Short.class)) {
-                return short.class;
-            } else if (rawClass.equals(Long.class)) {
-                return long.class;
-            } else if (rawClass.equals(Float.class)) {
-                return float.class;
-            } else if (rawClass.equals(Double.class)) {
-                return double.class;
-            } else if (rawClass.equals(Character.class)) {
-                return char.class;
-            } else if (rawClass.equals(Boolean.class)) {
-                return boolean.class;
-            } else if (rawClass.equals(Void.class)) {
-                return void.class;
-            } else {
-                throw new RuntimeException("Unknown boxed type: " + rawClass);
-            }
+        if (rawClass == Void.class) {
+            return void.class;
         }
-        return rawClass;
+        Class<?> primitive = ClassUtils.wrapperToPrimitive(rawClass);
+        return primitive != null ? primitive : rawClass;
     }
 
     /**
@@ -1806,7 +1756,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return a boolean.
      */
     public boolean isWrapperType() {
-        return WRAPPER_TYPES.contains(rawClass);
+        return rawClass == Void.class || ClassUtils.isPrimitiveWrapper(rawClass);
     }
 
     public boolean satisfiesBoundaries(TypeVariable<?> typeVariable) {

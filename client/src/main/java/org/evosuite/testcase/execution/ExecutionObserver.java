@@ -23,7 +23,6 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -38,24 +37,6 @@ public abstract class ExecutionObserver {
      * The test case being monitored and executed.
      */
     protected static TestCase currentTest = null;
-
-    /**
-     * Constant <code>WRAPPER_TYPES</code>.
-     */
-    protected static final Set<Class<?>> WRAPPER_TYPES = new HashSet<>(
-            Arrays.asList(Boolean.class, Character.class, Byte.class, Short.class,
-                    Integer.class, Long.class, Float.class, Double.class,
-                    Void.class));
-
-    /**
-     * Checks if the given class is a wrapper type.
-     *
-     * @param clazz a {@link java.lang.Class} object to check.
-     * @return true if the class is a wrapper type, false otherwise.
-     */
-    protected static boolean isWrapperType(Class<?> clazz) {
-        return WRAPPER_TYPES.contains(clazz);
-    }
 
     /**
      * Setter method for current test case.

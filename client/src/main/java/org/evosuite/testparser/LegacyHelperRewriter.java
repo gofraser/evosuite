@@ -27,6 +27,7 @@ import org.evosuite.testcase.statements.numeric.*;
 import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
 import org.evosuite.testcase.statements.reflection.PrivateMethodStatement;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericUtils;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
@@ -199,7 +200,7 @@ final class LegacyHelperRewriter {
             // Support invokeX(Target.class, ...) static wrappers too.
             if (firstArg instanceof ClassExpr) {
                 Type ownerType = typeResolver.resolveType(((ClassExpr) firstArg).getType());
-                ownerClass = StatementParser.getRawClass(ownerType);
+                ownerClass = GenericUtils.rawClassOrObject(ownerType);
             } else {
                 callee = parser.handleExpression(parser.nextSyntheticName("__legacy_invoke_owner"), firstArg, Object.class);
                 if (callee == null) {
@@ -306,9 +307,9 @@ final class LegacyHelperRewriter {
         try {
             if (receiverExpr instanceof ClassExpr) {
                 Type ownerType = typeResolver.resolveType(((ClassExpr) receiverExpr).getType());
-                return StatementParser.getRawClass(ownerType);
+                return GenericUtils.rawClassOrObject(ownerType);
             }
-            return StatementParser.getRawClass(parser.inferTypeForUntypedArgument(receiverExpr));
+            return GenericUtils.rawClassOrObject(parser.inferTypeForUntypedArgument(receiverExpr));
         } catch (Exception e) {
             return null;
         }
@@ -317,16 +318,16 @@ final class LegacyHelperRewriter {
     private Class<?>[] inferArgumentTypes(List<Expression> expressions) {
         Class<?>[] argTypes = new Class<?>[expressions.size()];
         for (int i = 0; i < expressions.size(); i++) {
-            argTypes[i] = StatementParser.getRawClass(parser.inferTypeForUntypedArgument(expressions.get(i)));
+            argTypes[i] = GenericUtils.rawClassOrObject(parser.inferTypeForUntypedArgument(expressions.get(i)));
         }
         return argTypes;
     }
 
     private Class<?>[] inferArgumentTypesWithReceiver(Expression receiverExpr, List<Expression> helperArgs) {
         Class<?>[] argTypes = new Class<?>[helperArgs.size() + 1];
-        argTypes[0] = StatementParser.getRawClass(parser.inferTypeForUntypedArgument(receiverExpr));
+        argTypes[0] = GenericUtils.rawClassOrObject(parser.inferTypeForUntypedArgument(receiverExpr));
         for (int i = 0; i < helperArgs.size(); i++) {
-            argTypes[i + 1] = StatementParser.getRawClass(parser.inferTypeForUntypedArgument(helperArgs.get(i)));
+            argTypes[i + 1] = GenericUtils.rawClassOrObject(parser.inferTypeForUntypedArgument(helperArgs.get(i)));
         }
         return argTypes;
     }
@@ -437,7 +438,7 @@ final class LegacyHelperRewriter {
         try {
             if (classExpr instanceof ClassExpr) {
                 Type t = typeResolver.resolveType(((ClassExpr) classExpr).getType());
-                return StatementParser.getRawClass(t);
+                return GenericUtils.rawClassOrObject(t);
             }
             if (classExpr instanceof NameExpr) {
                 VariableReference ref = scope.resolve(((NameExpr) classExpr).getNameAsString());

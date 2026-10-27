@@ -44,6 +44,7 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
+import org.evosuite.utils.generic.GenericUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -256,7 +257,7 @@ class MockitoPatternParser {
             }
         }
 
-        Class<?> rawTargetClass = parser.getRawClass(targetType);
+        Class<?> rawTargetClass = GenericUtils.rawClassOrObject(targetType);
         if (rawTargetClass == null || !rawTargetClass.isInterface()) {
             return null;
         }
@@ -579,7 +580,7 @@ class MockitoPatternParser {
         if (receiverExpr instanceof NameExpr) {
             VariableReference receiverRef = scope.resolve(((NameExpr) receiverExpr).getNameAsString());
             if (receiverRef != null) {
-                targetClass = parser.getRawClass(receiverRef.getType());
+                targetClass = GenericUtils.rawClassOrObject(receiverRef.getType());
             }
         }
         if (targetClass == null) {
@@ -599,7 +600,7 @@ class MockitoPatternParser {
         }
         Class<?>[] argTypes = new Class<?>[argRefs.size()];
         for (int i = 0; i < argRefs.size(); i++) {
-            argTypes[i] = parser.getRawClass(argRefs.get(i).getType());
+            argTypes[i] = GenericUtils.rawClassOrObject(argRefs.get(i).getType());
         }
 
         Method method;

@@ -35,6 +35,7 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClassUtils;
 import org.evosuite.utils.generic.GenericMethod;
+import org.evosuite.utils.generic.GenericUtils;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -186,65 +187,12 @@ public class MethodStatement extends EntityWithParametersStatement {
      */
     private static boolean isAssignableByName(java.lang.reflect.Type lhsType,
                                               java.lang.reflect.Type rhsType) {
-        Class<?> lhsClass = toRawClass(lhsType);
-        Class<?> rhsClass = toRawClass(rhsType);
+        Class<?> lhsClass = GenericUtils.rawClassOrNull(lhsType);
+        Class<?> rhsClass = GenericUtils.rawClassOrNull(rhsType);
         if (lhsClass == null || rhsClass == null) {
             return false;
         }
-        if (lhsClass == rhsClass) {
-            return true;
-        }
-        String lhsName = lhsClass.getName();
-        String rhsName = rhsClass.getName();
-        if (lhsName.equals(rhsName)) {
-            return true;
-        }
-        // Walk the superclass chain of rhsClass by name
-        for (Class<?> sup = rhsClass.getSuperclass(); sup != null; sup = sup.getSuperclass()) {
-            if (lhsName.equals(sup.getName())) {
-                return true;
-            }
-        }
-        // Walk the interface chain of rhsClass by name
-        for (Class<?> iface : getAllInterfaces(rhsClass)) {
-            if (lhsName.equals(iface.getName())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static Class<?> toRawClass(java.lang.reflect.Type type) {
-        if (type instanceof Class<?>) {
-            return (Class<?>) type;
-        }
-        if (type instanceof ParameterizedType) {
-            java.lang.reflect.Type raw = ((ParameterizedType) type).getRawType();
-            if (raw instanceof Class<?>) {
-                return (Class<?>) raw;
-            }
-        }
-        return null;
-    }
-
-    private static Set<Class<?>> getAllInterfaces(Class<?> clazz) {
-        Set<Class<?>> interfaces = new LinkedHashSet<>();
-        for (Class<?> c = clazz; c != null; c = c.getSuperclass()) {
-            for (Class<?> iface : c.getInterfaces()) {
-                if (interfaces.add(iface)) {
-                    collectSuperInterfaces(iface, interfaces);
-                }
-            }
-        }
-        return interfaces;
-    }
-
-    private static void collectSuperInterfaces(Class<?> iface, Set<Class<?>> result) {
-        for (Class<?> superIface : iface.getInterfaces()) {
-            if (result.add(superIface)) {
-                collectSuperInterfaces(superIface, result);
-            }
-        }
+        return lhsClass == rhsClass || GenericClassUtils.isSubtypeByName(lhsClass, rhsClass);
     }
 
     private void init(GenericMethod method, VariableReference callee) throws IllegalArgumentException {

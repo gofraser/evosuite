@@ -19,6 +19,7 @@
  */
 package org.evosuite.testparser;
 
+import org.apache.commons.lang3.ClassUtils;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -293,11 +294,11 @@ class OverloadResolver {
                 score += 1;
                 continue;
             }
-            if (formal.isPrimitive() && box(formal) == actual) {
+            if (formal.isPrimitive() && ClassUtils.primitiveToWrapper(formal) == actual) {
                 score += 1;
                 continue;
             }
-            if (actual.isPrimitive() && box(actual) == formal) {
+            if (actual.isPrimitive() && ClassUtils.primitiveToWrapper(actual) == formal) {
                 score += 1;
                 continue;
             }
@@ -316,27 +317,17 @@ class OverloadResolver {
         }
 
         if (actual.isPrimitive()) {
-            Class<?> boxed = box(actual);
-            if (boxed != null && formal.isAssignableFrom(boxed)) {
-                return true;
-            }
-        }
-        if (formal.isPrimitive()) {
-            Class<?> actualUnboxed = unbox(actual);
-            if (actualUnboxed != null && formal == actualUnboxed) {
+            if (formal.isAssignableFrom(ClassUtils.primitiveToWrapper(actual))) {
                 return true;
             }
         }
 
+        // A wrapper or primitive converts to any wrapper or primitive it widens to
         Class<?> formalUnboxed = unbox(formal);
         Class<?> actualUnboxed = unbox(actual);
-        if (formalUnboxed != null && actualUnboxed != null) {
-            if (formalUnboxed == actualUnboxed) {
-                return true;
-            }
-            if (isWidenable(formalUnboxed, actualUnboxed)) {
-                return true;
-            }
+        if (formalUnboxed != null && actualUnboxed != null
+                && ClassUtils.isAssignable(actualUnboxed, formalUnboxed)) {
+            return true;
         }
 
         if (actual == Void.class && !formal.isPrimitive()) {
@@ -346,86 +337,8 @@ class OverloadResolver {
         return false;
     }
 
-    static Class<?> box(Class<?> clazz) {
-        if (clazz == int.class) {
-            return Integer.class;
-        }
-        if (clazz == long.class) {
-            return Long.class;
-        }
-        if (clazz == double.class) {
-            return Double.class;
-        }
-        if (clazz == float.class) {
-            return Float.class;
-        }
-        if (clazz == boolean.class) {
-            return Boolean.class;
-        }
-        if (clazz == char.class) {
-            return Character.class;
-        }
-        if (clazz == byte.class) {
-            return Byte.class;
-        }
-        if (clazz == short.class) {
-            return Short.class;
-        }
-        return null;
-    }
-
-    static Class<?> unbox(Class<?> clazz) {
-        if (clazz == Integer.class) {
-            return int.class;
-        }
-        if (clazz == Long.class) {
-            return long.class;
-        }
-        if (clazz == Double.class) {
-            return double.class;
-        }
-        if (clazz == Float.class) {
-            return float.class;
-        }
-        if (clazz == Boolean.class) {
-            return boolean.class;
-        }
-        if (clazz == Character.class) {
-            return char.class;
-        }
-        if (clazz == Byte.class) {
-            return byte.class;
-        }
-        if (clazz == Short.class) {
-            return short.class;
-        }
-        if (clazz.isPrimitive()) {
-            return clazz;
-        }
-        return null;
-    }
-
-    static boolean isWidenable(Class<?> target, Class<?> source) {
-        if (target == short.class) {
-            return source == byte.class;
-        }
-        if (target == int.class) {
-            return source == byte.class || source == short.class || source == char.class;
-        }
-        if (target == long.class) {
-            return source == byte.class || source == short.class
-                    || source == char.class || source == int.class;
-        }
-        if (target == float.class) {
-            return source == byte.class || source == short.class
-                    || source == char.class || source == int.class || source == long.class;
-        }
-        if (target == double.class) {
-            return source == byte.class || source == short.class
-                    || source == char.class || source == int.class || source == long.class
-                    || source == float.class;
-        }
-        return false;
+    private static Class<?> unbox(Class<?> clazz) {
+        return clazz.isPrimitive() ? clazz : ClassUtils.wrapperToPrimitive(clazz);
     }
 
     private static String formatTypes(Class<?>[] types) {

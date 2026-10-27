@@ -19,6 +19,7 @@
  */
 package org.evosuite.assertion;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -62,7 +63,7 @@ public class PrimitiveFieldTraceObserver extends
             int position = statement.getPosition();
 
             if (object != null && !object.getClass().isPrimitive()
-                    && !object.getClass().isEnum() && !isWrapperType(object.getClass())) {
+                    && !object.getClass().isEnum() && !ClassUtils.isPrimitiveWrapper(object.getClass())) {
 
                 PrimitiveFieldTraceEntry entry = new PrimitiveFieldTraceEntry(var);
 

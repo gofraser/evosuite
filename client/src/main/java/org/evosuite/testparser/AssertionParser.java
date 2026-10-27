@@ -31,6 +31,7 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -630,7 +631,7 @@ class AssertionParser {
         if (current instanceof NameExpr) {
             VariableReference ref = scope.resolve(((NameExpr) current).getNameAsString());
             if (ref != null) {
-                Class<?> raw = parser.getRawClass(ref.getType());
+                Class<?> raw = GenericUtils.rawClassOrObject(ref.getType());
                 if (raw != null) {
                     return raw;
                 }

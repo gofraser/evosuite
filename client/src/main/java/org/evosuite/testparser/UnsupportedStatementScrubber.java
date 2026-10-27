@@ -25,6 +25,7 @@ import com.github.javaparser.ast.expr.*;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.numeric.*;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericUtils;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Arrays;
@@ -142,7 +143,7 @@ final class UnsupportedStatementScrubber {
         if (scopeType == null) {
             return new UnsupportedMethodTarget(call, null, false);
         }
-        return new UnsupportedMethodTarget(call, StatementParser.getRawClass(scopeType), false);
+        return new UnsupportedMethodTarget(call, GenericUtils.rawClassOrObject(scopeType), false);
     }
 
     private Type resolveUnsupportedExpressionType(Expression expr, Map<String, Type> localTypes) {
@@ -194,7 +195,7 @@ final class UnsupportedStatementScrubber {
         if (expr instanceof FieldAccessExpr) {
             FieldAccessExpr fieldAccessExpr = (FieldAccessExpr) expr;
             Type scopeType = resolveUnsupportedExpressionType(fieldAccessExpr.getScope(), localTypes);
-            Class<?> ownerClass = StatementParser.getRawClass(scopeType);
+            Class<?> ownerClass = GenericUtils.rawClassOrObject(scopeType);
             if (ownerClass == null || ownerClass == Object.class) {
                 ownerClass = parser.resolveClassFromExpression(fieldAccessExpr.getScope());
             }

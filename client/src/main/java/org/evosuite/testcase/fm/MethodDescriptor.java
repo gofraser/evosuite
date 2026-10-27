@@ -26,6 +26,7 @@ import org.evosuite.runtime.util.Inputs;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericMethod;
+import org.evosuite.utils.generic.GenericUtils;
 import org.mockito.Mockito;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -36,11 +37,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.GenericDeclaration;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
@@ -151,7 +149,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
 
                     TypeVariable<?> typeVariable = (TypeVariable<?>) paramType;
                     Type mapped = resolveTypeVariableFromOwner(method, typeVariable);
-                    Class<?> candidate = rawClassOf(mapped);
+                    Class<?> candidate = GenericUtils.rawClassOrNull(mapped);
                     if (candidate != null
                             && !raw[i].equals(candidate)
                             && raw[i].isAssignableFrom(candidate)) {
@@ -191,24 +189,11 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         Map<TypeVariable<?>, Type> ownerMap = method.getOwnerClass().getTypeVariableMap();
         for (Map.Entry<TypeVariable<?>, Type> entry : ownerMap.entrySet()) {
             TypeVariable<?> existing = entry.getKey();
-            if (isSameTypeVariableIdentity(existing, target)) {
+            if (GenericUtils.sameTypeVariable(existing, target)) {
                 return entry.getValue();
             }
         }
         return ownerMap.get(target);
-    }
-
-    private static Class<?> rawClassOf(Type type) {
-        if (type instanceof Class<?>) {
-            return (Class<?>) type;
-        }
-        if (type instanceof ParameterizedType) {
-            Type raw = ((ParameterizedType) type).getRawType();
-            if (raw instanceof Class<?>) {
-                return (Class<?>) raw;
-            }
-        }
-        return null;
     }
 
     private static void refineErasedParametersFromOwnerMap(GenericMethod method, Class<?>[] raw, Class<?>[] resolved) {
@@ -218,7 +203,7 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         }
 
         List<Class<?>> candidates = ownerMap.values().stream()
-                .map(MethodDescriptor::rawClassOf)
+                .map(GenericUtils::rawClassOrNull)
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
@@ -252,47 +237,6 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
                 resolved[i] = singleMatch;
             }
         }
-    }
-
-    private static boolean isSameTypeVariableIdentity(TypeVariable<?> left, TypeVariable<?> right) {
-        if (left == right) {
-            return true;
-        }
-        if (left == null || right == null) {
-            return false;
-        }
-        if (!left.getName().equals(right.getName())) {
-            return false;
-        }
-        GenericDeclaration leftDecl = left.getGenericDeclaration();
-        GenericDeclaration rightDecl = right.getGenericDeclaration();
-        if (leftDecl == rightDecl) {
-            return true;
-        }
-        if (leftDecl == null || rightDecl == null) {
-            return false;
-        }
-        if (leftDecl.equals(rightDecl)) {
-            return true;
-        }
-        return declarationIdentity(leftDecl).equals(declarationIdentity(rightDecl));
-    }
-
-    private static String declarationIdentity(GenericDeclaration declaration) {
-        if (declaration instanceof Class<?>) {
-            return ((Class<?>) declaration).getName();
-        }
-        if (declaration instanceof Method) {
-            Method method = (Method) declaration;
-            return method.getDeclaringClass().getName() + "#" + method.getName()
-                    + Arrays.toString(method.getGenericParameterTypes());
-        }
-        if (declaration instanceof Constructor<?>) {
-            Constructor<?> constructor = (Constructor<?>) declaration;
-            return constructor.getDeclaringClass().getName() + "#<init>"
-                    + Arrays.toString(constructor.getGenericParameterTypes());
-        }
-        return declaration.toString();
     }
 
     /**

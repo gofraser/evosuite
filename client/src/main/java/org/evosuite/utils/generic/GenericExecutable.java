@@ -26,7 +26,6 @@ import org.evosuite.testcase.variable.VariableReference;
 
 import java.lang.reflect.Executable;
 import java.lang.reflect.Parameter;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
 
@@ -99,26 +98,13 @@ public abstract class GenericExecutable<T extends GenericExecutable<T, U>, U ext
         if (exactDeclaringType == null) {
             // Expected when 'type' and the declaring class are loaded by different classloaders
             // (same name, different Class objects); only an assignable raw type is unexpected.
-            Class<?> rawType = getRawClass(type);
+            Class<?> rawType = GenericUtils.rawClassOrNull(type);
             if (rawType != null && declaringClass.isAssignableFrom(rawType)) {
                 logger.debug("The executable {} is not a member of type {} - declared in {}"
                         + " [unexpected, rawType={}]", m, type, declaringClass, rawType);
             }
         }
         return exactDeclaringType;
-    }
-
-    private static Class<?> getRawClass(Type type) {
-        if (type instanceof Class<?>) {
-            return (Class<?>) type;
-        }
-        if (type instanceof ParameterizedType) {
-            Type raw = ((ParameterizedType) type).getRawType();
-            if (raw instanceof Class<?>) {
-                return (Class<?>) raw;
-            }
-        }
-        return null;
     }
 
     public abstract Type[] getParameterTypes();
