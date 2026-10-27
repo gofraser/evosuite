@@ -307,12 +307,16 @@ public final class DependencyFailureAnalysis {
         return className.startsWith("org.evosuite.") || className.startsWith("shaded.org.evosuite.");
     }
 
-    static boolean isJdkOrFrameworkFrame(String className) {
+    static boolean isJdkClassName(String className) {
         return className.startsWith("java.")
                 || className.startsWith("javax.")
                 || className.startsWith("jdk.")
                 || className.startsWith("sun.")
-                || className.startsWith("com.sun.")
+                || className.startsWith("com.sun.");
+    }
+
+    static boolean isJdkOrFrameworkFrame(String className) {
+        return isJdkClassName(className)
                 || className.startsWith("org.junit.")
                 || className.startsWith("junit.")
                 || className.startsWith("org.mockito.")

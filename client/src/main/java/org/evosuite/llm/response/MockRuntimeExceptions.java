@@ -59,20 +59,12 @@ final class MockRuntimeExceptions {
         }
         for (StackTraceElement frame : trace) {
             String className = frame == null ? null : frame.getClassName();
-            if (className == null || isJdkClassName(className)) {
+            if (className == null || DependencyFailureAnalysis.isJdkClassName(className)) {
                 continue;
             }
             return className.startsWith(MOCK_RUNTIME_PACKAGE_PREFIX);
         }
         return false;
-    }
-
-    private static boolean isJdkClassName(String className) {
-        return className.startsWith("java.")
-                || className.startsWith("javax.")
-                || className.startsWith("jdk.")
-                || className.startsWith("sun.")
-                || className.startsWith("com.sun.");
     }
 
     /**
