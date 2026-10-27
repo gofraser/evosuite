@@ -42,15 +42,7 @@ public class AVMTestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
 
         boolean improved = false;
 
-        // Only apply local search up to the point where an exception was thrown
-        // TODO: Check whether this conflicts with test expansion
-        int lastPosition = individual.size() - 1;
-        if (individual.getLastExecutionResult() != null && !individual.isChanged()) {
-            Integer lastPos = individual.getLastExecutionResult().getFirstPositionOfThrownException();
-            if (lastPos != null) {
-                lastPosition = lastPos;
-            }
-        }
+        int lastPosition = lastPositionToSearch(individual);
         TestCase test = individual.getTestCase();
 
         // We count down to make the code work when lines are
@@ -70,13 +62,9 @@ public class AVMTestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
                 logger.warn(individual.getTestCase().toCode());
                 break;
             }
-            final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
-
             final Statement statement = test.getStatement(i);
 
-            if (!test.hasReferences(statement.getReturnValue()) && !statement.getReturnClass().equals(targetClass)) {
-                logger.info(
-                        "Return value of statement " + i + " is not referenced and not SUT, not doing local search");
+            if (!isLocalSearchTarget(test, i)) {
                 continue;
             }
 

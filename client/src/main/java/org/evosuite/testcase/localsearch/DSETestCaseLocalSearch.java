@@ -236,15 +236,7 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
                                                                              LocalSearchObjective<TestChromosome>
                                                                                      localSearchObjective) {
 
-        // Only apply local search up to the point where an exception was thrown
-        // TODO: Check whether this conflicts with test expansion
-        int lastPosition = testChromosome.size() - 1;
-        if (testChromosome.getLastExecutionResult() != null && !testChromosome.isChanged()) {
-            Integer lastPos = testChromosome.getLastExecutionResult().getFirstPositionOfThrownException();
-            if (lastPos != null) {
-                lastPosition = lastPos;
-            }
-        }
+        int lastPosition = lastPositionToSearch(testChromosome);
         TestCase test = testChromosome.getTestCase();
         Set<Integer> targetStatementIndexes = new HashSet<>();
 
@@ -265,12 +257,7 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
                 logger.warn(testChromosome.getTestCase().toCode());
                 break;
             }
-            final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
-
-            if (!test.hasReferences(test.getStatement(i).getReturnValue())
-                    && !test.getStatement(i).getReturnClass().equals(targetClass)) {
-                logger.info(
-                        "Return value of statement " + i + " is not referenced and not SUT, not doing local search");
+            if (!isLocalSearchTarget(test, i)) {
                 continue;
             }
 

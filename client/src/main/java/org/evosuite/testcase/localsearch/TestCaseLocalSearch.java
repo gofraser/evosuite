@@ -75,4 +75,39 @@ public abstract class TestCaseLocalSearch<T extends Chromosome<T>> implements Lo
         }
     }
 
+    /**
+     * The last statement position local search considers: the first statement that threw an
+     * exception in the last execution if the test has not changed since, else the last statement.
+     *
+     * @param individual the test being searched
+     * @return the position of the last statement to search
+     */
+    protected static int lastPositionToSearch(TestChromosome individual) {
+        // Only apply local search up to the point where an exception was thrown
+        // TODO: Check whether this conflicts with test expansion
+        int lastPosition = individual.size() - 1;
+        if (individual.getLastExecutionResult() != null && !individual.isChanged()) {
+            Integer lastPos = individual.getLastExecutionResult().getFirstPositionOfThrownException();
+            if (lastPos != null) {
+                lastPosition = lastPos;
+            }
+        }
+        return lastPosition;
+    }
+
+    /**
+     * Whether the statement at the position is worth a local search: its return value is
+     * referenced later or it returns the class under test.
+     */
+    protected static boolean isLocalSearchTarget(TestCase test, int position) {
+        final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
+        final Statement statement = test.getStatement(position);
+        if (!test.hasReferences(statement.getReturnValue()) && !statement.getReturnClass().equals(targetClass)) {
+            logger.info("Return value of statement " + position
+                    + " is not referenced and not SUT, not doing local search");
+            return false;
+        }
+        return true;
+    }
+
 }
