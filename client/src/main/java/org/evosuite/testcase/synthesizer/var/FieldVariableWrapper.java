@@ -31,7 +31,6 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -71,16 +70,7 @@ public class FieldVariableWrapper extends DepVariableWrapper {
             Map<DepVariableWrapper, VarRelevance> map,
             Branch b,
             boolean allowNullValue) {
-        List<VariableReference> list = new ArrayList<>();
-
-        // TODO Darien
-
-        VariableReference var = generateOrFind(test, isLeaf, variable, map, b, allowNullValue);
-        if (var != null) {
-            list.add(var);
-        }
-
-        return new VarRelevance(list, list);
+        return VarRelevance.of(generateOrFind(test, isLeaf, variable, map, b, allowNullValue));
     }
 
     /**

@@ -38,6 +38,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiPredicate;
 
 public class DataDependencyUtil {
 
@@ -956,31 +957,35 @@ public class DataDependencyUtil {
         return false;
     }
 
+    private static final Set<String> MAP_MUTATIONS = names(
+            "clear", "compute", "computeIfAbsent", "computeIfPresent", "merge", "put", "putAll",
+            "putIfAbsent", "remove", "replace", "replaceAll");
+
+    private static final Set<String> COLLECTION_MUTATIONS = names(
+            "add", "addAll", "addElement", "addFirst", "addLast", "clear", "ensureCapacity", "offer",
+            "offerFirst", "offerLast", "poll", "pollFirst", "pollLast", "pop", "push", "remove",
+            "removeAll", "removeElement", "removeElementAt", "removeFirst", "removeFirstOccurrence",
+            "removeIf", "removeLast", "removeLastOccurrence", "removeRange", "replaceAll", "retainAll",
+            "set", "setElementAt", "setSize", "sort", "trimToSize");
+
+    private static final Set<String> MAP_DESTRUCTIVE_MUTATIONS = names("clear", "remove");
+
+    private static final Set<String> COLLECTION_DESTRUCTIVE_MUTATIONS = names(
+            "clear", "pop", "poll", "pollFirst", "pollLast", "remove", "removeAll", "removeElement",
+            "removeElementAt", "removeFirst", "removeFirstOccurrence", "removeIf", "removeLast",
+            "removeLastOccurrence", "removeRange", "retainAll");
+
+    private static Set<String> names(String... names) {
+        return new HashSet<>(Arrays.asList(names));
+    }
+
+    private static boolean isContainerMutationName(Class<?> owner, String name) {
+        return (Map.class.isAssignableFrom(owner) ? MAP_MUTATIONS : COLLECTION_MUTATIONS).contains(name);
+    }
+
     /** Returns whether the collected settings mutate the supplied container field. */
     public static boolean isContainerMutationSetting(Field field, List<ValueSettings> settings) {
-        if (field == null || settings == null || !isContainerType(field.getType())) {
-            return false;
-        }
-        for (ValueSettings setting : settings) {
-            if (setting == null
-                    || setting.valueSettingInstruction == null
-                    || !(setting.valueSettingInstruction.getASMNode() instanceof MethodInsnNode)) {
-                continue;
-            }
-            MethodInsnNode call = (MethodInsnNode) setting.valueSettingInstruction.getASMNode();
-            try {
-                Class<?> owner =
-                        TestGenerationContext.getInstance()
-                                .getClassLoaderForSUT()
-                                .loadClass(call.owner.replace('/', '.'));
-                if (isContainerType(owner) && isContainerMutationName(owner, call.name)) {
-                    return true;
-                }
-            } catch (ClassNotFoundException ignored) {
-                // An unresolved call cannot be established as a container mutation.
-            }
-        }
-        return false;
+        return anyContainerCall(field, settings, DataDependencyUtil::isContainerMutationName);
     }
 
     /**
@@ -990,6 +995,17 @@ public class DataDependencyUtil {
      */
     public static boolean isDestructiveContainerMutationSetting(
             Field field, List<ValueSettings> settings) {
+        return anyContainerCall(field, settings, (owner, name) ->
+                (Map.class.isAssignableFrom(owner) ? MAP_DESTRUCTIVE_MUTATIONS : COLLECTION_DESTRUCTIVE_MUTATIONS)
+                        .contains(name));
+    }
+
+    /**
+     * Whether one of the settings calls a method on a container that the predicate accepts for the
+     * call's owner class and method name. A call whose owner cannot be loaded does not count.
+     */
+    private static boolean anyContainerCall(Field field, List<ValueSettings> settings,
+                                            BiPredicate<Class<?>, String> accepts) {
         if (field == null || settings == null || !isContainerType(field.getType())) {
             return false;
         }
@@ -1005,8 +1021,7 @@ public class DataDependencyUtil {
                         TestGenerationContext.getInstance()
                                 .getClassLoaderForSUT()
                                 .loadClass(call.owner.replace('/', '.'));
-                if (isContainerType(owner)
-                        && isDestructiveContainerMutationName(owner, call.name)) {
+                if (isContainerType(owner) && accepts.test(owner, call.name)) {
                     return true;
                 }
             } catch (ClassNotFoundException ignored) {
@@ -1014,80 +1029,6 @@ public class DataDependencyUtil {
             }
         }
         return false;
-    }
-
-    private static boolean isContainerMutationName(Class<?> owner, String name) {
-        if (Map.class.isAssignableFrom(owner)) {
-            return Arrays.asList(
-                            "clear",
-                            "compute",
-                            "computeIfAbsent",
-                            "computeIfPresent",
-                            "merge",
-                            "put",
-                            "putAll",
-                            "putIfAbsent",
-                            "remove",
-                            "replace",
-                            "replaceAll")
-                    .contains(name);
-        }
-        return Arrays.asList(
-                        "add",
-                        "addAll",
-                        "addElement",
-                        "addFirst",
-                        "addLast",
-                        "clear",
-                        "ensureCapacity",
-                        "offer",
-                        "offerFirst",
-                        "offerLast",
-                        "poll",
-                        "pollFirst",
-                        "pollLast",
-                        "pop",
-                        "push",
-                        "remove",
-                        "removeAll",
-                        "removeElement",
-                        "removeElementAt",
-                        "removeFirst",
-                        "removeFirstOccurrence",
-                        "removeIf",
-                        "removeLast",
-                        "removeLastOccurrence",
-                        "removeRange",
-                        "replaceAll",
-                        "retainAll",
-                        "set",
-                        "setElementAt",
-                        "setSize",
-                        "sort",
-                        "trimToSize")
-                .contains(name);
-    }
-
-    private static boolean isDestructiveContainerMutationName(Class<?> owner, String name) {
-        if (Map.class.isAssignableFrom(owner)) {
-            return "clear".equals(name) || "remove".equals(name);
-        }
-        return "clear".equals(name)
-                || "pop".equals(name)
-                || "poll".equals(name)
-                || "pollFirst".equals(name)
-                || "pollLast".equals(name)
-                || "remove".equals(name)
-                || "removeAll".equals(name)
-                || "removeElement".equals(name)
-                || "removeElementAt".equals(name)
-                || "removeFirst".equals(name)
-                || "removeFirstOccurrence".equals(name)
-                || "removeIf".equals(name)
-                || "removeLast".equals(name)
-                || "removeLastOccurrence".equals(name)
-                || "removeRange".equals(name)
-                || "retainAll".equals(name);
     }
 
     /**

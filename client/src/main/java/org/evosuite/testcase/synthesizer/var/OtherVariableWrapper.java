@@ -28,10 +28,12 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,17 +57,13 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             Map<DepVariableWrapper, VarRelevance> map,
             Branch b,
             boolean allowNullValue) {
-        List<VariableReference> list = new ArrayList<>();
         terminalObservation = false;
         VariableReference var =
                 generateOrFind(test, isLeaf, variable.callerObject, map, b, allowNullValue);
-        if (var != null) {
-            list.add(var);
-        }
         if (var == null && terminalObservation) {
             return null;
         }
-        return new VarRelevance(list, list);
+        return VarRelevance.of(var);
     }
 
     @Override
@@ -91,12 +89,25 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             Map<DepVariableWrapper, VarRelevance> map,
             Branch b,
             boolean allowNullValue) {
+        return resolve(test, map, callerObject, allowNullValue, true);
+    }
+
+    /**
+     * The variable a load instruction takes from the parent that already has one, or the call
+     * an invocation instruction stands for: generated if {@code generate} is set, otherwise
+     * only looked up in the test.
+     */
+    private VariableReference resolve(
+            TestCase test,
+            Map<DepVariableWrapper, VarRelevance> map,
+            VariableReference callerObject,
+            boolean allowNullValue,
+            boolean generate) {
         int opcode = this.var.getInstruction().getASMNode().getOpcode();
         if (opcode == Opcodes.ALOAD || opcode == Opcodes.DUP || opcode == Opcodes.DUP2) {
             for (DepVariableWrapper parentNode : this.parents) {
                 if (map.get(parentNode) != null) {
-                    VariableReference generatedVariable = map.get(parentNode).matchedVars.get(0);
-                    return generatedVariable;
+                    return map.get(parentNode).matchedVars.get(0);
                 }
             }
         } else if (opcode == Opcodes.INVOKEVIRTUAL
@@ -104,14 +115,13 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                 || opcode == Opcodes.INVOKESTATIC
                 || opcode == Opcodes.INVOKEDYNAMIC
                 || opcode == Opcodes.INVOKEINTERFACE) {
-
+            if (!generate) {
+                return findMethodCallStatement(test, map, callerObject);
+            }
             if (callerObject == null) {
                 return null;
             }
-
-            VariableReference generatedVariable =
-                    generateMethodCallStatement(test, map, callerObject, allowNullValue);
-            return generatedVariable;
+            return generateMethodCallStatement(test, map, callerObject, allowNullValue);
         }
 
         return null;
@@ -142,6 +152,15 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         return null;
     }
 
+    private static Class<?>[] argumentClasses(String descriptor) {
+        Type[] types = Type.getArgumentTypes(descriptor);
+        Class<?>[] classes = new Class<?>[types.length];
+        for (int i = 0; i < types.length; i++) {
+            classes[i] = VariableCodeGenerationUtil.getClassForType(types[i]);
+        }
+        return classes;
+    }
+
     private VariableReference generateMethodCallStatement(
             TestCase test,
             Map<DepVariableWrapper, VarRelevance> map,
@@ -157,15 +176,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                     TestGenerationContext.getInstance()
                             .getClassLoaderForSUT()
                             .loadClass(fieldOwner);
-            org.objectweb.asm.Type[] types =
-                    org.objectweb.asm.Type.getArgumentTypes(
-                            fullName.substring(fullName.indexOf("("), fullName.length()));
-            Class<?>[] paramClasses = new Class<?>[types.length];
-            int index = 0;
-            for (org.objectweb.asm.Type type : types) {
-                Class<?> paramClass = VariableCodeGenerationUtil.getClassForType(type);
-                paramClasses[index++] = paramClass;
-            }
+            Class<?>[] paramClasses = argumentClasses(methodNode.desc);
 
             if (!fullName.contains("<init>")) {
                 Method call =
@@ -337,6 +348,17 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         }
     }
 
+    /**
+     * Zero-effect observer methods that the name prefixes below do not cover. The first group is
+     * generic; the second is the ANTLR token-stream lookahead ({@code LA}, {@code LT}) and the
+     * XMLBeans query and cursor methods that the ANTLR and XMLBeans benchmark classes call to
+     * inspect state.
+     */
+    private static final Set<String> PURE_OBSERVATION_NAMES = new HashSet<>(Arrays.asList(
+            "size", "isEmpty", "iterator", "entrySet", "keySet", "values", "toClass", "equals",
+            "isAssignableFrom", "compareTo", "toString", "hashCode",
+            "LA", "LT", "schemaType", "selectPath", "execQuery", "newCursor", "xmlText"));
+
     static boolean isPureObservation(Method method) {
         if (method == null
                 || Modifier.isStatic(method.getModifiers())
@@ -347,25 +369,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         return name.startsWith("get")
                 || name.startsWith("is")
                 || name.startsWith("has")
-                || "LA".equals(name)
-                || "LT".equals(name)
-                || "size".equals(name)
-                || "isEmpty".equals(name)
-                || "iterator".equals(name)
-                || "entrySet".equals(name)
-                || "keySet".equals(name)
-                || "values".equals(name)
-                || "toClass".equals(name)
-                || "equals".equals(name)
-                || "isAssignableFrom".equals(name)
-                || "compareTo".equals(name)
-                || "toString".equals(name)
-                || "hashCode".equals(name)
-                || "schemaType".equals(name)
-                || "selectPath".equals(name)
-                || "execQuery".equals(name)
-                || "newCursor".equals(name)
-                || "xmlText".equals(name);
+                || PURE_OBSERVATION_NAMES.contains(name);
     }
 
     /**
@@ -1026,24 +1030,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             boolean isLeaf,
             VariableReference callerObject,
             Map<DepVariableWrapper, VarRelevance> map) {
-        int opcode = this.var.getInstruction().getASMNode().getOpcode();
-        if (opcode == Opcodes.ALOAD || opcode == Opcodes.DUP || opcode == Opcodes.DUP2) {
-            for (DepVariableWrapper parentNode : this.parents) {
-                if (map.get(parentNode) != null) {
-                    VariableReference generatedVariable = map.get(parentNode).matchedVars.get(0);
-                    return generatedVariable;
-                }
-            }
-        } else if (opcode == Opcodes.INVOKEVIRTUAL
-                || opcode == Opcodes.INVOKESPECIAL
-                || opcode == Opcodes.INVOKESTATIC
-                || opcode == Opcodes.INVOKEDYNAMIC
-                || opcode == Opcodes.INVOKEINTERFACE) {
-            VariableReference generatedVariable = findMethodCallStatement(test, map, callerObject);
-            return generatedVariable;
-        }
-
-        return null;
+        return resolve(test, map, callerObject, false, false);
     }
 
     private VariableReference findMethodCallStatement(
@@ -1059,15 +1046,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                     TestGenerationContext.getInstance()
                             .getClassLoaderForSUT()
                             .loadClass(fieldOwner);
-            org.objectweb.asm.Type[] types =
-                    org.objectweb.asm.Type.getArgumentTypes(
-                            fullName.substring(fullName.indexOf("("), fullName.length()));
-            Class<?>[] paramClasses = new Class<?>[types.length];
-            int index = 0;
-            for (org.objectweb.asm.Type type : types) {
-                Class<?> paramClass = VariableCodeGenerationUtil.getClassForType(type);
-                paramClasses[index++] = paramClass;
-            }
+            Class<?>[] paramClasses = argumentClasses(methodNode.desc);
 
             if (!fullName.contains("<init>")) {
                 Method call = null;

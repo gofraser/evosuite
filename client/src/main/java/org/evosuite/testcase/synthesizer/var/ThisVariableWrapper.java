@@ -8,8 +8,6 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.synthesizer.VariableInTest;
 import org.evosuite.testcase.variable.VariableReference;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 public class ThisVariableWrapper extends DepVariableWrapper {
@@ -21,13 +19,7 @@ public class ThisVariableWrapper extends DepVariableWrapper {
     @Override
     public VarRelevance generateOrFindStatement(TestCase test, boolean isLeaf, VariableInTest variable,
             Map<DepVariableWrapper, VarRelevance> map, Branch b, boolean allowNullValue) {
-        List<VariableReference> list = new ArrayList<>();
-        VariableReference var = generateOrFind(test, isLeaf, variable.callerObject, map, b, allowNullValue);
-        if (var != null) {
-            list.add(var);
-        }
-
-        return new VarRelevance(list, list);
+        return VarRelevance.of(generateOrFind(test, isLeaf, variable.callerObject, map, b, allowNullValue));
     }
 
     public VariableReference generateOrFind(TestCase test, boolean isLeaf, VariableReference callerObject,
