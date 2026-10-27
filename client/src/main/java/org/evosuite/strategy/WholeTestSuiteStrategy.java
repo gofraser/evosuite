@@ -24,8 +24,6 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.FitnessFunctionsUtils;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
-import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.statistics.RuntimeVariable;
@@ -58,9 +56,7 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
         PropertiesSuiteGAFactory algorithmFactory = new PropertiesSuiteGAFactory();
         GeneticAlgorithm<TestSuiteChromosome> algorithm = algorithmFactory.getSearchAlgorithm();
 
-        if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD) {
-            TestGenerationResultBuilder.getInstance().setGeneticAlgorithm(algorithm);
-        }
+        registerForResult(algorithm);
 
         long startTime = System.currentTimeMillis() / 1000;
 
@@ -117,15 +113,7 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
             LoggingUtils.getEvoLogger().info("");
         }
 
-        // avoid printing time related info in system tests due to lack of determinism
-        if (!Properties.IS_RUNNING_A_SYSTEM_TEST) {
-            LoggingUtils.getEvoLogger().info(
-                    "* Search finished after {}s and {} generations, {} statements, best individual has fitness: {}",
-                    (endTime - startTime),
-                    algorithm.getAge(),
-                    MaxStatementsStoppingCondition.getNumExecutedStatements(),
-                    testSuite.getFitness());
-        }
+        logSearchFinished(startTime, endTime, algorithm, testSuite);
 
         // Search is finished, send statistics
         sendExecutionStatistics();

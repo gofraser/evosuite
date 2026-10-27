@@ -25,6 +25,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.FitnessFunctionsUtils;
 import org.evosuite.coverage.TestFitnessFactory;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
@@ -33,6 +34,7 @@ import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingConditionFactory;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
+import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestUsageChecker;
@@ -40,6 +42,7 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
+import org.evosuite.utils.LoggingUtils;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -82,6 +85,38 @@ public abstract class TestGenerationStrategy {
                 MaxStatementsStoppingCondition.getNumExecutedStatements());
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed,
                 MaxTestsStoppingCondition.getNumExecutedTests());
+    }
+
+    /**
+     * Hands the search algorithm to the result builder when the result has to carry it.
+     *
+     * @param algorithm the search algorithm about to run
+     */
+    protected static void registerForResult(GeneticAlgorithm<?> algorithm) {
+        if (Properties.SERIALIZE_GA || Properties.CLIENT_ON_THREAD) {
+            TestGenerationResultBuilder.getInstance().setGeneticAlgorithm(algorithm);
+        }
+    }
+
+    /**
+     * Reports the end of a search, except in system tests where the timing would make the output
+     * nondeterministic.
+     *
+     * @param startTime start of the search in seconds
+     * @param endTime   end of the search in seconds
+     * @param algorithm the search algorithm that ran
+     * @param testSuite the best individual of the search
+     */
+    protected static void logSearchFinished(long startTime, long endTime, GeneticAlgorithm<?> algorithm,
+                                            TestSuiteChromosome testSuite) {
+        if (!Properties.IS_RUNNING_A_SYSTEM_TEST) {
+            LoggingUtils.getEvoLogger().info(
+                    "* Search finished after {}s and {} generations, {} statements, best individual has fitness: {}",
+                    (endTime - startTime),
+                    algorithm.getAge(),
+                    MaxStatementsStoppingCondition.getNumExecutedStatements(),
+                    testSuite.getFitness());
+        }
     }
 
     /**
