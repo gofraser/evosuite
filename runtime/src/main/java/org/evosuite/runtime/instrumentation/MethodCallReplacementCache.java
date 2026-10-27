@@ -60,9 +60,6 @@ public class MethodCallReplacementCache {
      */
     private final Map<String, Map<String, MethodCallReplacement>> replacementCalls = new HashMap<>();
 
-    // private final Set<MethodCallReplacement> virtualReplacementCalls = new
-    // HashSet<MethodCallReplacement>();
-
     /**
      * method replacements, which are called with Opcodes.INVOKESPECIAL.
      */
@@ -105,406 +102,118 @@ public class MethodCallReplacementCache {
             // MethodCallReplacementMethodAdapter, which run before this cache is consulted.
             String headlessSwing = PackageInfo.getNameWithSlash(
                     org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class);
-            addReplacementCall(new MethodCallReplacement("javax/swing/JComboBox", "setSelectedItem",
-                    "(Ljava/lang/Object;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setSelectedItem",
-                    "(Ljavax/swing/JComboBox;Ljava/lang/Object;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JComboBox", "setEditable",
-                    "(Z)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setEditable",
-                    "(Ljavax/swing/JComboBox;Z)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JComboBox", "getEditor",
-                    "()Ljavax/swing/ComboBoxEditor;", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_getEditor",
-                    "(Ljavax/swing/JComboBox;)Ljavax/swing/ComboBoxEditor;", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "getCaret",
-                    "()Ljavax/swing/text/Caret;", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_getCaret",
-                    "(Ljavax/swing/text/JTextComponent;)Ljavax/swing/text/Caret;", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "setCaretPosition",
-                    "(I)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setCaretPosition",
-                    "(Ljavax/swing/text/JTextComponent;I)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "moveCaretPosition",
-                    "(I)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_moveCaretPosition",
-                    "(Ljavax/swing/text/JTextComponent;I)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "setSelectionStart",
-                    "(I)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setSelectionStart",
-                    "(Ljavax/swing/text/JTextComponent;I)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "setSelectionEnd",
-                    "(I)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_setSelectionEnd",
-                    "(Ljavax/swing/text/JTextComponent;I)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "select",
-                    "(II)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_select",
-                    "(Ljavax/swing/text/JTextComponent;II)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "selectAll",
-                    "()V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_selectAll",
-                    "(Ljavax/swing/text/JTextComponent;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JColorChooser", "showDialog",
+            String box = "javax/swing/JComboBox";
+            instanceToStatic(box, "setSelectedItem", "(Ljava/lang/Object;)V",
+                    headlessSwing, "replacement_setSelectedItem");
+            instanceToStatic(box, "setEditable", "(Z)V", headlessSwing, "replacement_setEditable");
+            instanceToStatic(box, "getEditor", "()Ljavax/swing/ComboBoxEditor;",
+                    headlessSwing, "replacement_getEditor");
+            String text = "javax/swing/text/JTextComponent";
+            instanceToStatic(text, "getCaret", "()Ljavax/swing/text/Caret;",
+                    headlessSwing, "replacement_getCaret");
+            instanceToStatic(text, "setCaretPosition", "(I)V", headlessSwing, "replacement_setCaretPosition");
+            instanceToStatic(text, "moveCaretPosition", "(I)V", headlessSwing, "replacement_moveCaretPosition");
+            instanceToStatic(text, "setSelectionStart", "(I)V", headlessSwing, "replacement_setSelectionStart");
+            instanceToStatic(text, "setSelectionEnd", "(I)V", headlessSwing, "replacement_setSelectionEnd");
+            instanceToStatic(text, "select", "(II)V", headlessSwing, "replacement_select");
+            instanceToStatic(text, "selectAll", "()V", headlessSwing, "replacement_selectAll");
+            staticCall("javax/swing/JColorChooser", "showDialog",
                     "(Ljava/awt/Component;Ljava/lang/String;Ljava/awt/Color;)Ljava/awt/Color;",
-                    Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_showColorDialog",
-                    "(Ljava/awt/Component;Ljava/lang/String;Ljava/awt/Color;)Ljava/awt/Color;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "isDesktopSupported",
-                    "()Z", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_isDesktopSupported",
-                    "()Z", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "getDesktop",
-                    "()Ljava/awt/Desktop;", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_getDesktop",
-                    "()Ljava/awt/Desktop;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "open",
-                    "(Ljava/io/File;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_desktopOpen",
-                    "(Ljava/awt/Desktop;Ljava/io/File;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "edit",
-                    "(Ljava/io/File;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_desktopEdit",
-                    "(Ljava/awt/Desktop;Ljava/io/File;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "print",
-                    "(Ljava/io/File;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_desktopPrint",
-                    "(Ljava/awt/Desktop;Ljava/io/File;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "browse",
-                    "(Ljava/net/URI;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_desktopBrowse",
-                    "(Ljava/awt/Desktop;Ljava/net/URI;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "mail",
-                    "()V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_desktopMail",
-                    "(Ljava/awt/Desktop;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "mail",
-                    "(Ljava/net/URI;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_desktopMail",
-                    "(Ljava/awt/Desktop;Ljava/net/URI;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/SystemTray", "isSupported",
-                    "()Z", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_isSystemTraySupported",
-                    "()Z", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/SystemTray", "getSystemTray",
-                    "()Ljava/awt/SystemTray;", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_getSystemTray",
-                    "()Ljava/awt/SystemTray;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/SystemTray", "add",
-                    "(Ljava/awt/TrayIcon;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_systemTrayAdd",
-                    "(Ljava/awt/SystemTray;Ljava/awt/TrayIcon;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/SystemTray", "remove",
-                    "(Ljava/awt/TrayIcon;)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_systemTrayRemove",
-                    "(Ljava/awt/SystemTray;Ljava/awt/TrayIcon;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Robot", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newRobot",
-                    "()Ljava/awt/Robot;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Robot", "<init>",
-                    "(Ljava/awt/GraphicsDevice;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newRobot",
-                    "(Ljava/awt/GraphicsDevice;)Ljava/awt/Robot;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Robot", "createScreenCapture",
-                    "(Ljava/awt/Rectangle;)Ljava/awt/image/BufferedImage;", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_robotCreateScreenCapture",
-                    "(Ljava/awt/Robot;Ljava/awt/Rectangle;)Ljava/awt/image/BufferedImage;",
-                    false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MouseInfo", "getPointerInfo",
-                    "()Ljava/awt/PointerInfo;", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_getPointerInfo",
-                    "()Ljava/awt/PointerInfo;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Toolkit", "getScreenSize",
-                    "()Ljava/awt/Dimension;", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_getScreenSize",
-                    "(Ljava/awt/Toolkit;)Ljava/awt/Dimension;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Toolkit", "getDefaultToolkit",
-                    "()Ljava/awt/Toolkit;", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_getDefaultToolkit",
-                    "()Ljava/awt/Toolkit;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "waitForID",
-                    "(I)V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_waitForID",
-                    "(Ljava/awt/MediaTracker;I)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "waitForID",
-                    "(IJ)Z", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_waitForID",
-                    "(Ljava/awt/MediaTracker;IJ)Z", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "waitForAll",
-                    "()V", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_waitForAll",
-                    "(Ljava/awt/MediaTracker;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "waitForAll",
-                    "(J)Z", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_waitForAll",
-                    "(Ljava/awt/MediaTracker;J)Z", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "checkID",
-                    "(I)Z", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_checkID",
-                    "(Ljava/awt/MediaTracker;I)Z", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "checkID",
-                    "(IZ)Z", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_checkID",
-                    "(Ljava/awt/MediaTracker;IZ)Z", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "checkAll",
-                    "()Z", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_checkAll",
-                    "(Ljava/awt/MediaTracker;)Z", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "checkAll",
-                    "(Z)Z", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_checkAll",
-                    "(Ljava/awt/MediaTracker;Z)Z", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "statusID",
-                    "(IZ)I", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_statusID",
-                    "(Ljava/awt/MediaTracker;IZ)I", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "statusAll",
-                    "(Z)I", Opcodes.INVOKEVIRTUAL,
-                    headlessSwing, "replacement_statusAll",
-                    "(Ljava/awt/MediaTracker;Z)I", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/GraphicsEnvironment",
-                    "getLocalGraphicsEnvironment",
-                    "()Ljava/awt/GraphicsEnvironment;", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_getLocalGraphicsEnvironment",
-                    "()Ljava/awt/GraphicsEnvironment;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/security/CodeSource", "getLocation",
-                    "()Ljava/net/URL;", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_showColorDialog");
+            String desktop = "java/awt/Desktop";
+            staticCall(desktop, "isDesktopSupported", "()Z", headlessSwing, "replacement_isDesktopSupported");
+            staticCall(desktop, "getDesktop", "()Ljava/awt/Desktop;", headlessSwing, "replacement_getDesktop");
+            instanceToStatic(desktop, "open", "(Ljava/io/File;)V", headlessSwing, "replacement_desktopOpen");
+            instanceToStatic(desktop, "edit", "(Ljava/io/File;)V", headlessSwing, "replacement_desktopEdit");
+            instanceToStatic(desktop, "print", "(Ljava/io/File;)V", headlessSwing, "replacement_desktopPrint");
+            instanceToStatic(desktop, "browse", "(Ljava/net/URI;)V", headlessSwing, "replacement_desktopBrowse");
+            instanceToStatic(desktop, "mail", "()V", headlessSwing, "replacement_desktopMail");
+            instanceToStatic(desktop, "mail", "(Ljava/net/URI;)V", headlessSwing, "replacement_desktopMail");
+            String tray = "java/awt/SystemTray";
+            staticCall(tray, "isSupported", "()Z", headlessSwing, "replacement_isSystemTraySupported");
+            staticCall(tray, "getSystemTray", "()Ljava/awt/SystemTray;", headlessSwing,
+                    "replacement_getSystemTray");
+            instanceToStatic(tray, "add", "(Ljava/awt/TrayIcon;)V", headlessSwing, "replacement_systemTrayAdd");
+            instanceToStatic(tray, "remove", "(Ljava/awt/TrayIcon;)V", headlessSwing,
+                    "replacement_systemTrayRemove");
+            constructorsToStatic("java/awt/Robot", headlessSwing, "replacement_newRobot",
+                    "()V", "(Ljava/awt/GraphicsDevice;)V");
+            instanceToStatic("java/awt/Robot", "createScreenCapture",
+                    "(Ljava/awt/Rectangle;)Ljava/awt/image/BufferedImage;",
+                    headlessSwing, "replacement_robotCreateScreenCapture");
+            staticCall("java/awt/MouseInfo", "getPointerInfo", "()Ljava/awt/PointerInfo;",
+                    headlessSwing, "replacement_getPointerInfo");
+            instanceToStatic("java/awt/Toolkit", "getScreenSize", "()Ljava/awt/Dimension;",
+                    headlessSwing, "replacement_getScreenSize");
+            staticCall("java/awt/Toolkit", "getDefaultToolkit", "()Ljava/awt/Toolkit;",
+                    headlessSwing, "replacement_getDefaultToolkit");
+            String tracker = "java/awt/MediaTracker";
+            instanceToStatic(tracker, "waitForID", "(I)V", headlessSwing, "replacement_waitForID");
+            instanceToStatic(tracker, "waitForID", "(IJ)Z", headlessSwing, "replacement_waitForID");
+            instanceToStatic(tracker, "waitForAll", "()V", headlessSwing, "replacement_waitForAll");
+            instanceToStatic(tracker, "waitForAll", "(J)Z", headlessSwing, "replacement_waitForAll");
+            instanceToStatic(tracker, "checkID", "(I)Z", headlessSwing, "replacement_checkID");
+            instanceToStatic(tracker, "checkID", "(IZ)Z", headlessSwing, "replacement_checkID");
+            instanceToStatic(tracker, "checkAll", "()Z", headlessSwing, "replacement_checkAll");
+            instanceToStatic(tracker, "checkAll", "(Z)Z", headlessSwing, "replacement_checkAll");
+            instanceToStatic(tracker, "statusID", "(IZ)I", headlessSwing, "replacement_statusID");
+            instanceToStatic(tracker, "statusAll", "(Z)I", headlessSwing, "replacement_statusAll");
+            staticCall("java/awt/GraphicsEnvironment", "getLocalGraphicsEnvironment",
+                    "()Ljava/awt/GraphicsEnvironment;", headlessSwing, "replacement_getLocalGraphicsEnvironment");
+            instanceToStatic("java/security/CodeSource", "getLocation", "()Ljava/net/URL;",
                     PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.java.security.MockCodeSource.class),
-                    "replacement_getLocation",
-                    "(Ljava/security/CodeSource;)Ljava/net/URL;", false, false));
+                    "replacement_getLocation");
             // Cursor.getDefaultCursor/getPredefinedCursor/new Cursor(int) and the keyboard focus
             // manager accessors work headless, so they are deliberately not replaced.
-            addReplacementCall(new MethodCallReplacement("java/awt/Cursor", "getSystemCustomCursor",
-                    "(Ljava/lang/String;)Ljava/awt/Cursor;", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_getSystemCustomCursor",
-                    "(Ljava/lang/String;)Ljava/awt/Cursor;", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/Button", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newButton",
-                    "()Ljava/awt/Button;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Button", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newButton",
-                    "(Ljava/lang/String;)Ljava/awt/Button;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Label", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newLabel",
-                    "()Ljava/awt/Label;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Label", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newLabel",
-                    "(Ljava/lang/String;)Ljava/awt/Label;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Label", "<init>",
-                    "(Ljava/lang/String;I)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newLabel",
-                    "(Ljava/lang/String;I)Ljava/awt/Label;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/TextField", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newTextField",
-                    "()Ljava/awt/TextField;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/TextField", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newTextField",
-                    "(Ljava/lang/String;)Ljava/awt/TextField;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/TextField", "<init>",
-                    "(I)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newTextField",
-                    "(I)Ljava/awt/TextField;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/TextField", "<init>",
-                    "(Ljava/lang/String;I)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newTextField",
-                    "(Ljava/lang/String;I)Ljava/awt/TextField;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextField",
-                    "()Ljavax/swing/JTextField;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextField",
-                    "(Ljava/lang/String;)Ljavax/swing/JTextField;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
-                    "(I)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextField",
-                    "(I)Ljavax/swing/JTextField;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
-                    "(Ljava/lang/String;I)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextField",
-                    "(Ljava/lang/String;I)Ljavax/swing/JTextField;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
-                    "(Ljavax/swing/text/Document;Ljava/lang/String;I)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextField",
-                    "(Ljavax/swing/text/Document;Ljava/lang/String;I)Ljavax/swing/JTextField;",
-                    true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JMenuBar", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJMenuBar",
-                    "()Ljavax/swing/JMenuBar;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextArea",
-                    "()Ljavax/swing/JTextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextArea",
-                    "(Ljava/lang/String;)Ljavax/swing/JTextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
-                    "(II)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextArea",
-                    "(II)Ljavax/swing/JTextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
-                    "(Ljava/lang/String;II)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextArea",
-                    "(Ljava/lang/String;II)Ljavax/swing/JTextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
-                    "(Ljavax/swing/text/Document;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextArea",
-                    "(Ljavax/swing/text/Document;)Ljavax/swing/JTextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
-                    "(Ljavax/swing/text/Document;Ljava/lang/String;II)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newJTextArea",
-                    "(Ljavax/swing/text/Document;Ljava/lang/String;II)Ljavax/swing/JTextArea;",
-                    true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/MenuItem", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newMenuItem",
-                    "()Ljava/awt/MenuItem;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/MenuItem", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newMenuItem",
-                    "(Ljava/lang/String;)Ljava/awt/MenuItem;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/MenuItem", "<init>",
-                    "(Ljava/lang/String;Ljava/awt/MenuShortcut;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newMenuItem",
-                    "(Ljava/lang/String;Ljava/awt/MenuShortcut;)Ljava/awt/MenuItem;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Menu", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newMenu",
-                    "()Ljava/awt/Menu;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Menu", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newMenu",
-                    "(Ljava/lang/String;)Ljava/awt/Menu;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Menu", "<init>",
-                    "(Ljava/lang/String;Z)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newMenu",
-                    "(Ljava/lang/String;Z)Ljava/awt/Menu;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/MenuBar", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newMenuBar",
-                    "()Ljava/awt/MenuBar;", true, true));
+            staticCall("java/awt/Cursor", "getSystemCustomCursor", "(Ljava/lang/String;)Ljava/awt/Cursor;",
+                    headlessSwing, "replacement_getSystemCustomCursor");
+            constructorsToStatic("java/awt/Button", headlessSwing, "replacement_newButton",
+                    "()V", "(Ljava/lang/String;)V");
+            constructorsToStatic("java/awt/Label", headlessSwing, "replacement_newLabel",
+                    "()V", "(Ljava/lang/String;)V", "(Ljava/lang/String;I)V");
+            constructorsToStatic("java/awt/TextField", headlessSwing, "replacement_newTextField",
+                    "()V", "(Ljava/lang/String;)V", "(I)V", "(Ljava/lang/String;I)V");
+            constructorsToStatic("javax/swing/JTextField", headlessSwing, "replacement_newJTextField",
+                    "()V", "(Ljava/lang/String;)V", "(I)V", "(Ljava/lang/String;I)V",
+                    "(Ljavax/swing/text/Document;Ljava/lang/String;I)V");
+            constructorsToStatic("javax/swing/JMenuBar", headlessSwing, "replacement_newJMenuBar", "()V");
+            constructorsToStatic("javax/swing/JTextArea", headlessSwing, "replacement_newJTextArea",
+                    "()V", "(Ljava/lang/String;)V", "(II)V", "(Ljava/lang/String;II)V",
+                    "(Ljavax/swing/text/Document;)V", "(Ljavax/swing/text/Document;Ljava/lang/String;II)V");
+            constructorsToStatic("java/awt/MenuItem", headlessSwing, "replacement_newMenuItem",
+                    "()V", "(Ljava/lang/String;)V", "(Ljava/lang/String;Ljava/awt/MenuShortcut;)V");
+            constructorsToStatic("java/awt/Menu", headlessSwing, "replacement_newMenu",
+                    "()V", "(Ljava/lang/String;)V", "(Ljava/lang/String;Z)V");
+            constructorsToStatic("java/awt/MenuBar", headlessSwing, "replacement_newMenuBar", "()V");
             // With mockGUI, MockWindow and MockFrame construct real, display-less objects and are
             // registered as constructor replacements through the mock list, so a null stand-in
             // is only needed when they are not in use.
             if (!RuntimeSettings.mockGUI) {
-                addReplacementCall(new MethodCallReplacement("java/awt/Window", "<init>",
-                        "(Ljava/awt/Frame;)V", Opcodes.INVOKESTATIC,
-                        headlessSwing, "replacement_newWindow",
-                        "(Ljava/awt/Frame;)Ljava/awt/Window;", true, true));
-                addReplacementCall(new MethodCallReplacement("java/awt/Window", "<init>",
-                        "(Ljava/awt/Window;)V", Opcodes.INVOKESTATIC,
-                        headlessSwing, "replacement_newWindow",
-                        "(Ljava/awt/Window;)Ljava/awt/Window;", true, true));
-                addReplacementCall(new MethodCallReplacement("java/awt/Window", "<init>",
-                        "(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)V", Opcodes.INVOKESTATIC,
-                        headlessSwing, "replacement_newWindow",
-                        "(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)Ljava/awt/Window;",
-                        true, true));
-                addReplacementCall(new MethodCallReplacement("java/awt/Frame", "<init>",
-                        "()V", Opcodes.INVOKESTATIC,
-                        headlessSwing, "replacement_newFrame",
-                        "()Ljava/awt/Frame;", true, true));
-                addReplacementCall(new MethodCallReplacement("java/awt/Frame", "<init>",
-                        "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                        headlessSwing, "replacement_newFrame",
-                        "(Ljava/lang/String;)Ljava/awt/Frame;", true, true));
+                constructorsToStatic("java/awt/Window", headlessSwing, "replacement_newWindow",
+                        "(Ljava/awt/Frame;)V", "(Ljava/awt/Window;)V",
+                        "(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)V");
+                constructorsToStatic("java/awt/Frame", headlessSwing, "replacement_newFrame",
+                        "()V", "(Ljava/lang/String;)V");
             }
-            addReplacementCall(new MethodCallReplacement("java/awt/Dialog", "<init>",
-                    "(Ljava/awt/Frame;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDialog",
-                    "(Ljava/awt/Frame;)Ljava/awt/Dialog;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Dialog", "<init>",
-                    "(Ljava/awt/Frame;Z)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDialog",
-                    "(Ljava/awt/Frame;Z)Ljava/awt/Dialog;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Dialog", "<init>",
-                    "(Ljava/awt/Frame;Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDialog",
-                    "(Ljava/awt/Frame;Ljava/lang/String;)Ljava/awt/Dialog;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Dialog", "<init>",
-                    "(Ljava/awt/Frame;Ljava/lang/String;Z)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDialog",
-                    "(Ljava/awt/Frame;Ljava/lang/String;Z)Ljava/awt/Dialog;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/PopupMenu", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newPopupMenu",
-                    "()Ljava/awt/PopupMenu;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/PopupMenu", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newPopupMenu",
-                    "(Ljava/lang/String;)Ljava/awt/PopupMenu;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/CheckboxMenuItem", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newCheckboxMenuItem",
-                    "()Ljava/awt/CheckboxMenuItem;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/CheckboxMenuItem", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newCheckboxMenuItem",
-                    "(Ljava/lang/String;)Ljava/awt/CheckboxMenuItem;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/CheckboxMenuItem", "<init>",
-                    "(Ljava/lang/String;Z)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newCheckboxMenuItem",
-                    "(Ljava/lang/String;Z)Ljava/awt/CheckboxMenuItem;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/TextArea", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newTextArea",
-                    "()Ljava/awt/TextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/TextArea", "<init>",
-                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newTextArea",
-                    "(Ljava/lang/String;)Ljava/awt/TextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/TextArea", "<init>",
-                    "(II)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newTextArea",
-                    "(II)Ljava/awt/TextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/TextArea", "<init>",
-                    "(Ljava/lang/String;II)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newTextArea",
-                    "(Ljava/lang/String;II)Ljava/awt/TextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/TextArea", "<init>",
-                    "(Ljava/lang/String;III)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newTextArea",
-                    "(Ljava/lang/String;III)Ljava/awt/TextArea;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/Insets", "<init>",
-                    "(IIII)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newInsets",
-                    "(IIII)Ljava/awt/Insets;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/KeyboardFocusManager",
-                    "setCurrentKeyboardFocusManager",
-                    "(Ljava/awt/KeyboardFocusManager;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_setCurrentKeyboardFocusManager",
-                    "(Ljava/awt/KeyboardFocusManager;)V", false, false));
-            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
-                    "()V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDropTarget",
-                    "()Ljava/awt/dnd/DropTarget;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
-                    "(Ljava/awt/Component;Ljava/awt/dnd/DropTargetListener;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDropTarget",
-                    "(Ljava/awt/Component;Ljava/awt/dnd/DropTargetListener;)Ljava/awt/dnd/DropTarget;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
-                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDropTarget",
-                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;)Ljava/awt/dnd/DropTarget;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
-                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;Z)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDropTarget",
-                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;Z)Ljava/awt/dnd/DropTarget;", true, true));
-            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
-                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;ZLjava/awt/datatransfer/FlavorMap;)V",
-                    Opcodes.INVOKESTATIC, headlessSwing, "replacement_newDropTarget",
-                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;ZL"
-                            + "java/awt/datatransfer/FlavorMap;)Ljava/awt/dnd/DropTarget;", true, true));
+            constructorsToStatic("java/awt/Dialog", headlessSwing, "replacement_newDialog",
+                    "(Ljava/awt/Frame;)V", "(Ljava/awt/Frame;Z)V", "(Ljava/awt/Frame;Ljava/lang/String;)V",
+                    "(Ljava/awt/Frame;Ljava/lang/String;Z)V");
+            constructorsToStatic("java/awt/PopupMenu", headlessSwing, "replacement_newPopupMenu",
+                    "()V", "(Ljava/lang/String;)V");
+            constructorsToStatic("java/awt/CheckboxMenuItem", headlessSwing, "replacement_newCheckboxMenuItem",
+                    "()V", "(Ljava/lang/String;)V", "(Ljava/lang/String;Z)V");
+            constructorsToStatic("java/awt/TextArea", headlessSwing, "replacement_newTextArea",
+                    "()V", "(Ljava/lang/String;)V", "(II)V", "(Ljava/lang/String;II)V",
+                    "(Ljava/lang/String;III)V");
+            constructorsToStatic("java/awt/Insets", headlessSwing, "replacement_newInsets", "(IIII)V");
+            staticCall("java/awt/KeyboardFocusManager", "setCurrentKeyboardFocusManager",
+                    "(Ljava/awt/KeyboardFocusManager;)V", headlessSwing,
+                    "replacement_setCurrentKeyboardFocusManager");
+            constructorsToStatic("java/awt/dnd/DropTarget", headlessSwing, "replacement_newDropTarget",
+                    "()V", "(Ljava/awt/Component;Ljava/awt/dnd/DropTargetListener;)V",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;)V",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;Z)V",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;ZLjava/awt/datatransfer/FlavorMap;)V");
 
             addExtraceExceptionReplacements();
 
@@ -562,11 +271,6 @@ public class MethodCallReplacementCache {
         specialReplacementCalls.get(replacement.getClassName()).put(replacement.getMethodNameWithDesc(), replacement);
     }
 
-    // private void addVirtualReplacementCall(MethodCallReplacement replacement)
-    // {
-    // virtualReplacementCalls.add(replacement);
-    // }
-
     /**
      * <p>hasReplacementCall.</p>
      *
@@ -618,10 +322,6 @@ public class MethodCallReplacementCache {
     public MethodCallReplacement getSpecialReplacementCall(String className, String methodNameWithDesc) {
         return specialReplacementCalls.get(className).get(methodNameWithDesc);
     }
-
-    // public Iterator<MethodCallReplacement> getVirtualReplacementCalls() {
-    // return virtualReplacementCalls.iterator();
-    // }
 
     /**
      * All registered replacement calls, ie the ones dispatched with INVOKESTATIC. Exposed so that
@@ -762,109 +462,82 @@ public class MethodCallReplacementCache {
     private void addJavaLangCalls() {
 
         // java/lang/System
-        addReplacementCall(new MethodCallReplacement("java/lang/System", "exit", "(I)V", Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "exit", "(I)V", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/System", "setSecurityManager",
-                "(Ljava/lang/SecurityManager;)V", Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "setSecurityManager",
-                "(Ljava/lang/SecurityManager;)V", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/System", "currentTimeMillis", "()J",
-                Opcodes.INVOKESTATIC, PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class),
-                "currentTimeMillis", "()J", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/System", "nanoTime", "()J", Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "nanoTime", "()J", false, false));
+        String system = PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class);
+        staticCall("java/lang/System", "exit", "(I)V", system, "exit");
+        staticCall("java/lang/System", "setSecurityManager", "(Ljava/lang/SecurityManager;)V",
+                system, "setSecurityManager");
+        staticCall("java/lang/System", "currentTimeMillis", "()J", system, "currentTimeMillis");
+        staticCall("java/lang/System", "nanoTime", "()J", system, "nanoTime");
         // A SUT that collects garbage in a loop must not pay for full
         // collections on every test; Runtime.gc() is already mocked the same way.
-        addReplacementCall(new MethodCallReplacement("java/lang/System", "gc", "()V", Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "gc", "()V", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/System", "identityHashCode", "(Ljava/lang/Object;)I",
-                Opcodes.INVOKESTATIC, "org/evosuite/runtime/System", "identityHashCode", "(Ljava/lang/Object;)I", false,
-                false));
+        staticCall("java/lang/System", "gc", "()V", system, "gc");
+        staticCall("java/lang/System", "identityHashCode", "(Ljava/lang/Object;)I", system, "identityHashCode");
 
-        // java/lang/Thread
-        // Register explicit sleep replacements here (in addition to MockList-driven
-        // discovery) to guarantee interception of tight polling loops that rely on
-        // Thread.sleep in instrumented SUT code.
-        String mockThread = PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.java.lang.MockThread.class);
-        addReplacementCall(new MethodCallReplacement("java/lang/Thread", "sleep", "(J)V", Opcodes.INVOKESTATIC,
-                mockThread, "sleep", "(J)V", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Thread", "sleep", "(JI)V", Opcodes.INVOKESTATIC,
-                mockThread, "sleep", "(JI)V", false, false));
+        // Thread.sleep is replaced through the mock list (MockThread).
 
         // java/lang/Object
-        addReplacementCall(new MethodCallReplacement("java/lang/Object", "hashCode", "()I", Opcodes.INVOKEVIRTUAL,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "hashCode",
-                "(Ljava/lang/Object;)I", false, false));
+        instanceToStatic("java/lang/Object", "hashCode", "()I", system, "hashCode");
+        instanceToStatic("java/lang/Object", "toString", "()Ljava/lang/String;", system, "toString");
 
-        addReplacementCall(new MethodCallReplacement("java/lang/Object", "toString", "()Ljava/lang/String;",
-                Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "toString",
-                "(Ljava/lang/Object;)Ljava/lang/String;", false, false));
-
-        // java/lang/Object — monitor methods
+        // java/lang/Object - monitor methods
         String mockObjectWait = PackageInfo.getNameWithSlash(
                 org.evosuite.runtime.mock.java.lang.MockObjectWait.class);
-        addReplacementCall(new MethodCallReplacement("java/lang/Object", "wait", "()V",
-                Opcodes.INVOKEVIRTUAL, mockObjectWait, "wait",
-                "(Ljava/lang/Object;)V", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Object", "wait", "(J)V",
-                Opcodes.INVOKEVIRTUAL, mockObjectWait, "wait",
-                "(Ljava/lang/Object;J)V", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Object", "wait", "(JI)V",
-                Opcodes.INVOKEVIRTUAL, mockObjectWait, "wait",
-                "(Ljava/lang/Object;JI)V", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Object", "notify", "()V",
-                Opcodes.INVOKEVIRTUAL, mockObjectWait, "notify",
-                "(Ljava/lang/Object;)V", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Object", "notifyAll", "()V",
-                Opcodes.INVOKEVIRTUAL, mockObjectWait, "notifyAll",
-                "(Ljava/lang/Object;)V", false, false));
+        instanceToStatic("java/lang/Object", "wait", "()V", mockObjectWait, "wait");
+        instanceToStatic("java/lang/Object", "wait", "(J)V", mockObjectWait, "wait");
+        instanceToStatic("java/lang/Object", "wait", "(JI)V", mockObjectWait, "wait");
+        instanceToStatic("java/lang/Object", "notify", "()V", mockObjectWait, "notify");
+        instanceToStatic("java/lang/Object", "notifyAll", "()V", mockObjectWait, "notifyAll");
 
-        addReplacementCall(new MethodCallReplacement("java/lang/Math", "random", "()D", Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.Random.class), "nextDouble", "()D", false, false));
+        staticCall("java/lang/Math", "random", "()D",
+                PackageInfo.getNameWithSlash(org.evosuite.runtime.Random.class), "nextDouble");
 
         // java/lang/Class
-        addReplacementCall(new MethodCallReplacement("java/lang/Class", "getClasses", "()[Ljava/lang/Class;",
-                Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class),
-                "getClasses", "(Ljava/lang/Class;)[Ljava/lang/Class;", false, false));
-        addReplacementCall(
-                new MethodCallReplacement("java/lang/Class", "getAnnotations", "()[Ljava/lang/annotation/Annotation;",
-                        Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class),
-                        "getAnnotations", "(Ljava/lang/Class;)[Ljava/lang/annotation/Annotation;", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Class", "getFields", "()[Ljava/lang/reflect/Field;",
-                Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class), "getFields",
-                "(Ljava/lang/Class;)[Ljava/lang/reflect/Field;", false, false));
-        addReplacementCall(
-                new MethodCallReplacement("java/lang/Class", "getConstructors", "()[Ljava/lang/reflect/Constructor;",
-                        Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class),
-                        "getConstructors", "(Ljava/lang/Class;)[Ljava/lang/reflect/Constructor;", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Class", "getMethods", "()[Ljava/lang/reflect/Method;",
-                Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class),
-                "getMethods", "(Ljava/lang/Class;)[Ljava/lang/reflect/Method;", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Class", "getDeclaredClasses", "()[Ljava/lang/Class;",
-                Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class),
-                "getDeclaredClasses", "(Ljava/lang/Class;)[Ljava/lang/Class;", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Class", "getDeclaredAnnotations",
-                "()[Ljava/lang/annotation/Annotation;", Opcodes.INVOKEVIRTUAL,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class), "getDeclaredAnnotations",
-                "(Ljava/lang/Class;)[Ljava/lang/annotation/Annotation;", false, false));
-        addReplacementCall(
-                new MethodCallReplacement("java/lang/Class", "getDeclaredFields", "()[Ljava/lang/reflect/Field;",
-                        Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class),
-                        "getDeclaredFields", "(Ljava/lang/Class;)[Ljava/lang/reflect/Field;", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Class", "getDeclaredConstructors",
-                "()[Ljava/lang/reflect/Constructor;", Opcodes.INVOKEVIRTUAL,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class), "getDeclaredConstructors",
-                "(Ljava/lang/Class;)[Ljava/lang/reflect/Constructor;", false, false));
-        addReplacementCall(
-                new MethodCallReplacement("java/lang/Class", "getDeclaredMethods", "()[Ljava/lang/reflect/Method;",
-                        Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class),
-                        "getDeclaredMethods", "(Ljava/lang/Class;)[Ljava/lang/reflect/Method;", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Class", "getInterfaces", "()[Ljava/lang/Class;",
-                Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class),
-                "getInterfaces", "(Ljava/lang/Class;)[Ljava/lang/Class;", false, false));
-        addReplacementCall(new MethodCallReplacement("java/lang/Class", "getModifiers", "()I", Opcodes.INVOKEVIRTUAL,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class), "getModifiers",
-                "(Ljava/lang/Class;)I", false, false));
+        String reflection = PackageInfo.getNameWithSlash(org.evosuite.runtime.Reflection.class);
+        String[][] classCalls = {
+                {"getClasses", "()[Ljava/lang/Class;"},
+                {"getAnnotations", "()[Ljava/lang/annotation/Annotation;"},
+                {"getFields", "()[Ljava/lang/reflect/Field;"},
+                {"getConstructors", "()[Ljava/lang/reflect/Constructor;"},
+                {"getMethods", "()[Ljava/lang/reflect/Method;"},
+                {"getDeclaredClasses", "()[Ljava/lang/Class;"},
+                {"getDeclaredAnnotations", "()[Ljava/lang/annotation/Annotation;"},
+                {"getDeclaredFields", "()[Ljava/lang/reflect/Field;"},
+                {"getDeclaredConstructors", "()[Ljava/lang/reflect/Constructor;"},
+                {"getDeclaredMethods", "()[Ljava/lang/reflect/Method;"},
+                {"getInterfaces", "()[Ljava/lang/Class;"},
+                {"getModifiers", "()I"},
+        };
+        for (String[] call : classCalls) {
+            instanceToStatic("java/lang/Class", call[0], call[1], reflection, call[0]);
+        }
+    }
+
+    /**
+     * Registers the replacement of a static method by a static method with the same descriptor.
+     */
+    private void staticCall(String owner, String name, String desc, String target, String targetName) {
+        addReplacementCall(new MethodCallReplacement(owner, name, desc, Opcodes.INVOKESTATIC,
+                target, targetName, desc, false, false));
+    }
+
+    /**
+     * Registers the replacement of an instance method by a static method that takes the receiver
+     * as its first parameter.
+     */
+    private void instanceToStatic(String owner, String name, String desc, String target, String targetName) {
+        addReplacementCall(new MethodCallReplacement(owner, name, desc, Opcodes.INVOKEVIRTUAL,
+                target, targetName, "(L" + owner + ";" + desc.substring(1), false, false));
+    }
+
+    /**
+     * Registers the replacement of the given constructors of {@code owner} by static factory
+     * methods of the same name and parameters that return the new instance.
+     */
+    private void constructorsToStatic(String owner, String target, String targetName, String... ctorDescs) {
+        for (String desc : ctorDescs) {
+            addReplacementCall(new MethodCallReplacement(owner, "<init>", desc, Opcodes.INVOKESTATIC,
+                    target, targetName, desc.replace(")V", ")L" + owner + ";"), true, true));
+        }
     }
 
     /**
