@@ -296,6 +296,35 @@ class MockitoPatternParserTest {
     }
 
     @Test
+    void invalidStubbingsAreDroppedWithPatternSpecificWarnings() {
+        assertStubbingWarning("doReturn(1).when(mockList).missing();",
+                "Ignored invalid Mockito doReturn(...).when(...).missing(...) stubbing: "
+                        + "no matching method on mock target type");
+        assertStubbingWarning("doReturn(1).when(mockList).clear();",
+                "Ignored invalid Mockito doReturn(...).when(...).clear(...) stubbing on void method");
+        assertStubbingWarning("when(mockList.missing()).thenReturn(1);",
+                "Ignored invalid Mockito when(...).thenReturn(...) stubbing: "
+                        + "no method named missing on mock target type");
+        assertStubbingWarning("when(mockList.clear()).thenReturn(1);",
+                "Ignored invalid Mockito when(...).thenReturn(...) stubbing on void method");
+    }
+
+    private void assertStubbingWarning(String stubbing, String expectedMessage) {
+        Fixture fixture = fixture(
+                "List mockList = mock(List.class, new ViolatedAssumptionAnswer());\n" + stubbing,
+                MOCKITO_IMPORTS,
+                true);
+
+        int consumed = fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 0), fixture.astStatements, 0);
+
+        assertEquals(2, consumed, stubbing);
+        assertTrue(fixture.result.getDiagnostics().stream()
+                        .anyMatch(d -> d.getMessage() != null && d.getMessage().contains(expectedMessage)),
+                stubbing + ": " + fixture.result.getDiagnostics());
+    }
+
+    @Test
     void standaloneStubbingHoistsReturnValueBeforeFunctionalMockEmission() {
         Fixture fixture = fixture(
                 "List mockList = mock(List.class, new ViolatedAssumptionAnswer());\n"

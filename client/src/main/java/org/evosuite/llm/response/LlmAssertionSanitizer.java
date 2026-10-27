@@ -22,13 +22,13 @@ package org.evosuite.llm.response;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.expr.CastExpr;
 import com.github.javaparser.ast.expr.ClassExpr;
-import com.github.javaparser.ast.expr.EnclosedExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.NullLiteralExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import org.apache.commons.lang3.ClassUtils;
+import org.evosuite.testparser.ExpressionUnwrapper;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
@@ -193,7 +193,7 @@ public final class LlmAssertionSanitizer {
         if (!stubbedMethodCall.getScope().isPresent()) {
             return null;
         }
-        Expression whenExpr = unwrap(stubbedMethodCall.getScope().get());
+        Expression whenExpr = ExpressionUnwrapper.unwrapCastsAndParentheses(stubbedMethodCall.getScope().get());
         if (!(whenExpr instanceof MethodCallExpr)) {
             return null;
         }
@@ -208,7 +208,7 @@ public final class LlmAssertionSanitizer {
         if (!whenCall.getScope().isPresent()) {
             return null;
         }
-        Expression doThrowExpr = unwrap(whenCall.getScope().get());
+        Expression doThrowExpr = ExpressionUnwrapper.unwrapCastsAndParentheses(whenCall.getScope().get());
         if (!(doThrowExpr instanceof MethodCallExpr)) {
             return null;
         }
@@ -231,7 +231,7 @@ public final class LlmAssertionSanitizer {
                 || !thenThrowCall.getScope().isPresent()) {
             return null;
         }
-        Expression whenExpr = unwrap(thenThrowCall.getScope().get());
+        Expression whenExpr = ExpressionUnwrapper.unwrapCastsAndParentheses(thenThrowCall.getScope().get());
         if (!(whenExpr instanceof MethodCallExpr)) {
             return null;
         }
@@ -239,7 +239,7 @@ public final class LlmAssertionSanitizer {
         if (!"when".equals(whenCall.getNameAsString()) || whenCall.getArguments().size() != 1) {
             return null;
         }
-        Expression invoked = unwrap(whenCall.getArgument(0));
+        Expression invoked = ExpressionUnwrapper.unwrapCastsAndParentheses(whenCall.getArgument(0));
         if (!(invoked instanceof MethodCallExpr)) {
             return null;
         }
@@ -343,7 +343,7 @@ public final class LlmAssertionSanitizer {
 
     private static InferredArgType inferArgumentType(Expression expression,
                                                      Map<String, VariableReference> bindings) {
-        Expression unwrapped = unwrap(expression);
+        Expression unwrapped = ExpressionUnwrapper.unwrapCastsAndParentheses(expression);
         if (unwrapped instanceof NullLiteralExpr) {
             return InferredArgType.nullLiteral();
         }
@@ -446,7 +446,7 @@ public final class LlmAssertionSanitizer {
     }
 
     private static Class<?> resolveThrowableType(Expression expression, Map<String, VariableReference> bindings) {
-        Expression unwrapped = unwrap(expression);
+        Expression unwrapped = ExpressionUnwrapper.unwrapCastsAndParentheses(expression);
         Class<?> candidate = null;
         if (unwrapped instanceof ObjectCreationExpr) {
             candidate = resolveClassByName(((ObjectCreationExpr) unwrapped).getType().asString());
@@ -487,23 +487,11 @@ public final class LlmAssertionSanitizer {
     }
 
     private static String tryExtractName(Expression expression) {
-        Expression unwrapped = unwrap(expression);
+        Expression unwrapped = ExpressionUnwrapper.unwrapCastsAndParentheses(expression);
         if (unwrapped instanceof NameExpr) {
             return ((NameExpr) unwrapped).getNameAsString();
         }
         return null;
-    }
-
-    private static Expression unwrap(Expression expression) {
-        Expression current = expression;
-        while (current instanceof EnclosedExpr || current instanceof CastExpr) {
-            if (current instanceof EnclosedExpr) {
-                current = ((EnclosedExpr) current).getInner();
-            } else {
-                current = ((CastExpr) current).getExpression();
-            }
-        }
-        return current;
     }
 
     private static Class<?> resolveClassByName(String typeName) {

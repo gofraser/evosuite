@@ -620,14 +620,7 @@ class AssertionParser {
     }
 
     private Class<?> resolveReceiverTargetClass(Expression scopeExpr) {
-        Expression current = scopeExpr;
-        while (current instanceof EnclosedExpr || current instanceof CastExpr) {
-            if (current instanceof EnclosedExpr) {
-                current = ((EnclosedExpr) current).getInner();
-            } else {
-                current = ((CastExpr) current).getExpression();
-            }
-        }
+        Expression current = ExpressionUnwrapper.unwrapCastsAndParentheses(scopeExpr);
         if (current instanceof NameExpr) {
             VariableReference ref = scope.resolve(((NameExpr) current).getNameAsString());
             if (ref != null) {
@@ -841,22 +834,8 @@ class AssertionParser {
     }
 
     private LambdaExpr extractLambdaExpr(Expression expr) {
-        Expression current = expr;
-        while (current != null) {
-            if (current instanceof LambdaExpr) {
-                return (LambdaExpr) current;
-            }
-            if (current instanceof EnclosedExpr) {
-                current = ((EnclosedExpr) current).getInner();
-                continue;
-            }
-            if (current instanceof CastExpr) {
-                current = ((CastExpr) current).getExpression();
-                continue;
-            }
-            return null;
-        }
-        return null;
+        Expression unwrapped = ExpressionUnwrapper.unwrapCastsAndParentheses(expr);
+        return unwrapped instanceof LambdaExpr ? (LambdaExpr) unwrapped : null;
     }
 
     private Expression pickVariableArg(List<Expression> args) {
