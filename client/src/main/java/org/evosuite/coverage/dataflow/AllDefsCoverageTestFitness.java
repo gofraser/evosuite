@@ -42,9 +42,14 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
 
     private static final long serialVersionUID = 1L;
     // The definition and the use goals refer to the class loader of the client, which cannot be sent
-    // to the master: only the definition id is serialized and the rest is looked up again, if the
-    // pool is available on the receiving side.
+    // to the master: only the identity of the definition is serialized, so that the goal can be
+    // compared, printed and hashed on the master, and the rest is looked up again, if the pool is
+    // available on the receiving side.
     private transient Definition targetDef;
+    private transient int defId;
+    private transient String targetClass;
+    private transient String targetMethod;
+    private transient String description;
     private final TestFitnessFunction goalDefinitionFitness;
     private transient Map<Use, DefUseCoverageTestFitness> uses;
 
@@ -57,6 +62,10 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     public AllDefsCoverageTestFitness(Definition def,
                                       Map<Use, DefUseCoverageTestFitness> uses) {
         this.targetDef = def;
+        this.defId = def.defId;
+        this.targetClass = def.getClassName();
+        this.targetMethod = def.getMethodName();
+        this.description = def.toString();
         this.goalDefinitionFitness = new StatementCoverageTestFitness(def.getClassName(),
                 def.getMethodName(), def.getInstructionId());
         this.uses = uses;
@@ -106,7 +115,7 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((targetDef == null) ? 0 : targetDef.hashCode());
+        result = prime * result + ((targetDef == null) ? defId : targetDef.hashCode());
         return result;
     }
 
@@ -125,11 +134,11 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
             return false;
         }
         AllDefsCoverageTestFitness other = (AllDefsCoverageTestFitness) obj;
-        if (targetDef == null) {
-            return other.targetDef == null;
-        } else {
-            return targetDef.equals(other.targetDef);
+        if (targetDef == null || other.targetDef == null) {
+            return defId == other.defId && targetClass.equals(other.targetClass)
+                    && targetMethod.equals(other.targetMethod);
         }
+        return targetDef.equals(other.targetDef);
     }
 
     /**
@@ -141,7 +150,17 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof AllDefsCoverageTestFitness) {
             AllDefsCoverageTestFitness otherFitness = (AllDefsCoverageTestFitness) other;
-            return targetDef.compareTo(otherFitness.targetDef);
+            if (targetDef != null && otherFitness.targetDef != null) {
+                return targetDef.compareTo(otherFitness.targetDef);
+            }
+            int result = targetClass.compareTo(otherFitness.targetClass);
+            if (result == 0) {
+                result = targetMethod.compareTo(otherFitness.targetMethod);
+            }
+            if (result == 0) {
+                result = Integer.compare(defId, otherFitness.defId);
+            }
+            return result;
         }
         return compareClassName(other);
     }
@@ -151,7 +170,7 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public String toString() {
-        return "AllDef-Goal " + targetDef.toString();
+        return "AllDef-Goal " + description;
     }
 
     /**
@@ -161,7 +180,7 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public String getTargetClass() {
-        return targetDef.getClassName();
+        return targetClass;
     }
 
     /**
@@ -171,17 +190,23 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public String getTargetMethod() {
-        return targetDef.getMethodName();
+        return targetMethod;
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
         oos.defaultWriteObject();
-        oos.writeInt(targetDef.defId);
+        oos.writeInt(defId);
+        oos.writeUTF(targetClass);
+        oos.writeUTF(targetMethod);
+        oos.writeUTF(description);
     }
 
     private void readObject(ObjectInputStream ois) throws ClassNotFoundException, IOException {
         ois.defaultReadObject();
-        int defId = ois.readInt();
+        defId = ois.readInt();
+        targetClass = ois.readUTF();
+        targetMethod = ois.readUTF();
+        description = ois.readUTF();
 
         // The pool is empty on the master side of the RMI connection, where the definition and the
         // use goals stay null (see DefUseCoverageTestFitness).

@@ -36,10 +36,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -125,5 +127,44 @@ public class AllDefsCoverageTestFitnessSerializationTest {
         DefUsePool.clear();
 
         assertNotNull(deserialize(bytes));
+    }
+
+    @Test
+    public void testGoalRestoredWithoutPoolKeepsIdentity() throws Exception {
+        AllDefsCoverageTestFitness goal = createGoal();
+        byte[] bytes = serialize(goal);
+        DefUsePool.clear();
+
+        AllDefsCoverageTestFitness first = (AllDefsCoverageTestFitness) deserialize(bytes);
+        AllDefsCoverageTestFitness second = (AllDefsCoverageTestFitness) deserialize(bytes);
+
+        assertEquals(goal.toString(), first.toString());
+        assertEquals(CLASS_NAME, first.getTargetClass());
+        assertEquals(METHOD_NAME, first.getTargetMethod());
+        assertEquals(first, second);
+        assertEquals(first.hashCode(), second.hashCode());
+        assertEquals(0, first.compareTo(second));
+        assertEquals(1, new HashSet<>(Arrays.asList(first, second)).size());
+    }
+
+    @Test
+    public void testGoalsOfDifferentDefinitionsDifferWithoutPool() throws Exception {
+        AllDefsCoverageTestFitness goal = createGoal();
+        BytecodeInstruction instruction = new BytecodeInstruction(classLoader, CLASS_NAME, METHOD_NAME, 11, 1,
+                new VarInsnNode(Opcodes.ISTORE, 2), -1, mock(BasicBlock.class));
+        BytecodeInstructionPool.getInstance(classLoader).registerInstruction(instruction);
+        DefUsePool.addAsDefinition(instruction);
+        AllDefsCoverageTestFitness other = new AllDefsCoverageTestFitness(
+                DefUsePool.getDefinitionByInstruction(instruction), Collections.emptyMap());
+        byte[] bytes = serialize(goal);
+        byte[] otherBytes = serialize(other);
+        DefUsePool.clear();
+
+        AllDefsCoverageTestFitness restored = (AllDefsCoverageTestFitness) deserialize(bytes);
+        AllDefsCoverageTestFitness otherRestored = (AllDefsCoverageTestFitness) deserialize(otherBytes);
+
+        assertNotEquals(restored, otherRestored);
+        assertNotEquals(0, restored.compareTo(otherRestored));
+        assertEquals(2, new HashSet<>(Arrays.asList(restored, otherRestored)).size());
     }
 }
