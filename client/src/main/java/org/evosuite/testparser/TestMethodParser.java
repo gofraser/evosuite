@@ -32,8 +32,11 @@ import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -43,14 +46,14 @@ import java.util.regex.Pattern;
  */
 public class TestMethodParser {
 
-    // Defensive guard for callers that bypass LlmResponseParser. Java does not
-    // support `import ... as ...` aliases; if such a line reaches JavaParser the
-    // rest of the source is silently dropped (no compilation unit, no @Test
-    // methods extracted). We strip the offending lines here so every parser
-    // entry point — including cluster-expansion retries and few-shot example
-    // parsing — fails loudly only on substantively bad input.
+    // Java has no `import ... as ...` syntax (Kotlin/Scala/Python carry-over). We rewrite
+    // the alias to its fully qualified name everywhere it appears as a standalone identifier,
+    // then drop the alias import line; FQN substitution makes a replacement plain import
+    // unnecessary (and avoids duplicate-import errors when both the aliased and plain forms
+    // were emitted, as we have observed for collisions like javax.persistence.Query vs
+    // net.sourceforge.beanbin.query.Query).
     private static final Pattern ALIASED_IMPORT_LINE_PATTERN = Pattern.compile(
-            "(?m)^[ \\t]*import\\s+(?:static\\s+)?[\\w.$]+\\s+as\\s+[A-Za-z_][\\w$]*\\s*;[ \\t]*\\r?\\n?");
+            "(?m)^[ \\t]*import\\s+(?:static\\s+)?([\\w.$]+)\\s+as\\s+([A-Za-z_][\\w$]*)\\s*;[ \\t]*\\r?\\n?");
 
     /**
      * Parse a complete test class source string into a CompilationUnit AST.
@@ -65,13 +68,56 @@ public class TestMethodParser {
      * constructed AST nodes lack position information.
      */
     public CompilationUnit parseSource(String sourceCode) {
-        String cleaned = sourceCode == null
-                ? null
-                : ALIASED_IMPORT_LINE_PATTERN.matcher(sourceCode).replaceAll("");
+        String cleaned = sanitizeAliasImports(sourceCode);
         ParserConfiguration config = new ParserConfiguration().setAttributeComments(false);
         com.github.javaparser.ParseResult<CompilationUnit> parsed = new JavaParser(config).parse(cleaned);
         return parsed.getResult()
                 .orElseThrow(() -> new ParseProblemException(parsed.getProblems()));
+    }
+
+    /**
+     * Rewrites invalid Kotlin/Scala-style alias imports (e.g.
+     * {@code import a.b.C as D;}) into valid Java by deleting the import line
+     * and substituting every standalone occurrence of the alias identifier with
+     * the original fully qualified name. This is invoked before the source is
+     * handed to JavaParser, since JavaParser cannot recover from this syntax
+     * and downstream extraction would silently produce no test methods.
+     */
+    public static String sanitizeAliasImports(String code) {
+        if (code == null || code.isEmpty()) {
+            return code;
+        }
+        Matcher matcher = ALIASED_IMPORT_LINE_PATTERN.matcher(code);
+        if (!matcher.find()) {
+            return code;
+        }
+        // Collect alias -> fqn mappings in the order they appear, then perform
+        // substitutions on the whole source. We deliberately do NOT add a
+        // replacement plain import: a colliding simple name was the reason the
+        // alias was introduced, and the FQN substitution removes the need.
+        Map<String, String> aliasToFqn = new LinkedHashMap<>();
+        do {
+            String fqn = matcher.group(1);
+            String alias = matcher.group(2);
+            if (alias != null && !alias.isEmpty() && fqn != null && !fqn.isEmpty()) {
+                aliasToFqn.putIfAbsent(alias, fqn);
+            }
+        } while (matcher.find());
+        String rewritten = ALIASED_IMPORT_LINE_PATTERN.matcher(code).replaceAll("");
+        for (Map.Entry<String, String> entry : aliasToFqn.entrySet()) {
+            String alias = entry.getKey();
+            String fqn = entry.getValue();
+            // Skip the no-op case where the alias matches the FQN's simple name.
+            int lastDot = fqn.lastIndexOf('.');
+            String simple = lastDot >= 0 ? fqn.substring(lastDot + 1) : fqn;
+            if (alias.equals(simple)) {
+                continue;
+            }
+            rewritten = rewritten.replaceAll(
+                    "\\b" + Pattern.quote(alias) + "\\b",
+                    Matcher.quoteReplacement(fqn));
+        }
+        return rewritten;
     }
 
     /**

@@ -20,6 +20,7 @@
 package org.evosuite.llm.response;
 
 import org.evosuite.Properties;
+import org.evosuite.testparser.TestMethodParser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -198,7 +199,7 @@ class LlmResponseParserTest {
     void aliasSanitizerLeavesSourcesWithoutAliasesUnchanged() {
         String code = "import java.util.List;\n"
                 + "class T { @org.junit.Test public void t(){ List l = null; } }";
-        assertEquals(code, LlmResponseParser.sanitizeAliasImports(code));
+        assertEquals(code, TestMethodParser.sanitizeAliasImports(code));
     }
 
     @Test
