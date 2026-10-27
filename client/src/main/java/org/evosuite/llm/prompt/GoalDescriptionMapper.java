@@ -22,7 +22,6 @@ package org.evosuite.llm.prompt;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.coverage.branch.OnlyBranchCoverageTestFitness;
 import org.evosuite.coverage.cbranch.CBranchTestFitness;
 import org.evosuite.coverage.dataflow.AllDefsCoverageTestFitness;
 import org.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
@@ -88,9 +87,6 @@ public class GoalDescriptionMapper {
     public String describe(TestFitnessFunction goal) {
         if (goal instanceof BranchCoverageTestFitness) {
             return describeBranch((BranchCoverageTestFitness) goal);
-        }
-        if (goal instanceof OnlyBranchCoverageTestFitness) {
-            return describeBranch((OnlyBranchCoverageTestFitness) goal);
         }
         if (goal instanceof CBranchTestFitness) {
             return describeCBranch((CBranchTestFitness) goal);
@@ -351,10 +347,6 @@ public class GoalDescriptionMapper {
     }
 
     private String describeBranch(BranchCoverageTestFitness goal) {
-        return describeBranchGoal(goal.getBranchGoal());
-    }
-
-    private String describeBranch(OnlyBranchCoverageTestFitness goal) {
         return describeBranchGoal(goal.getBranchGoal());
     }
 

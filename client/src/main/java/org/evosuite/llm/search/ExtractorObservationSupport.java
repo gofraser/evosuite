@@ -22,7 +22,6 @@ package org.evosuite.llm.search;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.coverage.branch.OnlyBranchCoverageTestFitness;
 import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -171,9 +170,6 @@ final class ExtractorObservationSupport {
     static BranchCoverageGoal branchCoverageGoalFor(TestFitnessFunction goal) {
         if (goal instanceof BranchCoverageTestFitness) {
             return ((BranchCoverageTestFitness) goal).getBranchGoal();
-        }
-        if (goal instanceof OnlyBranchCoverageTestFitness) {
-            return ((OnlyBranchCoverageTestFitness) goal).getBranchGoal();
         }
         return null;
     }

@@ -102,10 +102,12 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
             prefix = Properties.TARGET_CLASS;
         }
 
-        totalMethods = CFGMethodAdapter.getNumMethodsPrefix(classLoader, prefix);
-        totalBranches = BranchPool.getInstance(classLoader).getBranchCountForPrefix(prefix);
-        branchlessMethods.addAll(BranchPool.getInstance(classLoader).getBranchlessMethodsPrefix(prefix));
-        methods.addAll(CFGMethodAdapter.getMethodsPrefix(classLoader, prefix));
+        totalBranches = countBranches(classLoader, prefix);
+        if (includesMethodGoals()) {
+            totalMethods = CFGMethodAdapter.getNumMethodsPrefix(classLoader, prefix);
+            branchlessMethods.addAll(BranchPool.getInstance(classLoader).getBranchlessMethodsPrefix(prefix));
+            methods.addAll(CFGMethodAdapter.getMethodsPrefix(classLoader, prefix));
+        }
 
         determineCoverageGoals(true);
 
@@ -115,6 +117,20 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
         logger.info("Total branches: " + totalBranches);
         logger.info("Total branchless methods: " + branchlessMethodCoverageMap.size());
         logger.info("Total methods: " + totalMethods + ": " + methods);
+    }
+
+    /**
+     * The number of branches that are targets of this fitness function.
+     */
+    protected int countBranches(ClassLoader classLoader, String prefix) {
+        return BranchPool.getInstance(classLoader).getBranchCountForPrefix(prefix);
+    }
+
+    /**
+     * Whether this fitness function also requires every method to be called.
+     */
+    protected boolean includesMethodGoals() {
+        return true;
     }
 
     /**

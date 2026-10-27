@@ -129,24 +129,31 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
         }
 
         if (Properties.TEST_ARCHIVE) {
-            // the next if condition is needed for DynaMOSA when branch coverage is not
-            // set as coverage criterion to optimize. However, branches are
-            // the backbone for all other criteria and thus they are always used in DynaMOSA
-            if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.BRANCH)) {
-                // Skip when this branch goal isn't a registered target — happens when
-                // LineCoverageTestFitness invokes us with a synthetic root-Branch goal
-                // for a non-branchless method as part of control-dependency analysis.
-                // Its static-flag suppression of archive updates is fragile, so guard here.
-                Archive archive = Archive.getArchiveInstance();
-                if (archive.hasTarget(this)) {
-                    archive.updateArchive(this, individual, fitness);
-                }
-            }
+            updateArchive(individual, fitness);
         }
 
         return fitness;
     }
 
+
+    /**
+     * Offers the evaluated individual to the archive.
+     */
+    protected void updateArchive(TestChromosome individual, double fitness) {
+        // the next if condition is needed for DynaMOSA when branch coverage is not
+        // set as coverage criterion to optimize. However, branches are
+        // the backbone for all other criteria and thus they are always used in DynaMOSA
+        if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.BRANCH)) {
+            // Skip when this branch goal isn't a registered target — happens when
+            // LineCoverageTestFitness invokes us with a synthetic root-Branch goal
+            // for a non-branchless method as part of control-dependency analysis.
+            // Its static-flag suppression of archive updates is fragile, so guard here.
+            Archive archive = Archive.getArchiveInstance();
+            if (archive.hasTarget(this)) {
+                archive.updateArchive(this, individual, fitness);
+            }
+        }
+    }
 
     /**
      * {@inheritDoc}

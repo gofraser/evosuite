@@ -21,7 +21,6 @@ package org.evosuite.llm.prompt;
 
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.coverage.branch.OnlyBranchCoverageTestFitness;
 import org.evosuite.coverage.cbranch.CBranchTestFitness;
 import org.evosuite.coverage.ibranch.IBranchTestFitness;
 import org.evosuite.setup.CallContext;
@@ -51,10 +50,6 @@ public final class BranchGoalView {
     public static BranchGoalView of(TestFitnessFunction goal) {
         if (goal instanceof BranchCoverageTestFitness) {
             BranchCoverageTestFitness f = (BranchCoverageTestFitness) goal;
-            return new BranchGoalView(f.getBranch(), f.getValue(), false, null);
-        }
-        if (goal instanceof OnlyBranchCoverageTestFitness) {
-            OnlyBranchCoverageTestFitness f = (OnlyBranchCoverageTestFitness) goal;
             return new BranchGoalView(f.getBranch(), f.getValue(), false, null);
         }
         if (goal instanceof CBranchTestFitness) {
