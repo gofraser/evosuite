@@ -89,151 +89,83 @@ public class StringTransformation {
             AbstractInsnNode next = node.getNext();
             if (node instanceof MethodInsnNode) {
                 MethodInsnNode min = (MethodInsnNode) node;
+                Type string = Type.getType(String.class);
                 if (min.owner.equals(JAVA_LANG_STRING)) {
                     if (min.name.equals("equals")) {
                         changed = true;
-                        MethodInsnNode equalCheck = new MethodInsnNode(
-                                Opcodes.INVOKESTATIC,
-                                Type.getInternalName(StringHelper.class),
-                                "StringEquals",
-                                Type.getMethodDescriptor(Type.INT_TYPE,
-                                        Type.getType(String.class),
-                                        Type.getType(Object.class)), false);
-                        mn.instructions.insertBefore(node, equalCheck);
-                        mn.instructions.remove(node);
-                        TransformationStatistics.transformedStringComparison();
-
+                        replaceWithHelper(mn, min, "StringEquals", true, string,
+                                Type.getType(Object.class));
                     } else if (min.name.equals("equalsIgnoreCase")) {
                         changed = true;
-                        MethodInsnNode equalCheck = new MethodInsnNode(
-                                Opcodes.INVOKESTATIC,
-                                Type.getInternalName(StringHelper.class),
-                                "StringEqualsIgnoreCase",
-                                Type.getMethodDescriptor(Type.INT_TYPE,
-                                        Type.getType(String.class),
-                                        Type.getType(String.class)), false);
-                        mn.instructions.insertBefore(node, equalCheck);
-                        mn.instructions.remove(node);
-                        TransformationStatistics.transformedStringComparison();
-
+                        replaceWithHelper(mn, min, "StringEqualsIgnoreCase", true, string, string);
                     } else if (min.name.equals("startsWith")) {
                         changed = true;
                         if (min.desc.equals("(Ljava/lang/String;)Z")) {
                             mn.instructions.insertBefore(node, new InsnNode(
                                     Opcodes.ICONST_0));
                         }
-                        MethodInsnNode equalCheck = new MethodInsnNode(
-                                Opcodes.INVOKESTATIC,
-                                Type.getInternalName(StringHelper.class),
-                                "StringStartsWith",
-                                Type.getMethodDescriptor(Type.INT_TYPE,
-                                        Type.getType(String.class),
-                                        Type.getType(String.class),
-                                        Type.INT_TYPE), false);
-                        mn.instructions.insertBefore(node, equalCheck);
-                        mn.instructions.remove(node);
-                        TransformationStatistics.transformedStringComparison();
-
+                        replaceWithHelper(mn, min, "StringStartsWith", true, string, string,
+                                Type.INT_TYPE);
                     } else if (min.name.equals("endsWith")) {
                         changed = true;
-                        MethodInsnNode equalCheck = new MethodInsnNode(
-                                Opcodes.INVOKESTATIC,
-                                Type.getInternalName(StringHelper.class),
-                                "StringEndsWith",
-                                Type.getMethodDescriptor(Type.INT_TYPE,
-                                        Type.getType(String.class),
-                                        Type.getType(String.class)), false);
-                        mn.instructions.insertBefore(node, equalCheck);
-                        mn.instructions.remove(node);
-                        TransformationStatistics.transformedStringComparison();
-
+                        replaceWithHelper(mn, min, "StringEndsWith", true, string, string);
                     } else if (min.name.equals("isEmpty")) {
                         changed = true;
-                        MethodInsnNode equalCheck = new MethodInsnNode(
-                                Opcodes.INVOKESTATIC,
-                                Type.getInternalName(StringHelper.class),
-                                "StringIsEmpty",
-                                Type.getMethodDescriptor(Type.INT_TYPE,
-                                        Type.getType(String.class)), false);
-                        mn.instructions.insertBefore(node, equalCheck);
-                        mn.instructions.remove(node);
-                        TransformationStatistics.transformedStringComparison();
+                        replaceWithHelper(mn, min, "StringIsEmpty", true, string);
                     } else if (min.name.equals("matches")) {
                         changed = true;
-                        MethodInsnNode equalCheck = new MethodInsnNode(
-                                Opcodes.INVOKESTATIC,
-                                Type.getInternalName(StringHelper.class),
-                                "StringMatches",
-                                Type.getMethodDescriptor(Type.INT_TYPE,
-                                        Type.getType(String.class),
-                                        Type.getType(String.class)), false);
-                        mn.instructions.insertBefore(node, equalCheck);
-                        mn.instructions.remove(node);
-                        TransformationStatistics.transformedStringComparison();
+                        replaceWithHelper(mn, min, "StringMatches", true, string, string);
                     } else if (min.name.equals("regionMatches")) {
                         Type[] argumentTypes = Type.getArgumentTypes(min.desc);
                         if (argumentTypes.length == 4) {
                             changed = true;
-                            MethodInsnNode equalCheck = new MethodInsnNode(
-                                    Opcodes.INVOKESTATIC,
-                                    Type.getInternalName(StringHelper.class),
-                                    "StringRegionMatches",
-                                    Type.getMethodDescriptor(Type.INT_TYPE, Type.getType(String.class), Type.INT_TYPE,
-                                            Type.getType(String.class), Type.INT_TYPE,
-                                            Type.INT_TYPE), false);
-                            mn.instructions.insertBefore(node, equalCheck);
-                            mn.instructions.remove(node);
-                            TransformationStatistics.transformedStringComparison();
-
+                            replaceWithHelper(mn, min, "StringRegionMatches", true, string,
+                                    Type.INT_TYPE, string, Type.INT_TYPE, Type.INT_TYPE);
                         } else if (argumentTypes.length == 5) {
                             changed = true;
-                            MethodInsnNode equalCheck = new MethodInsnNode(
-                                    Opcodes.INVOKESTATIC,
-                                    Type.getInternalName(StringHelper.class),
-                                    "StringRegionMatches",
-                                    Type.getMethodDescriptor(Type.INT_TYPE,
-                                            Type.getType(String.class),
-                                            Type.BOOLEAN_TYPE,
-                                            Type.INT_TYPE,
-                                            Type.getType(String.class),
-                                            Type.INT_TYPE,
-                                            Type.INT_TYPE), false);
-                            mn.instructions.insertBefore(node, equalCheck);
-                            mn.instructions.remove(node);
-                            TransformationStatistics.transformedStringComparison();
+                            replaceWithHelper(mn, min, "StringRegionMatches", true, string,
+                                    Type.BOOLEAN_TYPE, Type.INT_TYPE, string, Type.INT_TYPE,
+                                    Type.INT_TYPE);
                         }
                     }
 
                 } else if (min.owner.equals(JAVA_UTIL_REGEX_PATTERN)) {
                     if (min.name.equals("matches")) {
                         changed = true;
-                        MethodInsnNode equalCheck = new MethodInsnNode(
-                                Opcodes.INVOKESTATIC,
-                                Type.getInternalName(StringHelper.class),
-                                "StringMatchRegex",
-                                Type.getMethodDescriptor(Type.INT_TYPE,
-                                        Type.getType(String.class),
-                                        Type.getType(CharSequence.class)), false);
-                        mn.instructions.insertBefore(node, equalCheck);
-                        mn.instructions.remove(node);
+                        replaceWithHelper(mn, min, "StringMatchRegex", false, string,
+                                Type.getType(CharSequence.class));
                     }
                 } else if (min.owner.equals(JAVA_UTIL_REGEX_MATCHER)) {
                     if (min.name.equals("matches")) {
                         changed = true;
-                        MethodInsnNode equalCheck = new MethodInsnNode(
-                                Opcodes.INVOKESTATIC,
-                                Type.getInternalName(StringHelper.class),
-                                "StringMatchRegex",
-                                Type.getMethodDescriptor(Type.INT_TYPE,
-                                        Type.getType(Matcher.class)), false);
-                        mn.instructions.insertBefore(node, equalCheck);
-                        mn.instructions.remove(node);
+                        replaceWithHelper(mn, min, "StringMatchRegex", false,
+                                Type.getType(Matcher.class));
                     }
                 }
             }
             node = next;
         }
         return changed;
+    }
+
+    /**
+     * Replaces the call with a call to the static {@code StringHelper} method, which returns an
+     * int distance instead of a boolean.
+     *
+     * @param countsAsComparison whether the replacement is recorded as a transformed string comparison
+     */
+    private static void replaceWithHelper(MethodNode mn, MethodInsnNode call, String helperName,
+                                          boolean countsAsComparison, Type... argumentTypes) {
+        MethodInsnNode replacement = new MethodInsnNode(
+                Opcodes.INVOKESTATIC,
+                Type.getInternalName(StringHelper.class),
+                helperName,
+                Type.getMethodDescriptor(Type.INT_TYPE, argumentTypes), false);
+        mn.instructions.insertBefore(call, replacement);
+        mn.instructions.remove(call);
+        if (countsAsComparison) {
+            TransformationStatistics.transformedStringComparison();
+        }
     }
 
     private static boolean isStringMethod(AbstractInsnNode node) {
