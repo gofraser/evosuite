@@ -152,6 +152,45 @@ public class DmonEphemeralAssistTest {
     }
 
     @Test
+    public void fieldInjectionIsSkippedWithoutReflectionFallback() throws Exception {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        String oldTargetClass = Properties.TARGET_CLASS;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_ONLY_TARGET_CLASS = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = false;
+            Properties.TARGET_CLASS = StaticNullCtorTarget.class.getCanonicalName();
+
+            StaticNullCtorTarget.dep = null;
+            StaticNullCtorTarget.ctorCalls = 0;
+
+            DefaultTestCase test = new DefaultTestCase();
+            GenericConstructor gc = new GenericConstructor(
+                    StaticNullCtorTarget.class.getDeclaredConstructor(), StaticNullCtorTarget.class);
+            test.addStatement(new ConstructorStatement(test, gc, Collections.emptyList()));
+
+            ExecutionResult result = TestCaseExecutor.runTest(test);
+
+            Assert.assertNotNull("The candidate is still recorded", result.getDmonPromotionPlan());
+            Assert.assertEquals("The static field has no setter, so nothing may be injected and retried",
+                    1, StaticNullCtorTarget.ctorCalls);
+            Assert.assertFalse(result.noThrownExceptions());
+            Assert.assertNull(StaticNullCtorTarget.dep);
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_ONLY_TARGET_CLASS = oldOnlyTarget;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.TARGET_CLASS = oldTargetClass;
+            StaticNullCtorTarget.dep = null;
+            StaticNullCtorTarget.ctorCalls = 0;
+            TestCaseExecutor.pullDown();
+            TestCaseExecutor.initExecutor();
+        }
+    }
+
+    @Test
     public void methodStatementNpeIsRecordedAsPromotionCandidateAndRolledBack() throws Exception {
         // Before the method-invocation generalisation, DMoN's runtime gates
         // (DmonEphemeralAssist, called from TestRunnable) only fired for `instanceof ConstructorStatement`. A NullPointerException thrown from a

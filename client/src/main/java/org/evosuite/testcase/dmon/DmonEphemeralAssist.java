@@ -373,7 +373,8 @@ public class DmonEphemeralAssist {
         if (tryEphemeralSetterInjection(ownerClass, null, dependencyType, fieldName)) {
             return true;
         }
-        if (tryEphemeralFieldInjection(ownerClass, null, field, dependencyType, fieldName)) {
+        if (Properties.DMON_ALLOW_REFLECTION_FALLBACK
+                && tryEphemeralFieldInjection(ownerClass, null, field, dependencyType, fieldName)) {
             return true;
         }
         Method accessor = DmonInjectionDiscovery.findStaticInstanceAccessor(ownerClass);
@@ -387,7 +388,8 @@ public class DmonEphemeralAssist {
                 return false;
             }
             return tryEphemeralSetterInjection(ownerClass, receiver, dependencyType, fieldName)
-                    || tryEphemeralFieldInjection(ownerClass, receiver, instanceField, dependencyType, fieldName);
+                    || (Properties.DMON_ALLOW_REFLECTION_FALLBACK
+                    && tryEphemeralFieldInjection(ownerClass, receiver, instanceField, dependencyType, fieldName));
         } catch (Throwable t) {
             logger.debug("DMoN ephemeral instance accessor injection failed: {}", t.getMessage(), t);
             return false;
