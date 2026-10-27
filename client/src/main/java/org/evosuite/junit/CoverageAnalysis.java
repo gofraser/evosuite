@@ -65,7 +65,6 @@ import java.lang.reflect.Modifier;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 /**
@@ -437,74 +436,23 @@ public class CoverageAnalysis {
      *
      * @param directory a {@link java.io.File} object.
      * @return a {@link java.util.List} object.
-     * @throws ClassNotFoundException if any.
      */
     private static List<Class<?>> getTestClasses(File directory) {
 
         List<Class<?>> testClasses = new ArrayList<>();
 
         if (directory.getName().endsWith(".class")) {
-            LoggingUtils.muteCurrentOutAndErrStream();
-
-            try {
-                File file = new File(directory.getPath());
-                byte[] array = new byte[(int) file.length()];
-                ByteArrayOutputStream out = new ByteArrayOutputStream(array.length);
-                try (InputStream in = new FileInputStream(file)) {
-                    int length = in.read(array);
-                    while (length > 0) {
-                        out.write(array, 0, length);
-                        length = in.read(array);
-                    }
-                }
-                ClassReader reader = new ClassReader(array);
-                String className = reader.getClassName();
-
-                // Use default classLoader
-                Class<?> clazz = Class.forName(className.replace('/', '.'), true,
-                        TestGenerationContext.getInstance().getClassLoaderForSUT());
-                LoggingUtils.restorePreviousOutAndErrStream();
-
-                //clazz = Class.forName(clazz.getName());
-                if (isTest(clazz)) {
-                    testClasses.add(clazz);
-                }
-
-            } catch (IllegalAccessError e) {
-                LoggingUtils.restorePreviousOutAndErrStream();
-
-                System.out.println("  Cannot access class "
-                        + directory.getName().substring(0,
-                        directory.getName().length() - 6)
-                        + ": " + e);
-            } catch (NoClassDefFoundError e) {
-                LoggingUtils.restorePreviousOutAndErrStream();
-
-                System.out.println("  Error while loading "
-                        + directory.getName().substring(0,
-                        directory.getName().length() - 6)
-                        + ": Cannot find " + e.getMessage());
-                //e.printStackTrace();
-            } catch (ExceptionInInitializerError e) {
-                LoggingUtils.restorePreviousOutAndErrStream();
-
-                System.out.println("  Exception in initializer of "
-                        + directory.getName().substring(0,
-                        directory.getName().length() - 6));
-            } catch (ClassNotFoundException e) {
-                LoggingUtils.restorePreviousOutAndErrStream();
-
-                System.out.println("  Class not found in classpath: "
-                        + directory.getName().substring(0,
-                        directory.getName().length() - 6)
-                        + ": " + e);
-            } catch (Throwable e) {
-                LoggingUtils.restorePreviousOutAndErrStream();
-
-                System.out.println("  Unexpected error: "
-                        + directory.getName().substring(0,
-                        directory.getName().length() - 6)
-                        + ": " + e);
+            String displayName = directory.getName().substring(0, directory.getName().length() - 6);
+            String className;
+            try (InputStream in = new FileInputStream(directory)) {
+                className = new ClassReader(in).getClassName().replace('/', '.');
+            } catch (IOException | RuntimeException e) {
+                System.out.println(describeLoadFailure(displayName, e));
+                return testClasses;
+            }
+            Class<?> clazz = loadTestClass(className, displayName, true);
+            if (clazz != null) {
+                testClasses.add(clazz);
             }
         } else if (directory.isDirectory()) {
             for (File file : directory.listFiles()) {
@@ -525,78 +473,71 @@ public class CoverageAnalysis {
 
         List<Class<?>> testClasses = new ArrayList<>();
 
-        ZipFile zf;
-        try {
-            zf = new ZipFile(file);
-        } catch (final ZipException e) {
-            throw new Error(e);
+        try (ZipFile zf = new ZipFile(file)) {
+            final Enumeration<?> e = zf.entries();
+            while (e.hasMoreElements()) {
+                final String fileName = ((ZipEntry) e.nextElement()).getName();
+                if (!fileName.endsWith(".class")) {
+                    continue;
+                }
+                String className = fileName.replace(".class", "").replace("/", ".");
+                Class<?> clazz = loadTestClass(className, className, false);
+                if (clazz != null) {
+                    testClasses.add(clazz);
+                }
+            }
         } catch (final IOException e) {
             throw new Error(e);
         }
 
-        final Enumeration<?> e = zf.entries();
-        while (e.hasMoreElements()) {
-            final ZipEntry ze = (ZipEntry) e.nextElement();
-            final String fileName = ze.getName();
-            if (!fileName.endsWith(".class")) {
-                continue;
-            }
-            /*if (fileName.contains("$"))
-                continue;*/
+        return testClasses;
+    }
 
-            PrintStream oldOut = System.out;
-            PrintStream oldErr = System.err;
-            //System.setOut(outStream);
-            //System.setErr(outStream);
-
-            try {
-                Class<?> clazz = Class.forName(fileName.replace(".class", "").replace("/",
-                                "."),
-                        true,
-                        TestGenerationContext.getInstance().getClassLoaderForSUT());
-
-                if (isTest(clazz)) {
-                    testClasses.add(clazz);
-                }
-            } catch (IllegalAccessError ex) {
-                System.setOut(oldOut);
-                System.setErr(oldErr);
-                System.out.println("Cannot access class "
-                        + file.getName().substring(0, file.getName().length() - 6));
-            } catch (NoClassDefFoundError ex) {
-                System.setOut(oldOut);
-                System.setErr(oldErr);
-                System.out.println("Cannot find dependent class " + ex);
-            } catch (ExceptionInInitializerError ex) {
-                System.setOut(oldOut);
-                System.setErr(oldErr);
-                System.out.println("Exception in initializer of "
-                        + file.getName().substring(0, file.getName().length() - 6));
-            } catch (ClassNotFoundException ex) {
-                System.setOut(oldOut);
-                System.setErr(oldErr);
-                System.out.println("Cannot find class "
-                        + file.getName().substring(0, file.getName().length() - 6) + ": "
-                        + ex);
-            } catch (Throwable t) {
-                System.setOut(oldOut);
-                System.setErr(oldErr);
-
-                System.out.println("  Unexpected error: "
-                        + file.getName().substring(0, file.getName().length() - 6) + ": "
-                        + t);
-            } finally {
-                System.setOut(oldOut);
-                System.setErr(oldErr);
-            }
+    /**
+     * Loads a class with the SUT class loader and returns it if it is a test class. A class that
+     * cannot be loaded is reported on standard output and skipped.
+     *
+     * @param className   the binary name of the class
+     * @param displayName the name to show if loading fails
+     * @param muteOutput  whether to silence the output of the class's static initialisers
+     * @return the test class, or null if it is not a test or cannot be loaded
+     */
+    private static Class<?> loadTestClass(String className, String displayName, boolean muteOutput) {
+        if (muteOutput) {
+            LoggingUtils.muteCurrentOutAndErrStream();
+        }
+        Class<?> clazz = null;
+        Throwable failure = null;
+        try {
+            clazz = Class.forName(className, true, TestGenerationContext.getInstance().getClassLoaderForSUT());
+        } catch (Throwable t) {
+            failure = t;
+        }
+        if (muteOutput) {
+            LoggingUtils.restorePreviousOutAndErrStream();
         }
         try {
-            zf.close();
-        } catch (final IOException e1) {
-            throw new Error(e1);
+            if (failure == null) {
+                return isTest(clazz) ? clazz : null;
+            }
+        } catch (Throwable t) {
+            failure = t;
         }
+        System.out.println(describeLoadFailure(displayName, failure));
+        return null;
+    }
 
-        return testClasses;
+    private static String describeLoadFailure(String displayName, Throwable e) {
+        if (e instanceof IllegalAccessError) {
+            return "  Cannot access class " + displayName + ": " + e;
+        } else if (e instanceof NoClassDefFoundError) {
+            return "  Error while loading " + displayName + ": Cannot find " + e.getMessage();
+        } else if (e instanceof ExceptionInInitializerError) {
+            return "  Exception in initializer of " + displayName;
+        } else if (e instanceof ClassNotFoundException) {
+            return "  Class not found in classpath: " + displayName + ": " + e;
+        }
+        return "  Unexpected error: " + displayName + ": " + e;
     }
 
     private static void analyzeCoverageCriterion(List<JUnitResult> results, Properties.Criterion criterion) {
