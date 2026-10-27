@@ -22,13 +22,13 @@ package org.evosuite.testcase.dmon;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
+import org.evosuite.testcase.dmon.DmonInjectionDiscovery.InjectionTarget;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
@@ -47,7 +47,6 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -75,28 +74,13 @@ public final class DmonPromotionOperator {
         void restore() throws IllegalAccessException;
     }
 
+    /** Puts a field back to the value it had before the promotion; the receiver is null for a static field. */
     private static final class FieldValidationRestore implements ValidationStaticRestore {
-        private final Field field;
-        private final Object oldValue;
-
-        private FieldValidationRestore(Field field, Object oldValue) {
-            this.field = field;
-            this.oldValue = oldValue;
-        }
-
-        @Override
-        public void restore() throws IllegalAccessException {
-            field.setAccessible(true);
-            field.set(null, oldValue);
-        }
-    }
-
-    private static final class InstanceFieldValidationRestore implements ValidationStaticRestore {
         private final Field field;
         private final Object receiver;
         private final Object oldValue;
 
-        private InstanceFieldValidationRestore(Field field, Object receiver, Object oldValue) {
+        private FieldValidationRestore(Field field, Object receiver, Object oldValue) {
             this.field = field;
             this.receiver = receiver;
             this.oldValue = oldValue;
@@ -197,53 +181,26 @@ public final class DmonPromotionOperator {
         }
 
         String fieldHint = DmonInjectionDiscovery.resolveFieldName(plan);
-        Method staticTargetMethod = DmonInjectionDiscovery.findStaticSetter(ownerClass, mockType, fieldHint);
-        Field staticTargetField = staticTargetMethod == null && Properties.DMON_ALLOW_REFLECTION_FALLBACK
-                ? findStaticInjectionField(ownerClass, mockType, fieldHint)
-                : null;
-        Method instanceAccessor = null;
-        Method instanceSetter = null;
-        Field instanceField = null;
-        if (staticTargetMethod == null && staticTargetField == null) {
-            instanceAccessor = DmonInjectionDiscovery.findStaticInstanceAccessor(ownerClass);
-            if (instanceAccessor != null) {
-                instanceSetter = DmonInjectionDiscovery.findInstanceSetter(ownerClass, mockType, fieldHint);
-                if (instanceSetter == null && Properties.DMON_ALLOW_REFLECTION_FALLBACK) {
-                    instanceField = findInstanceInjectionField(ownerClass, mockType, fieldHint);
-                }
-            }
-        }
+        InjectionTarget target = DmonInjectionDiscovery.resolveTarget(
+                ownerClass, mockType, fieldHint, Properties.DMON_ALLOW_REFLECTION_FALLBACK);
         // If no injection target found on the failure-site owner, try the class from
         // the null expression (e.g., "jaw.Main" from "jaw.Main.janelaPrincipal").
-        if (staticTargetMethod == null && staticTargetField == null
-                && instanceSetter == null && instanceField == null) {
+        if (target.isEmpty()) {
             String exprOwner = DmonInjectionDiscovery.resolveFieldOwnerClassName(plan);
             if (exprOwner != null) {
-                Class<?> exprClass = tryLoadClass(exprOwner, sutLoader);
+                Class<?> exprClass = DmonInjectionDiscovery.loadClass(exprOwner, sutLoader);
                 if (exprClass != null && !exprClass.equals(ownerClass)) {
                     ownerClass = exprClass;
                     mockType = resolveMockType(plan, ownerClass, sutLoader);
                     if (mockType == null) {
                         return new PromotionAttempt(originalResult, false, "MOCK_TYPE_UNRESOLVED");
                     }
-                    staticTargetMethod = DmonInjectionDiscovery.findStaticSetter(ownerClass, mockType, fieldHint);
-                    staticTargetField = staticTargetMethod == null && Properties.DMON_ALLOW_REFLECTION_FALLBACK
-                            ? findStaticInjectionField(ownerClass, mockType, fieldHint)
-                            : null;
-                    if (staticTargetMethod == null && staticTargetField == null) {
-                        instanceAccessor = DmonInjectionDiscovery.findStaticInstanceAccessor(ownerClass);
-                        if (instanceAccessor != null) {
-                            instanceSetter = DmonInjectionDiscovery.findInstanceSetter(ownerClass, mockType, fieldHint);
-                            if (instanceSetter == null && Properties.DMON_ALLOW_REFLECTION_FALLBACK) {
-                                instanceField = findInstanceInjectionField(ownerClass, mockType, fieldHint);
-                            }
-                        }
-                    }
+                    target = DmonInjectionDiscovery.resolveTarget(
+                            ownerClass, mockType, fieldHint, Properties.DMON_ALLOW_REFLECTION_FALLBACK);
                 }
             }
         }
-        if (staticTargetMethod == null && staticTargetField == null
-                && instanceSetter == null && instanceField == null) {
+        if (target.isEmpty()) {
             return new PromotionAttempt(originalResult, false, "NO_INJECTION_TARGET");
         }
 
@@ -274,35 +231,24 @@ public final class DmonPromotionOperator {
                 ((FunctionalMockStatement) mockStmt).setDmonPromotion(true);
             }
             List<Statement> newStatements = new ArrayList<>();
-            if (staticTargetMethod != null) {
-                newStatements.add(buildStaticMethodStatement(test, staticTargetMethod, mockRef));
-            } else if (staticTargetField != null) {
-                newStatements.add(buildStaticFieldAssignment(test, staticTargetField, mockRef));
+            if (target.staticSetter != null) {
+                newStatements.add(buildStaticMethodStatement(test, target.staticSetter, mockRef));
+            } else if (target.staticField != null) {
+                newStatements.add(buildStaticFieldAssignment(test, target.staticField, mockRef));
             } else {
-                if (instanceAccessor == null) {
-                    return new PromotionAttempt(
-                            rollbackMutatedTestCase(individual, backup, originalResult), false, "NO_INSTANCE_ACCESSOR");
-                }
-                MethodStatement accessorStatement = buildStaticAccessorCall(test, instanceAccessor);
+                // resolveTarget leaves an accessor, and a setter or a field, together
+                MethodStatement accessorStatement = buildStaticAccessorCall(test, target.instanceAccessor);
                 VariableReference receiver = accessorStatement.getReturnValue();
-                if (instanceSetter != null) {
-                    newStatements.add(accessorStatement);
-                    newStatements.add(buildInstanceMethodStatement(test, instanceSetter, receiver, mockRef));
-                } else if (instanceField != null) {
-                    newStatements.add(accessorStatement);
-                    newStatements.add(buildInstanceFieldAssignment(test, instanceField, receiver, mockRef));
-                } else {
-                    return new PromotionAttempt(
-                            rollbackMutatedTestCase(individual, backup, originalResult), false,
-                                    "NO_INSTANCE_INJECTION_TARGET");
-                }
+                newStatements.add(accessorStatement);
+                newStatements.add(target.instanceSetter != null
+                        ? buildInstanceMethodStatement(test, target.instanceSetter, receiver, mockRef)
+                        : buildInstanceFieldAssignment(test, target.instanceField, receiver, mockRef));
             }
             int insertionIndex = 1;
             for (Statement statement : newStatements) {
                 test.addStatement(statement, insertionIndex++);
             }
-            ValidationStaticRestore restore = buildValidationRestore(ownerClass, staticTargetMethod, staticTargetField,
-                    instanceAccessor, instanceSetter, instanceField, fieldHint);
+            ValidationStaticRestore restore = buildValidationRestore(ownerClass, target, fieldHint);
             return validateOrRollback(individual, backup, originalResult, restore, plan);
         } catch (ConstructionFailedException | RuntimeException e) {
             // Covers both a failed mock/statement construction and a statement loop
@@ -576,12 +522,12 @@ public final class DmonPromotionOperator {
             return null;
         }
         String owner = plan.getFailureSite() == null ? null : plan.getFailureSite().getOwnerClass();
-        Class<?> resolved = tryLoadClass(owner, sutLoader);
+        Class<?> resolved = DmonInjectionDiscovery.loadClass(owner, sutLoader);
         if (resolved != null) {
             return resolved;
         }
         if (plan.getOwnerToken().isPresent()) {
-            resolved = tryLoadClass(plan.getOwnerToken().get(), sutLoader);
+            resolved = DmonInjectionDiscovery.loadClass(plan.getOwnerToken().get(), sutLoader);
             if (resolved != null) {
                 return resolved;
             }
@@ -620,7 +566,7 @@ public final class DmonPromotionOperator {
             return null;
         }
 
-        Field field = DmonInjectionDiscovery.findStaticField(ownerClass, fieldName);
+        Field field = DmonInjectionDiscovery.findField(ownerClass, fieldName, true);
         if (field == null) {
             field = findFieldInHierarchy(ownerClass, fieldName);
         }
@@ -644,65 +590,7 @@ public final class DmonPromotionOperator {
             return null;
         }
         String ownerTypeName = token.substring(0, lastDot);
-        return tryLoadClass(ownerTypeName, loader);
-    }
-
-    private static Class<?> tryLoadClass(String className, ClassLoader loader) {
-        if (className == null || className.trim().isEmpty()) {
-            return null;
-        }
-        try {
-            return Class.forName(className.trim(), false, loader);
-        } catch (ClassNotFoundException e) {
-            return null;
-        }
-    }
-
-    private static Field findStaticInjectionField(Class<?> ownerClass, Class<?> mockType, String preferredField) {
-        // DmonInjectionDiscovery.findStaticField already screens finality with the
-        // stripping-aware predicate, so this fast path is covered too.
-        Field preferred = DmonInjectionDiscovery.findStaticField(ownerClass, preferredField);
-        if (preferred != null && preferred.getType().isAssignableFrom(mockType)) {
-            return preferred;
-        }
-        for (Class<?> c = ownerClass; c != null; c = c.getSuperclass()) {
-            for (Field f : c.getDeclaredFields()) {
-                int mods = f.getModifiers();
-                // A raw Modifier.isFinal check misses a field whose ACC_FINAL was
-                // stripped by instrumentation for the bytecode-level static-reset
-                // machinery: such a field reflects as non-final but must still never
-                // be used as a generated-test assignment target (only that bytecode
-                // machinery, which never has to compile as Java source, may write it).
-                if (!Modifier.isStatic(mods) || TestClusterUtils.isFinalField(f)) {
-                    continue;
-                }
-                if (f.getType().isAssignableFrom(mockType)) {
-                    return f;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static Field findInstanceInjectionField(Class<?> ownerClass, Class<?> mockType, String preferredField) {
-        // DmonInjectionDiscovery.findInstanceField already screens finality with the
-        // stripping-aware predicate, so this fast path is covered too.
-        Field preferred = DmonInjectionDiscovery.findInstanceField(ownerClass, preferredField);
-        if (preferred != null && preferred.getType().isAssignableFrom(mockType)) {
-            return preferred;
-        }
-        for (Class<?> c = ownerClass; c != null; c = c.getSuperclass()) {
-            for (Field f : c.getDeclaredFields()) {
-                int mods = f.getModifiers();
-                if (Modifier.isStatic(mods) || TestClusterUtils.isFinalField(f)) {
-                    continue;
-                }
-                if (f.getType().isAssignableFrom(mockType)) {
-                    return f;
-                }
-            }
-        }
-        return null;
+        return DmonInjectionDiscovery.loadClass(ownerTypeName, loader);
     }
 
     private static Statement buildStaticMethodStatement(TestCase test, Method method, VariableReference mockRef) {
@@ -754,17 +642,13 @@ public final class DmonPromotionOperator {
     }
 
     private static ValidationStaticRestore buildValidationRestore(Class<?> ownerClass,
-                                                                  Method staticTargetMethod,
-                                                                  Field staticTargetField,
-                                                                  Method instanceAccessor,
-                                                                  Method instanceTargetMethod,
-                                                                  Field instanceTargetField,
+                                                                  InjectionTarget target,
                                                                   String fieldHint) throws IllegalAccessException {
-        if (staticTargetMethod != null || staticTargetField != null) {
-            Field rollbackField = staticTargetField;
-            if (rollbackField == null && staticTargetMethod != null) {
-                rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForSetter(
-                        ownerClass, staticTargetMethod, fieldHint);
+        if (target.staticSetter != null || target.staticField != null) {
+            Field rollbackField = target.staticField;
+            if (rollbackField == null) {
+                rollbackField = DmonInjectionDiscovery.resolveRollbackField(
+                        ownerClass, target.staticSetter, fieldHint, true);
             }
             if (rollbackField == null) {
                 return null;
@@ -773,28 +657,25 @@ public final class DmonPromotionOperator {
                 return null;
             }
             Object oldValue = rollbackField.get(null);
-            return new FieldValidationRestore(rollbackField, oldValue);
+            return new FieldValidationRestore(rollbackField, null, oldValue);
         }
 
-        if (instanceAccessor == null) {
-            return null;
-        }
         Object receiver;
         try {
-            if (!trySetAccessible(instanceAccessor)) {
+            if (!trySetAccessible(target.instanceAccessor)) {
                 return null;
             }
-            receiver = instanceAccessor.invoke(null);
+            receiver = target.instanceAccessor.invoke(null);
         } catch (ReflectiveOperationException e) {
             return null;
         }
         if (receiver == null) {
             return null;
         }
-        Field rollbackField = instanceTargetField;
-        if (rollbackField == null && instanceTargetMethod != null) {
-            rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForInstanceSetter(
-                    ownerClass, instanceTargetMethod, fieldHint);
+        Field rollbackField = target.instanceField;
+        if (rollbackField == null) {
+            rollbackField = DmonInjectionDiscovery.resolveRollbackField(
+                    ownerClass, target.instanceSetter, fieldHint, false);
         }
         if (rollbackField == null) {
             return null;
@@ -803,7 +684,7 @@ public final class DmonPromotionOperator {
             return null;
         }
         Object oldValue = rollbackField.get(receiver);
-        return new InstanceFieldValidationRestore(rollbackField, receiver, oldValue);
+        return new FieldValidationRestore(rollbackField, receiver, oldValue);
     }
 
     private static Field findFieldInHierarchy(Class<?> type, String fieldName) {

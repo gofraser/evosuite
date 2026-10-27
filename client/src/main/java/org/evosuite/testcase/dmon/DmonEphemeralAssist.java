@@ -72,77 +72,38 @@ public class DmonEphemeralAssist {
         String describe();
     }
 
-    private static final class DmonStaticWrite implements DmonRollbackAction {
+    /** Puts a field back to its old value; the receiver is null for a static field. */
+    private static final class DmonFieldWrite implements DmonRollbackAction {
         private final Field field;
+        private final Object receiver;
         private final Object oldValue;
 
-        private DmonStaticWrite(Field field, Object oldValue) {
+        private DmonFieldWrite(Field field, Object receiver, Object oldValue) {
             this.field = field;
+            this.receiver = receiver;
             this.oldValue = oldValue;
         }
 
         @Override
         public void rollback() throws IllegalAccessException {
             field.setAccessible(true);
-            field.set(null, oldValue);
+            field.set(receiver, oldValue);
         }
 
         @Override
         public String describe() {
-            return field.getDeclaringClass().getName() + "." + field.getName();
+            return field.getDeclaringClass().getName() + "." + field.getName()
+                    + (receiver == null ? "" : " (instance)");
         }
     }
 
+    /** Calls a setter with the old value; the receiver is null for a static setter. */
     private static final class DmonSetterRollback implements DmonRollbackAction {
-        private final Method setter;
-        private final Object oldValue;
-
-        private DmonSetterRollback(Method setter, Object oldValue) {
-            this.setter = setter;
-            this.oldValue = oldValue;
-        }
-
-        @Override
-        public void rollback() throws Exception {
-            setter.setAccessible(true);
-            setter.invoke(null, oldValue);
-        }
-
-        @Override
-        public String describe() {
-            return setter.getDeclaringClass().getName() + "." + setter.getName() + "(...)";
-        }
-    }
-
-    private static final class DmonInstanceWrite implements DmonRollbackAction {
-        private final Field field;
-        private final Object target;
-        private final Object oldValue;
-
-        private DmonInstanceWrite(Field field, Object target, Object oldValue) {
-            this.field = field;
-            this.target = target;
-            this.oldValue = oldValue;
-        }
-
-        @Override
-        public void rollback() throws IllegalAccessException {
-            field.setAccessible(true);
-            field.set(target, oldValue);
-        }
-
-        @Override
-        public String describe() {
-            return field.getDeclaringClass().getName() + "." + field.getName() + " (instance)";
-        }
-    }
-
-    private static final class DmonInstanceSetterRollback implements DmonRollbackAction {
         private final Method setter;
         private final Object receiver;
         private final Object oldValue;
 
-        private DmonInstanceSetterRollback(Method setter, Object receiver, Object oldValue) {
+        private DmonSetterRollback(Method setter, Object receiver, Object oldValue) {
             this.setter = setter;
             this.receiver = receiver;
             this.oldValue = oldValue;
@@ -156,10 +117,10 @@ public class DmonEphemeralAssist {
 
         @Override
         public String describe() {
-            return setter.getDeclaringClass().getName() + "." + setter.getName() + "(...) (instance)";
+            return setter.getDeclaringClass().getName() + "." + setter.getName() + "(...)"
+                    + (receiver == null ? "" : " (instance)");
         }
     }
-
 
     /**
      * Remembers the current value of the field a field assignment is about to overwrite, so
@@ -182,7 +143,7 @@ public class DmonEphemeralAssist {
             field.setAccessible(true);
             if (fieldRef.getField().isStatic()) {
                 Object oldValue = field.get(null);
-                dmonRollbackLog.push(new DmonStaticWrite(field, oldValue));
+                dmonRollbackLog.push(new DmonFieldWrite(field, null, oldValue));
                 return;
             }
             VariableReference sourceRef = fieldRef.getSource();
@@ -194,7 +155,7 @@ public class DmonEphemeralAssist {
                 return;
             }
             Object oldValue = field.get(receiver);
-            dmonRollbackLog.push(new DmonInstanceWrite(field, receiver, oldValue));
+            dmonRollbackLog.push(new DmonFieldWrite(field, receiver, oldValue));
         } catch (Throwable t) {
             logger.debug("Could not snapshot field assignment for rollback: {}", t.getMessage());
         }
@@ -370,29 +331,24 @@ public class DmonEphemeralAssist {
         }
 
         String fieldName = DmonInjectionDiscovery.resolveFieldName(plan);
-        Field field = DmonInjectionDiscovery.findStaticField(ownerClass, fieldName);
-        Field instanceField = field == null ? DmonInjectionDiscovery.findInstanceField(ownerClass, fieldName) : null;
+        Field field = DmonInjectionDiscovery.findField(ownerClass, fieldName, true);
+        Field instanceField = field == null ? DmonInjectionDiscovery.findField(ownerClass, fieldName, false) : null;
 
         // If the field is not found on the failure-site owner, try the class extracted
         // from the null expression (e.g., "jaw.Main" from "jaw.Main.janelaPrincipal").
         if (field == null && instanceField == null) {
             String exprOwner = DmonInjectionDiscovery.resolveFieldOwnerClassName(plan);
-            if (exprOwner != null) {
-                ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
-                try {
-                    Class<?> exprClass = Class.forName(exprOwner, false, sutLoader);
-                    if (!exprClass.equals(ownerClass)) {
-                        field = DmonInjectionDiscovery.findStaticField(exprClass, fieldName);
-                        if (field != null) {
-                            ownerClass = exprClass;
-                        } else {
-                            instanceField = DmonInjectionDiscovery.findInstanceField(exprClass, fieldName);
-                            if (instanceField != null) {
-                                ownerClass = exprClass;
-                            }
-                        }
+            Class<?> exprClass = DmonInjectionDiscovery.loadClass(exprOwner,
+                    TestGenerationContext.getInstance().getClassLoaderForSUT());
+            if (exprClass != null && !exprClass.equals(ownerClass)) {
+                field = DmonInjectionDiscovery.findField(exprClass, fieldName, true);
+                if (field != null) {
+                    ownerClass = exprClass;
+                } else {
+                    instanceField = DmonInjectionDiscovery.findField(exprClass, fieldName, false);
+                    if (instanceField != null) {
+                        ownerClass = exprClass;
                     }
-                } catch (ClassNotFoundException expected) {
                 }
             }
         }
@@ -414,13 +370,28 @@ public class DmonEphemeralAssist {
             return false;
         }
 
-        if (tryEphemeralSetterInjection(ownerClass, dependencyType, fieldName)) {
+        if (tryEphemeralSetterInjection(ownerClass, null, dependencyType, fieldName)) {
             return true;
         }
-        if (tryEphemeralFieldInjection(field, dependencyType)) {
+        if (tryEphemeralFieldInjection(ownerClass, null, field, dependencyType, fieldName)) {
             return true;
         }
-        return tryEphemeralInstanceInjection(ownerClass, instanceField, dependencyType, fieldName);
+        Method accessor = DmonInjectionDiscovery.findStaticInstanceAccessor(ownerClass);
+        if (accessor == null) {
+            return false;
+        }
+        try {
+            accessor.setAccessible(true);
+            Object receiver = accessor.invoke(null);
+            if (receiver == null) {
+                return false;
+            }
+            return tryEphemeralSetterInjection(ownerClass, receiver, dependencyType, fieldName)
+                    || tryEphemeralFieldInjection(ownerClass, receiver, instanceField, dependencyType, fieldName);
+        } catch (Throwable t) {
+            logger.debug("DMoN ephemeral instance accessor injection failed: {}", t.getMessage(), t);
+            return false;
+        }
     }
 
     private static Class<?> resolveOwnerClassForEphemeral(Statement statement, DmonPromotionPlan plan) {
@@ -441,67 +412,15 @@ public class DmonEphemeralAssist {
         return null;
     }
 
-    private boolean tryEphemeralSetterInjection(Class<?> ownerClass, Class<?> dependencyType, String fieldName) {
-        Method setter = DmonInjectionDiscovery.findStaticSetter(ownerClass, dependencyType, fieldName);
+    /** Injects through a static setter, or through a setter of {@code receiver} if it is not null. */
+    private boolean tryEphemeralSetterInjection(Class<?> ownerClass, Object receiver, Class<?> dependencyType,
+                                                String fieldName) {
+        boolean wantStatic = receiver == null;
+        Method setter = DmonInjectionDiscovery.findSetter(ownerClass, dependencyType, fieldName, wantStatic);
         if (setter == null) {
             return false;
         }
-        Field rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForSetter(ownerClass, setter, fieldName);
-        if (rollbackField == null) {
-            return false;
-        }
-        try {
-            rollbackField.setAccessible(true);
-            Object oldValue = rollbackField.get(null);
-            Class<?> setterType = setter.getParameterTypes()[0];
-            Object mock = createEphemeralMock(setterType);
-            setter.setAccessible(true);
-            setter.invoke(null, mock);
-            dmonRollbackLog.push(new DmonSetterRollback(setter, oldValue));
-            return true;
-        } catch (Throwable t) {
-            logger.debug("DMoN ephemeral setter injection failed: {}", t.getMessage(), t);
-            return false;
-        }
-    }
-
-    private boolean tryEphemeralInstanceInjection(Class<?> ownerClass,
-                                                  Field field,
-                                                  Class<?> dependencyType,
-                                                  String fieldName) {
-        if (ownerClass == null || dependencyType == null || dependencyType.isPrimitive()) {
-            return false;
-        }
-        Method accessor = DmonInjectionDiscovery.findStaticInstanceAccessor(ownerClass);
-        if (accessor == null) {
-            return false;
-        }
-        try {
-            accessor.setAccessible(true);
-            Object receiver = accessor.invoke(null);
-            if (receiver == null) {
-                return false;
-            }
-            if (tryEphemeralInstanceSetterInjection(ownerClass, receiver, dependencyType, fieldName)) {
-                return true;
-            }
-            return tryEphemeralInstanceFieldInjection(ownerClass, receiver, field, dependencyType, fieldName);
-        } catch (Throwable t) {
-            logger.debug("DMoN ephemeral instance accessor injection failed: {}", t.getMessage(), t);
-            return false;
-        }
-    }
-
-    private boolean tryEphemeralInstanceSetterInjection(Class<?> ownerClass,
-                                                        Object receiver,
-                                                        Class<?> dependencyType,
-                                                        String fieldName) {
-        Method setter = DmonInjectionDiscovery.findInstanceSetter(ownerClass, dependencyType, fieldName);
-        if (setter == null) {
-            return false;
-        }
-        Field rollbackField = DmonInjectionDiscovery
-                .resolveRollbackFieldForInstanceSetter(ownerClass, setter, fieldName);
+        Field rollbackField = DmonInjectionDiscovery.resolveRollbackField(ownerClass, setter, fieldName, wantStatic);
         if (rollbackField == null) {
             return false;
         }
@@ -512,20 +431,24 @@ public class DmonEphemeralAssist {
             Object mock = createEphemeralMock(setterType);
             setter.setAccessible(true);
             setter.invoke(receiver, mock);
-            dmonRollbackLog.push(new DmonInstanceSetterRollback(setter, receiver, oldValue));
+            dmonRollbackLog.push(new DmonSetterRollback(setter, receiver, oldValue));
             return true;
         } catch (Throwable t) {
-            logger.debug("DMoN ephemeral instance setter injection failed: {}", t.getMessage(), t);
+            logger.debug("DMoN ephemeral setter injection failed: {}", t.getMessage(), t);
             return false;
         }
     }
 
-    private boolean tryEphemeralInstanceFieldInjection(Class<?> ownerClass,
-                                                       Object receiver,
-                                                       Field field,
-                                                       Class<?> dependencyType,
-                                                       String fieldName) {
-        Field targetField = field != null ? field : DmonInjectionDiscovery.findInstanceField(ownerClass, fieldName);
+    /**
+     * Injects into {@code field}, or, for an instance receiver without a field yet, into the
+     * field of that name. A static injection has no receiver and needs the field.
+     */
+    private boolean tryEphemeralFieldInjection(Class<?> ownerClass, Object receiver, Field field,
+                                               Class<?> dependencyType, String fieldName) {
+        Field targetField = field;
+        if (targetField == null && receiver != null) {
+            targetField = DmonInjectionDiscovery.findField(ownerClass, fieldName, false);
+        }
         if (targetField == null) {
             return false;
         }
@@ -534,24 +457,7 @@ public class DmonEphemeralAssist {
             Object oldValue = targetField.get(receiver);
             Object mock = createEphemeralMock(dependencyType);
             targetField.set(receiver, mock);
-            dmonRollbackLog.push(new DmonInstanceWrite(targetField, receiver, oldValue));
-            return true;
-        } catch (Throwable t) {
-            logger.debug("DMoN ephemeral instance field injection failed: {}", t.getMessage(), t);
-            return false;
-        }
-    }
-
-    private boolean tryEphemeralFieldInjection(Field field, Class<?> dependencyType) {
-        if (field == null) {
-            return false;
-        }
-        try {
-            field.setAccessible(true);
-            Object oldValue = field.get(null);
-            Object mock = createEphemeralMock(dependencyType);
-            field.set(null, mock);
-            dmonRollbackLog.push(new DmonStaticWrite(field, oldValue));
+            dmonRollbackLog.push(new DmonFieldWrite(targetField, receiver, oldValue));
             return true;
         } catch (Throwable t) {
             logger.debug("DMoN ephemeral field injection failed: {}", t.getMessage(), t);

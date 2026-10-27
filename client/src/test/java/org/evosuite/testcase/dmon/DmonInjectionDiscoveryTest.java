@@ -40,6 +40,25 @@ public class DmonInjectionDiscoveryTest {
         }
     }
 
+    public static class Holder {
+        static Runnable staticDep;
+        Runnable instanceDep;
+        final Runnable finalDep = null;
+        private static Holder instance = new Holder();
+
+        public static Holder getInstance() {
+            return instance;
+        }
+
+        public void setInstanceDep(Runnable r) {
+            instanceDep = r;
+        }
+
+        public void registerOther(Runnable r) {
+            instanceDep = r;
+        }
+    }
+
     public static class TargetCallsRegister {
         public void touch() {
             OwnerWithMultipleSetters.registerDep(null);
@@ -101,13 +120,49 @@ public class DmonInjectionDiscoveryTest {
         String oldTarget = Properties.TARGET_CLASS;
         try {
             Properties.TARGET_CLASS = TargetCallsRegister.class.getName();
-            Method selected = DmonInjectionDiscovery.findStaticSetter(
-                    OwnerWithMultipleSetters.class, Runnable.class, "dep");
+            Method selected = DmonInjectionDiscovery.findSetter(
+                    OwnerWithMultipleSetters.class, Runnable.class, "dep", true);
 
             Assert.assertNotNull(selected);
             Assert.assertEquals("registerDep", selected.getName());
         } finally {
             Properties.TARGET_CLASS = oldTarget;
         }
+    }
+
+    @Test
+    public void findFieldSeparatesStaticFromInstanceAndSkipsFinal() {
+        Assert.assertEquals("staticDep", DmonInjectionDiscovery.findField(Holder.class, "staticDep", true).getName());
+        Assert.assertNull(DmonInjectionDiscovery.findField(Holder.class, "staticDep", false));
+        Assert.assertEquals("instanceDep",
+                DmonInjectionDiscovery.findField(Holder.class, "instanceDep", false).getName());
+        Assert.assertNull(DmonInjectionDiscovery.findField(Holder.class, "instanceDep", true));
+        Assert.assertNull(DmonInjectionDiscovery.findField(Holder.class, "finalDep", false));
+    }
+
+    @Test
+    public void instanceSetterMustBeNamedSetAndRollbackFieldFollowsIt() {
+        Method setter = DmonInjectionDiscovery.findSetter(Holder.class, Runnable.class, "instanceDep", false);
+        Assert.assertEquals("setInstanceDep", setter.getName());
+        Assert.assertNull(DmonInjectionDiscovery.findSetter(Holder.class, Runnable.class, "instanceDep", true));
+        Assert.assertEquals("instanceDep",
+                DmonInjectionDiscovery.resolveRollbackField(Holder.class, setter, null, false).getName());
+    }
+
+    @Test
+    public void resolveTargetPrefersStaticThenInstanceAndHonoursReflectionFlag() {
+        DmonInjectionDiscovery.InjectionTarget withReflection =
+                DmonInjectionDiscovery.resolveTarget(Holder.class, Runnable.class, "staticDep", true);
+        Assert.assertNull(withReflection.staticSetter);
+        Assert.assertEquals("staticDep", withReflection.staticField.getName());
+
+        DmonInjectionDiscovery.InjectionTarget withoutReflection =
+                DmonInjectionDiscovery.resolveTarget(Holder.class, Runnable.class, "staticDep", false);
+        Assert.assertNull(withoutReflection.staticField);
+        Assert.assertEquals("getInstance", withoutReflection.instanceAccessor.getName());
+        Assert.assertEquals("setInstanceDep", withoutReflection.instanceSetter.getName());
+
+        Assert.assertTrue(DmonInjectionDiscovery.resolveTarget(
+                String.class, Runnable.class, "x", true).isEmpty());
     }
 }

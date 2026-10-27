@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -102,26 +103,26 @@ public final class DmonInjectionDiscovery {
     }
 
     /**
-     * Finds a static field in the given class or its superclasses.
+     * Finds a non-final field of the given kind in the given class or its superclasses.
      *
      * @param ownerClass the class to search
      * @param fieldName the name of the field
+     * @param wantStatic true for a static field, false for an instance field
      * @return the field if found and valid, or null
      */
-    public static Field findStaticField(Class<?> ownerClass, String fieldName) {
+    public static Field findField(Class<?> ownerClass, String fieldName, boolean wantStatic) {
         if (ownerClass == null || fieldName == null || fieldName.trim().isEmpty()) {
             return null;
         }
         for (Class<?> c = ownerClass; c != null; c = c.getSuperclass()) {
             try {
                 Field f = c.getDeclaredField(fieldName);
-                int mods = f.getModifiers();
                 // TestClusterUtils.isFinalField, unlike a raw Modifier.isFinal check,
                 // also catches a field whose ACC_FINAL was stripped by instrumentation
                 // (CreateClassResetClassAdapter) for the bytecode-level static-reset
                 // machinery: such a field reflects as non-final but must still never be
                 // used as a generated-test assignment target.
-                if (Modifier.isStatic(mods) && !TestClusterUtils.isFinalField(f)) {
+                if (Modifier.isStatic(f.getModifiers()) == wantStatic && !TestClusterUtils.isFinalField(f)) {
                     return f;
                 }
             } catch (NoSuchFieldException expected) {
@@ -131,48 +132,28 @@ public final class DmonInjectionDiscovery {
     }
 
     /**
-     * Finds an instance field in the given class or its superclasses.
-     *
-     * @param ownerClass the class to search
-     * @param fieldName the name of the field
-     * @return the field if found and valid, or null
-     */
-    public static Field findInstanceField(Class<?> ownerClass, String fieldName) {
-        if (ownerClass == null || fieldName == null || fieldName.trim().isEmpty()) {
-            return null;
-        }
-        for (Class<?> c = ownerClass; c != null; c = c.getSuperclass()) {
-            try {
-                Field f = c.getDeclaredField(fieldName);
-                int mods = f.getModifiers();
-                if (!Modifier.isStatic(mods) && !TestClusterUtils.isFinalField(f)) {
-                    return f;
-                }
-            } catch (NoSuchFieldException expected) {
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Finds a static setter method for a given dependency type.
+     * Finds the public setter that best accepts a value of the dependency type, preferring one
+     * whose name mentions the field. A static setter may also be named register*, init* or
+     * configure*, and ranks higher the more often the target class calls it.
      *
      * @param ownerClass the class to search
      * @param dependencyType the type of the dependency
      * @param fieldNameHint an optional hint for the field name
+     * @param wantStatic true for a static setter, false for an instance setter
      * @return the best matching setter method, or null
      */
-    public static Method findStaticSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint) {
+    public static Method findSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint,
+                                    boolean wantStatic) {
         if (ownerClass == null || dependencyType == null) {
             return null;
         }
         Method best = null;
         int bestScore = Integer.MIN_VALUE;
         String normalizedFieldHint = fieldNameHint == null ? "" : fieldNameHint.toLowerCase(Locale.ROOT);
-        Map<String, Integer> usage = countStaticCallsFromTarget(ownerClass);
+        Map<String, Integer> usage = wantStatic ? countStaticCallsFromTarget(ownerClass) : Collections.emptyMap();
         for (Method m : ownerClass.getMethods()) {
             int mods = m.getModifiers();
-            if (!Modifier.isStatic(mods) || !Modifier.isPublic(mods)) {
+            if (Modifier.isStatic(mods) != wantStatic || !Modifier.isPublic(mods)) {
                 continue;
             }
             if (m.getParameterTypes().length != 1) {
@@ -183,17 +164,15 @@ public final class DmonInjectionDiscovery {
                 continue;
             }
             String name = m.getName().toLowerCase(Locale.ROOT);
-            if (!(name.startsWith("set") || name.startsWith("register")
-                    || name.startsWith("init") || name.startsWith("configure"))) {
-                continue;
-            }
-            int score = 0;
+            int score;
             if (name.startsWith("set")) {
-                score += 20;
-            } else if (name.startsWith("register")) {
-                score += 15;
-            } else if (name.startsWith("init") || name.startsWith("configure")) {
-                score += 10;
+                score = 20;
+            } else if (wantStatic && name.startsWith("register")) {
+                score = 15;
+            } else if (wantStatic && (name.startsWith("init") || name.startsWith("configure"))) {
+                score = 10;
+            } else {
+                continue;
             }
             if (!normalizedFieldHint.isEmpty() && name.contains(normalizedFieldHint)) {
                 score += 30;
@@ -255,19 +234,21 @@ public final class DmonInjectionDiscovery {
     }
 
     /**
-     * Resolves the field that should be used for rollback after a static setter call.
+     * Resolves the field that should be used for rollback after a setter call.
      *
      * @param ownerClass the class owning the field
      * @param setter the setter method
      * @param fieldNameHint an optional hint for the field name
+     * @param wantStatic true if the setter is static
      * @return the resolved field, or null
      */
-    public static Field resolveRollbackFieldForSetter(Class<?> ownerClass, Method setter, String fieldNameHint) {
+    public static Field resolveRollbackField(Class<?> ownerClass, Method setter, String fieldNameHint,
+                                             boolean wantStatic) {
         if (ownerClass == null || setter == null) {
             return null;
         }
         if (fieldNameHint != null && !fieldNameHint.trim().isEmpty()) {
-            Field direct = findStaticField(ownerClass, fieldNameHint);
+            Field direct = findField(ownerClass, fieldNameHint, wantStatic);
             if (direct != null && setter.getParameterTypes()[0].isAssignableFrom(direct.getType())) {
                 return direct;
             }
@@ -275,7 +256,7 @@ public final class DmonInjectionDiscovery {
         String methodName = setter.getName();
         if (methodName.startsWith("set") && methodName.length() > 3) {
             String derived = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
-            Field derivedField = findStaticField(ownerClass, derived);
+            Field derivedField = findField(ownerClass, derived, wantStatic);
             if (derivedField != null && setter.getParameterTypes()[0].isAssignableFrom(derivedField.getType())) {
                 return derivedField;
             }
@@ -284,33 +265,92 @@ public final class DmonInjectionDiscovery {
     }
 
     /**
-     * Resolves the field that should be used for rollback after an instance setter call.
-     *
-     * @param ownerClass the class owning the field
-     * @param setter the setter method
-     * @param fieldNameHint an optional hint for the field name
-     * @return the resolved field, or null
+     * Finds a non-final field that can hold a value of the mock type: the named field if it
+     * fits, otherwise the first such field in the class hierarchy.
      */
-    public static Field resolveRollbackFieldForInstanceSetter(Class<?> ownerClass, Method setter,
-                                                              String fieldNameHint) {
-        if (ownerClass == null || setter == null) {
-            return null;
+    private static Field findInjectionField(Class<?> ownerClass, Class<?> mockType, String preferredField,
+                                            boolean wantStatic) {
+        // findField already screens finality with the stripping-aware predicate, so this
+        // fast path is covered too.
+        Field preferred = findField(ownerClass, preferredField, wantStatic);
+        if (preferred != null && preferred.getType().isAssignableFrom(mockType)) {
+            return preferred;
         }
-        if (fieldNameHint != null && !fieldNameHint.trim().isEmpty()) {
-            Field direct = findInstanceField(ownerClass, fieldNameHint);
-            if (direct != null && setter.getParameterTypes()[0].isAssignableFrom(direct.getType())) {
-                return direct;
-            }
-        }
-        String methodName = setter.getName();
-        if (methodName.startsWith("set") && methodName.length() > 3) {
-            String derived = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
-            Field derivedField = findInstanceField(ownerClass, derived);
-            if (derivedField != null && setter.getParameterTypes()[0].isAssignableFrom(derivedField.getType())) {
-                return derivedField;
+        for (Class<?> c = ownerClass; c != null; c = c.getSuperclass()) {
+            for (Field f : c.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers()) != wantStatic || TestClusterUtils.isFinalField(f)) {
+                    continue;
+                }
+                if (f.getType().isAssignableFrom(mockType)) {
+                    return f;
+                }
             }
         }
         return null;
+    }
+
+    /**
+     * Where a mock of a missing dependency can be put on the owner class: a static setter or
+     * static field, or a setter or field of the instance a static accessor returns.
+     */
+    static final class InjectionTarget {
+        final Method staticSetter;
+        final Field staticField;
+        final Method instanceAccessor;
+        final Method instanceSetter;
+        final Field instanceField;
+
+        private InjectionTarget(Method staticSetter, Field staticField, Method instanceAccessor,
+                                Method instanceSetter, Field instanceField) {
+            this.staticSetter = staticSetter;
+            this.staticField = staticField;
+            this.instanceAccessor = instanceAccessor;
+            this.instanceSetter = instanceSetter;
+            this.instanceField = instanceField;
+        }
+
+        boolean isEmpty() {
+            return staticSetter == null && staticField == null && instanceSetter == null && instanceField == null;
+        }
+    }
+
+    /**
+     * Looks for a place to inject a mock of the given type, preferring a static setter, then a
+     * static field, then a setter, then a field of the instance a static accessor returns.
+     * The field fallbacks are only tried if {@code allowReflection} is set.
+     *
+     * @return the target found, empty if the class offers none
+     */
+    static InjectionTarget resolveTarget(Class<?> ownerClass, Class<?> mockType, String fieldHint,
+                                         boolean allowReflection) {
+        Method staticSetter = findSetter(ownerClass, mockType, fieldHint, true);
+        Field staticField = staticSetter == null && allowReflection
+                ? findInjectionField(ownerClass, mockType, fieldHint, true)
+                : null;
+        Method accessor = null;
+        Method instanceSetter = null;
+        Field instanceField = null;
+        if (staticSetter == null && staticField == null) {
+            accessor = findStaticInstanceAccessor(ownerClass);
+            if (accessor != null) {
+                instanceSetter = findSetter(ownerClass, mockType, fieldHint, false);
+                if (instanceSetter == null && allowReflection) {
+                    instanceField = findInjectionField(ownerClass, mockType, fieldHint, false);
+                }
+            }
+        }
+        return new InjectionTarget(staticSetter, staticField, accessor, instanceSetter, instanceField);
+    }
+
+    static Class<?> loadClass(String className, ClassLoader loader) {
+        if (className == null || className.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Class.forName(className.trim(), false, loader);
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
     }
 
     private static String methodKey(Method m) {
@@ -377,52 +417,5 @@ public final class DmonInjectionDiscovery {
             return first.substring(1, first.length() - 1).replace('/', '.');
         }
         return "";
-    }
-
-    /**
-     * Finds the public instance setter that best accepts a value of the dependency type,
-     * preferring one whose name mentions the field.
-     *
-     * @param ownerClass     the class to search
-     * @param dependencyType the type of the value to inject
-     * @param fieldNameHint  the field the value is meant for, or null
-     * @return the best matching setter, or null
-     */
-    public static Method findInstanceSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint) {
-        if (ownerClass == null || dependencyType == null) {
-            return null;
-        }
-        Method best = null;
-        int bestScore = Integer.MIN_VALUE;
-        String normalizedFieldHint = fieldNameHint == null ? "" : fieldNameHint.toLowerCase(Locale.ROOT);
-        for (Method method : ownerClass.getMethods()) {
-            int mods = method.getModifiers();
-            if (Modifier.isStatic(mods) || !Modifier.isPublic(mods)) {
-                continue;
-            }
-            if (method.getParameterTypes().length != 1) {
-                continue;
-            }
-            Class<?> param = method.getParameterTypes()[0];
-            if (!param.isAssignableFrom(dependencyType) && !dependencyType.isAssignableFrom(param)) {
-                continue;
-            }
-            String methodName = method.getName().toLowerCase(Locale.ROOT);
-            if (!methodName.startsWith("set")) {
-                continue;
-            }
-            int score = 20;
-            if (!normalizedFieldHint.isEmpty() && methodName.contains(normalizedFieldHint)) {
-                score += 30;
-            }
-            if (param.equals(dependencyType)) {
-                score += 5;
-            }
-            if (best == null || score > bestScore) {
-                best = method;
-                bestScore = score;
-            }
-        }
-        return best;
     }
 }
