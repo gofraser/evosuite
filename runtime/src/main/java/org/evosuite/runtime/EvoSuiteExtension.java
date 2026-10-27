@@ -450,8 +450,6 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
 
         RuntimeSettings.className = inferTargetClassName(testClass);
         RuntimeSettings.apply(parameters);
-        RuntimeSettings.maxNumberOfThreads = parameters.maxNumberOfThreads();
-        RuntimeSettings.maxNumberOfIterationsPerLoop = parameters.maxNumberOfIterationsPerLoop();
 
         syncSettingsToSystemClassLoader();
 

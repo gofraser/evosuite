@@ -163,8 +163,8 @@ public class RuntimeSettings {
     }
 
     /**
-     * Takes over the mocking, static reset and class loader settings a test class declares in
-     * its {@link EvoRunnerParameters}.
+     * Takes over the mocking, static reset, class loader and resource limit settings a test class
+     * declares in its {@link EvoRunnerParameters}.
      *
      * @param parameters the annotation of the test class.
      */
@@ -175,6 +175,8 @@ public class RuntimeSettings {
         useVFS = parameters.useVFS();
         useVNET = parameters.useVNET();
         useSeparateClassLoader = parameters.separateClassLoader();
+        maxNumberOfThreads = parameters.maxNumberOfThreads();
+        maxNumberOfIterationsPerLoop = parameters.maxNumberOfIterationsPerLoop();
     }
 
     /**
