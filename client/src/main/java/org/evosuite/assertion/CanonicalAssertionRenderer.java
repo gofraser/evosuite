@@ -10,9 +10,9 @@
  * (at your option) any later version.
  *
  * EvoSuite is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser Public License
- * for more details.
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
@@ -22,32 +22,103 @@ package org.evosuite.assertion;
 import org.evosuite.Properties;
 
 /**
- * Renders canonical unified LLM assertion kinds for the configured test format.
+ * Renders canonical unified LLM assertion kinds for the configured test format. JUnit 3 has
+ * neither {@code assertArrayEquals} nor {@code assertNotEquals}, so those two shapes are written
+ * out in terms of the assertions it does have.
  */
-public interface CanonicalAssertionRenderer {
+public final class CanonicalAssertionRenderer {
 
-    default String render(TemplateAssertionKind kind,
-                          String expected,
-                          String actual,
-                          String delta) {
-        return render(kind, expected, actual, delta, false);
+    private static final CanonicalAssertionRenderer JUNIT3 = new CanonicalAssertionRenderer(true);
+    private static final CanonicalAssertionRenderer JUNIT4_OR_5 = new CanonicalAssertionRenderer(false);
+
+    private final boolean junit3;
+
+    private CanonicalAssertionRenderer(boolean junit3) {
+        this.junit3 = junit3;
     }
-
-    String render(TemplateAssertionKind kind,
-                  String expected,
-                  String actual,
-                  String delta,
-                  boolean arrayEquality);
 
     /**
      * Returns the renderer matching the configured test output format.
      *
      * @return the JUnit 3 renderer for JUnit 3 output, otherwise the JUnit 4/5 renderer
      */
-    static CanonicalAssertionRenderer forConfiguredFormat() {
-        if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT3) {
-            return JUnit3CanonicalAssertionRenderer.INSTANCE;
+    public static CanonicalAssertionRenderer forConfiguredFormat() {
+        return Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT3 ? JUNIT3 : JUNIT4_OR_5;
+    }
+
+    public String render(TemplateAssertionKind kind,
+                         String expected,
+                         String actual,
+                         String delta) {
+        return render(kind, expected, actual, delta, false);
+    }
+
+    public String render(TemplateAssertionKind kind,
+                         String expected,
+                         String actual,
+                         String delta,
+                         boolean arrayEquality) {
+        switch (kind) {
+            case EQUALS:
+                if (arrayEquality) {
+                    if (delta != null) {
+                        throw new IllegalStateException("Array equality does not support delta");
+                    }
+                    return junit3
+                            ? "assertTrue(java.util.Arrays.equals(" + expected + ", " + actual + "));"
+                            : "assertArrayEquals(" + expected + ", " + actual + ");";
+                }
+                return delta == null
+                        ? "assertEquals(" + expected + ", " + actual + ");"
+                        : "assertEquals(" + expected + ", " + actual + ", " + delta + ");";
+            case NOT_EQUALS:
+                return renderNotEquals(expected, actual, delta);
+            case TRUE:
+                return "assertTrue(" + actual + ");";
+            case FALSE:
+                return "assertFalse(" + actual + ");";
+            case NULL:
+                return "assertNull(" + actual + ");";
+            case NOT_NULL:
+                return "assertNotNull(" + actual + ");";
+            case SAME:
+                return "assertSame(" + expected + ", " + actual + ");";
+            case NOT_SAME:
+                return "assertNotSame(" + expected + ", " + actual + ");";
+            case CONTAINS:
+                return "assertTrue(" + actual + ".contains(" + expected + "));";
+            case NOT_CONTAINS:
+                return "assertFalse(" + actual + ".contains(" + expected + "));";
+            case SIZE_EQUALS:
+                return "assertEquals(" + expected + ", " + actual + ".size());";
+            case MAP_CONTAINS_KEY:
+                return "assertTrue(" + actual + ".containsKey(" + expected + "));";
+            case IS_EMPTY:
+                return "assertTrue(" + actual + ".isEmpty());";
+            case GREATER:
+                return "assertTrue(" + actual + " > " + expected + ");";
+            case LESS:
+                return "assertTrue(" + actual + " < " + expected + ");";
+            case GREATER_EQUALS:
+                return "assertTrue(" + actual + " >= " + expected + ");";
+            case LESS_EQUALS:
+                return "assertTrue(" + actual + " <= " + expected + ");";
+            default:
+                throw new IllegalStateException("Unsupported template assertion kind: " + kind);
         }
-        return JUnit4Or5CanonicalAssertionRenderer.INSTANCE;
+    }
+
+    private String renderNotEquals(String expected, String actual, String delta) {
+        if (!junit3) {
+            return delta == null
+                    ? "assertNotEquals(" + expected + ", " + actual + ");"
+                    : "assertNotEquals(" + expected + ", " + actual + ", " + delta + ");";
+        }
+        if (delta == null) {
+            return "assertFalse(java.util.Objects.equals(" + expected + ", " + actual + "));";
+        }
+        return "assertTrue(Double.compare((double)(" + expected + "), (double)(" + actual + ")) != 0"
+                + " && !(Math.abs((double)(" + expected + ") - (double)(" + actual + ")) <= "
+                + delta + "));";
     }
 }

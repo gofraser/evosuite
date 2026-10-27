@@ -58,15 +58,10 @@ public final class EnumAssertionCodeRenderer {
      * {@code toString()} because an enum may override {@code toString()}, which
      * then need not agree with {@code name()}.
      *
-     * <p>In the nameable branch, the visitor is threaded into
-     * {@link NumberFormatter#getNumberString(Object, TestCodeVisitor)}, which
-     * gates its own import-registering, conflict-resolving naming on the same
-     * {@link GeneratedTestAccess#isEnumConstantNameableInGeneratedTest} check used
-     * above, so it already calls {@link TestCodeVisitor#getClassName(Class)} on
-     * {@code enumClass} (and its enclosing class, if nested) whenever this
-     * branch is reached. The explicit follow-up call below is therefore a no-op
-     * in practice; it is kept only as a defensive safeguard against that
-     * invariant changing.
+     * <p>In the nameable branch the enum is rendered through
+     * {@link NumberFormatter#getNumberString(Object, TestCodeVisitor)}; the
+     * follow-up {@link TestCodeVisitor#getClassName(Class)} call makes sure the
+     * enum and its enclosing classes are imported.
      *
      * @param value            the enum constant being compared against
      * @param actualExpression the generated-test expression yielding the actual
