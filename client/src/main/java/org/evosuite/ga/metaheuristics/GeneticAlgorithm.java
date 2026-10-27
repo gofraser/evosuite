@@ -50,6 +50,7 @@ import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
 import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
+import org.evosuite.llm.search.CoveredGoals;
 import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.StagnationDetector;
@@ -619,18 +620,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             if (!ticket.isTracked()) {
                 continue;
             }
-            int gained = 0;
-            for (Iterator<TestFitnessFunction> it = remaining.iterator(); it.hasNext(); ) {
-                TestFitnessFunction goal = it.next();
-                try {
-                    if (goal.isCovered(entry.getCandidate())) {
-                        it.remove();
-                        gained++;
-                    }
-                } catch (RuntimeException e) {
-                    logger.debug("Could not check goal {} against an injected test: {}", goal, e.getMessage());
-                }
-            }
+            int gained = CoveredGoals.removeCovered(remaining, entry.getCandidate()).size();
             gainsByTicket.merge(ticket, gained, Integer::sum);
         }
     }

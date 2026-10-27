@@ -25,6 +25,7 @@ import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.BlendChannel;
+import org.evosuite.llm.search.CoveredGoals;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.ProblemCardLogRecorder;
 import org.evosuite.llm.search.ProblemCardType;
@@ -453,7 +454,7 @@ final class InjectionAdmission {
     private int creditGain(TestChromosome candidate, InjectionSource tag, InjectionAttemptMetadata metadata,
                            Set<TestFitnessFunction> remainingUncovered,
                            Map<AttemptTicket, Integer> gainsByTicket) {
-        List<TestFitnessFunction> coveredNow = coveredGoalsAndRemoveList(candidate, remainingUncovered);
+        List<TestFitnessFunction> coveredNow = CoveredGoals.removeCovered(remainingUncovered, candidate);
         int gained = coveredNow.size();
         maybeRecordDiagnosticAttribution(tag, metadata, gained);
         if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
@@ -470,27 +471,6 @@ final class InjectionAdmission {
             gainsByTicket.merge(metadata.getTicket(), gained, Integer::sum);
         }
         return gained;
-    }
-
-    /**
-     * Removes from {@code remainingUncovered} the goals newly covered by the candidate and returns
-     * them — the goal identities feed the problem-card log's COVERED_BY_INJECTION rows.
-     */
-    private List<TestFitnessFunction> coveredGoalsAndRemoveList(
-            TestChromosome candidate, Set<TestFitnessFunction> remainingUncovered) {
-        if (candidate == null || remainingUncovered == null || remainingUncovered.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<TestFitnessFunction> covered = new ArrayList<>();
-        Iterator<TestFitnessFunction> it = remainingUncovered.iterator();
-        while (it.hasNext()) {
-            TestFitnessFunction goal = it.next();
-            if (goal != null && goal.isCovered(candidate)) {
-                covered.add(goal);
-                it.remove();
-            }
-        }
-        return covered;
     }
 
     /**
