@@ -21,7 +21,7 @@ package org.evosuite.strategy;
 
 import org.evosuite.Properties;
 import org.evosuite.coverage.FitnessFunctions;
-import org.evosuite.coverage.TestFitnessFactory;
+import org.evosuite.coverage.FitnessFunctionsUtils;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.metaheuristics.mapelites.MAPElites;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
@@ -39,7 +39,6 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -79,7 +78,7 @@ public class MAPElitesStrategy extends TestGenerationStrategy {
 
         algorithm.resetStoppingConditions();
 
-        List<TestFitnessFunction> goals = this.getGoals();
+        List<TestFitnessFunction> goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(Properties.CRITERION, false);
 
         algorithm.addTestFitnessFunctions(goals);
 
@@ -142,14 +141,5 @@ public class MAPElitesStrategy extends TestGenerationStrategy {
         }
 
         return suite;
-    }
-
-    private List<TestFitnessFunction> getGoals() {
-        List<TestFitnessFactory<? extends TestFitnessFunction>> goalFactories = getFitnessFactories();
-        List<TestFitnessFunction> fitnessFunctions = new ArrayList<>();
-        for (TestFitnessFactory<? extends TestFitnessFunction> goalFactory : goalFactories) {
-            fitnessFunctions.addAll(goalFactory.getCoverageGoals());
-        }
-        return fitnessFunctions;
     }
 }

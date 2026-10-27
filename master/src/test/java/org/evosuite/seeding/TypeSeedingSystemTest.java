@@ -22,8 +22,8 @@ package org.evosuite.seeding;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
-import org.evosuite.TestSuiteGenerator;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -124,7 +124,7 @@ public class TypeSeedingSystemTest extends SystemTestBase {
 
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        int goals = TestSuiteGenerator.getFitnessFactories().get(0).getCoverageGoals().size();
+        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
         Assertions.assertEquals(4, goals, "Wrong number of goals: ");
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
@@ -148,7 +148,7 @@ public class TypeSeedingSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        int goals = TestSuiteGenerator.getFitnessFactories().get(0).getCoverageGoals().size();
+        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
         Assertions.assertEquals(4, goals, "Wrong number of goals: ");
         Assertions.assertTrue(best.getCoverage() < 1d, "Did not expect optimal coverage: ");
     }

@@ -296,7 +296,7 @@ public class TestSuiteGenerator {
 
         // Check if there are ANY goals across all criteria
         int totalGoals = 0;
-        for (TestFitnessFactory<? extends TestFitnessFunction> factory : getFitnessFactories()) {
+        for (TestFitnessFactory<? extends TestFitnessFunction> factory : TestGenerationStrategy.getFitnessFactories()) {
             totalGoals += factory.getCoverageGoals().size();
         }
         if (totalGoals == 0 && !ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
@@ -687,7 +687,7 @@ public class TestSuiteGenerator {
         // suite.getCoveredGoals().size() and suite.getNumCoveredGoals()
         // but it is not clear how to update numcoveredgoals
         List<TestFitnessFunction> goals = new ArrayList<>();
-        for (TestFitnessFactory<?> ff : getFitnessFactories()) {
+        for (TestFitnessFactory<?> ff : TestGenerationStrategy.getFitnessFactories()) {
             goals.addAll(ff.getCoverageGoals());
         }
         for (TestFitnessFunction f : testSuite.getCoveredGoals()) {
@@ -727,7 +727,7 @@ public class TestSuiteGenerator {
                 publishUnminimizedSuite(testSuite, minimizationResult);
             } else {
                 double before = testSuite.getFitness();
-                TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
+                TestSuiteMinimizer minimizer = new TestSuiteMinimizer(TestGenerationStrategy.getFitnessFactories());
                 int testsBeforeMinimization = testSuite.size();
                 int lengthBeforeMinimization = testSuite.totalLengthOfTestCases();
 
@@ -1193,21 +1193,6 @@ public class TestSuiteGenerator {
             ObjectPool pool = ObjectPool.getPoolFromTestSuite(suite);
             pool.writePool(Properties.WRITE_POOL);
         }
-    }
-
-    /**
-     * Get the fitness factories for the configured criteria.
-     *
-     * @return a list of {@link org.evosuite.coverage.TestFitnessFactory}
-     *         objects.
-     */
-    public static List<TestFitnessFactory<? extends TestFitnessFunction>> getFitnessFactories() {
-        List<TestFitnessFactory<? extends TestFitnessFunction>> goalsFactory = new ArrayList<>();
-        for (int i = 0; i < Properties.CRITERION.length; i++) {
-            goalsFactory.add(FitnessFunctions.getFitnessFactory(Properties.CRITERION[i]));
-        }
-
-        return goalsFactory;
     }
 
 }
