@@ -58,7 +58,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.LongFunction;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -293,38 +292,27 @@ public class LlmPostProcessor {
                                                PromptResult prompt, int testIndex,
                                                MinimizationResult minimizationResult,
                                                int repairAttempt) {
-        return queryWithPostProcessingTraceContext(phaseContext, testIndex, minimizationResult,
-                deadlineNanos -> llmService.query((repairAttempt <= 1
-                        ? LlmRequest.of(prompt, LlmFeature.POST_PROCESSING)
-                        : LlmRequest.of(prompt.getMessages(), LlmFeature.POST_PROCESSING)
-                                .withRepairAttempt(repairAttempt))
-                        .withDeadlineNanos(deadlineNanos)).getText());
+        return queryAttributed(phaseContext, testIndex, minimizationResult, repairAttempt <= 1
+                ? LlmRequest.of(prompt, LlmFeature.POST_PROCESSING)
+                : LlmRequest.of(prompt.getMessages(), LlmFeature.POST_PROCESSING)
+                        .withRepairAttempt(repairAttempt));
     }
 
     String queryWithPostProcessingTraceContext(LlmPostProcessingPhaseContext phaseContext,
                                                List<LlmMessage> messages, int testIndex,
                                                MinimizationResult minimizationResult,
                                                int repairAttempt) {
-        return queryWithPostProcessingTraceContext(phaseContext, testIndex, minimizationResult,
-                deadlineNanos -> llmService.query(LlmRequest.of(messages, LlmFeature.POST_PROCESSING)
-                        .withRepairAttempt(repairAttempt)
-                        .withDeadlineNanos(deadlineNanos)).getText());
+        return queryAttributed(phaseContext, testIndex, minimizationResult,
+                LlmRequest.of(messages, LlmFeature.POST_PROCESSING).withRepairAttempt(repairAttempt));
     }
 
-    private String queryWithPostProcessingTraceContext(LlmPostProcessingPhaseContext phaseContext,
-                                                       int testIndex,
-                                                       MinimizationResult minimizationResult,
-                                                       LongFunction<String> call) {
-        LlmTraceRecorder.setPostProcessingTraceContext(
-                minimizationResult.getStatus().name(),
-                minimizationResult.getUnderlyingStopCause().name(),
-                testIndex);
-        try {
-            ensureNotInterrupted();
-            return call.apply(phaseDeadlineNanos(phaseContext));
-        } finally {
-            LlmTraceRecorder.clearPostProcessingTraceContext();
-        }
+    private String queryAttributed(LlmPostProcessingPhaseContext phaseContext, int testIndex,
+                                   MinimizationResult minimizationResult, LlmRequest request) {
+        ensureNotInterrupted();
+        return llmService.query(request
+                .withPostProcessingAttribution(minimizationResult.getStatus().name(),
+                        minimizationResult.getUnderlyingStopCause().name(), testIndex)
+                .withDeadlineNanos(phaseDeadlineNanos(phaseContext))).getText();
     }
 
     /**

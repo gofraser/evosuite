@@ -55,20 +55,10 @@ class LlmTraceRecorderTest {
                 "run-model");
 
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                .feature(LlmFeature.SEMANTIC_MUTATION)
-                .messages(Collections.singletonList(LlmMessage.user("mutate")))
-                .responseText("response")
-                .parseStatus("SUCCESS")
-                .errorType("")
-                .build());
-        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                .feature(LlmFeature.STAGNATION)
-                .messages(Collections.singletonList(LlmMessage.user("stagnation")))
-                .responseText("response")
-                .parseStatus("SUCCESS")
-                .errorType("")
-                .build());
+        recorder.recordCall(LlmRequest.of(Collections.singletonList(LlmMessage.user("mutate")), LlmFeature.SEMANTIC_MUTATION),
+                new LlmTraceRecorder.CallOutcome("response", 0, 0, 0, 0L, "SUCCESS", ""));
+        recorder.recordCall(LlmRequest.of(Collections.singletonList(LlmMessage.user("stagnation")), LlmFeature.STAGNATION),
+                new LlmTraceRecorder.CallOutcome("response", 0, 0, 0, 0L, "SUCCESS", ""));
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
         String[] lines = content.split("\\R");
@@ -96,20 +86,9 @@ class LlmTraceRecorderTest {
                 "run-abc");
 
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                .feature(LlmFeature.TEST_REPAIR)
-                .messages(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("user")))
-                .responseText("response")
-                .inputTokens(12)
-                .cachedInputTokens(5)
-                .outputTokens(34)
-                .latencyMs(56)
-                .parseStatus("SUCCESS")
-                .repairAttempt(1)
-                .expansionAttempted(true)
-                .expandedClasses(Arrays.asList("java.util.ArrayList"))
-                .errorType("")
-                .build());
+        recorder.recordCall(LlmRequest.of(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("user")), LlmFeature.TEST_REPAIR)
+                        .withExpansion(true, Arrays.asList("java.util.ArrayList")),
+                new LlmTraceRecorder.CallOutcome("response", 12, 5, 34, 56L, "SUCCESS", ""));
 
         Path traceFile = recorder.getTraceFile();
         assertTrue(Files.exists(traceFile));
@@ -143,25 +122,15 @@ class LlmTraceRecorderTest {
                 "run-post");
 
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        LlmTraceRecorder.setPostProcessingTraceContext("COMPLETE", "SEARCH_FINISHED", 4);
-        try {
-            recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                    .feature(LlmFeature.POST_PROCESSING)
-                    .messages(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("initial")))
-                    .responseText("initial")
-                    .parseStatus("SUCCESS")
-                    .repairAttempt(1)
-                    .build());
-            recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                    .feature(LlmFeature.POST_PROCESSING)
-                    .messages(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("repair")))
-                    .responseText("repair")
-                    .parseStatus("SUCCESS")
-                    .repairAttempt(2)
-                    .build());
-        } finally {
-            LlmTraceRecorder.clearPostProcessingTraceContext();
-        }
+        recorder.recordCall(LlmRequest.of(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("initial")),
+                        LlmFeature.POST_PROCESSING)
+                        .withPostProcessingAttribution("COMPLETE", "SEARCH_FINISHED", 4),
+                new LlmTraceRecorder.CallOutcome("initial", 0, 0, 0, 0L, "SUCCESS", ""));
+        recorder.recordCall(LlmRequest.of(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("repair")),
+                        LlmFeature.POST_PROCESSING)
+                        .withRepairAttempt(2)
+                        .withPostProcessingAttribution("COMPLETE", "SEARCH_FINISHED", 4),
+                new LlmTraceRecorder.CallOutcome("repair", 0, 0, 0, 0L, "SUCCESS", ""));
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
         assertTrue(content.contains("\"postprocessing_call_kind\":\"initial\""));
@@ -203,12 +172,8 @@ class LlmTraceRecorderTest {
                     org.evosuite.Properties.LlmProvider.OPENAI, "model-1", "", "", 0.0,
                     256, 3, 1, 1, true, tempDir, "run-policy");
             LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-            recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                    .feature(LlmFeature.POST_PROCESSING)
-                    .messages(Arrays.asList(LlmMessage.user("request")))
-                    .responseText("response")
-                    .parseStatus("SUCCESS")
-                    .build());
+            recorder.recordCall(LlmRequest.of(Arrays.asList(LlmMessage.user("request")), LlmFeature.POST_PROCESSING),
+                    new LlmTraceRecorder.CallOutcome("response", 0, 0, 0, 0L, "SUCCESS", ""));
 
             String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
             assertTrue(content.contains("\"postprocessing_repair_policy\":\"BATCHED\""));
@@ -264,6 +229,8 @@ class LlmTraceRecorderTest {
                         "REGRESSION",
                         "s3",
                         "check value",
+                        "",
+                        "",
                         assertionJson));
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
@@ -288,7 +255,7 @@ class LlmTraceRecorderTest {
                 new LlmTraceRecorder.PostProcessingAssertionLifecycleRecord(
                         3, "COMPLETED", "NONE", "shipped", "final_validation",
                         "a2", "EQUALS", "v0", "42", "", "REGRESSION",
-                        "s1", "preserve the result", "SELECTED_CANDIDATE", "c4"));
+                        "s1", "preserve the result", "SELECTED_CANDIDATE", "c4", "", ""));
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
         assertTrue(content.contains("\"event_type\":\"postprocessing_assertion_lifecycle\""));

@@ -51,8 +51,6 @@ public class LlmTraceRecorder {
     private static final Logger logger = LoggerFactory.getLogger(LlmTraceRecorder.class);
     private static final Gson GSON = new Gson();
     private static final int TRACE_SCHEMA_VERSION = 4;
-    private static final ThreadLocal<PostProcessingTraceContext> POST_PROCESSING_TRACE_CONTEXT =
-            new ThreadLocal<>();
 
     private final LlmConfiguration configuration;
     private final Path traceFile;
@@ -64,134 +62,25 @@ public class LlmTraceRecorder {
         this.traceFile = configuration.getTraceDir().resolve("llm-trace.jsonl");
     }
 
-    public static final class CallRecord {
-        private final LlmFeature feature;
-        private final List<LlmMessage> messages;
+    /** What a call returned, or the error that ended it. */
+    public static final class CallOutcome {
         private final String responseText;
         private final int inputTokens;
         private final int cachedInputTokens;
         private final int outputTokens;
         private final long latencyMs;
         private final String parseStatus;
-        private final int repairAttempt;
-        private final boolean expansionAttempted;
-        private final List<String> expandedClasses;
         private final String errorType;
-        private final PromptContextInfo contextInfo;
 
-        public static final class Builder {
-            private LlmFeature feature;
-            private List<LlmMessage> messages = Collections.emptyList();
-            private String responseText;
-            private int inputTokens;
-            private int cachedInputTokens;
-            private int outputTokens;
-            private long latencyMs;
-            private String parseStatus;
-            private int repairAttempt;
-            private boolean expansionAttempted;
-            private List<String> expandedClasses = Collections.emptyList();
-            private String errorType = "";
-            private PromptContextInfo contextInfo = PromptContextInfo.empty();
-
-            public Builder feature(LlmFeature feature) {
-                this.feature = feature;
-                return this;
-            }
-
-            public Builder messages(List<LlmMessage> messages) {
-                this.messages = messages;
-                return this;
-            }
-
-            public Builder responseText(String responseText) {
-                this.responseText = responseText;
-                return this;
-            }
-
-            public Builder inputTokens(int inputTokens) {
-                this.inputTokens = inputTokens;
-                return this;
-            }
-
-            public Builder cachedInputTokens(int cachedInputTokens) {
-                this.cachedInputTokens = cachedInputTokens;
-                return this;
-            }
-
-            public Builder outputTokens(int outputTokens) {
-                this.outputTokens = outputTokens;
-                return this;
-            }
-
-            public Builder latencyMs(long latencyMs) {
-                this.latencyMs = latencyMs;
-                return this;
-            }
-
-            public Builder parseStatus(String parseStatus) {
-                this.parseStatus = parseStatus;
-                return this;
-            }
-
-            public Builder repairAttempt(int repairAttempt) {
-                this.repairAttempt = repairAttempt;
-                return this;
-            }
-
-            public Builder expansionAttempted(boolean expansionAttempted) {
-                this.expansionAttempted = expansionAttempted;
-                return this;
-            }
-
-            public Builder expandedClasses(List<String> expandedClasses) {
-                this.expandedClasses = expandedClasses;
-                return this;
-            }
-
-            public Builder errorType(String errorType) {
-                this.errorType = errorType;
-                return this;
-            }
-
-            public Builder contextInfo(PromptContextInfo contextInfo) {
-                this.contextInfo = contextInfo;
-                return this;
-            }
-
-            public CallRecord build() {
-                return new CallRecord(this);
-            }
-        }
-
-        private CallRecord(Builder builder) {
-            this.feature = Objects.requireNonNull(builder.feature, "feature");
-            this.messages = builder.messages == null ? Collections.<LlmMessage>emptyList() : builder.messages;
-            this.responseText = builder.responseText;
-            this.inputTokens = builder.inputTokens;
-            this.cachedInputTokens = builder.cachedInputTokens;
-            this.outputTokens = builder.outputTokens;
-            this.latencyMs = builder.latencyMs;
-            this.parseStatus = builder.parseStatus;
-            this.repairAttempt = builder.repairAttempt;
-            this.expansionAttempted = builder.expansionAttempted;
-            this.expandedClasses = builder.expandedClasses == null
-                    ? Collections.<String>emptyList() : builder.expandedClasses;
-            this.errorType = builder.errorType == null ? "" : builder.errorType;
-            this.contextInfo = builder.contextInfo == null ? PromptContextInfo.empty() : builder.contextInfo;
-        }
-    }
-
-    public static final class PostProcessingTraceContext {
-        private final String minimizationStatus;
-        private final String minimizationStopCause;
-        private final int testIndex;
-
-        private PostProcessingTraceContext(String minimizationStatus, String minimizationStopCause,
-                                           int testIndex) {
-            this.minimizationStatus = minimizationStatus == null ? "" : minimizationStatus;
-            this.minimizationStopCause = minimizationStopCause == null ? "" : minimizationStopCause;
-            this.testIndex = testIndex;
+        public CallOutcome(String responseText, int inputTokens, int cachedInputTokens, int outputTokens,
+                           long latencyMs, String parseStatus, String errorType) {
+            this.responseText = responseText;
+            this.inputTokens = inputTokens;
+            this.cachedInputTokens = cachedInputTokens;
+            this.outputTokens = outputTokens;
+            this.latencyMs = latencyMs;
+            this.parseStatus = parseStatus;
+            this.errorType = errorType == null ? "" : errorType;
         }
     }
 
@@ -215,34 +104,6 @@ public class LlmTraceRecorder {
         private final String assertionSource;
         private final String candidateId;
         private final Map<String, Object> assertionJson;
-
-        /**
-         * Creates a diagnostic record without origin and candidate identifier of the assertion.
-         *
-         * @param testIndex the index of the test the assertion belongs to
-         */
-        public PostProcessingAssertionDiagnosticRecord(int testIndex,
-                                                       String minimizationStatus,
-                                                       String minimizationStopCause,
-                                                       String callKind,
-                                                       String diagnosticSource,
-                                                       String diagnosticCode,
-                                                       String diagnosticPath,
-                                                       String diagnosticMessage,
-                                                       String assertionId,
-                                                       String assertionKind,
-                                                       String actual,
-                                                       String expected,
-                                                       String delta,
-                                                       String intent,
-                                                       String placementAfterStatementId,
-                                                       String purpose,
-                                                       Map<String, Object> assertionJson) {
-            this(testIndex, minimizationStatus, minimizationStopCause, callKind,
-                    diagnosticSource, diagnosticCode, diagnosticPath, diagnosticMessage,
-                    assertionId, assertionKind, actual, expected, delta, intent,
-                    placementAfterStatementId, purpose, "", "", assertionJson);
-        }
 
         /**
          * Creates a diagnostic record with the origin and candidate identifier of the assertion.
@@ -313,31 +174,6 @@ public class LlmTraceRecorder {
         private final String candidateId;
 
         /**
-         * Creates a lifecycle record without placement site and placement exception.
-         *
-         * @param testIndex the index of the test the assertion belongs to
-         */
-        public PostProcessingAssertionLifecycleRecord(int testIndex,
-                                                      String minimizationStatus,
-                                                      String minimizationStopCause,
-                                                      String lifecycleState,
-                                                      String callKind,
-                                                      String assertionId,
-                                                      String assertionKind,
-                                                      String actual,
-                                                      String expected,
-                                                      String delta,
-                                                      String intent,
-                                                      String placementAfterStatementId,
-                                                      String purpose,
-                                                      String assertionSource,
-                                                      String candidateId) {
-            this(testIndex, minimizationStatus, minimizationStopCause, lifecycleState, callKind,
-                    assertionId, assertionKind, actual, expected, delta, intent,
-                    placementAfterStatementId, purpose, assertionSource, candidateId, "", "");
-        }
-
-        /**
          * Creates a lifecycle record with the placement site and placement exception of the assertion.
          *
          * @param testIndex the index of the test the assertion belongs to
@@ -380,16 +216,6 @@ public class LlmTraceRecorder {
         }
     }
 
-    public static void setPostProcessingTraceContext(String minimizationStatus, String minimizationStopCause,
-                                                     int testIndex) {
-        POST_PROCESSING_TRACE_CONTEXT.set(new PostProcessingTraceContext(minimizationStatus,
-                minimizationStopCause, testIndex));
-    }
-
-    public static void clearPostProcessingTraceContext() {
-        POST_PROCESSING_TRACE_CONTEXT.remove();
-    }
-
     /**
      * Whether records are written at all; callers skip building them when this is false.
      *
@@ -400,27 +226,27 @@ public class LlmTraceRecorder {
     }
 
     /** Records a call with all metadata including dependency summary telemetry. */
-    public void recordCall(CallRecord record) {
+    public void recordCall(LlmRequest request, CallOutcome outcome) {
         if (!configuration.isTraceEnabled()) {
             return;
         }
 
-        List<LlmMessage> safeMessages = record.messages;
-        List<String> expanded = record.expandedClasses;
-        PostProcessingTraceContext postProcessingContext = POST_PROCESSING_TRACE_CONTEXT.get();
-        Map<String, Object> traceRecord = newTraceRecord("llm_call", record.feature);
+        LlmFeature feature = Objects.requireNonNull(request.getFeature(), "feature");
+        List<LlmMessage> safeMessages = request.getMessages() == null
+                ? Collections.<LlmMessage>emptyList() : request.getMessages();
+        List<String> expanded = request.getExpandedClasses() == null
+                ? Collections.<String>emptyList() : request.getExpandedClasses();
+        LlmRequest.PostProcessingAttribution attribution = request.getPostProcessingAttribution();
+        Map<String, Object> traceRecord = newTraceRecord("llm_call", feature);
         traceRecord.put("postprocessing_call_kind",
-                record.feature == LlmFeature.POST_PROCESSING
-                        ? (record.repairAttempt > 1 ? "repair" : "initial")
+                feature == LlmFeature.POST_PROCESSING
+                        ? (request.getRepairAttempt() > 1 ? "repair" : "initial")
                         : "");
-        traceRecord.put("postprocessing_test_index",
-                postProcessingContext == null ? -1 : postProcessingContext.testIndex);
-        traceRecord.put("postprocessing_minimization_status",
-                postProcessingContext == null ? "" : postProcessingContext.minimizationStatus);
-        traceRecord.put("postprocessing_minimization_stop_cause",
-                postProcessingContext == null ? "" : postProcessingContext.minimizationStopCause);
+        traceRecord.put("postprocessing_test_index", attribution.getTestIndex());
+        traceRecord.put("postprocessing_minimization_status", attribution.getMinimizationStatus());
+        traceRecord.put("postprocessing_minimization_stop_cause", attribution.getMinimizationStopCause());
         traceRecord.put("provider", configuration.getProvider().name());
-        traceRecord.put("model", configuration.modelFor(record.feature));
+        traceRecord.put("model", configuration.modelFor(feature));
         traceRecord.put("effective_temperature", configuration.getTemperature());
         traceRecord.put("effective_max_tokens", configuration.getMaxTokens());
         traceRecord.put("effective_timeout_seconds", configuration.getTimeoutSeconds());
@@ -432,39 +258,42 @@ public class LlmTraceRecorder {
         traceRecord.put("prefix_hash", PrefixHash.of(safeMessages));
         traceRecord.put("user_prompt_hash", messageContentHash(safeMessages, LlmMessage.Role.USER));
         traceRecord.put("postprocessing_prompt_version",
-                record.feature == LlmFeature.POST_PROCESSING
+                feature == LlmFeature.POST_PROCESSING
                         ? LlmPostProcessingProtocol.promptVersion() : "");
         traceRecord.put("postprocessing_response_schema_version",
-                record.feature == LlmFeature.POST_PROCESSING
+                feature == LlmFeature.POST_PROCESSING
                         ? LlmPostProcessingProtocol.responseSchemaVersion() : 0);
         traceRecord.put("postprocessing_parser_version",
-                record.feature == LlmFeature.POST_PROCESSING
+                feature == LlmFeature.POST_PROCESSING
                         ? LlmPostProcessingProtocol.PARSER_VERSION : "");
         traceRecord.put("postprocessing_prompt_variant",
-                record.feature == LlmFeature.POST_PROCESSING
+                feature == LlmFeature.POST_PROCESSING
                         ? LlmPostProcessingProtocol.promptVersion() : "");
         traceRecord.put("postprocessing_capabilities",
-                record.feature == LlmFeature.POST_PROCESSING
+                feature == LlmFeature.POST_PROCESSING
                         ? configuration.getPostProcessingCapabilities()
                         : Collections.emptyList());
         traceRecord.put("postprocessing_internal_context_truncated",
-                record.feature == LlmFeature.POST_PROCESSING
+                feature == LlmFeature.POST_PROCESSING
                         && hasInternalContextTruncation(safeMessages));
         traceRecord.put("postprocessing_repair_policy",
-                record.feature == LlmFeature.POST_PROCESSING
+                feature == LlmFeature.POST_PROCESSING
                         ? configuration.getPostProcessingRepairPolicy() : "");
         traceRecord.put("messages", toSerializableMessages(safeMessages));
-        traceRecord.put("response_text", record.responseText);
-        traceRecord.put("parse_status", record.parseStatus);
-        traceRecord.put("repair_attempt", record.repairAttempt);
-        traceRecord.put("expansion_attempted", record.expansionAttempted);
+        traceRecord.put("response_text", outcome.responseText);
+        traceRecord.put("parse_status", outcome.parseStatus);
+        traceRecord.put("repair_attempt", request.getRepairAttempt());
+        traceRecord.put("expansion_attempted", request.isExpansionAttempted());
         traceRecord.put("expanded_classes", expanded);
-        traceRecord.put("input_tokens", record.inputTokens);
-        traceRecord.put("cached_input_tokens", record.cachedInputTokens);
-        traceRecord.put("output_tokens", record.outputTokens);
-        traceRecord.put("latency_ms", record.latencyMs);
-        traceRecord.put("error_type", record.errorType);
-        PromptContextInfo context = record.contextInfo;
+        traceRecord.put("input_tokens", outcome.inputTokens);
+        traceRecord.put("cached_input_tokens", outcome.cachedInputTokens);
+        traceRecord.put("output_tokens", outcome.outputTokens);
+        traceRecord.put("latency_ms", outcome.latencyMs);
+        traceRecord.put("error_type", outcome.errorType);
+        PromptContextInfo context = request.getContext() == null ? null : request.getContext().getContextInfo();
+        if (context == null) {
+            context = PromptContextInfo.empty();
+        }
         traceRecord.put("sut_context_mode",
                 context.getSutContextMode() == null ? "" : context.getSutContextMode().name());
         traceRecord.put("context_unavailable", context.isContextUnavailable());

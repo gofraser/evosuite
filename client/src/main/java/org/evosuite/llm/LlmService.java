@@ -20,7 +20,6 @@
 package org.evosuite.llm;
 
 import org.evosuite.Properties;
-import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.provider.RequestCancellation;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -525,24 +524,8 @@ public class LlmService implements AutoCloseable {
                                  String parseStatus,
                                  String errorType) {
         try {
-            LlmTraceRecorder.CallRecord.Builder record = new LlmTraceRecorder.CallRecord.Builder()
-                    .feature(request.getFeature())
-                    .messages(request.getMessages())
-                    .responseText(responseText)
-                    .inputTokens(inputTokens)
-                    .cachedInputTokens(cachedInputTokens)
-                    .outputTokens(outputTokens)
-                    .latencyMs(latencyMs)
-                    .parseStatus(parseStatus)
-                    .repairAttempt(request.getRepairAttempt())
-                    .expansionAttempted(request.isExpansionAttempted())
-                    .expandedClasses(request.getExpandedClasses())
-                    .errorType(errorType);
-            PromptResult context = request.getContext();
-            if (context != null) {
-                record.contextInfo(context.getContextInfo());
-            }
-            traceRecorder.recordCall(record.build());
+            traceRecorder.recordCall(request, new LlmTraceRecorder.CallOutcome(responseText, inputTokens,
+                    cachedInputTokens, outputTokens, latencyMs, parseStatus, errorType));
         } catch (Throwable traceFailure) {
             logTraceFailure("call", traceFailure);
         }

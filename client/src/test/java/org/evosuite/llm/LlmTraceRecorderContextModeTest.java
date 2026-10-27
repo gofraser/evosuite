@@ -46,21 +46,10 @@ class LlmTraceRecorderContextModeTest {
                 true, tempDir, "run-ctx");
 
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                .feature(LlmFeature.SEEDING)
-                .messages(Arrays.asList(LlmMessage.system("sys"), LlmMessage.user("usr")))
-                .responseText("response")
-                .inputTokens(10)
-                .outputTokens(20)
-                .latencyMs(100)
-                .parseStatus("SUCCESS")
-                .repairAttempt(1)
-                .expansionAttempted(false)
-                .expandedClasses(Collections.<String>emptyList())
-                .errorType("")
-                .contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.BYTECODE_DISASSEMBLED,
-                        false, false, false, false))
-                .build());
+        recorder.recordCall(LlmRequest.of(Arrays.asList(LlmMessage.system("sys"), LlmMessage.user("usr")), LlmFeature.SEEDING)
+                        .withContext(new PromptResult.Builder().contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.BYTECODE_DISASSEMBLED,
+                        false, false, false, false)).build()),
+                new LlmTraceRecorder.CallOutcome("response", 10, 0, 20, 100L, "SUCCESS", ""));
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
         assertTrue(content.contains("\"sut_context_mode\":\"BYTECODE_DISASSEMBLED\""));
@@ -75,21 +64,10 @@ class LlmTraceRecorderContextModeTest {
                 true, tempDir, "run-strict");
 
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                .feature(LlmFeature.STAGNATION)
-                .messages(Arrays.asList(LlmMessage.system("sys"), LlmMessage.user("usr")))
-                .responseText("response")
-                .inputTokens(10)
-                .outputTokens(20)
-                .latencyMs(100)
-                .parseStatus("SUCCESS")
-                .repairAttempt(1)
-                .expansionAttempted(false)
-                .expandedClasses(Collections.<String>emptyList())
-                .errorType("")
-                .contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.SOURCE_CODE,
-                        true, false, false, false))
-                .build());
+        recorder.recordCall(LlmRequest.of(Arrays.asList(LlmMessage.system("sys"), LlmMessage.user("usr")), LlmFeature.STAGNATION)
+                        .withContext(new PromptResult.Builder().contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.SOURCE_CODE,
+                        true, false, false, false)).build()),
+                new LlmTraceRecorder.CallOutcome("response", 10, 0, 20, 100L, "SUCCESS", ""));
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
         assertTrue(content.contains("\"sut_context_mode\":\"SOURCE_CODE\""));
@@ -104,19 +82,8 @@ class LlmTraceRecorderContextModeTest {
                 true, tempDir, "run-legacy");
 
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                .feature(LlmFeature.TEST_REPAIR)
-                .messages(Arrays.asList(LlmMessage.system("sys"), LlmMessage.user("usr")))
-                .responseText("response")
-                .inputTokens(10)
-                .outputTokens(20)
-                .latencyMs(100)
-                .parseStatus("SUCCESS")
-                .repairAttempt(1)
-                .expansionAttempted(false)
-                .expandedClasses(Collections.<String>emptyList())
-                .errorType("")
-                .build());
+        recorder.recordCall(LlmRequest.of(Arrays.asList(LlmMessage.system("sys"), LlmMessage.user("usr")), LlmFeature.TEST_REPAIR),
+                new LlmTraceRecorder.CallOutcome("response", 10, 0, 20, 100L, "SUCCESS", ""));
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
         // Legacy call uses the overload without context mode - should still write trace
@@ -137,22 +104,11 @@ class LlmTraceRecorderContextModeTest {
                 18, 24, 7, 1);
 
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
-                .feature(LlmFeature.SEEDING)
-                .messages(Arrays.asList(LlmMessage.system("sys"), LlmMessage.user("usr")))
-                .responseText("response")
-                .inputTokens(10)
-                .outputTokens(20)
-                .latencyMs(100)
-                .parseStatus("SUCCESS")
-                .repairAttempt(1)
-                .expansionAttempted(false)
-                .expandedClasses(Collections.<String>emptyList())
-                .errorType("")
-                .contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.SIGNATURE_ONLY,
+        recorder.recordCall(LlmRequest.of(Arrays.asList(LlmMessage.system("sys"), LlmMessage.user("usr")), LlmFeature.SEEDING)
+                        .withContext(new PromptResult.Builder().contextInfo(PromptContextInfo.ofSutContext(Properties.LlmSutContextMode.SIGNATURE_ONLY,
                                 false, false, false, false)
-                        .withDependencySummaryOf(PromptContextInfo.ofDependencySummary(false, 9999, metadata)))
-                .build());
+                        .withDependencySummaryOf(PromptContextInfo.ofDependencySummary(false, 9999, metadata))).build()),
+                new LlmTraceRecorder.CallOutcome("response", 10, 0, 20, 100L, "SUCCESS", ""));
 
         String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
         assertTrue(content.contains("\"cluster_summary_budget_chars\":12000"));

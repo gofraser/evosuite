@@ -45,10 +45,40 @@ public final class LlmRequest {
     private final boolean expansionAttempted;
     private final List<String> expandedClasses;
     private final long deadlineNanos;
+    private final PostProcessingAttribution attribution;
+
+    /** The test a post-processing call is about, as the trace records it. */
+    public static final class PostProcessingAttribution {
+        /** The attribution of a call that is not about one post-processed test. */
+        static final PostProcessingAttribution NONE = new PostProcessingAttribution("", "", -1);
+
+        private final String minimizationStatus;
+        private final String minimizationStopCause;
+        private final int testIndex;
+
+        private PostProcessingAttribution(String minimizationStatus, String minimizationStopCause,
+                                          int testIndex) {
+            this.minimizationStatus = minimizationStatus == null ? "" : minimizationStatus;
+            this.minimizationStopCause = minimizationStopCause == null ? "" : minimizationStopCause;
+            this.testIndex = testIndex;
+        }
+
+        public String getMinimizationStatus() {
+            return minimizationStatus;
+        }
+
+        public String getMinimizationStopCause() {
+            return minimizationStopCause;
+        }
+
+        public int getTestIndex() {
+            return testIndex;
+        }
+    }
 
     private LlmRequest(List<LlmMessage> messages, LlmFeature feature, PromptResult context,
                        int repairAttempt, boolean expansionAttempted, List<String> expandedClasses,
-                       long deadlineNanos) {
+                       long deadlineNanos, PostProcessingAttribution attribution) {
         this.messages = messages;
         this.feature = feature;
         this.context = context;
@@ -56,6 +86,7 @@ public final class LlmRequest {
         this.expansionAttempted = expansionAttempted;
         this.expandedClasses = expandedClasses;
         this.deadlineNanos = deadlineNanos;
+        this.attribution = attribution;
     }
 
     /** A first-turn request for {@code prompt}'s messages, carrying its context metadata. */
@@ -64,13 +95,13 @@ public final class LlmRequest {
             throw new IllegalArgumentException("prompt must not be null");
         }
         return new LlmRequest(prompt.getMessages(), feature, prompt, 1, false,
-                Collections.<String>emptyList(), NO_DEADLINE);
+                Collections.<String>emptyList(), NO_DEADLINE, PostProcessingAttribution.NONE);
     }
 
     /** A first-turn request for {@code messages}, without prompt context metadata. */
     public static LlmRequest of(List<LlmMessage> messages, LlmFeature feature) {
         return new LlmRequest(messages == null ? Collections.<LlmMessage>emptyList() : messages,
-                feature, null, 1, false, Collections.<String>emptyList(), NO_DEADLINE);
+                feature, null, 1, false, Collections.<String>emptyList(), NO_DEADLINE, PostProcessingAttribution.NONE);
     }
 
     /**
@@ -79,7 +110,7 @@ public final class LlmRequest {
      */
     public LlmRequest withDeadlineNanos(long deadlineNanos) {
         return new LlmRequest(messages, feature, context, repairAttempt, expansionAttempted,
-                expandedClasses, deadlineNanos > 0 ? deadlineNanos : NO_DEADLINE);
+                expandedClasses, deadlineNanos > 0 ? deadlineNanos : NO_DEADLINE, attribution);
     }
 
     /**
@@ -89,20 +120,31 @@ public final class LlmRequest {
      */
     public LlmRequest withContext(PromptResult prompt) {
         return new LlmRequest(messages, feature, prompt, repairAttempt, expansionAttempted,
-                expandedClasses, deadlineNanos);
+                expandedClasses, deadlineNanos, attribution);
     }
 
     /** This request numbered as conversation turn {@code repairAttempt} (1 = the initial request). */
     public LlmRequest withRepairAttempt(int repairAttempt) {
         return new LlmRequest(messages, feature, context, repairAttempt, expansionAttempted,
-                expandedClasses, deadlineNanos);
+                expandedClasses, deadlineNanos, attribution);
     }
 
     /** This request recording whether cluster expansion ran before it and which classes it added. */
     public LlmRequest withExpansion(boolean attempted, List<String> classes) {
         return new LlmRequest(messages, feature, context, repairAttempt, attempted,
                 classes == null ? Collections.<String>emptyList() : classes,
-                deadlineNanos);
+                deadlineNanos, attribution);
+    }
+
+    /**
+     * This request attributed in the trace to post-processing of one test: its index in the suite and how its
+     * minimization ended.
+     */
+    public LlmRequest withPostProcessingAttribution(String minimizationStatus, String minimizationStopCause,
+                                                    int testIndex) {
+        return new LlmRequest(messages, feature, context, repairAttempt, expansionAttempted,
+                expandedClasses, deadlineNanos,
+                new PostProcessingAttribution(minimizationStatus, minimizationStopCause, testIndex));
     }
 
     public List<LlmMessage> getMessages() {
@@ -132,5 +174,9 @@ public final class LlmRequest {
 
     public long getDeadlineNanos() {
         return deadlineNanos;
+    }
+
+    public PostProcessingAttribution getPostProcessingAttribution() {
+        return attribution;
     }
 }
