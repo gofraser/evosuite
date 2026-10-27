@@ -26,10 +26,24 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.function.Supplier;
 
 public class ReflectionUtils {
 
     protected static final Logger logger = LoggerFactory.getLogger(ReflectionUtils.class);
+
+    /**
+     * Reads the members of a class, treating a class whose dependencies cannot be loaded as
+     * having none.
+     */
+    private static <T> T[] members(Class<?> clazz, Supplier<T[]> reader, T[] none, String what) {
+        try {
+            return reader.get();
+        } catch (NoClassDefFoundError e) {
+            logger.info("Error while trying to load " + what + " of class " + clazz.getName() + ": " + e);
+            return none;
+        }
+    }
 
     /**
      * Gets all declared classes of the given class, handling NoClassDefFoundError.
@@ -38,13 +52,7 @@ public class ReflectionUtils {
      * @return an array of declared classes
      */
     public static Class<?>[] getDeclaredClasses(Class<?> clazz) {
-        try {
-            return clazz.getDeclaredClasses();
-        } catch (NoClassDefFoundError e) {
-            // TODO: What shall we do?
-            logger.info("Error while analyzing all classes of class " + clazz + ": " + e);
-            return new Class<?>[0];
-        }
+        return members(clazz, clazz::getDeclaredClasses, new Class<?>[0], "declared classes");
     }
 
     /**
@@ -54,13 +62,7 @@ public class ReflectionUtils {
      * @return an array of public classes
      */
     public static Class<?>[] getClasses(Class<?> clazz) {
-        try {
-            return clazz.getClasses();
-        } catch (NoClassDefFoundError e) {
-            // TODO: What shall we do?
-            logger.info("Error while analyzing all classes of class " + clazz + ": " + e);
-            return new Class<?>[0];
-        }
+        return members(clazz, clazz::getClasses, new Class<?>[0], "classes");
     }
 
     /**
@@ -70,13 +72,7 @@ public class ReflectionUtils {
      * @return an array of declared constructors
      */
     public static Constructor<?>[] getDeclaredConstructors(Class<?> clazz) {
-        try {
-            return clazz.getDeclaredConstructors();
-        } catch (NoClassDefFoundError e) {
-            // TODO: What shall we do?
-            logger.info("Error while analyzing declared constructors of class " + clazz + ": " + e);
-            return new Constructor<?>[0];
-        }
+        return members(clazz, clazz::getDeclaredConstructors, new Constructor<?>[0], "declared constructors");
     }
 
     /**
@@ -86,13 +82,7 @@ public class ReflectionUtils {
      * @return an array of public constructors
      */
     public static Constructor<?>[] getConstructors(Class<?> clazz) {
-        try {
-            return clazz.getConstructors();
-        } catch (NoClassDefFoundError e) {
-            // TODO: What shall we do?
-            logger.info("Error while analyzing constructors of class " + clazz + ": " + e);
-            return new Constructor<?>[0];
-        }
+        return members(clazz, clazz::getConstructors, new Constructor<?>[0], "constructors");
     }
 
     /**
@@ -102,13 +92,7 @@ public class ReflectionUtils {
      * @return an array of interfaces
      */
     public static Class<?>[] getInterfaces(Class<?> clazz) {
-        try {
-            return clazz.getInterfaces();
-        } catch (NoClassDefFoundError e) {
-            // TODO: What shall we do?
-            logger.info("Error while analyzing interfaces of class " + clazz + ": " + e);
-            return new Class<?>[0];
-        }
+        return members(clazz, clazz::getInterfaces, new Class<?>[0], "interfaces");
     }
 
     /**
@@ -118,14 +102,7 @@ public class ReflectionUtils {
      * @return an array of declared methods
      */
     public static Method[] getDeclaredMethods(Class<?> clazz) {
-        try {
-            return clazz.getDeclaredMethods();
-        } catch (NoClassDefFoundError e) {
-            // TODO: What shall we do?
-            logger.info(
-                    "Error while trying to load declared methods of class " + clazz.getName() + ": " + e);
-            return new Method[0];
-        }
+        return members(clazz, clazz::getDeclaredMethods, new Method[0], "declared methods");
     }
 
     /**
@@ -135,13 +112,7 @@ public class ReflectionUtils {
      * @return an array of public methods
      */
     public static Method[] getMethods(Class<?> clazz) {
-        try {
-            return clazz.getMethods();
-        } catch (NoClassDefFoundError e) {
-            // TODO: What shall we do?
-            logger.info("Error while trying to load methods of class " + clazz.getName() + ": " + e);
-            return new Method[0];
-        }
+        return members(clazz, clazz::getMethods, new Method[0], "methods");
     }
 
     /**
@@ -151,14 +122,7 @@ public class ReflectionUtils {
      * @return an array of declared fields
      */
     public static Field[] getDeclaredFields(Class<?> clazz) {
-        try {
-            return clazz.getDeclaredFields();
-        } catch (NoClassDefFoundError e) {
-            // TODO: What shall we do?
-            logger.info(
-                    "Error while trying to load declared fields of class " + clazz.getName() + ": " + e);
-            return new Field[0];
-        }
+        return members(clazz, clazz::getDeclaredFields, new Field[0], "declared fields");
     }
 
     /**
@@ -185,13 +149,7 @@ public class ReflectionUtils {
      * @return an array of public fields
      */
     public static Field[] getFields(Class<?> clazz) {
-        try {
-            return clazz.getFields();
-        } catch (NoClassDefFoundError e) {
-            // TODO: What shall we do?
-            logger.info("Error while trying to load fields of class " + clazz.getName() + ": " + e);
-            return new Field[0];
-        }
+        return members(clazz, clazz::getFields, new Field[0], "fields");
     }
 
     public static Annotation[] getDeclaredAnnotations(Class<?> clazz) {
