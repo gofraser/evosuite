@@ -19,7 +19,6 @@
  */
 package org.evosuite.runtime;
 
-import org.evosuite.runtime.instrumentation.EvoClassLoader;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstanceFactory;
 import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
@@ -50,8 +49,6 @@ public class EvoRunnerJUnit5 implements TestInstanceFactory {
      */
     public static boolean useClassLoader = true;
 
-    private final EvoClassLoader evoClassLoader = null;
-
     /**
      * Creates a new EvoRunnerJUnit5 for the given test class.
      *
@@ -65,12 +62,7 @@ public class EvoRunnerJUnit5 implements TestInstanceFactory {
                     + "EvoRunnerParameters");
         }
 
-        RuntimeSettings.resetStaticState = ep.resetStaticState();
-        RuntimeSettings.mockJVMNonDeterminism = ep.mockJVMNonDeterminism();
-        RuntimeSettings.mockGUI = ep.mockGUI();
-        RuntimeSettings.useVFS = ep.useVFS();
-        RuntimeSettings.useVNET = ep.useVNET();
-        RuntimeSettings.useSeparateClassLoader = ep.separateClassLoader();
+        RuntimeSettings.apply(ep);
 
         if (RuntimeSettings.useSeparateClassLoader && useClassLoader) {
             return;
@@ -99,22 +91,11 @@ public class EvoRunnerJUnit5 implements TestInstanceFactory {
     public Object createTestInstance(TestInstanceFactoryContext factoryContext,
                                      ExtensionContext extensionContext) throws TestInstantiationException {
         Class<?> testClass = factoryContext.getTestClass();
-        String name = testClass.getName();
         if (RuntimeSettings.useSeparateClassLoader && useClassLoader) {
             // JUnit does not allow us to instrument the tested class.
             // When this is supported we may implement this.
             logger.error("EvoSuite can't run JUnit 5 tests with a separate ClassLoader");
             throw new TestInstantiationException("Could not instantiate the class under test with a EvoClassLoader");
-            // EvoClassLoader classLoader = evoClassLoader == null ? new EvoClassLoader() : evoClassLoader;
-            // classLoader.skipInstrumentation(name);
-            // Thread.currentThread().setContextClassLoader(classLoader);
-            // try {
-            //     Class<?> evoClass = Class.forName(name, true, classLoader);
-            //     return evoClass.getConstructor().newInstance();
-            // } catch (Exception e) {
-            //      throw new TestInstantiationException("Could not instantiate class under test with the "
-            //              + "EvoClassLoader", e);
-            // }
         } else {
             try {
                 return factoryContext.getTestClass().getConstructor().newInstance();

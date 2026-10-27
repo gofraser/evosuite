@@ -447,12 +447,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         }
 
         RuntimeSettings.className = inferTargetClassName(testClass);
-        RuntimeSettings.resetStaticState = parameters.resetStaticState();
-        RuntimeSettings.mockJVMNonDeterminism = parameters.mockJVMNonDeterminism();
-        RuntimeSettings.mockGUI = parameters.mockGUI();
-        RuntimeSettings.useVFS = parameters.useVFS();
-        RuntimeSettings.useVNET = parameters.useVNET();
-        RuntimeSettings.useSeparateClassLoader = parameters.separateClassLoader();
+        RuntimeSettings.apply(parameters);
         RuntimeSettings.maxNumberOfThreads = parameters.maxNumberOfThreads();
         RuntimeSettings.maxNumberOfIterationsPerLoop = parameters.maxNumberOfIterationsPerLoop();
 
@@ -484,18 +479,7 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
 
         try {
             Class<?> systemSettings = Class.forName(RuntimeSettings.class.getName(), true, systemLoader);
-            copyField(RuntimeSettings.class, systemSettings, "className");
-            copyField(RuntimeSettings.class, systemSettings, "resetStaticState");
-            copyField(RuntimeSettings.class, systemSettings, "mockJVMNonDeterminism");
-            copyField(RuntimeSettings.class, systemSettings, "mockGUI");
-            copyField(RuntimeSettings.class, systemSettings, "useVFS");
-            copyField(RuntimeSettings.class, systemSettings, "useVNET");
-            copyField(RuntimeSettings.class, systemSettings, "useSeparateClassLoader");
-            copyField(RuntimeSettings.class, systemSettings, "maxNumberOfThreads");
-            copyField(RuntimeSettings.class, systemSettings, "maxNumberOfIterationsPerLoop");
-            copyField(RuntimeSettings.class, systemSettings, "mockSystemIn");
-            copyField(RuntimeSettings.class, systemSettings, "applyUIDTransformation");
-            copyField(RuntimeSettings.class, systemSettings, "isRunningASystemTest");
+            copySettings(systemSettings);
 
             // Sync MockFramework state
             syncMockFrameworkToSystem();
@@ -516,6 +500,25 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         } catch (Exception e) {
             logger.warn("Could not synchronize RuntimeSettings to system classloader: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Copies the current values of the settings to the {@code RuntimeSettings} class of another
+     * class loader.
+     */
+    static void copySettings(Class<?> targetSettings) throws Exception {
+        copyField(RuntimeSettings.class, targetSettings, "className");
+        copyField(RuntimeSettings.class, targetSettings, "resetStaticState");
+        copyField(RuntimeSettings.class, targetSettings, "mockJVMNonDeterminism");
+        copyField(RuntimeSettings.class, targetSettings, "mockGUI");
+        copyField(RuntimeSettings.class, targetSettings, "useVFS");
+        copyField(RuntimeSettings.class, targetSettings, "useVNET");
+        copyField(RuntimeSettings.class, targetSettings, "useSeparateClassLoader");
+        copyField(RuntimeSettings.class, targetSettings, "maxNumberOfThreads");
+        copyField(RuntimeSettings.class, targetSettings, "maxNumberOfIterationsPerLoop");
+        copyField(RuntimeSettings.class, targetSettings, "mockSystemIn");
+        copyField(RuntimeSettings.class, targetSettings, "applyUIDTransformation");
+        copyField(RuntimeSettings.class, targetSettings, "isRunningASystemTest");
     }
 
     private static void setupDelegate(Class<?> clazz, ClassLoader systemLoader) throws Exception {

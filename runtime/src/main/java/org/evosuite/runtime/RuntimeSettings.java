@@ -163,6 +163,21 @@ public class RuntimeSettings {
     }
 
     /**
+     * Takes over the mocking, static reset and class loader settings a test class declares in
+     * its {@link EvoRunnerParameters}.
+     *
+     * @param parameters the annotation of the test class.
+     */
+    static void apply(EvoRunnerParameters parameters) {
+        resetStaticState = parameters.resetStaticState();
+        mockJVMNonDeterminism = parameters.mockJVMNonDeterminism();
+        mockGUI = parameters.mockGUI();
+        useVFS = parameters.useVFS();
+        useVNET = parameters.useVNET();
+        useSeparateClassLoader = parameters.separateClassLoader();
+    }
+
+    /**
      * Deactivates all mocking features (JVM, GUI, VFS, VNET).
      */
     public static void deactivateAllMocking() {
