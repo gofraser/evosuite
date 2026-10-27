@@ -48,6 +48,7 @@ import org.evosuite.ga.diversity.StableSpeciesAssigner;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
 import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
+import org.evosuite.llm.LlmService;
 import org.evosuite.llm.search.BreedingDisruptionObserver;
 import org.evosuite.llm.search.DisruptionHelper;
 import org.evosuite.llm.search.DisruptionRecorder;
@@ -55,8 +56,7 @@ import org.evosuite.llm.search.ExtractorTraceSink;
 import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.IsolatedEvaluation;
 import org.evosuite.llm.search.IsolatedProbe;
-import org.evosuite.llm.search.LlmSemanticCrossover;
-import org.evosuite.llm.search.LlmSemanticMutation;
+import org.evosuite.llm.search.LlmSemanticOperator;
 import org.evosuite.llm.search.OperatorAttemptResult;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardExtractor;
@@ -730,7 +730,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * LLM client.
      */
     protected LlmOperatorExecutor createOperatorExecutor() {
-        return new LlmOperatorExecutor(new LlmSemanticMutation(), new LlmSemanticCrossover(),
+        LlmService service = LlmService.getInstance();
+        return new LlmOperatorExecutor(LlmSemanticOperator.mutation(service), LlmSemanticOperator.crossover(service),
                 repeatedInjectionMemory, this::getRemainingSearchBudgetSeconds,
                 StagnationLlmHelper.resolveBudgetGuardSeconds(),
                 Properties.LLM_OPERATOR_MAX_INFLIGHT, Properties.LLM_OPERATOR_BATCH_SIZE);

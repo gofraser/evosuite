@@ -20,13 +20,12 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.LlmService;
 import org.evosuite.llm.search.AttributedCandidate;
-import org.evosuite.llm.search.LanguageModelCrossover;
-import org.evosuite.llm.search.LanguageModelMutation;
-import org.evosuite.llm.search.LlmSemanticCrossover;
-import org.evosuite.llm.search.LlmSemanticMutation;
+import org.evosuite.llm.search.LlmSemanticOperator;
 import org.evosuite.llm.search.OperatorAttemptResult;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.SyncOperatorHook;
 import org.evosuite.llm.search.operator.LlmOperatorExecutor;
 import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.llm.search.operator.OperatorTarget;
@@ -61,10 +60,10 @@ final class LlmOperatorAssistance {
      * SYNC breeding-loop mutation hook; created by {@link #start} when {@link
      * Properties#LLM_OPERATOR_MODE} is {@code SYNC}. Tests may assign it directly.
      */
-    LanguageModelMutation mutation;
+    SyncOperatorHook mutation;
 
     /** SYNC breeding-loop crossover hook; created alongside {@link #mutation}. */
-    LanguageModelCrossover crossover;
+    SyncOperatorHook crossover;
 
     /**
      * Selector supplying this generation's operator targets. Shared by the SYNC breeding-loop
@@ -97,12 +96,12 @@ final class LlmOperatorAssistance {
         targetSelector = new OperatorTargetSelector(memory);
         if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.SYNC) {
             // The breeding loop blocks on these calls, so they must not outlast the search.
-            LlmSemanticMutation semanticMutation = new LlmSemanticMutation();
+            LlmSemanticOperator semanticMutation = LlmSemanticOperator.mutation(LlmService.getInstance());
             semanticMutation.setRemainingSearchSeconds(remainingSearchSeconds);
-            LlmSemanticCrossover semanticCrossover = new LlmSemanticCrossover();
+            LlmSemanticOperator semanticCrossover = LlmSemanticOperator.crossover(LlmService.getInstance());
             semanticCrossover.setRemainingSearchSeconds(remainingSearchSeconds);
-            mutation = new LanguageModelMutation(semanticMutation, memory);
-            crossover = new LanguageModelCrossover(semanticCrossover, memory);
+            mutation = SyncOperatorHook.mutation(semanticMutation, memory);
+            crossover = SyncOperatorHook.crossover(semanticCrossover, memory);
             return;
         }
         executor = executorFactory.get();

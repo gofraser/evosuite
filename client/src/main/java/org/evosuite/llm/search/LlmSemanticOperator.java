@@ -43,13 +43,16 @@ import java.util.function.Supplier;
  * Shared machinery for the LLM variation operators (semantic mutation and
  * crossover): renders a batch of {@link OperatorTarget}s through a single
  * {@link TargetedPromptFactory}, makes one LLM call, and maps the response
- * back to per-target test chromosomes via {@link TargetedResponse}.
+ * back to per-target test chromosomes via {@link TargetedResponse}. An operator
+ * is bound to one {@link OperatorTarget.Kind}; create it with {@link #mutation} or
+ * {@link #crossover}.
  */
-public abstract class LlmSemanticOperator {
+public class LlmSemanticOperator {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmSemanticOperator.class);
 
     private final LlmService llmService;
+    private final OperatorTarget.Kind kind;
     private final LlmFeature feature;
     private final TargetedPromptFactory promptFactory;
 
@@ -73,14 +76,30 @@ public abstract class LlmSemanticOperator {
      */
     private final Supplier<TestRepairLoop> reparseRepairLoop = lazily(() -> newRepairLoop(true, 0));
 
-    protected LlmSemanticOperator(LlmService llmService, LlmFeature feature) {
-        this(llmService, feature, new TargetedPromptFactory());
+    private LlmSemanticOperator(LlmService llmService, OperatorTarget.Kind kind, TargetedPromptFactory promptFactory) {
+        this.llmService = llmService;
+        this.kind = kind;
+        this.feature = kind == OperatorTarget.Kind.MUTATION
+                ? LlmFeature.SEMANTIC_MUTATION : LlmFeature.SEMANTIC_CROSSOVER;
+        this.promptFactory = promptFactory;
     }
 
-    protected LlmSemanticOperator(LlmService llmService, LlmFeature feature, TargetedPromptFactory promptFactory) {
-        this.llmService = llmService;
-        this.feature = feature;
-        this.promptFactory = promptFactory;
+    /** An operator that asks the LLM for a meaningfully mutated version of a test targeting a goal. */
+    public static LlmSemanticOperator mutation(LlmService llmService) {
+        return mutation(llmService, new TargetedPromptFactory());
+    }
+
+    public static LlmSemanticOperator mutation(LlmService llmService, TargetedPromptFactory promptFactory) {
+        return new LlmSemanticOperator(llmService, OperatorTarget.Kind.MUTATION, promptFactory);
+    }
+
+    /** An operator that asks the LLM for a recombination of two parent tests. */
+    public static LlmSemanticOperator crossover(LlmService llmService) {
+        return crossover(llmService, new TargetedPromptFactory());
+    }
+
+    public static LlmSemanticOperator crossover(LlmService llmService, TargetedPromptFactory promptFactory) {
+        return new LlmSemanticOperator(llmService, OperatorTarget.Kind.CROSSOVER, promptFactory);
     }
 
     /**
@@ -128,7 +147,8 @@ public abstract class LlmSemanticOperator {
             for (OperatorTarget target : targets) {
                 if (target != null && target.getKind() != kind()) {
                     throw new IllegalArgumentException(
-                            getClass().getSimpleName() + " cannot process " + target.getKind() + " target");
+                            "LlmSemantic" + (kind == OperatorTarget.Kind.MUTATION ? "Mutation" : "Crossover")
+                                    + " cannot process " + target.getKind() + " target");
                 }
             }
         }
@@ -136,7 +156,9 @@ public abstract class LlmSemanticOperator {
     }
 
     /** The only {@link OperatorTarget.Kind} this operator accepts. */
-    public abstract OperatorTarget.Kind kind();
+    public OperatorTarget.Kind kind() {
+        return kind;
+    }
 
     /**
      * Makes the LLM call for an already-rendered prompt and maps the response

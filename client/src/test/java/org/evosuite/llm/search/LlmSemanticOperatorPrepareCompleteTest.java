@@ -76,7 +76,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
 
         assertTrue(mutation.applyMapped(null).isEmpty());
         assertTrue(mutation.applyMapped(Collections.emptyList()).isEmpty());
@@ -87,7 +87,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
     void applyMappedIsEmptyWhenUnavailableWithoutCallingPrepare() {
         LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(false);
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
 
         TargetedResponse response = mutation.applyMapped(Collections.singletonList(target));
@@ -100,7 +100,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
     void completeReturnsNoBudgetWhenCanCallIsFalse() {
         LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(false);
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
 
         TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
@@ -115,7 +115,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))
                 .thenThrow(new LlmBudgetExceededException("no budget left"));
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
 
         TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
@@ -132,7 +132,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))
                 .thenThrow(new LlmCallFailedException("boom", null, false));
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
 
         TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
@@ -149,7 +149,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))
                 .thenThrow(new IllegalStateException("unexpected"));
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
 
         TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
@@ -171,7 +171,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult("some response", 5, 1, 7, 42L));
 
-        LlmSemanticMutation mutation = org.mockito.Mockito.spy(new LlmSemanticMutation(llmService));
+        LlmSemanticOperator mutation = org.mockito.Mockito.spy(LlmSemanticOperator.mutation(llmService));
         org.mockito.Mockito.doThrow(new IllegalStateException("parse blew up"))
                 .when(mutation).repairLoop();
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -196,7 +196,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult("some other response", 9, 2, 11, 99L));
 
-        LlmSemanticMutation mutation = org.mockito.Mockito.spy(new LlmSemanticMutation(llmService));
+        LlmSemanticOperator mutation = org.mockito.Mockito.spy(LlmSemanticOperator.mutation(llmService));
         org.mockito.Mockito.doThrow(new IllegalStateException("parse blew up"))
                 .when(mutation).deferringRepairLoop();
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -235,10 +235,10 @@ class LlmSemanticOperatorPrepareCompleteTest {
         List<OperatorTarget> targets = Collections.singletonList(
                 OperatorTarget.builder(makeChromosome(), makeGoal("g")).build());
 
-        LlmSemanticMutation viaApplyMapped = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator viaApplyMapped = LlmSemanticOperator.mutation(llmService);
         TargetedResponse fromApplyMapped = viaApplyMapped.applyMapped(targets);
 
-        LlmSemanticMutation viaPrepareComplete = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator viaPrepareComplete = LlmSemanticOperator.mutation(llmService);
         TargetedResponse fromPrepareComplete =
                 viaPrepareComplete.complete(viaPrepareComplete.prepare(targets), targets.size());
 
@@ -250,7 +250,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
     @Test
     void prepareRejectsEmptyTargetsAsTheFactoryDoes() {
-        LlmSemanticMutation mutation = new LlmSemanticMutation(mockLlmService());
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(mockLlmService());
         assertThrows(IllegalArgumentException.class, () -> mutation.prepare(Collections.emptyList()));
     }
 
@@ -272,7 +272,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(response, 1, 2, 3, 4L));
 
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         List<OperatorTarget> targets = Collections.singletonList(
                 OperatorTarget.builder(makeChromosome(), makeGoal("g")).build());
         PromptResult prompt = mutation.prepare(targets);
@@ -304,7 +304,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult("some response", 5, 1, 7, 42L));
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         mutation.setRemainingSearchSeconds(() -> 5L);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
 

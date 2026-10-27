@@ -132,7 +132,7 @@ class LlmSemanticOperatorRepairTest {
         when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         TestCase result = mutation.applyMapped(Collections.singletonList(mutationTarget())).forTarget(1).orElse(null);
 
         assertNull(result, "a malformed response with no repair budget must not produce a mutant");
@@ -150,7 +150,7 @@ class LlmSemanticOperatorRepairTest {
         when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
-        LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
+        LlmSemanticOperator crossover = LlmSemanticOperator.crossover(llmService);
         TestCase result = crossover.applyMapped(Collections.singletonList(crossoverTarget())).forTarget(1).orElse(null);
 
         assertNull(result, "a malformed response with no repair budget must not produce a child");
@@ -169,7 +169,7 @@ class LlmSemanticOperatorRepairTest {
         when(llmService.query(anyRepairRequest()))
                 .thenReturn(text(MALFORMED_RESPONSE));
 
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         TestCase result = mutation.applyMapped(Collections.singletonList(mutationTarget())).forTarget(1).orElse(null);
 
         assertNull(result);
@@ -181,7 +181,7 @@ class LlmSemanticOperatorRepairTest {
     @Test
     void mutationRepairLoopIsReused() {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
-        LlmSemanticMutation mutation = new LlmSemanticMutation(mockLlmService());
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(mockLlmService());
 
         TestRepairLoop first = mutation.repairLoop();
         TestRepairLoop second = mutation.repairLoop();
@@ -193,7 +193,7 @@ class LlmSemanticOperatorRepairTest {
     @Test
     void crossoverRepairLoopIsReused() {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
-        LlmSemanticCrossover crossover = new LlmSemanticCrossover(mockLlmService());
+        LlmSemanticOperator crossover = LlmSemanticOperator.crossover(mockLlmService());
 
         TestRepairLoop first = crossover.repairLoop();
         TestRepairLoop second = crossover.repairLoop();
@@ -205,7 +205,7 @@ class LlmSemanticOperatorRepairTest {
     @Test
     void mutationRepairLoopIsSharedAcrossThreads() throws InterruptedException {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
-        LlmSemanticMutation mutation = new LlmSemanticMutation(mockLlmService());
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(mockLlmService());
 
         TestRepairLoop onThisThread = mutation.repairLoop();
 
@@ -222,7 +222,7 @@ class LlmSemanticOperatorRepairTest {
     @Test
     void mutationRepairLoopIsParseOnly() {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
-        LlmSemanticMutation mutation = new LlmSemanticMutation(mockLlmService());
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(mockLlmService());
 
         boolean executeParsedTests = mutation.repairLoop().getRepairOptions().isExecuteParsedTests();
 
@@ -234,7 +234,7 @@ class LlmSemanticOperatorRepairTest {
     @Test
     void crossoverRepairLoopIsParseOnly() {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
-        LlmSemanticCrossover crossover = new LlmSemanticCrossover(mockLlmService());
+        LlmSemanticOperator crossover = LlmSemanticOperator.crossover(mockLlmService());
 
         boolean executeParsedTests = crossover.repairLoop().getRepairOptions().isExecuteParsedTests();
 
@@ -246,7 +246,7 @@ class LlmSemanticOperatorRepairTest {
     @Test
     void crossoverRepairLoopIsSharedAcrossThreads() throws InterruptedException {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
-        LlmSemanticCrossover crossover = new LlmSemanticCrossover(mockLlmService());
+        LlmSemanticOperator crossover = LlmSemanticOperator.crossover(mockLlmService());
 
         TestRepairLoop onThisThread = crossover.repairLoop();
 

@@ -118,7 +118,7 @@ class LlmSemanticOperatorTest {
         OperatorTarget target1 = OperatorTarget.builder(makeChromosome(), makeGoal("g1")).build();
         OperatorTarget target2 = OperatorTarget.builder(makeChromosome(), makeGoal("g2")).build();
 
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         TargetedResponse mapped = mutation.applyMapped(Arrays.asList(target1, target2));
 
         assertTrue(mapped.forTarget(1).isPresent(), "target 1 must be matched by test_target_1");
@@ -130,7 +130,7 @@ class LlmSemanticOperatorTest {
 
     @Test
     void applyReturnsEmptyListForEmptyTargets() {
-        LlmSemanticMutation mutation = new LlmSemanticMutation(mockAvailableService());
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(mockAvailableService());
         assertTrue(mutation.applyMapped(Collections.emptyList()).all().isEmpty());
     }
 
@@ -138,7 +138,7 @@ class LlmSemanticOperatorTest {
     void applyReturnsEmptyListWhenServiceUnavailable() {
         LlmService llmService = mockLlmService();
         when(llmService.isAvailable()).thenReturn(false);
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
         assertTrue(mutation.applyMapped(Collections.singletonList(target)).all().isEmpty());
         assertEquals(TargetedResponse.Status.NO_BUDGET,
@@ -155,7 +155,7 @@ class LlmSemanticOperatorTest {
         ArgumentCaptor<LlmRequest> promptCaptor = ArgumentCaptor.forClass(LlmRequest.class);
 
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        LlmSemanticOperator mutation = LlmSemanticOperator.mutation(llmService);
         mutation.applyMapped(Collections.singletonList(target));
 
         verify(llmService).query(promptCaptor.capture());
@@ -175,7 +175,7 @@ class LlmSemanticOperatorTest {
 
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g"))
                 .partner(makeChromosome()).build();
-        LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
+        LlmSemanticOperator crossover = LlmSemanticOperator.crossover(llmService);
         crossover.applyMapped(Collections.singletonList(target));
 
         verify(llmService).query(promptCaptor.capture());
@@ -203,9 +203,9 @@ class LlmSemanticOperatorTest {
                 .partner(makeChromosome()).build();
 
         assertThrows(IllegalArgumentException.class,
-                () -> new LlmSemanticMutation(llmService).applyMapped(Collections.singletonList(crossover)));
+                () -> LlmSemanticOperator.mutation(llmService).applyMapped(Collections.singletonList(crossover)));
         assertThrows(IllegalArgumentException.class,
-                () -> new LlmSemanticCrossover(llmService).applyMapped(Collections.singletonList(mutation)));
+                () -> LlmSemanticOperator.crossover(llmService).applyMapped(Collections.singletonList(mutation)));
         verify(llmService, never()).query(anyInitialRequest());
     }
 }

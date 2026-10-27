@@ -29,9 +29,8 @@ import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.DiagnosticCardSelector;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
-import org.evosuite.llm.search.LlmSemanticCrossover;
 import org.evosuite.llm.response.TargetedResponse;
-import org.evosuite.llm.search.LlmSemanticMutation;
+import org.evosuite.llm.search.LlmSemanticOperator;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -183,7 +182,7 @@ class LlmOperatorExecutorTest {
     private static LlmOperatorExecutor newExecutor(LlmService llmService, RepeatedInjectionMemory memory,
                                                    long remainingSeconds, int budgetGuardSeconds,
                                                    int maxInFlight, int batchSize) {
-        return new LlmOperatorExecutor(new LlmSemanticMutation(llmService), new LlmSemanticCrossover(llmService),
+        return new LlmOperatorExecutor(LlmSemanticOperator.mutation(llmService), LlmSemanticOperator.crossover(llmService),
                 memory, () -> remainingSeconds, budgetGuardSeconds, maxInFlight, batchSize);
     }
 
@@ -600,11 +599,11 @@ class LlmOperatorExecutorTest {
         when(llmService.query(anyInitialRequest()))
                 .thenReturn(new QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 5, 1, 7, 42L));
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
-        LlmSemanticMutation mutation = spy(new LlmSemanticMutation(llmService));
+        LlmSemanticOperator mutation = spy(LlmSemanticOperator.mutation(llmService));
         org.mockito.Mockito.doThrow(new IllegalStateException("cluster unavailable"))
                 .when(mutation).reparseWithExpansion(any(PromptResult.class), any(String.class), eq(1),
                         any(TargetedResponse.CallUsage.class));
-        LlmOperatorExecutor executor = new LlmOperatorExecutor(mutation, new LlmSemanticCrossover(llmService),
+        LlmOperatorExecutor executor = new LlmOperatorExecutor(mutation, LlmSemanticOperator.crossover(llmService),
                 memory, () -> -1L, 0, 2, 1);
 
         OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();

@@ -35,8 +35,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleSupplier;
 
 /**
- * Shared machinery behind {@link LanguageModelMutation} and
- * {@link LanguageModelCrossover}: gate on {@link Properties#LLM_OPERATOR_MODE}
+ * The LLM mutation and crossover hooks, created with {@link #mutation} and {@link #crossover}:
+ * gate on {@link Properties#LLM_OPERATOR_MODE}
  * and the subclass's probability, take a target from this generation's
  * {@link SyncTargetPlan}, register the attempt with a {@link
  * RepeatedInjectionMemory} (if any) and the {@link OperatorAttemptLog}, make
@@ -58,12 +58,24 @@ public class SyncOperatorHook {
      * @param kind the kind of target this hook takes from a plan (the operator's own kind)
      * @param probability the probability gate applied once the mode check has passed
      */
-    public SyncOperatorHook(LlmSemanticOperator operator, OperatorTarget.Kind kind, DoubleSupplier probability,
-                            RepeatedInjectionMemory memory) {
+    private SyncOperatorHook(LlmSemanticOperator operator, OperatorTarget.Kind kind, DoubleSupplier probability,
+                             RepeatedInjectionMemory memory) {
         this.operator = operator;
         this.kind = kind;
         this.probability = probability;
         this.memory = memory;
+    }
+
+    /** The hook for mutation, gated by {@link Properties#LLM_MUTATION_PROBABILITY}. */
+    public static SyncOperatorHook mutation(LlmSemanticOperator operator, RepeatedInjectionMemory memory) {
+        return new SyncOperatorHook(operator, OperatorTarget.Kind.MUTATION,
+                () -> Properties.LLM_MUTATION_PROBABILITY, memory);
+    }
+
+    /** The hook for crossover, gated by {@link Properties#LLM_CROSSOVER_PROBABILITY}. */
+    public static SyncOperatorHook crossover(LlmSemanticOperator operator, RepeatedInjectionMemory memory) {
+        return new SyncOperatorHook(operator, OperatorTarget.Kind.CROSSOVER,
+                () -> Properties.LLM_CROSSOVER_PROBABILITY, memory);
     }
 
     /** Whether the underlying operator could place a call right now (service up, budget left). */

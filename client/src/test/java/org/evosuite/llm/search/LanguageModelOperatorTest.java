@@ -119,9 +119,9 @@ class LanguageModelOperatorTest {
     @Test
     void modeOffSkipsAndNeverTouchesSemanticOrPlan() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, null);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, null);
 
         TestChromosome parent = makeChromosome();
         SyncTargetPlan plan = new SyncTargetPlan(
@@ -139,9 +139,9 @@ class LanguageModelOperatorTest {
     void probabilityGateRejectsBeforeTakingTarget() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 0.0;
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, null);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, null);
 
         TestChromosome parent = makeChromosome();
         SyncTargetPlan plan = new SyncTargetPlan(
@@ -159,9 +159,9 @@ class LanguageModelOperatorTest {
     void spentBudgetSkipsBeforeTakingTarget() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 1.0;
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(false);
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, null);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, null);
 
         TestChromosome parent = makeChromosome();
         SyncTargetPlan plan = new SyncTargetPlan(
@@ -180,9 +180,9 @@ class LanguageModelOperatorTest {
     void noTargetForParentSkipsWithNoTargetReason() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 1.0;
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, null);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, null);
 
         OperatorAttemptResult result =
                 mutation.tryApply(makeChromosome(), makeChromosome(), SyncTargetPlan.EMPTY);
@@ -205,12 +205,12 @@ class LanguageModelOperatorTest {
         TestChromosome offspring = makeChromosome();
         TestCase mutantTest = nonEmptyTestCase();
 
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(matchedResponse(mutantTest));
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, memory);
 
         OperatorAttemptResult result = mutation.tryApply(offspring, parent, plan);
 
@@ -245,12 +245,12 @@ class LanguageModelOperatorTest {
         OperatorTarget target = mutationTarget(parent, makeGoal("g"));
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(unmatchedResponse());
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, memory);
 
         OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
@@ -270,11 +270,11 @@ class LanguageModelOperatorTest {
         OperatorTarget target = mutationTarget(parent, makeGoal("g"));
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenThrow(new RuntimeException("boom"));
 
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, null);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, null);
         OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         assertFalse(result.isAppliedSemantic());
@@ -293,12 +293,12 @@ class LanguageModelOperatorTest {
         OperatorTarget target = mutationTarget(parent, makeGoal("g"));
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(TargetedResponse.noBudget());
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, memory);
         mutation.tryApply(makeChromosome(), parent, plan);
 
         // The target never reached a completed turn, so its repeat-suppression cooldown must
@@ -316,12 +316,12 @@ class LanguageModelOperatorTest {
         OperatorTarget target = mutationTarget(parent, makeGoal("g"));
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(TargetedResponse.failed());
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, memory);
         mutation.tryApply(makeChromosome(), parent, plan);
 
         verify(memory).releaseUndeliveredAttempt(anyString());
@@ -337,12 +337,12 @@ class LanguageModelOperatorTest {
         OperatorTarget target = mutationTarget(parent, makeGoal("g"));
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenThrow(new RuntimeException("boom"));
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, memory);
         mutation.tryApply(makeChromosome(), parent, plan);
 
         verify(memory).releaseUndeliveredAttempt(anyString());
@@ -358,12 +358,12 @@ class LanguageModelOperatorTest {
         OperatorTarget target = mutationTarget(parent, makeGoal("g"));
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(unmatchedResponse());
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, memory);
         mutation.tryApply(makeChromosome(), parent, plan);
 
         // The call actually completed a turn against this target, it just produced nothing
@@ -384,13 +384,13 @@ class LanguageModelOperatorTest {
         OperatorTarget target = mutationTarget(parent, goal);
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target)))
                 .thenReturn(matchedResponse(nonEmptyTestCase()));
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, memory);
         OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         TestChromosome evaluatedOffspring = makeChromosome();
@@ -416,13 +416,13 @@ class LanguageModelOperatorTest {
         OperatorTarget target = mutationTarget(parent, goal);
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target)))
                 .thenReturn(matchedResponse(nonEmptyTestCase()));
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        SyncOperatorHook mutation = SyncOperatorHook.mutation(mockSemantic, memory);
         OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         mutation.recordOutcome(result, null);
@@ -449,11 +449,11 @@ class LanguageModelOperatorTest {
         TestChromosome offspring1 = makeChromosome();
         TestCase childTest = nonEmptyTestCase();
 
-        LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(crossover))).thenReturn(matchedResponse(childTest));
 
-        LanguageModelCrossover crossoverHook = new LanguageModelCrossover(mockSemantic, null);
+        SyncOperatorHook crossoverHook = SyncOperatorHook.crossover(mockSemantic, null);
         OperatorAttemptResult result = crossoverHook.tryApply(offspring1, parent1, plan);
 
         assertTrue(result.isAppliedSemantic());
@@ -477,13 +477,13 @@ class LanguageModelOperatorTest {
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
         TestChromosome offspring1 = makeChromosome();
-        LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target)))
                 .thenReturn(matchedResponse(nonEmptyTestCase()));
 
-        LanguageModelCrossover crossoverHook =
-                new LanguageModelCrossover(mockSemantic, new RepeatedInjectionMemory());
+        SyncOperatorHook crossoverHook =
+                SyncOperatorHook.crossover(mockSemantic, new RepeatedInjectionMemory());
         OperatorAttemptResult result = crossoverHook.tryApply(offspring1, parent1, plan);
 
         // The breeding loop evaluates a semantic crossover child in isolation, before the
@@ -508,11 +508,11 @@ class LanguageModelOperatorTest {
         OperatorTarget target = crossoverTarget(parent1, makeGoal("g"), makeChromosome());
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
+        LlmSemanticOperator mockSemantic = mock(LlmSemanticOperator.class);
         when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(unmatchedResponse());
 
-        LanguageModelCrossover crossoverHook = new LanguageModelCrossover(mockSemantic, null);
+        SyncOperatorHook crossoverHook = SyncOperatorHook.crossover(mockSemantic, null);
         OperatorAttemptResult result = crossoverHook.tryApply(makeChromosome(), parent1, plan);
 
         assertFalse(result.isAppliedSemantic());

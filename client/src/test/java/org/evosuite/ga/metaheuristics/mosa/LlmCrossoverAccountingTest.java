@@ -31,11 +31,9 @@ import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.DisruptionEvent;
 import org.evosuite.llm.search.DisruptionRecorder;
-import org.evosuite.llm.search.LanguageModelCrossover;
-import org.evosuite.llm.search.LanguageModelMutation;
-import org.evosuite.llm.search.LlmSemanticCrossover;
-import org.evosuite.llm.search.LlmSemanticMutation;
+import org.evosuite.llm.search.LlmSemanticOperator;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.SyncOperatorHook;
 import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.OperatorTargetSelector;
@@ -85,8 +83,8 @@ import static org.mockito.Mockito.when;
  *       lineage — while the offspring derived from parent2 stays tagged with parent2's lineage
  *       only; when semantic crossover does not apply and standard crossover runs instead, both
  *       offspring carry both lineages;
- *   <li>goal accounting: the mocked {@link LlmSemanticCrossover} and {@link
- *       LlmSemanticMutation} receive only targets from {@code llmOperators.targetSelector}, whose goal is
+ *   <li>goal accounting: the mocked {@link LlmSemanticOperator} and {@link
+ *       LlmSemanticOperator} receive only targets from {@code llmOperators.targetSelector}, whose goal is
  *       always one of DynaMOSA's frontier goals (never an archive-only goal, since the selector
  *       only ever sees {@code goalsManager.getCurrentGoals()}).
  * </ul>
@@ -184,12 +182,12 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         TestFitnessFunction archiveOnlyGoal = mock(MethodCoverageTestFitness.class);
         Archive.getArchiveInstance().addTarget(archiveOnlyGoal);
 
-        LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+        LlmSemanticOperator mockSemanticCrossover = mock(LlmSemanticOperator.class);
         when(mockSemanticCrossover.canCall()).thenReturn(true);
-        LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemanticMutation = mock(LlmSemanticOperator.class);
         when(mockSemanticMutation.canCall()).thenReturn(true);
-        harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, null);
-        harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, null);
+        harness.llmOperators.crossover = SyncOperatorHook.crossover(mockSemanticCrossover, null);
+        harness.llmOperators.mutation = SyncOperatorHook.mutation(mockSemanticMutation, null);
 
         when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse());
@@ -252,12 +250,12 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         harness.goalsManager.getCurrentGoals().add(frontier2);
         harness.publishCurrentGoals();
 
-        LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+        LlmSemanticOperator mockSemanticCrossover = mock(LlmSemanticOperator.class);
         when(mockSemanticCrossover.canCall()).thenReturn(true);
-        LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemanticMutation = mock(LlmSemanticOperator.class);
         when(mockSemanticMutation.canCall()).thenReturn(true);
-        harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, memory);
-        harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, memory);
+        harness.llmOperators.crossover = SyncOperatorHook.crossover(mockSemanticCrossover, memory);
+        harness.llmOperators.mutation = SyncOperatorHook.mutation(mockSemanticMutation, memory);
         when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse(2));
         when(mockSemanticMutation.applyMapped(anyList()))
@@ -304,12 +302,12 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             harness.goalsManager.getCurrentGoals().add(frontier2);
             harness.publishCurrentGoals();
 
-            LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+            LlmSemanticOperator mockSemanticCrossover = mock(LlmSemanticOperator.class);
             when(mockSemanticCrossover.canCall()).thenReturn(true);
-            LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+            LlmSemanticOperator mockSemanticMutation = mock(LlmSemanticOperator.class);
             when(mockSemanticMutation.canCall()).thenReturn(true);
-            harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, null);
-            harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, null);
+            harness.llmOperators.crossover = SyncOperatorHook.crossover(mockSemanticCrossover, null);
+            harness.llmOperators.mutation = SyncOperatorHook.mutation(mockSemanticMutation, null);
             when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse(2));
             when(mockSemanticMutation.applyMapped(anyList()))
@@ -377,12 +375,12 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             harness.goalsManager.getCurrentGoals().add(frontier2);
             harness.publishCurrentGoals();
 
-            LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+            LlmSemanticOperator mockSemanticCrossover = mock(LlmSemanticOperator.class);
             when(mockSemanticCrossover.canCall()).thenReturn(true);
-            LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+            LlmSemanticOperator mockSemanticMutation = mock(LlmSemanticOperator.class);
             when(mockSemanticMutation.canCall()).thenReturn(true);
-            harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, null);
-            harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, null);
+            harness.llmOperators.crossover = SyncOperatorHook.crossover(mockSemanticCrossover, null);
+            harness.llmOperators.mutation = SyncOperatorHook.mutation(mockSemanticMutation, null);
             when(mockSemanticCrossover.applyMapped(anyList()))
                 .thenAnswer(invocation -> freshResponse(2));
             when(mockSemanticMutation.applyMapped(anyList()))
@@ -437,12 +435,12 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         harness.goalsManager.getCurrentGoals().add(CurrentGoalsSupplierTest.simpleGoal("frontier"));
         harness.publishCurrentGoals();
 
-        LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+        LlmSemanticOperator mockSemanticCrossover = mock(LlmSemanticOperator.class);
         when(mockSemanticCrossover.canCall()).thenReturn(true);
-        LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+        LlmSemanticOperator mockSemanticMutation = mock(LlmSemanticOperator.class);
         when(mockSemanticMutation.canCall()).thenReturn(true);
-        harness.llmOperators.crossover = new LanguageModelCrossover(mockSemanticCrossover, null);
-        harness.llmOperators.mutation = new LanguageModelMutation(mockSemanticMutation, null);
+        harness.llmOperators.crossover = SyncOperatorHook.crossover(mockSemanticCrossover, null);
+        harness.llmOperators.mutation = SyncOperatorHook.mutation(mockSemanticMutation, null);
 
         TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
         TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);

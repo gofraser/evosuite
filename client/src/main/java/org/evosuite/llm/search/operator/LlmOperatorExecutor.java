@@ -25,8 +25,6 @@ import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LlmPrivilegedThreads;
-import org.evosuite.llm.search.LlmSemanticCrossover;
-import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.LlmSemanticOperator;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
@@ -67,8 +65,8 @@ public final class LlmOperatorExecutor {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmOperatorExecutor.class);
 
-    private final LlmSemanticMutation mutation;
-    private final LlmSemanticCrossover crossover;
+    private final LlmSemanticOperator mutation;
+    private final LlmSemanticOperator crossover;
     private final RepeatedInjectionMemory memory;
     private final LongSupplier remainingSearchSecondsSupplier;
     private final int budgetGuardSeconds;
@@ -89,7 +87,7 @@ public final class LlmOperatorExecutor {
     private final AtomicLong failedCalls = new AtomicLong();
     private final AtomicLong inFlightGenerations = new AtomicLong();
 
-    public LlmOperatorExecutor(LlmSemanticMutation mutation, LlmSemanticCrossover crossover,
+    public LlmOperatorExecutor(LlmSemanticOperator mutation, LlmSemanticOperator crossover,
                                RepeatedInjectionMemory memory,
                                LongSupplier remainingSearchSecondsSupplier,
                                int budgetGuardSeconds, int maxInFlight, int batchSize) {

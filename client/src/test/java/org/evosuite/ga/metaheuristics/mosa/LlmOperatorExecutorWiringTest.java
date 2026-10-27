@@ -23,15 +23,14 @@ import org.evosuite.Properties;
 import org.evosuite.coverage.method.MethodCoverageTestFitness;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
+import org.evosuite.llm.LlmService;
 import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
-import org.evosuite.llm.search.LanguageModelCrossover;
-import org.evosuite.llm.search.LanguageModelMutation;
-import org.evosuite.llm.search.LlmSemanticCrossover;
-import org.evosuite.llm.search.LlmSemanticMutation;
+import org.evosuite.llm.search.LlmSemanticOperator;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
+import org.evosuite.llm.search.SyncOperatorHook;
 import org.evosuite.llm.search.operator.LlmOperatorExecutor;
 import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.llm.search.operator.OperatorTarget;
@@ -352,8 +351,8 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         harness.initializeLlmAssistance(harness::getCurrentGoals);
         // ASYNC mode leaves the SYNC hooks null; set them directly too, so the four
         // pre-existing LLM_Semantic_* counters are exercised in the same pass.
-        harness.llmOperators.mutation = new LanguageModelMutation(new LlmSemanticMutation(), null);
-        harness.llmOperators.crossover = new LanguageModelCrossover(new LlmSemanticCrossover(), null);
+        harness.llmOperators.mutation = SyncOperatorHook.mutation(LlmSemanticOperator.mutation(LlmService.getInstance()), null);
+        harness.llmOperators.crossover = SyncOperatorHook.crossover(LlmSemanticOperator.crossover(LlmService.getInstance()), null);
 
         @SuppressWarnings("unchecked")
         ClientNodeLocal<TestChromosome> clientNode = mock(ClientNodeLocal.class);
