@@ -80,10 +80,7 @@ public class MockSplittableRandom implements StaticReplacementMock {
      * @return the random int
      */
     public static int nextInt(SplittableRandom random, int origin, int bound) {
-        if (origin >= bound) {
-            throw new IllegalArgumentException("bound must be greater than origin");
-        }
-        return origin + org.evosuite.runtime.Random.nextInt(bound - origin);
+        return org.evosuite.runtime.Random.nextInt(origin, bound);
     }
 
     public static long nextLong(SplittableRandom random) {
@@ -98,10 +95,7 @@ public class MockSplittableRandom implements StaticReplacementMock {
      * @return the random long
      */
     public static long nextLong(SplittableRandom random, long bound) {
-        if (bound <= 0L) {
-            throw new IllegalArgumentException("bound must be positive");
-        }
-        return Math.floorMod(org.evosuite.runtime.Random.nextLong(), bound);
+        return org.evosuite.runtime.Random.nextLong(bound);
     }
 
     /**
@@ -113,11 +107,7 @@ public class MockSplittableRandom implements StaticReplacementMock {
      * @return the random long
      */
     public static long nextLong(SplittableRandom random, long origin, long bound) {
-        long delta = bound - origin;
-        if (delta <= 0L) {
-            throw new IllegalArgumentException("bound must be greater than origin");
-        }
-        return origin + Math.floorMod(org.evosuite.runtime.Random.nextLong(), delta);
+        return org.evosuite.runtime.Random.nextLong(origin, bound);
     }
 
     public static double nextDouble(SplittableRandom random) {
@@ -132,10 +122,7 @@ public class MockSplittableRandom implements StaticReplacementMock {
      * @return the random double
      */
     public static double nextDouble(SplittableRandom random, double bound) {
-        if (!(bound > 0.0d)) {
-            throw new IllegalArgumentException("bound must be positive");
-        }
-        return org.evosuite.runtime.Random.nextDouble() * bound;
+        return org.evosuite.runtime.Random.nextDouble(bound);
     }
 
     /**
@@ -147,10 +134,7 @@ public class MockSplittableRandom implements StaticReplacementMock {
      * @return the random double
      */
     public static double nextDouble(SplittableRandom random, double origin, double bound) {
-        if (!(origin < bound)) {
-            throw new IllegalArgumentException("bound must be greater than origin");
-        }
-        return origin + (org.evosuite.runtime.Random.nextDouble() * (bound - origin));
+        return org.evosuite.runtime.Random.nextDouble(origin, bound);
     }
 
     public static void nextBytes(SplittableRandom random, byte[] bytes) {

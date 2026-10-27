@@ -49,10 +49,7 @@ public class MockRandomGenerator implements StaticReplacementMock {
     }
 
     public static int nextInt(RandomGenerator generator, int origin, int bound) {
-        if (origin >= bound) {
-            throw new IllegalArgumentException("bound must be greater than origin");
-        }
-        return origin + org.evosuite.runtime.Random.nextInt(bound - origin);
+        return org.evosuite.runtime.Random.nextInt(origin, bound);
     }
 
     public static long nextLong(RandomGenerator generator) {
@@ -60,18 +57,11 @@ public class MockRandomGenerator implements StaticReplacementMock {
     }
 
     public static long nextLong(RandomGenerator generator, long bound) {
-        if (bound <= 0L) {
-            throw new IllegalArgumentException("bound must be positive");
-        }
-        return Math.floorMod(org.evosuite.runtime.Random.nextLong(), bound);
+        return org.evosuite.runtime.Random.nextLong(bound);
     }
 
     public static long nextLong(RandomGenerator generator, long origin, long bound) {
-        long delta = bound - origin;
-        if (delta <= 0L) {
-            throw new IllegalArgumentException("bound must be greater than origin");
-        }
-        return origin + Math.floorMod(org.evosuite.runtime.Random.nextLong(), delta);
+        return org.evosuite.runtime.Random.nextLong(origin, bound);
     }
 
     public static double nextDouble(RandomGenerator generator) {
@@ -79,17 +69,11 @@ public class MockRandomGenerator implements StaticReplacementMock {
     }
 
     public static double nextDouble(RandomGenerator generator, double bound) {
-        if (!(bound > 0.0d)) {
-            throw new IllegalArgumentException("bound must be positive");
-        }
-        return org.evosuite.runtime.Random.nextDouble() * bound;
+        return org.evosuite.runtime.Random.nextDouble(bound);
     }
 
     public static double nextDouble(RandomGenerator generator, double origin, double bound) {
-        if (!(origin < bound)) {
-            throw new IllegalArgumentException("bound must be greater than origin");
-        }
-        return origin + (org.evosuite.runtime.Random.nextDouble() * (bound - origin));
+        return org.evosuite.runtime.Random.nextDouble(origin, bound);
     }
 
     public static boolean nextBoolean(RandomGenerator generator) {

@@ -60,6 +60,75 @@ public class Random {
     }
 
     /**
+     * Replacement function for nextInt(origin, bound).
+     *
+     * @param origin the least value that can be returned.
+     * @param bound  the upper bound (exclusive).
+     * @return an int in [origin, bound).
+     */
+    public static int nextInt(int origin, int bound) {
+        if (origin >= bound) {
+            throw new IllegalArgumentException("bound must be greater than origin");
+        }
+        return origin + nextInt(bound - origin);
+    }
+
+    /**
+     * Replacement function for nextLong(bound).
+     *
+     * @param bound the upper bound (exclusive), must be positive.
+     * @return a long in [0, bound).
+     */
+    public static long nextLong(long bound) {
+        if (bound <= 0L) {
+            throw new IllegalArgumentException("bound must be positive");
+        }
+        return Math.floorMod(nextLong(), bound);
+    }
+
+    /**
+     * Replacement function for nextLong(origin, bound).
+     *
+     * @param origin the least value that can be returned.
+     * @param bound  the upper bound (exclusive).
+     * @return a long in [origin, bound).
+     */
+    public static long nextLong(long origin, long bound) {
+        long delta = bound - origin;
+        if (delta <= 0L) {
+            throw new IllegalArgumentException("bound must be greater than origin");
+        }
+        return origin + Math.floorMod(nextLong(), delta);
+    }
+
+    /**
+     * Replacement function for nextDouble(bound).
+     *
+     * @param bound the upper bound (exclusive), must be positive.
+     * @return a double in [0, bound).
+     */
+    public static double nextDouble(double bound) {
+        if (!(bound > 0.0d)) {
+            throw new IllegalArgumentException("bound must be positive");
+        }
+        return nextDouble() * bound;
+    }
+
+    /**
+     * Replacement function for nextDouble(origin, bound).
+     *
+     * @param origin the least value that can be returned.
+     * @param bound  the upper bound (exclusive).
+     * @return a double in [origin, bound).
+     */
+    public static double nextDouble(double origin, double bound) {
+        if (!(origin < bound)) {
+            throw new IllegalArgumentException("bound must be greater than origin");
+        }
+        return origin + (nextDouble() * (bound - origin));
+    }
+
+    /**
      * Replacement function for nextFloat.
      *
      * @return a float.
