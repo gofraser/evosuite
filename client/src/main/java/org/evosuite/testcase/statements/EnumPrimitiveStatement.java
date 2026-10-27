@@ -58,12 +58,7 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
     public EnumPrimitiveStatement(TestCase tc, Class<T> clazz) {
         super(tc, clazz, null);
         enumClass = clazz;
-        boolean tracerEnabled = ExecutionTracer.isEnabled();
-        if (tracerEnabled) {
-            ExecutionTracer.disable();
-        }
-
-        try {
+        try (ExecutionTracer.Suspension suspended = ExecutionTracer.disableTemporarily()) {
             if (clazz.getEnumConstants().length > 0) {
                 this.value = clazz.getEnumConstants()[0];
                 constants = clazz.getEnumConstants();
@@ -75,9 +70,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         } catch (Throwable t) {
             // Loading the Enum class might fail
             constants = (T[]) new Enum[0];
-        }
-        if (tracerEnabled) {
-            ExecutionTracer.enable();
         }
     }
 
@@ -92,18 +84,10 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
     @SuppressWarnings("unchecked")
     public EnumPrimitiveStatement(TestCase tc, T value) {
         super(tc, (Class<T>) retrieveEnumClass(value.getClass()), value);
-        boolean tracerEnabled = ExecutionTracer.isEnabled();
-        if (tracerEnabled) {
-            ExecutionTracer.disable();
+        try (ExecutionTracer.Suspension suspended = ExecutionTracer.disableTemporarily()) {
+            enumClass = (Class<T>) retrieveEnumClass(value.getClass());
+            constants = enumClass.getEnumConstants();
         }
-
-        enumClass = (Class<T>) retrieveEnumClass(value.getClass());
-        constants = enumClass.getEnumConstants();
-
-        if (tracerEnabled) {
-            ExecutionTracer.enable();
-        }
-
     }
 
     private static Class<?> retrieveEnumClass(Class<?> clazz) {

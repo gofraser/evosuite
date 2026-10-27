@@ -89,12 +89,7 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
      * @param size the size.
      */
     private TestCase getRandomTestCase(int size) {
-        boolean tracerEnabled = ExecutionTracer.isEnabled();
-        if (tracerEnabled) {
-            ExecutionTracer.disable();
-        }
-
-        try {
+        try (ExecutionTracer.Suspension suspended = ExecutionTracer.disableTemporarily()) {
             TestCase test = getNewTestCase();
             int num = 0;
 
@@ -139,10 +134,6 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
                 logger.debug("Randomized test case:" + test.toCode());
             }
             return test;
-        } finally {
-            if (tracerEnabled) {
-                ExecutionTracer.enable();
-            }
         }
     }
 

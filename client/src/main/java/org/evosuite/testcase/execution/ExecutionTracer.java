@@ -147,6 +147,38 @@ public class ExecutionTracer {
     }
 
     /**
+     * Disables the tracer until the returned handle is closed. If the tracer is already
+     * disabled, closing the handle leaves it so.
+     *
+     * @return a handle that re-enables the tracer on close if this call disabled it
+     */
+    public static Suspension disableTemporarily() {
+        boolean wasEnabled = isEnabled();
+        if (wasEnabled) {
+            disable();
+        }
+        return new Suspension(wasEnabled);
+    }
+
+    /**
+     * Handle returned by {@link #disableTemporarily()}, for use in try-with-resources.
+     */
+    public static final class Suspension implements AutoCloseable {
+        private final boolean reEnable;
+
+        private Suspension(boolean reEnable) {
+            this.reEnable = reEnable;
+        }
+
+        @Override
+        public void close() {
+            if (reEnable) {
+                enable();
+            }
+        }
+    }
+
+    /**
      * <p>isEnabled.</p>
      *
      * @return a boolean.
@@ -380,15 +412,10 @@ public class ExecutionTracer {
             return;
         }
         StringBuilder tmp = null;
-        try {
-            // setLineCoverageDeactivated(true);
-            // logger.warn("Disabling tracer: returnValue");
-            ExecutionTracer.disable();
+        try (Suspension suspended = disableTemporarily()) {
             tmp = new StringBuilder(value.toString());
         } catch (Throwable t) {
             return;
-        } finally {
-            ExecutionTracer.enable();
         }
         int index = 0;
         int position = 0;
