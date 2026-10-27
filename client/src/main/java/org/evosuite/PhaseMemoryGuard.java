@@ -41,13 +41,23 @@ public final class PhaseMemoryGuard {
     private long lastFreeBytes = -1;
 
     public PhaseMemoryGuard() {
-        this(PhaseMemoryGuard::currentFreeHeapBytes, System::gc, Properties.MIN_FREE_MEM * 2L);
+        this(PhaseMemoryGuard::currentFreeHeapBytes, System::gc, defaultThresholdBytes());
     }
 
     public PhaseMemoryGuard(LongSupplier freeHeapBytes, Runnable collectGarbage, long thresholdBytes) {
         this.freeHeapBytes = freeHeapBytes;
         this.collectGarbage = collectGarbage;
         this.thresholdBytes = thresholdBytes;
+    }
+
+    /**
+     * Returns the free heap below which post-processing phases stop: twice
+     * {@link Properties#MIN_FREE_MEM}, to leave headroom.
+     *
+     * @return the default threshold in bytes
+     */
+    public static long defaultThresholdBytes() {
+        return Properties.MIN_FREE_MEM * 2L;
     }
 
     /**

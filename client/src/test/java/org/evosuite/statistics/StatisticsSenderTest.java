@@ -129,28 +129,6 @@ class StatisticsSenderTest {
         assertDoesNotThrow(() -> StatisticsSender.executedAndThenSendIndividualToMaster(suite));
     }
 
-    // --- isMemoryTooLowForReExecution ---
-
-    @Test
-    void isMemoryBelowThresholdReturnsTrueWhenThresholdExceedsMaxHeap() {
-        long threshold = Runtime.getRuntime().maxMemory() + 1L;
-        assertTrue(StatisticsSender.isMemoryBelowThreshold(threshold),
-                "Threshold above maxMemory must always classify memory as too low");
-    }
-
-    @Test
-    void isMemoryBelowThresholdReturnsFalseAtZero() {
-        assertFalse(StatisticsSender.isMemoryBelowThreshold(0L),
-                "Zero threshold must never trip the guard");
-    }
-
-    @Test
-    void isMemoryTooLowForReExecutionRespectsMinFreeMem() {
-        Properties.MIN_FREE_MEM = 0;
-        assertFalse(StatisticsSender.isMemoryTooLowForReExecution(),
-                "MIN_FREE_MEM=0 must never trip the guard");
-    }
-
     // --- lightweightCopy: what the master receives ---
 
     private static class GoalFitness extends FitnessFunction<TestChromosome> {

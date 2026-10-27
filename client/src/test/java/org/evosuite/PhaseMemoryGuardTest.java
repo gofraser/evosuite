@@ -77,4 +77,16 @@ public class PhaseMemoryGuardTest {
         assertFalse(PhaseMemoryGuard.oneShot(0L).isExhausted());
         assertTrue(PhaseMemoryGuard.oneShot(Long.MAX_VALUE).isExhausted());
     }
+
+    @Test
+    public void defaultThresholdIsTwiceMinFreeMem() {
+        int saved = Properties.MIN_FREE_MEM;
+        try {
+            Properties.MIN_FREE_MEM = 123;
+            assertEquals(246L, PhaseMemoryGuard.defaultThresholdBytes());
+            assertEquals(246L, new PhaseMemoryGuard().getThresholdBytes());
+        } finally {
+            Properties.MIN_FREE_MEM = saved;
+        }
+    }
 }

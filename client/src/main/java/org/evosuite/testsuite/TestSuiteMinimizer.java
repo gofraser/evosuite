@@ -82,7 +82,7 @@ public class TestSuiteMinimizer {
     private final StopCauseProvider stopCauseProvider;
     private final PreflightExecutor preflightExecutor;
     private Supplier<PhaseMemoryGuard> memoryGuardFactory =
-            () -> new PhaseMemoryGuard(PhaseMemoryGuard::currentFreeHeapBytes, System::gc, Properties.MIN_FREE_MEM * 2L);
+            PhaseMemoryGuard::new;
     private PhaseMemoryGuard memoryGuard;
 
     /**

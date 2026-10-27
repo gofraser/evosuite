@@ -143,8 +143,8 @@ public class StatisticsSender {
             }
         }
         boolean reExecutionSkipped = false;
-        if (needReExecution > 0 && isMemoryTooLowForReExecution()) {
-            long thresholdMb = (Properties.MIN_FREE_MEM * 2L) / (1024L * 1024L);
+        if (needReExecution > 0 && PhaseMemoryGuard.oneShot(PhaseMemoryGuard.defaultThresholdBytes()).isExhausted()) {
+            long thresholdMb = PhaseMemoryGuard.defaultThresholdBytes() / (1024L * 1024L);
             logger.warn("Skipping re-execution of {} test(s) for statistics: free memory below {} MB. "
                             + "Cached results will be used; un-cached tests are dropped from statistics.",
                     needReExecution, thresholdMb);
@@ -168,23 +168,6 @@ public class StatisticsSender {
     }
 
     // -------- private methods ------------------------
-
-    /**
-     * Compares free heap against {@code MIN_FREE_MEM * 2}, with a single GC retry. Returns true
-     * if memory is still below the threshold and the caller should skip the work.
-     */
-    static boolean isMemoryTooLowForReExecution() {
-        return isMemoryBelowThreshold(Properties.MIN_FREE_MEM * 2L);
-    }
-
-    /**
-     * Returns true if free heap is below {@code threshold} bytes, after one GC retry.
-     * Extracted so tests can drive the predicate with any threshold rather than going
-     * through the int-capped {@link Properties#MIN_FREE_MEM}.
-     */
-    static boolean isMemoryBelowThreshold(long threshold) {
-        return PhaseMemoryGuard.oneShot(threshold).isExhausted();
-    }
 
     private static void sendExceptionInfo(TestSuiteChromosome testSuite) {
 

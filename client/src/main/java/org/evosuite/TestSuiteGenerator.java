@@ -1028,7 +1028,7 @@ public class TestSuiteGenerator {
         LongSupplier freeMemoryBytes = freeMemoryBytesForTesting != null
                 ? freeMemoryBytesForTesting : PhaseMemoryGuard::currentFreeHeapBytes;
         PhaseMemoryGuard guard =
-                new PhaseMemoryGuard(freeMemoryBytes, System::gc, Properties.MIN_FREE_MEM * 2L);
+                new PhaseMemoryGuard(freeMemoryBytes, System::gc, PhaseMemoryGuard.defaultThresholdBytes());
         if (!guard.isExhausted()) {
             return false;
         }
