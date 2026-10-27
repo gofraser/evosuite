@@ -32,7 +32,6 @@ import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -76,11 +75,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
         RawControlFlowGraph graph = GraphPool.getInstance(classLoader).getRawCFG(className,
                 methodName);
 
-        // Optimization: Create a map for fast lookup of BytecodeInstructions by their ASM nodes
-        Map<AbstractInsnNode, BytecodeInstruction> instructionMap = new HashMap<>();
-        for (BytecodeInstruction v : graph.vertexSet()) {
-            instructionMap.put(v.getASMNode(), v);
-        }
+        Map<AbstractInsnNode, BytecodeInstruction> instructionMap = graph.instructionsByAsmNode();
 
         Iterator<AbstractInsnNode> j = mn.instructions.iterator();
         while (j.hasNext()) {

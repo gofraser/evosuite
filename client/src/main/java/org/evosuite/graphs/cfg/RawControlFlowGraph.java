@@ -27,6 +27,7 @@ import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.utils.ReverseComparator;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,6 +85,20 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
     public boolean containsInstruction(BytecodeInstruction instruction) {
 
         return containsVertex(instruction);
+    }
+
+    /**
+     * Maps every ASM node of this graph to its instruction, for callers that walk a method's
+     * instruction list and need the instruction behind each node.
+     *
+     * @return a new map keyed by node identity
+     */
+    public Map<AbstractInsnNode, BytecodeInstruction> instructionsByAsmNode() {
+        Map<AbstractInsnNode, BytecodeInstruction> byNode = new HashMap<>();
+        for (BytecodeInstruction v : vertexSet()) {
+            byNode.put(v.getASMNode(), v);
+        }
+        return byNode;
     }
 
     /**

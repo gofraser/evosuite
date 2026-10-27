@@ -60,11 +60,7 @@ public class DefUseInstrumentation implements MethodInstrumentation {
                 methodName);
         logger.info("Applying DefUse instrumentation on CFG with " + completeCFG.vertexCount() + " nodes");
 
-        // Optimization: Create a map for fast lookup of BytecodeInstructions by their ASM nodes
-        Map<AbstractInsnNode, BytecodeInstruction> instructionMap = new HashMap<>();
-        for (BytecodeInstruction v : completeCFG.vertexSet()) {
-            instructionMap.put(v.getASMNode(), v);
-        }
+        Map<AbstractInsnNode, BytecodeInstruction> instructionMap = completeCFG.instructionsByAsmNode();
 
         boolean shouldInstrument = FitnessFunctions.usesDefUse(Properties.CRITERION);
 

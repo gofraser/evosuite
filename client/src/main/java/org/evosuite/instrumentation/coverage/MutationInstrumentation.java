@@ -123,11 +123,7 @@ public class MutationInstrumentation implements MethodInstrumentation {
         RawControlFlowGraph graph = GraphPool.getInstance(classLoader)
                 .getRawCFG(className, methodName);
 
-        // Optimization: Create a map for fast lookup of BytecodeInstructions by their ASM nodes
-        Map<AbstractInsnNode, BytecodeInstruction> instructionMap = new HashMap<>();
-        for (BytecodeInstruction v : graph.vertexSet()) {
-            instructionMap.put(v.getASMNode(), v);
-        }
+        Map<AbstractInsnNode, BytecodeInstruction> instructionMap = graph.instructionsByAsmNode();
 
         Iterator<AbstractInsnNode> j = mn.instructions.iterator();
 
