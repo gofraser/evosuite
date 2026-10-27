@@ -43,6 +43,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiPredicate;
 
 import static java.util.stream.Collectors.joining;
 
@@ -50,6 +51,31 @@ import static java.util.stream.Collectors.joining;
  * Abstract superclass of test case statements.
  */
 public abstract class AbstractStatement implements Statement, Serializable {
+
+    /**
+     * Compares variables by {@code equals}, as {@code equals} on statements does.
+     */
+    protected static final BiPredicate<VariableReference, VariableReference> EQUAL_VARIABLES = Objects::equals;
+
+    /**
+     * Compares variables by {@code same}, as {@code same} on statements does.
+     */
+    protected static final BiPredicate<VariableReference, VariableReference> SAME_VARIABLES = VariableReference::same;
+
+    /**
+     * Whether {@code other} is a statement of exactly the same class as this one.
+     */
+    protected final boolean isSameKind(Object other) {
+        return other != null && getClass() == other.getClass();
+    }
+
+    /**
+     * Compares two variables that may be absent: absent only matches absent.
+     */
+    protected static boolean matches(VariableReference first, VariableReference second,
+                                     BiPredicate<VariableReference, VariableReference> eq) {
+        return first == null ? second == null : eq.test(first, second);
+    }
 
     /**
      * An interface to enable the concrete statements to use the executer/1

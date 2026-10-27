@@ -40,6 +40,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.*;
+import java.util.function.BiPredicate;
 
 /**
  * This statement represents a constructor call, generating a new instance of any given class, e.g.,.
@@ -539,32 +540,36 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
+        return this == s || (isSameKind(s) && sameStructure((ConstructorStatement) s, EQUAL_VARIABLES));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean same(Statement s) {
+        return this == s || (isSameKind(s) && sameStructure((ConstructorStatement) s, SAME_VARIABLES));
+    }
+
+    /**
+     * Compares the statements, using {@code eq} to compare the variables they refer to.
+     */
+    private boolean sameStructure(ConstructorStatement other, BiPredicate<VariableReference, VariableReference> eq) {
+        if (other.parameters.size() != parameters.size()) {
             return false;
         }
 
-        ConstructorStatement ms = (ConstructorStatement) s;
-        if (ms.parameters.size() != parameters.size()) {
-            return false;
-        }
-
-        if (!this.constructor.equals(ms.constructor)) {
+        if (!this.constructor.equals(other.constructor)) {
             return false;
         }
 
         for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).equals(ms.parameters.get(i))) {
+            if (!eq.test(parameters.get(i), other.parameters.get(i))) {
                 return false;
             }
         }
 
-        return retval.equals(ms.retval);
+        return eq.test(retval, other.retval);
     }
 
     /**
@@ -654,39 +659,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
             v.getStPosition();
         }
         return true;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean same(Statement s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
-
-        ConstructorStatement ms = (ConstructorStatement) s;
-        if (ms.parameters.size() != parameters.size()) {
-            return false;
-        }
-
-        if (!this.constructor.equals(ms.constructor)) {
-            return false;
-        }
-
-        for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).same(ms.parameters.get(i))) {
-                return false;
-            }
-        }
-
-        return retval.same(ms.retval);
     }
 
     /**

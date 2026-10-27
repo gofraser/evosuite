@@ -46,6 +46,7 @@ import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.function.BiPredicate;
 
 /**
  * Method statements invoke methods on objects or call static methods. Value and type of a
@@ -768,45 +769,36 @@ public class MethodStatement extends EntityWithParametersStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
+        return this == s || (isSameKind(s) && sameStructure((MethodStatement) s, EQUAL_VARIABLES));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean same(Statement s) {
+        return this == s || (isSameKind(s) && sameStructure((MethodStatement) s, SAME_VARIABLES));
+    }
+
+    /**
+     * Compares the statements, using {@code eq} to compare the variables they refer to.
+     */
+    private boolean sameStructure(MethodStatement other, BiPredicate<VariableReference, VariableReference> eq) {
+        if (other.parameters.size() != parameters.size()) {
             return false;
         }
 
-        MethodStatement ms = (MethodStatement) s;
-        if (ms.parameters.size() != parameters.size()) {
-            return false;
-        }
-
-        if (!this.method.equals(ms.method)) {
+        if (!this.method.equals(other.method)) {
             return false;
         }
 
         for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).equals(ms.parameters.get(i))) {
+            if (!eq.test(parameters.get(i), other.parameters.get(i))) {
                 return false;
             }
         }
 
-        if (!retval.equals(ms.retval)) {
-            return false;
-        }
-
-        if ((callee == null && ms.callee != null)
-                || (callee != null && ms.callee == null)) {
-            return false;
-        } else {
-            if (callee == null) {
-                return true;
-            } else {
-                return (callee.equals(ms.callee));
-            }
-        }
+        return eq.test(retval, other.retval) && matches(callee, other.callee, eq);
     }
 
     /**
@@ -888,52 +880,6 @@ public class MethodStatement extends EntityWithParametersStatement {
             callee.getStPosition();
         }
         return true;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean same(Statement s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
-
-        MethodStatement ms = (MethodStatement) s;
-        if (ms.parameters.size() != parameters.size()) {
-            return false;
-        }
-
-        for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).same(ms.parameters.get(i))) {
-                return false;
-            }
-        }
-
-        if (!this.method.equals(ms.method)) {
-            return false;
-        }
-
-        if (!retval.same(ms.retval)) {
-            return false;
-        }
-
-        if ((callee == null && ms.callee != null)
-                || (callee != null && ms.callee == null)) {
-            return false;
-        } else {
-            if (callee == null) {
-                return true;
-            } else {
-                return (callee.same(ms.callee));
-            }
-        }
     }
 
     /**

@@ -39,6 +39,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiPredicate;
 
 /**
  * An assignment statement assigns values to variables. This is only used to assign to array indices.
@@ -418,31 +419,23 @@ public class AssignmentStatement extends AbstractStatement {
      * {@inheritDoc}
      */
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        AssignmentStatement other = (AssignmentStatement) obj;
-        if (parameter == null) {
-            if (other.parameter != null) {
-                return false;
-            }
-        } else {
-            if (!parameter.equals(other.parameter)) {
-                return false;
-            }
-        }
-        if (retval == null) {
-            return other.retval == null;
-        } else {
-            return retval.equals(other.retval);
-        }
+    public boolean equals(Object s) {
+        return this == s || (isSameKind(s) && sameStructure((AssignmentStatement) s, EQUAL_VARIABLES));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean same(Statement s) {
+        return this == s || (isSameKind(s) && sameStructure((AssignmentStatement) s, SAME_VARIABLES));
+    }
+
+    /**
+     * Compares the statements, using {@code eq} to compare the variables they refer to.
+     */
+    private boolean sameStructure(AssignmentStatement other, BiPredicate<VariableReference, VariableReference> eq) {
+        return matches(parameter, other.parameter, eq) && matches(retval, other.retval, eq);
     }
 
 
@@ -509,38 +502,6 @@ public class AssignmentStatement extends AbstractStatement {
 
     private static boolean isAssignable(VariableReference target, VariableReference value) {
         return GenericClassUtils.isAssignable(target.getType(), value.getType());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean same(Statement s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
-
-        AssignmentStatement other = (AssignmentStatement) s;
-        if (parameter == null) {
-            if (other.parameter != null) {
-                return false;
-            }
-        } else {
-            if (!parameter.same(other.parameter)) {
-                return false;
-            }
-        }
-        if (retval == null) {
-            return other.retval == null;
-        } else {
-            return retval.same(other.retval);
-        }
     }
 
     /**

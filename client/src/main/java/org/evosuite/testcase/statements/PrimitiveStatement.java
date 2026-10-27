@@ -41,6 +41,7 @@ import java.lang.reflect.WildcardType;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiPredicate;
 
 /**
  * A common superclass for statements assigning a primitive (e.g., numeric, boolean, String or
@@ -297,18 +298,22 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
+        return this == s || (isSameKind(s) && sameStructure((PrimitiveStatement<?>) s, EQUAL_VARIABLES));
+    }
 
-        PrimitiveStatement<?> ps = (PrimitiveStatement<?>) s;
-        return java.util.Objects.equals(retval, ps.retval) && java.util.Objects.equals(value, ps.value);
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean same(Statement s) {
+        return this == s || (isSameKind(s) && sameStructure((PrimitiveStatement<?>) s, SAME_VARIABLES));
+    }
+
+    /**
+     * Compares the statements, using {@code eq} to compare the variables they refer to.
+     */
+    private boolean sameStructure(PrimitiveStatement<?> other, BiPredicate<VariableReference, VariableReference> eq) {
+        return java.util.Objects.equals(value, other.value) && eq.test(retval, other.retval);
     }
 
     /**
@@ -331,35 +336,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      * Reset value to default value 0.
      */
     public abstract void zero();
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean same(Statement s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
-
-        PrimitiveStatement<?> ps = (PrimitiveStatement<?>) s;
-
-        boolean sameValue = false;
-        if (value == null) {
-            sameValue = (ps.value == null);
-        } else {
-            sameValue = value.equals(ps.value);
-        }
-
-        assert retval != null && ps.retval != null;
-
-        return (sameValue && retval.same(ps.retval));
-    }
 
     /**
      * {@inheritDoc}

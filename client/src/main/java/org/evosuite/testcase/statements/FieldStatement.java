@@ -39,6 +39,7 @@ import java.lang.reflect.Type;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiPredicate;
 
 /**
  * A statement that can access public member variables of objects. For example, the Java statement
@@ -341,22 +342,26 @@ public class FieldStatement extends AbstractStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
+        return this == s || (isSameKind(s) && sameStructure((FieldStatement) s, EQUAL_VARIABLES));
+    }
 
-        FieldStatement fs = (FieldStatement) s;
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean same(Statement s) {
+        return this == s || (isSameKind(s) && sameStructure((FieldStatement) s, SAME_VARIABLES));
+    }
+
+    /**
+     * Compares the statements, using {@code eq} to compare the variables they refer to.
+     */
+    private boolean sameStructure(FieldStatement other, BiPredicate<VariableReference, VariableReference> eq) {
         if (!field.isStatic()) {
-            return source.equals(fs.source) && retval.equals(fs.retval)
-                    && field.equals(fs.field);
+            return eq.test(source, other.source) && eq.test(retval, other.retval)
+                    && field.equals(other.field);
         } else {
-            return retval.equals(fs.retval) && field.equals(fs.field);
+            return eq.test(retval, other.retval) && field.equals(other.field);
         }
     }
 
@@ -392,30 +397,6 @@ public class FieldStatement extends AbstractStatement {
     }
 
 
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean same(Statement s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
-
-        FieldStatement fs = (FieldStatement) s;
-        if (!field.isStatic()) {
-            return source.same(fs.source) && retval.same(fs.retval)
-                    && field.equals(fs.field);
-        } else {
-            return retval.same(fs.retval) && field.equals(fs.field);
-        }
-    }
 
     /**
      * {@inheritDoc}

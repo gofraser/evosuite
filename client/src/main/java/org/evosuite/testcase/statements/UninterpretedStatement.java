@@ -35,6 +35,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiPredicate;
 
 /**
  * A fallback statement that preserves raw Java source code verbatim.
@@ -227,47 +228,43 @@ public class UninterpretedStatement extends AbstractStatement {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean equals(Object s) {
+        return this == s || (isSameKind(s) && sameStructure((UninterpretedStatement) s, EQUAL_VARIABLES));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean same(Statement s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null || getClass() != s.getClass()) {
+        return this == s || (isSameKind(s) && sameStructure((UninterpretedStatement) s, SAME_VARIABLES));
+    }
+
+    /**
+     * Compares the statements, using {@code eq} to compare the variables they refer to.
+     */
+    private boolean sameStructure(UninterpretedStatement other, BiPredicate<VariableReference, VariableReference> eq) {
+        if (!sourceCode.equals(other.sourceCode)
+                || !Objects.equals(returnExpression, other.returnExpression)) {
             return false;
         }
-        UninterpretedStatement that = (UninterpretedStatement) s;
-        if (!sourceCode.equals(that.sourceCode)
-                || !Objects.equals(returnExpression, that.returnExpression)) {
+        if (!eq.test(retval, other.retval)) {
             return false;
         }
-        if (!retval.same(that.retval)) {
-            return false;
-        }
-        if (bindings.size() != that.bindings.size()) {
+        if (bindings.size() != other.bindings.size()) {
             return false;
         }
         for (Map.Entry<String, VariableReference> entry : bindings.entrySet()) {
-            VariableReference thatValue = that.bindings.get(entry.getKey());
-            if (thatValue == null || !entry.getValue().same(thatValue)) {
+            VariableReference otherValue = other.bindings.get(entry.getKey());
+            if (otherValue == null || !eq.test(entry.getValue(), otherValue)) {
                 return false;
             }
         }
         return true;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        UninterpretedStatement that = (UninterpretedStatement) o;
-        return sourceCode.equals(that.sourceCode)
-                && Objects.equals(bindings, that.bindings)
-                && Objects.equals(returnExpression, that.returnExpression)
-                && Objects.equals(retval, that.retval);
     }
 
     @Override

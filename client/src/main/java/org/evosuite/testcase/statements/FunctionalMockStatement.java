@@ -65,6 +65,7 @@ import java.lang.reflect.Type;
 import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiPredicate;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.withSettings;
@@ -1693,73 +1694,49 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean equals(Object s) {
+        return this == s || (isSameKind(s) && sameStructure((FunctionalMockStatement) s, EQUAL_VARIABLES));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean same(Statement s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
+        return this == s || (isSameKind(s) && sameStructure((FunctionalMockStatement) s, SAME_VARIABLES));
+    }
 
-        FunctionalMockStatement fms = (FunctionalMockStatement) s;
-
-        if (fms.parameters.size() != parameters.size()) {
+    /**
+     * Compares the statements, using {@code eq} to compare the variables they refer to.
+     */
+    private boolean sameStructure(FunctionalMockStatement other, BiPredicate<VariableReference, VariableReference> eq) {
+        if (other.parameters.size() != parameters.size()) {
             return false;
         }
 
         for (int i = 0; i < parameters.size(); i++) {
-            if (!parameters.get(i).same(fms.parameters.get(i))) {
+            if (!eq.test(parameters.get(i), other.parameters.get(i))) {
                 return false;
             }
         }
 
-        if (!retval.same(fms.retval)) {
+        if (!eq.test(retval, other.retval)) {
             return false;
         }
 
-        if (!targetClass.equals(fms.targetClass)) {
+        if (!java.util.Objects.equals(targetClass, other.targetClass)) {
             return false;
         }
 
-        if (useLenientDefaultAnswer != fms.useLenientDefaultAnswer) {
+        if (useLenientDefaultAnswer != other.useLenientDefaultAnswer) {
             return false;
         }
 
-        if (!sameStubbedMethods(fms)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        FunctionalMockStatement that = (FunctionalMockStatement) o;
-
-        if (!java.util.Objects.equals(parameters, that.parameters)) {
-            return false;
-        }
-        if (!java.util.Objects.equals(retval, that.retval)) {
-            return false;
-        }
-        if (!java.util.Objects.equals(targetClass, that.targetClass)) {
-            return false;
-        }
-        if (useLenientDefaultAnswer != that.useLenientDefaultAnswer) {
-            return false;
-        }
-        return sameStubbedMethods(that);
+        return sameStubbedMethods(other);
     }
 
     private boolean sameStubbedMethods(FunctionalMockStatement other) {

@@ -38,6 +38,7 @@ import java.io.PrintStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
+import java.util.function.BiPredicate;
 
 /**
  * An array statement creates a new array. For example, {@code Object[] var = new Object[10]}.
@@ -187,25 +188,22 @@ public class ArrayStatement extends AbstractStatement {
      */
     @Override
     public boolean equals(Object s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
+        return this == s || (isSameKind(s) && sameStructure((ArrayStatement) s, EQUAL_VARIABLES));
+    }
 
-        ArrayStatement as = (ArrayStatement) s;
-        if (!Arrays.equals(lengths, as.lengths)) {
-            return false;
-        }
-        return retval.equals(as.retval);
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean same(Statement s) {
+        return this == s || (isSameKind(s) && sameStructure((ArrayStatement) s, SAME_VARIABLES));
+    }
 
-        // if (!Arrays.equals(variables, other.variables))
-        // return false;
-
+    /**
+     * Compares the statements, using {@code eq} to compare the variables they refer to.
+     */
+    private boolean sameStructure(ArrayStatement other, BiPredicate<VariableReference, VariableReference> eq) {
+        return Arrays.equals(lengths, other.lengths) && eq.test(retval, other.retval);
     }
 
     /**
@@ -396,28 +394,6 @@ public class ArrayStatement extends AbstractStatement {
      */
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean same(Statement s) {
-        if (this == s) {
-            return true;
-        }
-        if (s == null) {
-            return false;
-        }
-        if (getClass() != s.getClass()) {
-            return false;
-        }
-
-        ArrayStatement as = (ArrayStatement) s;
-        if (!Arrays.equals(lengths, as.lengths)) {
-            return false;
-        }
-        return retval.same(as.retval);
     }
 
     /**
