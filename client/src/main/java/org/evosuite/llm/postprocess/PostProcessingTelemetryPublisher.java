@@ -40,17 +40,11 @@ final class PostProcessingTelemetryPublisher {
         EnumMap<RuntimeVariable, Object> values = new EnumMap<>(RuntimeVariable.class);
         values.put(RuntimeVariable.LLM_PostProcessing_Skip_Reason,
                 metrics.skipReason == null ? "" : metrics.skipReason);
-        values.put(RuntimeVariable.LLM_PostProcessing_Requested_Tests, metrics.requestedTests);
-        values.put(RuntimeVariable.LLM_PostProcessing_Requested_Statements, metrics.requestedStatements);
-        values.put(RuntimeVariable.LLM_PostProcessing_Initial_Calls, metrics.initialCalls);
-        values.put(RuntimeVariable.LLM_PostProcessing_Repair_Calls, metrics.repairCalls);
-        values.put(RuntimeVariable.LLM_PostProcessing_Repair_Calls_Skipped_Budget,
-                metrics.repairCallsSkippedBudget);
-        values.put(RuntimeVariable.LLM_PostProcessing_Accepted_Responses, metrics.acceptedResponses);
-        values.put(RuntimeVariable.LLM_PostProcessing_Skipped_Tests, metrics.skippedTests);
-        values.put(RuntimeVariable.LLM_PostProcessing_Cap_Skipped_Tests, metrics.capSkippedTests);
-        values.put(RuntimeVariable.LLM_PostProcessing_Infrastructure_Failures,
-                metrics.infrastructureFailures);
+        for (PostProcessingCounter counter : PostProcessingCounter.values()) {
+            if (counter.variable != null) {
+                values.put(counter.variable, metrics.get(counter));
+            }
+        }
         values.put(RuntimeVariable.LLM_PostProcessing_Rejected_Edits, diagnosticCounters.total());
         values.put(RuntimeVariable.LLM_PostProcessing_Rejected_Unknown_Ids,
                 diagnosticCounters.get(LlmPostProcessingParseResult.DiagnosticCode.UNKNOWN_ID));
@@ -78,31 +72,6 @@ final class PostProcessingTelemetryPublisher {
         values.put(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_Mutation, 0);
         values.put(RuntimeVariable.LLM_PostProcessing_Fallback_Assertions_Applied,
                 fallbackCounters.assertionsApplied);
-        values.put(RuntimeVariable.LLM_PostProcessing_Processed_Tests, metrics.processedTests);
-        values.put(RuntimeVariable.LLM_PostProcessing_Partially_Processed_Tests,
-                metrics.partiallyProcessedTests);
-        values.put(RuntimeVariable.LLM_PostProcessing_Test_Names_Proposed, metrics.testNamesProposed);
-        values.put(RuntimeVariable.LLM_PostProcessing_Test_Names_Applied, metrics.testNamesApplied);
-        values.put(RuntimeVariable.LLM_PostProcessing_Variable_Names_Proposed,
-                metrics.variableNamesProposed);
-        values.put(RuntimeVariable.LLM_PostProcessing_Variable_Names_Applied,
-                metrics.variableNamesApplied);
-        values.put(RuntimeVariable.LLM_PostProcessing_Comments_Proposed, metrics.commentsProposed);
-        values.put(RuntimeVariable.LLM_PostProcessing_Comments_Applied, metrics.commentsApplied);
-        values.put(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Proposed,
-                metrics.sectionBreaksProposed);
-        values.put(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Applied,
-                metrics.sectionBreaksApplied);
-        values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed, metrics.assertionsProposed);
-        values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_Initial,
-                metrics.assertionsAcceptedInitial);
-        values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Repair_Requested,
-                metrics.assertionsRepairRequested);
-        values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed_After_Repair,
-                metrics.assertionsProposedAfterRepair);
-        values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair,
-                metrics.assertionsAcceptedAfterRepair);
-        values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Applied, metrics.assertionsApplied);
         values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable, 0);
         values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile, 0);
         values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped, 0);

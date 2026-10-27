@@ -51,83 +51,91 @@ final class LlmPostProcessingPhase {
                 logger.info("Unified LLM post-processing stopped before test {}: thread interrupted",
                         workItems.get(workIndex).originalIndex);
                 stopReason = StopReason.INTERRUPTED;
-                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
+                skipRemaining(metrics, workItems, workIndex);
                 break;
             }
-            if (processor.isPhaseTimedOut(phaseContext)) {
+            if (phaseContext.isPhaseTimedOut()) {
                 stopReason = StopReason.TIMEOUT;
-                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
+                skipRemaining(metrics, workItems, workIndex);
                 break;
             }
-            if (limits.maxTests > 0 && metrics.requestedTests >= limits.maxTests) {
+            if (limits.maxTests > 0 && metrics.get(PostProcessingCounter.REQUESTED_TESTS) >= limits.maxTests) {
                 stopReason = StopReason.MAX_TESTS;
-                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
+                skipRemaining(metrics, workItems, workIndex);
                 break;
             }
-            if (limits.maxCalls > 0 && metrics.requestedCalls >= limits.maxCalls) {
+            if (limits.maxCalls > 0 && metrics.get(PostProcessingCounter.REQUESTED_CALLS) >= limits.maxCalls) {
                 stopReason = StopReason.MAX_CALLS;
-                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
+                skipRemaining(metrics, workItems, workIndex);
                 break;
             }
             LlmPostProcessor.WorkItem workItem = workItems.get(workIndex);
             int testIndex = workItem.originalIndex;
             TestChromosome chromosome = workItem.chromosome;
             if (chromosome == null || chromosome.getTestCase() == null) {
-                metrics.skippedTests++;
+                metrics.add(PostProcessingCounter.SKIPPED_TESTS, 1);
                 continue;
             }
             TestCase test = chromosome.getTestCase();
             if (processor.isLowMemory(phaseContext)) {
                 logger.info("Unified LLM post-processing stopped before test {}: low memory", testIndex);
                 stopReason = StopReason.LOW_MEMORY;
-                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
+                skipRemaining(metrics, workItems, workIndex);
                 break;
             }
-            if (limits.maxTotalStatements > 0 && metrics.requestedStatements + test.size()
+            if (limits.maxTotalStatements > 0 && metrics.get(PostProcessingCounter.REQUESTED_STATEMENTS) + test.size()
                     > limits.maxTotalStatements) {
                 stopReason = StopReason.MAX_TOTAL_STATEMENTS;
-                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
+                skipRemaining(metrics, workItems, workIndex);
                 break;
             }
             boolean assertionEligible = processor.isAssertionEligible(chromosome);
             if (test.size() == 0 && !options.features().testNames()) {
-                metrics.skippedTests++;
+                metrics.add(PostProcessingCounter.SKIPPED_TESTS, 1);
                 continue;
             }
             if (!processor.hasLlmBudget()) {
                 logger.info("Unified LLM post-processing stopped: LLM call budget exhausted");
                 stopReason = StopReason.BUDGET_EXHAUSTED;
-                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
+                skipRemaining(metrics, workItems, workIndex);
                 break;
             }
-            if (!processor.canStartAnotherLlmCall(phaseContext)) {
+            if (!phaseContext.canStartAnotherLlmCall()) {
                 stopReason = StopReason.TIMEOUT;
-                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
+                skipRemaining(metrics, workItems, workIndex);
                 break;
             }
 
             LlmPostProcessor.TestProcessingResult result = testProcessor.process(
-                    workItem, minimizationResult, limits, metrics.requestedCalls,
+                    workItem, minimizationResult, limits, metrics.get(PostProcessingCounter.REQUESTED_CALLS),
                     assertionEligible);
             metrics.add(result);
             if (result.stopReason != StopReason.NONE) {
                 stopReason = result.stopReason;
-                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex + 1);
+                skipRemaining(metrics, workItems, workIndex + 1);
                 break;
             }
         }
 
         logger.info("Unified LLM post-processing requested {} test(s), accepted {} response(s): testNames={}, "
                         + "variableNames={}, comments={}, sectionBreaks={}, assertions={}",
-                metrics.requestedTests, metrics.acceptedResponses,
-                metrics.testNamesApplied, metrics.variableNamesApplied,
-                metrics.commentsApplied, metrics.sectionBreaksApplied,
-                metrics.assertionsApplied);
+                metrics.get(PostProcessingCounter.REQUESTED_TESTS),
+                metrics.get(PostProcessingCounter.ACCEPTED_RESPONSES),
+                metrics.get(PostProcessingCounter.TEST_NAMES_APPLIED),
+                metrics.get(PostProcessingCounter.VARIABLE_NAMES_APPLIED),
+                metrics.get(PostProcessingCounter.COMMENTS_APPLIED),
+                metrics.get(PostProcessingCounter.SECTION_BREAKS_APPLIED),
+                metrics.get(PostProcessingCounter.ASSERTIONS_APPLIED));
         String terminalReason = stopReason.value;
-        if (terminalReason.isEmpty() && metrics.infrastructureFailures > 0) {
+        if (terminalReason.isEmpty() && metrics.get(PostProcessingCounter.INFRASTRUCTURE_FAILURES) > 0) {
             terminalReason = "infrastructure_failure";
         }
         return metrics.snapshot(terminalReason);
+    }
+
+    private static void skipRemaining(LlmPostProcessor.PostProcessingMetrics metrics,
+                                      List<LlmPostProcessor.WorkItem> workItems, int fromIndex) {
+        metrics.add(PostProcessingCounter.CAP_SKIPPED_TESTS, LlmPostProcessor.remainingItems(workItems, fromIndex));
     }
 
     enum StopReason {

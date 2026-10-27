@@ -30,6 +30,25 @@ class PostProcessingTelemetryPublisherTest {
         assertEquals(0, values.get(RuntimeVariable.LLM_PostProcessing_Assertions_Applied));
     }
 
+    @Test
+    void addedCountersAreSummedAndPublished() {
+        LlmPostProcessor.PostProcessingMetrics total = new LlmPostProcessor.PostProcessingMetrics(null);
+        LlmPostProcessor.PostProcessingMetrics first = new LlmPostProcessor.PostProcessingMetrics(null);
+        first.set(PostProcessingCounter.REQUESTED_TESTS, 1);
+        first.set(PostProcessingCounter.ASSERTIONS_APPLIED, 2);
+        LlmPostProcessor.PostProcessingMetrics second = new LlmPostProcessor.PostProcessingMetrics(null);
+        second.set(PostProcessingCounter.REQUESTED_TESTS, 1);
+        second.set(PostProcessingCounter.ASSERTIONS_APPLIED, 3);
+        total.add(first);
+        total.add(second);
+
+        Map<RuntimeVariable, Object> values = PostProcessingTelemetryPublisher.valuesFor(total.snapshot("done"));
+
+        assertEquals(2, values.get(RuntimeVariable.LLM_PostProcessing_Requested_Tests));
+        assertEquals(5, values.get(RuntimeVariable.LLM_PostProcessing_Assertions_Applied));
+        assertEquals("done", values.get(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
+    }
+
     private static EnumSet<RuntimeVariable> expectedPostProcessingVariables() {
         return EnumSet.of(
                 RuntimeVariable.LLM_PostProcessing_Skip_Reason,

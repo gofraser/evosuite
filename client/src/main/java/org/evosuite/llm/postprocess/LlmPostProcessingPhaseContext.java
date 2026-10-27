@@ -3,11 +3,13 @@
  */
 package org.evosuite.llm.postprocess;
 
+import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.testcase.TestCase;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Immutable configuration and isolated lifecycle state for one post-processing
@@ -19,7 +21,6 @@ public final class LlmPostProcessingPhaseContext {
     private final PostProcessingOptions options;
     private final PostProcessingSession session;
     private final LlmPostProcessor.PhaseClock phaseClock;
-    private final PostProcessingTelemetry telemetry;
     private final long startMillis;
     private volatile String terminalReason = "";
     private final Set<TestCase> attemptedTests =
@@ -29,15 +30,13 @@ public final class LlmPostProcessingPhaseContext {
 
     LlmPostProcessingPhaseContext(PostProcessingOptions options,
                                   PostProcessingSession session,
-                                  LlmPostProcessor.PhaseClock phaseClock,
-                                  PostProcessingTelemetry telemetry) {
+                                  LlmPostProcessor.PhaseClock phaseClock) {
         if (options == null) {
             throw new IllegalArgumentException("Post-processing options must not be null");
         }
         this.options = options;
         this.session = session == null ? new PostProcessingSession() : session;
         this.phaseClock = phaseClock;
-        this.telemetry = telemetry;
         this.startMillis = phaseClock.currentTimeMillis();
     }
 
@@ -53,12 +52,42 @@ public final class LlmPostProcessingPhaseContext {
         return phaseClock;
     }
 
-    PostProcessingTelemetry telemetry() {
-        return telemetry;
-    }
-
     long startMillis() {
         return startMillis;
+    }
+
+    boolean isPhaseTimedOut() {
+        int timeoutSeconds = options.phaseBudget().timeoutSeconds();
+        return timeoutSeconds > 0 && elapsedMillis() >= timeoutSeconds * 1000L;
+    }
+
+    boolean canStartAnotherLlmCall() {
+        int timeoutSeconds = options.phaseBudget().timeoutSeconds();
+        if (timeoutSeconds <= 0) {
+            return true;
+        }
+        long remainingMillis = timeoutSeconds * 1000L - elapsedMillis();
+        long callWindowMillis = Math.max(1000L, options.callTimeoutSeconds() * 1000L);
+        return remainingMillis > callWindowMillis;
+    }
+
+    /**
+     * Absolute {@link System#nanoTime()} deadline for LLM calls in this phase.
+     * {@link #canStartAnotherLlmCall} only guarantees one call window, while a
+     * query may retry and back off several times; the deadline keeps those
+     * retries inside the phase timeout.
+     */
+    long phaseDeadlineNanos() {
+        int timeoutSeconds = options.phaseBudget().timeoutSeconds();
+        if (timeoutSeconds <= 0) {
+            return PhaseDeadline.NONE;
+        }
+        long remainingMillis = Math.max(0L, timeoutSeconds * 1000L - elapsedMillis());
+        return PhaseDeadline.fromNow(TimeUnit.MILLISECONDS.toNanos(remainingMillis));
+    }
+
+    private long elapsedMillis() {
+        return phaseClock.currentTimeMillis() - startMillis;
     }
 
     void recordTerminalReason(String reason) {

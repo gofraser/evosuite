@@ -1141,7 +1141,7 @@ class LlmPostProcessorTest {
 
         run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7),
                 new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner(),
-                null, null, new RuntimePostProcessingTelemetry()), suite);
+                null, null), suite);
 
         assertTrue(test.getAssertions().isEmpty());
     }
@@ -1179,7 +1179,7 @@ class LlmPostProcessorTest {
         // baseline assertions are not detached by candidate collection.
         run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new ClonedFinalScopeCandidateRunner(7),
                 new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner(),
-                null, null, new RuntimePostProcessingTelemetry()), suite);
+                null, null), suite);
 
         // No LLM template assertion shipped, and the mutation baseline is intact:
         // same instance, same rendered code, and it is still the test's only assertion.
@@ -1208,7 +1208,7 @@ class LlmPostProcessorTest {
                 new FinalScopeStabilityRunner(7),
                 (proposal, validationTest, references, finalScope, options) ->
                         LlmPostProcessor.EvaluationOutcome.compileFailure("compile rejected"),
-                null, null, new RuntimePostProcessingTelemetry()), suite);
+                null, null), suite);
 
         assertTrue(test.getAssertions().isEmpty());
     }
@@ -1363,7 +1363,7 @@ class LlmPostProcessorTest {
 
         run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new NoOpCandidateRunner(),
                 new FinalScopeStabilityRunner(7), new IntegerScopeAssertionEvaluationRunner(),
-                new SequenceResourceGuard(true), null, new RuntimePostProcessingTelemetry()), suite);
+                new SequenceResourceGuard(true), null), suite);
 
         assertNull(TestPresentationMetadata.get(test));
         assertEquals(0, model.messages.size());
@@ -1382,8 +1382,7 @@ class LlmPostProcessorTest {
 
         run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new NoOpCandidateRunner(),
                 new FinalScopeStabilityRunner(7), new IntegerScopeAssertionEvaluationRunner(),
-                new SequenceResourceGuard(false), new SequencePhaseClock(0L, 1000L),
-                new RuntimePostProcessingTelemetry()), suite);
+                new SequenceResourceGuard(false), new SequencePhaseClock(0L, 1000L)), suite);
 
         assertNull(TestPresentationMetadata.get(test));
         assertEquals(0, model.messages.size());
@@ -1412,8 +1411,7 @@ class LlmPostProcessorTest {
                 testCase -> fail("stability execution must not start after low memory"),
                 (proposal, validationTest, references, finalScope, options) ->
                         fail("assertion evaluation must not start after low memory"),
-                new SequenceResourceGuard(false, true), null,
-                new RuntimePostProcessingTelemetry()), suite);
+                new SequenceResourceGuard(false, true), null), suite);
 
         assertEquals("readabilitySurvivesLowMemory", TestPresentationMetadata.get(test).getTestName());
         assertTrue(test.getAssertions().isEmpty());
@@ -1587,7 +1585,7 @@ class LlmPostProcessorTest {
         LlmPostProcessor phaseProcessor = new LlmPostProcessor(service, new RecordingFallbackRunner(0),
                 new FinalScopeCandidateRunner(7), new FinalScopeStabilityRunner(7),
                 new IntegerScopeAssertionEvaluationRunner(), null,
-                new SequencePhaseClock(0L), new RuntimePostProcessingTelemetry());
+                new SequencePhaseClock(0L));
 
         long before = System.nanoTime();
         run(phaseProcessor, suite);
@@ -1711,7 +1709,7 @@ class LlmPostProcessorTest {
         return new LlmPostProcessor(service, fallbackRunner, candidateRunner,
                 new FinalScopeStabilityRunner(stabilityValue),
                 new IntegerScopeAssertionEvaluationRunner(), null,
-                null, new RuntimePostProcessingTelemetry());
+                null);
     }
 
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {

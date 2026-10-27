@@ -33,7 +33,6 @@ import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmRunFeatures;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmTraceRecorder;
-import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.postprocess.LlmPostProcessingResponse.AssertionProposal;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.rmi.ClientServices;
@@ -58,7 +57,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Orchestrator for unified LLM post-processing. The unified phase runs after
@@ -77,7 +75,6 @@ public class LlmPostProcessor {
     private final PostProcessingAssertionValidator assertionValidator;
     final ResourceGuard resourceGuard;
     private final PhaseClock phaseClock;
-    private final PostProcessingTelemetry telemetry;
 
     /**
      * Creates a post-processor that queries the shared {@link LlmService} and uses the default runners, guards and
@@ -88,8 +85,7 @@ public class LlmPostProcessor {
                 new TraceAssertionFallbackRunner(), new TraceAssertionCandidateRunner(),
                 new DefaultStabilityExecutionRunner(),
                 PostProcessingAssertionValidator.defaultEvaluationRunner(),
-                new DefaultResourceGuard(), new SystemPhaseClock(),
-                new RuntimePostProcessingTelemetry());
+                new DefaultResourceGuard(), new SystemPhaseClock());
     }
 
     LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner,
@@ -97,8 +93,7 @@ public class LlmPostProcessor {
                      StabilityExecutionRunner stabilityExecutionRunner,
                      AssertionEvaluationRunner assertionEvaluationRunner,
                      ResourceGuard resourceGuard,
-                     PhaseClock phaseClock,
-                     PostProcessingTelemetry telemetry) {
+                     PhaseClock phaseClock) {
         this.llmService = llmService;
         this.assertionFallbackRunner = assertionFallbackRunner;
         this.assertionCandidateRunner = assertionCandidateRunner;
@@ -107,14 +102,13 @@ public class LlmPostProcessor {
                 stabilityExecutionRunner, assertionEvaluationRunner);
         this.resourceGuard = resourceGuard == null ? new DefaultResourceGuard() : resourceGuard;
         this.phaseClock = phaseClock == null ? new SystemPhaseClock() : phaseClock;
-        this.telemetry = telemetry == null ? new RuntimePostProcessingTelemetry() : telemetry;
     }
 
     /** Create an isolated phase context from one configuration snapshot. */
     public LlmPostProcessingPhaseContext createPhaseContext() {
         return new LlmPostProcessingPhaseContext(
                 PostProcessingOptions.fromProperties(),
-                new PostProcessingSession(), phaseClock, telemetry);
+                new PostProcessingSession(), phaseClock);
     }
 
     /**
@@ -177,7 +171,7 @@ public class LlmPostProcessor {
         MinimizationResult effectiveMinimizationResult = minimizationResult == null
                 ? MinimizationResult.disabled(suite)
                 : minimizationResult;
-        phaseContext.telemetry().publishMinimizationContext(effectiveMinimizationResult);
+        PostProcessingTelemetryPublisher.publishMinimizationContext(effectiveMinimizationResult);
         if (!options.enabled()) {
             publishMetrics(phaseContext, new PostProcessingMetrics("disabled"));
             return 0;
@@ -214,51 +208,13 @@ public class LlmPostProcessor {
         PostProcessingMetrics phaseMetrics = new LlmPostProcessingPhase(this, phaseContext).run(
                 suite, effectiveMinimizationResult);
         publishMetrics(phaseContext, phaseMetrics);
-        return phaseMetrics.assertionsApplied;
+        return phaseMetrics.get(PostProcessingCounter.ASSERTIONS_APPLIED);
     }
 
     private static void publishMetrics(LlmPostProcessingPhaseContext phaseContext,
                                        PostProcessingMetrics metrics) {
         phaseContext.recordTerminalReason(metrics == null ? "" : metrics.skipReason);
-        phaseContext.telemetry().publish(metrics);
-    }
-
-    boolean isPhaseTimedOut(LlmPostProcessingPhaseContext phaseContext) {
-        PostProcessingOptions options = phaseContext.options();
-        int timeoutSeconds = options.phaseBudget().timeoutSeconds();
-        if (timeoutSeconds <= 0) {
-            return false;
-        }
-        long elapsedMillis = phaseContext.phaseClock().currentTimeMillis() - phaseContext.startMillis();
-        return elapsedMillis >= timeoutSeconds * 1000L;
-    }
-
-    boolean canStartAnotherLlmCall(LlmPostProcessingPhaseContext phaseContext) {
-        PostProcessingOptions options = phaseContext.options();
-        int timeoutSeconds = options.phaseBudget().timeoutSeconds();
-        if (timeoutSeconds <= 0) {
-            return true;
-        }
-        long elapsedMillis = phaseContext.phaseClock().currentTimeMillis() - phaseContext.startMillis();
-        long remainingMillis = timeoutSeconds * 1000L - elapsedMillis;
-        long callWindowMillis = Math.max(1000L, options.callTimeoutSeconds() * 1000L);
-        return remainingMillis > callWindowMillis;
-    }
-
-    /**
-     * Absolute {@link System#nanoTime()} deadline for LLM calls in this phase.
-     * {@link #canStartAnotherLlmCall} only guarantees one call window, while a
-     * query may retry and back off several times; the deadline keeps those
-     * retries inside the phase timeout.
-     */
-    long phaseDeadlineNanos(LlmPostProcessingPhaseContext phaseContext) {
-        int timeoutSeconds = phaseContext.options().phaseBudget().timeoutSeconds();
-        if (timeoutSeconds <= 0) {
-            return PhaseDeadline.NONE;
-        }
-        long elapsedMillis = phaseContext.phaseClock().currentTimeMillis() - phaseContext.startMillis();
-        long remainingMillis = Math.max(0L, timeoutSeconds * 1000L - elapsedMillis);
-        return PhaseDeadline.fromNow(TimeUnit.MILLISECONDS.toNanos(remainingMillis));
+        PostProcessingTelemetryPublisher.publish(metrics);
     }
 
     /**
@@ -312,7 +268,7 @@ public class LlmPostProcessor {
         return llmService.query(request
                 .withPostProcessingAttribution(minimizationResult.getStatus().name(),
                         minimizationResult.getUnderlyingStopCause().name(), testIndex)
-                .withDeadlineNanos(phaseDeadlineNanos(phaseContext))).getText();
+                .withDeadlineNanos(phaseContext.phaseDeadlineNanos())).getText();
     }
 
     /**
@@ -330,7 +286,7 @@ public class LlmPostProcessor {
     public void publishSkippedPostProcessingMetrics(LlmPostProcessingPhaseContext phaseContext,
                                                     String skipReason,
                                                     MinimizationResult minimizationResult) {
-        phaseContext.telemetry().publishMinimizationContext(minimizationResult == null
+        PostProcessingTelemetryPublisher.publishMinimizationContext(minimizationResult == null
                 ? MinimizationResult.disabled(null)
                 : minimizationResult);
         publishMetrics(phaseContext, new PostProcessingMetrics(skipReason));
@@ -344,7 +300,7 @@ public class LlmPostProcessor {
                 PostProcessingAssertionReconciler.reconcile(suite,
                 initiallyAppliedAssertions);
         int removedCompile = compileRemovedAssertionCount(phaseContext.session());
-        phaseContext.telemetry().publishAssertionReconciliation(
+        PostProcessingTelemetryPublisher.publishAssertionReconciliation(
                 Math.max(0, reconciliation.removedUnstable() - removedCompile),
                 removedCompile, reconciliation.shipped());
         publishFinalAssertionLifecycle(phaseContext.session(), suite);
@@ -737,7 +693,7 @@ public class LlmPostProcessor {
                 || (limits.maxCalls > 0 && requestedCalls >= limits.maxCalls)) {
             return AssertionRepairResult.skippedBudget(acceptedResponse);
         }
-        if (!canStartAnotherLlmCall(phaseContext)) {
+        if (!phaseContext.canStartAnotherLlmCall()) {
             return AssertionRepairResult.noCall(acceptedResponse);
         }
 
@@ -973,71 +929,37 @@ public class LlmPostProcessor {
 
     static class PostProcessingMetrics {
         final String skipReason;
-        int requestedTests;
-        int requestedCalls;
-        int requestedStatements;
-        int initialCalls;
-        int repairCalls;
-        int repairCallsSkippedBudget;
-        int acceptedResponses;
-        int skippedTests;
-        int capSkippedTests;
-        int infrastructureFailures;
+        private final EnumMap<PostProcessingCounter, Integer> counts =
+                new EnumMap<>(PostProcessingCounter.class);
         DiagnosticCounters diagnosticCounters = new DiagnosticCounters();
         FallbackCounters fallbackCounters = new FallbackCounters();
-        int processedTests;
-        int partiallyProcessedTests;
-        int testNamesProposed;
-        int testNamesApplied;
-        int variableNamesProposed;
-        int variableNamesApplied;
-        int commentsProposed;
-        int commentsApplied;
-        int sectionBreaksProposed;
-        int sectionBreaksApplied;
-        int assertionsProposed;
-        int assertionsAcceptedInitial;
-        int assertionsRepairRequested;
-        int assertionsProposedAfterRepair;
-        int assertionsAcceptedAfterRepair;
-        int assertionsApplied;
 
         PostProcessingMetrics(String skipReason) {
             this.skipReason = skipReason;
+        }
+
+        int get(PostProcessingCounter counter) {
+            Integer count = counts.get(counter);
+            return count == null ? 0 : count;
+        }
+
+        void set(PostProcessingCounter counter, int value) {
+            counts.put(counter, value);
+        }
+
+        void add(PostProcessingCounter counter, int delta) {
+            counts.put(counter, get(counter) + delta);
         }
 
         void add(PostProcessingMetrics other) {
             if (other == null) {
                 return;
             }
-            requestedTests += other.requestedTests;
-            requestedCalls += other.requestedCalls;
-            requestedStatements += other.requestedStatements;
-            initialCalls += other.initialCalls;
-            repairCalls += other.repairCalls;
-            repairCallsSkippedBudget += other.repairCallsSkippedBudget;
-            acceptedResponses += other.acceptedResponses;
-            skippedTests += other.skippedTests;
-            capSkippedTests += other.capSkippedTests;
-            infrastructureFailures += other.infrastructureFailures;
+            for (PostProcessingCounter counter : PostProcessingCounter.values()) {
+                add(counter, other.get(counter));
+            }
             diagnosticCounters.add(other.diagnosticCounters);
             fallbackCounters.add(other.fallbackCounters);
-            processedTests += other.processedTests;
-            partiallyProcessedTests += other.partiallyProcessedTests;
-            testNamesProposed += other.testNamesProposed;
-            testNamesApplied += other.testNamesApplied;
-            variableNamesProposed += other.variableNamesProposed;
-            variableNamesApplied += other.variableNamesApplied;
-            commentsProposed += other.commentsProposed;
-            commentsApplied += other.commentsApplied;
-            sectionBreaksProposed += other.sectionBreaksProposed;
-            sectionBreaksApplied += other.sectionBreaksApplied;
-            assertionsProposed += other.assertionsProposed;
-            assertionsAcceptedInitial += other.assertionsAcceptedInitial;
-            assertionsRepairRequested += other.assertionsRepairRequested;
-            assertionsProposedAfterRepair += other.assertionsProposedAfterRepair;
-            assertionsAcceptedAfterRepair += other.assertionsAcceptedAfterRepair;
-            assertionsApplied += other.assertionsApplied;
         }
 
         PostProcessingMetrics snapshot(String reason) {
