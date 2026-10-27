@@ -44,8 +44,10 @@ import org.junit.jupiter.api.extension.TestInstantiationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -507,18 +509,18 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
      * class loader.
      */
     static void copySettings(Class<?> targetSettings) throws Exception {
-        copyField(RuntimeSettings.class, targetSettings, "className");
-        copyField(RuntimeSettings.class, targetSettings, "resetStaticState");
-        copyField(RuntimeSettings.class, targetSettings, "mockJVMNonDeterminism");
-        copyField(RuntimeSettings.class, targetSettings, "mockGUI");
-        copyField(RuntimeSettings.class, targetSettings, "useVFS");
-        copyField(RuntimeSettings.class, targetSettings, "useVNET");
-        copyField(RuntimeSettings.class, targetSettings, "useSeparateClassLoader");
-        copyField(RuntimeSettings.class, targetSettings, "maxNumberOfThreads");
-        copyField(RuntimeSettings.class, targetSettings, "maxNumberOfIterationsPerLoop");
-        copyField(RuntimeSettings.class, targetSettings, "mockSystemIn");
-        copyField(RuntimeSettings.class, targetSettings, "applyUIDTransformation");
-        copyField(RuntimeSettings.class, targetSettings, "isRunningASystemTest");
+        for (Field source : RuntimeSettings.class.getFields()) {
+            if (!Modifier.isStatic(source.getModifiers()) || Modifier.isFinal(source.getModifiers())) {
+                continue;
+            }
+            Field target = targetSettings.getField(source.getName());
+            Object value = source.get(null);
+            if (value instanceof Enum) {
+                // the enum of the other class loader is a different type
+                value = Enum.valueOf(target.getType().asSubclass(Enum.class), ((Enum<?>) value).name());
+            }
+            target.set(null, value);
+        }
     }
 
     private static void setupDelegate(Class<?> clazz, ClassLoader systemLoader) throws Exception {
@@ -531,11 +533,5 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
 
         Method setDelegate = clazz.getMethod("setDelegate", Object.class);
         setDelegate.invoke(localInstance, systemInstance);
-    }
-
-    private static void copyField(Class<?> source, Class<?> target, String fieldName) throws Exception {
-        java.lang.reflect.Field srcField = source.getField(fieldName);
-        java.lang.reflect.Field tgtField = target.getField(fieldName);
-        tgtField.set(null, srcField.get(null));
     }
 }
