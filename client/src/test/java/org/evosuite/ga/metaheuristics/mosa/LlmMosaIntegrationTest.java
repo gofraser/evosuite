@@ -121,17 +121,17 @@ class LlmMosaIntegrationTest extends MosaTestSupport {
                 "attempt count should reflect drained candidates before filtering");
         assertEquals(InjectionSource.LLM_STAGNATION, mosa.injectionAdmission.lastGeneration().dominantAttemptSource,
                 "dominant attempt source should reflect the drained source");
-        assertEquals(1, mosa.injectionAdmission.lastGeneration().attemptsLlmStagnation,
+        assertEquals(1, mosa.injectionAdmission.lastGeneration().attemptsFrom(InjectionSource.LLM_STAGNATION),
                 "per-source attempt count should include the drained stagnation candidate");
         assertEquals(1, mosa.injectionAdmission.lastGeneration().orphanFiltered,
                 "orphan-filtered telemetry should classify null stagnation candidates");
         assertEquals(0, mosa.injectionAdmission.lastGeneration().admitted,
                 "null stagnation candidates must not be admitted");
-        assertEquals(0, mosa.injectionAdmission.lastGeneration().attemptsLlmAsync,
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().attemptsFrom(InjectionSource.LLM_ASYNC),
                 "no async attempts should be recorded");
-        assertEquals(0, mosa.injectionAdmission.lastGeneration().attemptsIslandImmigrant,
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().attemptsFrom(InjectionSource.ISLAND_IMMIGRANT),
                 "no island attempts should be recorded");
-        assertEquals(0, mosa.injectionAdmission.lastGeneration().attemptsLocalSearch,
+        assertEquals(0, mosa.injectionAdmission.lastGeneration().attemptsFrom(InjectionSource.LOCAL_SEARCH),
                 "no local-search attempts should be recorded");
     }
 

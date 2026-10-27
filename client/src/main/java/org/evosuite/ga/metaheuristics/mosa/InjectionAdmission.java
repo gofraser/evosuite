@@ -108,11 +108,7 @@ final class InjectionAdmission {
         int attempts;
         /** Source with the most drained candidates; null when none was tagged. */
         InjectionSource dominantAttemptSource;
-        int attemptsLlmStagnation;
-        int attemptsLlmAsync;
-        int attemptsLlmOperator;
-        int attemptsIslandImmigrant;
-        int attemptsLocalSearch;
+        private Map<InjectionSource, Integer> attemptsBySource = Collections.emptyMap();
         int orphanFiltered;
         int deduplicated;
         int admitted;
@@ -125,31 +121,32 @@ final class InjectionAdmission {
         int blendXoverTournamentAdmitted;
         int blendEvalsSpent;
 
-        void reset() {
-            attempts = 0;
-            dominantAttemptSource = null;
-            attemptsLlmStagnation = 0;
-            attemptsLlmAsync = 0;
-            attemptsLlmOperator = 0;
-            attemptsIslandImmigrant = 0;
-            attemptsLocalSearch = 0;
-            orphanFiltered = 0;
-            deduplicated = 0;
-            admitted = 0;
-            survived = 0;
-            blendVariantsBred = 0;
-            blendVariantsAdmitted = 0;
-            blendVariantsSurvived = 0;
-            blendMutantAdmitted = 0;
-            blendXoverGoalAdmitted = 0;
-            blendXoverTournamentAdmitted = 0;
-            blendEvalsSpent = 0;
+        /** Candidates drained from {@code source} in this generation. */
+        int attemptsFrom(InjectionSource source) {
+            Integer count = attemptsBySource.get(source);
+            return count == null ? 0 : count;
+        }
+    }
+
+    /** Run totals published as runtime variables; each one is tracked whenever it grows. */
+    private static final class RunTotals {
+        private final Map<RuntimeVariable, Long> totals = new EnumMap<>(RuntimeVariable.class);
+
+        void add(RuntimeVariable variable, long delta) {
+            long total = get(variable) + delta;
+            totals.put(variable, total);
+            ClientServices.track(variable, total);
+        }
+
+        long get(RuntimeVariable variable) {
+            Long total = totals.get(variable);
+            return total == null ? 0L : total;
         }
     }
 
     private final Host host;
 
-    private final GenerationCounts counts = new GenerationCounts();
+    private GenerationCounts counts = new GenerationCounts();
 
     /**
      * Monotonic lineage id counter used to tag freshly injected candidates. Zero means "first
@@ -159,26 +156,7 @@ final class InjectionAdmission {
 
     private int lastRecordedInjectedSurvivorGeneration = Integer.MIN_VALUE;
 
-    private long llmInjectedCandidatesOrphanFilteredTotal;
-    private long llmInjectedCandidatesDeduplicatedTotal;
-    private long llmInjectedCandidatesAdmittedTotal;
-    private long llmInjectedCandidatesSurvivedTotal;
-    private long llmBlendVariantsBredTotal;
-    private long llmBlendVariantsAdmittedTotal;
-    private long llmBlendVariantsSurvivedTotal;
-    private long llmBlendMutantAdmittedTotal;
-    private long llmBlendMutantSurvivedTotal;
-    private long llmBlendXoverGoalAdmittedTotal;
-    private long llmBlendXoverGoalSurvivedTotal;
-    private long llmBlendXoverTournamentAdmittedTotal;
-    private long llmBlendXoverTournamentSurvivedTotal;
-    private long llmBlendEvalsSpentTotal;
-    private long llmBlendCrossoverFailedTotal;
-    private long llmBlendGoalPartnerResolvedTotal;
-    private long llmBlendGoalPartnerFallbackTotal;
-    private long llmAsyncStaleTargetTotal;
-    private long llmOperatorStaleTargetTotal;
-    private long llmLineageElitismReinsertedTotal;
+    private final RunTotals totals = new RunTotals();
 
     InjectionAdmission(Host host) {
         this.host = host;
@@ -191,7 +169,7 @@ final class InjectionAdmission {
 
     /** LLM_OPERATOR candidates whose target goals were all covered when they arrived, this run. */
     long getOperatorStaleTargetTotal() {
-        return llmOperatorStaleTargetTotal;
+        return totals.get(RuntimeVariable.LLM_Operator_Candidates_StaleTarget);
     }
 
     /**
@@ -233,7 +211,7 @@ final class InjectionAdmission {
             }
         }
         // Reset per-generation attempt observability for this drain step.
-        counts.reset();
+        counts = new GenerationCounts();
         lastRecordedInjectedSurvivorGeneration = Integer.MIN_VALUE;
 
         // Drain LS-improved tests staged by applyLocalSearch.
@@ -279,9 +257,7 @@ final class InjectionAdmission {
                     int orphanFiltered = Math.max(0, candidates.size() - safe.size());
                     if (orphanFiltered > 0) {
                         counts.orphanFiltered += orphanFiltered;
-                        llmInjectedCandidatesOrphanFilteredTotal += orphanFiltered;
-                        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_OrphanFiltered,
-                                llmInjectedCandidatesOrphanFilteredTotal);
+                        totals.add(RuntimeVariable.LLM_Injected_Candidates_OrphanFiltered, orphanFiltered);
                     }
                 }
                 for (TestChromosome candidate : safe) {
@@ -293,9 +269,7 @@ final class InjectionAdmission {
                                     && !seenInjectedCallSignatures.add(candidateSignature)) {
                                 deduplicatedInjectedCandidates++;
                                 counts.deduplicated++;
-                                llmInjectedCandidatesDeduplicatedTotal++;
-                                ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Deduplicated,
-                                        llmInjectedCandidatesDeduplicatedTotal);
+                                totals.add(RuntimeVariable.LLM_Injected_Candidates_Deduplicated, 1);
                                 continue;
                             }
                         }
@@ -313,23 +287,8 @@ final class InjectionAdmission {
                         maybeRecordStaleTarget(tag, metadata, uncoveredAtDrainStart);
                         host.evaluate(candidate);
                         recordTargetDistance(candidate, metadata);
-                        List<TestFitnessFunction> coveredNow =
-                                coveredGoalsAndRemoveList(candidate, remainingUncoveredBeforeInjection);
-                        int gained = coveredNow.size();
-                        maybeRecordDiagnosticAttribution(tag, metadata, gained);
-                        if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
-                                && ProblemCardLogRecorder.isEnabled()) {
-                            try {
-                                ProblemCardLogRecorder.getInstance().recordCoveredByInjection(
-                                        metadata.getAttemptId(), tag, host.generation(), coveredNow);
-                            } catch (Exception e) {
-                                logger.debug("Failed to log injection coverage for attempt {}",
-                                        metadata.getAttemptId(), e);
-                            }
-                        }
-                        if (metadata != null && metadata.getTicket().isTracked()) {
-                            gainsByTicket.merge(metadata.getTicket(), gained, Integer::sum);
-                        }
+                        creditGain(candidate, tag, metadata, remainingUncoveredBeforeInjection,
+                                gainsByTicket);
                         boolean blendingActive = Properties.LLM_BLEND_ENABLED && isLlmInjectionSource(tag);
                         if (blendingActive) {
                             candidate.setBlendChannel(BlendChannel.RAW);
@@ -340,9 +299,7 @@ final class InjectionAdmission {
                         }
                         if (isLlmInjectionSource(tag)) {
                             counts.admitted++;
-                            llmInjectedCandidatesAdmittedTotal++;
-                            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
-                                    llmInjectedCandidatesAdmittedTotal);
+                            totals.add(RuntimeVariable.LLM_Injected_Candidates_Admitted, 1);
                         }
                         if (isLlmInjectionSource(tag) && metadata != null) {
                             LlmStatistics.recordDiagnosticCandidatesAdmitted(
@@ -383,25 +340,21 @@ final class InjectionAdmission {
         }
 
         counts.attempts = attempts;
-        InjectionSource dominantAttemptSource = null;
-        int dominantAttemptCount = 0;
-        for (Map.Entry<InjectionSource, Integer> e : attemptCounts.entrySet()) {
-            if (e.getValue() > dominantAttemptCount) {
-                dominantAttemptCount = e.getValue();
-                dominantAttemptSource = e.getKey();
+        counts.dominantAttemptSource = dominantSource(attemptCounts);
+        counts.attemptsBySource = attemptCounts;
+    }
+
+    /** The source with the most candidates in {@code countsBySource}; the first one wins a tie, null when empty. */
+    static InjectionSource dominantSource(Map<InjectionSource, Integer> countsBySource) {
+        InjectionSource dominant = null;
+        int dominantCount = 0;
+        for (Map.Entry<InjectionSource, Integer> e : countsBySource.entrySet()) {
+            if (e.getValue() > dominantCount) {
+                dominantCount = e.getValue();
+                dominant = e.getKey();
             }
         }
-        counts.dominantAttemptSource = dominantAttemptSource;
-        counts.attemptsLlmStagnation = attemptCounts.getOrDefault(
-                InjectionSource.LLM_STAGNATION, 0);
-        counts.attemptsLlmAsync = attemptCounts.getOrDefault(
-                InjectionSource.LLM_ASYNC, 0);
-        counts.attemptsLlmOperator = attemptCounts.getOrDefault(
-                InjectionSource.LLM_OPERATOR, 0);
-        counts.attemptsIslandImmigrant = attemptCounts.getOrDefault(
-                InjectionSource.ISLAND_IMMIGRANT, 0);
-        counts.attemptsLocalSearch = attemptCounts.getOrDefault(
-                InjectionSource.LOCAL_SEARCH, 0);
+        return dominant;
     }
 
     private String injectedCallSequenceSignature(TestChromosome candidate) {
@@ -488,6 +441,35 @@ final class InjectionAdmission {
         boolean eligible = !Properties.SPECIES_INCUBATOR_ONLY_LLM_STAGNATION
                 || source == InjectionSource.LLM_STAGNATION;
         candidate.setIncubatorEligible(Properties.SPECIES_INCUBATOR_ENABLED && eligible);
+    }
+
+    /**
+     * Credits what an evaluated candidate covered: removes the newly covered goals from {@code
+     * remainingUncovered}, attributes the gain to the problem-card types of its attempt, logs the
+     * covered goals, and adds the gain to the attempt's ticket.
+     *
+     * @return the number of newly covered goals
+     */
+    private int creditGain(TestChromosome candidate, InjectionSource tag, InjectionAttemptMetadata metadata,
+                           Set<TestFitnessFunction> remainingUncovered,
+                           Map<AttemptTicket, Integer> gainsByTicket) {
+        List<TestFitnessFunction> coveredNow = coveredGoalsAndRemoveList(candidate, remainingUncovered);
+        int gained = coveredNow.size();
+        maybeRecordDiagnosticAttribution(tag, metadata, gained);
+        if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
+                && ProblemCardLogRecorder.isEnabled()) {
+            try {
+                ProblemCardLogRecorder.getInstance().recordCoveredByInjection(
+                        metadata.getAttemptId(), tag, host.generation(), coveredNow);
+            } catch (Exception e) {
+                logger.debug("Failed to log injection coverage for attempt {}",
+                        metadata.getAttemptId(), e);
+            }
+        }
+        if (metadata != null && metadata.getTicket().isTracked()) {
+            gainsByTicket.merge(metadata.getTicket(), gained, Integer::sum);
+        }
+        return gained;
     }
 
     /**
@@ -588,30 +570,20 @@ final class InjectionAdmission {
         }
         counts.survived = llmSurvivors;
         if (llmSurvivors > 0) {
-            llmInjectedCandidatesSurvivedTotal += llmSurvivors;
-            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Survived,
-                    llmInjectedCandidatesSurvivedTotal);
+            totals.add(RuntimeVariable.LLM_Injected_Candidates_Survived, llmSurvivors);
         }
         counts.blendVariantsSurvived = blendSurvivors;
         if (blendSurvivors > 0) {
-            llmBlendVariantsSurvivedTotal += blendSurvivors;
-            ClientServices.track(RuntimeVariable.LLM_Blend_Variants_Survived,
-                    llmBlendVariantsSurvivedTotal);
+            totals.add(RuntimeVariable.LLM_Blend_Variants_Survived, blendSurvivors);
         }
         if (mutantSurvivors > 0) {
-            llmBlendMutantSurvivedTotal += mutantSurvivors;
-            ClientServices.track(RuntimeVariable.LLM_Blend_Mutant_Survived,
-                    llmBlendMutantSurvivedTotal);
+            totals.add(RuntimeVariable.LLM_Blend_Mutant_Survived, mutantSurvivors);
         }
         if (xoverGoalSurvivors > 0) {
-            llmBlendXoverGoalSurvivedTotal += xoverGoalSurvivors;
-            ClientServices.track(RuntimeVariable.LLM_Blend_XoverGoal_Survived,
-                    llmBlendXoverGoalSurvivedTotal);
+            totals.add(RuntimeVariable.LLM_Blend_XoverGoal_Survived, xoverGoalSurvivors);
         }
         if (xoverTournamentSurvivors > 0) {
-            llmBlendXoverTournamentSurvivedTotal += xoverTournamentSurvivors;
-            ClientServices.track(RuntimeVariable.LLM_Blend_XoverTournament_Survived,
-                    llmBlendXoverTournamentSurvivedTotal);
+            totals.add(RuntimeVariable.LLM_Blend_XoverTournament_Survived, xoverTournamentSurvivors);
         }
     }
 
@@ -655,13 +627,9 @@ final class InjectionAdmission {
             }
         }
         if (tag == InjectionSource.LLM_ASYNC) {
-            llmAsyncStaleTargetTotal++;
-            ClientServices.track(RuntimeVariable.LLM_Async_Candidates_StaleTarget,
-                    llmAsyncStaleTargetTotal);
+            totals.add(RuntimeVariable.LLM_Async_Candidates_StaleTarget, 1);
         } else {
-            llmOperatorStaleTargetTotal++;
-            ClientServices.track(RuntimeVariable.LLM_Operator_Candidates_StaleTarget,
-                    llmOperatorStaleTargetTotal);
+            totals.add(RuntimeVariable.LLM_Operator_Candidates_StaleTarget, 1);
         }
     }
 
@@ -712,14 +680,10 @@ final class InjectionAdmission {
         if (goalSlots > 0) {
             TestChromosome goalPartner = targetGoal == null ? null : resolveGoalPartner(targetGoal);
             if (goalPartner == null) {
-                llmBlendGoalPartnerFallbackTotal++;
-                ClientServices.track(RuntimeVariable.LLM_Blend_GoalPartner_FallbackTournament,
-                        llmBlendGoalPartnerFallbackTotal);
+                totals.add(RuntimeVariable.LLM_Blend_GoalPartner_FallbackTournament, 1);
                 tournamentSlots += goalSlots;
             } else {
-                llmBlendGoalPartnerResolvedTotal++;
-                ClientServices.track(RuntimeVariable.LLM_Blend_GoalPartner_Resolved,
-                        llmBlendGoalPartnerResolvedTotal);
+                totals.add(RuntimeVariable.LLM_Blend_GoalPartner_Resolved, 1);
                 // One crossover call yields both directions (candidate-prefix
                 // and partner-prefix).
                 int produced = 0;
@@ -730,9 +694,7 @@ final class InjectionAdmission {
                     try {
                         host.crossOver(o1, o2);
                     } catch (ConstructionFailedException | RuntimeException e) {
-                        llmBlendCrossoverFailedTotal++;
-                        ClientServices.track(RuntimeVariable.LLM_Blend_Crossover_Failed,
-                                llmBlendCrossoverFailedTotal);
+                        totals.add(RuntimeVariable.LLM_Blend_Crossover_Failed, 1);
                         continue;
                     }
                     brood.add(prepareBlendVariant(o1, rawCandidate, goalPartner,
@@ -759,9 +721,7 @@ final class InjectionAdmission {
             try {
                 host.crossOver(o1, o2);
             } catch (ConstructionFailedException | RuntimeException e) {
-                llmBlendCrossoverFailedTotal++;
-                ClientServices.track(RuntimeVariable.LLM_Blend_Crossover_Failed,
-                        llmBlendCrossoverFailedTotal);
+                totals.add(RuntimeVariable.LLM_Blend_Crossover_Failed, 1);
                 continue;
             }
             // Keep only the candidate-prefix direction for this channel.
@@ -773,8 +733,7 @@ final class InjectionAdmission {
             return;
         }
         counts.blendVariantsBred += brood.size();
-        llmBlendVariantsBredTotal += brood.size();
-        ClientServices.track(RuntimeVariable.LLM_Blend_Variants_Bred, llmBlendVariantsBredTotal);
+        totals.add(RuntimeVariable.LLM_Blend_Variants_Bred, brood.size());
 
         // Evaluate within budget; archive capture happens here for every
         // variant, before the admission decision below.
@@ -796,25 +755,8 @@ final class InjectionAdmission {
                 continue;
             }
             counts.blendEvalsSpent++;
-            llmBlendEvalsSpentTotal++;
-            ClientServices.track(RuntimeVariable.LLM_Blend_Evals_Spent, llmBlendEvalsSpentTotal);
-            List<TestFitnessFunction> coveredNow =
-                    coveredGoalsAndRemoveList(variant, remainingUncovered);
-            int gained = coveredNow.size();
-            maybeRecordDiagnosticAttribution(tag, metadata, gained);
-            if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
-                    && ProblemCardLogRecorder.isEnabled()) {
-                try {
-                    ProblemCardLogRecorder.getInstance().recordCoveredByInjection(
-                            metadata.getAttemptId(), tag, host.generation(), coveredNow);
-                } catch (Exception e) {
-                    logger.debug("Failed to log blend coverage for attempt {}",
-                            metadata.getAttemptId(), e);
-                }
-            }
-            if (metadata != null && metadata.getTicket().isTracked()) {
-                gainsByTicket.merge(metadata.getTicket(), gained, Integer::sum);
-            }
+            totals.add(RuntimeVariable.LLM_Blend_Evals_Spent, 1);
+            int gained = creditGain(variant, tag, metadata, remainingUncovered, gainsByTicket);
             gainedByVariant.put(variant, gained);
             evaluatedOrder.add(variant);
         }
@@ -883,25 +825,17 @@ final class InjectionAdmission {
             seenInjectedCallSignatures.add(signature);
         }
         counts.blendVariantsAdmitted++;
-        llmBlendVariantsAdmittedTotal++;
-        ClientServices.track(RuntimeVariable.LLM_Blend_Variants_Admitted,
-                llmBlendVariantsAdmittedTotal);
+        totals.add(RuntimeVariable.LLM_Blend_Variants_Admitted, 1);
         BlendChannel channel = variant.getBlendChannel();
         if (channel == BlendChannel.MUTANT) {
             counts.blendMutantAdmitted++;
-            llmBlendMutantAdmittedTotal++;
-            ClientServices.track(RuntimeVariable.LLM_Blend_Mutant_Admitted,
-                    llmBlendMutantAdmittedTotal);
+            totals.add(RuntimeVariable.LLM_Blend_Mutant_Admitted, 1);
         } else if (channel == BlendChannel.XOVER_GOAL) {
             counts.blendXoverGoalAdmitted++;
-            llmBlendXoverGoalAdmittedTotal++;
-            ClientServices.track(RuntimeVariable.LLM_Blend_XoverGoal_Admitted,
-                    llmBlendXoverGoalAdmittedTotal);
+            totals.add(RuntimeVariable.LLM_Blend_XoverGoal_Admitted, 1);
         } else if (channel == BlendChannel.XOVER_TOURNAMENT) {
             counts.blendXoverTournamentAdmitted++;
-            llmBlendXoverTournamentAdmittedTotal++;
-            ClientServices.track(RuntimeVariable.LLM_Blend_XoverTournament_Admitted,
-                    llmBlendXoverTournamentAdmittedTotal);
+            totals.add(RuntimeVariable.LLM_Blend_XoverTournament_Admitted, 1);
         }
     }
 
@@ -1132,9 +1066,7 @@ final class InjectionAdmission {
                 reinserted++;
             }
             if (reinserted > 0) {
-                llmLineageElitismReinsertedTotal += reinserted;
-                ClientServices.track(RuntimeVariable.LLM_Lineage_Elitism_Reinserted,
-                        llmLineageElitismReinsertedTotal);
+                totals.add(RuntimeVariable.LLM_Lineage_Elitism_Reinserted, reinserted);
                 logger.debug("Lineage elitism re-inserted {} lineage member(s) in generation {}",
                         reinserted, host.generation());
             }

@@ -1610,14 +1610,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         sourceCounts.merge(src, 1, Integer::sum);
                     }
                 }
-                InjectionSource dominant = null;
-                int dominantCount = 0;
-                for (Map.Entry<InjectionSource, Integer> e : sourceCounts.entrySet()) {
-                    if (e.getValue() > dominantCount) {
-                        dominantCount = e.getValue();
-                        dominant = e.getKey();
-                    }
-                }
+                InjectionSource dominant = InjectionAdmission.dominantSource(sourceCounts);
                 double best = Double.POSITIVE_INFINITY;
                 double sum = 0.0;
                 int counted = 0;
@@ -1681,11 +1674,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                 dominant,
                                 injected.attempts,
                                 injected.dominantAttemptSource,
-                                injected.attemptsLlmStagnation,
-                                injected.attemptsLlmAsync,
-                                injected.attemptsLlmOperator,
-                                injected.attemptsIslandImmigrant,
-                                injected.attemptsLocalSearch,
+                                injected.attemptsFrom(InjectionSource.LLM_STAGNATION),
+                                injected.attemptsFrom(InjectionSource.LLM_ASYNC),
+                                injected.attemptsFrom(InjectionSource.LLM_OPERATOR),
+                                injected.attemptsFrom(InjectionSource.ISLAND_IMMIGRANT),
+                                injected.attemptsFrom(InjectionSource.LOCAL_SEARCH),
                                 coveredGoalCount,
                                 uncoveredGoalCount,
                                 this.rankingFunction.getNumberOfSubfronts(),
