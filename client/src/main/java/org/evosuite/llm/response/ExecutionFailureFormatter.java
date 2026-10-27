@@ -105,7 +105,7 @@ final class ExecutionFailureFormatter {
         if (throwable == null) {
             return "UnknownException";
         }
-        Throwable rootCause = unwrapDiagnosticCause(throwable);
+        Throwable rootCause = DependencyFailureAnalysis.unwrap(throwable);
         StringBuilder message = new StringBuilder();
         message.append(reportedExceptionName(throwable))
                 .append(" - ")
@@ -189,33 +189,6 @@ final class ExecutionFailureFormatter {
             }
         }
         return null;
-    }
-
-    private Throwable unwrapDiagnosticCause(Throwable throwable) {
-        if (throwable == null) {
-            return null;
-        }
-        Throwable current = throwable;
-        int depth = 0;
-        while (current.getCause() != null && depth < 12 && isDiagnosticWrapper(current)) {
-            current = current.getCause();
-            depth++;
-        }
-        return current;
-    }
-
-    private boolean isDiagnosticWrapper(Throwable throwable) {
-        if (throwable == null) {
-            return false;
-        }
-        if (throwable instanceof java.lang.reflect.InvocationTargetException
-                || throwable instanceof java.util.concurrent.ExecutionException) {
-            return true;
-        }
-        String className = throwable.getClass().getName();
-        return className.endsWith(".CodeUnderTestException")
-                || className.contains(".CodeUnderTestException")
-                || className.endsWith("UndeclaredThrowableException");
     }
 
     String buildExecutionContext(ParseResult parseResult,
