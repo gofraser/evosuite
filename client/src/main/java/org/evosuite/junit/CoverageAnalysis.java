@@ -410,7 +410,7 @@ public class CoverageAnalysis {
             // If the target name is a path analyze it
             File path = new File(prefix);
             if (path.exists()) {
-                if (Properties.JUNIT.endsWith(".jar")) {
+                if (prefix.endsWith(".jar")) {
                     testClasses.addAll(getTestClassesJar(path));
                 } else {
                     testClasses.addAll(getTestClasses(path));

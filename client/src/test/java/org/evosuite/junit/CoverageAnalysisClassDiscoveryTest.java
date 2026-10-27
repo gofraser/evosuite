@@ -106,6 +106,23 @@ public class CoverageAnalysisClassDiscoveryTest {
         assertEquals(Collections.singletonList(JUnit4Test.class.getName()), names(discover(jar)));
     }
 
+    @Test
+    public void jarIsRecognisedWhenItIsNotTheLastEntry(@TempDir Path dir) throws Exception {
+        Path jar = dir.resolve("tests.jar");
+        try (OutputStream out = Files.newOutputStream(jar); ZipOutputStream zip = new ZipOutputStream(out)) {
+            addEntry(zip, TEST_ENTRY, classBytes(TEST_ENTRY));
+        }
+        Path classes = Files.createDirectories(dir.resolve("classes"));
+
+        Properties.JUNIT = jar + ":" + classes;
+        Method method = CoverageAnalysis.class.getDeclaredMethod("getTestClasses");
+        method.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        List<Class<?>> found = (List<Class<?>>) method.invoke(null);
+
+        assertEquals(Collections.singletonList(JUnit4Test.class.getName()), names(found));
+    }
+
     private static void addEntry(ZipOutputStream zip, String name, byte[] content) throws IOException {
         zip.putNextEntry(new ZipEntry(name));
         zip.write(content);
