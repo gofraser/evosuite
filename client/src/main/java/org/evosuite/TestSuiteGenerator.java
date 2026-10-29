@@ -785,15 +785,8 @@ public class TestSuiteGenerator {
         if (!Properties.ANALYSIS_CRITERIA.isEmpty()) {
             // SearchStatistics.getInstance().addCoverage(Properties.CRITERION.toString(),
             // coverage);
-            Criterion[] originalCriteria = Properties.CRITERION;
-            if (requestedCriteria != null) {
-                Properties.CRITERION = requestedCriteria;
-            }
-            try {
-                CoverageCriteriaAnalyzer.analyzeCriteria(testSuite, Properties.ANALYSIS_CRITERIA);
-            } finally {
-                Properties.CRITERION = originalCriteria;
-            }
+            withRequestedCriteria(() ->
+                    CoverageCriteriaAnalyzer.analyzeCriteria(testSuite, Properties.ANALYSIS_CRITERIA));
             // FIXME: can we send all bestSuites?
         }
         if (Properties.CRITERION.length > 1) {
@@ -964,19 +957,29 @@ public class TestSuiteGenerator {
         // is tracked as soon as that criterion's goals are checked, so a suite this
         // large that OOMs partway through still leaves whatever was tracked before
         // the failure, rather than reporting nothing at all.
-        Criterion[] originalCriteria = Properties.CRITERION;
-        if (requestedCriteria != null) {
-            Properties.CRITERION = requestedCriteria;
+        withRequestedCriteria(() -> {
+            try {
+                CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
+            } catch (OutOfMemoryError e) {
+                LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Coverage analysis ran out of memory partway through; "
+                        + "keeping whatever coverage numbers were already tracked");
+                CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
+            }
+        });
+    }
+
+    /**
+     * Runs the action with the criteria the user requested in place of the ones the search
+     * used, if the two differ.
+     */
+    private void withRequestedCriteria(Runnable action) {
+        if (requestedCriteria == null) {
+            action.run();
+            return;
         }
-        try {
-            CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
-        } catch (OutOfMemoryError e) {
-            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Coverage analysis ran out of memory partway through; "
-                    + "keeping whatever coverage numbers were already tracked");
-            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
-        } finally {
-            Properties.CRITERION = originalCriteria;
+        try (Properties.ValueOverride ignored = Properties.withOverride("criterion", requestedCriteria)) {
+            action.run();
         }
     }
 
