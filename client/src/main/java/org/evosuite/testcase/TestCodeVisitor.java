@@ -161,10 +161,22 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         @Override
+        public DeclaredType declaredType(TestCase testCase, VariableReference variable) {
+            return TestCodeVisitor.this.declaredType(testCase, variable);
+        }
+
+        @Override
         public TestCase test() {
             return test;
         }
     });
+
+    /**
+     * How the constructor variables of the test being rendered are declared, by variable. A
+     * variable is asked about for every call it receives or is passed to, and finding its
+     * definition scans the test; the answer cannot change during a render.
+     */
+    private final Map<VariableReference, Optional<DeclaredType>> declaredTypes = new IdentityHashMap<>();
 
     protected VariableNameStrategy variableNameStrategy = VariableNameStrategyFactory.get();
     /**
@@ -1142,7 +1154,16 @@ public class TestCodeVisitor extends TestVisitor {
         this.declarationVariableNames.clear();
         this.reservedLocalVariableNames.clear();
         this.deferredAssertionsByPosition.clear();
+        this.declaredTypes.clear();
         this.variableNameStrategy = VariableNameStrategyFactory.get();
+    }
+
+    private DeclaredType declaredType(TestCase testCase, VariableReference variable) {
+        if (testCase == null || testCase != test) {
+            return DeclaredType.ofVariable(testCase, variable);
+        }
+        return declaredTypes.computeIfAbsent(variable,
+                v -> Optional.ofNullable(DeclaredType.ofVariable(testCase, v))).orElse(null);
     }
 
     /**

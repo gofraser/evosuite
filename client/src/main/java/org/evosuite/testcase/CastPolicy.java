@@ -103,6 +103,12 @@ class CastPolicy {
         int safePosition(VariableReference variableReference);
 
         /**
+         * How {@code variable} is declared when a constructor statement of {@code testCase}
+         * defines it, or null (see {@link DeclaredType#ofVariable}); computed once per render.
+         */
+        DeclaredType declaredType(TestCase testCase, VariableReference variable);
+
+        /**
          * The test being rendered, or null outside of a render.
          */
         TestCase test();
@@ -1261,7 +1267,7 @@ class CastPolicy {
 
     /** See {@link #declaredReceiverType}: the type javac sees for a variable. */
     Type declaredVariableType(TestCase testCase, VariableReference callee) {
-        DeclaredType declared = DeclaredType.ofVariable(testCase, callee);
+        DeclaredType declared = host.declaredType(testCase, callee);
         // An inner class whose model owner disagrees with the enclosing instance is declared
         // raw, and javac erases the members of a raw inner class.
         if (declared != null && declared.nameable
@@ -1556,7 +1562,7 @@ class CastPolicy {
         if (receiver instanceof FieldReference || receiver instanceof ArrayIndex) {
             return null;
         }
-        DeclaredType declared = DeclaredType.ofVariable(
+        DeclaredType declared = host.declaredType(
                 host.test() != null ? host.test() : receiver.getTestCase(),
                 host.normalizeVariableReference(receiver));
         if (declared == null
