@@ -27,7 +27,9 @@ import org.evosuite.runtime.util.Inputs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 
@@ -73,12 +75,6 @@ public class TimeController {
     private volatile long timeLeftFromPreviousPhases;
 
     /**
-     * Map from ClientState phase (key), to timeout (key)
-     * in milliseconds for that phase.
-     */
-    private Map<ClientState, Long> phaseTimeouts;
-
-    /**
      * Map from ClientState phase (key), to how long (key)
      * in milliseconds EvoSuite was in that phase.
      */
@@ -99,7 +95,9 @@ public class TimeController {
         state = ClientState.NOT_STARTED;
         clientStartTime = 0;
         timeLeftFromPreviousPhases = 0;
-        initializePhaseTimeouts();
+        // TODO: I don't understand why, but this may not have happened at this point
+        Properties.getInstance();
+        timeSpentInEachPhase = new ConcurrentHashMap<>();
     }
 
     /**
@@ -125,32 +123,6 @@ public class TimeController {
 
         if (delta > warnTimeMs) {
             logger.warn("Operation '{}' took too long: {}ms", name, delta);
-        }
-    }
-
-    private void initializePhaseTimeouts() {
-        if (phaseTimeouts != null) {
-            phaseTimeouts.clear();
-        } else {
-            phaseTimeouts = new ConcurrentHashMap<>();
-        }
-
-        // TODO: I don't understand why, but this may not have happened at this point
-        Properties.getInstance();
-
-
-        phaseTimeouts.put(ClientState.MINIMIZATION, 1000L * Properties.MINIMIZATION_TIMEOUT);
-        phaseTimeouts.put(ClientState.ASSERTION_GENERATION, 1000L * Properties.ASSERTION_TIMEOUT);
-        phaseTimeouts.put(ClientState.LLM_POSTPROCESSING, 1000L * getLlmPostProcessingTimeoutInSeconds());
-        phaseTimeouts.put(ClientState.CARVING, 1000L * Properties.CARVING_TIMEOUT);
-        phaseTimeouts.put(ClientState.INITIALIZATION, 1000L * Properties.INITIALIZATION_TIMEOUT);
-        phaseTimeouts.put(ClientState.JUNIT_CHECK, 1000L * Properties.JUNIT_CHECK_TIMEOUT);
-        phaseTimeouts.put(ClientState.WRITING_TESTS, 1000L * Properties.WRITE_JUNIT_TIMEOUT);
-
-        if (timeSpentInEachPhase != null) {
-            timeSpentInEachPhase.clear();
-        } else {
-            timeSpentInEachPhase = new ConcurrentHashMap<>();
         }
     }
 
@@ -262,6 +234,14 @@ public class TimeController {
     private static final ClientState[] PHASES = ClientState.values();
 
     /**
+     * The phases that are bounded by a timeout of their own.
+     */
+    private static final Set<ClientState> TIMED_PHASES = EnumSet.of(ClientState.INITIALIZATION,
+            ClientState.SEARCH, ClientState.MINIMIZATION, ClientState.ASSERTION_GENERATION,
+            ClientState.LLM_POSTPROCESSING, ClientState.CARVING, ClientState.JUNIT_CHECK,
+            ClientState.WRITING_TESTS);
+
+    /**
      * The planned budget of every phase, indexed by {@link ClientState#ordinal()}. Computed once
      * per time check, since a time check needs both the total and the share of later phases.
      */
@@ -291,24 +271,53 @@ public class TimeController {
      * @return the planned budget in seconds, 0 if the phase has none
      */
     private int getPlannedBudgetInSeconds(ClientState phase) {
+        return isPlanned(phase) ? getPhaseTimeoutInSeconds(phase) : 0;
+    }
+
+    private static boolean isPlanned(ClientState phase) {
+        switch (phase) {
+            case MINIMIZATION:
+                return Properties.MINIMIZE;
+            case ASSERTION_GENERATION:
+                return Properties.ASSERTIONS;
+            case LLM_POSTPROCESSING:
+                return org.evosuite.llm.postprocess.LlmPostProcessor.isAnyFeatureEnabled();
+            case CARVING:
+                return Properties.TEST_FACTORY == TestFactory.JUNIT;
+            case WRITING_TESTS:
+                return Properties.JUNIT_TESTS;
+            case JUNIT_CHECK:
+                return Properties.JUNIT_TESTS && isJunitCheckRun();
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * The time a phase may run for once it has been entered, whether or not it was planned for:
+     * a phase that is entered anyway keeps its timeout. Read from the current configuration on
+     * every call, since the dynamic limit rewrites the search budget after start-up.
+     *
+     * @return the timeout in seconds, 0 for a phase without a timeout
+     */
+    private static int getPhaseTimeoutInSeconds(ClientState phase) {
         switch (phase) {
             case INITIALIZATION:
                 return Properties.INITIALIZATION_TIMEOUT;
             case SEARCH:
                 return getSearchBudgetInSeconds();
             case MINIMIZATION:
-                return Properties.MINIMIZE ? Properties.MINIMIZATION_TIMEOUT : 0;
+                return Properties.MINIMIZATION_TIMEOUT;
             case ASSERTION_GENERATION:
-                return Properties.ASSERTIONS ? Properties.ASSERTION_TIMEOUT : 0;
+                return Properties.ASSERTION_TIMEOUT;
             case LLM_POSTPROCESSING:
-                return org.evosuite.llm.postprocess.LlmPostProcessor.isAnyFeatureEnabled()
-                        ? getLlmPostProcessingTimeoutInSeconds() : 0;
+                return getLlmPostProcessingTimeoutInSeconds();
             case CARVING:
-                return Properties.TEST_FACTORY == TestFactory.JUNIT ? Properties.CARVING_TIMEOUT : 0;
+                return Properties.CARVING_TIMEOUT;
             case WRITING_TESTS:
-                return Properties.JUNIT_TESTS ? Properties.WRITE_JUNIT_TIMEOUT : 0;
+                return Properties.WRITE_JUNIT_TIMEOUT;
             case JUNIT_CHECK:
-                return Properties.JUNIT_TESTS && isJunitCheckRun() ? Properties.JUNIT_CHECK_TIMEOUT : 0;
+                return Properties.JUNIT_CHECK_TIMEOUT;
             default:
                 return 0;
         }
@@ -356,7 +365,7 @@ public class TimeController {
         return leftTimeBeforeEnd - getBudgetReservedForLaterPhases(budgets);
     }
 
-    private int getLlmPostProcessingTimeoutInSeconds() {
+    private static int getLlmPostProcessingTimeoutInSeconds() {
         if (Properties.LLM_POSTPROCESSING_TIMEOUT > 0) {
             return Properties.LLM_POSTPROCESSING_TIMEOUT;
         }
@@ -454,14 +463,10 @@ public class TimeController {
     }
 
     private long getCurrentPhaseTimeout() {
-        if (state == ClientState.SEARCH) {
-            // Read on every call: the dynamic limit rewrites the search budget after start-up
-            return 1000L * getSearchBudgetInSeconds();
-        }
-        return phaseTimeouts.get(state);
+        return 1000L * getPhaseTimeoutInSeconds(state);
     }
 
     private boolean currentPhaseHasTimeout() {
-        return state == ClientState.SEARCH || phaseTimeouts.containsKey(state);
+        return TIMED_PHASES.contains(state);
     }
 }

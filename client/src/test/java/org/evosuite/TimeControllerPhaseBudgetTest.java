@@ -92,6 +92,41 @@ public class TimeControllerPhaseBudgetTest {
     }
 
     @Test
+    public void minimizationFollowsATimeoutChangedAfterStartUp() {
+        TimeController controller = TimeController.getInstance();
+        Properties.MINIMIZATION_TIMEOUT = 2 * MINIMIZATION;
+        controller.updateState(ClientState.STARTED);
+        controller.updateState(ClientState.MINIMIZATION);
+
+        Assertions.assertTrue(controller.getRemainingTimeInPhaseMs() > (2 * MINIMIZATION - 5) * 1000L,
+                "the phase must use the current timeout, not the one seen at start-up");
+        Assertions.assertTrue(controller.isThereStillTimeInThisPhase((2 * MINIMIZATION - 5) * 1000L));
+        Assertions.assertEquals(EXTRA + INITIALIZATION + SEARCH + 2 * MINIMIZATION + ASSERTIONS,
+                controller.calculateForHowLongClientWillRunInSeconds());
+    }
+
+    @Test
+    public void aPhaseThatIsNotPlannedKeepsItsTimeoutWhenEntered() {
+        // Carving is only planned for the JUnit test factory, but it also runs for seeding.
+        Properties.CARVING_TIMEOUT = 20;
+        TimeController controller = controllerInPhase(ClientState.CARVING);
+
+        Assertions.assertEquals(EXTRA + INITIALIZATION + SEARCH + MINIMIZATION + ASSERTIONS,
+                controller.calculateForHowLongClientWillRunInSeconds());
+        Assertions.assertTrue(controller.getRemainingTimeInPhaseMs() > 15 * 1000L);
+        Assertions.assertTrue(controller.getRemainingTimeInPhaseMs() <= 20 * 1000L);
+    }
+
+    @Test
+    public void timeCheckAgreesWithTheRemainingTimeAtTheBoundary() {
+        TimeController controller = controllerInPhase(ClientState.MINIMIZATION);
+
+        long remaining = controller.getRemainingTimeInPhaseMs();
+        Assertions.assertTrue(controller.isThereStillTimeInThisPhase(remaining));
+        Assertions.assertFalse(controller.isThereStillTimeInThisPhase(remaining + 1000));
+    }
+
+    @Test
     public void aPhaseWithoutATimeoutIsBoundedByWhatIsLeftForTheLaterPhases() {
         TimeController controller = controllerInPhase(ClientState.COVERAGE_ANALYSIS);
 
