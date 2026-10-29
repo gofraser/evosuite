@@ -69,6 +69,7 @@ class MockitoPatternParser {
     private final ParseResult result;
     private final StatementParser parser;
     private final Map<String, CapturedWhenStubbingContext> capturedWhenStubbings = new LinkedHashMap<>();
+    private final CheckedExceptionStubCheck checkedExceptionStubCheck;
 
     MockitoPatternParser(DefaultTestCase tc,
                          TypeResolver tr,
@@ -80,6 +81,18 @@ class MockitoPatternParser {
         this.scope = vs;
         this.result = pr;
         this.parser = parser;
+        this.checkedExceptionStubCheck = new CheckedExceptionStubCheck(tr, vs);
+    }
+
+    /**
+     * Reports an error when a throw-stub makes a mock throw a checked exception that the stubbed
+     * method does not declare.
+     */
+    void checkThrowStub(MethodCallExpr stubCall) {
+        String violation = checkedExceptionStubCheck.describeViolation(stubCall);
+        if (violation != null) {
+            parser.addError(stubCall, DiagnosticKind.UNDECLARED_CHECKED_EXCEPTION_STUB, violation);
+        }
     }
 
     int handleVariableDeclarationWithLookahead(
@@ -359,6 +372,7 @@ class MockitoPatternParser {
                     "thenThrow",
                     cloneArguments(methodCall));
             StatementParser.copySyntheticRange(reconstructed, methodCall);
+            checkThrowStub(reconstructed);
             parser.addStatement(parser.createUninterpretedStatement(
                     reconstructed, reconstructed.toString() + ";"));
             capturedWhenStubbings.remove(aliasName);

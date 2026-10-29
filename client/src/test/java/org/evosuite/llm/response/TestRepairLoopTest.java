@@ -57,7 +57,6 @@ import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.testparser.DiagnosticKind;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
@@ -1511,37 +1510,43 @@ class TestRepairLoopTest {
     }
 
     @Test
-    void sanitizerDropsCheckedDoThrowOnMethodWithoutDeclaredException() {
-        DefaultTestCase testCase = new DefaultTestCase();
-        Map<String, VariableReference> bindings = new LinkedHashMap<>();
-        bindings.put("target0", new VariableReferenceImpl(testCase, CheckedStubTarget.class));
-        testCase.addStatement(new UninterpretedStatement(
-                testCase,
-                "doThrow(new java.io.IOException(\"boom\")).when(target0).noThrows(anyString());",
-                bindings));
-        assertEquals(1, testCase.size());
+    void undeclaredCheckedExceptionStubIsSentBackAsRepairMessage() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(repairRequest(LlmFeature.TEST_REPAIR)))
+                .thenReturn(text("```java\nbroken\n```"));
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
 
-        int removed = LlmAssertionSanitizer.sanitize(testCase);
+        TestParser parser = new TestParser(getClass().getClassLoader());
+        parser.setMarkParsedFromLlm(true);
 
-        assertEquals(1, removed);
-        assertEquals(0, testCase.size());
-    }
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
-    @Test
-    void sanitizerKeepsCheckedDoThrowWhenMethodDeclaresException() {
-        DefaultTestCase testCase = new DefaultTestCase();
-        Map<String, VariableReference> bindings = new LinkedHashMap<>();
-        bindings.put("target0", new VariableReferenceImpl(testCase, CheckedStubTarget.class));
-        testCase.addStatement(new UninterpretedStatement(
-                testCase,
-                "doThrow(new java.io.IOException(\"boom\")).when(target0).declaresChecked(anyString());",
-                bindings));
-        assertEquals(1, testCase.size());
+        String response = "```java\n"
+                + "import static org.mockito.Mockito.*;\n"
+                + "public class RunnableTest {\n"
+                + "  @org.junit.Test\n"
+                + "  public void test() throws Exception {\n"
+                + "    Runnable runnable0 = mock(Runnable.class);\n"
+                + "    doThrow(new java.io.IOException(\"boom\")).when(runnable0).run();\n"
+                + "  }\n"
+                + "}\n```";
+        RepairResult result = loop.attemptParse(response, SEED_PROMPT, LlmFeature.TEST_REPAIR);
 
-        int removed = LlmAssertionSanitizer.sanitize(testCase);
-
-        assertEquals(0, removed);
-        assertEquals(1, testCase.size());
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<LlmRequest> conversationCaptor = ArgumentCaptor.forClass(LlmRequest.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture());
+        List<LlmMessage> sentConversation = conversationCaptor.getValue().getMessages();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains(
+                "run() of Runnable cannot throw java.io.IOException, which it does not declare"),
+                userRepairMessage);
+        assertTrue(userRepairMessage.contains("throw an unchecked exception"), userRepairMessage);
     }
 
     @Test
@@ -5405,13 +5410,6 @@ class TestRepairLoopTest {
                 "Expected log message containing '" + message + "' but got: "
                         + appender.list);
     }
-
-    private interface CheckedStubTarget {
-        void noThrows(String value);
-
-        void declaresChecked(String value) throws java.io.IOException;
-    }
-
 
     /**
      * An end-of-test assertion that the int at statement 0 equals {@code expected}.

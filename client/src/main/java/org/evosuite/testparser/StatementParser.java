@@ -231,6 +231,10 @@ public class StatementParser {
         if (astStmt instanceof ExpressionStmt) {
             ExpressionStmt exprStmt = (ExpressionStmt) astStmt;
             String exprText = exprStmt.toString().trim();
+            if (exprStmt.getExpression() instanceof MethodCallExpr
+                    && (exprText.contains("thenThrow(") || exprText.contains("doThrow("))) {
+                mockitoPatternParser.checkThrowStub((MethodCallExpr) exprStmt.getExpression());
+            }
             if (bestEffort && exprText.contains("thenThrow(")) {
                 String rewrittenThrow = mockitoPatternParser.rewriteThenThrowSource(exprText);
                 if (rewrittenThrow != null) {

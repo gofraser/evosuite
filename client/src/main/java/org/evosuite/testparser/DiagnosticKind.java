@@ -159,6 +159,11 @@ public enum DiagnosticKind {
             "Mockito `when(...)` alias has no terminal",
             "complete the stubbing with `.thenReturn(...)` or `.thenThrow(...)` on the captured alias, "
                     + "or remove the call entirely"),
+    UNDECLARED_CHECKED_EXCEPTION_STUB(
+            "Mockito stub throws a checked exception the stubbed method does not declare",
+            "throw an unchecked exception (e.g. new IllegalStateException(...)) or one of the exceptions "
+                    + "the stubbed method declares, or stub a different method; Mockito rejects the "
+                    + "stub otherwise."),
     ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK(
             "Parser dropped anonymous body of a non-instantiable abstract/interface type and emitted a typed null",
             "the abstract type has unimplemented abstract methods that the anonymous body did not override, "
