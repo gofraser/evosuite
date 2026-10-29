@@ -295,21 +295,15 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
         return true;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.assertion.AssertionGenerator#addAssertions(org.evosuite.
-     * testcase.TestCase)
-     */
-
     /**
-     * {@inheritDoc}
+     * Mutation-based assertions need the mutants of the whole suite, which are only instrumented by
+     * {@link #addAssertions(TestSuiteChromosome)}.
+     *
+     * @throws UnsupportedOperationException always
      */
     @Override
     public void addAssertions(TestCase test) {
-        // TODO Auto-generated method stub
-
+        throw new UnsupportedOperationException("Mutation-based assertions are generated for a whole suite");
     }
 
     /**
