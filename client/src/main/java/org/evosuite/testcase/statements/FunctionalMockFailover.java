@@ -46,6 +46,12 @@ public final class FunctionalMockFailover {
     private static final AtomicInteger functionalMockingInitFailures = new AtomicInteger(0);
 
     /**
+     * Set by the executor while a streak of timeouts has switched mocking off for a while. Unlike
+     * the global disable above this is lifted again, so it is kept apart from it.
+     */
+    private static volatile boolean functionalMockingThrottled = false;
+
+    /**
      * Maps a declared mock type to a more specific type that should be used instead.
      * Populated at runtime when a ClassCastException reveals that the SUT downcasts
      * a mock parameter (e.g., Graphics → Graphics2D).
@@ -217,6 +223,35 @@ public final class FunctionalMockFailover {
     }
 
     /**
+     * Switches functional mocking off, or back on, for a while without touching the configured
+     * values.
+     */
+    public static void setFunctionalMockingThrottled(boolean throttled) {
+        functionalMockingThrottled = throttled;
+    }
+
+    private static boolean isFunctionalMockingSuspended() {
+        return functionalMockingThrottled || functionalMockingGloballyDisabled.get();
+    }
+
+    /**
+     * @return the probability of a functional mock, which is zero while mocking is disabled or
+     *         throttled and {@link Properties#P_FUNCTIONAL_MOCKING} otherwise
+     */
+    public static double functionalMockingProbability() {
+        return isFunctionalMockingSuspended() ? 0.0 : Properties.P_FUNCTIONAL_MOCKING;
+    }
+
+    /**
+     * @return whether to mock an interface or abstract class without a generator, which is false
+     *         while mocking is disabled or throttled and {@link Properties#MOCK_IF_NO_GENERATOR}
+     *         otherwise
+     */
+    public static boolean mockIfNoGenerator() {
+        return !isFunctionalMockingSuspended() && Properties.MOCK_IF_NO_GENERATOR;
+    }
+
+    /**
      * @return true once the GLOBAL mock failover has permanently disabled functional mocking
      */
     public static boolean isFunctionalMockingGloballyDisabled() {
@@ -241,8 +276,6 @@ public final class FunctionalMockFailover {
 
         if (shouldDisableFunctionalMockingGlobally(attempts, failures)
                 && functionalMockingGloballyDisabled.compareAndSet(false, true)) {
-            Properties.P_FUNCTIONAL_MOCKING = 0.0;
-            Properties.MOCK_IF_NO_GENERATOR = false;
             AtMostOnceLogger.warn(logger,
                     "Disabling functional mocking globally after " + failures + "/" + attempts
                             + " initialization failures");

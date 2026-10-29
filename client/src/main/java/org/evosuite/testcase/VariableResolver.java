@@ -301,7 +301,8 @@ public class VariableResolver {
         if (clazz.isEnum() || clazz.isPrimitive() || clazz.isWrapperType() || clazz.isObject()
                 || clazz.isClass() || EnvironmentStatements.isEnvironmentData(clazz.getRawClass())
                 || clazz.isString() || clazz.isArray() || TestCluster.getInstance().hasGenerator(parameterType)
-                || Properties.P_FUNCTIONAL_MOCKING > 0 || Properties.MOCK_IF_NO_GENERATOR) {
+                || FunctionalMockFailover.functionalMockingProbability() > 0
+                || FunctionalMockFailover.mockIfNoGenerator()) {
 
             logger.trace(" Generating new object of type {}", parameterType);
 
@@ -485,12 +486,12 @@ public class VariableResolver {
         // still best served by a mock: it is a null-safe stand-in the SUT can paint on or
         // notify (for example a Graphics2D); preferring the concrete implementation over a mock
         // can cost a large share of the branch coverage.
-        double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
+        double effectiveMockProb = FunctionalMockFailover.functionalMockingProbability();
         boolean bypassTimeGate = false;
-        if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {
+        if (isDeepFunctionalInterface && FunctionalMockFailover.mockIfNoGenerator()) {
             effectiveMockProb = 1.0;
             bypassTimeGate = true;
-        } else if (isDeepPlainInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR
+        } else if (isDeepPlainInterfaceOrAbstract && FunctionalMockFailover.mockIfNoGenerator()
                 && !(DependencyAnalysis.isTargetProject(clazz.getRawClass().getName())
                 && !FunctionalMockStatement.hasUsefulMockSurface(clazz.getRawClass())
                 && TestCluster.getInstance().hasGenerator(type))) {
@@ -548,7 +549,8 @@ public class VariableResolver {
                 }
 
                 if (config.isCanUseMocks()
-                        && (Properties.MOCK_IF_NO_GENERATOR || Properties.P_FUNCTIONAL_MOCKING > 0)) {
+                        && (FunctionalMockFailover.mockIfNoGenerator()
+                        || FunctionalMockFailover.functionalMockingProbability() > 0)) {
                     if (FunctionalMockStatement.canBeFunctionalMocked(type)) {
                         ret = testFactory.addFunctionalMock(test, type, position, context.deeper());
                     } else if (clazz.isAbstract() && FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(type)) {

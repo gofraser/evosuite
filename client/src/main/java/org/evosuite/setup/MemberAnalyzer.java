@@ -25,6 +25,7 @@ import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.instrumentation.testability.BooleanTestabilityTransformation;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.seeding.ConstantPoolManager;
+import org.evosuite.testcase.statements.FunctionalMockFailover;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -555,7 +556,7 @@ public class MemberAnalyzer {
         //
         // Only look at the return values of direct dependencies as the
         // number of dependencies otherwise might explode
-        if (Properties.P_FUNCTIONAL_MOCKING > 0 && recursionLevel == 1) {
+        if (FunctionalMockFailover.functionalMockingProbability() > 0 && recursionLevel == 1) {
             GenericClass<?> returnClass = method.getGeneratedClass();
             if (!returnClass.isPrimitive() && !returnClass.isString()) {
                 addDependency(returnClass, recursionLevel);

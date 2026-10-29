@@ -40,10 +40,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Two owners switch functional mocking off by writing the same Properties: the executor,
- * temporarily, after a streak of timeouts, and the GLOBAL mock failover, permanently. When the
- * failover fires during a timeout streak, the executor's later restore must not switch mocking
- * back on, or new mocks are generated that the disabled failover then fails at execution.
+ * Two things switch functional mocking off: the executor, temporarily, after a streak of
+ * timeouts, and the GLOBAL mock failover, permanently. When the failover fires during a timeout
+ * streak, ending the streak must not switch mocking back on, or new mocks are generated that the
+ * disabled failover then fails at execution.
  */
 public class FunctionalMockGlobalFailoverRestoreTest {
 
@@ -82,7 +82,7 @@ public class FunctionalMockGlobalFailoverRestoreTest {
     }
 
     @Test
-    public void executorRestoreDoesNotUndoTheGlobalFailover() throws Exception {
+    public void endingTheTimeoutStreakDoesNotUndoTheGlobalFailover() throws Exception {
         Properties.FUNCTIONAL_MOCKING_FAILOVER_MODE = Properties.FunctionalMockingFailoverMode.GLOBAL;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_COUNT = 1;
         Properties.FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO = 0.5;
@@ -98,7 +98,7 @@ public class FunctionalMockGlobalFailoverRestoreTest {
         streak.setInt(executor, threshold.getInt(null) - 1);
         ExecutionResult timedOut = executor.execute(sleepingTest(), 300);
         assertTrue(timedOut.hasTimeout(), "precondition: the execution timed out");
-        assertEquals(0.0, Properties.P_FUNCTIONAL_MOCKING, 0.0,
+        assertEquals(0.0, FunctionalMockFailover.functionalMockingProbability(), 0.0,
                 "precondition: the executor switched mocking off after the streak");
 
         // During the streak, mocks keep failing and the GLOBAL failover disables mocking for good.
@@ -109,15 +109,41 @@ public class FunctionalMockGlobalFailoverRestoreTest {
         assertTrue(FunctionalMockFailover.isFunctionalMockingGloballyDisabled(),
                 "precondition: the global failover fired");
 
-        // The streak breaks: the executor restores what it saved.
+        // The streak breaks: the executor lifts its own switch.
         ExecutionResult quick = executor.execute(quickTest(), 5_000);
         assertFalse(quick.hasTimeout(), "precondition: the second execution finished");
 
         assertAll(
-                () -> assertEquals(0.0, Properties.P_FUNCTIONAL_MOCKING, 0.0,
+                () -> assertEquals(0.0, FunctionalMockFailover.functionalMockingProbability(), 0.0,
                         "functional mocking was switched back on although it is globally disabled"),
-                () -> assertFalse(Properties.MOCK_IF_NO_GENERATOR,
+                () -> assertFalse(FunctionalMockFailover.mockIfNoGenerator(),
                         "mock-if-no-generator was switched back on although mocking is globally disabled"));
+    }
+
+    @Test
+    public void timeoutStreakSwitchesMockingOffWithoutChangingTheConfiguration() throws Exception {
+        Properties.P_FUNCTIONAL_MOCKING = 0.7;
+        Properties.MOCK_IF_NO_GENERATOR = true;
+        TestCaseExecutor executor = TestCaseExecutor.getInstance();
+        Field streak = TestCaseExecutor.class.getDeclaredField("consecutiveTimeoutCount");
+        streak.setAccessible(true);
+        Field threshold = TestCaseExecutor.class.getDeclaredField("CONSECUTIVE_TIMEOUT_THRESHOLD");
+        threshold.setAccessible(true);
+        streak.setInt(executor, threshold.getInt(null) - 1);
+
+        executor.execute(sleepingTest(), 300);
+
+        assertAll(
+                () -> assertEquals(0.0, FunctionalMockFailover.functionalMockingProbability(), 0.0),
+                () -> assertFalse(FunctionalMockFailover.mockIfNoGenerator()),
+                () -> assertEquals(0.7, Properties.P_FUNCTIONAL_MOCKING, 0.0),
+                () -> assertTrue(Properties.MOCK_IF_NO_GENERATOR));
+
+        executor.execute(quickTest(), 5_000);
+
+        assertAll(
+                () -> assertEquals(0.7, FunctionalMockFailover.functionalMockingProbability(), 0.0),
+                () -> assertTrue(FunctionalMockFailover.mockIfNoGenerator()));
     }
 
     private static DefaultTestCase sleepingTest() throws Exception {

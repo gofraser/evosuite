@@ -92,8 +92,8 @@ public class FunctionalMockStatementFailoverTest {
                         "example.GlobalFail", new NoClassDefFoundError("missing")));
 
         assertTrue(FunctionalMockFailover.isFunctionalMockingGloballyDisabled());
-        assertEquals(0.0, Properties.P_FUNCTIONAL_MOCKING, 0.0);
-        assertFalse(Properties.MOCK_IF_NO_GENERATOR);
+        assertEquals(0.0, FunctionalMockFailover.functionalMockingProbability(), 0.0);
+        assertFalse(FunctionalMockFailover.mockIfNoGenerator());
     }
 
     @Test
@@ -112,8 +112,8 @@ public class FunctionalMockStatementFailoverTest {
 
         assertFalse(FunctionalMockFailover.isClassBlacklisted("example.NoFailover"));
         assertFalse(FunctionalMockFailover.isFunctionalMockingGloballyDisabled());
-        assertEquals(0.6, Properties.P_FUNCTIONAL_MOCKING, 0.0);
-        assertTrue(Properties.MOCK_IF_NO_GENERATOR);
+        assertEquals(0.6, FunctionalMockFailover.functionalMockingProbability(), 0.0);
+        assertTrue(FunctionalMockFailover.mockIfNoGenerator());
     }
 
     @Test

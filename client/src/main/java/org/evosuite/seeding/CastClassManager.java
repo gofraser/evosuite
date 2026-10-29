@@ -27,6 +27,7 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.*;
+import org.evosuite.testcase.statements.FunctionalMockFailover;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -271,7 +272,7 @@ public class CastClassManager {
             }
 
             // If mocking is enabled, we can simply mock the abstract class in the generated tests.
-            if (Properties.P_FUNCTIONAL_MOCKING > 0.0) {
+            if (FunctionalMockFailover.functionalMockingProbability() > 0.0) {
                 if (TestUsageChecker.canUse(rawClass)) {
                     logger.debug("Abstract class {} is functional mockable", clazz.getSimpleName());
                     putCastClass(clazz, depth);
