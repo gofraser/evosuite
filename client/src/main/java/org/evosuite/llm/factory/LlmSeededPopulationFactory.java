@@ -190,8 +190,6 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             LoggingUtils.getEvoLogger().info(
                     "* LLM seeding timed out after {}ms; cancelled pending task; retaining {} partial seed(s)",
                     waitMillis, retained);
-            logger.warn("Timed out while waiting for async LLM seeds after {}ms; retaining {} partial seed(s)",
-                    waitMillis, retained);
         } catch (CancellationException e) {
             // Future was cancelled (e.g. by a previous timeout). Log once and
             // leave seedsMerged=true so subsequent calls short-circuit.
@@ -202,7 +200,6 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         } catch (ExecutionException e) {
             LoggingUtils.getEvoLogger().info(
                     "* LLM seeding failed: {}", e.getMessage());
-            logger.warn("Could not merge async LLM seeds: {}", e.getMessage());
         }
     }
 
@@ -282,7 +279,6 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                         repairResult.getAttemptsUsed());
                 for (String diag : repairResult.getDiagnostics()) {
                     LoggingUtils.getEvoLogger().info("*   Diagnostic: {}", diag);
-                    logger.warn("  LLM repair diagnostic: {}", diag);
                 }
                 if (repairResult.getParseResults() != null) {
                     for (ParseResult pr : repairResult.getParseResults()) {
@@ -304,7 +300,6 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             return seeds;
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             LoggingUtils.getEvoLogger().info("* LLM seeding unavailable: {}", e.getMessage());
-            logger.warn("LLM seeding unavailable: {}", e.getMessage());
             return Collections.emptyList();
         } catch (CancellationException e) {
             logger.debug("LLM seeding cancelled during parse/compile validation: {}", e.getMessage());
@@ -312,13 +307,12 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         } catch (Error e) {
             if (isRecoverableSeedingError(e)) {
                 LoggingUtils.getEvoLogger().info("* LLM seeding unavailable: {}", e.getMessage());
-                logger.warn("LLM seeding unavailable due to recoverable linkage/runtime error: {}", e.getMessage());
                 return Collections.emptyList();
             }
             throw e;
         } catch (RuntimeException e) {
             LoggingUtils.getEvoLogger().info("* LLM seeding failed: {}", e.getMessage());
-            logger.warn("LLM seeding failed: {}", e.getMessage(), e);
+            logger.debug("LLM seeding failed", e);
             return Collections.emptyList();
         }
     }

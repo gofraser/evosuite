@@ -670,7 +670,6 @@ public class LlmStrategy extends TestGenerationStrategy {
             case CALL_FAILED:
                 LoggingUtils.getEvoLogger().info(
                         "* LLM query failed during generation: {}", outcome.getFailure().getMessage());
-                logger.warn("LLM query failed during generation: {}", outcome.getFailure().getMessage());
                 return QueryOutcome.callFailure("LLM call failed: " + outcome.getFailure().getMessage(),
                         elapsedMillis(startedNanos));
             case PARSED:
