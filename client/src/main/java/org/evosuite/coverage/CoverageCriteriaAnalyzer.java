@@ -89,24 +89,24 @@ public class CoverageCriteriaAnalyzer {
             test.clearCachedResults(); // clears last execution result and last mutation result
         }
 
-        Properties.Criterion[] oldCriterion = Arrays.copyOf(Properties.CRITERION, Properties.CRITERION.length);
-        Properties.CRITERION = new Properties.Criterion[]{criterion};
+        try (Properties.ValueOverride ignored = Properties.withOverride(
+                "criterion", new Properties.Criterion[]{criterion})) {
 
-        logger.info("Re-instrumenting for criterion: {}", criterion);
-        TestGenerationContext.getInstance().resetContext();
+            logger.info("Re-instrumenting for criterion: {}", criterion);
+            TestGenerationContext.getInstance().resetContext();
 
-        // Need to load class explicitly in case there are no test cases.
-        // If there are tests, then this is redundant
-        Properties.getInitializedTargetClass();
+            // Need to load class explicitly in case there are no test cases.
+            // If there are tests, then this is redundant
+            Properties.getInitializedTargetClass();
 
-        // TODO: Now all existing test cases have reflection objects pointing to the wrong classloader
-        logger.info("Changing classloader of test suite for criterion: {}", criterion);
+            // TODO: Now all existing test cases have reflection objects pointing to the wrong classloader
+            logger.info("Changing classloader of test suite for criterion: {}", criterion);
 
-        for (TestChromosome test : testSuite.getTestChromosomes()) {
-            DefaultTestCase dtest = (DefaultTestCase) test.getTestCase();
-            dtest.changeClassLoader(TestGenerationContext.getInstance().getClassLoaderForSUT());
+            for (TestChromosome test : testSuite.getTestChromosomes()) {
+                DefaultTestCase dtest = (DefaultTestCase) test.getTestCase();
+                dtest.changeClassLoader(TestGenerationContext.getInstance().getClassLoaderForSUT());
+            }
         }
-        Properties.CRITERION = oldCriterion;
     }
 
     /**

@@ -678,13 +678,10 @@ public class CoverageAnalysis {
             ClientServices.getInstance().getClientNode().updateProperty("TARGET_CLASS", Properties.TARGET_CLASS);
 
             for (Criterion c : criterion) {
-                Properties.CRITERION = new Criterion[]{c};
-
-                analyzeCoverageCriterion(results, c);
+                try (Properties.ValueOverride ignored = Properties.withOverride("criterion", new Criterion[]{c})) {
+                    analyzeCoverageCriterion(results, c);
+                }
             }
-
-            // restore
-            Properties.CRITERION = criterion;
 
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Total number of covered goals: " + totalCoveredGoals + " / " + "" + totalGoals);

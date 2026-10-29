@@ -134,12 +134,9 @@ final class ObjectRuleGenerationCoordinator {
         }
 
         boolean allowNullValue = Properties.NULL_PROBABILITY > Randomness.nextDouble();
-        final double oldPrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
-
-        Properties.PRIMITIVE_REUSE_PROBABILITY = 0;
 
         org.evosuite.testcase.synthesizer.TargetContext.setActive(context);
-        try {
+        try (Properties.ValueOverride ignored = Properties.withOverride("primitive_reuse_probability", 0.0)) {
 
             PartialGraph entryGraph =
                     candidate == null
@@ -219,8 +216,6 @@ final class ObjectRuleGenerationCoordinator {
             logger.debug("Whole-class EvoObj attempt failed; using ordinary generation", failure);
             return fallbackToDefault(size, stateBeforeAttempt);
         } finally {
-            Properties.PRIMITIVE_REUSE_PROBABILITY = oldPrimitiveReuse;
-
             org.evosuite.testcase.synthesizer.TargetContext.clearActive();
         }
     }
@@ -232,25 +227,21 @@ final class ObjectRuleGenerationCoordinator {
      */
     TestCase fallbackToDefault(int size, SpeculativeGenerationState stateBeforeAttempt) {
 
-        double speculativePrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
         boolean speculativeEntryConstruction =
                 org.evosuite.TestGenerationContext.getInstance()
                         .getObjectRuleRuntime()
                         .isEntryConstruction();
         TargetContext speculativeTargetContext = TargetContext.getActive();
         Randomness.restore(stateBeforeAttempt.randomness);
-        Properties.PRIMITIVE_REUSE_PROBABILITY =
-                stateBeforeAttempt.primitiveReuseProbability;
 
         org.evosuite.TestGenerationContext.getInstance()
                 .getObjectRuleRuntime()
                 .setEntryConstruction(stateBeforeAttempt.entryConstruction);
         TargetContext.setActive(stateBeforeAttempt.targetContext);
-        try {
+        try (Properties.ValueOverride ignored = Properties.withOverride(
+                "primitive_reuse_probability", stateBeforeAttempt.primitiveReuseProbability)) {
             return owner.getBaselineRandomTestCase(size);
         } finally {
-            Properties.PRIMITIVE_REUSE_PROBABILITY = speculativePrimitiveReuse;
-
             org.evosuite.TestGenerationContext.getInstance()
                     .getObjectRuleRuntime()
                     .setEntryConstruction(speculativeEntryConstruction);

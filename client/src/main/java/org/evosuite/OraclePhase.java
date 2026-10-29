@@ -256,18 +256,23 @@ final class OraclePhase {
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.JUNIT_CHECK);
 
-        // Store this value; if this option is true then the JUnit check
-        // would not succeed, as the JUnit classloader wouldn't find the class
-        boolean junitSeparateClassLoader = Properties.USE_SEPARATE_CLASSLOADER;
-        Properties.USE_SEPARATE_CLASSLOADER = false;
+        // If this option is true then the JUnit check would not succeed, as the
+        // JUnit classloader wouldn't find the class
+        try (Properties.ValueOverride ignored = Properties.withOverride("use_separate_classloader", false)) {
+            runJUnitChecks(chromosome, postProcessor, postProcessingContext, originalSuiteSize);
+        }
+    }
 
+    private static void runJUnitChecks(TestSuiteChromosome chromosome,
+                                       LlmPostProcessor postProcessor,
+                                       LlmPostProcessingPhaseContext postProcessingContext,
+                                       int originalSuiteSize) {
         int numUnstable = 0;
 
         // note: compiling and running JUnit tests can be very time consuming
         if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
             JUnitCheckState.recordIncomplete(
                     "JUnit check phase budget expired before any check could run");
-            Properties.USE_SEPARATE_CLASSLOADER = junitSeparateClassLoader;
             return;
         }
 
@@ -373,8 +378,6 @@ final class OraclePhase {
 
         ClientServices.track(RuntimeVariable.HadUnstableTests, unstable);
         ClientServices.track(RuntimeVariable.NumUnstableTests, numUnstable);
-        Properties.USE_SEPARATE_CLASSLOADER = junitSeparateClassLoader;
-
     }
 
     private static List<String> resolveExtensionInitializationOrderIfNeeded(List<TestCase> testCases,

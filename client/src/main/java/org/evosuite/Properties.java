@@ -3696,6 +3696,44 @@ public class Properties {
     }
 
     /**
+     * A temporary value for a parameter that puts the previous value back on {@link #close()}.
+     */
+    public interface ValueOverride extends AutoCloseable {
+        @Override
+        void close();
+    }
+
+    /**
+     * Sets the parameter <code>key</code> to <code>value</code> until the returned handle is
+     * closed, for use in a try-with-resources statement. Closing restores the value the
+     * parameter had here, whatever happened in between, without marking it as changed.
+     *
+     * @param key   the key of the parameter
+     * @param value the temporary value, of the type of the parameter's field
+     * @return the handle that restores the previous value
+     * @throws IllegalArgumentException if there is no such parameter or the value does not fit it
+     */
+    public static ValueOverride withOverride(String key, Object value) {
+        Field f = parameterMap.get(key);
+        if (f == null) {
+            throw new IllegalArgumentException("No such property defined: " + key);
+        }
+        try {
+            Object previous = f.get(null);
+            f.set(null, value);
+            return () -> {
+                try {
+                    f.set(null, previous);
+                } catch (IllegalAccessException e) {
+                    throw new IllegalStateException(e);
+                }
+            };
+        } catch (IllegalAccessException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    /**
      * Rejects a number outside the bounds given by the parameter's {@link IntValue},
      * {@link LongValue} or {@link DoubleValue} annotation, if it has one.
      */

@@ -308,4 +308,40 @@ public class PropertiesTest {
             Files.deleteIfExists(file);
         }
     }
+
+    @Test
+    public void overrideIsRestoredWhenTheBlockThrows() {
+        Properties.PRIMITIVE_REUSE_PROBABILITY = 0.25;
+
+        try (Properties.ValueOverride ignored = Properties.withOverride("primitive_reuse_probability", 0.0)) {
+            assertEquals(0.0, Properties.PRIMITIVE_REUSE_PROBABILITY, 0.0);
+            throw new IllegalStateException("boom");
+        } catch (IllegalStateException expected) {
+            // the override must be gone either way
+        }
+
+        assertEquals(0.25, Properties.PRIMITIVE_REUSE_PROBABILITY, 0.0);
+    }
+
+    @Test
+    public void overridesNestAndRestoreInReverseOrder() {
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.LINE};
+
+        try (Properties.ValueOverride outer = Properties.withOverride(
+                "criterion", new Properties.Criterion[]{Properties.Criterion.BRANCH})) {
+            try (Properties.ValueOverride inner = Properties.withOverride(
+                    "criterion", new Properties.Criterion[]{Properties.Criterion.EXCEPTION})) {
+                assertEquals(Properties.Criterion.EXCEPTION, Properties.CRITERION[0]);
+            }
+            assertEquals(Properties.Criterion.BRANCH, Properties.CRITERION[0]);
+        }
+
+        assertEquals(Properties.Criterion.LINE, Properties.CRITERION[0]);
+    }
+
+    @Test
+    public void overridingAnUnknownParameterIsRejected() {
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> Properties.withOverride("no_such_parameter", 1));
+    }
 }
