@@ -448,10 +448,10 @@ public class TestRepairLoop {
                         continue;
                     }
                     String extractedClass = extraction.getSource();
-                    if (extraction.isRecoveryApplied()) {
+                    if (extraction.getRecovery() != LlmResponseParser.Recovery.NONE) {
                         String recoveryReason = extraction.getRecoveryReason() == null
                                 ? "" : extraction.getRecoveryReason();
-                        if (recoveryReason.contains("wrapper-normalized")) {
+                        if (extraction.getRecovery() == LlmResponseParser.Recovery.WRAPPER_NORMALIZED) {
                             wrapperNormalizationApplied = true;
                             diagnostics.add("Applied wrapper normalization (block #" + blockIndex + "): "
                                     + recoveryReason);

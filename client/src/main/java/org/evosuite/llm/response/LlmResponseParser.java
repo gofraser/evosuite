@@ -118,22 +118,34 @@ public class LlmResponseParser {
     private final TruncatedJavaRecovery truncatedJavaRecovery = new TruncatedJavaRecovery();
 
     /**
+     * How the extracted source was changed to make it parseable.
+     */
+    public enum Recovery {
+        /** The block was used as written. */
+        NONE,
+        /** A truncated class was closed. */
+        TRUNCATED,
+        /** A lone wrapper class was rewritten into the generated-class shape. */
+        WRAPPER_NORMALIZED
+    }
+
+    /**
      * Extraction result carrying synthesized source and recovery metadata.
      */
     public static final class ExtractionResult {
         private final String source;
-        private final boolean recoveryApplied;
+        private final Recovery recovery;
         private final String recoveryReason;
         private final boolean emptyFallback;
 
-        ExtractionResult(String source, boolean recoveryApplied, String recoveryReason) {
-            this(source, recoveryApplied, recoveryReason, false);
+        ExtractionResult(String source, Recovery recovery, String recoveryReason) {
+            this(source, recovery, recoveryReason, false);
         }
 
-        private ExtractionResult(String source, boolean recoveryApplied, String recoveryReason,
+        private ExtractionResult(String source, Recovery recovery, String recoveryReason,
                                  boolean emptyFallback) {
             this.source = source;
-            this.recoveryApplied = recoveryApplied;
+            this.recovery = recovery;
             this.recoveryReason = recoveryReason;
             this.emptyFallback = emptyFallback;
         }
@@ -150,8 +162,8 @@ public class LlmResponseParser {
             return source;
         }
 
-        public boolean isRecoveryApplied() {
-            return recoveryApplied;
+        public Recovery getRecovery() {
+            return recovery;
         }
 
         public String getRecoveryReason() {
@@ -279,11 +291,11 @@ public class LlmResponseParser {
             source.append(indent(method.toString())).append(System.lineSeparator());
         }
         source.append("}");
-        return maybeRecover(source.toString(), true, "wrapper-normalized");
+        return maybeRecoverNormalized(source.toString());
     }
 
     private ExtractionResult emptyFallbackResult(String className, String packageName) {
-        return new ExtractionResult(emptyFallbackClass(className, packageName), false, "disabled", true);
+        return new ExtractionResult(emptyFallbackClass(className, packageName), Recovery.NONE, "disabled", true);
     }
 
     private String emptyFallbackClass(String className, String packageName) {
@@ -297,29 +309,21 @@ public class LlmResponseParser {
 
     private ExtractionResult maybeRecover(String source) {
         if (!Properties.LLM_ENABLE_TRUNCATION_RECOVERY) {
-            return new ExtractionResult(source, false, "disabled");
+            return new ExtractionResult(source, Recovery.NONE, "disabled");
         }
         TruncatedJavaRecovery.RecoveryResult recovery = truncatedJavaRecovery.recover(source);
-        return new ExtractionResult(recovery.getSource(), recovery.isRecovered(), recovery.getReason());
+        return new ExtractionResult(recovery.getSource(),
+                recovery.isRecovered() ? Recovery.TRUNCATED : Recovery.NONE, recovery.getReason());
     }
 
-    private ExtractionResult maybeRecover(String source, boolean normalizationApplied, String normalizationReason) {
+    private ExtractionResult maybeRecoverNormalized(String source) {
         ExtractionResult base = maybeRecover(source);
-        if (!normalizationApplied) {
-            return base;
-        }
-        StringBuilder reason = new StringBuilder();
-        if (normalizationReason != null && !normalizationReason.isEmpty()) {
-            reason.append(normalizationReason);
-        }
+        StringBuilder reason = new StringBuilder("wrapper-normalized");
         if (base.getRecoveryReason() != null && !base.getRecoveryReason().isEmpty()
                 && !"disabled".equals(base.getRecoveryReason())) {
-            if (reason.length() > 0) {
-                reason.append(";");
-            }
-            reason.append(base.getRecoveryReason());
+            reason.append(";").append(base.getRecoveryReason());
         }
-        return new ExtractionResult(base.getSource(), true, reason.toString());
+        return new ExtractionResult(base.getSource(), Recovery.WRAPPER_NORMALIZED, reason.toString());
     }
 
     /**

@@ -490,9 +490,9 @@ class TestRepairLoopTest {
                     String response, String className, String packageName) {
                 return Arrays.asList(
                         new ExtractionResult("public class GoodTest { public void a() {} }",
-                                false, "none"),
+                                LlmResponseParser.Recovery.NONE, "none"),
                         new ExtractionResult("public class BrokenTest { public void b( {",
-                                true, "truncation recovery"));
+                                LlmResponseParser.Recovery.TRUNCATED, "truncation recovery"));
             }
         };
         TestParser parser = new TestParser(getClass().getClassLoader()) {

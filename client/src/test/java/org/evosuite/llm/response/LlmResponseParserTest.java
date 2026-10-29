@@ -111,7 +111,7 @@ class LlmResponseParserTest {
         LlmResponseParser.ExtractionResult result =
                 parser.extractAllTestClassesWithMetadata(response, "MyGeneratedTest", null).get(0);
 
-        assertTrue(result.isRecoveryApplied());
+        assertEquals(LlmResponseParser.Recovery.TRUNCATED, result.getRecovery());
         assertTrue(result.getSource().contains("public void complete()"));
         assertFalse(result.getSource().contains("public void broken()"));
         assertTrue(result.getSource().trim().endsWith("}"));
@@ -238,7 +238,7 @@ class LlmResponseParserTest {
         LlmResponseParser.ExtractionResult result =
                 parser.extractAllTestClassesWithMetadata(response, "NormalizedWrapperTest", null).get(0);
 
-        assertTrue(result.isRecoveryApplied());
+        assertEquals(LlmResponseParser.Recovery.WRAPPER_NORMALIZED, result.getRecovery());
         assertTrue(result.getRecoveryReason().contains("wrapper-normalized"));
         assertTrue(result.getSource().contains("public class NormalizedWrapperTest"));
         assertTrue(result.getSource().contains("void t1()"));
