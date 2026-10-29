@@ -325,7 +325,7 @@ public final class RunResultsView extends ViewPart {
                     type.getFullyQualifiedName());
             config.setAttribute(
                     "org.eclipse.jdt.junit.TEST_KIND",
-                    entry.options().effectiveTestFormat().equals("JUNIT4")
+                    entry.options().effectiveTestFormat().equals(GenerationOptions.JUNIT4)
                             ? "org.eclipse.jdt.junit.loader.junit4"
                             : "org.eclipse.jdt.junit.loader.junit5");
             DebugUITools.launch(config, ILaunchManager.RUN_MODE);

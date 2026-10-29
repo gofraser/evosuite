@@ -299,8 +299,7 @@ public class TestGenerationJob extends Job {
         environment.put("JAVA_HOME", java.executable.getParentFile().getParent());
         options.testFormat = options.effectiveTestFormat();
         if (options.testFormat.isBlank()) {
-            options.testFormat = project.findType("org.junit.Test") != null
-                    && project.findType("org.junit.jupiter.api.Test") == null ? GenerationOptions.JUNIT4 : GenerationOptions.JUNIT5;
+            options.testFormat = ProjectSetup.detectedTestFormat(project);
         }
         File evosuiteJar = EvoSuiteJars.evosuite();
 
@@ -345,11 +344,6 @@ public class TestGenerationJob extends Job {
         }
         boolean extending = targets.stream().anyMatch(GenerationTarget::extendsTests);
         List<String> classpath = ProjectSetup.runtimeClasspath(project, extending);
-        if (!java.hasCompiler) {
-            console.println(java.executable.getParentFile().getParent() + " is a JRE without javac. EvoSuite "
-                    + "cannot compile the tests it generates to check them, so some may fail or not compile; "
-                    + "set a JDK as Java home in the EvoSuite settings.");
-        }
         File projectDir = project.getProject().getLocation().toFile();
 
         MultiStatus result = new MultiStatus(Activator.PLUGIN_ID, IStatus.OK,

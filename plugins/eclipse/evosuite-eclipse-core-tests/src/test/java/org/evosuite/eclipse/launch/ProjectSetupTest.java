@@ -231,6 +231,16 @@ public class ProjectSetupTest {
     }
 
     @Test
+    public void detectsJUnit4OnlyWhenJUnit5IsAbsent() throws Exception {
+        IJavaProject project = TestProjects.create("setup-detect", "src/main/java", null);
+        assertEquals(GenerationOptions.JUNIT5, ProjectSetup.detectedTestFormat(project));
+        TestProjects.addTestContainer(project, JUnitCore.JUNIT4_CONTAINER_PATH);
+        assertEquals(GenerationOptions.JUNIT4, ProjectSetup.detectedTestFormat(project));
+        TestProjects.addTestContainer(project, JUnitCore.JUNIT5_CONTAINER_PATH);
+        assertEquals(GenerationOptions.JUNIT5, ProjectSetup.detectedTestFormat(project));
+    }
+
+    @Test
     public void theClasspathHasOutputAndLibrariesButNoTestCodeOrJre() throws Exception {
         IJavaProject project = TestProjects.create("setup-classpath", "src/main/java", "src/test/java");
         File jar = File.createTempFile("library", ".jar");

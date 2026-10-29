@@ -207,8 +207,4 @@ public final class SettingKeys {
         if (!options.testSuffix.matches("[A-Za-z_$][A-Za-z0-9_$]*"))
             throw new IllegalArgumentException("Test suffix must be a Java identifier.");
     }
-
-    public static String junitFormat(boolean junit4, boolean jupiter) {
-        return junit4 && !jupiter ? GenerationOptions.JUNIT4 : GenerationOptions.JUNIT5;
-    }
 }

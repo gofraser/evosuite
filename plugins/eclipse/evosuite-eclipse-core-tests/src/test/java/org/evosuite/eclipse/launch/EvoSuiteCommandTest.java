@@ -36,7 +36,7 @@ public class EvoSuiteCommandTest {
     private static List<String> arguments(GenerationOptions options) {
         return new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Calculator",
                 List.of("/p/bin", "/p/lib/a.jar"), new File("/p"), new File("/p/src/test/evosuite"),
-                new File("/state/reports"), options).toArguments();
+                new File("/state/reports"), options).toArguments(17);
     }
 
     @Test
@@ -56,7 +56,7 @@ public class EvoSuiteCommandTest {
         options.extraArguments = "-Dtarget_method_list=other()V";
         List<String> args = new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Calculator",
                 List.of("/p/bin"), new File("/p"), new File("/out"), new File("/state/reports"), options,
-                List.of("sign(I)Ljava/lang/String;", "<init>(I)V")).toArguments();
+                List.of("sign(I)Ljava/lang/String;", "<init>(I)V")).toArguments(17);
         int methods = args.indexOf("-Dtarget_method_list=sign(I)Ljava/lang/String;:<init>(I)V");
         assertTrue(methods > 0, args.toString());
         assertTrue(methods < args.indexOf("-Dtarget_method_list=other()V"), args.toString());
@@ -67,7 +67,7 @@ public class EvoSuiteCommandTest {
         return new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Vault",
                 List.of("/p/bin", "/p/bin-test"), new File("/p"), new File("/out"), new File("/state/reports"),
                 options).seededBy(List.of("demo.VaultTest", "demo.VaultIT"), new File("/p/src/test/java"))
-                .toArguments();
+                .toArguments(17);
     }
 
     /**

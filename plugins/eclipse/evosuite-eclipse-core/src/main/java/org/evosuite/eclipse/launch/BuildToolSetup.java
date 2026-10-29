@@ -68,7 +68,7 @@ public final class BuildToolSetup {
             throws CoreException {
         IProject resource = project.getProject();
         if (!ProjectSetup.isManagedByBuildTool(resource)) return false;
-        boolean junit4 = options.effectiveTestFormat().equals("JUNIT4");
+        boolean junit4 = options.effectiveTestFormat().equals(GenerationOptions.JUNIT4);
         boolean missingJunit =
                 project.findType(junit4 ? "org.junit.Test" : "org.junit.jupiter.api.Test") == null;
         boolean missingRuntime =
@@ -184,7 +184,7 @@ public final class BuildToolSetup {
         String path =
                 options.testFolder.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$");
         String block = START + "\nsourceSets.named(\"test\") { java.srcDir(\"" + path + "\") }\n";
-        if (!options.effectiveTestFormat().equals("JUNIT4"))
+        if (!options.effectiveTestFormat().equals(GenerationOptions.JUNIT4))
             block +=
                     kotlin
                             ? "tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {"
@@ -203,11 +203,11 @@ public final class BuildToolSetup {
         if (junit) {
             dependencies +=
                     "    testImplementation(\""
-                            + (options.effectiveTestFormat().equals("JUNIT4")
+                            + (options.effectiveTestFormat().equals(GenerationOptions.JUNIT4)
                                     ? "junit:junit:4.13.2"
                                     : "org.junit.jupiter:junit-jupiter:5.13.4")
                             + "\")\n";
-            if (!options.effectiveTestFormat().equals("JUNIT4"))
+            if (!options.effectiveTestFormat().equals(GenerationOptions.JUNIT4))
                 dependencies +=
                         "    testRuntimeOnly(\"org.junit.platform:junit-platform-launcher:1.13.4\")\n";
         }
@@ -259,13 +259,13 @@ public final class BuildToolSetup {
                 changed |=
                         dependency(
                                 project,
-                                options.effectiveTestFormat().equals("JUNIT4")
+                                options.effectiveTestFormat().equals(GenerationOptions.JUNIT4)
                                         ? "junit"
                                         : "org.junit.jupiter",
-                                options.effectiveTestFormat().equals("JUNIT4")
+                                options.effectiveTestFormat().equals(GenerationOptions.JUNIT4)
                                         ? "junit"
                                         : "junit-jupiter",
-                                options.effectiveTestFormat().equals("JUNIT4")
+                                options.effectiveTestFormat().equals(GenerationOptions.JUNIT4)
                                         ? "4.13.2"
                                         : "5.13.4");
             if (runtime)

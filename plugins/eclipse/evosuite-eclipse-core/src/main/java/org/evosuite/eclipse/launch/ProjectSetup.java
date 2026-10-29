@@ -42,6 +42,7 @@ import org.eclipse.jdt.core.IClasspathContainer;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.junit.JUnitCore;
 import org.eclipse.jdt.launching.IRuntimeClasspathEntry;
 import org.eclipse.jdt.launching.IVMInstall;
@@ -343,6 +344,16 @@ public final class ProjectSetup {
         exclusions.add(pattern);
         return JavaCore.newSourceEntry(entry.getPath(), entry.getInclusionPatterns(),
                 exclusions.toArray(IPath[]::new), entry.getOutputLocation(), entry.getExtraAttributes());
+    }
+
+    /**
+     * The JUnit version a run uses when the settings do not name one: JUnit 4 if only JUnit 4 is
+     * on the project's class path, JUnit 5 otherwise.
+     */
+    public static String detectedTestFormat(IJavaProject project) throws JavaModelException {
+        return project.findType("org.junit.Test") != null
+                && project.findType("org.junit.jupiter.api.Test") == null
+                ? GenerationOptions.JUNIT4 : GenerationOptions.JUNIT5;
     }
 
     /**

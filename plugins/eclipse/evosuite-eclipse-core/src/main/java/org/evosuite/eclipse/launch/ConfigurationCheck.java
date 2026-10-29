@@ -70,14 +70,14 @@ public final class ConfigurationCheck {
                     .append(java.hasCompiler ? ", javac available)" : ", MISSING javac)");
             result.append("\nOutput: ")
                     .append(ProjectSetup.testFolder(project.getProject(), options).getLocation());
-            boolean junit4 = project.findType("org.junit.Test") != null;
-            boolean junit5 = project.findType("org.junit.jupiter.api.Test") != null;
             String format = options.effectiveTestFormat();
-            if (format.isBlank()) format = SettingKeys.junitFormat(junit4, junit5);
+            if (format.isBlank()) format = ProjectSetup.detectedTestFormat(project);
             result.append("\nJUnit: ")
                     .append(format)
                     .append(
-                            (format.equals("JUNIT4") ? junit4 : junit5)
+                            (format.equals(GenerationOptions.JUNIT4)
+                                            ? project.findType("org.junit.Test") != null
+                                            : project.findType("org.junit.jupiter.api.Test") != null)
                                     ? " available"
                                     : " MISSING");
             result.append("\nEvoSuite runtime: ")
