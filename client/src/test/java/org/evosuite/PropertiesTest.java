@@ -176,6 +176,7 @@ public class PropertiesTest {
     @Test
     public void retiredKeysAreReportedOnceAndIgnoredInPropertyFiles() throws Exception {
         Assertions.assertTrue(Properties.isRetired("epsilon"));
+        Assertions.assertTrue(Properties.isRetired("llm_postprocessing_assertion_fallback_strategy"));
         Assertions.assertFalse(Properties.isRetired("search_budget"));
         Assertions.assertFalse(Properties.isRetired("no_such_key"));
         Assertions.assertTrue(Properties.warnIfRetired("epsilon"));

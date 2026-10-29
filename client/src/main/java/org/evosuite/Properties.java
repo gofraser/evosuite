@@ -2469,15 +2469,6 @@ public class Properties {
     public static LlmPostProcessingAssertionFallback LLM_POSTPROCESSING_ASSERTION_FALLBACK =
             LlmPostProcessingAssertionFallback.NONE;
 
-    public enum LlmPostProcessingAssertionFallbackStrategy {
-        ALL
-    }
-
-    @Parameter(key = "llm_postprocessing_assertion_fallback_strategy", group = "LLM",
-            description = "Trace-based assertion generator used for unified LLM assertion fallback")
-    public static LlmPostProcessingAssertionFallbackStrategy LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY =
-            LlmPostProcessingAssertionFallbackStrategy.ALL;
-
     public enum LlmPostProcessingScope {
         ALL_TESTS, ASSERTION_ELIGIBLE_TESTS
     }
@@ -3356,7 +3347,8 @@ public class Properties {
             "epsilon", "evosuite_use_uispec", "handle_servlets", "hierarchy_data", "insertion_score_object",
             "insertion_score_parameter", "insertion_score_uut", "jee", "jmc", "junit_check_on_separate_process",
             "junit_extend", "junit_strict", "junit_unstable_diagnostics", "kincompensation", "llm_blend_keep_raw",
-            "llm_cluster_summary_absolute_override_chars", "llm_repair_hints_always_on",
+            "llm_cluster_summary_absolute_override_chars", "llm_postprocessing_assertion_fallback_strategy",
+            "llm_repair_hints_always_on",
             "llm_repair_hints_cooldown_attempts", "llm_repair_hints_enabled", "llm_repair_hints_max_per_attempt",
             "llm_stagnation_mode", "llm_suite_injection_policy", "local_search_selective",
             "local_search_selective_primitives", "log_goals", "max_coverage_depth", "max_mutants", "minimize_old",

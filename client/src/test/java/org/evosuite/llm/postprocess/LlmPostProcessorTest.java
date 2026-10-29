@@ -110,8 +110,6 @@ class LlmPostProcessorTest {
                 Properties.LlmPostProcessingOnIncompleteMinimization.SKIP;
         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK =
                 Properties.LlmPostProcessingAssertionFallback.NONE;
-        Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY =
-                Properties.LlmPostProcessingAssertionFallbackStrategy.ALL;
         Properties.LLM_POSTPROCESSING_SCOPE = Properties.LlmPostProcessingScope.ALL_TESTS;
         Properties.TARGET_CLASS = "com.example.Foo";
         LlmService.resetInstanceForTesting();
@@ -143,8 +141,6 @@ class LlmPostProcessorTest {
                 Properties.LlmPostProcessingOnIncompleteMinimization.SKIP;
         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK =
                 Properties.LlmPostProcessingAssertionFallback.NONE;
-        Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY =
-                Properties.LlmPostProcessingAssertionFallbackStrategy.ALL;
         Properties.LLM_POSTPROCESSING_SCOPE = Properties.LlmPostProcessingScope.ALL_TESTS;
         Properties.TEST_NAMING_STRATEGY = Properties.TestNamingStrategy.NUMBERED;
         Properties.VARIABLE_NAMING_STRATEGY = Properties.VariableNamingStrategy.TYPE_BASED;
@@ -354,8 +350,6 @@ class LlmPostProcessorTest {
         Properties.TARGET_CLASS = null;
         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK =
                 Properties.LlmPostProcessingAssertionFallback.ON_NO_ACCEPTED_ASSERTIONS;
-        Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY =
-                Properties.LlmPostProcessingAssertionFallbackStrategy.ALL;
         CapturingClientNode node = installCapturingClientNode();
         DefaultTestCase first = uninterpretedIntReturnTest();
         DefaultTestCase second = uninterpretedIntReturnTest();
@@ -761,8 +755,6 @@ class LlmPostProcessorTest {
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK =
                 Properties.LlmPostProcessingAssertionFallback.ON_NO_ACCEPTED_ASSERTIONS;
-        Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY =
-                Properties.LlmPostProcessingAssertionFallbackStrategy.ALL;
         DefaultTestCase test = uninterpretedIntReturnTest();
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(test);
@@ -777,7 +769,6 @@ class LlmPostProcessorTest {
         assertEquals("readableOnly", TestPresentationMetadata.get(test).getTestName());
         assertTrue(test.hasAssertions());
         assertEquals(1, fallbackRunner.calls);
-        assertEquals(Properties.LlmPostProcessingAssertionFallbackStrategy.ALL, fallbackRunner.strategy);
     }
 
     @Test
@@ -2124,17 +2115,14 @@ class LlmPostProcessorTest {
     private static final class RecordingFallbackRunner implements LlmPostProcessor.AssertionFallbackRunner {
         private final int assertionsToApply;
         private int calls;
-        private Properties.LlmPostProcessingAssertionFallbackStrategy strategy;
 
         private RecordingFallbackRunner(int assertionsToApply) {
             this.assertionsToApply = assertionsToApply;
         }
 
         @Override
-        public int applyFallbackAssertions(TestCase test,
-                                           Properties.LlmPostProcessingAssertionFallbackStrategy strategy) {
+        public int applyFallbackAssertions(TestCase test) {
             this.calls++;
-            this.strategy = strategy;
             for (int i = 0; i < assertionsToApply; i++) {
                 PrimitiveAssertion assertion = new PrimitiveAssertion();
                 assertion.setSource(test.getStatement(0).getReturnValue());

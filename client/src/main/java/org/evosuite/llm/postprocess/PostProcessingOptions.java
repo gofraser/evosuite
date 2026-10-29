@@ -93,8 +93,7 @@ public final class PostProcessingOptions {
                         Properties.LLM_POSTPROCESSING_SCOPE),
                 new RepairFallbackPolicy(Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS > 0,
                         Properties.LLM_POSTPROCESSING_REPAIR_POLICY,
-                        Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK,
-                        Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY),
+                        Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK),
                 Properties.TARGET_CLASS,
                 Properties.LLM_POSTPROCESSING_ENABLED,
                 Properties.LLM_PROVIDER,
@@ -476,7 +475,6 @@ public final class PostProcessingOptions {
         private final boolean assertionRepairEnabled;
         private final Properties.LlmPostProcessingRepairPolicy repairPolicy;
         private final Properties.LlmPostProcessingAssertionFallback fallback;
-        private final Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy;
 
         /**
          * Creates the policy for repairing and replacing rejected assertions; null values select the defaults.
@@ -484,19 +482,15 @@ public final class PostProcessingOptions {
          * @param assertionRepairEnabled whether rejected assertions are sent back to the model for repair
          * @param repairPolicy the repair policy
          * @param fallback the fallback used when repair does not succeed
-         * @param fallbackStrategy the strategy that selects what the fallback applies to
          */
         public RepairFallbackPolicy(boolean assertionRepairEnabled,
                                     Properties.LlmPostProcessingRepairPolicy repairPolicy,
-                                    Properties.LlmPostProcessingAssertionFallback fallback,
-                                    Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy) {
+                                    Properties.LlmPostProcessingAssertionFallback fallback) {
             this.assertionRepairEnabled = assertionRepairEnabled;
             this.repairPolicy = repairPolicy == null
                     ? Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE : repairPolicy;
             this.fallback = fallback == null
                     ? Properties.LlmPostProcessingAssertionFallback.NONE : fallback;
-            this.fallbackStrategy = fallbackStrategy == null
-                    ? Properties.LlmPostProcessingAssertionFallbackStrategy.ALL : fallbackStrategy;
         }
 
         public boolean assertionRepairEnabled() {
@@ -509,10 +503,6 @@ public final class PostProcessingOptions {
 
         public Properties.LlmPostProcessingAssertionFallback fallback() {
             return fallback;
-        }
-
-        public Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy() {
-            return fallbackStrategy;
         }
     }
 

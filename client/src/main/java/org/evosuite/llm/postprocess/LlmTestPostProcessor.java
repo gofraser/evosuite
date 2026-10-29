@@ -642,8 +642,7 @@ final class LlmTestPostProcessor {
             return LlmPostProcessor.FallbackCounters.none();
         }
         try {
-            int applied = assertionFallbackRunner.applyFallbackAssertions(test,
-                    options.repairFallbackPolicy().fallbackStrategy());
+            int applied = assertionFallbackRunner.applyFallbackAssertions(test);
             return LlmPostProcessor.FallbackCounters.applied(trigger, applied);
         } catch (RuntimeException | AssertionError e) {
             logger.warn("Unified LLM post-processing assertion fallback failed: {}", e.getMessage());

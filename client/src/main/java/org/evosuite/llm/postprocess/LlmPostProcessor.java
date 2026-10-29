@@ -359,8 +359,7 @@ public class LlmPostProcessor {
     }
 
     interface AssertionFallbackRunner {
-        int applyFallbackAssertions(TestCase test,
-                                    Properties.LlmPostProcessingAssertionFallbackStrategy strategy);
+        int applyFallbackAssertions(TestCase test);
     }
 
     interface AssertionCandidateRunner {
@@ -429,8 +428,7 @@ public class LlmPostProcessor {
 
     private static final class TraceAssertionFallbackRunner implements AssertionFallbackRunner {
         @Override
-        public int applyFallbackAssertions(TestCase test,
-                                           Properties.LlmPostProcessingAssertionFallbackStrategy strategy) {
+        public int applyFallbackAssertions(TestCase test) {
             TestCase fallbackTest = test.clone();
             fallbackTest.removeAssertions();
             AssertionGenerator generator = new CompleteAssertionGenerator();

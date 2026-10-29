@@ -88,9 +88,9 @@ class PostProcessingOptionsTest {
     @Test
     void repairPolicyExposesItsSingleRequestContract() {
         PostProcessingOptions.RepairFallbackPolicy enabled = new PostProcessingOptions.RepairFallbackPolicy(
-                true, null, null, null);
+                true, null, null);
         PostProcessingOptions.RepairFallbackPolicy disabled = new PostProcessingOptions.RepairFallbackPolicy(
-                false, null, null, null);
+                false, null, null);
 
         assertTrue(enabled.assertionRepairEnabled());
         assertFalse(disabled.assertionRepairEnabled());
