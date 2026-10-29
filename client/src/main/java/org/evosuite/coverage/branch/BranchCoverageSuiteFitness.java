@@ -22,7 +22,6 @@ package org.evosuite.coverage.branch;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.archive.Archive;
-import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -104,9 +103,9 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         totalBranches = countBranches(classLoader, prefix);
         if (includesMethodGoals()) {
-            totalMethods = CFGMethodAdapter.getNumMethodsPrefix(classLoader, prefix);
+            totalMethods = BranchPool.getInstance(classLoader).getNumMethodsPrefix(prefix);
             branchlessMethods.addAll(BranchPool.getInstance(classLoader).getBranchlessMethodsPrefix(prefix));
-            methods.addAll(CFGMethodAdapter.getMethodsPrefix(classLoader, prefix));
+            methods.addAll(BranchPool.getInstance(classLoader).getMethodsPrefix(prefix));
         }
 
         determineCoverageGoals(true);

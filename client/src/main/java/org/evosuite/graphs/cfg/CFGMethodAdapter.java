@@ -52,7 +52,6 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Modifier;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Create a minimized control flow graph for the method and store it. In
@@ -76,35 +75,6 @@ public class CFGMethodAdapter extends MethodVisitor {
     public static final List<String> EXCLUDE = Arrays.asList("<clinit>()V",
             ClassResetter.STATIC_RESET + "()V",
             ClassResetter.STATIC_RESET);
-    /**
-     * The set of all methods which can be used during test case generation This
-     * excludes e.g. synthetic, initializers, private and deprecated methods.
-     */
-    private static final Map<ClassLoader, Map<String, Set<String>>> methods = new ConcurrentHashMap<>();
-
-    private static Map<String, Set<String>> methodsOf(ClassLoader classLoader) {
-        return methods.getOrDefault(classLoader, Collections.emptyMap());
-    }
-
-    /**
-     * Clears the stored methods.
-     */
-    public static void clear() {
-        for (ClassLoader cl : methods.keySet()) {
-            methods.get(cl).clear();
-        }
-        methods.clear();
-    }
-
-    /**
-     * Forgets the methods recorded while the given class loader instrumented classes.
-     *
-     * @param classLoader the class loader that is no longer needed
-     */
-    public static void release(ClassLoader classLoader) {
-        methods.remove(classLoader);
-    }
-
     /**
      * This is the name + the description of the method. It is more like the
      * signature and less like the name. The name of the method can be found in
@@ -155,7 +125,6 @@ public class CFGMethodAdapter extends MethodVisitor {
         this.plainName = name;
         this.classLoader = classLoader;
 
-        methods.computeIfAbsent(classLoader, k -> new ConcurrentHashMap<>());
     }
 
     /* (non-Javadoc)
@@ -239,12 +208,11 @@ public class CFGMethodAdapter extends MethodVisitor {
                 logger.info("Created CFG for method " + methodName);
 
                 if (DependencyAnalysis.shouldInstrument(className, methodName)) {
-                    // Resolved here and not through the loader's entry in methods: a class
-                    // loaded from another thread (e.g. the Swing event queue of the SUT) can be
-                    // instrumented while the generation clears or releases that entry.
-                    Set<String> classMethods = methods
-                            .computeIfAbsent(classLoader, k -> new ConcurrentHashMap<>())
-                            .computeIfAbsent(className, k -> ConcurrentHashMap.newKeySet());
+                    // Resolved here and kept, so that a pool cleared meanwhile (a class loaded
+                    // from another thread, e.g. the Swing event queue of the SUT, can be
+                    // instrumented during generation) does not lose the method.
+                    Set<String> classMethods =
+                            BranchPool.getInstance(classLoader).getMethodSet(className);
 
                     // add the actual instrumentation
                     logger.info("Instrumenting method " + methodName + " in class "
@@ -441,159 +409,5 @@ public class CFGMethodAdapter extends MethodVisitor {
         }
 
         return true;
-    }
-
-    /**
-     * Returns the methods for the given class.
-     *
-     * @param className class name
-     * @return set of method IDs
-     */
-    public Set<String> getMethods(String className) {
-        return getMethods(classLoader, className);
-    }
-
-    /**
-     * Returns a set with all unique methodNames of methods.
-     *
-     * @param classLoader class loader
-     * @param className a {@link java.lang.String} object.
-     * @return A set with all unique methodNames of methods.
-     */
-    public static Set<String> getMethods(ClassLoader classLoader, String className) {
-        Set<String> targetMethods = new HashSet<>();
-        if (!methods.containsKey(classLoader)) {
-            return targetMethods;
-        }
-
-        for (String currentClass : methodsOf(classLoader).keySet()) {
-            if (currentClass.equals(className)
-                    || currentClass.startsWith(className + "$")) {
-                targetMethods.addAll(methodsOf(classLoader).get(currentClass));
-            }
-        }
-
-        return targetMethods;
-    }
-
-    /**
-     * Returns the methods for the current class loader.
-     *
-     * @return set of method IDs
-     */
-    public Set<String> getMethods() {
-        return getMethods(classLoader);
-    }
-
-    /**
-     * Returns a set with all unique methodNames of methods.
-     *
-     * @param classLoader class loader
-     * @return A set with all unique methodNames of methods.
-     */
-    public static Set<String> getMethods(ClassLoader classLoader) {
-        Set<String> targetMethods = new HashSet<>();
-        if (!methods.containsKey(classLoader)) {
-            return targetMethods;
-        }
-
-        for (String currentClass : methodsOf(classLoader).keySet()) {
-            targetMethods.addAll(methodsOf(classLoader).get(currentClass));
-        }
-
-        return targetMethods;
-    }
-
-
-    /**
-     * Returns matching methods for the given class name prefix.
-     *
-     * @param className class name prefix
-     * @return set of method IDs
-     */
-    public Set<String> getMethodsPrefix(String className) {
-        return getMethodsPrefix(classLoader, className);
-    }
-
-    /**
-     * Returns a set with all unique methodNames of methods.
-     *
-     * @param classLoader class loader
-     * @param className a {@link java.lang.String} object.
-     * @return A set with all unique methodNames of methods.
-     */
-    public static Set<String> getMethodsPrefix(ClassLoader classLoader, String className) {
-        Set<String> matchingMethods = new HashSet<>();
-        if (!methods.containsKey(classLoader)) {
-            return matchingMethods;
-        }
-
-        for (String name : methodsOf(classLoader).keySet()) {
-            if (name.startsWith(className)) {
-                matchingMethods.addAll(methodsOf(classLoader).get(name));
-            }
-        }
-
-        return matchingMethods;
-    }
-
-    /**
-     * Returns the number of methods for the given class name prefix.
-     *
-     * @param className class name prefix
-     * @return number of methods
-     */
-    public int getNumMethodsPrefix(String className) {
-        return getNumMethodsPrefix(classLoader, className);
-    }
-
-    /**
-     * Returns a set with all unique methodNames of methods.
-     *
-     * @param classLoader class loader
-     * @param className a {@link java.lang.String} object.
-     * @return A set with all unique methodNames of methods.
-     */
-    public static int getNumMethodsPrefix(ClassLoader classLoader, String className) {
-        int num = 0;
-        if (!methods.containsKey(classLoader)) {
-            return num;
-        }
-
-        for (String name : methodsOf(classLoader).keySet()) {
-            if (name.startsWith(className)) {
-                num += methodsOf(classLoader).get(name).size();
-            }
-        }
-
-        return num;
-    }
-
-    /**
-     * Returns the total number of methods.
-     *
-     * @return number of methods
-     */
-    public int getNumMethods() {
-        return getNumMethods(classLoader);
-    }
-
-    /**
-     * Returns a set with all unique methodNames of methods.
-     *
-     * @param classLoader class loader
-     * @return A set with all unique methodNames of methods.
-     */
-    public static int getNumMethods(ClassLoader classLoader) {
-        int num = 0;
-        if (!methods.containsKey(classLoader)) {
-            return num;
-        }
-
-        for (String name : methodsOf(classLoader).keySet()) {
-            num += methodsOf(classLoader).get(name).size();
-        }
-
-        return num;
     }
 }

@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 // TODO: root branches should not be special cases
 // every root branch should be a branch just
@@ -80,6 +81,10 @@ public class BranchPool {
 
     private final Map<LabelNode, List<Branch>> switchLabels = new HashMap<>();
 
+    // maps className -> ids of the usable methods of that class (excludes e.g. synthetic,
+    // initializers, private and deprecated methods)
+    private final Map<String, Set<String>> methods = new ConcurrentHashMap<>();
+
     // number of known Branches - used for actualBranchIds
     private int branchCounter = 0;
 
@@ -103,6 +108,67 @@ public class BranchPool {
      */
     public static void release(ClassLoader classLoader) {
         pools.release(classLoader);
+    }
+
+    /**
+     * Drops the pools of all class loaders.
+     */
+    public static void clearAll() {
+        pools.clear();
+    }
+
+    /**
+     * Returns the set in which the ids of the usable methods of the given class are recorded,
+     * creating it if necessary. The caller keeps it while it instruments the class, so that
+     * recording survives the pool being cleared from another thread (e.g. the Swing event queue
+     * of the SUT loading a class during generation).
+     *
+     * @param className the class the methods belong to
+     * @return the live set of method ids of that class
+     */
+    public Set<String> getMethodSet(String className) {
+        return methods.computeIfAbsent(className, k -> ConcurrentHashMap.newKeySet());
+    }
+
+    /**
+     * Returns the number of usable methods of the classes whose name starts with the prefix.
+     *
+     * @param classNamePrefix class name prefix
+     * @return number of methods
+     */
+    public int getNumMethodsPrefix(String classNamePrefix) {
+        int num = 0;
+        for (Map.Entry<String, Set<String>> entry : methods.entrySet()) {
+            if (entry.getKey().startsWith(classNamePrefix)) {
+                num += entry.getValue().size();
+            }
+        }
+        return num;
+    }
+
+    /**
+     * Returns the number of usable methods of all classes.
+     *
+     * @return number of methods
+     */
+    public int getNumMethods() {
+        return getNumMethodsPrefix("");
+    }
+
+    /**
+     * Returns the ids of the usable methods of the classes whose name starts with the prefix.
+     *
+     * @param classNamePrefix class name prefix
+     * @return set of method ids
+     */
+    public Set<String> getMethodsPrefix(String classNamePrefix) {
+        Set<String> matchingMethods = new HashSet<>();
+        for (Map.Entry<String, Set<String>> entry : methods.entrySet()) {
+            if (entry.getKey().startsWith(classNamePrefix)) {
+                matchingMethods.addAll(entry.getValue());
+            }
+        }
+        return matchingMethods;
     }
     // fill the pool
 
@@ -768,29 +834,10 @@ public class BranchPool {
     }
 
     /**
-     * Reset all the data structures used to keep track of the branch
-     * information.
-     */
-    public void reset() {
-        branchCounter = 0;
-        branchMap.clear();
-        branchlessMethods.clear();
-        branchIdMap.clear();
-        registeredNormalBranches.clear();
-        registeredSwitches.clear();
-        registeredDefaultCases.clear();
-        switchLabels.clear();
-    }
-
-    /**
-     * <p>
-     * clear.
-     * </p>
-     * <p>
-     * TODO: One of these two methods should go
-     * </p>
+     * Forgets all the branch information and the recorded methods of this pool.
      */
     public void clear() {
+        methods.clear();
         branchCounter = 0;
         branchMap.clear();
         branchIdMap.clear();

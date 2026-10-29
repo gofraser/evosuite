@@ -33,7 +33,6 @@ import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
-import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.runtime.Runtime;
@@ -220,7 +219,6 @@ public class TestGenerationContext {
         GraphPool.release(loader);
         BranchPool.release(loader);
         MutationPool.release(loader);
-        CFGMethodAdapter.release(loader);
         ResourceList.release(loader);
         ClassResetter.getInstance().releaseClassLoader(loader);
     }
@@ -245,8 +243,7 @@ public class TestGenerationContext {
 
         ExecutionTracer.getExecutionTracer().clear();
 
-        // TODO: BranchPool should not be static
-        BranchPool.getInstance(classLoader).reset();
+        BranchPool.clearAll();
         RemoveFinalClassAdapter.reset();
         org.evosuite.testcase.statements.FunctionalMockStatement.resetUsefulMockSurfaceCache();
         LinePool.reset();
@@ -258,8 +255,6 @@ public class TestGenerationContext {
 
         // Reset all run-scoped object-construction analysis and synthesis state.
         objectRuleRuntime.reset();
-
-        CFGMethodAdapter.clear();
 
         // TODO: Clear only pool of current classloader?
         BytecodeInstructionPool.clearAll();

@@ -27,7 +27,6 @@ import org.evosuite.classpath.ResourceList;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.mutation.MutationPool;
-import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.rmi.ClientServices;
@@ -538,7 +537,8 @@ public class DependencyAnalysis {
                 .getInstance()
                 .getClientNode()
                 .trackOutputVariable(RuntimeVariable.Total_Methods,
-                        CFGMethodAdapter.getNumMethods(TestGenerationContext.getInstance().getClassLoaderForSUT()));
+                        BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                                .getNumMethods());
 
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.Lines, LinePool.getNumLines());
@@ -585,7 +585,7 @@ public class DependencyAnalysis {
         int analyzedClasses = TestCluster.getInstance().getAnalyzedClasses().size();
         int generators = TestCluster.getInstance().getGenerators().size();
         int modifiers = TestCluster.getInstance().getModifiers().size();
-        int methods = CFGMethodAdapter.getNumMethods(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        int methods = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumMethods();
         int branches = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getBranchCounter();
         int lines = LinePool.getNumLines();

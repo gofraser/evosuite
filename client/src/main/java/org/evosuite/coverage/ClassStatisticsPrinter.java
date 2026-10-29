@@ -26,7 +26,6 @@ import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.line.LineCoverageFactory;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.graphs.GraphPool;
-import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.runtime.classhandling.ClassResetter;
@@ -160,8 +159,8 @@ public class ClassStatisticsPrinter {
             // +entry.getValue().getCyclomaticComplexity());
         }
         LoggingUtils.getEvoLogger().info("* Average cyclomatic complexity: "
-                + (complexity / CFGMethodAdapter.getNumMethods(TestGenerationContext.getInstance()
-                .getClassLoaderForSUT())));
+                + (complexity / BranchPool.getInstance(TestGenerationContext.getInstance()
+                .getClassLoaderForSUT()).getNumMethods()));
         LoggingUtils.getEvoLogger().info("* Maximum cyclomatic complexity: " + maxComplexity);
 
         StringBuilder allGoals = new StringBuilder();

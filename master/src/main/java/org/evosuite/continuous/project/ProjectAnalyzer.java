@@ -236,7 +236,7 @@ public class ProjectAnalyzer {
             Properties.TARGET_CLASS = className;
             InstrumentingClassLoader instrumenting = new InstrumentingClassLoader();
 
-            BranchPool.getInstance(instrumenting).reset();
+            BranchPool.getInstance(instrumenting).clear();
 
             try {
                 /*
@@ -267,7 +267,7 @@ public class ProjectAnalyzer {
                 continue;
             } finally {
                 Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
-                BranchPool.getInstance(instrumenting).reset();
+                BranchPool.getInstance(instrumenting).clear();
                 Properties.TARGET_CLASS = "";
             }
 

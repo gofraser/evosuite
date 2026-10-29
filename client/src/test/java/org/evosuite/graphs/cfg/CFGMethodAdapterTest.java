@@ -20,44 +20,27 @@
 package org.evosuite.graphs.cfg;
 
 import org.evosuite.Properties;
+import org.evosuite.coverage.branch.BranchPool;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class CFGMethodAdapterTest {
 
     @Test
-    public void testClear() throws Exception {
+    public void testClear() {
         ClassLoader cl = new ClassLoader() {};
+        BranchPool.getInstance(cl).getMethodSet("Class1").add("method1");
 
-        // Populate methods via reflection to be robust against visibility changes
-        Field methodsField = CFGMethodAdapter.class.getDeclaredField("methods");
-        methodsField.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Map<ClassLoader, Map<String, Set<String>>> methods = (Map<ClassLoader, Map<String, Set<String>>>) methodsField.get(null);
+        assertTrue(BranchPool.getInstance(cl).getNumMethods() > 0, "Should have methods before clear");
 
-        Map<String, Set<String>> classMap = new HashMap<>();
-        Set<String> methodSet = new HashSet<>();
-        methodSet.add("method1");
-        classMap.put("Class1", methodSet);
-        methods.put(cl, classMap);
+        BranchPool.clearAll();
 
-        assertTrue(CFGMethodAdapter.getNumMethods(cl) > 0, "Should have methods before clear");
-
-        CFGMethodAdapter.clear();
-
-        assertEquals(0, CFGMethodAdapter.getNumMethods(cl), "Should have 0 methods after clear");
-        assertTrue(methods.isEmpty(), "Map should be empty");
+        assertEquals(0, BranchPool.getInstance(cl).getNumMethods(), "Should have 0 methods after clear");
     }
 
     public static class Sample {
@@ -82,14 +65,14 @@ public class CFGMethodAdapterTest {
                                                  String signature, String[] exceptions) {
                     MethodVisitor adapter = new CFGMethodAdapter(cl, target, access, name, desc,
                             signature, exceptions, new MethodVisitor(Opcodes.ASM9) {});
-                    CFGMethodAdapter.release(cl);
+                    BranchPool.release(cl);
                     return adapter;
                 }
             }, 0);
-            assertTrue(CFGMethodAdapter.getNumMethods(cl) > 0);
+            assertTrue(BranchPool.getInstance(cl).getNumMethods() > 0);
         } finally {
             Properties.TARGET_CLASS = oldTarget;
-            CFGMethodAdapter.clear();
+            BranchPool.clearAll();
         }
     }
 }

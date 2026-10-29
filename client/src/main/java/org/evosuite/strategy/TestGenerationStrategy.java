@@ -25,6 +25,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.FitnessFunctionsUtils;
 import org.evosuite.coverage.TestFitnessFactory;
+import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
@@ -32,7 +33,6 @@ import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingConditionFactory;
-import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.ClientServices;
@@ -187,7 +187,7 @@ public abstract class TestGenerationStrategy {
 
         // No test calls found, check if we can use reflection or if there are any methods
         final InstrumentingClassLoader cl = TestGenerationContext.getInstance().getClassLoaderForSUT();
-        final int numMethods = CFGMethodAdapter.getNumMethods(cl);
+        final int numMethods = BranchPool.getInstance(cl).getNumMethods();
         return Properties.P_REFLECTION_ON_PRIVATE > 0.0 && numMethods > 0;
     }
 
