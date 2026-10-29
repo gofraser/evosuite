@@ -111,13 +111,19 @@ final class PostProcessingCallablePolicy {
             "java.lang.Class");
     private static final Set<String> DENIED_STATIC_METHODS = allowedFields(
             "java.lang.Math#random");
+    /**
+     * Instance methods that are neither offered to the model nor accepted from it. A response is
+     * rejected for any {@code toString()} call before this list is consulted, so listing it here
+     * changes no outcome for responses.
+     */
     private static final Set<String> DENIED_INSTANCE_METHODS = allowedFields(
             "wait",
             "notify",
             "notifyAll",
             "getClass",
             "hashCode",
-            "finalize");
+            "finalize",
+            "toString");
 
     interface ExpressionTypeResolver {
         ExprType resolve(Expression expression);
@@ -239,7 +245,7 @@ final class PostProcessingCallablePolicy {
             if (!isInstanceCallScope(scope)) {
                 continue;
             }
-            if (isDeniedInstanceCall(methodCall.getNameAsString())) {
+            if (isDeniedInstanceMethod(methodCall.getNameAsString())) {
                 return true;
             }
             if (scope instanceof NameExpr) {
@@ -273,7 +279,7 @@ final class PostProcessingCallablePolicy {
                 || DENIED_STATIC_METHODS.contains(simpleName(owner) + "#" + methodName);
     }
 
-    private boolean isDeniedInstanceCall(String methodName) {
+    static boolean isDeniedInstanceMethod(String methodName) {
         return DENIED_INSTANCE_METHODS.contains(methodName);
     }
 

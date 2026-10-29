@@ -65,15 +65,6 @@ import java.util.Set;
  */
 final class OracleContext {
 
-    private static final Set<String> DENIED_INSPECTOR_METHODS = new LinkedHashSet<>(Arrays.asList(
-            "wait",
-            "notify",
-            "notifyAll",
-            "getClass",
-            "hashCode",
-            "finalize",
-            "toString"));
-
     private final LlmPostProcessingReferences references;
     private final List<StatementContext> statements;
     private final List<Observation> observations;
@@ -1017,7 +1008,7 @@ final class OracleContext {
             return false;
         }
         if (method.getDeclaringClass().equals(Object.class) || method.getDeclaringClass().equals(Enum.class)
-                || DENIED_INSPECTOR_METHODS.contains(method.getName())) {
+                || PostProcessingCallablePolicy.isDeniedInstanceMethod(method.getName())) {
             return false;
         }
         if (method.getParameterTypes().length > options.assertionPolicy().maxCallableArgs()) {
@@ -1055,7 +1046,7 @@ final class OracleContext {
                 || Modifier.isStatic(method.getModifiers())
                 || method.getParameterTypes().length != 0
                 || method.getReturnType().equals(Void.TYPE)
-                || DENIED_INSPECTOR_METHODS.contains(method.getName())) {
+                || PostProcessingCallablePolicy.isDeniedInstanceMethod(method.getName())) {
             return false;
         }
         Class<?> returnType = method.getReturnType();
