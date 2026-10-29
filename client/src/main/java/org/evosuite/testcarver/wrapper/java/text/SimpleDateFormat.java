@@ -244,7 +244,9 @@ public class SimpleDateFormat extends java.text.SimpleDateFormat {
     public java.util.Date parse(String text, ParsePosition pos) {
         Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, this, "parse",
                 "(Ljava/lang/String;Ljava/text/ParsePosition;)Ljava/util/Date;", new Object[]{text, pos});
-        java.util.Date ret = new Date(super.parse(text, pos).getTime());
+        // the JDK returns null when the text cannot be parsed
+        final java.util.Date parsed = super.parse(text, pos);
+        java.util.Date ret = parsed == null ? null : new Date(parsed.getTime());
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, this, ret);
         return ret;
     }

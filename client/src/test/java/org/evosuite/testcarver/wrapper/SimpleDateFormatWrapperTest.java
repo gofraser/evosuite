@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.text.ParsePosition;
+
 public class SimpleDateFormatWrapperTest {
 
     @BeforeEach
@@ -63,5 +65,26 @@ public class SimpleDateFormatWrapperTest {
         final CaptureLog log = Capturer.stopCapture();
 
         Assertions.assertEquals(1, log.params.get(indexOfRecord(log, "applyLocalizedPattern")).length);
+    }
+
+    @Test
+    public void testFailedParseWithPositionReturnsNull() {
+        final SimpleDateFormat format = new SimpleDateFormat("yyyy");
+        final ParsePosition position = new ParsePosition(0);
+
+        Assertions.assertNull(format.parse("not a year", position));
+        Assertions.assertEquals(0, position.getIndex());
+        Assertions.assertEquals(0, position.getErrorIndex());
+        Capturer.stopCapture();
+    }
+
+    @Test
+    public void testSuccessfulParseWithPositionReturnsDate() {
+        final SimpleDateFormat format = new SimpleDateFormat("yyyy");
+
+        final java.util.Date parsed = format.parse("2001", new ParsePosition(0));
+        Assertions.assertNotNull(parsed);
+        Assertions.assertEquals(format.toPattern(), "yyyy");
+        Capturer.stopCapture();
     }
 }
