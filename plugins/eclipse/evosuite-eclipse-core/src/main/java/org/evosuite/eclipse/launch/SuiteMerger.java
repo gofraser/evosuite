@@ -147,9 +147,7 @@ public final class SuiteMerger {
         existing.refreshLocal(IResource.DEPTH_ZERO, monitor);
         ITextFileBuffer buffer = FileBuffers.getTextFileBufferManager()
                 .getTextFileBuffer(existing.getFullPath(), LocationKind.IFILE);
-        if (buffer != null && buffer.isDirty()) {
-            return Result.incompatible(existing.getName() + " has unsaved changes in an editor");
-        }
+        boolean dirty = buffer != null && buffer.isDirty();
         String charset = existing.getCharset();
         String existingSource;
         try (InputStream in = existing.getContents()) {
@@ -157,8 +155,24 @@ public final class SuiteMerger {
         } catch (IOException e) {
             throw new CoreException(Activator.error("Cannot read " + existing.getFullPath(), e));
         }
-        Result result = merge(existingSource, generatedSource, suiteName);
-        if (result.isMerged() && !result.added.isEmpty()) {
+        if (buffer != null) existingSource = buffer.getDocument().get();
+        String snapshot = existingSource;
+        boolean owned = GeneratedSuiteRegistry.owns(existing.getLocation().toFile(), existingSource);
+        Result result = merge(existingSource, generatedSource, suiteName, owned);
+        if (result.isMerged() && !result.added.isEmpty() && dirty) {
+            String merged = result.source;
+            java.util.concurrent.atomic.AtomicBoolean changed = new java.util.concurrent.atomic.AtomicBoolean();
+            org.eclipse.swt.widgets.Display.getDefault().syncExec(() -> {
+                org.eclipse.jface.text.IDocument document = buffer.getDocument();
+                if (!snapshot.equals(document.get())) { changed.set(true); return; }
+                var undo = org.eclipse.text.undo.DocumentUndoManagerRegistry.getDocumentUndoManager(document);
+                if (undo != null) undo.beginCompoundChange();
+                try { document.set(merged); }
+                finally { if (undo != null) undo.endCompoundChange(); }
+            });
+            if (changed.get()) return Result.incompatible("the editor changed during merging; retry Add or compare");
+        } else if (result.isMerged() && !result.added.isEmpty()) {
+            if (buffer != null && buffer.isDirty()) return Result.incompatible("the editor changed during merging; retry Add or compare");
             existing.setContents(new ByteArrayInputStream(result.source.getBytes(Charset.forName(charset))),
                     IResource.KEEP_HISTORY, monitor);
         }
@@ -170,10 +184,14 @@ public final class SuiteMerger {
      * {@code suiteName} (a simple name).
      */
     public static Result merge(String existingSource, String generatedSource, String suiteName) {
+        return merge(existingSource, generatedSource, suiteName, false);
+    }
+
+    private static Result merge(String existingSource, String generatedSource, String suiteName, boolean owned) {
         // The parser takes a byte order mark for a stray character; the file keeps its own.
         boolean bom = existingSource.startsWith(BYTE_ORDER_MARK);
         Result result = mergeSources(withoutByteOrderMark(existingSource), withoutByteOrderMark(generatedSource),
-                suiteName);
+                suiteName, owned);
         if (!bom || result.source == null) {
             return result;
         }
@@ -184,7 +202,7 @@ public final class SuiteMerger {
         return source.startsWith(BYTE_ORDER_MARK) ? source.substring(BYTE_ORDER_MARK.length()) : source;
     }
 
-    private static Result mergeSources(String existingSource, String generatedSource, String suiteName) {
+    private static Result mergeSources(String existingSource, String generatedSource, String suiteName, boolean owned) {
         CompilationUnit existingUnit = parse(existingSource);
         CompilationUnit generatedUnit = parse(generatedSource);
         if (hasErrors(existingUnit)) {
@@ -202,7 +220,7 @@ public final class SuiteMerger {
             return Result.incompatible("the new suite declares no class " + suiteName);
         }
         String incompatibility = incompatibility(existingUnit, existingType, existingSource,
-                generatedUnit, generatedType, generatedSource);
+                generatedUnit, generatedType, generatedSource, owned);
         if (incompatibility != null) {
             return Result.incompatible(incompatibility);
         }
@@ -292,8 +310,8 @@ public final class SuiteMerger {
     /** Why the two suites cannot be merged, or {@code null}. */
     private static String incompatibility(CompilationUnit existingUnit, TypeDeclaration existingType,
                                           String existingSource, CompilationUnit generatedUnit,
-                                          TypeDeclaration generatedType, String generatedSource) {
-        if (!hasAnnotation(existingType, "EvoRunnerParameters")) {
+                                          TypeDeclaration generatedType, String generatedSource, boolean owned) {
+        if (!owned && !hasAnnotation(existingType, "EvoRunnerParameters")) {
             return "it is not a suite generated by EvoSuite (it has no @EvoRunnerParameters)";
         }
         String existingFormat = testFormat(existingUnit);

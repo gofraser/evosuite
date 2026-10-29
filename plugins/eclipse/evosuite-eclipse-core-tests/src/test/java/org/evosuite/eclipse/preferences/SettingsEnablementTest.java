@@ -220,7 +220,9 @@ public class SettingsEnablementTest {
                 select(page, PROVIDER, "Ollama (local)");
                 assertEnabled(page, false, PROVIDER, MODEL, CALLS);
                 properties.setUseProjectSettings(true);
-                assertEnabled(page, true, PROVIDER, MODEL, CALLS);
+                assertEnabled(page, true, PROVIDER);
+                assertEnabled(page, false, MODEL, CALLS);
+                assertEquals("None (no LLM)", ((Combo) control(page, PROVIDER)).getText(), "project draft restored");
             } finally {
                 dialog.close();
             }
@@ -265,6 +267,10 @@ public class SettingsEnablementTest {
 
     /** The checkbox or link whose text starts with {@code label}, or the control after such a label. */
     static Control control(Composite page, String label) {
+        if (label.equals("API key")) {
+            var provider = (Combo) find(page, "Provider");
+            label = provider != null && provider.getText().equals("Anthropic") ? "API key (ANTHROPIC)" : "API key (OPENAI)";
+        }
         Control found = find(page, label);
         if (found == null) {
             throw new AssertionError("no control labelled " + label);

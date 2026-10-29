@@ -28,6 +28,11 @@ import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.jface.preference.FieldEditor;
+import org.eclipse.ui.dialogs.ListSelectionDialog;
+import org.eclipse.jface.viewers.ArrayContentProvider;
+import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.jface.window.Window;
+import org.evosuite.eclipse.launch.SettingKeys;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.GridData;
@@ -66,6 +71,7 @@ class CriteriaFieldEditor extends FieldEditor {
     private Composite boxes;
     private final Map<String, Button> checkboxes = new LinkedHashMap<>();
     private Link othersLink;
+    private Link chooseLink;
     /** The criteria as loaded, whose order storing keeps. */
     private List<String> loaded = List.of();
     /** The criteria without a checkbox that are kept. */
@@ -143,6 +149,21 @@ class CriteriaFieldEditor extends FieldEditor {
             checkboxes.put(criterion, checkbox);
         });
 
+        chooseLink = new Link(boxes, SWT.NONE);
+        chooseLink.setText("<a>Choose additional criteria...</a>");
+        chooseLink.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, CHECKBOX_COLUMNS, 1));
+        chooseLink.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
+            List<String> choices = SettingKeys.SUPPORTED_CRITERIA.stream()
+                    .filter(c -> !DEFAULTS.containsKey(c)).toList();
+            ListSelectionDialog dialog = new ListSelectionDialog(boxes.getShell(), choices,
+                    ArrayContentProvider.getInstance(), new LabelProvider(), "Choose coverage criteria:");
+            dialog.setInitialSelections(others.toArray());
+            if (dialog.open() == Window.OK) {
+                others = java.util.Arrays.stream(dialog.getResult()).map(Object::toString).toList();
+                showOthers();
+                changed();
+            }
+        }));
         othersLink = new Link(boxes, SWT.WRAP);
         othersLink.setFont(parent.getFont());
         GridData othersLayout = new GridData(SWT.FILL, SWT.TOP, true, false, CHECKBOX_COLUMNS, 1);
@@ -192,6 +213,7 @@ class CriteriaFieldEditor extends FieldEditor {
         super.setEnabled(enabled, parent);
         checkboxes.values().forEach(c -> c.setEnabled(enabled));
         othersLink.setEnabled(enabled);
+        chooseLink.setEnabled(enabled);
     }
 
     private void show(String stored) {
@@ -207,6 +229,7 @@ class CriteriaFieldEditor extends FieldEditor {
         checkboxes.forEach((criterion, checkbox) -> checkbox.setSelection(all || loaded.contains(criterion)));
         showOthers();
         value = current();
+        update();
     }
 
     private void showOthers() {
@@ -240,11 +263,13 @@ class CriteriaFieldEditor extends FieldEditor {
         String oldValue = value;
         value = current();
         boolean wasValid = valid;
-        valid = !ticked().isEmpty() || !others.isEmpty();
+        valid = (!ticked().isEmpty() || !others.isEmpty())
+                && others.stream().map(c -> c.toUpperCase(Locale.ROOT)).allMatch(SettingKeys.SUPPORTED_CRITERIA::contains);
         if (valid) {
             clearErrorMessage();
         } else {
-            showErrorMessage("Select at least one coverage criterion.");
+            showErrorMessage(ticked().isEmpty() && others.isEmpty() ? "Select at least one coverage criterion."
+                    : "Choose supported coverage criteria using Choose additional criteria.");
         }
         if (valid != wasValid) {
             fireStateChanged(IS_VALID, wasValid, valid);

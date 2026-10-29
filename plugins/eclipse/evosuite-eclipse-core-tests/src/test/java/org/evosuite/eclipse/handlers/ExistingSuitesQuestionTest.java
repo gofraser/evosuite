@@ -57,8 +57,8 @@ public class ExistingSuitesQuestionTest {
                 question.message);
         assertTrue(question.message.contains("Replace: overwrite it with the new suite."), question.message);
         assertFalse(question.message.contains("choice applies"), question.message);
-        assertEquals(SuiteAction.REPLACE, question.defaultAction);
-        assertEquals(0, question.defaultButton());
+        assertEquals(SuiteAction.ADD, question.defaultAction);
+        assertEquals(1, question.defaultButton());
     }
 
     @Test

@@ -53,6 +53,24 @@ public class EvoSuitePreferencePage extends FieldEditorPreferencePage implements
     }
 
     @Override
+    protected org.eclipse.swt.widgets.Control createContents(org.eclipse.swt.widgets.Composite parent) {
+        var scroll = new org.eclipse.swt.custom.ScrolledComposite(parent, org.eclipse.swt.SWT.V_SCROLL) {
+            @Override public org.eclipse.swt.graphics.Point computeSize(int w, int h, boolean changed) {
+                return new org.eclipse.swt.graphics.Point(w == org.eclipse.swt.SWT.DEFAULT ? 620 : w,
+                        h == org.eclipse.swt.SWT.DEFAULT ? 450 : h);
+            }
+        };
+        scroll.setExpandHorizontal(true);
+        scroll.setExpandVertical(true);
+        var content = super.createContents(scroll);
+        scroll.setContent(content);
+        scroll.setMinSize(content.computeSize(600, org.eclipse.swt.SWT.DEFAULT));
+        scroll.addListener(org.eclipse.swt.SWT.Resize, e -> scroll.setMinSize(
+                content.computeSize(scroll.getClientArea().width, org.eclipse.swt.SWT.DEFAULT)));
+        return scroll;
+    }
+
+    @Override
     protected void createFieldEditors() {
         settings = SettingsFields.create(section, getFieldEditorParent(), true, this::addField);
     }
@@ -74,6 +92,11 @@ public class EvoSuitePreferencePage extends FieldEditorPreferencePage implements
     public void propertyChange(PropertyChangeEvent event) {
         super.propertyChange(event);
         settings.refresh(true);
+    }
+
+    @Override
+    public boolean performOk() {
+        return settings.saveKeys() && super.performOk();
     }
 
     SettingsFields settings() {

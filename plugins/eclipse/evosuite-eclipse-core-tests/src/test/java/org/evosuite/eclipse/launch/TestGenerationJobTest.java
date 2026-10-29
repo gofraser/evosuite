@@ -263,8 +263,10 @@ public class TestGenerationJobTest {
         TestProjects.build(project);
         assertEquals(List.of(), TestProjects.compileErrors(project));
         // The new suites went through the plug-in's state area, which keeps nothing of them.
-        String[] left = Activator.getDefault().getStateLocation().append("generated").toFile().list();
-        assertTrue(left == null || left.length == 0, "temporary output left behind");
+        var records = RunHistory.entries().stream().filter(e -> e.get("project").equals(project.getElementName())).toList();
+        assertTrue(records.stream().allMatch(e -> e.get("recovery").isEmpty()), "successful placement retained recovery files");
+        assertTrue(records.stream().allMatch(e -> e.get("staging").isEmpty()
+                || !new java.io.File(e.get("staging")).exists()), "successful source staging was not removed");
     }
 
     /**

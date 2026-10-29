@@ -61,9 +61,9 @@ public class SettingsPagesLayoutTest {
     public void everyWorkspacePageShowsEveryEditor() throws Exception {
         onUiThread(() -> {
             // Budget, test folder, suffix and time limit.
-            assertPage(SettingsDialogs.preferences(Section.GENERAL), EvoSuitePreferencePage.class, 4, "general");
+            assertPage(SettingsDialogs.preferences(Section.GENERAL), EvoSuitePreferencePage.class, 5, "general");
             // Model, base URL, API key and calls.
-            assertPage(SettingsDialogs.preferences(Section.LLM), LlmPreferencePage.class, 4, "llm");
+            assertPage(SettingsDialogs.preferences(Section.LLM), LlmPreferencePage.class, 9, "llm");
             // Java home, heap and arguments.
             assertPage(SettingsDialogs.preferences(Section.ADVANCED), AdvancedPreferencePage.class, 3, "advanced");
         });
@@ -73,10 +73,10 @@ public class SettingsPagesLayoutTest {
     public void everyProjectPageShowsEveryEditor() throws Exception {
         IProject project = TestProjects.create("layout", "src", null).getProject();
         onUiThread(() -> {
-            assertPage(SettingsDialogs.properties(project, Section.GENERAL), EvoSuitePropertyPage.class, 4,
+            assertPage(SettingsDialogs.properties(project, Section.GENERAL), EvoSuitePropertyPage.class, 5,
                     "project-general");
             // The project pages leave out the API key, which belongs to the workspace.
-            assertPage(SettingsDialogs.properties(project, Section.LLM), LlmPropertyPage.class, 3, "project-llm");
+            assertPage(SettingsDialogs.properties(project, Section.LLM), LlmPropertyPage.class, 7, "project-llm");
             assertPage(SettingsDialogs.properties(project, Section.ADVANCED), AdvancedPropertyPage.class, 3,
                     "project-advanced");
         });
@@ -101,6 +101,13 @@ public class SettingsPagesLayoutTest {
             Shell shell = dialog.getShell();
             Rectangle visible = shell.getClientArea();
             for (Control input : inputs) {
+                org.eclipse.swt.widgets.Composite ancestor = input.getParent();
+                while (ancestor != null && !(ancestor instanceof org.eclipse.swt.custom.ScrolledComposite)) ancestor = ancestor.getParent();
+                if (ancestor instanceof org.eclipse.swt.custom.ScrolledComposite scroll) {
+                    scroll.setShowFocusedControl(true);
+                    scroll.showControl(input);
+                    SettingsDialogs.pump();
+                }
                 Point size = input.getSize();
                 Rectangle bounds = shell.getDisplay().map(input.getParent(), shell, input.getBounds());
                 if (size.x <= 0 || size.y <= 0 || !input.isVisible() || !visible.contains(bounds.x + bounds.width - 1,

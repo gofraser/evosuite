@@ -96,8 +96,11 @@ final class SettingsFields {
     private final List<Field> fields = new ArrayList<>();
     private final List<Composite> groups = new ArrayList<>();
     private BooleanFieldEditor assertions;
+    private BooleanFieldEditor minimize;
     private ChoiceFieldEditor provider;
     private ChoiceFieldEditor approach;
+    private final List<ApiKeyFieldEditor> keys = new ArrayList<>();
+    private boolean workspacePage;
     private Text modelName;
     private Text baseUrl;
 
@@ -112,6 +115,7 @@ final class SettingsFields {
      */
     static SettingsFields create(Section section, Composite parent, boolean workspace, Consumer<FieldEditor> add) {
         SettingsFields settings = new SettingsFields();
+        settings.workspacePage = workspace;
         switch (section) {
             case GENERAL -> settings.general(parent);
             case LLM -> settings.llm(parent, workspace);
@@ -185,21 +189,40 @@ final class SettingsFields {
                 "Search &budget per class (seconds):", search);
         budget.setValidRange(1, 24 * 60 * 60);
         add(budget, search);
+        StringFieldEditor seed = new ValidatedStringFieldEditor(EvoSuitePreferences.RANDOM_SEED,
+                "Random &seed:", search, value -> {
+                    if (value.isBlank()) return true;
+                    try { Long.parseLong(value.trim()); return true; }
+                    catch (NumberFormatException e) { return false; }
+                }, "Random seed must be a signed 64-bit integer, or empty for a fresh seed.");
+        seed.getTextControl(search).setMessage("Fresh seed per class (recorded in Runs)");
+        add(seed, search);
         add(new CriteriaFieldEditor(EvoSuitePreferences.CRITERION, "Coverage &criteria:", search), search);
         assertions = new BooleanFieldEditor(EvoSuitePreferences.ASSERTIONS, "Generate &assertions", search);
         add(assertions, search);
         add(new ChoiceFieldEditor(EvoSuitePreferences.ASSERTION_STRATEGY, "Assertions &kept:",
                 new String[][]{{"Those that detect faults (fewer)", "MUTATION"},
                         {"All observed values (more)", "ALL"}}, search), search, assertions::getBooleanValue);
-        add(new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE, "&Minimize tests", search), search);
+        minimize = new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE,
+                "&Minimize tests (remove redundant tests and statements)", search);
+        add(minimize, search);
+        add(new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE_VALUES,
+                "Minimize &values (simplify constants)", search), search, minimize::getBooleanValue);
 
         Composite output = group(parent, "Generated tests");
         add(new ChoiceFieldEditor(EvoSuitePreferences.TEST_FORMAT, "Test &format:",
-                new String[][]{{"JUnit 5", GenerationOptions.JUNIT5}, {"JUnit 4", GenerationOptions.JUNIT4}},
+                new String[][]{{"Automatic (JUnit 4 or JUnit 5)", ""}, {"JUnit 5", GenerationOptions.JUNIT5}, {"JUnit 4", GenerationOptions.JUNIT4}},
                 output), output);
-        add(new StringFieldEditor(EvoSuitePreferences.TEST_FOLDER,
-                "Test &source folder (project-relative):", output), output);
-        add(new StringFieldEditor(EvoSuitePreferences.TEST_SUFFIX, "Test class s&uffix:", output), output);
+        add(new BooleanFieldEditor(EvoSuitePreferences.NO_RUNTIME_DEPENDENCY,
+                "Omit EvoSuite runtime &dependency", output), output);
+        add(new ValidatedStringFieldEditor(EvoSuitePreferences.TEST_FOLDER,
+                "Test &source folder (project-relative):", output, value -> {
+                    try { var path = java.nio.file.Path.of(value).normalize();
+                        return !value.isBlank() && !path.isAbsolute() && !path.startsWith("..") && !path.toString().equals("."); }
+                    catch (RuntimeException e) { return false; }
+                }, "Choose a test folder inside the project."), output);
+        add(new ValidatedStringFieldEditor(EvoSuitePreferences.TEST_SUFFIX, "Test class s&uffix:", output,
+                value -> value.matches("[A-Za-z_$][A-Za-z0-9_$]*"), "Test suffix must be a Java identifier."), output);
         add(new ChoiceFieldEditor(EvoSuitePreferences.TEST_NAMING, "Test &names:",
                 new String[][]{{"Numbered (test0, test1, ...)", "NUMBERED"},
                         {"Descriptive (from what each test covers)", "COVERAGE"}}, output), output);
@@ -229,9 +252,25 @@ final class SettingsFields {
         baseUrl = baseUrlEditor.getTextControl(model);
         add(baseUrlEditor, model, this::llmOn);
         if (workspace) {
-            ApiKeyFieldEditor key = new ApiKeyFieldEditor("API &key:", model);
-            key.getTextControl(model).setMessage("Kept in secure storage");
-            add(key, model, this::llmNeedsKey);
+            for (String cloud : List.of(GenerationOptions.LLM_OPENAI, GenerationOptions.LLM_ANTHROPIC)) {
+                ApiKeyFieldEditor key = new ApiKeyFieldEditor("API &key (" + cloud + "):", model, cloud);
+                keys.add(key);
+                add(key, model, () -> key.loaded() || (llmNeedsKey() && cloud.equals(provider.getValue())));
+                org.eclipse.swt.widgets.Button load = new org.eclipse.swt.widgets.Button(model, SWT.PUSH);
+                load.setText("Load stored " + cloud + " API key");
+                load.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false, COLUMNS, 1));
+                load.addListener(SWT.Selection, e -> { key.loadStored(); refresh(true); });
+            }
+            org.eclipse.swt.widgets.Button legacy = new org.eclipse.swt.widgets.Button(model, SWT.PUSH);
+            legacy.setText("Import legacy shared key for selected provider");
+            legacy.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false, COLUMNS, 1));
+            legacy.addListener(SWT.Selection, e -> {
+                if (!llmNeedsKey()) return;
+                String value = LlmApiKey.get();
+                for (ApiKeyFieldEditor key : keys) {
+                    if (key.getLabelText().contains(provider.getValue())) key.setStringValue(value);
+                }
+            });
         }
 
         Composite use = group(parent, "Test generation");
@@ -255,6 +294,26 @@ final class SettingsFields {
                 "Improve test names, comments and assertions &with the LLM", use), use, this::llmOn);
         add(new OptionalIntegerFieldEditor(EvoSuitePreferences.LLM_MAX_CALLS, "LLM ca&lls per class:", use,
                 1_000_000, "EvoSuite default (no limit)"), use, this::llmOn);
+        Composite context = group(parent, "Model controls");
+        add(new ChoiceFieldEditor(EvoSuitePreferences.LLM_CONTEXT_MODE, "Class &context:",
+                new String[][]{{"Signatures only", "SIGNATURE_ONLY"}, {"Project source", "SOURCE_CODE"},
+                        {"Decompiled source", "DECOMPILED_SOURCE"},
+                        {"Disassembled bytecode", "BYTECODE_DISASSEMBLED"}}, context), context, this::llmOn);
+        add(positiveInteger(EvoSuitePreferences.LLM_MAX_TOKENS, "Output token limit:", context), context, this::llmOn);
+        add(positiveInteger(EvoSuitePreferences.LLM_TIMEOUT_SECONDS, "HTTP timeout (seconds):", context), context, this::llmOn);
+        IntegerFieldEditor retries = new IntegerFieldEditor(EvoSuitePreferences.LLM_RETRY_MAX_ATTEMPTS,
+                "Retry attempts:", context);
+        retries.setValidRange(0, 1_000_000);
+        add(retries, context, this::llmOn);
+        add(new ValidatedStringFieldEditor(EvoSuitePreferences.LLM_TEMPERATURE, "Temperature:", context,
+                value -> {
+                    try { double n = Double.parseDouble(value); return Double.isFinite(n) && n >= 0 && n <= 2; }
+                    catch (NumberFormatException e) { return false; }
+                }, "Temperature must be between 0 and 2."), context, this::llmOn);
+        org.eclipse.swt.widgets.Button check = new org.eclipse.swt.widgets.Button(parent, SWT.PUSH);
+        check.setText("Test connection (metadata only)");
+        check.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false, COLUMNS, 1));
+        check.addListener(SWT.Selection, e -> testConnection(parent));
         note(parent, workspace ? "More llm_* options can go into the additional arguments under Advanced."
                 : "More llm_* options can go into the additional arguments under Advanced. The API key "
                         + "is a workspace setting.");
@@ -269,16 +328,88 @@ final class SettingsFields {
         add(javaHome, runtime);
         add(new OptionalIntegerFieldEditor(EvoSuitePreferences.CLIENT_MEMORY, "Client &heap (MB):", runtime,
                 1024 * 1024, "EvoSuite default"), runtime);
-        StringFieldEditor arguments = new StringFieldEditor(EvoSuitePreferences.EXTRA_ARGUMENTS,
-                "Additional &arguments:", runtime);
+        StringFieldEditor arguments = new ValidatedStringFieldEditor(EvoSuitePreferences.EXTRA_ARGUMENTS,
+                "Additional &arguments:", runtime, value -> org.evosuite.eclipse.launch.EvoSuiteCommand.splitArguments(value)
+                        .stream().noneMatch(a -> a.startsWith("-Dllm_api_key=")),
+                "Store API keys in secure storage on the LLM page.");
         arguments.getTextControl(runtime).setMessage("Passed last, e.g. -Dllm_temperature=0.2");
         add(arguments, runtime);
 
         Composite project = group(parent, "Project setup");
         add(new BooleanFieldEditor(EvoSuitePreferences.USE_POM_SETTINGS,
                 "Take settings from the EvoSuite Maven plugin in pom.&xml", project), project);
+        if (!workspacePage) add(new BooleanFieldEditor("delegateToMaven",
+                "Run whole-class requests through the Maven plugin", project), project);
         add(new BooleanFieldEditor(EvoSuitePreferences.CONFIGURE_BUILD_PATH,
                 "Add the test folder, JUnit and the EvoSuite runtime to the build &path", project), project);
+    }
+
+    void loadFrom(org.eclipse.jface.preference.IPreferenceStore store) {
+        for (Field field : fields) {
+            if (field.editor instanceof ApiKeyFieldEditor) continue;
+            var previous = field.editor.getPreferenceStore();
+            try { field.editor.setPreferenceStore(store); field.editor.load(); }
+            finally { field.editor.setPreferenceStore(previous); }
+        }
+    }
+
+    org.eclipse.jface.preference.IPreferenceStore snapshot() {
+        var result = new org.eclipse.jface.preference.PreferenceStore();
+        for (Field field : fields) {
+            if (field.editor instanceof ApiKeyFieldEditor) continue;
+            var previous = field.editor.getPreferenceStore();
+            try { field.editor.setPreferenceStore(result); field.editor.store(); }
+            finally { field.editor.setPreferenceStore(previous); }
+        }
+        return result;
+    }
+
+    boolean saveKeys() {
+        keys.forEach(ApiKeyFieldEditor::store);
+        return keys.stream().allMatch(ApiKeyFieldEditor::saved);
+    }
+
+    GenerationOptions draft() {
+        org.eclipse.jface.preference.PreferenceStore draft = new org.eclipse.jface.preference.PreferenceStore();
+        for (Field field : fields) {
+            if (field.editor instanceof ApiKeyFieldEditor) continue;
+            var previous = field.editor.getPreferenceStore();
+            try { field.editor.setPreferenceStore(draft); field.editor.store(); }
+            finally { field.editor.setPreferenceStore(previous); }
+        }
+        java.util.Map<String, String> values = new java.util.LinkedHashMap<>();
+        for (String key : org.evosuite.eclipse.launch.SettingKeys.all())
+            if (draft.contains(key)) values.put(key, draft.getString(key));
+        return org.evosuite.eclipse.launch.SettingKeys.resolve(values);
+    }
+
+    private void testConnection(Composite parent) {
+        GenerationOptions options;
+        try { options = draft(); }
+        catch (IllegalArgumentException e) { org.eclipse.jface.dialogs.MessageDialog.openError(parent.getShell(),
+                "EvoSuite", e.getMessage()); return; }
+        String typed = keys.stream().filter(k -> k.getLabelText().contains(options.llmProvider))
+                .map(ApiKeyFieldEditor::getStringValue).findFirst().orElse("");
+        org.eclipse.core.runtime.jobs.Job.create("Checking LLM metadata", monitor -> {
+            String result;
+            try {
+                String key = typed;
+                if (key.isBlank() && (GenerationOptions.LLM_OPENAI.equals(options.effectiveLlmProvider())
+                        || GenerationOptions.LLM_ANTHROPIC.equals(options.effectiveLlmProvider()))) key = LlmApiKey.get(options.llmProvider);
+                if (key.isBlank() && !GenerationOptions.LLM_OLLAMA.equals(options.effectiveLlmProvider())) key = System.getenv().getOrDefault(org.evosuite.eclipse.launch.EvoSuiteCommand.API_KEY_VARIABLE, "");
+                result = org.evosuite.eclipse.launch.LlmConnectionCheck.probe(options, key, monitor);
+            } catch (org.eclipse.core.runtime.OperationCanceledException e) { return; }
+            catch (Exception e) { result = "Connection check failed. Check the endpoint, network and provider credentials. No generation request was sent."; }
+            String message = result;
+            parent.getDisplay().asyncExec(() -> { if (!parent.isDisposed()) org.eclipse.jface.dialogs.MessageDialog
+                    .openInformation(parent.getShell(), "EvoSuite connection check", message); });
+        }).schedule();
+    }
+
+    private static IntegerFieldEditor positiveInteger(String key, String label, Composite parent) {
+        IntegerFieldEditor editor = new IntegerFieldEditor(key, label, parent);
+        editor.setValidRange(1, 1_000_000);
+        return editor;
     }
 
     private void add(FieldEditor editor, Composite parent) {

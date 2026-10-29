@@ -72,6 +72,15 @@ public final class EvoSuitePreferences {
     public static final String LLM_POSTPROCESSING = "llmPostprocessing";
     public static final String LLM_MAX_CALLS = "llmMaxCalls";
 
+    public static final String MINIMIZE_VALUES = "minimizeValues";
+    public static final String NO_RUNTIME_DEPENDENCY = "noRuntimeDependency";
+    public static final String RANDOM_SEED = "randomSeed";
+    public static final String LLM_CONTEXT_MODE = "llmContextMode";
+    public static final String LLM_MAX_TOKENS = "llmMaxTokens";
+    public static final String LLM_TIMEOUT_SECONDS = "llmTimeoutSeconds";
+    public static final String LLM_RETRY_MAX_ATTEMPTS = "llmRetryMaxAttempts";
+    public static final String LLM_TEMPERATURE = "llmTemperature";
+
     private EvoSuitePreferences() {
     }
 
@@ -81,6 +90,14 @@ public final class EvoSuitePreferences {
         IEclipsePreferences node = DefaultScope.INSTANCE.getNode(QUALIFIER);
         node.putBoolean(USE_PROJECT_SETTINGS, false);
         node.putInt(SEARCH_BUDGET, d.searchBudget);
+        node.putBoolean(MINIMIZE_VALUES, d.minimizeValues);
+        node.putBoolean(NO_RUNTIME_DEPENDENCY, d.noRuntimeDependency);
+        node.put(RANDOM_SEED, d.randomSeed);
+        node.put(LLM_CONTEXT_MODE, d.llmContextMode);
+        node.putInt(LLM_MAX_TOKENS, d.llmMaxTokens);
+        node.putInt(LLM_TIMEOUT_SECONDS, d.llmTimeoutSeconds);
+        node.putInt(LLM_RETRY_MAX_ATTEMPTS, d.llmRetryMaxAttempts);
+        node.put(LLM_TEMPERATURE, d.llmTemperature);
         node.put(CRITERION, d.criterion);
         node.putBoolean(ASSERTIONS, d.assertions);
         node.putBoolean(MINIMIZE, d.minimize);
@@ -199,6 +216,14 @@ public final class EvoSuitePreferences {
         GenerationOptions d = new GenerationOptions();
         GenerationOptions o = new GenerationOptions();
         o.searchBudget = prefs.getInt(SEARCH_BUDGET, d.searchBudget);
+        o.minimizeValues = prefs.getBoolean(MINIMIZE_VALUES, d.minimizeValues);
+        o.noRuntimeDependency = prefs.getBoolean(NO_RUNTIME_DEPENDENCY, d.noRuntimeDependency);
+        o.randomSeed = prefs.getString(RANDOM_SEED, d.randomSeed);
+        o.llmContextMode = prefs.getString(LLM_CONTEXT_MODE, d.llmContextMode);
+        o.llmMaxTokens = prefs.getInt(LLM_MAX_TOKENS, d.llmMaxTokens);
+        o.llmTimeoutSeconds = prefs.getInt(LLM_TIMEOUT_SECONDS, d.llmTimeoutSeconds);
+        o.llmRetryMaxAttempts = prefs.getInt(LLM_RETRY_MAX_ATTEMPTS, d.llmRetryMaxAttempts);
+        o.llmTemperature = prefs.getString(LLM_TEMPERATURE, d.llmTemperature);
         o.criterion = prefs.getString(CRITERION, d.criterion);
         o.assertions = prefs.getBoolean(ASSERTIONS, d.assertions);
         o.minimize = prefs.getBoolean(MINIMIZE, d.minimize);
@@ -227,6 +252,7 @@ public final class EvoSuitePreferences {
         o.llmMaxCalls = prefs.getInt(LLM_MAX_CALLS, d.llmMaxCalls);
         // Trimmed once here, so that every user of a setting sees the same value.
         o.criterion = o.criterion.trim();
+        o.randomSeed = o.randomSeed.trim();
         o.testSuffix = o.testSuffix.isBlank() ? d.testSuffix : o.testSuffix.trim();
         o.testFolder = o.testFolder.isBlank() ? d.testFolder : o.testFolder.trim();
         o.javaHome = o.javaHome.trim();

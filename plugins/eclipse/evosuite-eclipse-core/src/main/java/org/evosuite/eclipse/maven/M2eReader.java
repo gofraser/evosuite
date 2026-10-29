@@ -57,6 +57,10 @@ final class M2eReader {
      * The plug-in's configuration, {@code null} if the project does not use the plug-in, or
      * {@link PomSettings#NOT_LOADED} on the UI thread if m2e has not loaded the pom yet.
      */
+    static void refresh(IProject project, IProgressMonitor monitor) throws CoreException {
+        MavenPlugin.getProjectConfigurationManager().updateProjectConfiguration(project, monitor);
+    }
+
     static PomSettings read(IProject project, IProgressMonitor monitor) throws CoreException {
         IMavenProjectFacade facade = MavenPlugin.getMavenProjectRegistry().getProject(project);
         return facade == null ? null : read(facade, monitor);

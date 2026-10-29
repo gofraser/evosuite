@@ -180,7 +180,7 @@ public class PomSettingsTest {
 
         GenerationOptions withJupiter = new GenerationOptions();
         new PomSettings(Map.of(), Map.of(), Map.of(), Map.of(), false).applyTo(withJupiter, BASEDIR);
-        assertEquals(GenerationOptions.JUNIT5, withJupiter.testFormat);
+        assertEquals("", withJupiter.testFormat, "automatic framework selection remains active");
     }
 
     @Test

@@ -198,7 +198,7 @@ public class EvoSuiteCommandTest {
         options.llmOnStagnation = true;
         // Only the trace folder, which keeps traces out of the project should the LLM be switched
         // on some other way.
-        assertFalse(arguments(options).stream().anyMatch(a -> (a.contains("llm") && !a.startsWith("-Dllm_trace_dir="))
+        assertFalse(arguments(options).stream().anyMatch(a -> (a.contains("llm") && !a.startsWith("-Dllm_trace_dir=") && !a.equals("-Dllm_provider=NONE"))
                 || a.contains("strategy")));
     }
 
@@ -243,7 +243,8 @@ public class EvoSuiteCommandTest {
         assertFalse(options.usesLlm());
         assertEquals("NONE", options.effectiveLlmProvider());
         assertFalse(args.contains("-Dllm_provider=ANTHROPIC") || args.contains("-Dllm_on_stagnation=true"));
-        assertEquals("-Dllm_provider=NONE", args.get(args.size() - 1), "the last word on the provider");
+        assertEquals("-Dllm_provider=NONE", args.stream().filter(a -> a.startsWith("-Dllm_provider=")).toList().getLast(), "the last word on the provider");
+        assertTrue(args.contains("-Dstrategy=MOSUITE"));
         // The settings themselves are untouched, ready for when the LLM is switched back on.
         assertEquals("claude-sonnet-5-5", options.llmModel);
     }

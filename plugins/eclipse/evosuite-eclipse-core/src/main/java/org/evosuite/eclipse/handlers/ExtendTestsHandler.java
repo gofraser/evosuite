@@ -148,7 +148,7 @@ public class ExtendTestsHandler extends AbstractHandler {
             IType classUnderTest = inference.classUnderTest() != null ? inference.classUnderTest()
                     : chooser.choose(shell, test, inference);
             if (classUnderTest == null) {
-                continue;
+                return Map.of();
             }
             while (classUnderTest.getDeclaringType() != null) {
                 classUnderTest = classUnderTest.getDeclaringType();

@@ -66,8 +66,7 @@ public class MenuVisibilityTest {
                 .getConfigurationElementsFor("org.eclipse.ui.menus")) {
             if (Activator.PLUGIN_ID.equals(contribution.getContributor().getName())
                     && contribution.getAttribute("locationURI").startsWith("popup:org.eclipse.ui.popup.any")) {
-                IConfigurationElement condition = contribution.getChildren("command")[0].getChildren("visibleWhen")[0];
-                visibleWhen = ExpressionConverter.getDefault().perform(condition.getChildren()[0]);
+                visibleWhen = condition(contribution, "org.evosuite.eclipse.generateTests");
                 methodVisibleWhen = condition(contribution, METHOD_COMMAND);
                 extendVisibleWhen = condition(contribution, EXTEND_COMMAND);
             } else if (Activator.PLUGIN_ID.equals(contribution.getContributor().getName())

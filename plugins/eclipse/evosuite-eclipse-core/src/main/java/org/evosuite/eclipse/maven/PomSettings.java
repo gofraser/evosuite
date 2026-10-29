@@ -140,6 +140,7 @@ public final class PomSettings {
         if (value.isEmpty() || !m.matches()) {
             return -1;
         }
+        try {
         long seconds = 0;
         if (m.group(1) != null) {
             seconds += 3600L * Long.parseLong(m.group(1));
@@ -150,7 +151,8 @@ public final class PomSettings {
         if (m.group(3) != null) {
             seconds += Long.parseLong(m.group(3));
         }
-        return seconds > Integer.MAX_VALUE ? -1 : (int) seconds;
+        return seconds > Integer.MAX_VALUE || seconds < 0 ? -1 : (int) seconds;
+        } catch (NumberFormatException e) { return -1; }
     }
 
     /** The cores parameter is named numberOfCores in the Maven plug-in, with cores as an alias. */

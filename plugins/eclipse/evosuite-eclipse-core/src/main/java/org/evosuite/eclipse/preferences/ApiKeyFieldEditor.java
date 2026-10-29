@@ -37,16 +37,34 @@ class ApiKeyFieldEditor extends StringFieldEditor {
 
     /** The key as stored when the page opened, or {@code null} if it could not be read. */
     private String stored;
+    private String provider = "OPENAI";
+    private boolean loaded;
+    private boolean saved = true;
 
     ApiKeyFieldEditor(String label, Composite parent) {
         super("llmApiKey.secure", label, parent);
         getTextControl(parent).setEchoChar('•');
     }
 
+    ApiKeyFieldEditor(String label, Composite parent, String provider) {
+        this(label, parent);
+        this.provider = provider;
+    }
+
+    void loadStored() {
+        loaded = true;
+        doLoad();
+    }
+
+    boolean saved() { return saved; }
+
+    boolean loaded() { return loaded; }
+
     @Override
     protected void doLoad() {
+        if (!loaded) { getTextControl().setMessage("Load stored key, or enter a replacement"); return; }
         try {
-            stored = LlmApiKey.read();
+            stored = LlmApiKey.read(provider);
         } catch (StorageException e) {
             Activator.logError("Cannot read the LLM API key from secure storage", e);
             stored = null;
@@ -73,9 +91,13 @@ class ApiKeyFieldEditor extends StringFieldEditor {
             return;
         }
         try {
-            LlmApiKey.set(key);
+            LlmApiKey.set(provider, key);
             stored = key;
+            saved = true;
         } catch (StorageException e) {
+            saved = false;
+            org.eclipse.jface.dialogs.MessageDialog.openError(getTextControl().getShell(), "API key not saved",
+                    "Secure storage could not save this provider's key. Apply again to retry.");
             Activator.logError("Cannot store the LLM API key in secure storage", e);
         }
     }

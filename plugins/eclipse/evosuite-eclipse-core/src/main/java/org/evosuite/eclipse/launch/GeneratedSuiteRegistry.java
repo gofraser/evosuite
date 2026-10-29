@@ -1,0 +1,131 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.eclipse.launch;
+
+import org.eclipse.jdt.core.dom.*;
+import org.evosuite.eclipse.Activator;
+
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+import java.util.regex.*;
+import java.util.regex.Pattern;
+
+/** Machine-local ownership of runtime-free suites; paths alone never authorize replacement. */
+public final class GeneratedSuiteRegistry {
+    private static final Pattern MARKER =
+            Pattern.compile("// EvoSuite Eclipse generated suite: ([a-f0-9-]{36})");
+
+    private GeneratedSuiteRegistry() {}
+
+    private static Path registry() {
+        return Activator.getDefault()
+                .getStateLocation()
+                .append("generated-suites.properties")
+                .toFile()
+                .toPath();
+    }
+
+    private static Properties load() {
+        Properties values = new Properties();
+        if (Files.isRegularFile(registry())) {
+            try (InputStream in = Files.newInputStream(registry())) {
+                values.load(in);
+            } catch (IOException e) {
+                Activator.logError("Cannot read generated-suite ownership", e);
+            }
+        }
+        return values;
+    }
+
+    private static String key(File file) {
+        return file.toPath().toAbsolutePath().normalize().toString();
+    }
+
+    static String marker(String source) {
+        var parser = ASTParser.newParser(AST.getJLSLatest());
+        parser.setSource(source.toCharArray());
+        CompilationUnit unit = (CompilationUnit) parser.createAST(null);
+        for (Object entry : unit.getCommentList()) {
+            Comment comment = (Comment) entry;
+            if (comment.isLineComment()) {
+                Matcher match =
+                        MARKER.matcher(
+                                source.substring(
+                                                comment.getStartPosition(),
+                                                comment.getStartPosition() + comment.getLength())
+                                        .stripTrailing());
+                if (match.matches()) return match.group(1);
+            }
+        }
+        return "";
+    }
+
+    public static synchronized boolean owns(File file, String source) {
+        String id = marker(source);
+        return !id.isEmpty() && id.equals(load().getProperty(key(file)));
+    }
+
+    public static synchronized String decorate(File file, String source) {
+        String id = load().getProperty(key(file), UUID.randomUUID().toString());
+        return "// EvoSuite Eclipse generated suite: " + id + "\n" + source;
+    }
+
+    public static synchronized void record(File file, String source) {
+        String id = marker(source);
+        if (id.isEmpty()) return;
+        Properties values = load();
+        values.setProperty(key(file), id);
+        try {
+            Files.createDirectories(registry().getParent());
+            Path temp = Files.createTempFile(registry().getParent(), "ownership-", ".tmp");
+            try {
+                try (OutputStream out = Files.newOutputStream(temp)) {
+                    values.store(out, "EvoSuite generated suites");
+                }
+                Files.move(temp, registry(), StandardCopyOption.REPLACE_EXISTING);
+            } finally {
+                Files.deleteIfExists(temp);
+            }
+        } catch (IOException e) {
+            Activator.logError("Cannot store generated-suite ownership", e);
+        }
+    }
+
+    /** Only a real class annotation establishes ownership of runtime-dependent output. */
+    public static boolean annotated(String source) {
+        var parser = ASTParser.newParser(AST.getJLSLatest());
+        parser.setSource(source.toCharArray());
+        CompilationUnit unit = (CompilationUnit) parser.createAST(null);
+        for (Object type : unit.types()) {
+            if (type instanceof TypeDeclaration declaration) {
+                for (Object modifier : declaration.modifiers()) {
+                    if (modifier instanceof Annotation annotation) {
+                        String name = annotation.getTypeName().getFullyQualifiedName();
+                        if (name.equals("EvoRunnerParameters")
+                                || name.equals("org.evosuite.runtime.EvoRunnerParameters"))
+                            return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+}

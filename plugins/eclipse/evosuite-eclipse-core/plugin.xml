@@ -23,7 +23,14 @@
 <?eclipse version="3.4"?>
 <plugin>
 
+   <extension point="org.eclipse.ui.views">
+      <category id="org.evosuite.eclipse" name="EvoSuite"/>
+      <view id="org.evosuite.eclipse.runs" name="EvoSuite Runs" category="org.evosuite.eclipse"
+            class="org.evosuite.eclipse.ui.RunResultsView" icon="icons/evosuite.png" restorable="true"/>
+   </extension>
    <extension point="org.eclipse.ui.commands">
+      <command id="org.evosuite.eclipse.measureCoverage" name="Measure Existing Test Coverage with EvoSuite"
+               categoryId="org.eclipse.jdt.ui.category.source"/>
       <command
             id="org.evosuite.eclipse.generateTests"
             name="Generate Tests with EvoSuite"
@@ -51,6 +58,7 @@
    </extension>
 
    <extension point="org.eclipse.ui.handlers">
+      <handler class="org.evosuite.eclipse.handlers.MeasureCoverageHandler" commandId="org.evosuite.eclipse.measureCoverage"/>
       <handler
             class="org.evosuite.eclipse.handlers.GenerateTestsHandler"
             commandId="org.evosuite.eclipse.generateTests">
@@ -68,6 +76,11 @@
    <extension point="org.eclipse.ui.menus">
       <!-- Package Explorer, Project Explorer and outline: classes, packages, source folders, projects. -->
       <menuContribution locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+         <command commandId="org.evosuite.eclipse.measureCoverage" style="push">
+            <visibleWhen checkEnabled="false"><with variable="activeMenuSelection"><iterate ifEmpty="false" operator="or">
+               <adapt type="org.eclipse.jdt.core.IJavaElement"><test property="org.evosuite.eclipse.coverageSelection" forcePluginActivation="true"/></adapt>
+            </iterate></with></visibleWhen>
+         </command>
          <command commandId="org.evosuite.eclipse.generateTests" style="push">
             <visibleWhen checkEnabled="false">
                <with variable="activeMenuSelection">
@@ -124,6 +137,13 @@
             </visibleWhen>
          </command>
          <command commandId="org.evosuite.eclipse.extendTests" style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="activePart">
+                  <test property="org.evosuite.eclipse.editsTestClass" forcePluginActivation="true"/>
+               </with>
+            </visibleWhen>
+         </command>
+         <command commandId="org.evosuite.eclipse.measureCoverage" style="push">
             <visibleWhen checkEnabled="false">
                <with variable="activePart">
                   <test property="org.evosuite.eclipse.editsTestClass" forcePluginActivation="true"/>

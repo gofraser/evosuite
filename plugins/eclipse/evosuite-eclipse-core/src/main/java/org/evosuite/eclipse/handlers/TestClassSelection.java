@@ -77,7 +77,10 @@ public final class TestClassSelection {
             if (element == null || !element.exists()) {
                 continue;
             }
-            if (element instanceof ICompilationUnit unit) {
+            if (element instanceof org.eclipse.jdt.core.IParent parent
+                    && !(element instanceof ICompilationUnit) && !(element instanceof IType)) {
+                tests.addAll(collect(List.of(parent.getChildren())));
+            } else if (element instanceof ICompilationUnit unit) {
                 IType type = unit.findPrimaryType();
                 if (type != null && isTestClass(type)) {
                     tests.add(type);

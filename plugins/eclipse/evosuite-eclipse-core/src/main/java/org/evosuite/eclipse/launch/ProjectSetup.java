@@ -250,7 +250,7 @@ public final class ProjectSetup {
     }
 
     /** Creates {@code container} and its missing parents, if it is a folder. */
-    static void createFolders(IContainer container) throws CoreException {
+    public static void createFolders(IContainer container) throws CoreException {
         create(container, null);
     }
 
@@ -355,7 +355,7 @@ public final class ProjectSetup {
                                                    IProgressMonitor monitor) throws CoreException {
         List<IClasspathEntry> additions = new ArrayList<>();
         List<String> names = new ArrayList<>();
-        if (GenerationOptions.JUNIT4.equals(options.testFormat)) {
+        if (GenerationOptions.JUNIT4.equals(options.effectiveTestFormat())) {
             if (project.findType("org.junit.Test") == null) {
                 additions.add(JavaCore.newContainerEntry(JUnitCore.JUNIT4_CONTAINER_PATH, null, testAttribute(project), false));
                 names.add("JUnit 4");
@@ -364,7 +364,8 @@ public final class ProjectSetup {
             additions.add(JavaCore.newContainerEntry(JUnitCore.JUNIT5_CONTAINER_PATH, null, testAttribute(project), false));
             names.add("JUnit 5");
         }
-        if (project.findType("org.evosuite.runtime.EvoRunnerParameters") == null) {
+        if (!options.effectiveNoRuntimeDependency()
+                && project.findType("org.evosuite.runtime.EvoRunnerParameters") == null) {
             additions.add(JavaCore.newContainerEntry(EvoSuiteClasspathContainer.PATH, null, testAttribute(project), false));
             names.add("EvoSuite Runtime");
         }

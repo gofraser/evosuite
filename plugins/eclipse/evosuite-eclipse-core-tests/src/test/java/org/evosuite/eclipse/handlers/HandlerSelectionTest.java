@@ -165,6 +165,28 @@ public class HandlerSelectionTest {
         });
     }
 
+    @Test
+    public void runsViewActionsUseTheOpenEditorAndCaret() throws Exception {
+        UiThread.run(() -> {
+            var window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+            var page = window.getActivePage();
+            ITextEditor editor = (ITextEditor) IDE.openEditor(page, project.getProject().getFile("src/main/java/a/Foo.java"), true);
+            var view = page.showView(org.evosuite.eclipse.ui.RunResultsView.ID);
+            try {
+                editor.selectAndReveal(FOO.indexOf("run()"), 0);
+                var context = new EvaluationContext(null, new Object());
+                context.addVariable(ISources.ACTIVE_PART_NAME, view);
+                context.addVariable(ISources.ACTIVE_WORKBENCH_WINDOW_NAME, window);
+                context.addVariable(ISources.ACTIVE_CURRENT_SELECTION_NAME,
+                        new org.eclipse.jface.viewers.StructuredSelection("history row"));
+                var event = new ExecutionEvent(null, Map.of(), null, context);
+                assertEquals(List.of(type("Foo").getCompilationUnit()), GenerateTestsHandler.selectedElements(event));
+                assertEquals(Map.of(type("Foo"), List.of(type("Foo").getMethod("run", new String[0]))),
+                        GenerateMethodTestsHandler.selectedMethods(event));
+            } finally { page.hideView(view); page.closeEditor(editor, false); }
+        });
+    }
+
     /**
      * Method descriptors and seed tests come from the saved sources, and EvoSuite runs the
      * classes compiled from them: a command first has the user save the editors of those files,

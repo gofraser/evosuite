@@ -469,7 +469,7 @@ public class SuiteMergerTest {
     }
 
     @Test
-    public void leavesFilesWithUnsavedChangesAlone() throws Exception {
+    public void mergesIntoUnsavedDocumentAndLeavesItUnsaved() throws Exception {
         IJavaProject project = TestProjects.create("merge-dirty", "src", null);
         IFile file = TestProjects.addSource(project, "src", "demo.Calculator_ESTest", suite("", MAX));
         ITextFileBufferManager manager = FileBuffers.getTextFileBufferManager();
@@ -479,8 +479,12 @@ public class SuiteMergerTest {
 
             SuiteMerger.Result result = SuiteMerger.mergeInto(file, suite("", SIGN), "Calculator_ESTest", null);
 
-            assertEquals("Calculator_ESTest.java has unsaved changes in an editor", result.incompatibility);
+            assertNull(result.incompatibility);
+            assertEquals(List.of("test1"), result.added);
             assertEquals(suite("", MAX), read(file));
+            var buffer = manager.getTextFileBuffer(file.getFullPath(), LocationKind.IFILE);
+            assertTrue(buffer.isDirty());
+            assertEquals("// edited\n" + suite("", MAX, SIGN), buffer.getDocument().get());
         } finally {
             manager.disconnect(file.getFullPath(), LocationKind.IFILE, null);
         }

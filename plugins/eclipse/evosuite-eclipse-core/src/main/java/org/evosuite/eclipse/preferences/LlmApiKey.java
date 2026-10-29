@@ -40,6 +40,8 @@ public final class LlmApiKey {
 
         /** Stores a key, or removes the stored key if {@code key} is empty. */
         void write(String key) throws StorageException;
+        default String read(String provider) throws StorageException { return read(); }
+        default void write(String provider, String key) throws StorageException { write(key); }
     }
 
     /** Secure storage; tests replace it, so that they neither touch it nor meet its prompts. */
@@ -73,7 +75,37 @@ public final class LlmApiKey {
         store.write(key == null ? "" : key.trim());
     }
 
+    public static String get(String provider) {
+        try { return store.read(provider); }
+        catch (StorageException e) { Activator.logError("Cannot read provider API key", e); return ""; }
+    }
+
+    static String read(String provider) throws StorageException { return store.read(provider); }
+    public static void set(String provider, String key) throws StorageException { store.write(provider, key.trim()); }
+
     private static final class SecureStore implements Store {
+        @Override
+        public String read(String provider) throws StorageException {
+            ISecurePreferences node = node();
+            if (node == null) return "";
+            String key = node.get(KEY + "." + provider, "");
+            // A legacy shared key is used only for the provider recorded with it.
+            if (key.isEmpty() && provider.equals(node.get("llmApiKeyProvider", ""))) key = node.get(KEY, "");
+            return key;
+        }
+
+        @Override
+        public void write(String provider, String key) throws StorageException {
+            ISecurePreferences node = node();
+            if (node == null) throw new StorageException(StorageException.INTERNAL_ERROR, "Secure storage is not available");
+            if (key.isBlank()) {
+                node.remove(KEY + "." + provider);
+                if (provider.equals(node.get("llmApiKeyProvider", ""))) node.remove(KEY);
+            } else node.put(KEY + "." + provider, key, true);
+            try { node.flush(); }
+            catch (java.io.IOException e) { throw new StorageException(StorageException.INTERNAL_ERROR, e); }
+        }
+
 
         @Override
         public String read() throws StorageException {

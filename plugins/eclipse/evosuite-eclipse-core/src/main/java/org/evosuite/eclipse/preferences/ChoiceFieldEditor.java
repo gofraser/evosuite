@@ -20,53 +20,59 @@
 package org.evosuite.eclipse.preferences;
 
 import java.util.Arrays;
+import org.eclipse.jface.preference.FieldEditor;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.widgets.*;
 
-import org.eclipse.jface.preference.ComboFieldEditor;
-import org.eclipse.swt.widgets.Composite;
-
-/**
- * A combo box whose current value other editors can depend on. {@link ComboFieldEditor} keeps
- * its value to itself and tells listeners only when the user changes it, not when it loads.
- */
-class ChoiceFieldEditor extends ComboFieldEditor {
-
+/** A persisted choice that retains unknown values for validation and exposes its current value. */
+class ChoiceFieldEditor extends FieldEditor {
     private final String[][] entries;
-    private String value;
-
-    /** @param entries pairs of the name shown and the value stored */
+    private Combo combo;
+    private String value = "";
+    private boolean valid = true;
     ChoiceFieldEditor(String name, String label, String[][] entries, Composite parent) {
-        super(name, label, entries, parent);
         this.entries = entries;
-        this.value = entries[0][1];
+        init(name, label);
+        createControl(parent);
     }
-
-    /** The value selected, which is what {@link #store()} would store. */
-    String getValue() {
-        return value;
+    String getValue() { return value; }
+    @Override protected void adjustForNumColumns(int columns) {
+        ((GridData) combo.getLayoutData()).horizontalSpan = columns - 1;
     }
-
-    @Override
-    protected void doLoad() {
-        super.doLoad();
-        value = known(getPreferenceStore().getString(getPreferenceName()));
+    @Override protected void doFillIntoGrid(Composite parent, int columns) {
+        getLabelControl(parent);
+        combo = new Combo(parent, SWT.READ_ONLY);
+        combo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, columns - 1, 1));
+        combo.setItems(Arrays.stream(entries).map(e -> e[0]).toArray(String[]::new));
+        combo.addListener(SWT.Selection, e -> {
+            String old = value;
+            if (combo.getSelectionIndex() < entries.length) value = entries[combo.getSelectionIndex()][1];
+            setPresentsDefaultValue(false);
+            validate();
+            fireValueChanged(VALUE, old, value);
+        });
     }
-
-    @Override
-    protected void doLoadDefault() {
-        super.doLoadDefault();
-        value = known(getPreferenceStore().getDefaultString(getPreferenceName()));
+    private void show(String stored) {
+        value = stored;
+        combo.setItems(Arrays.stream(entries).map(e -> e[0]).toArray(String[]::new));
+        int selected = -1;
+        for (int i = 0; i < entries.length; i++) if (entries[i][1].equals(stored)) selected = i;
+        if (selected < 0) { combo.add("Unsupported: " + stored); selected = entries.length; }
+        combo.select(selected);
+        validate();
     }
-
-    @Override
-    protected void fireValueChanged(String property, Object oldValue, Object newValue) {
-        if (VALUE.equals(property)) {
-            value = (String) newValue;
-        }
-        super.fireValueChanged(property, oldValue, newValue);
+    private void validate() {
+        boolean old = valid;
+        valid = Arrays.stream(entries).anyMatch(e -> e[1].equals(value));
+        if (valid) clearErrorMessage(); else showErrorMessage("Choose a supported value for " + getLabelText());
+        if (old != valid) fireStateChanged(IS_VALID, old, valid);
     }
-
-    /** What the combo box shows for a stored value: the first entry for an unknown value. */
-    private String known(String stored) {
-        return Arrays.stream(entries).map(e -> e[1]).filter(v -> v.equals(stored)).findFirst().orElse(entries[0][1]);
-    }
+    @Override protected void doLoad() { show(getPreferenceStore().getString(getPreferenceName())); }
+    @Override protected void doLoadDefault() { show(getPreferenceStore().getDefaultString(getPreferenceName())); }
+    @Override protected void doStore() { getPreferenceStore().setValue(getPreferenceName(), value); }
+    @Override public int getNumberOfControls() { return 2; }
+    @Override public boolean isValid() { return valid; }
+    @Override public void setFocus() { combo.setFocus(); }
+    @Override public void setEnabled(boolean enabled, Composite parent) { super.setEnabled(enabled, parent); combo.setEnabled(enabled); }
 }

@@ -36,10 +36,10 @@ import java.util.stream.Collectors;
  * The command line that generates tests for one class in a separate JVM.
  *
  * <p>EvoSuite runs out of process: its master keeps global state in static fields, installs
- * instrumentation, and spawns its own client JVM, none of which belongs inside the IDE. The
- * project directory is the base directory, as on the command line, so that an
- * {@code evosuite-files/evosuite.properties} in the project still applies; reports go to the
- * plug-in's state area instead of cluttering the project.
+ * instrumentation, and spawns its own client JVM, none of which belongs inside the IDE. The project
+ * directory is the base directory, as on the command line, so that an {@code
+ * evosuite-files/evosuite.properties} in the project still applies; reports go to the plug-in's
+ * state area instead of cluttering the project.
  */
 public final class EvoSuiteCommand {
 
@@ -47,11 +47,11 @@ public final class EvoSuiteCommand {
     public static final String API_KEY_VARIABLE = "EVOSUITE_LLM_API_KEY";
 
     /**
-     * Criteria whose goals EvoSuite does not credit to the existing tests it runs for
-     * {@code -Djunit}: it records the lines, branches and mutants those tests reach, but not the
-     * methods they call or the values they pass and return. On a class whose tests the search
-     * started from, each such goal that the existing tests cover is still open at the end, and
-     * the minimised suite keeps a near-copy of an existing test for it.
+     * Criteria whose goals EvoSuite does not credit to the existing tests it runs for {@code
+     * -Djunit}: it records the lines, branches and mutants those tests reach, but not the methods
+     * they call or the values they pass and return. On a class whose tests the search started from,
+     * each such goal that the existing tests cover is still open at the end, and the minimised
+     * suite keeps a near-copy of an existing test for it.
      */
     static final Set<String> NOT_CREDITED_TO_EXISTING_TESTS = Set.of("OUTPUT", "INPUT", "METHOD",
             "METHODNOEXCEPTION");
@@ -73,6 +73,12 @@ public final class EvoSuiteCommand {
     private final List<String> targetMethods;
     private List<String> seedTests = List.of();
     private File seedSourceDir;
+    private boolean coverageOnly;
+
+    public EvoSuiteCommand measureCoverage() {
+        coverageOnly = true;
+        return this;
+    }
 
     public EvoSuiteCommand(String javaExecutable, String evosuiteJar, String targetClass,
                            List<String> projectClasspath, File projectDir, File testDir,
@@ -82,8 +88,8 @@ public final class EvoSuiteCommand {
     }
 
     /**
-     * @param targetMethods the methods to restrict the tests to, as {@link GenerationTarget#methods()}
-     *                      names them; empty for the whole class
+     * @param targetMethods the methods to restrict the tests to, as {@link
+     *     GenerationTarget#methods()} names them; empty for the whole class
      */
     public EvoSuiteCommand(String javaExecutable, String evosuiteJar, String targetClass,
                            List<String> projectClasspath, File projectDir, File testDir,
@@ -119,17 +125,32 @@ public final class EvoSuiteCommand {
     }
 
     public List<String> toArguments() {
+        int version = 0;
+        try {
+            var executable = java.nio.file.Path.of(javaExecutable).toAbsolutePath();
+            version = JavaInstallation.at(executable.getParent().getParent()).version();
+        } catch (IOException | RuntimeException ignored) {
+            // Unknown/relative launcher: do not guess the IDE's JVM version.
+        }
+        return toArguments(version);
+    }
+
+    /** JVM flags follow the selected engine JDK, which may differ from the IDE's JDK. */
+    public List<String> toArguments(int javaVersion) {
         List<String> args = new ArrayList<>();
         args.add(javaExecutable);
+        if (javaVersion >= 18 && javaVersion < 24) args.add("-Djava.security.manager=allow");
         args.add("-jar");
         args.add(evosuiteJar);
+        if (coverageOnly) args.add("-measureCoverage");
         args.add("-class");
         args.add(targetClass);
         args.add("-projectCP");
         args.add(String.join(File.pathSeparator, projectClasspath));
         args.add("-base_dir");
         args.add(projectDir.getAbsolutePath());
-        String criterion = seedTests.isEmpty() ? options.criterion : extensionCriteria(options.criterion);
+        String criterion = seedTests.isEmpty() || coverageOnly
+                        ? options.criterion : extensionCriteria(options.criterion);
         if (!criterion.isEmpty()) {
             args.add("-criterion");
             args.add(criterion);
@@ -141,6 +162,9 @@ public final class EvoSuiteCommand {
         args.add("-Dsearch_budget=" + options.searchBudget);
         args.add("-Dassertions=" + options.assertions);
         args.add("-Dminimize=" + options.minimize);
+        args.add("-Dminimize_values=" + options.minimizeValues);
+        args.add("-Dno_runtime_dependency=" + options.noRuntimeDependency);
+        if (!options.randomSeed.isBlank()) args.add("-Drandom_seed=" + options.randomSeed);
         // Only where they differ from EvoSuite's defaults, to keep the command line readable.
         if (!"MUTATION".equals(options.assertionStrategy)) {
             args.add("-Dassertion_strategy=" + options.assertionStrategy);
@@ -157,7 +181,7 @@ public final class EvoSuiteCommand {
         if (options.testTimeout > 0) {
             args.add("-Dtimeout=" + options.testTimeout);
         }
-        args.add("-Dtest_format=" + options.testFormat);
+        args.add("-Dtest_format=" + (options.testFormat.isBlank() ? GenerationOptions.JUNIT5 : options.testFormat));
         // The progress bar is how the plug-in follows the search; see ProgressParser.
         args.add("-Dshow_progress=true");
         addLlmArguments(args);
@@ -178,25 +202,38 @@ public final class EvoSuiteCommand {
         if (options.llmSwitchedOff()) {
             // After everything else: search only overrides an LLM the pom or arguments switch on.
             args.add("-Dllm_provider=" + GenerationOptions.LLM_NONE);
+            args.removeIf(argument -> argument.equals("-generateLlmSuite"));
+            args.add(
+                    "-Dstrategy="
+                            + ("LLMSTRATEGY".equalsIgnoreCase(options.effectiveStrategy())
+                                    ? "MOSUITE"
+                                    : options.effectiveStrategy()));
         }
         if (!seedTests.isEmpty()) {
             // After the user's arguments too, since the run is pointless without them: the tests
             // are parsed from source, and the carver, which would execute them to extract
             // statements instead, stays off whatever else is configured.
             String testClasses = String.join(":", seedTests);
-            args.add("-Dtest_factory=PARSED_JUNIT");
+            if (!coverageOnly) {
+                args.add("-Dtest_factory=PARSED_JUNIT");
             args.add("-Dselected_junit=" + testClasses);
             args.add("-Dseed_test_source_dir=" + seedSourceDir.getAbsolutePath());
+            }
             args.add("-Djunit=" + testClasses);
             args.add("-Dcarve_object_pool=false");
             args.add("-Dtest_carving=false");
         }
+        if (coverageOnly) {
+            args.add("-Dllm_provider=NONE");
+            args.removeIf(argument -> argument.equals("-generateLlmSuite"));
+        }
+        args.removeIf(argument -> argument.startsWith("-Dllm_api_key="));
         return args;
     }
 
     /**
-     * The properties that say where EvoSuite writes, in the order they are passed. The test
-     * folder is often the plug-in's temporary folder, and the report folder is in its state area;
+     * The properties that say where EvoSuite writes, in the order they are passed. The test folder
+     * is often the plug-in's temporary folder, and the report folder is in its state area;
      * EvoSuite's default for the LLM traces is {@code evosuite-report/llm-traces} in the project,
      * where the traces, which contain prompts built from the project's code, could end up
      * committed.
@@ -212,8 +249,8 @@ public final class EvoSuiteCommand {
     }
 
     /**
-     * The {@linkplain #outputLocations() output locations} that the additional arguments or the
-     * pom try to set, such as {@code test_dir}: the plug-in's own values override them.
+     * The {@linkplain #outputLocations() output locations} that the additional arguments or the pom
+     * try to set, such as {@code test_dir}: the plug-in's own values override them.
      */
     public static List<String> overriddenUserProperties(GenerationOptions options) {
         List<String> user = new ArrayList<>(splitArguments(options.extraArguments));
@@ -225,10 +262,9 @@ public final class EvoSuiteCommand {
     }
 
     /**
-     * The criteria for a run that extends existing tests: {@code criterion}, or EvoSuite's
-     * default set if it is empty, without the {@linkplain #NOT_CREDITED_TO_EXISTING_TESTS
-     * criteria} whose goals would keep copies of the existing tests. Unchanged if nothing else
-     * would remain.
+     * The criteria for a run that extends existing tests: {@code criterion}, or EvoSuite's default
+     * set if it is empty, without the {@linkplain #NOT_CREDITED_TO_EXISTING_TESTS criteria} whose
+     * goals would keep copies of the existing tests. Unchanged if nothing else would remain.
      */
     static String extensionCriteria(String criterion) {
         List<String> criteria = criterion.isBlank() ? GenerationOptions.DEFAULT_CRITERIA
@@ -245,10 +281,21 @@ public final class EvoSuiteCommand {
      * key travels in the {@code EVOSUITE_LLM_API_KEY} environment variable instead.
      */
     private void addLlmArguments(List<String> args) {
+        args.add(
+                "-Dllm_provider="
+                        + (options.llmSwitchedOff()
+                                ? GenerationOptions.LLM_NONE
+                                : options.llmProvider));
+        if (!options.llmSourcePath.isBlank())
+            args.add("-Dllm_source_path=" + options.llmSourcePath);
         if (!options.usesLlm()) {
             return;
         }
-        args.add("-Dllm_provider=" + options.llmProvider);
+        args.add("-Dllm_sut_context_mode=" + options.llmContextMode);
+        args.add("-Dllm_max_tokens=" + options.llmMaxTokens);
+        args.add("-Dllm_timeout_seconds=" + options.llmTimeoutSeconds);
+        args.add("-Dllm_retry_max_attempts=" + options.llmRetryMaxAttempts);
+        args.add("-Dllm_temperature=" + options.llmTemperature);
         if (!options.llmModel.isEmpty()) {
             args.add("-Dllm_model=" + options.llmModel);
         }
@@ -284,15 +331,15 @@ public final class EvoSuiteCommand {
     }
 
     /**
-     * Command lines longer than this go through an argument file. Windows caps a whole command
-     * line at 32767 characters, and a Maven project's classpath alone can exceed that.
+     * Command lines longer than this go through an argument file. Windows caps a whole command line
+     * at 32767 characters, and a Maven project's classpath alone can exceed that.
      */
     public static final int MAX_INLINE_LENGTH = 8000;
 
     /**
-     * {@code arguments} as they can be passed to {@link ProcessBuilder}: unchanged if short
-     * enough, otherwise the java executable followed by {@code @argumentFile}, which then holds
-     * the rest. The java launcher reads argument files since Java 9.
+     * {@code arguments} as they can be passed to {@link ProcessBuilder}: unchanged if short enough,
+     * otherwise the java executable followed by {@code @argumentFile}, which then holds the rest.
+     * The java launcher reads argument files since Java 9.
      */
     public static List<String> fitCommandLine(List<String> arguments, File argumentFile, int maxLength)
             throws IOException {
@@ -334,13 +381,14 @@ public final class EvoSuiteCommand {
 
     /**
      * Whether a suite file carries {@code @EvoRunnerParameters}, as the suites EvoSuite generates
-     * do. A file of a suite's name without it is a test class someone wrote, such as
-     * {@code FooTest} when the suite suffix and folder are those of the project's own tests.
+     * do. A file of a suite's name without it is a test class someone wrote, such as {@code
+     * FooTest} when the suite suffix and folder are those of the project's own tests.
      */
     public static boolean isEvoSuiteSuite(File suite) {
         try {
             // Also matches the qualified @org.evosuite.runtime.EvoRunnerParameters.
-            return Files.readString(suite.toPath(), StandardCharsets.ISO_8859_1).contains("EvoRunnerParameters");
+            String source = Files.readString(suite.toPath(), StandardCharsets.ISO_8859_1);
+            return GeneratedSuiteRegistry.annotated(source) || GeneratedSuiteRegistry.owns(suite, source);
         } catch (IOException e) {
             return false;
         }
@@ -352,8 +400,8 @@ public final class EvoSuiteCommand {
      */
     public static String notAnEvoSuiteSuite(String className, File suite) {
         return className.substring(className.lastIndexOf('.') + 1) + ": the new tests would go into " + suite.getName()
-                + ", which is not a suite generated by EvoSuite and stays as it is. Choose another test class "
-                + "suffix or folder in the EvoSuite settings.";
+                + ", which is not a suite generated by EvoSuite and stays as it is. Choose another"
+                + " test class suffix or folder in the EvoSuite settings.";
     }
 
     /** The file EvoSuite writes the test suite for {@code targetClass} to. */
@@ -362,8 +410,8 @@ public final class EvoSuiteCommand {
     }
 
     /**
-     * Splits a string into arguments at unquoted whitespace. Single and double quotes group,
-     * and are removed. Outside single quotes a backslash escapes a following quote, backslash or
+     * Splits a string into arguments at unquoted whitespace. Single and double quotes group, and
+     * are removed. Outside single quotes a backslash escapes a following quote, backslash or
      * whitespace character and is kept literally otherwise, so Windows paths need no doubling.
      */
     public static List<String> splitArguments(String line) {

@@ -57,6 +57,9 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
     private Button useProjectSettings;
     private final Consumer<Boolean> switchListener = this::projectSettingsSwitched;
     private SettingsFields settings;
+    private org.eclipse.jface.preference.IPreferenceStore projectDraft;
+    private boolean previewWorkspace;
+    private boolean refreshing;
 
     public EvoSuitePropertyPage() {
         this(Section.GENERAL);
@@ -80,6 +83,24 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
     }
 
     @Override
+    protected org.eclipse.swt.widgets.Control createContents(org.eclipse.swt.widgets.Composite parent) {
+        var scroll = new org.eclipse.swt.custom.ScrolledComposite(parent, org.eclipse.swt.SWT.V_SCROLL) {
+            @Override public org.eclipse.swt.graphics.Point computeSize(int w, int h, boolean changed) {
+                return new org.eclipse.swt.graphics.Point(w == org.eclipse.swt.SWT.DEFAULT ? 620 : w,
+                        h == org.eclipse.swt.SWT.DEFAULT ? 450 : h);
+            }
+        };
+        scroll.setExpandHorizontal(true);
+        scroll.setExpandVertical(true);
+        var content = super.createContents(scroll);
+        scroll.setContent(content);
+        scroll.setMinSize(content.computeSize(600, org.eclipse.swt.SWT.DEFAULT));
+        scroll.addListener(org.eclipse.swt.SWT.Resize, e -> scroll.setMinSize(
+                content.computeSize(scroll.getClientArea().width, org.eclipse.swt.SWT.DEFAULT)));
+        return scroll;
+    }
+
+    @Override
     protected void createFieldEditors() {
         Composite parent = getFieldEditorParent();
         if (section == Section.GENERAL) {
@@ -94,6 +115,20 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
         }
         createSwitch(parent);
         settings = SettingsFields.create(section, parent, false, this::addField);
+        org.eclipse.swt.widgets.Button copy = new org.eclipse.swt.widgets.Button(parent, SWT.PUSH);
+        copy.setText("Copy workspace defaults into project profile");
+        copy.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false, 3, 1));
+        copy.addListener(SWT.Selection, e -> {
+            projectSettings.setEnabled(true);
+            settings.loadFrom(new ScopedPreferenceStore(org.eclipse.core.runtime.preferences.InstanceScope.INSTANCE,
+                    EvoSuitePreferences.QUALIFIER));
+            settings.refresh(true);
+        });
+        org.eclipse.swt.widgets.Button inspect = new org.eclipse.swt.widgets.Button(parent, SWT.PUSH);
+        inspect.setText("Effective configuration / check project setup (applied settings)");
+        inspect.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false, 3, 1));
+        inspect.addListener(SWT.Selection, e -> org.evosuite.eclipse.launch.ConfigurationCheck.show(
+                org.eclipse.jdt.core.JavaCore.create(project), getShell()));
     }
 
     /**
@@ -141,7 +176,11 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
 
     @Override
     protected void performDefaults() {
-        super.performDefaults();
+        refreshing = true;
+        try { super.performDefaults(); }
+        finally { refreshing = false; }
+        previewWorkspace = false;
+        projectDraft = null;
         // As on JDT's pages, restoring the defaults also switches project-specific settings off.
         projectSettings.setEnabled(false);
         refresh();
@@ -155,8 +194,12 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
 
     @Override
     public boolean performOk() {
+        if (previewWorkspace && projectDraft != null) settings.loadFrom(projectDraft);
         getPreferenceStore().setValue(EvoSuitePreferences.USE_PROJECT_SETTINGS, projectSettings.isEnabled());
-        return super.performOk();
+        boolean result = super.performOk();
+        previewWorkspace = false;
+        refresh();
+        return result;
     }
 
     @Override
@@ -196,6 +239,20 @@ public class EvoSuitePropertyPage extends FieldEditorPreferencePage implements I
     }
 
     private void refresh() {
-        settings.refresh(projectSettings.isEnabled());
+        if (refreshing || settings == null) return;
+        refreshing = true;
+        try {
+            boolean enabled = projectSettings.isEnabled();
+            if (!enabled && !previewWorkspace) {
+                projectDraft = settings.snapshot();
+                settings.loadFrom(new ScopedPreferenceStore(org.eclipse.core.runtime.preferences.InstanceScope.INSTANCE,
+                        EvoSuitePreferences.QUALIFIER));
+                previewWorkspace = true;
+            } else if (enabled && previewWorkspace) {
+                if (projectDraft != null) settings.loadFrom(projectDraft);
+                previewWorkspace = false;
+            }
+            settings.refresh(enabled);
+        } finally { refreshing = false; }
     }
 }

@@ -250,6 +250,10 @@ public class SuiteComparison extends CompareEditorInput {
             }
             if (content == null) {
                 stamp = file.getModificationStamp();
+                if (!file.exists()) {
+                    content = new byte[0];
+                    return new ByteArrayInputStream(content);
+                }
                 try (InputStream in = file.getContents(true)) {
                     content = in.readAllBytes();
                 } catch (IOException e) {
@@ -275,7 +279,7 @@ public class SuiteComparison extends CompareEditorInput {
 
         @Override
         public boolean isEditable() {
-            return true;
+            return file.getResourceAttributes() == null || !file.getResourceAttributes().isReadOnly();
         }
 
         @Override
@@ -316,7 +320,11 @@ public class SuiteComparison extends CompareEditorInput {
                 throw new OperationCanceledException();
             }
             boolean saveNeededBefore = isSaveNeeded();
-            file.setContents(new ByteArrayInputStream(content), IResource.KEEP_HISTORY, monitor);
+            if (file.exists()) file.setContents(new ByteArrayInputStream(content), IResource.KEEP_HISTORY, monitor);
+            else {
+                org.evosuite.eclipse.launch.ProjectSetup.createFolders(file.getParent());
+                file.create(new ByteArrayInputStream(content), false, monitor);
+            }
             stamp = file.getModificationStamp();
             changed = false;
             sideChanged(saveNeededBefore);

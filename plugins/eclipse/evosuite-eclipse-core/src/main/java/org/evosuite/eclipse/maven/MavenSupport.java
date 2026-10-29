@@ -43,6 +43,10 @@ public final class MavenSupport {
      * The password of a server in Maven's settings.xml, decrypted if need be, as the EvoSuite Maven
      * plug-in reads the LLM API key; {@code null} if there is none, for whatever reason.
      */
+    public static void refresh(IProject project, IProgressMonitor monitor) throws CoreException {
+        if (m2eInstalled.getAsBoolean()) M2eReader.refresh(project, monitor);
+    }
+
     public static String serverPassword(String serverId) {
         return findServerPassword(serverId).password();
     }

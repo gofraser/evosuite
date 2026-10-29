@@ -40,6 +40,9 @@ public class TestClassPropertyTester extends PropertyTester {
     public boolean test(Object receiver, String property, Object[] args, Object expectedValue) {
         try {
             IJavaElement element = null;
+            if ("coverageSelection".equals(property) && receiver instanceof IJavaElement selected) {
+                return !TestClassSelection.collect(java.util.List.of(selected)).isEmpty();
+            }
             if (TEST_CLASS.equals(property) && receiver instanceof IJavaElement selected) {
                 element = selected;
             } else if (EDITS_TEST_CLASS.equals(property) && receiver instanceof IWorkbenchPart part) {

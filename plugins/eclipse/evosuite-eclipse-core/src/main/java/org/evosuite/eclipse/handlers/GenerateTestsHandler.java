@@ -227,9 +227,23 @@ public class GenerateTestsHandler extends AbstractHandler {
                 return;
             }
         }
+        if (!runs.isEmpty() && !saveEditors(runs.keySet().stream().map(IJavaProject::getProject).toList())) return;
+        if (classCount > 5 && !MessageDialog.openConfirm(shell, "Generate tests for " + classCount + " classes",
+                options.entrySet().stream().map(e -> e.getKey().getElementName() + ": " + runs.get(e.getKey()).size()
+                        + " classes, " + e.getValue().effectiveSearchBudget() + " seconds search and "
+                        + e.getValue().effectiveLlmMaxCalls() + " LLM calls per class (0 = unlimited)")
+                        .collect(java.util.stream.Collectors.joining("\n")))) return;
         for (Map.Entry<IJavaProject, GenerationOptions> entry : options.entrySet()) {
-            new TestGenerationJob(entry.getKey(), runs.get(entry.getKey()), entry.getValue(), action).schedule();
+            boolean duplicate = org.evosuite.eclipse.launch.RunHistory.hasActiveSelection(entry.getKey(), runs.get(entry.getKey()), false);
+            if (!duplicate) {
+                try {
+                    if (org.evosuite.eclipse.launch.MavenGeneration.applies(entry.getKey(), runs.get(entry.getKey()), entry.getValue())) {
+                        org.evosuite.eclipse.launch.MavenGeneration.launch(entry.getKey(), runs.get(entry.getKey()), entry.getValue());
+                    } else new TestGenerationJob(entry.getKey(), runs.get(entry.getKey()), entry.getValue(), action).schedule();
+                } catch (CoreException e) { MessageDialog.openError(shell, "EvoSuite", e.getMessage()); }
+            }
         }
+        if (!runs.isEmpty()) org.evosuite.eclipse.ui.RunResultsView.show();
     }
 
     /**
@@ -237,6 +251,11 @@ public class GenerateTestsHandler extends AbstractHandler {
      * editor if that is the active part.
      */
     static Iterable<?> selectedElements(ExecutionEvent event) {
+        if (HandlerUtil.getActivePart(event) instanceof org.evosuite.eclipse.ui.RunResultsView) {
+            IEditorPart open = activeEditor(event);
+            IJavaElement element = open == null ? null : JavaUI.getEditorInputJavaElement(open.getEditorInput());
+            return element == null ? List.of() : List.of(element);
+        }
         ISelection selection = HandlerUtil.getActiveMenuSelection(event);
         if (!(selection instanceof IStructuredSelection)) {
             selection = HandlerUtil.getCurrentSelection(event);
@@ -255,7 +274,12 @@ public class GenerateTestsHandler extends AbstractHandler {
      * in it, a key binding must not act on whatever editor was last active.
      */
     static IEditorPart activeEditor(ExecutionEvent event) {
-        return HandlerUtil.getActivePart(event) instanceof IEditorPart editor ? editor : null;
+        if (HandlerUtil.getActivePart(event) instanceof IEditorPart editor) return editor;
+        if (HandlerUtil.getActivePart(event) instanceof org.evosuite.eclipse.ui.RunResultsView) {
+            var window = HandlerUtil.getActiveWorkbenchWindow(event);
+            return window == null || window.getActivePage() == null ? null : window.getActivePage().getActiveEditor();
+        }
+        return null;
     }
 
     /**
@@ -269,6 +293,8 @@ public class GenerateTestsHandler extends AbstractHandler {
                 || type.getAnnotation("org.evosuite.runtime.EvoRunnerParameters").exists()) {
             return true;
         }
+        if (type.getResource() != null && type.getResource().getLocation() != null
+                && EvoSuiteCommand.isEvoSuiteSuite(type.getResource().getLocation().toFile())) return true;
         String name = type.getElementName();
         String suite = name.endsWith("_scaffolding") ? name.substring(0, name.length() - "_scaffolding".length()) : null;
         return suite != null && suite.endsWith(options.testSuffix)

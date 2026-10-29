@@ -375,7 +375,7 @@ public class SuitePlacementTest {
      * statistics EvoSuite appends to at each run.
      */
     @Test
-    public void removesWhatEarlierRunsLeftBehind() throws Exception {
+    public void preservesEarlierRecoveryFilesAndReports() throws Exception {
         File state = Activator.getDefault().getStateLocation().toFile();
         File leftover = new File(state, "generated/crashed-1/demo/Calculator_ESTest.java");
         leftover.getParentFile().mkdirs();
@@ -390,8 +390,8 @@ public class SuitePlacementTest {
         IStatus result = run(job(WHOLE_CLASS, SuiteAction.REPLACE));
 
         assertEquals(IStatus.OK, result.getSeverity(), result::toString);
-        assertEquals(0, new File(state, "generated").list().length, "temporary folders left behind");
-        assertFalse(statistics.exists(), "statistics kept");
+        assertTrue(leftover.exists(), "recovery sources deleted");
+        assertTrue(statistics.exists(), "earlier statistics deleted");
         assertTrue(trace.exists(), "LLM traces deleted");
     }
 

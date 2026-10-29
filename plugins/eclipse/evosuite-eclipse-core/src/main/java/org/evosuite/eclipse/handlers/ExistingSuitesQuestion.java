@@ -112,7 +112,7 @@ public final class ExistingSuitesQuestion {
         }
         String title = one ? "Existing Test Suite" : "Existing Test Suites";
         return new ExistingSuitesQuestion(title, message.toString(),
-                scope.partialNote != null ? SuiteAction.ADD : SuiteAction.REPLACE);
+                SuiteAction.ADD);
     }
 
     /** The index of the preselected button. */

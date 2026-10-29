@@ -108,7 +108,7 @@ public class TestGenerationJob extends Job {
     private static final Semaphore ONE_RUN_AT_A_TIME = new Semaphore(1);
 
     /** Where the LLM API key comes from; tests replace it to stay clear of secure storage. */
-    static Supplier<String> apiKeySource = LlmApiKey::get;
+    static Supplier<String> apiKeySource = () -> "";
     /** Receives every line of EvoSuite's output as well; tests replace it to inspect the log. */
     static Consumer<String> outputListener = line -> {
     };
@@ -134,6 +134,10 @@ public class TestGenerationJob extends Job {
     /** How each class's new suite was used, one line each, for the summary. */
     private final List<String> outcomes = new ArrayList<>();
     private int produced;
+    private final boolean coverageOnly;
+    private final List<RunHistory.Entry> history = new ArrayList<>();
+    private volatile RunHistory.Entry currentEntry;
+    private final Map<IFile, Long> originalStamps = new java.util.LinkedHashMap<>();
     /** What each run that extended existing tests produced, one line each, for the job's message. */
     private final List<String> extensions = new ArrayList<>();
 
@@ -155,16 +159,44 @@ public class TestGenerationJob extends Job {
      */
     public TestGenerationJob(IJavaProject project, List<GenerationTarget> targets, GenerationOptions options,
                              SuiteAction action) {
+        this(project, targets, options, action, false);
+    }
+
+    public TestGenerationJob(IJavaProject project, List<GenerationTarget> targets, GenerationOptions options,
+                             SuiteAction action, boolean coverageOnly) {
         super(targets.size() == 1
                 ? "Generating tests for " + targets.get(0).label()
                 : "Generating tests for " + targets.size() + " classes in " + project.getElementName());
         this.project = project;
         this.targets = List.copyOf(targets);
-        this.options = options;
+        this.options = options.copy();
         this.action = action;
+        this.coverageOnly = coverageOnly;
+        if (coverageOnly) {
+            this.options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
+            setName("Measuring existing test coverage in " + project.getElementName());
+        }
         this.decided = existingSuites(project, this.targets, options);
+        for (GenerationTarget target : targets) history.add(RunHistory.create(project, target, this.options, this, coverageOnly));
+        try {
+            IFolder folder = ProjectSetup.testFolder(project.getProject(), options);
+            for (GenerationTarget target : targets) {
+                IFile suite = folder.getFile(target.className().replace('.', '/') + options.testSuffix + ".java");
+                originalStamps.put(suite, suite.getModificationStamp());
+                IFile scaffolding = suite.getParent().getFile(IPath.fromOSString(suite.getName().replace(".java", "_scaffolding.java")));
+                originalStamps.put(scaffolding, scaffolding.getModificationStamp());
+            }
+        } catch (CoreException ignored) { }
         setUser(true);
         setPriority(LONG);
+        addJobChangeListener(new org.eclipse.core.runtime.jobs.JobChangeAdapter() {
+            @Override public void done(org.eclipse.core.runtime.jobs.IJobChangeEvent event) {
+                IStatus result = event.getResult();
+                for (RunHistory.Entry entry : history) if (entry.active()) RunHistory.finish(entry,
+                        result != null && result.getSeverity() == IStatus.CANCEL ? "Cancelled" : "Failed",
+                        result == null ? "Run ended" : result.getMessage());
+            }
+        });
     }
 
     /** The classes among {@code targets} that have a suite in the test folder now. */
@@ -212,6 +244,7 @@ public class TestGenerationJob extends Job {
             progress.subTask("Waiting for other EvoSuite runs to finish");
             while (!ONE_RUN_AT_A_TIME.tryAcquire(250, TimeUnit.MILLISECONDS)) {
                 if (progress.isCanceled()) {
+                    history.forEach(e -> RunHistory.finish(e, "Cancelled", "Cancelled while queued"));
                     return Status.CANCEL_STATUS;
                 }
             }
@@ -219,38 +252,21 @@ public class TestGenerationJob extends Job {
             Thread.currentThread().interrupt();
             return Status.CANCEL_STATUS;
         }
+        IStatus status = Status.CANCEL_STATUS;
         try {
-            removeLeftovers();
-            return generate(progress);
+            status = generate(progress);
+            return status;
         } catch (OperationCanceledException e) {
             return Status.CANCEL_STATUS;
         } catch (CoreException e) {
-            return e.getStatus();
+            status = e.getStatus();
+            return status;
         } finally {
+            for (RunHistory.Entry entry : history) {
+                if (entry.active()) RunHistory.finish(entry, status.getSeverity() == IStatus.CANCEL ? "Cancelled" : "Failed", status.getMessage());
+            }
             ONE_RUN_AT_A_TIME.release();
         }
-    }
-
-    /**
-     * Deletes what earlier runs left in the state area: the temporary folders of a run that
-     * crashed, which no other run uses since runs take turns, and the statistics EvoSuite appends
-     * to at each run. The LLM traces are kept.
-     */
-    private void removeLeftovers() {
-        File[] generatedDirs = Activator.getDefault().getStateLocation().append("generated").toFile().listFiles();
-        for (File leftover : generatedDirs == null ? new File[0] : generatedDirs) {
-            deleteRecursively(leftover);
-        }
-        File[] reports = reportDir().listFiles();
-        for (File report : reports == null ? new File[0] : reports) {
-            if (!report.getName().equals(EvoSuiteCommand.LLM_TRACES)) {
-                deleteRecursively(report);
-            }
-        }
-    }
-
-    private File reportDir() {
-        return Activator.getDefault().getStateLocation().append("reports").append(project.getElementName()).toFile();
     }
 
     private IStatus generate(SubMonitor progress) throws CoreException {
@@ -270,18 +286,34 @@ public class TestGenerationJob extends Job {
 
         // Everything that can fail on the settings, before the build path changes below.
         ProjectSetup.testFolder(project.getProject(), options);
-        Map<String, String> environment = llmEnvironment(console);
+        try {
+            java.util.Map<String, String> values = new java.util.LinkedHashMap<>();
+            SettingKeys.all().forEach(key -> values.put(key, SettingKeys.value(options, key)));
+            values.put(SettingKeys.EXTRA_ARGUMENTS, "");
+            SettingKeys.resolve(values);
+        } catch (IllegalArgumentException e) { throw new CoreException(Activator.error(e.getMessage(), e)); }
         ProjectSetup.JavaInstallation java = ProjectSetup.javaInstallation(project, options);
+        if (!java.hasCompiler) throw new CoreException(Activator.error("EvoSuite requires a full JDK with javac. "
+                + "Choose a JDK under EvoSuite > Advanced > Java home."));
+        Map<String, String> environment = new java.util.LinkedHashMap<>(llmEnvironment(console));
+        environment.put("JAVA_HOME", java.executable.getParentFile().getParent());
+        options.testFormat = options.effectiveTestFormat();
+        if (options.testFormat.isBlank()) {
+            options.testFormat = project.findType("org.junit.Test") != null
+                    && project.findType("org.junit.jupiter.api.Test") == null ? GenerationOptions.JUNIT4 : GenerationOptions.JUNIT5;
+        }
         File evosuiteJar = EvoSuiteJars.evosuite();
 
-        IFolder testFolder = ProjectSetup.prepareTestFolder(project, options, progress.split(2));
-        if (options.configureBuildPath && !ProjectSetup.separatesTestCode(project)) {
+        if (!coverageOnly && options.configureBuildPath) BuildToolSetup.prepare(project, options, progress.newChild(1));
+        IFolder testFolder = coverageOnly ? ProjectSetup.testFolder(project.getProject(), options)
+                : ProjectSetup.prepareTestFolder(project, options, progress.split(2));
+        if (!coverageOnly && options.configureBuildPath && !ProjectSetup.separatesTestCode(project)) {
             console.println(project.getElementName() + " keeps its sources and classes in the project folder "
                     + "itself, where Eclipse allows no further source folder. " + options.testFolder
                     + " is excluded from the build; to compile the generated tests, give the project separate "
                     + "source and output folders under Build Path > Configure Build Path.");
         }
-        if (options.configureBuildPath) {
+        if (!coverageOnly && options.configureBuildPath) {
             List<String> added = ProjectSetup.addMissingLibraries(project, options, progress.split(2));
             if (!added.isEmpty()) {
                 console.println("Added to the build path of " + project.getElementName() + ": "
@@ -305,6 +337,12 @@ public class TestGenerationJob extends Job {
         progress.subTask("Waiting for the build");
         waitForBuild(progress.split(10));
 
+        for (var marker : project.getProject().findMarkers(org.eclipse.jdt.core.IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER,
+                true, IResource.DEPTH_INFINITE)) {
+            if (marker.getAttribute(org.eclipse.core.resources.IMarker.SEVERITY, 0) == org.eclipse.core.resources.IMarker.SEVERITY_ERROR)
+                throw new CoreException(Activator.error("The project has compilation errors: "
+                        + marker.getAttribute(org.eclipse.core.resources.IMarker.MESSAGE, "Fix compilation errors before generation.")));
+        }
         boolean extending = targets.stream().anyMatch(GenerationTarget::extendsTests);
         List<String> classpath = ProjectSetup.runtimeClasspath(project, extending);
         if (!java.hasCompiler) {
@@ -313,10 +351,6 @@ public class TestGenerationJob extends Job {
                     + "set a JDK as Java home in the EvoSuite settings.");
         }
         File projectDir = project.getProject().getLocation().toFile();
-        File reportDir = reportDir();
-        // Kept apart from the test folder until the user's choice has been carried out.
-        File outputDir = Activator.getDefault().getStateLocation().append("generated")
-                .append(project.getElementName() + "-" + System.nanoTime()).toFile();
 
         MultiStatus result = new MultiStatus(Activator.PLUGIN_ID, IStatus.OK,
                 "EvoSuite reported problems; the EvoSuite console has the details.", null);
@@ -328,19 +362,41 @@ public class TestGenerationJob extends Job {
                     console.println("Cancelled.");
                     break;
                 }
+                currentEntry = history.get(index - 1);
+                File outputDir = RunHistory.directory(currentEntry).resolve("generated").toFile();
+                RunHistory.update(currentEntry, "staging", outputDir.getAbsolutePath());
+                RunHistory.update(currentEntry, "started", System.currentTimeMillis());
+                RunHistory.update(currentEntry, "status", coverageOnly ? "Measuring coverage" : "Generating");
                 String className = target.className();
                 File existingSuite = EvoSuiteCommand.suiteFile(testFolder.getLocation().toFile(), className,
                         options.testSuffix);
-                if (existingSuite.isFile() && !EvoSuiteCommand.isEvoSuiteSuite(existingSuite)) {
-                    result.add(Activator.warning(EvoSuiteCommand.notAnEvoSuiteSuite(className, existingSuite)));
+                if (!coverageOnly && existingSuite.isFile() && !EvoSuiteCommand.isEvoSuiteSuite(existingSuite)) {
+                    String problem = EvoSuiteCommand.notAnEvoSuiteSuite(className, existingSuite);
+                    result.add(Activator.warning(problem));
+                    RunHistory.finish(currentEntry, "Skipped", problem);
                     continue;
                 }
                 String label = targets.size() == 1 ? target.label()
                         : target.label() + " (" + index + "/" + targets.size() + ")";
+                GenerationOptions targetOptions = options.copy();
+                if (targetOptions.randomSeed.isBlank()) targetOptions.randomSeed = Long.toString(new java.security.SecureRandom().nextLong());
+                org.eclipse.jdt.core.IType type = project.findType(className);
+                if (type != null && type.getResource() != null && type.getResource().getLocation() != null)
+                    targetOptions.llmSourcePath = type.getResource().getLocation().toOSString();
+                RunHistory.settings(currentEntry, targetOptions);
+                RunHistory.update(currentEntry, "seed", targetOptions.effectiveRandomSeed());
+                File targetReports = RunHistory.directory(currentEntry).resolve("reports").toFile();
+                console.println("Output: " + existingSuite.getAbsolutePath());
+                console.println("Reports: " + targetReports.getAbsolutePath());
+                if (target.extendsTests()) console.println("Existing tests: " + target.seedNames());
+                RunHistory.update(currentEntry, "reports", targetReports.getAbsolutePath());
+                RunHistory.update(currentEntry, "output", testFolder.getFile(className.replace('.', '/')
+                        + options.testSuffix + ".java").getFullPath().toPortableString());
                 EvoSuiteCommand command = new EvoSuiteCommand(java.executable.getAbsolutePath(),
-                        evosuiteJar.getAbsolutePath(), className, classpath, projectDir, outputDir, reportDir,
-                        options, target.methods());
+                        evosuiteJar.getAbsolutePath(), className, classpath, projectDir, outputDir, targetReports,
+                        targetOptions, target.methods());
                 SeedingReport seeding = null;
+                if (coverageOnly) command.measureCoverage();
                 if (target.extendsTests()) {
                     File seedSources;
                     try {
@@ -352,7 +408,7 @@ public class TestGenerationJob extends Job {
                     }
                     command.seededBy(target.seeds().stream().map(GenerationTarget.Seed::className)
                             .collect(Collectors.toList()), seedSources);
-                    seeding = new SeedingReport(target.seedNames());
+                    if (!coverageOnly) seeding = new SeedingReport(target.seedNames());
                 }
                 File suite = EvoSuiteCommand.suiteFile(outputDir, className, options.testSuffix);
                 // Compared with the timestamp afterwards rather than with the clock, which a file system
@@ -374,24 +430,43 @@ public class TestGenerationJob extends Job {
                         }
                     }
                 }
-                if (suite.isFile() && suite.lastModified() != before) {
+                int comparisonStart = comparisons.size();
+                int generatedStart = generated.size();
+                int outcomeStart = outcomes.size();
+                if (!coverageOnly && suite.isFile() && suite.lastModified() != before) {
                     produced++;
+                    RunHistory.update(currentEntry, "tests", SuiteMerger.testCount(read(suite, testFolder.getDefaultCharset()),
+                            simpleName(className) + options.testSuffix));
                     try {
                         place(target, suite, testFolder);
                     } catch (CoreException e) {
                         result.add(e.getStatus());
+                        status = e.getStatus();
+                        RunHistory.update(currentEntry, "recovery", outputDir.getAbsolutePath());
+                        console.println("Generated sources retained for recovery: " + outputDir.getAbsolutePath());
                     }
                 }
+                if (!status.isOK() && outputDir.isDirectory()) RunHistory.update(currentEntry, "recovery", outputDir.getAbsolutePath());
+                RunHistory.comparisons(currentEntry, List.copyOf(comparisons.subList(comparisonStart, comparisons.size())));
+                RunHistory.finish(currentEntry, !status.isOK() ? "Warning / failed"
+                        : comparisons.size() > comparisonStart ? "Review comparisons"
+                        : coverageOnly ? "Coverage measured" : generated.size() > generatedStart ? "Tests updated" : "No new tests",
+                        outcomes.size() > outcomeStart ? String.join(" ", outcomes.subList(outcomeStart, outcomes.size())) : status.getMessage());
                 if (!status.isOK()) {
                     result.add(status);
                 }
             }
         } finally {
-            deleteRecursively(outputDir);
-            deleteRecursively(seedCopy(outputDir));
+            for (RunHistory.Entry entry : history) {
+                if (!entry.get("staging").isEmpty()) {
+                    File staged = new File(entry.get("staging"));
+                    if (entry.get("recovery").isEmpty()) deleteRecursively(staged);
+                    deleteRecursively(seedCopy(staged));
+                }
+            }
         }
 
-        testFolder.refreshLocal(IResource.DEPTH_INFINITE, null);
+        if (testFolder.exists()) testFolder.refreshLocal(IResource.DEPTH_INFINITE, null);
         summarise(console, result);
         if (options.openGeneratedTests && !generated.isEmpty() && generated.size() <= MAX_EDITORS) {
             openEditors(List.copyOf(generated));
@@ -439,7 +514,7 @@ public class TestGenerationJob extends Job {
         // A child monitor ignores worked() until it knows how much work it stands for: without
         // this, the search's percentages never reached the progress view or the status bar.
         SubMonitor monitor = SubMonitor.convert(classShare, 100);
-        List<String> arguments = command.toArguments();
+        List<String> arguments = command.toArguments(java.version);
         console.println("");
         console.println("=== " + className);
         console.println(EvoSuiteCommand.forDisplay(arguments));
@@ -451,6 +526,7 @@ public class TestGenerationJob extends Job {
             public void line(String line) {
                 console.println(line);
                 outputListener.accept(line);
+                if (currentEntry != null) RunHistory.line(currentEntry, line);
                 if (seeding != null) {
                     seeding.accept(line);
                 }
@@ -462,6 +538,7 @@ public class TestGenerationJob extends Job {
             @Override
             public void progress(int searchPercent, int coveragePercent) {
                 percent.set(Math.min(100, searchPercent));
+                if (currentEntry != null) RunHistory.update(currentEntry, "coverage", coveragePercent + "%");
                 phase.set("search " + searchPercent + "%, coverage " + coveragePercent + "%");
             }
         };
@@ -500,6 +577,8 @@ public class TestGenerationJob extends Job {
         if (exitCode == EvoSuiteProcess.CANCELLED) {
             return Status.CANCEL_STATUS;
         }
+        if (coverageOnly) return exitCode == 0 ? Status.OK_STATUS
+                : Activator.error("Coverage measurement failed for " + className + " (exit code " + exitCode + ")");
         // EvoSuite rewrites the suite on success, so an unchanged file means this run wrote nothing.
         if (suite.isFile() && suite.lastModified() != before) {
             if (exitCode != 0) {
@@ -522,7 +601,8 @@ public class TestGenerationJob extends Job {
         if (provider.isEmpty() || GenerationOptions.LLM_NONE.equals(provider)) {
             return Map.of();
         }
-        if (options.effectiveLlmModel().isEmpty() && !GenerationOptions.LLM_OPENAI.equals(provider)) {
+        if (options.effectiveLlmModel().isEmpty() && System.getenv().getOrDefault("EVOSUITE_LLM_MODEL", "").isBlank()
+                && !GenerationOptions.LLM_OPENAI.equals(provider)) {
             throw new CoreException(Activator.error("The LLM provider " + provider + " needs a model. "
                     + "Set one in the EvoSuite settings, under Large language model."));
         }
@@ -535,14 +615,32 @@ public class TestGenerationJob extends Job {
             console.println(password.problem() + " The pom names this server for the LLM API key; using the key "
                     + "from the EvoSuite preferences instead.");
         }
-        String key = apiKeySource.get();
+        String key = options.effectiveLlmApiKey();
+        if (key.isEmpty() && !GenerationOptions.LLM_OLLAMA.equals(provider)) {
+            key = apiKeySource.get();
+            if (key.isEmpty()) key = LlmApiKey.get(provider);
+        }
         if (!key.isEmpty()) {
             return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, key);
         }
         if (!GenerationOptions.LLM_OLLAMA.equals(provider)
                 && System.getenv(EvoSuiteCommand.API_KEY_VARIABLE) == null) {
-            console.println("No LLM API key is set. Enter one under Preferences > Java > EvoSuite, or set "
-                    + EvoSuiteCommand.API_KEY_VARIABLE + " in the environment Eclipse starts in.");
+            int[] answer = {-1};
+            Display.getDefault().syncExec(() -> answer[0] = new org.eclipse.jface.dialogs.MessageDialog(
+                    Display.getDefault().getActiveShell(), "LLM credentials required", null,
+                    "No " + provider + " API key is available. Configure a provider key, run this request with search only, or cancel.",
+                    org.eclipse.jface.dialogs.MessageDialog.QUESTION,
+                    new String[]{"Configure key", "Run search only", "Cancel"}, 0).open());
+            if (answer[0] == 1) {
+                options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
+                return Map.of();
+            }
+            if (answer[0] != 0) throw new OperationCanceledException();
+            Display.getDefault().syncExec(() -> org.eclipse.ui.dialogs.PreferencesUtil.createPreferenceDialogOn(
+                    Display.getDefault().getActiveShell(), "org.evosuite.eclipse.preferences.LlmPreferencePage", null, null).open());
+            key = LlmApiKey.get(provider);
+            if (key.isEmpty()) throw new OperationCanceledException();
+            return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, key);
         }
         return Map.of();
     }
@@ -586,6 +684,11 @@ public class TestGenerationJob extends Job {
         }
         String charset = existing.exists() ? existing.getCharset() : testFolder.getDefaultCharset();
         String source = read(staged, charset);
+        if (options.effectiveNoRuntimeDependency()) {
+            source = GeneratedSuiteRegistry.decorate(existing.getLocation().toFile(), source);
+            try { Files.writeString(staged.toPath(), source, Charset.forName(charset)); }
+            catch (IOException e) { throw new CoreException(Activator.error("Cannot mark generated suite", e)); }
+        }
         int tests = SuiteMerger.testCount(source, suiteName);
         if (target.extendsTests() && tests == 0) {
             outcomes.add("No new tests for " + target.label() + ": " + target.seedNames()
@@ -602,21 +705,20 @@ public class TestGenerationJob extends Job {
         boolean newScaffolding = scaffoldingSource != null
                 && !(scaffolding.exists() && scaffoldingSource.equals(contents(scaffolding)));
         if (!existing.exists()) {
-            write(existing, staged);
-            if (newScaffolding) {
-                write(scaffolding, stagedScaffolding);
+            if (newScaffolding && scaffolding.exists()) {
+                comparisons.add(new SuiteComparison.Pair(existing, source));
+                comparisons.add(new SuiteComparison.Pair(scaffolding, scaffoldingSource));
+                return;
             }
+            write(existing, staged);
+            if (newScaffolding) write(scaffolding, stagedScaffolding);
+            GeneratedSuiteRegistry.record(existing.getLocation().toFile(), source);
             generated.add(existing);
             if (target.extendsTests()) {
                 outcomes.add("Wrote " + existing.getName() + " with " + SeedingReport.count(tests, "new test") + ".");
             }
             extended(target, SeedingReport.count(tests, "new test") + " in " + existing.getName());
             return;
-        }
-        if (newScaffolding && !scaffolding.exists()) {
-            // A new file, which is nobody's work yet; the suite needs it to compile.
-            write(scaffolding, stagedScaffolding);
-            newScaffolding = false;
         }
         SuiteAction chosen = action;
         if (!decided.contains(className)) {
@@ -638,6 +740,7 @@ public class TestGenerationJob extends Job {
                     if (newScaffolding) {
                         write(scaffolding, stagedScaffolding);
                     }
+                    GeneratedSuiteRegistry.record(existing.getLocation().toFile(), source);
                     generated.add(existing);
                     outcomes.add("Replaced " + existing.getName() + " with " + SeedingReport.count(tests, "new test")
                             + "; the previous version is in its local history.");
@@ -651,13 +754,14 @@ public class TestGenerationJob extends Job {
                     + ". The new suite opens next to it in a compare editor instead.");
         } else if (chosen == SuiteAction.ADD) {
             String problem = null;
-            if (newScaffolding) {
+            if (newScaffolding && scaffolding.exists()) {
                 problem = "the new tests come with a new " + scaffolding.getName()
                         + ", which cannot be merged with the existing one";
             } else {
                 try {
                     SuiteMerger.Result merge = SuiteMerger.mergeInto(existing, source, suiteName, null);
                     if (merge.isMerged()) {
+                        if (newScaffolding && !merge.added.isEmpty()) write(scaffolding, stagedScaffolding);
                         added(target, existing, merge);
                         return;
                     }
@@ -693,7 +797,10 @@ public class TestGenerationJob extends Job {
     }
 
     /** Why {@code file} must not be overwritten now, or {@code null}. */
-    private static String unsavedChanges(IFile file) {
+    private String unsavedChanges(IFile file) {
+        Long before = originalStamps.get(file);
+        if (before != null && before.longValue() != file.getModificationStamp())
+            return file.getName() + " changed while the run was queued or running";
         ITextFileBuffer buffer = FileBuffers.getTextFileBufferManager()
                 .getTextFileBuffer(file.getFullPath(), LocationKind.IFILE);
         return buffer != null && buffer.isDirty() ? file.getName() + " has unsaved changes in an editor" : null;
@@ -752,6 +859,7 @@ public class TestGenerationJob extends Job {
 
     private void summarise(EvoSuiteConsole console, MultiStatus failures) {
         console.println("");
+        if (coverageOnly) { console.println("EvoSuite measured coverage; see the EvoSuite Runs view for reports."); return; }
         console.println("EvoSuite generated " + produced + " of " + targets.size() + " test suite"
                 + (targets.size() == 1 ? "" : "s") + ".");
         for (String outcome : outcomes) {

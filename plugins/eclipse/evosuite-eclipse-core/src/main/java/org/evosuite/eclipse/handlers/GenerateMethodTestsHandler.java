@@ -139,7 +139,8 @@ public class GenerateMethodTestsHandler extends AbstractHandler {
         if (!(selection instanceof IStructuredSelection)) {
             selection = HandlerUtil.getCurrentSelection(event);
         }
-        if (selection instanceof IStructuredSelection structured && !structured.isEmpty()) {
+        if (!(HandlerUtil.getActivePart(event) instanceof org.evosuite.eclipse.ui.RunResultsView)
+                && selection instanceof IStructuredSelection structured && !structured.isEmpty()) {
             return MethodSelection.collect(structured.toList());
         }
         // Invoked from a Java editor, where the selection is text.

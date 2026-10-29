@@ -85,6 +85,9 @@ public class ApiKeyFieldEditorTest {
             PreferenceDialog dialog = SettingsDialogs.preferences(Section.LLM);
             try {
                 select(page(dialog), "Provider", "OpenAI");
+                ((LlmPreferencePage) dialog.getSelectedPage()).settings().fields().stream()
+                        .filter(f -> f.editor instanceof ApiKeyFieldEditor && f.editor.getLabelText().contains("OPENAI"))
+                        .map(f -> (ApiKeyFieldEditor) f.editor).forEach(ApiKeyFieldEditor::loadStored);
                 edit.accept(dialog);
                 SettingsDialogs.ok(dialog);
             } finally {
@@ -95,6 +98,17 @@ public class ApiKeyFieldEditorTest {
 
     private static Text key(PreferenceDialog dialog) {
         return (Text) control(page(dialog), "API key");
+    }
+
+    @Test
+    public void explicitlyLoadedKeysCanBeRemovedWithLlmFeaturesOff() {
+        store.key = "sk-stored";
+        edit(dialog -> {
+            select(page(dialog), "Provider", "None (no LLM)");
+            assertEquals(true, key(dialog).isEnabled());
+            key(dialog).setText("");
+        });
+        assertEquals(List.of(""), store.writes);
     }
 
     @Test
