@@ -105,7 +105,7 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
             // Enqueue an immutable snapshot to avoid cross-thread mutation races
             enqueueSnapshot(algorithm.getBestIndividual());
             // send timeline variable directly
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.TotalExceptionsTimeline,
+            ClientServices.track(RuntimeVariable.TotalExceptionsTimeline,
                     ExceptionCoverageSuiteFitness.getMaxExceptionsCovered());
         }
     }
@@ -117,15 +117,15 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
         // element?
         // individuals.clear(); // TODO: Maybe have a check on size
         enqueueSnapshot(algorithm.getBestIndividual());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Statements_Executed,
+        ClientServices.track(RuntimeVariable.Statements_Executed,
                 MaxStatementsStoppingCondition.getNumExecutedStatements());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed,
+        ClientServices.track(RuntimeVariable.Tests_Executed,
                 MaxTestsStoppingCondition.getNumExecutedTests());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Generations,
+        ClientServices.track(RuntimeVariable.Generations,
                 algorithm.getAge());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Fitness_Evaluations,
+        ClientServices.track(RuntimeVariable.Fitness_Evaluations,
                 numFitnessEvaluations);
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.TotalExceptionsTimeline,
+        ClientServices.track(RuntimeVariable.TotalExceptionsTimeline,
                 ExceptionCoverageSuiteFitness.getMaxExceptionsCovered());
 
         if (algorithm.getBestIndividual() instanceof TestSuiteChromosome) {

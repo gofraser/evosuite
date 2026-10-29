@@ -104,7 +104,7 @@ public class MutationFactory extends AbstractFitnessFactory<MutationTestFitness>
                 goals.add(new WeakMutationTestFitness(m));
             }
         }
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Mutants, goals.size());
+        ClientServices.track(RuntimeVariable.Mutants, goals.size());
 
         return goals;
     }

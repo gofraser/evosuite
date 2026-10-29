@@ -82,7 +82,7 @@ public class MAPElitesStrategy extends TestGenerationStrategy {
             LoggingUtils.getEvoLogger()
                     .info("* Found no testable methods in the target class " + Properties.TARGET_CLASS);
 
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
+            ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
         }
@@ -97,7 +97,7 @@ public class MAPElitesStrategy extends TestGenerationStrategy {
 
         long endTime = System.currentTimeMillis() / 1000;
 
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
+        ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
         // Newline after progress bar
         if (Properties.SHOW_PROGRESS) {

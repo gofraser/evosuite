@@ -217,31 +217,31 @@ public class FailingTestSet {
             return;
         }
 
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.AssertionContract,
+        ClientServices.track(RuntimeVariable.AssertionContract,
                 getNumberOfViolations(AssertionErrorContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.EqualsContract,
+        ClientServices.track(RuntimeVariable.EqualsContract,
                 getNumberOfViolations(EqualsContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.EqualsHashcodeContract,
+        ClientServices.track(RuntimeVariable.EqualsHashcodeContract,
                 getNumberOfViolations(EqualsHashcodeContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.EqualsNullContract,
+        ClientServices.track(RuntimeVariable.EqualsNullContract,
                 getNumberOfViolations(EqualsNullContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.EqualsSymmetricContract,
+        ClientServices.track(RuntimeVariable.EqualsSymmetricContract,
                 getNumberOfViolations(EqualsSymmetricContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.HashCodeReturnsNormallyContract,
                 getNumberOfViolations(HashCodeReturnsNormallyContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.JCrasherExceptionContract,
+        ClientServices.track(RuntimeVariable.JCrasherExceptionContract,
                 getNumberOfViolations(JCrasherExceptionContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.NullPointerExceptionContract,
+        ClientServices.track(RuntimeVariable.NullPointerExceptionContract,
                 getNumberOfViolations(NullPointerExceptionContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.ToStringReturnsNormallyContract,
                 getNumberOfViolations(ToStringReturnsNormallyContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.UndeclaredExceptionContract,
+        ClientServices.track(RuntimeVariable.UndeclaredExceptionContract,
                 getNumberOfViolations(UndeclaredExceptionContract.class));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Contract_Violations,
+        ClientServices.track(RuntimeVariable.Contract_Violations,
                 getNumberOfViolations());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Unique_Violations,
+        ClientServices.track(RuntimeVariable.Unique_Violations,
                 getNumberOfUniqueViolations());
     }
 }

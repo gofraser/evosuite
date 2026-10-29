@@ -275,12 +275,9 @@ public class CoverageAnalysis {
         }
         int coveredGoals = testSuite.getCoveredGoals().size();
         double coverage = goals == 0 ? 1.0 : ((double) coveredGoals) / ((double) goals);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Total_Goals, goals);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Covered_Goals, coveredGoals);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Coverage, coverage);
+        ClientServices.track(RuntimeVariable.Total_Goals, goals);
+        ClientServices.track(RuntimeVariable.Covered_Goals, coveredGoals);
+        ClientServices.track(RuntimeVariable.Coverage, coverage);
     }
 
     /**
@@ -639,10 +636,10 @@ public class CoverageAnalysis {
         if (goals.isEmpty()) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "  - " + criterionName + ": 100% (0/0 goals)");
-            ClientServices.getInstance().getClientNode().trackOutputVariable(
+            ClientServices.track(
                     FitnessFunctions.coverageVariable(criterion), 1.0);
             if (bitStringVariable != null) {
-                ClientServices.getInstance().getClientNode().trackOutputVariable(bitStringVariable, "1");
+                ClientServices.track(bitStringVariable, "1");
             }
         } else {
             double coverage = ((double) covered.cardinality()) / ((double) goals.size());
@@ -650,10 +647,10 @@ public class CoverageAnalysis {
                     + criterionName + ": " + NumberFormat.getPercentInstance().format(coverage)
                     + " (" + covered.cardinality() + "/" + goals.size() + " goals)");
 
-            ClientServices.getInstance().getClientNode().trackOutputVariable(
+            ClientServices.track(
                     FitnessFunctions.coverageVariable(criterion), coverage);
             if (bitStringVariable != null) {
-                ClientServices.getInstance().getClientNode().trackOutputVariable(bitStringVariable, str.toString());
+                ClientServices.track(bitStringVariable, str.toString());
             }
         }
     }
@@ -685,14 +682,14 @@ public class CoverageAnalysis {
 
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Total number of covered goals: " + totalCoveredGoals + " / " + "" + totalGoals);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, totalGoals);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(
+            ClientServices.track(RuntimeVariable.Total_Goals, totalGoals);
+            ClientServices.track(
                     RuntimeVariable.Covered_Goals, totalCoveredGoals);
 
             double coverage = totalGoals == 0 ? 1.0 : ((double) totalCoveredGoals) / ((double) totalGoals);
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Total coverage: "
                     + NumberFormat.getPercentInstance().format(coverage));
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Coverage, coverage);
+            ClientServices.track(RuntimeVariable.Coverage, coverage);
 
             // need to give some time for transmission before client is killed
             try {
@@ -728,7 +725,7 @@ public class CoverageAnalysis {
 
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                 + "Executed " + results.size() + " unit " + "test(s)");
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed,
+        ClientServices.track(RuntimeVariable.Tests_Executed,
                 results.size());
 
         return results;

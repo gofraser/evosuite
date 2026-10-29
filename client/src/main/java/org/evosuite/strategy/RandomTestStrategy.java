@@ -78,7 +78,7 @@ public class RandomTestStrategy extends TestGenerationStrategy {
                     FitnessFunctions.displayName(Properties.CRITERION[i]),
                     goalFactory.getCoverageGoals().size());
         }
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals,
+        ClientServices.track(RuntimeVariable.Total_Goals,
                 goals.size());
 
         if (!canGenerateTestsForSUT()) {
@@ -119,9 +119,9 @@ public class RandomTestStrategy extends TestGenerationStrategy {
         sendExecutionStatistics();
 
         // TODO: Check this: Fitness_Evaluations = getNumExecutedTests?
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Fitness_Evaluations,
+        ClientServices.track(RuntimeVariable.Fitness_Evaluations,
                 MaxTestsStoppingCondition.getNumExecutedTests());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Generations,
+        ClientServices.track(RuntimeVariable.Generations,
                 numberGenerations);
 
         return suite;

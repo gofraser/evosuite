@@ -113,19 +113,13 @@ final class IterativeTelemetry {
 
     /** Emits the ITERATIVE_BUDGETED runtime variables and flushes the recorders. */
     void finish(int iteration, String exitReason, int parseFailureCount) {
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Iterations, iteration);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Rounds, rounds);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Exit_Reason, exitReason);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Parse_Failures, parseFailureCount);
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_New_Goals_Timeline,
+        ClientServices.track(RuntimeVariable.LLM_Iterative_Iterations, iteration);
+        ClientServices.track(RuntimeVariable.LLM_Iterative_Rounds, rounds);
+        ClientServices.track(RuntimeVariable.LLM_Iterative_Exit_Reason, exitReason);
+        ClientServices.track(RuntimeVariable.LLM_Iterative_Parse_Failures, parseFailureCount);
+        ClientServices.track(RuntimeVariable.LLM_Iterative_New_Goals_Timeline,
                         join(newGoalsTimeline));
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Iterative_Coverage_Timeline,
+        ClientServices.track(RuntimeVariable.LLM_Iterative_Coverage_Timeline,
                         join(coverageTimeline));
         ClientServices.track(RuntimeVariable.LLM_Iterative_Tests_Parsed,
                 totalParsedTests);
@@ -151,8 +145,7 @@ final class IterativeTelemetry {
         sidecarRecorder.flush();
         // Each LLM request/evaluation round is the iterative strategy's
         // generation-equivalent unit, including the initial request.
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Generations, rounds);
+        ClientServices.track(RuntimeVariable.Generations, rounds);
     }
 
     private static String join(List<? extends Number> values) {

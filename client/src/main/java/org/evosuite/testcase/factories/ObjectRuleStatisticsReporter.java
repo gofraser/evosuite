@@ -76,7 +76,7 @@ public final class ObjectRuleStatisticsReporter {
     }
 
     private static void track(RuntimeVariable variable, Number value) {
-        ClientServices.getInstance().getClientNode().trackOutputVariable(variable, value);
+        ClientServices.track(variable, value);
     }
 
     static int countObjectGraphBranches(ObjectRuleRuntime runtime) {

@@ -186,13 +186,13 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
             // SearchStatistics.getInstance().mutationScore(1.0);
             LoggingUtils.getEvoLogger()
                     .info("* Resulting test suite's mutation score: " + NumberFormat.getPercentInstance().format(1.0));
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.MutationScore, 1.0);
+            ClientServices.track(RuntimeVariable.MutationScore, 1.0);
 
         } else {
             double score = (double) tkilled.size() / (double) MutationPool.getInstance(
                     TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter();
             // SearchStatistics.getInstance().mutationScore(score);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.MutationScore, score);
+            ClientServices.track(RuntimeVariable.MutationScore, score);
             LoggingUtils.getEvoLogger().info(
                     "* Resulting test suite's mutation score: " + NumberFormat.getPercentInstance().format(score));
         }

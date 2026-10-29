@@ -93,7 +93,7 @@ public class NoveltyStrategy extends TestGenerationStrategy {
         if (!canGenerateTestsForSUT()) {
             LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}",
                     Properties.TARGET_CLASS);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
+            ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
         }
@@ -121,7 +121,7 @@ public class NoveltyStrategy extends TestGenerationStrategy {
         long endTime = System.currentTimeMillis() / 1000;
 
         goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(Properties.CRITERION, false); //recalculated now after the search, eg to handle exception fitness
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
+        ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
         // Newline after progress bar
         if (Properties.SHOW_PROGRESS) {

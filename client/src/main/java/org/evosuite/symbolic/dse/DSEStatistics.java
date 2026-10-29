@@ -751,7 +751,7 @@ public class DSEStatistics {
     }
 
     private void trackOutputVariable(RuntimeVariable var, Object value) {
-        ClientServices.getInstance().getClientNode().trackOutputVariable(var, value);
+        ClientServices.track(var, value);
     }
 
 

@@ -183,16 +183,16 @@ public class StatisticsSender {
         ExceptionCoverageSuiteFitness.calculateExceptionInfo(results, implicitTypesOfExceptions,
                 explicitTypesOfExceptions, declaredTypesOfExceptions, null);
 
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Explicit_MethodExceptions,
                 ExceptionCoverageSuiteFitness.getNumExceptions(explicitTypesOfExceptions));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Explicit_TypeExceptions,
                 ExceptionCoverageSuiteFitness.getNumClassExceptions(explicitTypesOfExceptions));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Implicit_MethodExceptions,
                 ExceptionCoverageSuiteFitness.getNumExceptions(implicitTypesOfExceptions));
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Implicit_TypeExceptions,
                 ExceptionCoverageSuiteFitness.getNumClassExceptions(implicitTypesOfExceptions));
 
@@ -265,19 +265,19 @@ public class StatisticsSender {
             coveredBranchesReal = coveredTrueBranches.size() + coveredFalseBranches.size();
         }
 
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Covered_Goals, testSuite.getCoveredGoals().size());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Covered_Methods, coveredMethods.size());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Covered_Branches, coveredTrueBranches.size() + coveredFalseBranches.size());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Covered_Branchless_Methods, coveredBranchlessMethods.size());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Covered_Branches_Real, coveredBranchesReal);
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Covered_Branches_Instrumented, coveredBranchesInstrumented);
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.Covered_Lines, coveredLines.size());
     }
 }

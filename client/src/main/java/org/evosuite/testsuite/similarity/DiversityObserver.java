@@ -72,7 +72,7 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
         // Clamp to [0, 1] — Needleman-Wunsch similarity can exceed [0, 1] in edge cases
         diversity = Math.max(0.0, Math.min(1.0, diversity));
         logger.info("Resulting diversity for {} pairs: {}", numComparisons, diversity);
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.DiversityTimeline, diversity);
+        ClientServices.track(RuntimeVariable.DiversityTimeline, diversity);
     }
 
     public static final int GAP_PENALTY = -2;

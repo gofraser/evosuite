@@ -137,15 +137,15 @@ public class DefUseCoverageFactory extends
         LoggingUtils.getEvoLogger().info("* Goal computation took: "
                 + goalComputationTime + "ms");
 
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.IntraMethodPairs,
+        ClientServices.track(RuntimeVariable.IntraMethodPairs,
                 getIntraMethodGoalsCount());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.InterMethodPairs,
+        ClientServices.track(RuntimeVariable.InterMethodPairs,
                 getInterMethodGoalsCount());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.ParameterPairs,
+        ClientServices.track(RuntimeVariable.ParameterPairs,
                 getParamGoalsCount());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.IntraClassPairs,
+        ClientServices.track(RuntimeVariable.IntraClassPairs,
                 getIntraClassGoalsCount());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.DefUsePairs,
+        ClientServices.track(RuntimeVariable.DefUsePairs,
                 goals.size());
     }
 

@@ -81,9 +81,9 @@ public abstract class TestGenerationStrategy {
      * Send execution statistics to the master process.
      */
     protected void sendExecutionStatistics() {
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Statements_Executed,
+        ClientServices.track(RuntimeVariable.Statements_Executed,
                 MaxStatementsStoppingCondition.getNumExecutedStatements());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed,
+        ClientServices.track(RuntimeVariable.Tests_Executed,
                 MaxTestsStoppingCondition.getNumExecutedTests());
     }
 

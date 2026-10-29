@@ -95,8 +95,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                 .flatMap(f -> f.getCoverageGoals().stream())
                 .collect(Collectors.toList());
         int totalGoals = allGoals.size();
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Total_Goals, totalGoals);
+        ClientServices.track(RuntimeVariable.Total_Goals, totalGoals);
 
         if (!canGenerateTestsForSUT()) {
             LoggingUtils.getEvoLogger().info(
@@ -114,16 +113,14 @@ public class LlmStrategy extends TestGenerationStrategy {
             suite = runSinglePrompt(fitnessFunctions);
         }
 
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio,
+        ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio,
                         computeParsedRatio(suite));
         ClientServices.track(RuntimeVariable.LLM_Strategy_Assertions_Retained,
                 countAssertions(suite));
         ClientServices.track(RuntimeVariable.LLM_Strategy_Tests_With_Assertions,
                 countTestsWithAssertions(suite));
         if (!iterativeEmittedGenerations) {
-            ClientServices.getInstance().getClientNode()
-                    .trackOutputVariable(RuntimeVariable.Generations, 1);
+            ClientServices.track(RuntimeVariable.Generations, 1);
         }
         getLlmService().getStatistics().publishRuntimeVariables();
         sendExecutionStatistics();
@@ -957,8 +954,7 @@ public class LlmStrategy extends TestGenerationStrategy {
      * rather than joined into one string at the end, which the statistics could not store.
      */
     private void sampleParsedRatio(TestSuiteChromosome suite) {
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline,
+        ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline,
                         computeParsedRatio(suite));
     }
 }

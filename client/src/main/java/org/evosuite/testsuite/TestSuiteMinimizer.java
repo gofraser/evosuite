@@ -198,9 +198,9 @@ public class TestSuiteMinimizer {
 
         SecondaryObjective strategy = Properties.SECONDARY_OBJECTIVE[0];
 
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Result_Size,
+        ClientServices.track(RuntimeVariable.Result_Size,
                 suite.size());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Result_Length,
+        ClientServices.track(RuntimeVariable.Result_Length,
                 suite.totalLengthOfTestCases());
 
         logger.info("Minimization Strategy: " + strategy + ", " + suite.size() + " tests");
@@ -245,9 +245,9 @@ public class TestSuiteMinimizer {
             }
         }
 
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Size,
+        ClientServices.track(RuntimeVariable.Minimized_Size,
                 suite.size());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Length,
+        ClientServices.track(RuntimeVariable.Minimized_Length,
                 suite.totalLengthOfTestCases());
 
         MinimizationResult result = new MinimizationResult(status, firstStopCause,

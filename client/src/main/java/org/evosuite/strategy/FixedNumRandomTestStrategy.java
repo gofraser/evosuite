@@ -61,7 +61,7 @@ public class FixedNumRandomTestStrategy extends TestGenerationStrategy {
         if (!canGenerateTestsForSUT()) {
             LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class "
                     + Properties.TARGET_CLASS);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, 0);
+            ClientServices.track(RuntimeVariable.Total_Goals, 0);
             return suite;
         }
 
@@ -75,7 +75,7 @@ public class FixedNumRandomTestStrategy extends TestGenerationStrategy {
                     FitnessFunctions.displayName(Properties.CRITERION[i]),
                     goalFactory.getCoverageGoals().size());
         }
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
+        ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
         for (int i = 0; i < Properties.NUM_RANDOM_TESTS; i++) {
             logger.info("Current test: " + i + "/" + Properties.NUM_RANDOM_TESTS);

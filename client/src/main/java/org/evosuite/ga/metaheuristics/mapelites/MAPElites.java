@@ -279,17 +279,13 @@ public class MAPElites extends GeneticAlgorithm<TestChromosome> {
         int foundVectorCount = this.getFoundVectorCount();
         double density = this.getDensity(foundVectorCount);
 
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.DensityTimeline, density);
+        ClientServices.track(RuntimeVariable.DensityTimeline, density);
 
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.FeaturesFound, foundVectorCount);
+        ClientServices.track(RuntimeVariable.FeaturesFound, foundVectorCount);
 
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.FeaturePartitionCount, this.featureVectorPossibilityCount);
+        ClientServices.track(RuntimeVariable.FeaturePartitionCount, this.featureVectorPossibilityCount);
 
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.FeatureCount, this.featureCount);
+        ClientServices.track(RuntimeVariable.FeatureCount, this.featureCount);
     }
 
     private double getDensity(int foundVectorCount) {

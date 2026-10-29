@@ -42,7 +42,7 @@ public class OnlyMutationFactory extends MutationFactory {
             //    continue;
             this.goals.add(new OnlyMutationTestFitness(m));
         }
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Mutants,
+        ClientServices.track(RuntimeVariable.Mutants,
                 this.goals.size());
 
         return this.goals;

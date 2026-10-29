@@ -2561,8 +2561,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     protected void emitSpeciesTimeline(Map<Integer, List<TestChromosome>> speciesMap) {
         if (Properties.SPECIES_TIMELINE_ENABLED) {
-            ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Species_Count_Timeline, speciesMap.size());
+            ClientServices.track(RuntimeVariable.Species_Count_Timeline, speciesMap.size());
         }
         if (Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED && !speciesMap.isEmpty()) {
             int maxSize = 0;
@@ -2572,8 +2571,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 total += members.size();
             }
             double share = total > 0 ? (double) maxSize / total : 0.0;
-            ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Species_Largest_Share_Timeline, share);
+            ClientServices.track(RuntimeVariable.Species_Largest_Share_Timeline, share);
         }
     }
 

@@ -124,12 +124,8 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                 goalsInTarget++;
             }
         }
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.IBranchInitialGoals, totalGoals);
-        ClientServices
-                .getInstance()
-                .getClientNode()
-                .trackOutputVariable(RuntimeVariable.IBranchInitialGoalsInTargetClass,
+        ClientServices.track(RuntimeVariable.IBranchInitialGoals, totalGoals);
+        ClientServices.track(RuntimeVariable.IBranchInitialGoalsInTargetClass,
                         goalsInTarget);
 
     }

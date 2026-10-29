@@ -85,7 +85,7 @@ public class DSEStrategy extends TestGenerationStrategy {
         List<TestFitnessFunction> goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(criterion, true);
         if (!canGenerateTestsForSUT()) {
             LoggingUtils.getEvoLogger().info(NOT_SUITABLE_METHOD_FOUND_INFO_MESSAGE, Properties.TARGET_CLASS);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
+            ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
         }
@@ -122,7 +122,7 @@ public class DSEStrategy extends TestGenerationStrategy {
 
         goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(criterion, false); // recalculated now after the search
         // recalculated Handle exception fitness
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
+        ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
         // Newline after progress bar
         if (Properties.SHOW_PROGRESS) {

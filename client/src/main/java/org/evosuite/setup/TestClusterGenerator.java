@@ -257,11 +257,11 @@ public class TestClusterGenerator {
     }
 
     private void gatherStatistics() {
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Analyzed_Classes,
+        ClientServices.track(RuntimeVariable.Analyzed_Classes,
                 analyzedClasses.size());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Generators,
+        ClientServices.track(RuntimeVariable.Generators,
                 TestCluster.getInstance().getGenerators().size());
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Modifiers,
+        ClientServices.track(RuntimeVariable.Modifiers,
                 TestCluster.getInstance().getModifiers().size());
     }
 

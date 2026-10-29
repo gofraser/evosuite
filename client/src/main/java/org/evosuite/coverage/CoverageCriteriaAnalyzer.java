@@ -285,35 +285,35 @@ public class CoverageCriteriaAnalyzer {
         recordCoverageAnalysisProgress(checked, goals.size(), !timedOut);
 
         coverageBitString.put(criterion.name(), buffer);
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.CoverageBitString,
+        ClientServices.track(RuntimeVariable.CoverageBitString,
                 coverageBitString.isEmpty() ? "0" : coverageBitString.values().toString()
                         .replace("[", "").replace("]", "").replace(", ", ""));
 
         RuntimeVariable bitStringVariable = FitnessFunctions.bitStringVariable(criterion);
         if (bitStringVariable != null) {
             String goalBitString = buffer.toString();
-            ClientServices.getInstance().getClientNode().trackOutputVariable(bitStringVariable, goalBitString);
+            ClientServices.track(bitStringVariable, goalBitString);
         }
 
         String criterionName = FitnessFunctions.displayName(criterion);
         if (goals.isEmpty()) {
             if (criterion == Properties.Criterion.MUTATION
                     || criterion == Properties.Criterion.STRONGMUTATION) {
-                ClientServices.getInstance().getClientNode().trackOutputVariable(
+                ClientServices.track(
                         RuntimeVariable.MutationScore, 1.0);
             }
             LoggingUtils.getEvoLogger().info("  - {}: 100% (0/0 goals)", criterionName);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(
+            ClientServices.track(
                     FitnessFunctions.coverageVariable(criterion), 1.0);
         } else {
 
             double coverage = (double) covered / (double) goals.size();
-            ClientServices.getInstance().getClientNode().trackOutputVariable(
+            ClientServices.track(
                     FitnessFunctions.coverageVariable(criterion), coverage);
 
             if (criterion == Properties.Criterion.MUTATION
                     || criterion == Properties.Criterion.STRONGMUTATION) {
-                ClientServices.getInstance().getClientNode().trackOutputVariable(
+                ClientServices.track(
                         RuntimeVariable.MutationScore, coverage);
             }
 
@@ -368,11 +368,11 @@ public class CoverageCriteriaAnalyzer {
     }
 
     private static void trackCoverageAnalysisProgress() {
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.CoverageAnalysisComplete, coverageAnalysisComplete);
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.CoverageAnalysisGoalsChecked, coverageAnalysisGoalsChecked);
-        ClientServices.getInstance().getClientNode().trackOutputVariable(
+        ClientServices.track(
                 RuntimeVariable.CoverageAnalysisGoalsTotal, coverageAnalysisGoalsTotal);
     }
 

@@ -185,7 +185,7 @@ public class InheritanceTreeGenerator {
      * @param inheritanceTree the inheritance tree to gather statistics for
      */
     public static void gatherStatistics(InheritanceTree inheritanceTree) {
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Classpath_Classes,
+        ClientServices.track(RuntimeVariable.Classpath_Classes,
                 inheritanceTree.getNumClasses());
     }
 

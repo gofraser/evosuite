@@ -236,7 +236,7 @@ public abstract class AssertionGenerator {
                 return;
             }
 
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Mutants,
+            ClientServices.track(RuntimeVariable.Mutants,
                     MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                             .getMutantCounter());
 

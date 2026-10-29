@@ -499,70 +499,45 @@ public class DependencyAnalysis {
     }
 
     private static void gatherStatistics() {
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Predicates,
+        ClientServices.track(RuntimeVariable.Predicates,
                         BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                                 .getBranchCounter());
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Instrumented_Predicates,
+        ClientServices.track(RuntimeVariable.Instrumented_Predicates,
                         BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                                 .getNumArtificialBranches());
         int numBranches = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getBranchCounter() * 2;
-        ClientServices
-                .getInstance()
-                .getClientNode()
-                .trackOutputVariable(RuntimeVariable.Total_Branches, numBranches);
-        ClientServices
-                .getInstance()
-                .getClientNode()
-                .trackOutputVariable(RuntimeVariable.Total_Branches_Real,
+        ClientServices.track(RuntimeVariable.Total_Branches, numBranches);
+        ClientServices.track(RuntimeVariable.Total_Branches_Real,
                         ((BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                                 .getBranchCounter()
                                 - BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                                 .getNumArtificialBranches())) * 2);
-        ClientServices
-                .getInstance()
-                .getClientNode()
-                .trackOutputVariable(RuntimeVariable.Total_Branches_Instrumented,
+        ClientServices.track(RuntimeVariable.Total_Branches_Instrumented,
                         (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                                 .getNumArtificialBranches() * 2));
-        ClientServices
-                .getInstance()
-                .getClientNode()
-                .trackOutputVariable(RuntimeVariable.Branchless_Methods,
+        ClientServices.track(RuntimeVariable.Branchless_Methods,
                         BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                                 .getBranchlessMethods().size());
-        ClientServices
-                .getInstance()
-                .getClientNode()
-                .trackOutputVariable(RuntimeVariable.Total_Methods,
+        ClientServices.track(RuntimeVariable.Total_Methods,
                         BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                                 .getNumMethods());
 
-        ClientServices.getInstance().getClientNode()
-                .trackOutputVariable(RuntimeVariable.Lines, LinePool.getNumLines());
+        ClientServices.track(RuntimeVariable.Lines, LinePool.getNumLines());
 
         for (Properties.Criterion pc : Properties.CRITERION) {
             switch (pc) {
                 case DEFUSE:
                 case ALLDEFS:
-                    ClientServices
-                            .getInstance()
-                            .getClientNode()
-                            .trackOutputVariable(RuntimeVariable.Definitions,
+                    ClientServices.track(RuntimeVariable.Definitions,
                                     DefUsePool.getDefCounter());
-                    ClientServices.getInstance().getClientNode()
-                            .trackOutputVariable(RuntimeVariable.Uses, DefUsePool.getUseCounter());
+                    ClientServices.track(RuntimeVariable.Uses, DefUsePool.getUseCounter());
                     break;
 
                 case WEAKMUTATION:
                 case STRONGMUTATION:
                 case MUTATION:
-                    ClientServices
-                            .getInstance()
-                            .getClientNode()
-                            .trackOutputVariable(RuntimeVariable.Mutants,
+                    ClientServices.track(RuntimeVariable.Mutants,
                                     MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                                             .getMutantCounter());
                     break;

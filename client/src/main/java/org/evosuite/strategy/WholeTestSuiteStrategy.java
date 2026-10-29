@@ -82,14 +82,14 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
         if (goals.isEmpty() && !ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
             LoggingUtils.getEvoLogger().info("* No coverage goals found for the target class {}",
                     Properties.TARGET_CLASS);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, 0);
+            ClientServices.track(RuntimeVariable.Total_Goals, 0);
             return new TestSuiteChromosome();
         }
 
         if (!canGenerateTestsForSUT()) {
             LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class {}",
                     Properties.TARGET_CLASS);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
+            ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
             return new TestSuiteChromosome();
         }
@@ -106,7 +106,7 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
         long endTime = System.currentTimeMillis() / 1000;
 
         goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(Properties.CRITERION, false); //recalculated now after the search, eg to handle exception fitness
-        ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals.size());
+        ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
         // Newline after progress bar
         if (Properties.SHOW_PROGRESS) {
