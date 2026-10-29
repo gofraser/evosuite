@@ -77,4 +77,24 @@ public class TestCaseSecondaryObjectiveTest {
         TestCaseSecondaryObjective.setSecondaryObjectives();
         assertEquals(2, TestChromosome.getSecondaryObjectives().size());
     }
+
+    @Test
+    public void testSetSecondaryObjectives_ReplacesPreviousConfiguration() {
+        Properties.SECONDARY_OBJECTIVE = new Properties.SecondaryObjective[]{
+            Properties.SecondaryObjective.TOTAL_LENGTH,
+            Properties.SecondaryObjective.EXCEPTIONS
+        };
+        TestCaseSecondaryObjective.setSecondaryObjectives();
+        TestCaseSecondaryObjective.setSecondaryObjectives();
+        assertEquals(2, TestChromosome.getSecondaryObjectives().size());
+
+        Properties.SECONDARY_OBJECTIVE = new Properties.SecondaryObjective[]{Properties.SecondaryObjective.EXCEPTIONS};
+        TestCaseSecondaryObjective.setSecondaryObjectives();
+        assertEquals(1, TestChromosome.getSecondaryObjectives().size());
+        assertTrue(TestChromosome.getSecondaryObjectives().get(0) instanceof MinimizeExceptionsSecondaryObjective);
+
+        Properties.SECONDARY_OBJECTIVE = new Properties.SecondaryObjective[]{};
+        TestCaseSecondaryObjective.setSecondaryObjectives();
+        assertEquals(0, TestChromosome.getSecondaryObjectives().size());
+    }
 }

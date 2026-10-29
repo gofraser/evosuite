@@ -53,10 +53,7 @@ class RankBasedPreferenceSortingSpeciesTest {
 
     @AfterEach
     void tearDown() {
-        TestChromosome.clearSecondaryObjectives();
-        for (SecondaryObjective<TestChromosome> so : savedSecondaryObjectives) {
-            TestChromosome.addSecondaryObjective(so);
-        }
+        TestChromosome.setSecondaryObjectives(savedSecondaryObjectives);
     }
 
     @Test

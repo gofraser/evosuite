@@ -72,7 +72,7 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
     /**
      * Secondary objectives used during ranking.
      */
-    private static final List<SecondaryObjective<TestChromosome>> secondaryObjectives =
+    private static volatile List<SecondaryObjective<TestChromosome>> secondaryObjectives =
             new ArrayList<>();
 
     /**
@@ -980,10 +980,11 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
     }
 
     /**
-     * Add an additional secondary objective to the end of the list of objectives.
+     * Replaces the list of secondary objectives, so that it equals the given objectives in the
+     * given order.
      */
-    public static void addSecondaryObjective(SecondaryObjective<TestChromosome> objective) {
-        secondaryObjectives.add(objective);
+    public static void setSecondaryObjectives(List<SecondaryObjective<TestChromosome>> objectives) {
+        secondaryObjectives = new ArrayList<>(objectives);
     }
 
     public static List<SecondaryObjective<TestChromosome>> getSecondaryObjectives() {

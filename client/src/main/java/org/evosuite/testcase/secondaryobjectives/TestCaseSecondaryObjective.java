@@ -25,6 +25,9 @@ import org.evosuite.testcase.TestChromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Factory class to configure and set secondary objectives for test generation.
  */
@@ -33,9 +36,11 @@ public class TestCaseSecondaryObjective {
     private static final Logger logger = LoggerFactory.getLogger(TestCaseSecondaryObjective.class);
 
     /**
-     * Reads the secondary objectives from properties and configures the test chromosome accordingly.
+     * Reads the secondary objectives from properties and configures the test chromosome accordingly,
+     * replacing any objectives configured before.
      */
     public static void setSecondaryObjectives() {
+        List<SecondaryObjective<TestChromosome>> objectives = new ArrayList<>();
         for (Properties.SecondaryObjective secondaryObjective : Properties.SECONDARY_OBJECTIVE) {
             SecondaryObjective<TestChromosome> secondaryObjectiveInstance = null;
             switch (secondaryObjective) {
@@ -56,8 +61,9 @@ public class TestCaseSecondaryObjective {
             }
 
             if (secondaryObjectiveInstance != null) {
-                TestChromosome.addSecondaryObjective(secondaryObjectiveInstance);
+                objectives.add(secondaryObjectiveInstance);
             }
         }
+        TestChromosome.setSecondaryObjectives(objectives);
     }
 }
