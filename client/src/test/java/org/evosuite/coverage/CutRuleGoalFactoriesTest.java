@@ -50,7 +50,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The goal factories, except the reflective method factories, count the target class and its
- * nested classes and nothing else, not even a class whose name merely ends with the target's.
+ * nested classes and nothing else, not even a class whose name merely ends with the target's. The
+ * input and output factories count the target class alone.
  */
 public class CutRuleGoalFactoriesTest {
 
@@ -104,6 +105,11 @@ public class CutRuleGoalFactoriesTest {
         return classes;
     }
 
+    private static void assertTopLevelCutOnly(String factory, TestFitnessFactory<?> goalFactory) {
+        Set<String> classes = targets(goalFactory.getCoverageGoals());
+        assertEquals(Set.of(CUT), classes, factory);
+    }
+
     private static void assertCutOnly(String factory, TestFitnessFactory<?> goalFactory) {
         Set<String> classes = targets(goalFactory.getCoverageGoals());
         assertFalse(classes.contains(LOOKALIKE), factory + " counts the look-alike class: " + classes);
@@ -133,13 +139,13 @@ public class CutRuleGoalFactoriesTest {
     }
 
     @Test
-    public void inputFactoryCountsNestedClasses() {
-        assertCutOnly("input", new InputCoverageFactory());
+    public void inputFactoryCountsTheTargetClassOnly() {
+        assertTopLevelCutOnly("input", new InputCoverageFactory());
     }
 
     @Test
-    public void outputFactoryCountsNestedClasses() {
-        assertCutOnly("output", new OutputCoverageFactory());
+    public void outputFactoryCountsTheTargetClassOnly() {
+        assertTopLevelCutOnly("output", new OutputCoverageFactory());
     }
 
     @Test

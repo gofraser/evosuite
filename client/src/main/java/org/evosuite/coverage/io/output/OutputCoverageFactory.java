@@ -61,7 +61,7 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
 
         for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance()
                 .getClassLoaderForSUT()).knownClasses()) {
-            if (!TargetClasses.isCutOrUnset(className)) {
+            if (!TargetClasses.isTopLevelCutOrUnset(className)) {
                 continue;
             }
 

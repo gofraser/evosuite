@@ -81,6 +81,19 @@ public final class TargetClasses {
     }
 
     /**
+     * The target class itself, without its nested classes, or every class while no target class is
+     * set. The input and output goals use it: they enumerate every method with its parameter and
+     * return value descriptors, so counting nested classes multiplies them for generated code such as
+     * protocol buffers, and the search then spends its budget on those goals.
+     *
+     * @param className the binary class name, with dots
+     * @return true if no target class is set or the class is the target class
+     */
+    public static boolean isTopLevelCutOrUnset(String className) {
+        return Properties.TARGET_CLASS.isEmpty() || className.equals(Properties.TARGET_CLASS);
+    }
+
+    /**
      * The class under test, its nested classes, the classes below {@code TARGET_CLASS_PREFIX} that
      * are not tests, and the classes of an analysed target directory or jar.
      *

@@ -60,7 +60,7 @@ public class InputCoverageFactory extends AbstractFitnessFactory<InputCoverageTe
 
         for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance()
                 .getClassLoaderForSUT()).knownClasses()) {
-            if (!TargetClasses.isCutOrUnset(className)) {
+            if (!TargetClasses.isTopLevelCutOrUnset(className)) {
                 continue;
             }
 
