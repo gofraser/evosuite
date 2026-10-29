@@ -30,7 +30,7 @@ import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.setup.TargetClasses;
 import org.evosuite.strategy.*;
-import org.evosuite.symbolic.dse.DSEStrategy;
+import org.evosuite.strategy.DSEStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.LoggingUtils;
 

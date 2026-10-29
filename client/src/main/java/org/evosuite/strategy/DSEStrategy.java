@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.symbolic.dse;
+package org.evosuite.strategy;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
@@ -27,7 +27,6 @@ import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.statistics.RuntimeVariable;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.symbolic.dse.algorithm.DSEAlgorithmFactory;
 import org.evosuite.symbolic.dse.algorithm.DSEAlgorithms;
 import org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithm;
