@@ -364,7 +364,7 @@ public class Date extends java.util.Date {
     @SuppressWarnings("deprecation")
     public String toLocaleString() {
         Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "toLocaleString",
-                "()Ljava/lang.String;", new Object[]{});
+                "()Ljava/lang/String;", new Object[]{});
         String ret = super.toLocaleString();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;

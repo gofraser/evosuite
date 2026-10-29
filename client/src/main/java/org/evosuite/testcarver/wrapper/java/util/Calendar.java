@@ -256,7 +256,7 @@ public class Calendar extends java.util.Calendar {
      * Shadow of clear method.
      */
     public final void clear_final() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "clear", "()Z", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "clear", "()V", new Object[]{});
         wrappedCalendar.clear();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -519,7 +519,7 @@ public class Calendar extends java.util.Calendar {
 
     @Override
     public int getMinimum(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getMinimum", "(I)V", new Object[]{field});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getMinimum", "(I)I", new Object[]{field});
         int ret = wrappedCalendar.getMinimum(field);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
@@ -527,7 +527,7 @@ public class Calendar extends java.util.Calendar {
 
     @Override
     public int getMaximum(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getMaximum", "(I)V", new Object[]{field});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getMaximum", "(I)I", new Object[]{field});
         int ret = wrappedCalendar.getMaximum(field);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
         return ret;
@@ -535,7 +535,7 @@ public class Calendar extends java.util.Calendar {
 
     @Override
     public int getGreatestMinimum(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getGreatestMinimum", "(I)V",
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getGreatestMinimum", "(I)I",
                 new Object[]{field});
         int ret = wrappedCalendar.getGreatestMinimum(field);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
@@ -544,7 +544,7 @@ public class Calendar extends java.util.Calendar {
 
     @Override
     public int getLeastMaximum(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getLeastMaximum", "(I)V",
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getLeastMaximum", "(I)I",
                 new Object[]{field});
         int ret = wrappedCalendar.getLeastMaximum(field);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);

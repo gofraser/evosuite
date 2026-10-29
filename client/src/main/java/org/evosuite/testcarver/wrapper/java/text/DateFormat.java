@@ -73,7 +73,7 @@ public abstract class DateFormat extends java.text.DateFormat {
     @Override
     public java.util.Date parse(String source) throws ParseException {
         Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, "parse",
-                "(Ljava/lang/String;)Ljava/lang/Object;", new Object[]{source});
+                "(Ljava/lang/String;)Ljava/util/Date;", new Object[]{source});
         java.util.Date date = super.parse(source);
         Date ret = new Date(date.getTime());
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, ret);
@@ -319,7 +319,7 @@ public abstract class DateFormat extends java.text.DateFormat {
 
     @Override
     public void setTimeZone(TimeZone zone) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, "setTimeZone", "(Ljava/util/TimeZone;",
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, "setTimeZone", "(Ljava/util/TimeZone;)V",
                 new Object[]{zone});
         super.setTimeZone(zone);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, CaptureLog.RETURN_TYPE_VOID);
