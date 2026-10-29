@@ -211,9 +211,6 @@ public final class Capturer {
      */
     public static void capture(final int captureId, final Object receiver,
                                final String methodName, final String methodDesc, final Object[] methodParams) {
-        if (receiver != null && receiver.getClass().getName().contains("Person")) {
-            logger.error("CAPTURED call on Person: " + methodName);
-        }
         try {
             if (isCapturing()) {
                 setCapturing(false);
